@@ -11,6 +11,7 @@ var (
 	ErrWorkflowHarnessPathConflict       = errors.New("workflow harness path already exists in this project")
 	ErrWorkflowConflict                  = errors.New("workflow conflict")
 	ErrPickupStatusConflict              = errors.New("workflow pickup status conflict")
+	ErrWorkflowStatusBindingOverlap      = errors.New("workflow pickup and finish statuses must not overlap")
 	ErrWorkflowReferencedByTickets       = errors.New("workflow cannot be deleted because tickets still reference it")
 	ErrWorkflowReferencedByScheduledJobs = errors.New("workflow cannot be deleted because scheduled jobs still reference it")
 	ErrWorkflowInUse                     = errors.New("workflow is still referenced by project or tickets")

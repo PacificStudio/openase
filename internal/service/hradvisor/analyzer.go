@@ -500,7 +500,7 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats, res
 	)
 	if profile.RoleSlug == "dispatcher" {
 		reason = fmt.Sprintf(
-			"Backlog has %d queued tickets, but no active Dispatcher workflow is bound to pick up and finish that lane.",
+			"Backlog has %d queued tickets, but no active Dispatcher workflow is bound to pick up that lane and route tickets into downstream work statuses.",
 			pressure.QueuedTickets,
 		)
 	}
@@ -530,7 +530,7 @@ func recommendationForPressure(pressure statusPressure, stats snapshotStats, res
 		)
 	}
 	if profile.RoleSlug == "dispatcher" {
-		evidence = append(evidence, "Dispatcher coverage requires a workflow bound to pick up and finish Backlog.")
+		evidence = append(evidence, "Dispatcher coverage requires a workflow bound to pick up Backlog and finish into downstream non-backlog work statuses.")
 	}
 
 	return domain.Recommendation{

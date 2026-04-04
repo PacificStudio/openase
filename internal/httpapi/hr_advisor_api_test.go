@@ -533,7 +533,7 @@ func TestHRAdvisorRouteIncludesDispatcherRecommendationFromBacklogPressure(t *te
 	if !strings.Contains(dispatcherRecommendation.Reason, "Backlog") {
 		t.Fatalf("expected backlog-specific reason, got %+v", dispatcherRecommendation)
 	}
-	if !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up and finish Backlog") {
+	if !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up Backlog and finish into downstream non-backlog work statuses") {
 		t.Fatalf("expected backlog lane evidence, got %+v", dispatcherRecommendation.Evidence)
 	}
 }
@@ -758,6 +758,7 @@ func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCu
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
 	backlogID := findStatusIDByName(t, statusResult, "Backlog")
+	todoID := findStatusIDByName(t, statusResult, "Todo")
 	if _, err := client.TicketStatus.UpdateOneID(backlogID).
 		SetName("Inbox").
 		Save(ctx); err != nil {
@@ -784,8 +785,8 @@ func TestActivateHRRecommendationRouteMapsDispatcherToBacklogStageWhenNamesAreCu
 	if strings.Join(resp.Workflow.PickupStatusIDs, ",") != backlogID.String() {
 		t.Fatalf("expected dispatcher pickup to bind renamed backlog status %s, got %+v", backlogID, resp.Workflow)
 	}
-	if strings.Join(resp.Workflow.FinishStatusIDs, ",") != backlogID.String() {
-		t.Fatalf("expected dispatcher finish to bind renamed backlog status %s, got %+v", backlogID, resp.Workflow)
+	if strings.Join(resp.Workflow.FinishStatusIDs, ",") != todoID.String() {
+		t.Fatalf("expected dispatcher finish to bind downstream work status %s, got %+v", todoID, resp.Workflow)
 	}
 	if resp.BootstrapTicket.Ticket == nil || resp.BootstrapTicket.Ticket.StatusID != backlogID.String() || resp.BootstrapTicket.Ticket.StatusName != "Inbox" {
 		t.Fatalf("expected bootstrap ticket to use renamed backlog lane, got %+v", resp.BootstrapTicket)

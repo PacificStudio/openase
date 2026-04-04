@@ -1356,7 +1356,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
 		PickupStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
-		FinishStatusIDs:     workflowservice.MustStatusBindingSet(backlogID),
+		FinishStatusIDs:     workflowservice.MustStatusBindingSet(todoID),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
@@ -1536,8 +1536,8 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Backlog:.openase/harnesses/dispatcher-workflow.md:|",
-		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Backlog:backlog|];",
+		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Todo:.openase/harnesses/dispatcher-workflow.md:|",
+		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Todo:unstarted|];",
 		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog:backlog:#6B7280|Todo:unstarted:#3B82F6|In Progress:started:#F59E0B|In Review:started:#8B5CF6|Done:completed:#10B981|Cancelled:canceled:#4B5563|",
 		"ProjectMachines gpu-01:current:ssh:gpu,a100|storage:accessible:ssh:storage,nfs|",
@@ -1609,10 +1609,11 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
-	todoID := findStatusIDByName(t, statuses, "Todo")
-	backlogID := findStatusIDByName(t, statuses, "Backlog")
-	inProgressID := findStatusIDByName(t, statuses, "In Progress")
-	doneID := findStatusIDByName(t, statuses, "Done")
+		todoID := findStatusIDByName(t, statuses, "Todo")
+		backlogID := findStatusIDByName(t, statuses, "Backlog")
+		inReviewID := findStatusIDByName(t, statuses, "In Review")
+		inProgressID := findStatusIDByName(t, statuses, "In Progress")
+		doneID := findStatusIDByName(t, statuses, "Done")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetMachineID(localMachine.ID).
@@ -1664,6 +1665,7 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 		{name: "create missing agent", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + uuid.New().String() + `","name":"Missing Agent","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "AGENT_NOT_FOUND"},
 		{name: "create missing status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Missing Status","type":"coding","pickup_status_ids":["` + uuid.New().String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusBadRequest, wantBody: "STATUS_NOT_FOUND"},
 		{name: "create duplicate pickup status", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Parallel Coding","type":"coding","pickup_status_ids":["` + todoID.String() + `"],"finish_status_ids":["` + doneID.String() + `"]}`, wantStatus: http.StatusConflict, wantBody: "PICKUP_STATUS_CONFLICT"},
+		{name: "create overlapping status bindings", method: http.MethodPost, target: fmt.Sprintf("/api/v1/projects/%s/workflows", project.ID), body: `{"agent_id":"` + agent.ID.String() + `","name":"Looping Workflow","type":"coding","pickup_status_ids":["` + inReviewID.String() + `"],"finish_status_ids":["` + inReviewID.String() + `"]}`, wantStatus: http.StatusConflict, wantBody: "WORKFLOW_STATUS_BINDING_OVERLAP"},
 		{name: "update invalid request", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", created.Workflow.ID), body: `{"max_concurrent":-1}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update missing workflow", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/workflows/%s", uuid.New()), body: `{"name":"missing"}`, wantStatus: http.StatusNotFound, wantBody: "WORKFLOW_NOT_FOUND"},
 	} {
@@ -1704,6 +1706,17 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	)
 	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "PICKUP_STATUS_CONFLICT") {
 		t.Fatalf("PATCH duplicate pickup status = %d %s, want %d containing %q", rec.Code, rec.Body.String(), http.StatusConflict, "PICKUP_STATUS_CONFLICT")
+	}
+
+	overlapRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/workflows/%s", created.Workflow.ID),
+		`{"finish_status_ids":["`+todoID.String()+`"]}`,
+	)
+	if overlapRec.Code != http.StatusConflict || !strings.Contains(overlapRec.Body.String(), "WORKFLOW_STATUS_BINDING_OVERLAP") {
+		t.Fatalf("PATCH overlapping status bindings = %d %s, want %d containing %q", overlapRec.Code, overlapRec.Body.String(), http.StatusConflict, "WORKFLOW_STATUS_BINDING_OVERLAP")
 	}
 
 	duplicateNameRec := performJSONRequest(

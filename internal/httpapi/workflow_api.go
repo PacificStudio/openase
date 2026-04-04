@@ -503,6 +503,8 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "AGENT_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrPickupStatusConflict):
 		return writeAPIError(c, http.StatusConflict, "PICKUP_STATUS_CONFLICT", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowStatusBindingOverlap):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_STATUS_BINDING_OVERLAP", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowNameConflict):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_NAME_CONFLICT", normalizeWorkflowErrorMessage(err, workflowservice.ErrWorkflowNameConflict))
 	case errors.Is(err, workflowservice.ErrWorkflowHarnessPathConflict):

@@ -1191,6 +1191,30 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 		t.Fatalf("Update() self pickup status reuse error = %v", err)
 	}
 
+	if _, err := service.Create(ctx, CreateInput{
+		ProjectID:           fixture.projectID,
+		AgentID:             fixture.agentID,
+		Name:                "Overlapping Status Workflow",
+		Type:                TypeCoding,
+		HarnessContent:      "# Overlapping\n",
+		MaxConcurrent:       1,
+		MaxRetryAttempts:    1,
+		TimeoutMinutes:      30,
+		StallTimeoutMinutes: 5,
+		IsActive:            false,
+		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["In Review"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["In Review"]),
+	}); !errors.Is(err, ErrWorkflowStatusBindingOverlap) {
+		t.Fatalf("Create() overlapping status bindings error = %v, want %v", err, ErrWorkflowStatusBindingOverlap)
+	}
+
+	if _, err := service.Update(ctx, UpdateInput{
+		WorkflowID:      created.ID,
+		FinishStatusIDs: Some(MustStatusBindingSet(fixture.statusIDs["Todo"])),
+	}); !errors.Is(err, ErrWorkflowStatusBindingOverlap) {
+		t.Fatalf("Update() overlapping status bindings error = %v, want %v", err, ErrWorkflowStatusBindingOverlap)
+	}
+
 	if _, err := service.Update(ctx, UpdateInput{
 		WorkflowID:  created.ID,
 		HarnessPath: Some("../escape.md"),
@@ -1394,7 +1418,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		StallTimeoutMinutes: 5,
 		IsActive:            true,
 		PickupStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
-		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Backlog"]),
+		FinishStatusIDs:     MustStatusBindingSet(fixture.statusIDs["Todo"]),
 	}); err != nil {
 		t.Fatalf("create dispatcher workflow: %v", err)
 	}
@@ -1673,7 +1697,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if dispatcherContext == nil || len(dispatcherContext.PickupStatuses) != 1 || dispatcherContext.PickupStatuses[0].Name != "Backlog" || dispatcherContext.PickupStatuses[0].Stage != "backlog" {
 		t.Fatalf("dispatcher pickup statuses = %+v", dispatcherContext)
 	}
-	if dispatcherContext == nil || len(dispatcherContext.FinishStatuses) != 1 || dispatcherContext.FinishStatuses[0].Name != "Backlog" || dispatcherContext.FinishStatuses[0].Stage != "backlog" {
+	if dispatcherContext == nil || len(dispatcherContext.FinishStatuses) != 1 || dispatcherContext.FinishStatuses[0].Name != "Todo" || dispatcherContext.FinishStatuses[0].Stage != "unstarted" {
 		t.Fatalf("dispatcher finish statuses = %+v", dispatcherContext)
 	}
 
@@ -1703,7 +1727,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Deps ASE-31:blocks:Done",
 		"Agent codex-coding Codex codex-app-server gpt-5.4 47",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Backlog:backlog|];",
+		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Todo:unstarted|];",
 		"WorkflowHistory fullstack-developer=ASE-42:Todo:False:0|ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog:backlog:#6B7280|Todo:unstarted:#3B82F6|In Progress:started:#F59E0B|In Review:started:#8B5CF6|Done:completed:#10B981|Cancelled:canceled:#4B5563|",
 		"ProjectMachines gpu-01:current:ssh:gpu,a100|storage:accessible:ssh:storage,nfs|",

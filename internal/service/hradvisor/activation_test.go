@@ -160,6 +160,7 @@ func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.
 	orgID := uuid.New()
 	providerID := uuid.New()
 	backlogID := uuid.New()
+	todoID := uuid.New()
 	agentID := uuid.New()
 	workflowID := uuid.New()
 
@@ -175,7 +176,7 @@ func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.
 			Version:         1,
 			IsActive:        true,
 			PickupStatusIDs: []uuid.UUID{backlogID},
-			FinishStatusIDs: []uuid.UUID{backlogID},
+			FinishStatusIDs: []uuid.UUID{todoID},
 		},
 	}
 
@@ -192,6 +193,7 @@ func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.
 		&stubActivationStatuses{
 			list: []ActivationStatus{
 				{ID: backlogID, Name: "Inbox", Stage: "backlog"},
+				{ID: todoID, Name: "Todo", Stage: "unstarted"},
 			},
 		},
 		nil,
@@ -207,11 +209,75 @@ func TestActivateDispatcherFallsBackToBacklogStageForRenamedStatuses(t *testing.
 	if strings.Join(uuidStrings(workflowStub.createInput.PickupStatusIDs), ",") != backlogID.String() {
 		t.Fatalf("unexpected dispatcher pickup binding: %+v", workflowStub.createInput.PickupStatusIDs)
 	}
-	if strings.Join(uuidStrings(workflowStub.createInput.FinishStatusIDs), ",") != backlogID.String() {
+	if strings.Join(uuidStrings(workflowStub.createInput.FinishStatusIDs), ",") != todoID.String() {
 		t.Fatalf("unexpected dispatcher finish binding: %+v", workflowStub.createInput.FinishStatusIDs)
 	}
 	if strings.Join(uuidStrings(result.Workflow.PickupStatusIDs), ",") != backlogID.String() {
 		t.Fatalf("unexpected dispatcher result pickup binding: %+v", result.Workflow.PickupStatusIDs)
+	}
+	if strings.Join(uuidStrings(result.Workflow.FinishStatusIDs), ",") != todoID.String() {
+		t.Fatalf("unexpected dispatcher result finish binding: %+v", result.Workflow.FinishStatusIDs)
+	}
+}
+
+func TestActivateDispatcherPrefersExistingWorkflowPickupLanesForFinishBindings(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	providerID := uuid.New()
+	backlogID := uuid.New()
+	codingID := uuid.New()
+	researchID := uuid.New()
+	agentID := uuid.New()
+	workflowID := uuid.New()
+
+	workflowStub := &stubActivationWorkflows{
+		listed: []ActivationWorkflow{
+			{ID: uuid.New(), RoleSlug: "fullstack-developer", IsActive: true, PickupStatusIDs: []uuid.UUID{codingID}},
+			{ID: uuid.New(), RoleSlug: "research-ideation", IsActive: true, PickupStatusIDs: []uuid.UUID{researchID}},
+		},
+		createdWorkflow: ActivationWorkflow{
+			ID:              workflowID,
+			ProjectID:       projectID,
+			AgentID:         &agentID,
+			Name:            "Dispatcher",
+			Type:            "Dispatcher",
+			HarnessPath:     ".openase/harnesses/roles/dispatcher.md",
+			HarnessContent:  "content",
+			Version:         1,
+			IsActive:        true,
+			PickupStatusIDs: []uuid.UUID{backlogID},
+			FinishStatusIDs: []uuid.UUID{codingID, researchID},
+		},
+	}
+
+	service := NewActivationService(
+		&stubActivationCatalog{
+			project: catalogdomain.Project{ID: projectID, OrganizationID: orgID, DefaultAgentProviderID: &providerID},
+			org:     catalogdomain.Organization{ID: orgID},
+			providers: []catalogdomain.AgentProvider{
+				{ID: providerID, Name: "OpenAI Codex", AdapterType: catalogdomain.AgentProviderAdapterTypeCodexAppServer, Available: true},
+			},
+			createdAgent: catalogdomain.Agent{ID: agentID, ProjectID: projectID, ProviderID: providerID, Name: "Dispatcher Agent"},
+		},
+		workflowStub,
+		&stubActivationStatuses{
+			list: []ActivationStatus{
+				{ID: backlogID, Name: "Backlog", Stage: "backlog"},
+				{ID: codingID, Name: "Coding", Stage: "unstarted"},
+				{ID: researchID, Name: "Researching", Stage: "unstarted"},
+			},
+		},
+		nil,
+	)
+
+	if _, err := service.Activate(context.Background(), mustParseActivationInput(t, projectID, "dispatcher", false)); err != nil {
+		t.Fatalf("Activate() error = %v", err)
+	}
+	if workflowStub.createInput == nil {
+		t.Fatal("expected workflow create input")
+	}
+	if got, want := strings.Join(uuidStrings(workflowStub.createInput.FinishStatusIDs), ","), strings.Join([]string{codingID.String(), researchID.String()}, ","); got != want {
+		t.Fatalf("dispatcher finish binding = %q, want %q", got, want)
 	}
 }
 

@@ -1,4 +1,4 @@
-import type { WorkflowSummary } from './types'
+import type { WorkflowStatusOption, WorkflowSummary } from './types'
 
 export type WorkflowLifecycleDraft = {
   agentId: string
@@ -73,6 +73,9 @@ export function parseWorkflowLifecycleDraft(
   if (draft.finishStatusIds.length === 0) {
     return { ok: false, error: 'At least one finish status is required.' }
   }
+  if (findOverlappingStatusIds(draft.pickupStatusIds, draft.finishStatusIds).length > 0) {
+    return { ok: false, error: 'Pickup and finish statuses must be mutually exclusive.' }
+  }
 
   const maxConcurrent = parseOptionalPositiveIntegerField(draft.maxConcurrent, 'Max concurrent')
   if (!maxConcurrent.ok) return maxConcurrent
@@ -109,9 +112,9 @@ export function parseWorkflowLifecycleDraft(
 export function toggleWorkflowStatusSelection(
   selected: string[],
   statusId: string,
-  occupiedMap?: Record<string, string>,
+  blockedMap?: Record<string, string>,
 ) {
-  if (!selected.includes(statusId) && occupiedMap?.[statusId]) {
+  if (!selected.includes(statusId) && blockedMap?.[statusId]) {
     return selected
   }
   return selected.includes(statusId)
@@ -120,11 +123,11 @@ export function toggleWorkflowStatusSelection(
 }
 
 /**
- * Build a map of pickup status IDs occupied by other workflows.
- * Returns `{ [statusId]: workflowName }` for statuses that are bound
+ * Build a map of pickup status IDs blocked by other workflows.
+ * Returns `{ [statusId]: reason }` for statuses that are already bound
  * as pickup statuses by a workflow other than `excludeWorkflowId`.
  */
-export function buildPickupStatusOccupiedMap(
+export function buildPickupStatusBlockedReasonMap(
   workflows: ReadonlyArray<{ id: string; name: string; pickupStatusIds: string[] }>,
   excludeWorkflowId?: string,
 ): Record<string, string> {
@@ -133,11 +136,99 @@ export function buildPickupStatusOccupiedMap(
     if (workflow.id === excludeWorkflowId) continue
     for (const statusId of workflow.pickupStatusIds) {
       if (!map[statusId]) {
-        map[statusId] = workflow.name
+        map[statusId] = `Used by "${workflow.name}" as a pickup status.`
       }
     }
   }
   return map
+}
+
+export function buildSelfStatusBlockedReasonMap(statusIds: string[], reason: string): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const statusId of statusIds) {
+    map[statusId] = reason
+  }
+  return map
+}
+
+export function mergeStatusBlockedReasonMaps(
+  ...maps: Array<Record<string, string> | undefined>
+): Record<string, string> {
+  const merged: Record<string, string> = {}
+  for (const map of maps) {
+    if (!map) continue
+    for (const [statusId, reason] of Object.entries(map)) {
+      if (!merged[statusId]) {
+        merged[statusId] = reason
+      }
+    }
+  }
+  return merged
+}
+
+export function findOverlappingStatusIds(pickupStatusIds: string[], finishStatusIds: string[]) {
+  const finishSet = new Set(finishStatusIds)
+  return pickupStatusIds.filter((statusId) => finishSet.has(statusId))
+}
+
+export function buildDispatcherFinishStatusIds(
+  statuses: WorkflowStatusOption[],
+  workflows: ReadonlyArray<Pick<WorkflowSummary, 'roleSlug' | 'isActive' | 'pickupStatusIds'>>,
+  pickupStatusIds: string[],
+) {
+  const blocked = new Set(pickupStatusIds)
+  const statusById = new Map(statuses.map((status) => [status.id, status]))
+
+  const activeWorkflowTargets = collectDispatcherFinishTargets(
+    workflows.flatMap((workflow) => {
+      if (!workflow.isActive) return []
+      if ((workflow.roleSlug ?? '').trim().toLowerCase() === 'dispatcher') return []
+      return workflow.pickupStatusIds
+    }),
+    statusById,
+    blocked,
+  )
+  if (activeWorkflowTargets.length > 0) {
+    return activeWorkflowTargets
+  }
+
+  const unstartedFallback = statuses
+    .filter((status) => status.stage === 'unstarted' && !blocked.has(status.id))
+    .map((status) => status.id)
+  if (unstartedFallback.length > 0) {
+    return unstartedFallback
+  }
+
+  return statuses
+    .filter((status) => status.stage === 'started' && !blocked.has(status.id))
+    .map((status) => status.id)
+}
+
+function collectDispatcherFinishTargets(
+  statusIds: string[],
+  statusById: Map<string, WorkflowStatusOption>,
+  blocked: Set<string>,
+) {
+  const unstarted: string[] = []
+  const started: string[] = []
+  const seen = new Set<string>()
+
+  for (const statusId of statusIds) {
+    if (blocked.has(statusId) || seen.has(statusId)) continue
+    const status = statusById.get(statusId)
+    if (!status) continue
+    if (status.stage === 'unstarted') {
+      unstarted.push(statusId)
+      seen.add(statusId)
+      continue
+    }
+    if (status.stage === 'started') {
+      started.push(statusId)
+      seen.add(statusId)
+    }
+  }
+
+  return unstarted.length > 0 ? unstarted : started
 }
 
 function parseStringList(value: string) {

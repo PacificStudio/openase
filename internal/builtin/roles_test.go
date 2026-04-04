@@ -20,8 +20,8 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 	if got := strings.Join(role.PickupStatusNames, ","); got != "Backlog" {
 		t.Fatalf("PickupStatusNames=%q, want Backlog", got)
 	}
-	if got := strings.Join(role.FinishStatusNames, ","); got != "Backlog" {
-		t.Fatalf("FinishStatusNames=%q, want Backlog", got)
+	if got := strings.Join(role.FinishStatusNames, ","); got != "Todo" {
+		t.Fatalf("FinishStatusNames=%q, want Todo", got)
 	}
 	if got := strings.Join(role.PlatformAccessAllowed, ","); got != "activity.read,statuses.list,tickets.create,tickets.list,tickets.update.self,workflows.list" {
 		t.Fatalf("PlatformAccessAllowed=%q", got)
@@ -36,7 +36,7 @@ func TestDispatcherRoleTemplate(t *testing.T) {
 		"stage={{ item.stage }}",
 		"resources={{ item.resources | tojson }}",
 		"move it from {{ workflow.pickup_status }} to one of the names already exposed in project.workflows[].pickup_statuses or project.statuses",
-		"keep it in {{ workflow.finish_status }}",
+		"Finish the run only after moving the ticket out of {{ workflow.pickup_status }}",
 	} {
 		if !strings.Contains(role.Content, want) {
 			t.Fatalf("expected dispatcher harness to contain %q, got:\n%s", want, role.Content)

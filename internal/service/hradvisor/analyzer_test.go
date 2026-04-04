@@ -230,7 +230,7 @@ func TestAnalyzeRecommendsDispatcherFromBacklogPressure(t *testing.T) {
 	if !strings.Contains(dispatcherRecommendation.Reason, "Backlog") {
 		t.Fatalf("expected backlog reason, got %+v", dispatcherRecommendation)
 	}
-	if len(dispatcherRecommendation.Evidence) < 2 || !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up and finish Backlog") {
+	if len(dispatcherRecommendation.Evidence) < 2 || !strings.Contains(strings.Join(dispatcherRecommendation.Evidence, " "), "pick up Backlog and finish into downstream non-backlog work statuses") {
 		t.Fatalf("expected dispatcher evidence to mention backlog lane coverage, got %+v", dispatcherRecommendation.Evidence)
 	}
 }

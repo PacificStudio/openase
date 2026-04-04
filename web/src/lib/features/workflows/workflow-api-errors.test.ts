@@ -31,6 +31,19 @@ describe('describeWorkflowApiError', () => {
     ).toBe('This harness path is already used by another workflow.')
   })
 
+  it('maps overlapping workflow status bindings to a friendly message', () => {
+    expect(
+      describeWorkflowApiError(
+        new ApiError(
+          409,
+          'workflow pickup and finish statuses must not overlap',
+          'WORKFLOW_STATUS_BINDING_OVERLAP',
+        ),
+        'Failed to save workflow.',
+      ),
+    ).toBe('Pickup and finish statuses must be mutually exclusive.')
+  })
+
   it('maps ticket references to a friendly delete message', () => {
     expect(
       describeWorkflowApiError(

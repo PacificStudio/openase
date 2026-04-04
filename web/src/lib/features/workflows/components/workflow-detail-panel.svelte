@@ -9,8 +9,10 @@
     WorkflowSummary,
   } from '../types'
   import {
-    buildPickupStatusOccupiedMap,
+    buildPickupStatusBlockedReasonMap,
+    buildSelfStatusBlockedReasonMap,
     createWorkflowLifecycleDraft,
+    mergeStatusBlockedReasonMaps,
     parseWorkflowLifecycleDraft,
     toggleWorkflowStatusSelection,
     type WorkflowLifecycleDraft,
@@ -84,7 +86,21 @@
   )
   const selectedAgent = $derived(agentOptions.find((option) => option.id === draft.agentId) ?? null)
   const selectableStatuses = $derived(statuses)
-  const pickupOccupiedMap = $derived(buildPickupStatusOccupiedMap(workflows, workflow.id))
+  const pickupBlockedReasonMap = $derived(
+    mergeStatusBlockedReasonMaps(
+      buildPickupStatusBlockedReasonMap(workflows, workflow.id),
+      buildSelfStatusBlockedReasonMap(
+        draft.finishStatusIds,
+        'Already selected as a finish status in this workflow.',
+      ),
+    ),
+  )
+  const finishBlockedReasonMap = $derived(
+    buildSelfStatusBlockedReasonMap(
+      draft.pickupStatusIds,
+      'Already selected as a pickup status in this workflow.',
+    ),
+  )
 
   $effect(() => {
     const nextKey = workflowLifecycleDraftKey(workflow)
@@ -214,23 +230,24 @@
           label="Pickup Statuses"
           statuses={selectableStatuses}
           selectedStatusIds={draft.pickupStatusIds}
-          occupiedByMap={pickupOccupiedMap}
+          disabledReasonById={pickupBlockedReasonMap}
           disabled={saving || deleting}
           onToggle={(statusId) =>
             updateDraftField(
               'pickupStatusIds',
-              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId, pickupOccupiedMap),
+              toggleWorkflowStatusSelection(draft.pickupStatusIds, statusId, pickupBlockedReasonMap),
             )}
         />
         <WorkflowStatusChipSelector
           label="Finish Statuses"
           statuses={selectableStatuses}
           selectedStatusIds={draft.finishStatusIds}
+          disabledReasonById={finishBlockedReasonMap}
           disabled={saving || deleting}
           onToggle={(statusId) =>
             updateDraftField(
               'finishStatusIds',
-              toggleWorkflowStatusSelection(draft.finishStatusIds, statusId),
+              toggleWorkflowStatusSelection(draft.finishStatusIds, statusId, finishBlockedReasonMap),
             )}
         />
       </div>

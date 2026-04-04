@@ -6,6 +6,8 @@ function workflowConflictMessage(code: string, detail: string): string | null {
       return 'A workflow with this name already exists in the project.'
     case 'WORKFLOW_HARNESS_PATH_CONFLICT':
       return 'This harness path is already used by another workflow.'
+    case 'WORKFLOW_STATUS_BINDING_OVERLAP':
+      return 'Pickup and finish statuses must be mutually exclusive.'
     case 'WORKFLOW_REFERENCED_BY_TICKETS':
       return 'This workflow cannot be deleted because tickets still reference it.'
     case 'WORKFLOW_REFERENCED_BY_SCHEDULED_JOBS':

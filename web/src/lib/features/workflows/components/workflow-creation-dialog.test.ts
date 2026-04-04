@@ -58,39 +58,8 @@ describe('WorkflowCreationDialog', () => {
     vi.clearAllMocks()
   })
 
-  it('allows selecting any status stage for pickup and finish', async () => {
-    createWorkflowWithBinding.mockResolvedValue({
-      workflow: {
-        id: 'wf-1',
-        name: 'Workflow 1',
-        type: 'coding',
-        workflowFamily: 'coding',
-        classification: {
-          family: 'coding',
-          confidence: 1,
-          reasons: ['fixture'],
-        },
-        agentId: 'agent-1',
-        harnessPath: '',
-        pickupStatusIds: ['backlog', 'done'],
-        pickupStatusLabel: 'Backlog, Done',
-        finishStatusIds: ['backlog', 'doing'],
-        finishStatusLabel: 'Backlog, Doing',
-        maxConcurrent: 1,
-        maxRetry: 1,
-        timeoutMinutes: 30,
-        stallTimeoutMinutes: 10,
-        isActive: true,
-        lastModified: '2026-04-01T10:00:00Z',
-        recentSuccessRate: 0,
-        version: 1,
-        history: [],
-      },
-      selectedId: 'wf-1',
-    })
-
-    const onCreated = vi.fn()
-    const { getAllByRole, getByRole } = render(WorkflowCreationDialog, {
+  it('blocks selecting the same status in both pickup and finish bindings', async () => {
+    const { getAllByRole } = render(WorkflowCreationDialog, {
       props: {
         open: true,
         projectId: 'project-1',
@@ -98,33 +67,16 @@ describe('WorkflowCreationDialog', () => {
         agentOptions,
         existingCount: 0,
         builtinRoleContent: 'role',
-        onCreated,
       },
     })
 
-    expect(getAllByRole('button', { name: 'Done' })).toHaveLength(2)
     expect(getAllByRole('button', { name: 'Doing' })).toHaveLength(2)
 
-    await fireEvent.click(getAllByRole('button', { name: 'Done' })[0])
     await fireEvent.click(getAllByRole('button', { name: 'Doing' })[1])
-    await fireEvent.click(getByRole('button', { name: 'Create workflow' }))
 
-    await vi.runAllTimersAsync()
-
-    expect(createWorkflowWithBinding).toHaveBeenCalledWith(
-      'project-1',
-      expect.objectContaining({
-        agentId: 'agent-1',
-        name: 'Workflow 1',
-        workflowType: 'Workflow',
-        harnessPath: null,
-        pickupStatusIds: ['backlog', 'done'],
-        finishStatusIds: ['backlog', 'doing'],
-      }),
-      statuses,
-      'role',
-    )
-    expect(onCreated).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(getAllByRole('button', { name: 'Doing' })[0].hasAttribute('disabled')).toBe(true)
+    })
   })
 
   it('preselects pickup and finish statuses from structured template metadata', async () => {
@@ -171,8 +123,9 @@ describe('WorkflowCreationDialog', () => {
           content: '# Dispatcher\n\nRoute backlog tickets.\n',
           workflowType: 'Dispatcher',
           workflowFamily: 'dispatcher',
+          roleSlug: 'dispatcher',
           pickupStatusNames: ['Backlog'],
-          finishStatusNames: ['Backlog'],
+          finishStatusNames: ['Todo'],
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
         },
       },
@@ -188,7 +141,7 @@ describe('WorkflowCreationDialog', () => {
           workflowType: 'Dispatcher',
           harnessPath: '.openase/harnesses/roles/dispatcher.md',
           pickupStatusIds: ['backlog'],
-          finishStatusIds: ['backlog'],
+          finishStatusIds: ['todo'],
         }),
         statuses,
         '# Dispatcher\n\nRoute backlog tickets.\n',

@@ -16,7 +16,11 @@
     type WorkflowHooksDraft,
   } from '../workflow-hooks'
   import {
-    buildPickupStatusOccupiedMap,
+    buildDispatcherFinishStatusIds,
+    buildPickupStatusBlockedReasonMap,
+    buildSelfStatusBlockedReasonMap,
+    findOverlappingStatusIds,
+    mergeStatusBlockedReasonMaps,
     toggleWorkflowStatusSelection,
   } from '../workflow-lifecycle'
   import { describeWorkflowApiError } from '../workflow-api-errors'
@@ -67,7 +71,21 @@
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
   const selectableStatuses = $derived(statuses)
-  const pickupOccupiedMap = $derived(buildPickupStatusOccupiedMap(workflows))
+  const pickupBlockedReasonMap = $derived(
+    mergeStatusBlockedReasonMaps(
+      buildPickupStatusBlockedReasonMap(workflows),
+      buildSelfStatusBlockedReasonMap(
+        finishStatusIds,
+        'Already selected as a finish status in this workflow.',
+      ),
+    ),
+  )
+  const finishBlockedReasonMap = $derived(
+    buildSelfStatusBlockedReasonMap(
+      pickupStatusIds,
+      'Already selected as a pickup status in this workflow.',
+    ),
+  )
   const hookValidation = $derived(validateWorkflowHooksDraft(hookDraft))
 
   $effect(() => {
@@ -80,22 +98,30 @@
       hookDraft = createWorkflowHooksDraft()
       hookError = ''
 
-      const occupiedNow = buildPickupStatusOccupiedMap(workflows)
-      const defaultStatusIds = selectableStatuses[0] ? [selectableStatuses[0].id] : []
-      pickupStatusIds = defaultStatusIds.filter((id) => !occupiedNow[id])
-      finishStatusIds = defaultStatusIds
+      const blockedNow = buildPickupStatusBlockedReasonMap(workflows)
+      const defaultPickupStatusId = selectableStatuses.find((status) => !blockedNow[status.id])?.id ?? ''
+      const defaultFinishStatusId =
+        selectableStatuses.find((status) => status.id !== defaultPickupStatusId)?.id ?? ''
+      pickupStatusIds = defaultPickupStatusId ? [defaultPickupStatusId] : []
+      finishStatusIds = defaultFinishStatusId ? [defaultFinishStatusId] : []
 
       if (templateDraft) {
         const templateSelection = resolveTemplateStatusSelection(
           templateDraft.pickupStatusNames ?? [],
-          templateDraft.finishStatusNames ?? [],
+          templateDraft.roleSlug === 'dispatcher' ? [] : (templateDraft.finishStatusNames ?? []),
           selectableStatuses,
         )
         templateStatusError = templateSelection.error
         if (templateSelection.pickupStatusIds.length > 0 || templateSelection.error) {
-          pickupStatusIds = templateSelection.pickupStatusIds.filter((id) => !occupiedNow[id])
+          pickupStatusIds = templateSelection.pickupStatusIds.filter((id) => !blockedNow[id])
         }
-        if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
+        if (templateDraft.roleSlug === 'dispatcher') {
+          finishStatusIds = buildDispatcherFinishStatusIds(
+            selectableStatuses,
+            workflows,
+            pickupStatusIds,
+          )
+        } else if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
           finishStatusIds = templateSelection.finishStatusIds
         }
       }
@@ -128,6 +154,10 @@
     }
     if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
       toastStore.error('Pickup and finish status are required.')
+      return
+    }
+    if (findOverlappingStatusIds(pickupStatusIds, finishStatusIds).length > 0) {
+      toastStore.error('Pickup and finish statuses must be mutually exclusive.')
       return
     }
 
@@ -223,12 +253,12 @@
           statuses={selectableStatuses}
           selectedIds={pickupStatusIds}
           disabled={saving}
-          occupiedMap={pickupOccupiedMap}
+          disabledReasonById={pickupBlockedReasonMap}
           onToggle={(statusId) =>
             (pickupStatusIds = toggleWorkflowStatusSelection(
               pickupStatusIds,
               statusId,
-              pickupOccupiedMap,
+              pickupBlockedReasonMap,
             ))}
         />
 
@@ -237,8 +267,13 @@
           statuses={selectableStatuses}
           selectedIds={finishStatusIds}
           disabled={saving}
+          disabledReasonById={finishBlockedReasonMap}
           onToggle={(statusId) =>
-            (finishStatusIds = toggleWorkflowStatusSelection(finishStatusIds, statusId))}
+            (finishStatusIds = toggleWorkflowStatusSelection(
+              finishStatusIds,
+              statusId,
+              finishBlockedReasonMap,
+            ))}
         />
       </div>
 

@@ -44,8 +44,11 @@ describe('workflow lifecycle draft', () => {
         max_concurrent: 0,
         max_retry_attempts: 0,
         name: 'Coding Workflow',
+        platform_access_allowed: [],
         type: 'coding',
         pickup_status_ids: ['todo'],
+        role_description: '',
+        role_name: 'Coding Workflow',
         stall_timeout_minutes: 5,
         timeout_minutes: 30,
       },
@@ -69,6 +72,26 @@ describe('workflow lifecycle draft', () => {
     expect(parsed).toEqual({
       ok: false,
       error: 'Max concurrent must be a positive integer.',
+    })
+  })
+
+  it('rejects overlapping pickup and finish statuses', () => {
+    const parsed = parseWorkflowLifecycleDraft({
+      agentId: 'agent-1',
+      name: 'Coding Workflow',
+      typeLabel: 'coding',
+      pickupStatusIds: ['todo', 'doing'],
+      finishStatusIds: ['doing', 'done'],
+      maxConcurrent: '1',
+      maxRetryAttempts: '0',
+      timeoutMinutes: '30',
+      stallTimeoutMinutes: '5',
+      isActive: true,
+    })
+
+    expect(parsed).toEqual({
+      ok: false,
+      error: 'Pickup and finish statuses must be mutually exclusive.',
     })
   })
 })

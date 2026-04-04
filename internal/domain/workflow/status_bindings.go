@@ -48,6 +48,15 @@ func (s StatusBindingSet) Contains(id uuid.UUID) bool {
 	return slices.Contains(s.ids, id)
 }
 
+func (s StatusBindingSet) Overlaps(other StatusBindingSet) bool {
+	for _, id := range s.ids {
+		if other.Contains(id) {
+			return true
+		}
+	}
+	return false
+}
+
 func (s StatusBindingSet) Single() (uuid.UUID, bool) {
 	if len(s.ids) != 1 {
 		return uuid.UUID{}, false

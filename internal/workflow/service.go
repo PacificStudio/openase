@@ -32,6 +32,7 @@ var (
 	ErrWorkflowHarnessPathConflict       = domain.ErrWorkflowHarnessPathConflict
 	ErrWorkflowConflict                  = domain.ErrWorkflowConflict
 	ErrPickupStatusConflict              = domain.ErrPickupStatusConflict
+	ErrWorkflowStatusBindingOverlap      = domain.ErrWorkflowStatusBindingOverlap
 	ErrWorkflowReferencedByTickets       = domain.ErrWorkflowReferencedByTickets
 	ErrWorkflowReferencedByScheduledJobs = domain.ErrWorkflowReferencedByScheduledJobs
 	ErrWorkflowInUse                     = domain.ErrWorkflowInUse
@@ -762,6 +763,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err := s.ensureStatusBindingsBelongToProject(ctx, input.ProjectID, finishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
+	if err := ensureStatusBindingSetsDoNotOverlap(pickupStatusIDs, finishStatusIDs); err != nil {
+		return WorkflowDetail{}, err
+	}
 	harnessPath, err := s.resolveCreateHarnessPath(input.Name, input.HarnessPath)
 	if err != nil {
 		return WorkflowDetail{}, err
@@ -941,6 +945,9 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (WorkflowDetail
 		nextFinishStatusIDs = input.FinishStatusIDs.Value
 	}
 	if err := s.ensureStatusBindingsBelongToProject(ctx, projectID, nextFinishStatusIDs); err != nil {
+		return WorkflowDetail{}, err
+	}
+	if err := ensureStatusBindingSetsDoNotOverlap(nextPickupStatusIDs, nextFinishStatusIDs); err != nil {
 		return WorkflowDetail{}, err
 	}
 
@@ -1307,6 +1314,8 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 		return ErrWorkflowConflict
 	case errors.Is(err, ErrPickupStatusConflict):
 		return ErrPickupStatusConflict
+	case errors.Is(err, ErrWorkflowStatusBindingOverlap):
+		return ErrWorkflowStatusBindingOverlap
 	case errors.Is(err, ErrWorkflowInUse):
 		return ErrWorkflowInUse
 	case strings.Contains(strings.ToLower(err.Error()), "constraint"):
@@ -1318,6 +1327,13 @@ func (s *Service) mapWorkflowWriteError(action string, err error) error {
 	default:
 		return fmt.Errorf("%s: %w", action, err)
 	}
+}
+
+func ensureStatusBindingSetsDoNotOverlap(pickup StatusBindingSet, finish StatusBindingSet) error {
+	if pickup.Overlaps(finish) {
+		return ErrWorkflowStatusBindingOverlap
+	}
+	return nil
 }
 
 func copyHooks(source map[string]any) map[string]any {

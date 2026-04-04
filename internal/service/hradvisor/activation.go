@@ -200,7 +200,7 @@ func (s *ActivationService) Activate(
 	if err != nil {
 		return ActivationResult{}, err
 	}
-	pickupStatusIDs, finishStatusIDs, err := resolveActivationStatusIDs(statuses, template)
+	pickupStatusIDs, finishStatusIDs, err := resolveActivationStatusIDs(statuses, existingWorkflows, template)
 	if err != nil {
 		return ActivationResult{}, err
 	}
@@ -344,12 +344,22 @@ func activationWorkflowExists(items []ActivationWorkflow, harnessPath string) bo
 
 func resolveActivationStatusIDs(
 	statuses []ActivationStatus,
+	existingWorkflows []ActivationWorkflow,
 	template hrdomain.ActivationTemplate,
 ) ([]uuid.UUID, []uuid.UUID, error) {
 	pickupStatusIDs, err := resolveActivationStatusBinding(statuses, template, "pickup", template.PickupStatusNames)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if template.RoleSlug == "dispatcher" {
+		finishStatusIDs, err := resolveDispatcherFinishStatusIDs(statuses, existingWorkflows, pickupStatusIDs)
+		if err != nil {
+			return nil, nil, err
+		}
+		return pickupStatusIDs, finishStatusIDs, nil
+	}
+
 	finishStatusIDs, err := resolveActivationStatusBinding(statuses, template, "finish", template.FinishStatusNames)
 	if err != nil {
 		return nil, nil, err
@@ -408,7 +418,7 @@ func resolveActivationStatus(
 		return item, nil
 	}
 
-	if template.RoleSlug == "dispatcher" {
+	if template.RoleSlug == "dispatcher" && binding == "pickup" {
 		candidates := statusesByStage["backlog"]
 		if len(candidates) == 1 {
 			return candidates[0], nil
@@ -436,6 +446,97 @@ func resolveActivationStatus(
 	}
 
 	return ActivationStatus{}, fmt.Errorf("%w: %s status %q", ErrActivationStatusNotFound, binding, name)
+}
+
+func resolveDispatcherFinishStatusIDs(
+	statuses []ActivationStatus,
+	existingWorkflows []ActivationWorkflow,
+	pickupStatusIDs []uuid.UUID,
+) ([]uuid.UUID, error) {
+	statusByID := make(map[uuid.UUID]ActivationStatus, len(statuses))
+	for _, statusItem := range statuses {
+		statusByID[statusItem.ID] = statusItem
+	}
+
+	pickupSet := make(map[uuid.UUID]struct{}, len(pickupStatusIDs))
+	for _, statusID := range pickupStatusIDs {
+		pickupSet[statusID] = struct{}{}
+	}
+
+	if ids := collectDispatcherFinishStatusIDsFromWorkflows(existingWorkflows, statusByID, pickupSet); len(ids) > 0 {
+		return ids, nil
+	}
+	if ids := collectDispatcherFinishStatusIDsFromStatuses(statuses, pickupSet, "unstarted"); len(ids) > 0 {
+		return ids, nil
+	}
+	if ids := collectDispatcherFinishStatusIDsFromStatuses(statuses, pickupSet, "started"); len(ids) > 0 {
+		return ids, nil
+	}
+
+	return nil, fmt.Errorf(
+		"%w: dispatcher finish binding requires at least one configured non-backlog work status",
+		ErrActivationStatusNotFound,
+	)
+}
+
+func collectDispatcherFinishStatusIDsFromWorkflows(
+	workflows []ActivationWorkflow,
+	statusByID map[uuid.UUID]ActivationStatus,
+	pickupSet map[uuid.UUID]struct{},
+) []uuid.UUID {
+	unstarted := make([]uuid.UUID, 0)
+	started := make([]uuid.UUID, 0)
+	seen := make(map[uuid.UUID]struct{})
+
+	for _, workflow := range workflows {
+		if !workflow.IsActive || strings.EqualFold(strings.TrimSpace(workflow.RoleSlug), "dispatcher") {
+			continue
+		}
+		for _, statusID := range workflow.PickupStatusIDs {
+			statusItem, ok := statusByID[statusID]
+			if !ok {
+				continue
+			}
+			if _, blocked := pickupSet[statusID]; blocked {
+				continue
+			}
+			if _, alreadySeen := seen[statusID]; alreadySeen {
+				continue
+			}
+			switch normalizeActivationStatusKey(statusItem.Stage) {
+			case "unstarted":
+				unstarted = append(unstarted, statusID)
+				seen[statusID] = struct{}{}
+			case "started":
+				started = append(started, statusID)
+				seen[statusID] = struct{}{}
+			}
+		}
+	}
+
+	if len(unstarted) > 0 {
+		return unstarted
+	}
+	return started
+}
+
+func collectDispatcherFinishStatusIDsFromStatuses(
+	statuses []ActivationStatus,
+	pickupSet map[uuid.UUID]struct{},
+	stage string,
+) []uuid.UUID {
+	normalizedStage := normalizeActivationStatusKey(stage)
+	result := make([]uuid.UUID, 0)
+	for _, statusItem := range statuses {
+		if normalizeActivationStatusKey(statusItem.Stage) != normalizedStage {
+			continue
+		}
+		if _, blocked := pickupSet[statusItem.ID]; blocked {
+			continue
+		}
+		result = append(result, statusItem.ID)
+	}
+	return result
 }
 
 func normalizeActivationStatusKey(raw string) string {

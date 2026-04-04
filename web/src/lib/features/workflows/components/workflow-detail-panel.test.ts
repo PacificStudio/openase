@@ -62,38 +62,21 @@ describe('WorkflowDetailPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('allows saving pickup and finish bindings across any status stage', async () => {
-    const onSave = vi.fn()
-    const { getAllByRole, getByRole } = render(WorkflowDetailPanel, {
+  it('blocks selecting the same status in both pickup and finish bindings', async () => {
+    const { getAllByRole } = render(WorkflowDetailPanel, {
       props: {
         workflow,
         statuses,
         agentOptions,
-        onSave,
       },
     })
 
-    expect(getAllByRole('button', { name: 'Done' })).toHaveLength(2)
     expect(getAllByRole('button', { name: 'Doing' })).toHaveLength(2)
 
-    await fireEvent.click(getAllByRole('button', { name: 'Done' })[0])
     await fireEvent.click(getAllByRole('button', { name: 'Doing' })[1])
-    await fireEvent.click(getByRole('button', { name: 'Save Changes' }))
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith({
-        agent_id: 'agent-1',
-        finish_status_ids: ['done', 'doing'],
-        hooks: undefined,
-        is_active: true,
-        max_concurrent: 1,
-        max_retry_attempts: 1,
-        name: 'Coding Workflow',
-        type: 'coding',
-        pickup_status_ids: ['todo', 'done'],
-        stall_timeout_minutes: 10,
-        timeout_minutes: 30,
-      })
+      expect(getAllByRole('button', { name: 'Doing' })[0].hasAttribute('disabled')).toBe(true)
     })
   })
 })

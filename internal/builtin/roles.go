@@ -88,7 +88,7 @@ var builtinRoleMetadata = map[string]roleMetadata{
 		Name:              "Dispatcher",
 		WorkflowType:      "Dispatcher",
 		PickupStatusNames: []string{"Backlog"},
-		FinishStatusNames: []string{"Backlog"},
+		FinishStatusNames: []string{"Todo"},
 		PlatformAccessAllowed: []string{
 			"activity.read",
 			"statuses.list",

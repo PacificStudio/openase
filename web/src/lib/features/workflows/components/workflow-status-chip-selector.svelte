@@ -7,14 +7,14 @@
     label,
     statuses = [],
     selectedStatusIds = [],
-    occupiedByMap = {},
+    disabledReasonById = {},
     disabled = false,
     onToggle,
   }: {
     label: string
     statuses?: WorkflowStatusOption[]
     selectedStatusIds?: string[]
-    occupiedByMap?: Record<string, string>
+    disabledReasonById?: Record<string, string>
     disabled?: boolean
     onToggle?: (statusId: string) => void
   } = $props()
@@ -25,9 +25,9 @@
   <div class="flex flex-wrap gap-2">
     {#each statuses as status (status.id)}
       {@const isSelected = selectedStatusIds.includes(status.id)}
-      {@const occupiedBy = occupiedByMap[status.id]}
-      {@const isOccupied = Boolean(occupiedBy) && !isSelected}
-      {#if isOccupied}
+      {@const disabledReason = disabledReasonById[status.id]}
+      {@const isBlocked = Boolean(disabledReason) && !isSelected}
+      {#if isBlocked}
         <Tooltip.Root delayDuration={200}>
           <Tooltip.Trigger>
             {#snippet child({ props })}
@@ -42,7 +42,7 @@
             {/snippet}
           </Tooltip.Trigger>
           <Tooltip.Content side="top" class="text-xs">
-            Used by "{occupiedBy}"
+            {disabledReason}
           </Tooltip.Content>
         </Tooltip.Root>
       {:else}

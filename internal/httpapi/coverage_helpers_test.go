@@ -157,6 +157,7 @@ func TestHTTPAPIErrorMappings(t *testing.T) {
 			{name: "status missing", err: workflowservice.ErrStatusNotFound, wantStatus: http.StatusBadRequest, wantCode: "STATUS_NOT_FOUND"},
 			{name: "agent missing", err: workflowservice.ErrAgentNotFound, wantStatus: http.StatusBadRequest, wantCode: "AGENT_NOT_FOUND"},
 			{name: "pickup status conflict", err: workflowservice.ErrPickupStatusConflict, wantStatus: http.StatusConflict, wantCode: "PICKUP_STATUS_CONFLICT"},
+			{name: "workflow status binding overlap", err: workflowservice.ErrWorkflowStatusBindingOverlap, wantStatus: http.StatusConflict, wantCode: "WORKFLOW_STATUS_BINDING_OVERLAP"},
 			{name: "workflow name conflict", err: workflowservice.ErrWorkflowNameConflict, wantStatus: http.StatusConflict, wantCode: "WORKFLOW_NAME_CONFLICT"},
 			{name: "workflow harness path conflict", err: workflowservice.ErrWorkflowHarnessPathConflict, wantStatus: http.StatusConflict, wantCode: "WORKFLOW_HARNESS_PATH_CONFLICT"},
 			{name: "workflow referenced by tickets", err: workflowservice.ErrWorkflowReferencedByTickets, wantStatus: http.StatusConflict, wantCode: "WORKFLOW_REFERENCED_BY_TICKETS"},

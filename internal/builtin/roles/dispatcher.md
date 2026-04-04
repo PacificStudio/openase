@@ -62,10 +62,11 @@ Available machines:
 ## Status Control
 
 - This workflow owns tickets while they are in {{ workflow.pickup_status }}.
+- Finish the run only after moving the ticket out of {{ workflow.pickup_status }} and into one of the configured downstream work lanes.
 - If the ticket is actionable, move it from {{ workflow.pickup_status }} to one of the names already exposed in project.workflows[].pickup_statuses or project.statuses.
-- If the ticket is not actionable yet, keep it in {{ workflow.finish_status }} and explain exactly what is missing in the workpad.
+- If the ticket is not actionable yet, move it into the most conservative downstream planning or research lane available in the configured finish set and explain exactly what is missing in the workpad.
 - Do not move tickets directly to a terminal delivery state from Dispatcher.
-- When no active workflow can responsibly take the ticket, keep it in Backlog, record the reason, and create follow-up or child tickets only when that improves routing clarity.
+- When no active workflow can responsibly take the ticket, route it to the safest downstream analysis lane in the configured finish set, record the reason, and create follow-up or child tickets only when that improves routing clarity.
 
 ## Delivery Standard
 
