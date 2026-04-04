@@ -827,6 +827,10 @@ func newProjectCurrentCommand() *cobra.Command {
 	var output apiOutputOptions
 	var projectID string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodGet,
+		Path:   "/api/v1/projects/{projectId}",
+	}
 	command := &cobra.Command{
 		Use:   "current",
 		Short: "Get the current project.",
@@ -869,7 +873,7 @@ machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT
 	bindAPICommandFlags(command.Flags(), &apiOptions)
 	bindAPIOutputFlags(command.Flags(), &output)
 	command.Flags().StringVar(&projectID, "project-id", "", "Project ID override. Defaults to OPENASE_PROJECT_ID.")
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newMachineListCommand() *cobra.Command {
@@ -878,6 +882,10 @@ func newMachineListCommand() *cobra.Command {
 	var orgID string
 	var projectID string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodGet,
+		Path:   "/api/v1/orgs/{orgId}/machines",
+	}
 	command := &cobra.Command{
 		Use:   "list [orgId]",
 		Short: "List machines.",
@@ -937,7 +945,7 @@ When project context is used, the CLI fetches the project first and derives orga
 	bindAPIOutputFlags(command.Flags(), &output)
 	command.Flags().StringVar(&orgID, "org-id", "", "Organization ID override. Defaults to OPENASE_ORG_ID.")
 	command.Flags().StringVar(&projectID, "project-id", "", "Project ID fallback. Defaults to OPENASE_PROJECT_ID when organization scope is not set.")
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newMachineStreamCommand() *cobra.Command {
@@ -945,6 +953,10 @@ func newMachineStreamCommand() *cobra.Command {
 	var orgID string
 	var projectID string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodGet,
+		Path:   "/api/v1/orgs/{orgId}/machines/stream",
+	}
 	command := &cobra.Command{
 		Use:   "stream [orgId]",
 		Short: "Stream organization machine events.",
@@ -994,7 +1006,7 @@ Use Ctrl-C to stop the stream when running interactively.
 	bindAPICommandFlags(command.Flags(), &apiOptions)
 	command.Flags().StringVar(&orgID, "org-id", "", "Organization ID override. Defaults to OPENASE_ORG_ID.")
 	command.Flags().StringVar(&projectID, "project-id", "", "Project ID fallback. Defaults to OPENASE_PROJECT_ID when organization scope is not set.")
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func resolveOrganizationIDForMachineCommand(
@@ -1226,7 +1238,7 @@ func newOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLICommandFlagNormalization(command)
 	registerOpenAPICommandFlags(command.Flags(), contract)
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
@@ -1270,7 +1282,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	bindAPIOutputFlags(command.Flags(), &apiOutputOptions{})
 	command.Flags().StringSliceVarP(&fields, "field", "f", nil, "Add a JSON body field as key=value. Repeat for multiple fields.")
 	command.Flags().StringVar(&inputPath, "input", "", "Read the raw request body from a file. Use - for stdin.")
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
@@ -1313,7 +1325,7 @@ func newOpenAPIStreamCommand(spec openAPICommandSpec) *cobra.Command {
 	command.SetFlagErrorFunc(flagErrorWithNormalize)
 	applyCLICommandFlagNormalization(command)
 	registerOpenAPIStreamFlags(command.Flags(), contract)
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {

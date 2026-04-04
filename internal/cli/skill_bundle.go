@@ -36,6 +36,10 @@ func newSkillImportCommand() *cobra.Command {
 	var enableNow bool
 	var disableNow bool
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPost,
+		Path:   "/api/v1/projects/{projectId}/skills/import",
+	}
 	command := &cobra.Command{
 		Use:   "import [projectId] [dir]",
 		Short: "Import a local skill bundle directory into a project.",
@@ -101,7 +105,7 @@ openase skill import $OPENASE_PROJECT_ID ./skills/deploy-openase --enable
 	command.Flags().StringVar(&nameOverride, "name", "", "Override the skill name. Must match SKILL.md frontmatter.")
 	command.Flags().BoolVar(&enableNow, "enable", false, "Enable the imported skill immediately.")
 	command.Flags().BoolVar(&disableNow, "disable", false, "Import the skill in a disabled state.")
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func buildSkillImportPayload(dir string, nameOverride string, createdBy string, enabled *bool) (skillImportPayload, error) {
