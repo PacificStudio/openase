@@ -24,7 +24,9 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -60,6 +62,7 @@ type RuntimeLauncher struct {
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
+	metrics        provider.MetricsProvider
 	now            func() time.Time
 	launchTimeout  time.Duration
 	eventTimeout   time.Duration
@@ -110,6 +113,7 @@ func NewRuntimeLauncher(
 		sshPool:        sshPool,
 		transports:     machinetransport.NewResolver(processManager, sshPool),
 		workflow:       workflow,
+		metrics:        provider.NewNoopMetricsProvider(),
 		now:            time.Now,
 		launchTimeout:  defaultLaunchTimeout,
 		eventTimeout:   defaultLifecyclePublishTimeout,
@@ -162,6 +166,13 @@ func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.
 	if l.workspaces != nil {
 		l.workspaces.githubAuth = resolver
 	}
+}
+
+func (l *RuntimeLauncher) ConfigureMetrics(metrics provider.MetricsProvider) {
+	if l == nil || metrics == nil {
+		return
+	}
+	l.metrics = metrics
 }
 
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
@@ -332,7 +343,27 @@ func (l *RuntimeLauncher) runLaunch(ctx context.Context, assignment runtimeAssig
 		return
 	}
 
-	l.logger.Error("launch current run", "agent_id", assignment.agent.ID, "run_id", assignment.run.ID, "error", err)
+	logAttrs := []any{
+		"agent_id", assignment.agent.ID,
+		"run_id", assignment.run.ID,
+		"ticket_id", assignment.ticket.ID,
+		"error", err,
+	}
+	if details := runtimeLaunchFailureDetails(err); details != nil {
+		if details.stage != "" {
+			logAttrs = append(logAttrs, "failure_stage", string(details.stage))
+		}
+		if details.machineID != uuid.Nil {
+			logAttrs = append(logAttrs, "machine_id", details.machineID.String())
+		}
+		if strings.TrimSpace(details.transportMode) != "" {
+			logAttrs = append(logAttrs, "transport_mode", details.transportMode)
+		}
+		if strings.TrimSpace(details.workspaceRoot) != "" {
+			logAttrs = append(logAttrs, "workspace_root", details.workspaceRoot)
+		}
+	}
+	l.logger.Error("launch current run", logAttrs...)
 	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
 		return
 	}
@@ -516,6 +547,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 	if count == 0 {
 		return nil
 	}
+	l.recordLaunchFailureMetric(launchErr)
 	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, runID, now); err != nil {
 		return err
 	}
@@ -540,12 +572,72 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		agentFailedType,
 		failedAgent,
 		lifecycleMessage(agentFailedType, failedAgent.agent.Name),
-		runtimeEventMetadataForState(failedAgent),
+		mergeRuntimeFailureMetadata(runtimeEventMetadataForState(failedAgent), launchErr),
 		now,
 	)
 	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
 	l.scheduleRunCompletionSummary(runID)
 	return nil
+}
+
+func (l *RuntimeLauncher) recordLaunchFailureMetric(launchErr error) {
+	if l == nil || l.metrics == nil {
+		return
+	}
+	stage := string(runtimeLaunchStageProcessStart)
+	transportMode := ""
+	if details := runtimeLaunchFailureDetails(launchErr); details != nil {
+		if details.stage != "" {
+			stage = string(details.stage)
+		}
+		transportMode = strings.TrimSpace(details.transportMode)
+	}
+	l.metrics.Counter("openase.runtime.launch_failures_total", provider.Tags{
+		"failure_stage":  stage,
+		"transport_mode": transportMode,
+	}).Add(1)
+}
+
+func (l *RuntimeLauncher) recordSSHRuntimeFallback(
+	ctx context.Context,
+	assignment runtimeAssignment,
+	launchContext runtimeLaunchContext,
+	machine catalogdomain.Machine,
+	launchErr error,
+) {
+	logAttrs := []any{
+		"machine_id", machine.ID.String(),
+		"transport_mode", machine.ConnectionMode.String(),
+		"fallback_transport_mode", catalogdomain.MachineConnectionModeSSH.String(),
+	}
+	if details := runtimeLaunchFailureDetails(launchErr); details != nil {
+		if details.stage != "" {
+			logAttrs = append(logAttrs, "failure_stage", string(details.stage))
+		}
+		if strings.TrimSpace(details.workspaceRoot) != "" {
+			logAttrs = append(logAttrs, "workspace_root", details.workspaceRoot)
+		}
+	}
+	l.logger.Warn("fallback runtime launch to ssh", logAttrs...)
+
+	if l == nil || l.client == nil || assignment.ticket == nil || assignment.agent == nil || launchContext.project == nil {
+		return
+	}
+	metadata := mergeRuntimeFailureMetadata(map[string]any{
+		"machine_id":              machine.ID.String(),
+		"from_transport_mode":     machine.ConnectionMode.String(),
+		"fallback_transport_mode": catalogdomain.MachineConnectionModeSSH.String(),
+	}, launchErr)
+	if _, err := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: l.client}, l.events).Emit(ctx, activitysvc.RecordInput{
+		ProjectID: launchContext.project.ID,
+		TicketID:  &assignment.ticket.ID,
+		AgentID:   &assignment.agent.ID,
+		EventType: activityevent.TypeRuntimeFallbackToSSH,
+		Message:   fmt.Sprintf("Runtime launch fell back to SSH for machine %s.", machine.Name),
+		Metadata:  metadata,
+	}); err != nil {
+		l.logger.Warn("record runtime fallback activity", "machine_id", machine.ID.String(), "ticket_id", assignment.ticket.ID, "agent_id", assignment.agent.ID, "error", err)
+	}
 }
 
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
@@ -779,12 +871,38 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
 	launchContext, err := l.loadLaunchContext(ctx, assignment.agent.ID, assignment.ticket.ID)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(catalogdomain.Machine{}, "", runtimeLaunchStageContext, err)
 	}
 
 	machine, remote, err := l.resolveLaunchMachine(ctx, launchContext)
 	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(catalogdomain.Machine{}, "", runtimeLaunchStageResolveMachine, err)
+	}
+
+	session, err := l.startRuntimeSessionOnMachine(ctx, assignment, launchContext, machine, remote)
+	if err == nil {
+		return session, nil
+	}
+	if !remote || !shouldFallbackToSSH(machine, err) {
 		return nil, err
+	}
+
+	fallbackMachine := machine
+	fallbackMachine.ConnectionMode = catalogdomain.MachineConnectionModeSSH
+	l.recordSSHRuntimeFallback(ctx, assignment, launchContext, machine, err)
+	return l.startRuntimeSessionOnMachine(ctx, assignment, launchContext, fallbackMachine, remote)
+}
+
+func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
+	ctx context.Context,
+	assignment runtimeAssignment,
+	launchContext runtimeLaunchContext,
+	machine catalogdomain.Machine,
+	remote bool,
+) (agentSession, error) {
+	workspaceRoot := ""
+	if remote && machine.WorkspaceRoot != nil {
+		workspaceRoot = strings.TrimSpace(*machine.WorkspaceRoot)
 	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand
@@ -794,35 +912,35 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 
 	command, err := provider.ParseAgentCLICommand(commandString)
 	if err != nil {
-		return nil, fmt.Errorf("parse agent cli command: %w", err)
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageProcessStart, fmt.Errorf("parse agent cli command: %w", err))
 	}
 	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
 	platformAccess, err := l.buildAgentPlatformAccess(ctx, launchContext)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	environment = append(environment, platformAccess.environment...)
 	githubEnvironment, err := l.buildGitHubOutboundEnvironment(ctx, launchContext.project.ID, environment)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	environment = append(environment, githubEnvironment...)
 	if !remote {
 		launcherEnvironment, err := buildLocalOpenASEEnvironment()
 		if err != nil {
-			return nil, err
+			return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 		}
 		environment = append(environment, launcherEnvironment...)
 	}
 	if requiresMachineCodexReady(command, environment) {
 		if ready, reason, ok := machineCodexReady(machine.Resources); ok && !ready {
-			return nil, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason)
+			return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageAgentCLIPreflight, fmt.Errorf("machine %s codex environment not ready: %s", machine.Name, reason))
 		}
 	}
 
 	workspaceItem, err := l.prepareTicketWorkspace(ctx, assignment.run.ID, launchContext, machine, remote)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, classifyRuntimeLaunchWorkspaceStage(err), err)
 	}
 	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
 		TicketID: assignment.ticket.ID,
@@ -830,7 +948,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		HookName: infrahook.TicketHookOnClaim,
 		Blocking: true,
 	}); err != nil {
-		return nil, fmt.Errorf("run ticket on_claim hooks: %w", err)
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageHookOnClaim, fmt.Errorf("run ticket on_claim hooks: %w", err))
 	}
 
 	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
@@ -847,16 +965,16 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 				remote,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("materialize runtime snapshot: %w", err)
+				return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageRuntimeSnapshot, fmt.Errorf("materialize runtime snapshot: %w", err))
 			}
 		}
 	}
 	if err := l.runRemoteRuntimePreflight(ctx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
 	}
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
 	if err != nil {
-		return nil, fmt.Errorf("parse agent workspace path: %w", err)
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, runtimeLaunchStageWorkspaceRoot, fmt.Errorf("parse agent workspace path: %w", err))
 	}
 	developerInstructions, err := l.buildDeveloperInstructions(
 		ctx,
@@ -867,7 +985,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		platformAccess.contract,
 	)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageBuildInstructions, err)
 	}
 	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
 		TicketID: assignment.ticket.ID,
@@ -875,14 +993,14 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		HookName: infrahook.TicketHookOnStart,
 		Blocking: true,
 	}); err != nil {
-		return nil, fmt.Errorf("run ticket on_start hooks: %w", err)
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageHookOnStart, fmt.Errorf("run ticket on_start hooks: %w", err))
 	}
 
 	processManager := l.processManager
 	if l.transports != nil {
 		transport, transportErr := l.transports.Resolve(machine)
 		if transportErr != nil {
-			return nil, transportErr
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageTransportResolve, transportErr)
 		}
 		processManager = machinetransport.NewProcessManager(transport, machine)
 	}
@@ -894,12 +1012,12 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		environment,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("build agent process spec: %w", err)
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, fmt.Errorf("build agent process spec: %w", err))
 	}
 
 	adapter, err := l.adapters.adapterFor(launchContext.agent.Edges.Provider.AdapterType)
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
 	}
 
 	session, err := adapter.Start(ctx, agentSessionStartSpec{
@@ -912,7 +1030,7 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 		TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
 	})
 	if err != nil {
-		return nil, err
+		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
 	}
 	return session, nil
 }

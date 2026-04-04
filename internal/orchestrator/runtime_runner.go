@@ -1863,6 +1863,14 @@ func resolveWorkflowFinishStatus(ticket *ent.Ticket) (uuid.UUID, error) {
 }
 
 func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid.UUID, agentID uuid.UUID, ticketID uuid.UUID, failure error) {
+	l.logger.Error(
+		"runtime execution failed",
+		"run_id", runID,
+		"agent_id", agentID,
+		"ticket_id", ticketID,
+		"failure_stage", string(runtimeExecutionStageProcessStreaming),
+		"error", failure,
+	)
 	stopSession(context.Background(), l.loadSession(runID))
 	l.deleteSession(runID)
 	l.runtime.delete(runID)
@@ -1893,7 +1901,7 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 				agentFailedType,
 				failedAgent,
 				lifecycleMessage(agentFailedType, failedAgent.agent.Name),
-				runtimeEventMetadataForState(failedAgent),
+				mergeRuntimeFailureMetadata(runtimeEventMetadataForState(failedAgent), &runtimeLaunchFailure{stage: runtimeExecutionStageProcessStreaming, cause: failure}),
 				now,
 			)
 		}

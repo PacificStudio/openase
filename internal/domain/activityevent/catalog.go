@@ -89,6 +89,11 @@ const (
 	TypeAgentFailed                      Type = "agent.failed"
 	TypeAgentCompleted                   Type = "agent.completed"
 	TypeAgentTerminated                  Type = "agent.terminated"
+	TypeMachineConnected                 Type = "machine.connected"
+	TypeMachineDisconnected              Type = "machine.disconnected"
+	TypeMachineReconnected               Type = "machine.reconnected"
+	TypeMachineDaemonAuthFailed          Type = "machine.daemon_auth_failed"
+	TypeRuntimeFallbackToSSH             Type = "runtime.fallback_to_ssh"
 	TypeHookStarted                      Type = "hook.started"
 	TypeHookPassed                       Type = "hook.passed"
 	TypeHookFailed                       Type = "hook.failed"
@@ -170,6 +175,11 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeAgentFailed, Label: "Agent Failed"},
 	{EventType: TypeAgentCompleted, Label: "Agent Completed"},
 	{EventType: TypeAgentTerminated, Label: "Agent Terminated"},
+	{EventType: TypeMachineConnected, Label: "Machine Connected"},
+	{EventType: TypeMachineDisconnected, Label: "Machine Disconnected"},
+	{EventType: TypeMachineReconnected, Label: "Machine Reconnected"},
+	{EventType: TypeMachineDaemonAuthFailed, Label: "Machine Daemon Auth Failed"},
+	{EventType: TypeRuntimeFallbackToSSH, Label: "Runtime Fallback To SSH"},
 	{EventType: TypeHookStarted, Label: "Hook Started"},
 	{EventType: TypeHookPassed, Label: "Hook Passed"},
 	{EventType: TypeHookFailed, Label: "Hook Failed"},

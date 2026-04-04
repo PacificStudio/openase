@@ -32,6 +32,7 @@ import (
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
@@ -39,6 +40,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
+	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -3199,6 +3201,138 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	}
 }
 
+func TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-401B").
+		SetTitle("Fallback reverse websocket launch to SSH").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("git@github.com:acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		Save(ctx); err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+
+	sshUser := "openase"
+	sshKeyPath := "keys/gpu-01.pem"
+	workspaceRoot := "/srv/openase/workspaces"
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("reverse-01").
+		SetHost("10.0.1.11").
+		SetPort(22).
+		SetSSHUser(sshUser).
+		SetSSHKeyPath(sshKeyPath).
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath("/usr/local/bin/codex").
+		SetConnectionMode(entmachine.ConnectionModeWsReverse).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx); err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("reverse-01"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load reverse machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider machine: %v", err)
+	}
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-ssh-fallback-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	prepareSession := &runtimeSSHPrepareSession{}
+	processSession := newRuntimeSSHProcessSession()
+	sshPool := sshinfra.NewPool("/tmp/openase",
+		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
+		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
+	)
+
+	bus := eventinfra.NewChannelBus()
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus, &runtimeFakeProcessManager{}, sshPool, nil)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run after SSH fallback, got %+v", runAfter)
+	}
+	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
+		t.Fatalf("expected SSH process command after fallback, got %q", processSession.startedCommand)
+	}
+
+	fallbackActivity, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.EventTypeEQ(activityevent.TypeRuntimeFallbackToSSH.String()),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load fallback activity event: %v", err)
+	}
+	if fallbackActivity.Metadata["from_transport_mode"] != catalogdomain.MachineConnectionModeWSReverse.String() {
+		t.Fatalf("expected reverse websocket source transport, got %+v", fallbackActivity.Metadata)
+	}
+	if fallbackActivity.Metadata["fallback_transport_mode"] != catalogdomain.MachineConnectionModeSSH.String() {
+		t.Fatalf("expected ssh fallback transport, got %+v", fallbackActivity.Metadata)
+	}
+	if fallbackActivity.Metadata["failure_stage"] != string(runtimeLaunchStageWorkspaceTransport) {
+		t.Fatalf("expected workspace transport failure stage, got %+v", fallbackActivity.Metadata)
+	}
+}
+
 func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
@@ -3485,6 +3619,175 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 	}
 	if string(rawHooks) != "claim\nstart\n" {
 		t.Fatalf("unexpected websocket hook log %q", string(rawHooks))
+	}
+}
+
+func TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	workspaceRoot := t.TempDir()
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	defer server.Close()
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Websocket Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nPreflight websocket listener runtime.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-411B").
+		SetTitle("Fail websocket listener preflight").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("listener-preflight").
+		SetHost("listener.internal").
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath("/bin/sh").
+		SetConnectionMode(entmachine.ConnectionModeWsListener).
+		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
+		SetStatus(entmachine.StatusOnline).
+		SetEnvVars([]string{"PATH=/nonexistent", "OPENASE_REAL_BIN="}).
+		Save(ctx); err != nil {
+		t.Fatalf("create listener machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("listener-preflight"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load listener machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		SetCliArgs([]string{"-lc", "printf websocket-runtime"}).
+		Save(ctx); err != nil {
+		t.Fatalf("bind listener provider: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-ws-preflight-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	metricsProvider, err := otelinfra.NewMetricsProvider(context.Background(), otelinfra.MetricsConfig{
+		ServiceName: "openase",
+		Prometheus:  true,
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err != nil {
+		t.Fatalf("create metrics provider: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := metricsProvider.Shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown metrics provider: %v", err)
+		}
+	})
+
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, workflowSvc)
+	launcher.ConfigureMetrics(metricsProvider)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	launcher.runLaunch(ctx, assignment)
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run, got %+v", runAfter)
+	}
+	if !strings.Contains(runAfter.LastError, "remote runtime preflight (openase)") {
+		t.Fatalf("expected openase preflight failure, got %q", runAfter.LastError)
+	}
+
+	failedActivity, err := client.ActivityEvent.Query().
+		Where(
+			entactivityevent.ProjectIDEQ(fixture.projectID),
+			entactivityevent.AgentIDEQ(agentItem.ID),
+			entactivityevent.EventTypeEQ(activityevent.TypeAgentFailed.String()),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load failed activity event: %v", err)
+	}
+	if failedActivity.Metadata["failure_stage"] != string(runtimeLaunchStageOpenASEPreflight) {
+		t.Fatalf("expected openase_preflight failure stage, got %+v", failedActivity.Metadata)
+	}
+	if failedActivity.Metadata["transport_mode"] != catalogdomain.MachineConnectionModeWSListener.String() {
+		t.Fatalf("expected ws_listener transport mode, got %+v", failedActivity.Metadata)
+	}
+	if failedActivity.Metadata["machine_id"] != remoteMachine.ID.String() {
+		t.Fatalf("expected machine id %s, got %+v", remoteMachine.ID, failedActivity.Metadata)
+	}
+
+	metricsRec := httptest.NewRecorder()
+	metricsReq := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
+	metricsProvider.PrometheusHandler().ServeHTTP(metricsRec, metricsReq)
+	if metricsRec.Code != http.StatusOK {
+		t.Fatalf("expected metrics scrape 200, got %d", metricsRec.Code)
+	}
+	body := metricsRec.Body.String()
+	expected := `openase_runtime_launch_failures_total{failure_stage="openase_preflight",transport_mode="ws_listener"} 1`
+	if !strings.Contains(body, expected) {
+		t.Fatalf("expected metrics to contain %q, got %q", expected, body)
 	}
 }
 

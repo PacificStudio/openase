@@ -113,6 +113,13 @@ func (r *SessionRegistry) Snapshot(machineID uuid.UUID) (RegisteredSession, bool
 	return session, exists
 }
 
+func (r *SessionRegistry) Count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return len(r.sessions)
+}
+
 func (r *SessionRegistry) Expire(now time.Time) []ExpiredSession {
 	r.mu.Lock()
 	defer r.mu.Unlock()

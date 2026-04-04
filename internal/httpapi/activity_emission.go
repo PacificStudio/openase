@@ -88,6 +88,84 @@ func (s *Server) affectedProviderProjectIDs(
 	return slices.Compact(projectIDs), nil
 }
 
+func (s *Server) emitMachineActivityForAffectedProjects(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineID uuid.UUID,
+	build func(projectID uuid.UUID) activitysvc.RecordInput,
+) error {
+	projectIDs, err := s.affectedMachineProjectIDs(ctx, organizationID, machineID)
+	if err != nil {
+		return err
+	}
+	for _, projectID := range projectIDs {
+		if err := s.emitActivity(ctx, build(projectID)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) affectedMachineProjectIDs(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineID uuid.UUID,
+) ([]uuid.UUID, error) {
+	if s == nil || s.catalog.Empty() || s.catalog.ProjectService == nil {
+		return nil, nil
+	}
+
+	projects, err := s.catalog.ListProjects(ctx, organizationID)
+	if err != nil {
+		return nil, fmt.Errorf("list projects for machine activity: %w", err)
+	}
+
+	providerIDs := map[uuid.UUID]struct{}{}
+	if s.catalog.AgentProviderService != nil {
+		providers, err := s.catalog.ListAgentProviders(ctx, organizationID)
+		if err != nil {
+			return nil, fmt.Errorf("list providers for machine activity: %w", err)
+		}
+		for _, provider := range providers {
+			if provider.MachineID == machineID {
+				providerIDs[provider.ID] = struct{}{}
+			}
+		}
+	}
+
+	projectIDs := make([]uuid.UUID, 0, len(projects))
+	for _, project := range projects {
+		if slices.Contains(project.AccessibleMachineIDs, machineID) {
+			projectIDs = append(projectIDs, project.ID)
+			continue
+		}
+		if project.DefaultAgentProviderID != nil {
+			if _, ok := providerIDs[*project.DefaultAgentProviderID]; ok {
+				projectIDs = append(projectIDs, project.ID)
+				continue
+			}
+		}
+		if len(providerIDs) == 0 || s.catalog.AgentService == nil {
+			continue
+		}
+		agents, err := s.catalog.ListAgents(ctx, project.ID)
+		if err != nil {
+			return nil, fmt.Errorf("list agents for machine activity: %w", err)
+		}
+		if slices.ContainsFunc(agents, func(item domain.Agent) bool {
+			_, ok := providerIDs[item.ProviderID]
+			return ok
+		}) {
+			projectIDs = append(projectIDs, project.ID)
+		}
+	}
+
+	slices.SortFunc(projectIDs, func(left uuid.UUID, right uuid.UUID) int {
+		return strings.Compare(left.String(), right.String())
+	})
+	return slices.Compact(projectIDs), nil
+}
+
 func ticketStatusChangedFields(raw rawUpdateTicketStatusRequest) []string {
 	fields := make([]string, 0, 7)
 	if raw.Name != nil {

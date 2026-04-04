@@ -2,6 +2,8 @@
 
 This guide covers the current repository state for building OpenASE from source, running first-time setup, and starting the platform in development or on a single host.
 
+For remote websocket machine rollout, daemon install, and transport troubleshooting, see [`docs/remote-websocket-rollout.md`](./remote-websocket-rollout.md).
+
 ## What You Need
 
 - Go `1.26.1` on `PATH`

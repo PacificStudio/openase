@@ -20,6 +20,10 @@ Include stable correlation fields whenever they are available at the boundary:
 - `agent_id`
 - `provider_id`
 - `machine_id`
+- `session_id`
+- `transport_mode`
+- `workspace_root`
+- `failure_stage`
 
 ## Boundary Rules
 

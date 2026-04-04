@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
@@ -90,7 +92,7 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	connectedAt := time.Now().UTC()
 	sessionID := uuid.NewString()
 	registered, replaced := s.machineSessions.Register(parsedMachineID, sessionID, connectedAt, websocketSessionCloser{conn: conn})
-	_, err = s.machineChannel.RecordConnectedSession(ctx, machinechannelservice.ConnectedSessionRecord{
+	machineRecord, err := s.machineChannel.RecordConnectedSession(ctx, machinechannelservice.ConnectedSessionRecord{
 		MachineID:        parsedMachineID,
 		SessionID:        sessionID,
 		ConnectedAt:      connectedAt,
@@ -112,17 +114,21 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		ReplacedPreviousSession:  replaced != nil,
 	}); err != nil {
 		_, _ = s.machineSessions.Remove(sessionID)
-		_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
+		machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 			MachineID:      parsedMachineID,
 			SessionID:      sessionID,
 			DisconnectedAt: time.Now().UTC(),
 			Reason:         "registered_reply_failed",
 		})
+		s.recordMachineChannelActiveSessions("ws_reverse")
+		s.emitMachineChannelDisconnectActivityBestEffort(context.Background(), machineRecord.OrganizationID, parsedMachineID, sessionID, "registered_reply_failed")
 		return nil
 	}
 
 	s.publishMachineChannelEvent(ctx, parsedMachineID, sessionID, registered.Replaced)
-	s.recordMachineChannelMetric("registered")
+	s.recordMachineChannelMetric("registered", "ws_reverse")
+	s.recordMachineChannelActiveSessions("ws_reverse")
+	s.emitMachineChannelActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, registered.Replaced)
 	s.logger.Info(
 		"machine reverse websocket registered",
 		"machine_id", parsedMachineID.String(),
@@ -162,13 +168,15 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		case domain.MessageTypeGoodbye:
 			goodbyePayload, _ := domain.DecodePayload[domain.Goodbye](envelope)
 			_, _ = s.machineSessions.Remove(sessionID)
-			_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
+			machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 				MachineID:      parsedMachineID,
 				SessionID:      sessionID,
 				DisconnectedAt: time.Now().UTC(),
 				Reason:         strings.TrimSpace(goodbyePayload.Reason),
 			})
 			s.publishMachineChannelDisconnect(ctx, parsedMachineID, sessionID, "goodbye")
+			s.recordMachineChannelActiveSessions("ws_reverse")
+			s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "goodbye")
 			return nil
 		default:
 			s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "unexpected_message", domain.ErrUnexpectedMessage)
@@ -179,13 +187,15 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	if _, ok := s.machineSessions.Remove(sessionID); !ok {
 		return nil
 	}
-	_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
+	machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 		MachineID:      parsedMachineID,
 		SessionID:      sessionID,
 		DisconnectedAt: time.Now().UTC(),
 		Reason:         "connection_closed",
 	})
 	s.publishMachineChannelDisconnect(ctx, parsedMachineID, sessionID, "connection_closed")
+	s.recordMachineChannelActiveSessions("ws_reverse")
+	s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "connection_closed")
 	return nil
 }
 
@@ -198,14 +208,16 @@ func (s *Server) runMachineSessionExpiryLoop(ctx context.Context) {
 			return
 		case now := <-ticker.C:
 			for _, expired := range s.machineSessions.Expire(now.UTC()) {
-				_, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
+				machineRecord, _ := s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 					MachineID:      expired.MachineID,
 					SessionID:      expired.SessionID,
 					DisconnectedAt: expired.DisconnectedAt,
 					Reason:         "heartbeat_timeout",
 				})
 				s.publishMachineChannelDisconnect(context.Background(), expired.MachineID, expired.SessionID, "heartbeat_timeout")
-				s.recordMachineChannelMetric("timeout")
+				s.recordMachineChannelMetric("timeout", "ws_reverse")
+				s.recordMachineChannelActiveSessions("ws_reverse")
+				s.emitMachineChannelDisconnectActivityBestEffort(context.Background(), machineRecord.OrganizationID, expired.MachineID, expired.SessionID, "heartbeat_timeout")
 				s.logger.Warn(
 					"machine reverse websocket expired",
 					"machine_id", expired.MachineID.String(),
@@ -243,8 +255,9 @@ func (s *Server) failMachineConnection(
 			"error":          err.Error(),
 		}
 		s.publishMachineTransportEvent(ctx, machineChannelAuthFailedEventType, payload)
+		s.emitMachineChannelAuthFailedActivityBestEffort(ctx, machineID, sessionID, code, err)
 	}
-	s.recordMachineChannelMetric("auth_failed")
+	s.recordMachineChannelMetric("auth_failed", "ws_reverse")
 	s.logger.Warn(
 		"machine reverse websocket handshake failed",
 		"machine_id", machineID.String(),
@@ -259,7 +272,12 @@ func (s *Server) publishMachineChannelEvent(ctx context.Context, machineID uuid.
 	eventType := machineChannelRegisteredEventType
 	if replaced {
 		eventType = machineChannelReconnectedEventType
-		s.recordMachineChannelMetric("reconnected")
+		s.recordMachineChannelMetric("reconnected", "ws_reverse")
+		if s.metrics != nil {
+			s.metrics.Counter("openase.machine_channel.websocket_reconnect_total", provider.Tags{
+				"transport_mode": "ws_reverse",
+			}).Add(1)
+		}
 	}
 	s.publishMachineTransportEvent(ctx, eventType, map[string]any{
 		"machine_id":     machineID.String(),
@@ -275,7 +293,7 @@ func (s *Server) publishMachineChannelDisconnect(ctx context.Context, machineID 
 		"transport_mode": "ws_reverse",
 		"reason":         reason,
 	})
-	s.recordMachineChannelMetric("disconnected")
+	s.recordMachineChannelMetric("disconnected", "ws_reverse")
 }
 
 func (s *Server) publishMachineTransportEvent(ctx context.Context, eventType provider.EventType, payload map[string]any) {
@@ -289,13 +307,122 @@ func (s *Server) publishMachineTransportEvent(ctx context.Context, eventType pro
 	_ = activityevent.TypeUnknown
 }
 
-func (s *Server) recordMachineChannelMetric(event string) {
+func (s *Server) recordMachineChannelMetric(event string, transportMode string) {
 	if s.metrics == nil {
 		return
 	}
 	s.metrics.Counter("openase.machine_channel.events_total", provider.Tags{
-		"event": event,
+		"event":          event,
+		"transport_mode": strings.TrimSpace(transportMode),
 	}).Add(1)
+}
+
+func (s *Server) recordMachineChannelActiveSessions(transportMode string) {
+	if s.metrics == nil || s.machineSessions == nil {
+		return
+	}
+	s.metrics.Gauge("openase.machine_channel.active_sessions", provider.Tags{
+		"transport_mode": strings.TrimSpace(transportMode),
+	}).Set(float64(s.machineSessions.Count()))
+}
+
+func (s *Server) emitMachineChannelActivityBestEffort(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineID uuid.UUID,
+	sessionID string,
+	replaced bool,
+) {
+	if organizationID == uuid.Nil {
+		return
+	}
+	eventType := activityevent.TypeMachineConnected
+	message := fmt.Sprintf("Machine %s connected over reverse websocket.", machineID)
+	if replaced {
+		eventType = activityevent.TypeMachineReconnected
+		message = fmt.Sprintf("Machine %s reconnected over reverse websocket.", machineID)
+	}
+	if err := s.emitMachineTransportActivity(ctx, organizationID, machineID, eventType, message, map[string]any{
+		"machine_id":      machineID.String(),
+		"session_id":      strings.TrimSpace(sessionID),
+		"transport_mode":  "ws_reverse",
+		"connection_mode": "reverse_websocket",
+	}); err != nil {
+		s.logger.Warn("emit machine transport activity", "machine_id", machineID.String(), "session_id", sessionID, "event_type", eventType.String(), "error", err)
+	}
+}
+
+func (s *Server) emitMachineChannelDisconnectActivityBestEffort(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineID uuid.UUID,
+	sessionID string,
+	reason string,
+) {
+	if organizationID == uuid.Nil {
+		return
+	}
+	if err := s.emitMachineTransportActivity(ctx, organizationID, machineID, activityevent.TypeMachineDisconnected, fmt.Sprintf("Machine %s disconnected from reverse websocket.", machineID), map[string]any{
+		"machine_id":      machineID.String(),
+		"session_id":      strings.TrimSpace(sessionID),
+		"transport_mode":  "ws_reverse",
+		"connection_mode": "reverse_websocket",
+		"reason":          strings.TrimSpace(reason),
+	}); err != nil {
+		s.logger.Warn("emit machine transport activity", "machine_id", machineID.String(), "session_id", sessionID, "event_type", activityevent.TypeMachineDisconnected.String(), "error", err)
+	}
+}
+
+func (s *Server) emitMachineChannelAuthFailedActivityBestEffort(
+	ctx context.Context,
+	machineID uuid.UUID,
+	sessionID string,
+	code string,
+	cause error,
+) {
+	if machineID == uuid.Nil || s == nil || s.catalog.MachineService == nil {
+		return
+	}
+	machineItem, err := s.catalog.GetMachine(ctx, machineID)
+	if err != nil {
+		s.logger.Warn("load machine for auth failure activity", "machine_id", machineID.String(), "error", err)
+		return
+	}
+	if err := s.emitMachineTransportActivity(ctx, machineItem.OrganizationID, machineID, activityevent.TypeMachineDaemonAuthFailed, fmt.Sprintf("Machine %s failed reverse websocket authentication.", machineItem.Name), map[string]any{
+		"machine_id":      machineID.String(),
+		"session_id":      strings.TrimSpace(sessionID),
+		"transport_mode":  "ws_reverse",
+		"connection_mode": "reverse_websocket",
+		"failure_code":    strings.TrimSpace(code),
+		"error":           machineTransportErrorString(cause),
+	}); err != nil {
+		s.logger.Warn("emit machine transport activity", "machine_id", machineID.String(), "session_id", sessionID, "event_type", activityevent.TypeMachineDaemonAuthFailed.String(), "error", err)
+	}
+}
+
+func (s *Server) emitMachineTransportActivity(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	machineID uuid.UUID,
+	eventType activityevent.Type,
+	message string,
+	metadata map[string]any,
+) error {
+	return s.emitMachineActivityForAffectedProjects(ctx, organizationID, machineID, func(projectID uuid.UUID) activitysvc.RecordInput {
+		return activitysvc.RecordInput{
+			ProjectID: projectID,
+			EventType: eventType,
+			Message:   message,
+			Metadata:  metadata,
+		}
+	})
+}
+
+func machineTransportErrorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return strings.TrimSpace(err.Error())
 }
 
 func readMachineEnvelope(conn *websocket.Conn) (domain.Envelope, error) {
