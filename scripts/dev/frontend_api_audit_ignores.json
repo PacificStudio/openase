@@ -1,0 +1,166 @@
+{
+  "operations": [
+    {
+      "method": "get",
+      "path": "/api/v1/auth/oidc/callback",
+      "categories": ["backend_only"],
+      "reason": "OIDC callback is a browser redirect target handled by the IdP round-trip, so the frontend intentionally does not call it through a runtime wrapper."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/events/stream",
+      "categories": ["backend_only"],
+      "reason": "The web app subscribes only to project-scoped streams; the global platform stream is currently exposed for non-frontend consumers."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/chat/conversations/{conversationId}/stream",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The web Project AI runtime now consumes the project-level mux stream, while the legacy single-conversation stream remains available for compatibility, CLI, and debugging flows."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/hooks/stream",
+      "categories": ["backend_only"],
+      "reason": "Ticket detail currently renders hook history from the detail payload and does not maintain a dedicated live hook stream subscription."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/roles/builtin/{roleSlug}",
+      "categories": ["backend_only"],
+      "reason": "The onboarding/bootstrap flow still resolves builtin role templates from the list payload, so the new single-role endpoint is intentionally not wired into the current frontend yet."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/tickets/{ticketId}",
+      "categories": ["backend_only"],
+      "reason": "The ticket UI uses the project-scoped detail endpoint instead of the standalone ticket fetch route."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/tickets/{ticketId}/comments",
+      "categories": ["backend_only"],
+      "reason": "Ticket comments are loaded through the ticket detail payload and comment mutation flows, not a standalone comments list request."
+    },
+    {
+      "method": "delete",
+      "path": "/api/v1/agents/{agentId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The frontend has no agent deletion affordance yet, so the generated wrapper is intentionally unused."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/agents/{agentId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Agent screens currently load list payloads rather than a dedicated single-agent detail call."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The workspace refresh removed the old agent output sheet, so the list wrapper is intentionally unused until a replacement browser surface is wired."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output/stream",
+      "categories": ["backend_only"],
+      "reason": "The old agent output sheet was removed in the workspace refresh, leaving the live output stream exposed only for non-frontend consumers until a new UI binds it."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The workspace refresh removed the old agent step inspector, so the list wrapper is intentionally unused until a replacement browser surface is wired."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream",
+      "categories": ["backend_only"],
+      "reason": "The old agent step inspector was removed in the workspace refresh, leaving the live step stream exposed only for non-frontend consumers until a new UI binds it."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/machines/{machineId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Machine management currently relies on list, resources, test, and health refresh endpoints instead of a standalone machine detail fetch."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/orgs/{orgId}/machines/stream",
+      "categories": ["backend_only"],
+      "reason": "The machines UI currently refreshes through snapshot polling and targeted mutations rather than maintaining an organization-wide machine event stream subscription."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/providers/{providerId}",
+      "categories": ["backend_only"],
+      "reason": "Provider detail fetch was added for CLI/operator flows and is intentionally not wired into the current frontend screens."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/token-usage",
+      "categories": ["backend_only", "wrapped_but_unused"],
+      "reason": "Project token usage is queryable for backend and operator flows, and the generated frontend wrapper exists, but the current browser UI does not yet expose a project-scoped token analytics surface."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/orgs",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Workspace bootstrap currently restores organizations through app-context and server-provided session state instead of the legacy standalone organizations wrapper."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/orgs/{orgId}/projects",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The current app shell derives project navigation from existing summary/bootstrap flows, so this older standalone organization-projects wrapper remains intentionally unused."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/skills/refresh",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Skill refresh targets the active agent workspace and is triggered by CLI/runtime flows rather than the browser settings page."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Repository settings derive mirror readiness from repo list data and mirror mutation responses rather than a dedicated mirror list fetch."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/updates/{threadId}/revisions",
+      "categories": ["backend_only", "contract_only"],
+      "reason": "Project update revision history is preserved and queryable in the backend for auditability, but the current Updates UI does not expose a revision browser yet."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/updates/{threadId}/comments/{commentId}/revisions",
+      "categories": ["backend_only", "contract_only"],
+      "reason": "Project update comment revision history is preserved and queryable in the backend for auditability, but the current Updates UI does not expose a revision browser yet."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}/mirrors/verify",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Repository settings expose prepare and sync mirror actions, but there is no separate verify action in the current UI."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Ticket detail embeds repo scopes in the detail payload, so the standalone repo-scope list wrapper is intentionally unused."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/workflows/{workflowId}",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Workflow screens load list and harness payloads and do not currently issue a standalone workflow detail request."
+    }
+  ]
+}

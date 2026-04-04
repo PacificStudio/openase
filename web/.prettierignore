@@ -1,0 +1,5 @@
+.svelte-kit
+build
+dist
+test-results
+playwright-report

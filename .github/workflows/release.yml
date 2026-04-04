@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PNPM_VERSION: 10.32.1
+  RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN != '' && secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+
+    steps:
+      - name: Create Or Update Release PR
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ env.RELEASE_TOKEN }}
+          release-type: go
+          include-v-in-tag: true
+
+  build-embedded-web:
+    name: Build Embedded Web Assets
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Check Out Release Commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install Web Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Embedded Web Assets
+        run: pnpm run build
+
+      - name: Upload Embedded Web Assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: embedded-web-assets-release
+          path: internal/webui/static
+          if-no-files-found: error
+
+  build-binaries:
+    name: Build Release Binaries
+    runs-on: ubuntu-latest
+    needs:
+      - release-please
+      - build-embedded-web
+    if: needs.release-please.outputs.release_created == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive_format: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive_format: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive_format: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive_format: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive_format: zip
+
+    steps:
+      - name: Check Out Release Commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.release-please.outputs.sha }}
+
+      - name: Download Embedded Web Assets
+        uses: actions/download-artifact@v7
+        with:
+          name: embedded-web-assets-release
+          path: internal/webui/static
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Build Packaged Binary
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          ARCHIVE_FORMAT: ${{ matrix.archive_format }}
+          RELEASE_TAG: ${{ needs.release-please.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          binary_name="openase"
+          if [[ "${GOOS}" == "windows" ]]; then
+            binary_name="${binary_name}.exe"
+          fi
+
+          package_basename="openase_${RELEASE_TAG}_${GOOS}_${GOARCH}"
+          package_dir="${RUNNER_TEMP}/${package_basename}"
+          archive_path="${RUNNER_TEMP}/${package_basename}.${ARCHIVE_FORMAT}"
+
+          mkdir -p "${package_dir}"
+
+          CGO_ENABLED=0 make build \
+            VERSION="${RELEASE_TAG}" \
+            OPENASE_BIN="${package_dir}/${binary_name}"
+
+          cp LICENSE README.md "${package_dir}/"
+
+          if [[ "${ARCHIVE_FORMAT}" == "zip" ]]; then
+            (
+              cd "${RUNNER_TEMP}"
+              zip -rq "${archive_path}" "${package_basename}"
+            )
+          else
+            tar -C "${RUNNER_TEMP}" -czf "${archive_path}" "${package_basename}"
+          fi
+
+      - name: Upload Release Archive
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-binary-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ runner.temp }}/openase_${{ needs.release-please.outputs.tag_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive_format }}
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release Assets
+    runs-on: ubuntu-latest
+    needs:
+      - release-please
+      - build-binaries
+    if: needs.release-please.outputs.release_created == 'true'
+
+    steps:
+      - name: Download Release Archives
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-binary-*
+          merge-multiple: true
+          path: release-artifacts
+
+      - name: Generate Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd release-artifacts
+          sha256sum * > checksums.txt
+
+      - name: Upload Assets To GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.release-please.outputs.tag_name }}
+          files: release-artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}

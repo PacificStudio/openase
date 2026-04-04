@@ -1,0 +1,17 @@
+.symphony-runtime/
+.symphony-runtime-source/
+WORKFLOW.backup.*.md
+.cache/
+.mise-data/
+.tmp/
+.tools/
+openase
+web/.svelte-kit/
+web/node_modules/
+__pycache__/
+*.pyc
+internal/webui/static/*
+!internal/webui/static/.keep
+
+references/**
+node_modules/**

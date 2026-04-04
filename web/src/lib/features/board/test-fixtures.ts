@@ -1,0 +1,45 @@
+import type { StatusPayload } from '$lib/api/contracts'
+
+export const orderedStatusPayloadFixture: StatusPayload = {
+  statuses: [
+    {
+      id: 'status-3',
+      project_id: 'project-1',
+      name: 'Inbox',
+      stage: 'backlog',
+      color: '#64748b',
+      icon: '',
+      is_default: false,
+      description: '',
+      position: 0,
+      active_runs: 0,
+      max_active_runs: null,
+    },
+    {
+      id: 'status-1',
+      project_id: 'project-1',
+      name: 'Todo',
+      stage: 'unstarted',
+      color: '#2563eb',
+      icon: '',
+      is_default: true,
+      description: '',
+      position: 1,
+      active_runs: 0,
+      max_active_runs: null,
+    },
+    {
+      id: 'status-2',
+      project_id: 'project-1',
+      name: 'Doing',
+      stage: 'started',
+      color: '#f59e0b',
+      icon: '',
+      is_default: false,
+      description: '',
+      position: 2,
+      active_runs: 1,
+      max_active_runs: 1,
+    },
+  ],
+}

@@ -1,0 +1,5 @@
+export { default as OnboardingPanel } from './components/onboarding-panel.svelte'
+export { markProjectOnboardingCompleted, readProjectOnboardingCompletion } from './completion'
+export { loadOnboardingData } from './data'
+export { buildOnboardingSteps, currentActiveStep, isOnboardingComplete } from './model'
+export type { OnboardingData, OnboardingStep, OnboardingStepId } from './types'

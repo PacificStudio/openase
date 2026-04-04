@@ -1,0 +1,3264 @@
+{
+  "openapi_sha256": "24b1c6a54ade9d4746161ffb453eeb75a964693c5bc56383aa302e23b8718959",
+  "commands": [
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets",
+      "operation_id": "listTickets",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "priority",
+          "description": "Filter tickets by priorities. Accepts a comma-separated string.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "status_name",
+          "description": "Filter tickets by status names. Accepts a comma-separated string.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "archived [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets/archived",
+      "operation_id": "listArchivedTickets",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "page",
+          "description": "Archived tickets page number.",
+          "kind": "int64"
+        },
+        {
+          "name": "per_page",
+          "description": "Archived tickets page size.",
+          "kind": "int64"
+        }
+      ]
+    },
+    {
+      "use": "get [ticketId]",
+      "method": "GET",
+      "path": "/api/v1/tickets/{ticketId}",
+      "operation_id": "getTicket",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/tickets",
+      "operation_id": "createTicket",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "budget_usd",
+          "description": "Optional budget limit for the ticket in USD.",
+          "kind": "float64"
+        },
+        {
+          "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Ticket description or problem statement.",
+          "kind": "string"
+        },
+        {
+          "name": "external_ref",
+          "description": "Optional external reference string associated with the ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "parent_ticket_id",
+          "description": "Optional parent ticket ID for hierarchical ticket relationships.",
+          "kind": "string"
+        },
+        {
+          "name": "priority",
+          "description": "Ticket priority value.",
+          "kind": "string"
+        },
+        {
+          "name": "status_id",
+          "description": "Optional ticket status ID to assign explicitly.",
+          "kind": "string"
+        },
+        {
+          "name": "title",
+          "description": "Human-readable ticket title.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "Ticket type value.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID that should handle the ticket.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [ticketId]",
+      "method": "PATCH",
+      "path": "/api/v1/tickets/{ticketId}",
+      "operation_id": "updateTicket",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "budget_usd",
+          "description": "Optional budget limit for the ticket in USD.",
+          "kind": "float64"
+        },
+        {
+          "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Ticket description or problem statement.",
+          "kind": "string"
+        },
+        {
+          "name": "external_ref",
+          "description": "Optional external reference string associated with the ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "parent_ticket_id",
+          "description": "Optional parent ticket ID for hierarchical ticket relationships.",
+          "kind": "string"
+        },
+        {
+          "name": "priority",
+          "description": "Ticket priority value.",
+          "kind": "string"
+        },
+        {
+          "name": "status_id",
+          "description": "Optional ticket status ID to assign explicitly.",
+          "kind": "string"
+        },
+        {
+          "name": "title",
+          "description": "Human-readable ticket title.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "Ticket type value.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID that should handle the ticket.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "detail [projectId] [ticketId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/detail",
+      "operation_id": "getTicketDetail",
+      "positional_params": [
+        "projectId",
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "retry-resume [ticketId]",
+      "method": "POST",
+      "path": "/api/v1/tickets/{ticketId}/retry/resume",
+      "operation_id": "resumeTicketRetry",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [ticketId]",
+      "method": "GET",
+      "path": "/api/v1/tickets/{ticketId}/comments",
+      "operation_id": "listTicketComments",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [ticketId]",
+      "method": "POST",
+      "path": "/api/v1/tickets/{ticketId}/comments",
+      "operation_id": "createTicketComment",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "body",
+          "description": "Markdown body content for the ticket comment.",
+          "kind": "string"
+        },
+        {
+          "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the comment.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [ticketId] [commentId]",
+      "method": "PATCH",
+      "path": "/api/v1/tickets/{ticketId}/comments/{commentId}",
+      "operation_id": "updateTicketComment",
+      "positional_params": [
+        "ticketId",
+        "commentId"
+      ],
+      "path_params": [
+        {
+          "name": "commentId",
+          "description": "Comment ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "body",
+          "description": "Updated markdown body content for the ticket comment.",
+          "kind": "string"
+        },
+        {
+          "name": "edit_reason",
+          "description": "Reason recorded for editing the comment.",
+          "kind": "string"
+        },
+        {
+          "name": "edited_by",
+          "description": "Actor identifier recorded as the editor of the comment.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [ticketId] [commentId]",
+      "method": "DELETE",
+      "path": "/api/v1/tickets/{ticketId}/comments/{commentId}",
+      "operation_id": "deleteTicketComment",
+      "positional_params": [
+        "ticketId",
+        "commentId"
+      ],
+      "path_params": [
+        {
+          "name": "commentId",
+          "description": "Comment ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "revisions [ticketId] [commentId]",
+      "method": "GET",
+      "path": "/api/v1/tickets/{ticketId}/comments/{commentId}/revisions",
+      "operation_id": "listTicketCommentRevisions",
+      "positional_params": [
+        "ticketId",
+        "commentId"
+      ],
+      "path_params": [
+        {
+          "name": "commentId",
+          "description": "Comment ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "add [ticketId]",
+      "method": "POST",
+      "path": "/api/v1/tickets/{ticketId}/dependencies",
+      "operation_id": "addTicketDependency",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "target_ticket_id",
+          "description": "Target ticket ID referenced by the dependency.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "Dependency relationship type. Supported values: blocks, blocked_by, sub_issue.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [ticketId] [dependencyId]",
+      "method": "DELETE",
+      "path": "/api/v1/tickets/{ticketId}/dependencies/{dependencyId}",
+      "operation_id": "deleteTicketDependency",
+      "positional_params": [
+        "ticketId",
+        "dependencyId"
+      ],
+      "path_params": [
+        {
+          "name": "dependencyId",
+          "description": "Dependency ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "add [ticketId]",
+      "method": "POST",
+      "path": "/api/v1/tickets/{ticketId}/external-links",
+      "operation_id": "addTicketExternalLink",
+      "positional_params": [
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "external_id",
+          "description": "External system identifier for the linked resource.",
+          "kind": "string"
+        },
+        {
+          "name": "relation",
+          "description": "Relationship between the ticket and the external resource.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Optional external status value.",
+          "kind": "string"
+        },
+        {
+          "name": "title",
+          "description": "Optional title for the external resource.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "External link type.",
+          "kind": "string"
+        },
+        {
+          "name": "url",
+          "description": "URL of the external resource.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [ticketId] [externalLinkId]",
+      "method": "DELETE",
+      "path": "/api/v1/tickets/{ticketId}/external-links/{externalLinkId}",
+      "operation_id": "deleteTicketExternalLink",
+      "positional_params": [
+        "ticketId",
+        "externalLinkId"
+      ],
+      "path_params": [
+        {
+          "name": "externalLinkId",
+          "description": "External link ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId] [ticketId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/runs",
+      "operation_id": "listTicketRuns",
+      "positional_params": [
+        "projectId",
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [projectId] [ticketId] [runId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}",
+      "operation_id": "getTicketRun",
+      "positional_params": [
+        "projectId",
+        "ticketId",
+        "runId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "runId",
+          "description": "Run ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/statuses",
+      "operation_id": "listTicketStatuses",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/activity",
+      "operation_id": "listActivityEvents",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "agent_id",
+          "description": "Filter activity by agent ID.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "limit",
+          "description": "Limit the number of returned activity events.",
+          "kind": "int64"
+        },
+        {
+          "name": "ticket_id",
+          "description": "Filter activity by ticket ID.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/statuses",
+      "operation_id": "createTicketStatus",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "color",
+          "description": "Display color for the status.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable status description.",
+          "kind": "string"
+        },
+        {
+          "name": "icon",
+          "description": "Display icon identifier for the status.",
+          "kind": "string"
+        },
+        {
+          "name": "is_default",
+          "description": "Whether this status should become the default status.",
+          "kind": "bool"
+        },
+        {
+          "name": "max_active_runs",
+          "description": "Maximum number of active runs allowed in this status.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable status name.",
+          "kind": "string"
+        },
+        {
+          "name": "position",
+          "description": "Zero-based display order of the status.",
+          "kind": "int64"
+        },
+        {
+          "name": "stage",
+          "description": "Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [statusId]",
+      "method": "PATCH",
+      "path": "/api/v1/statuses/{statusId}",
+      "operation_id": "updateTicketStatus",
+      "positional_params": [
+        "statusId"
+      ],
+      "path_params": [
+        {
+          "name": "statusId",
+          "description": "Ticket status ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "color",
+          "description": "Display color for the status.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable status description.",
+          "kind": "string"
+        },
+        {
+          "name": "icon",
+          "description": "Display icon identifier for the status.",
+          "kind": "string"
+        },
+        {
+          "name": "is_default",
+          "description": "Whether this status should become the default status.",
+          "kind": "bool"
+        },
+        {
+          "name": "max_active_runs",
+          "description": "Maximum number of active runs allowed in this status.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable status name.",
+          "kind": "string"
+        },
+        {
+          "name": "position",
+          "description": "Zero-based display order of the status.",
+          "kind": "int64"
+        },
+        {
+          "name": "stage",
+          "description": "Lifecycle stage for the status. One of backlog, unstarted, started, completed, or canceled.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [statusId]",
+      "method": "DELETE",
+      "path": "/api/v1/statuses/{statusId}",
+      "operation_id": "deleteTicketStatus",
+      "positional_params": [
+        "statusId"
+      ],
+      "path_params": [
+        {
+          "name": "statusId",
+          "description": "Ticket status ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "reset [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/statuses/reset",
+      "operation_id": "resetTicketStatuses",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "send",
+      "method": "POST",
+      "path": "/api/v1/chat",
+      "operation_id": "startEphemeralChat",
+      "body_fields": [
+        {
+          "name": "message",
+          "description": "User message content for the chat turn.",
+          "kind": "string"
+        },
+        {
+          "name": "provider_id",
+          "description": "Optional provider ID used to run this chat session.",
+          "kind": "string"
+        },
+        {
+          "name": "session_id",
+          "description": "Optional existing chat session ID to resume.",
+          "kind": "string"
+        },
+        {
+          "name": "source",
+          "description": "Source identifier for the chat request, such as web or cli.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "close [sessionId]",
+      "method": "DELETE",
+      "path": "/api/v1/chat/{sessionId}",
+      "operation_id": "closeEphemeralChat",
+      "positional_params": [
+        "sessionId"
+      ],
+      "path_params": [
+        {
+          "name": "sessionId",
+          "description": "Ephemeral chat session ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create",
+      "method": "POST",
+      "path": "/api/v1/chat/conversations",
+      "operation_id": "createProjectConversation",
+      "body_fields": [
+        {
+          "name": "provider_id",
+          "description": "Provider ID used to run this persistent project conversation.",
+          "kind": "string"
+        },
+        {
+          "name": "source",
+          "description": "Project conversation source and currently must be project_sidebar.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list",
+      "method": "GET",
+      "path": "/api/v1/chat/conversations",
+      "operation_id": "listProjectConversations",
+      "query_params": [
+        {
+          "name": "project_id",
+          "description": "Project ID that scopes the conversation list.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "provider_id",
+          "description": "Optional provider ID used to filter conversations.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "get [conversationId]",
+      "method": "GET",
+      "path": "/api/v1/chat/conversations/{conversationId}",
+      "operation_id": "getProjectConversation",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "entries [conversationId]",
+      "method": "GET",
+      "path": "/api/v1/chat/conversations/{conversationId}/entries",
+      "operation_id": "listProjectConversationEntries",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "workspace-diff [conversationId]",
+      "method": "GET",
+      "path": "/api/v1/chat/conversations/{conversationId}/workspace-diff",
+      "operation_id": "getProjectConversationWorkspaceDiff",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "turn [conversationId]",
+      "method": "POST",
+      "path": "/api/v1/chat/conversations/{conversationId}/turns",
+      "operation_id": "startProjectConversationTurn",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "message",
+          "description": "User message content appended as the next project conversation turn.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "watch [conversationId]",
+      "method": "GET",
+      "path": "/api/v1/chat/conversations/{conversationId}/stream",
+      "operation_id": "streamProjectConversation",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "respond-interrupt [conversationId] [interruptId]",
+      "method": "POST",
+      "path": "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond",
+      "operation_id": "respondProjectConversationInterrupt",
+      "positional_params": [
+        "conversationId",
+        "interruptId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "interruptId",
+          "description": "Stable OpenASE interrupt ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "decision",
+          "description": "Provider-native interrupt decision identifier such as approve_once.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "close-runtime [conversationId]",
+      "method": "DELETE",
+      "path": "/api/v1/chat/conversations/{conversationId}/runtime",
+      "operation_id": "closeProjectConversationRuntime",
+      "positional_params": [
+        "conversationId"
+      ],
+      "path_params": [
+        {
+          "name": "conversationId",
+          "description": "Stable OpenASE conversation ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [orgId]",
+      "method": "GET",
+      "path": "/api/v1/orgs/{orgId}/projects",
+      "operation_id": "listProjects",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}",
+      "operation_id": "getProject",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [orgId]",
+      "method": "POST",
+      "path": "/api/v1/orgs/{orgId}/projects",
+      "operation_id": "createProject",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "accessible_machine_ids",
+          "description": "Machine IDs that the project is allowed to use.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "agent_run_summary_prompt",
+          "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+          "kind": "string"
+        },
+        {
+          "name": "default_agent_provider_id",
+          "description": "Optional default agent provider ID for the project.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable project description.",
+          "kind": "string"
+        },
+        {
+          "name": "max_concurrent_agents",
+          "description": "Maximum number of agents that may run concurrently in the project.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable project name.",
+          "kind": "string"
+        },
+        {
+          "name": "slug",
+          "description": "Stable URL-safe project slug.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Current project lifecycle status name.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}",
+      "operation_id": "updateProject",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "accessible_machine_ids",
+          "description": "Machine IDs that the project is allowed to use.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "agent_run_summary_prompt",
+          "description": "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+          "kind": "string"
+        },
+        {
+          "name": "default_agent_provider_id",
+          "description": "Optional default agent provider ID for the project.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable project description.",
+          "kind": "string"
+        },
+        {
+          "name": "max_concurrent_agents",
+          "description": "Maximum number of agents that may run concurrently in the project.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable project name.",
+          "kind": "string"
+        },
+        {
+          "name": "slug",
+          "description": "Stable URL-safe project slug.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Current project lifecycle status name.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}",
+      "operation_id": "archiveProject",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/repos",
+      "operation_id": "listProjectRepos",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/repos",
+      "operation_id": "createProjectRepo",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "default_branch",
+          "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
+          "kind": "string"
+        },
+        {
+          "name": "labels",
+          "description": "Labels attached to the repository for workflow selection and filtering.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable repository name within the project.",
+          "kind": "string"
+        },
+        {
+          "name": "repository_url",
+          "description": "Remote Git repository URL.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_dirname",
+          "description": "Directory name used for this repository inside a ticket workspace.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId] [repoId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}",
+      "operation_id": "updateProjectRepo",
+      "positional_params": [
+        "projectId",
+        "repoId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "repoId",
+          "description": "Repository ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "default_branch",
+          "description": "Repository base branch used when OpenASE creates a new ticket work branch.",
+          "kind": "string"
+        },
+        {
+          "name": "labels",
+          "description": "Labels attached to the repository for workflow selection and filtering.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable repository name within the project.",
+          "kind": "string"
+        },
+        {
+          "name": "repository_url",
+          "description": "Remote Git repository URL.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_dirname",
+          "description": "Directory name used for this repository inside a ticket workspace.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [repoId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/repos/{repoId}",
+      "operation_id": "deleteProjectRepo",
+      "positional_params": [
+        "projectId",
+        "repoId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "repoId",
+          "description": "Repository ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "namespaces [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/github/namespaces",
+      "operation_id": "listGitHubNamespaces",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/github/repos",
+      "operation_id": "listGitHubRepositories",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "cursor",
+          "description": "Pagination cursor returned by the previous GitHub repository response.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "query",
+          "description": "Optional case-insensitive search query matched against repo name, owner, and full name.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/github/repos",
+      "operation_id": "createGitHubRepository",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "auto_init",
+          "description": "Whether GitHub should initialize the repository with a default branch so OpenASE can bind it immediately.",
+          "kind": "bool"
+        },
+        {
+          "name": "description",
+          "description": "Optional GitHub repository description.",
+          "kind": "string"
+        },
+        {
+          "name": "name",
+          "description": "Repository name to create inside the selected GitHub namespace.",
+          "kind": "string"
+        },
+        {
+          "name": "owner",
+          "description": "GitHub user or organization namespace that owns the repository.",
+          "kind": "string"
+        },
+        {
+          "name": "visibility",
+          "description": "GitHub repository visibility. Supported values are private and public.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId] [ticketId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+      "operation_id": "listTicketRepoScopes",
+      "positional_params": [
+        "projectId",
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId] [ticketId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
+      "operation_id": "createTicketRepoScope",
+      "positional_params": [
+        "projectId",
+        "ticketId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "branch_name",
+          "description": "Optional work-branch override for the scoped repository. Leave blank to use the generated ticket branch.",
+          "kind": "string"
+        },
+        {
+          "name": "pull_request_url",
+          "description": "Pull request URL associated with the repository scope.",
+          "kind": "string"
+        },
+        {
+          "name": "repo_id",
+          "description": "Repository ID attached to the ticket scope.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId] [ticketId] [scopeId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+      "operation_id": "updateTicketRepoScope",
+      "positional_params": [
+        "projectId",
+        "ticketId",
+        "scopeId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "scopeId",
+          "description": "Repository scope ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "branch_name",
+          "description": "Optional work-branch override for the scoped repository. Send an empty string to clear the override and use the generated ticket branch.",
+          "kind": "string"
+        },
+        {
+          "name": "pull_request_url",
+          "description": "Pull request URL associated with the repository scope.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [ticketId] [scopeId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
+      "operation_id": "deleteTicketRepoScope",
+      "positional_params": [
+        "projectId",
+        "ticketId",
+        "scopeId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "scopeId",
+          "description": "Repository scope ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "ticketId",
+          "description": "Ticket ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/workflows",
+      "operation_id": "listWorkflows",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [workflowId]",
+      "method": "GET",
+      "path": "/api/v1/workflows/{workflowId}",
+      "operation_id": "getWorkflow",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/workflows",
+      "operation_id": "createWorkflow",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_id",
+          "description": "Agent ID assigned to execute this workflow.",
+          "kind": "string"
+        },
+        {
+          "name": "created_by",
+          "description": "Optional creator descriptor recorded on the initial workflow harness version.",
+          "kind": "string"
+        },
+        {
+          "name": "finish_status_ids",
+          "description": "Ticket status IDs that mark workflow completion.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "harness_content",
+          "description": "Initial pure Markdown or Gonja harness body written into the versioned control-plane workflow record.",
+          "kind": "string"
+        },
+        {
+          "name": "harness_path",
+          "description": "Logical harness path tracked by the control plane for this workflow.",
+          "kind": "string"
+        },
+        {
+          "name": "is_active",
+          "description": "Whether the workflow is active and eligible to pick up work.",
+          "kind": "bool"
+        },
+        {
+          "name": "max_concurrent",
+          "description": "Maximum number of concurrent runs allowed for the workflow.",
+          "kind": "int64"
+        },
+        {
+          "name": "max_retry_attempts",
+          "description": "Maximum retry attempts before the workflow run fails permanently.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable workflow name.",
+          "kind": "string"
+        },
+        {
+          "name": "pickup_status_ids",
+          "description": "Ticket status IDs that allow the workflow to pick up tickets.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "platform_access_allowed",
+          "description": "Allowed OpenASE platform API scopes for agents running this workflow.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "role_description",
+          "description": "Structured workflow role summary shown in runtime and editor context.",
+          "kind": "string"
+        },
+        {
+          "name": "role_name",
+          "description": "Human-readable workflow role name stored in structured workflow metadata.",
+          "kind": "string"
+        },
+        {
+          "name": "role_slug",
+          "description": "Stable workflow role slug stored in structured workflow metadata.",
+          "kind": "string"
+        },
+        {
+          "name": "skill_names",
+          "description": "Skill names to bind to the workflow when it is created.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "stall_timeout_minutes",
+          "description": "Timeout for detecting stalled workflow runs, in minutes.",
+          "kind": "int64"
+        },
+        {
+          "name": "timeout_minutes",
+          "description": "Hard execution timeout for workflow runs, in minutes.",
+          "kind": "int64"
+        },
+        {
+          "name": "type",
+          "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [workflowId]",
+      "method": "PATCH",
+      "path": "/api/v1/workflows/{workflowId}",
+      "operation_id": "updateWorkflow",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_id",
+          "description": "Agent ID assigned to execute this workflow.",
+          "kind": "string"
+        },
+        {
+          "name": "edited_by",
+          "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
+          "kind": "string"
+        },
+        {
+          "name": "finish_status_ids",
+          "description": "Ticket status IDs that mark workflow completion.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "harness_path",
+          "description": "Logical harness path tracked by the control plane for this workflow.",
+          "kind": "string"
+        },
+        {
+          "name": "is_active",
+          "description": "Whether the workflow is active and eligible to pick up work.",
+          "kind": "bool"
+        },
+        {
+          "name": "max_concurrent",
+          "description": "Maximum number of concurrent runs allowed for the workflow.",
+          "kind": "int64"
+        },
+        {
+          "name": "max_retry_attempts",
+          "description": "Maximum retry attempts before the workflow run fails permanently.",
+          "kind": "int64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable workflow name.",
+          "kind": "string"
+        },
+        {
+          "name": "pickup_status_ids",
+          "description": "Ticket status IDs that allow the workflow to pick up tickets.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "platform_access_allowed",
+          "description": "Allowed OpenASE platform API scopes for agents running this workflow.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "role_description",
+          "description": "Structured workflow role summary shown in runtime and editor context.",
+          "kind": "string"
+        },
+        {
+          "name": "role_name",
+          "description": "Human-readable workflow role name stored in structured workflow metadata.",
+          "kind": "string"
+        },
+        {
+          "name": "role_slug",
+          "description": "Stable workflow role slug stored in structured workflow metadata.",
+          "kind": "string"
+        },
+        {
+          "name": "stall_timeout_minutes",
+          "description": "Timeout for detecting stalled workflow runs, in minutes.",
+          "kind": "int64"
+        },
+        {
+          "name": "timeout_minutes",
+          "description": "Hard execution timeout for workflow runs, in minutes.",
+          "kind": "int64"
+        },
+        {
+          "name": "type",
+          "description": "Workflow type, such as coding, test, doc, security, deploy, refine-harness, or custom.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [workflowId]",
+      "method": "DELETE",
+      "path": "/api/v1/workflows/{workflowId}",
+      "operation_id": "deleteWorkflow",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [workflowId]",
+      "method": "GET",
+      "path": "/api/v1/workflows/{workflowId}/harness",
+      "operation_id": "getWorkflowHarness",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "history [workflowId]",
+      "method": "GET",
+      "path": "/api/v1/workflows/{workflowId}/harness/history",
+      "operation_id": "getWorkflowHarnessHistory",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [workflowId]",
+      "method": "PUT",
+      "path": "/api/v1/workflows/{workflowId}/harness",
+      "operation_id": "updateWorkflowHarness",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Harness content to write or validate.",
+          "kind": "string"
+        },
+        {
+          "name": "edited_by",
+          "description": "Optional editor descriptor recorded on the published workflow harness version.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "variables",
+      "method": "GET",
+      "path": "/api/v1/harness/variables",
+      "operation_id": "listHarnessVariables"
+    },
+    {
+      "use": "validate",
+      "method": "POST",
+      "path": "/api/v1/harness/validate",
+      "operation_id": "validateHarness",
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Harness content to write or validate.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/scheduled-jobs",
+      "operation_id": "listScheduledJobs",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/scheduled-jobs",
+      "operation_id": "createScheduledJob",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "cron_expression",
+          "description": "Cron expression that controls when the job triggers.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the scheduled job is enabled.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable scheduled job name.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [jobId]",
+      "method": "PATCH",
+      "path": "/api/v1/scheduled-jobs/{jobId}",
+      "operation_id": "updateScheduledJob",
+      "positional_params": [
+        "jobId"
+      ],
+      "path_params": [
+        {
+          "name": "jobId",
+          "description": "Scheduled job ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "cron_expression",
+          "description": "Cron expression that controls when the job triggers.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the scheduled job is enabled.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable scheduled job name.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [jobId]",
+      "method": "DELETE",
+      "path": "/api/v1/scheduled-jobs/{jobId}",
+      "operation_id": "deleteScheduledJob",
+      "positional_params": [
+        "jobId"
+      ],
+      "path_params": [
+        {
+          "name": "jobId",
+          "description": "Scheduled job ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "trigger [jobId]",
+      "method": "POST",
+      "path": "/api/v1/scheduled-jobs/{jobId}/trigger",
+      "operation_id": "triggerScheduledJob",
+      "positional_params": [
+        "jobId"
+      ],
+      "path_params": [
+        {
+          "name": "jobId",
+          "description": "Scheduled job ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [orgId]",
+      "method": "GET",
+      "path": "/api/v1/orgs/{orgId}/machines",
+      "operation_id": "listMachines",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [machineId]",
+      "method": "GET",
+      "path": "/api/v1/machines/{machineId}",
+      "operation_id": "getMachine",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [orgId]",
+      "method": "POST",
+      "path": "/api/v1/orgs/{orgId}/machines",
+      "operation_id": "createMachine",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_cli_path",
+          "description": "Absolute path to the agent CLI executable on the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable machine description.",
+          "kind": "string"
+        },
+        {
+          "name": "env_vars",
+          "description": "Environment variable entries exported when work runs on the machine.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "host",
+          "description": "Hostname or address used to reach the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "labels",
+          "description": "Labels attached to the machine for operator reference.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable machine name.",
+          "kind": "string"
+        },
+        {
+          "name": "port",
+          "description": "SSH port used to connect to the machine.",
+          "kind": "int64"
+        },
+        {
+          "name": "ssh_key_path",
+          "description": "Path to the SSH private key used for machine access.",
+          "kind": "string"
+        },
+        {
+          "name": "ssh_user",
+          "description": "SSH username used for machine access.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Machine lifecycle status value.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_root",
+          "description": "Filesystem root directory where ticket workspaces are created on the machine.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [machineId]",
+      "method": "PATCH",
+      "path": "/api/v1/machines/{machineId}",
+      "operation_id": "updateMachine",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_cli_path",
+          "description": "Absolute path to the agent CLI executable on the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Human-readable machine description.",
+          "kind": "string"
+        },
+        {
+          "name": "env_vars",
+          "description": "Environment variable entries exported when work runs on the machine.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "host",
+          "description": "Hostname or address used to reach the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "labels",
+          "description": "Labels attached to the machine for operator reference.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable machine name.",
+          "kind": "string"
+        },
+        {
+          "name": "port",
+          "description": "SSH port used to connect to the machine.",
+          "kind": "int64"
+        },
+        {
+          "name": "ssh_key_path",
+          "description": "Path to the SSH private key used for machine access.",
+          "kind": "string"
+        },
+        {
+          "name": "ssh_user",
+          "description": "SSH username used for machine access.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Machine lifecycle status value.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_root",
+          "description": "Filesystem root directory where ticket workspaces are created on the machine.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [machineId]",
+      "method": "DELETE",
+      "path": "/api/v1/machines/{machineId}",
+      "operation_id": "deleteMachine",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "resources [machineId]",
+      "method": "GET",
+      "path": "/api/v1/machines/{machineId}/resources",
+      "operation_id": "getMachineResources",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "test [machineId]",
+      "method": "POST",
+      "path": "/api/v1/machines/{machineId}/test",
+      "operation_id": "testMachineConnection",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "refresh-health [machineId]",
+      "method": "POST",
+      "path": "/api/v1/machines/{machineId}/refresh-health",
+      "operation_id": "refreshMachineHealth",
+      "positional_params": [
+        "machineId"
+      ],
+      "path_params": [
+        {
+          "name": "machineId",
+          "description": "Machine ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [orgId]",
+      "method": "GET",
+      "path": "/api/v1/orgs/{orgId}/providers",
+      "operation_id": "listAgentProviders",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [providerId]",
+      "method": "GET",
+      "path": "/api/v1/providers/{providerId}",
+      "operation_id": "getAgentProvider",
+      "positional_params": [
+        "providerId"
+      ],
+      "path_params": [
+        {
+          "name": "providerId",
+          "description": "Agent provider ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [orgId]",
+      "method": "POST",
+      "path": "/api/v1/orgs/{orgId}/providers",
+      "operation_id": "createAgentProvider",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "adapter_type",
+          "description": "Adapter type used to launch and communicate with the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "cli_args",
+          "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "cli_command",
+          "description": "CLI command used to launch the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "cost_per_input_token",
+          "description": "Estimated USD cost per input token.",
+          "kind": "float64"
+        },
+        {
+          "name": "cost_per_output_token",
+          "description": "Estimated USD cost per output token.",
+          "kind": "float64"
+        },
+        {
+          "name": "machine_id",
+          "description": "Machine ID where this provider runs.",
+          "kind": "string"
+        },
+        {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
+        },
+        {
+          "name": "model_max_tokens",
+          "description": "Maximum number of output tokens allowed for the provider model.",
+          "kind": "int64"
+        },
+        {
+          "name": "model_name",
+          "description": "Model name configured for the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "model_temperature",
+          "description": "Sampling temperature configured for the provider model.",
+          "kind": "float64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable provider name.",
+          "kind": "string"
+        },
+        {
+          "name": "permission_profile",
+          "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [providerId]",
+      "method": "PATCH",
+      "path": "/api/v1/providers/{providerId}",
+      "operation_id": "updateAgentProvider",
+      "positional_params": [
+        "providerId"
+      ],
+      "path_params": [
+        {
+          "name": "providerId",
+          "description": "Agent provider ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "adapter_type",
+          "description": "Adapter type used to launch and communicate with the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "cli_args",
+          "description": "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "cli_command",
+          "description": "CLI command used to launch the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "cost_per_input_token",
+          "description": "Estimated USD cost per input token.",
+          "kind": "float64"
+        },
+        {
+          "name": "cost_per_output_token",
+          "description": "Estimated USD cost per output token.",
+          "kind": "float64"
+        },
+        {
+          "name": "machine_id",
+          "description": "Machine ID where this provider runs.",
+          "kind": "string"
+        },
+        {
+          "name": "max_parallel_runs",
+          "description": "Maximum number of concurrent runs allowed for the provider.",
+          "kind": "int64"
+        },
+        {
+          "name": "model_max_tokens",
+          "description": "Maximum number of output tokens allowed for the provider model.",
+          "kind": "int64"
+        },
+        {
+          "name": "model_name",
+          "description": "Model name configured for the provider.",
+          "kind": "string"
+        },
+        {
+          "name": "model_temperature",
+          "description": "Sampling temperature configured for the provider model.",
+          "kind": "float64"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable provider name.",
+          "kind": "string"
+        },
+        {
+          "name": "permission_profile",
+          "description": "Managed permission profile used to render adapter-specific approval and sandbox options.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/agents",
+      "operation_id": "listAgents",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [agentId]",
+      "method": "GET",
+      "path": "/api/v1/agents/{agentId}",
+      "operation_id": "getAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/agents",
+      "operation_id": "createAgent",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "name",
+          "description": "Human-readable agent name.",
+          "kind": "string"
+        },
+        {
+          "name": "provider_id",
+          "description": "Agent provider ID used to run the agent.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [agentId]",
+      "method": "PATCH",
+      "path": "/api/v1/agents/{agentId}",
+      "operation_id": "updateAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "name",
+          "description": "Human-readable agent name.",
+          "kind": "string"
+        },
+        {
+          "name": "provider_id",
+          "description": "Agent provider ID used to run the agent.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [agentId]",
+      "method": "DELETE",
+      "path": "/api/v1/agents/{agentId}",
+      "operation_id": "deleteAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "pause [agentId]",
+      "method": "POST",
+      "path": "/api/v1/agents/{agentId}/pause",
+      "operation_id": "pauseAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "resume [agentId]",
+      "method": "POST",
+      "path": "/api/v1/agents/{agentId}/resume",
+      "operation_id": "resumeAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "output [projectId] [agentId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output",
+      "operation_id": "listAgentOutput",
+      "positional_params": [
+        "projectId",
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "limit",
+          "description": "Limit the number of returned output entries.",
+          "kind": "int64"
+        },
+        {
+          "name": "ticket_id",
+          "description": "Filter output by ticket ID.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "steps [projectId] [agentId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps",
+      "operation_id": "listAgentSteps",
+      "positional_params": [
+        "projectId",
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "limit",
+          "description": "Limit the number of returned step entries.",
+          "kind": "int64"
+        },
+        {
+          "name": "ticket_id",
+          "description": "Filter steps by ticket ID.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "list [orgId]",
+      "method": "GET",
+      "path": "/api/v1/orgs/{orgId}/channels",
+      "operation_id": "listNotificationChannels",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [orgId]",
+      "method": "POST",
+      "path": "/api/v1/orgs/{orgId}/channels",
+      "operation_id": "createNotificationChannel",
+      "positional_params": [
+        "orgId"
+      ],
+      "path_params": [
+        {
+          "name": "orgId",
+          "description": "Organization ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "is_enabled",
+          "description": "Whether the channel is enabled for delivery.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable notification channel name.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "Notification channel type, such as slack or webhook.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [channelId]",
+      "method": "PATCH",
+      "path": "/api/v1/channels/{channelId}",
+      "operation_id": "updateNotificationChannel",
+      "positional_params": [
+        "channelId"
+      ],
+      "path_params": [
+        {
+          "name": "channelId",
+          "description": "Notification channel ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "is_enabled",
+          "description": "Whether the channel is enabled for delivery.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable notification channel name.",
+          "kind": "string"
+        },
+        {
+          "name": "type",
+          "description": "Notification channel type, such as slack or webhook.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [channelId]",
+      "method": "DELETE",
+      "path": "/api/v1/channels/{channelId}",
+      "operation_id": "deleteNotificationChannel",
+      "positional_params": [
+        "channelId"
+      ],
+      "path_params": [
+        {
+          "name": "channelId",
+          "description": "Notification channel ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "test [channelId]",
+      "method": "POST",
+      "path": "/api/v1/channels/{channelId}/test",
+      "operation_id": "testNotificationChannel",
+      "positional_params": [
+        "channelId"
+      ],
+      "path_params": [
+        {
+          "name": "channelId",
+          "description": "Notification channel ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/notification-rules",
+      "operation_id": "listNotificationRules",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/notification-rules",
+      "operation_id": "createNotificationRule",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "channel_id",
+          "description": "Notification channel ID used by the rule.",
+          "kind": "string"
+        },
+        {
+          "name": "event_type",
+          "description": "Event type that triggers the notification rule.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the notification rule is enabled.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable notification rule name.",
+          "kind": "string"
+        },
+        {
+          "name": "template",
+          "description": "Notification template content rendered when the rule fires.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [ruleId]",
+      "method": "PATCH",
+      "path": "/api/v1/notification-rules/{ruleId}",
+      "operation_id": "updateNotificationRule",
+      "positional_params": [
+        "ruleId"
+      ],
+      "path_params": [
+        {
+          "name": "ruleId",
+          "description": "Notification rule ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "channel_id",
+          "description": "Notification channel ID used by the rule.",
+          "kind": "string"
+        },
+        {
+          "name": "event_type",
+          "description": "Event type that triggers the notification rule.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the notification rule is enabled.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Human-readable notification rule name.",
+          "kind": "string"
+        },
+        {
+          "name": "template",
+          "description": "Notification template content rendered when the rule fires.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [ruleId]",
+      "method": "DELETE",
+      "path": "/api/v1/notification-rules/{ruleId}",
+      "operation_id": "deleteNotificationRule",
+      "positional_params": [
+        "ruleId"
+      ],
+      "path_params": [
+        {
+          "name": "ruleId",
+          "description": "Notification rule ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/skills",
+      "operation_id": "listSkills",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/skills",
+      "operation_id": "createSkill",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+          "kind": "string"
+        },
+        {
+          "name": "created_by",
+          "description": "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Optional description used when the input content does not declare one.",
+          "kind": "string"
+        },
+        {
+          "name": "is_enabled",
+          "description": "Whether the new skill should be enabled for runtime injection immediately.",
+          "kind": "bool"
+        },
+        {
+          "name": "name",
+          "description": "Project-unique skill name in the control plane.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "refresh [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/skills/refresh",
+      "operation_id": "refreshSkills",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "adapter_type",
+          "description": "Agent adapter type used to derive the runtime skill directory.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID used to project only the currently bound enabled skills.",
+          "kind": "string"
+        },
+        {
+          "name": "workspace_root",
+          "description": "Workspace repository root that owns the agent skill directory.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "get [skillId]",
+      "method": "GET",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "getSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [skillId]",
+      "method": "PUT",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "updateSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "content",
+          "description": "Replacement skill markdown content. Frontmatter is optional on input and will be normalized on write.",
+          "kind": "string"
+        },
+        {
+          "name": "description",
+          "description": "Optional description override used when the input content does not declare one.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [skillId]",
+      "method": "DELETE",
+      "path": "/api/v1/skills/{skillId}",
+      "operation_id": "deleteSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "enable [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/enable",
+      "operation_id": "enableSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "disable [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/disable",
+      "operation_id": "disableSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "bind [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/bind",
+      "operation_id": "bindSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "workflow_ids",
+          "description": "Workflow IDs that should bind or unbind this skill.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "unbind [skillId]",
+      "method": "POST",
+      "path": "/api/v1/skills/{skillId}/unbind",
+      "operation_id": "unbindSkill",
+      "positional_params": [
+        "skillId"
+      ],
+      "path_params": [
+        {
+          "name": "skillId",
+          "description": "Skill ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "workflow_ids",
+          "description": "Workflow IDs that should bind or unbind this skill.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "bind-workflow [workflowId]",
+      "method": "POST",
+      "path": "/api/v1/workflows/{workflowId}/skills/bind",
+      "operation_id": "bindWorkflowSkills",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "skills",
+          "description": "Skill names included in this workflow skill binding request.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "unbind-workflow [workflowId]",
+      "method": "POST",
+      "path": "/api/v1/workflows/{workflowId}/skills/unbind",
+      "operation_id": "unbindWorkflowSkills",
+      "positional_params": [
+        "workflowId"
+      ],
+      "path_params": [
+        {
+          "name": "workflowId",
+          "description": "Workflow ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "skills",
+          "description": "Skill names included in this workflow skill binding request.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "events",
+      "method": "GET",
+      "path": "/api/v1/events/stream",
+      "operation_id": "streamEvents"
+    },
+    {
+      "use": "project [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/events/stream",
+      "operation_id": "streamProjectEvents",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "output [projectId] [agentId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/output/stream",
+      "operation_id": "streamAgentOutput",
+      "positional_params": [
+        "projectId",
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "ticket_id",
+          "description": "Filter streamed output by ticket ID.",
+          "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "steps [projectId] [agentId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/agents/{agentId}/steps/stream",
+      "operation_id": "streamAgentSteps",
+      "positional_params": [
+        "projectId",
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "ticket_id",
+          "description": "Filter streamed steps by ticket ID.",
+          "kind": "string_slice"
+        }
+      ]
+    }
+  ]
+}

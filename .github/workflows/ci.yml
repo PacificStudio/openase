@@ -1,0 +1,387 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: [self-hosted, Linux, X64]
+    outputs:
+      go_changed: ${{ steps.detect.outputs.go_changed }}
+      web_changed: ${{ steps.detect.outputs.web_changed }}
+      openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
+      frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Detect Changed Paths
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_rev="${{ github.event.pull_request.base.sha }}"
+            head_rev="${{ github.event.pull_request.head.sha }}"
+          else
+            git fetch --no-tags origin main
+            base_rev="$(git merge-base origin/main HEAD)"
+            head_rev="HEAD"
+          fi
+
+          mapfile -t changed_files < <(git diff --name-only "${base_rev}"..."${head_rev}")
+
+          printf 'Comparing against %s\n' "${base_rev}"
+          if [[ "${#changed_files[@]}" -eq 0 ]]; then
+            printf 'Changed files:\n  (none)\n'
+          else
+            printf 'Changed files:\n'
+            printf '  %s\n' "${changed_files[@]}"
+          fi
+
+          go_changed=false
+          web_changed=false
+          openapi_check_changed=false
+          frontend_api_audit_changed=false
+
+          for file in "${changed_files[@]}"; do
+            case "${file}" in
+              .github/workflows/*)
+                go_changed=true
+                web_changed=true
+                openapi_check_changed=true
+                ;;
+              *.go|go.mod|go.sum|api/*)
+                go_changed=true
+                openapi_check_changed=true
+                ;;
+              Makefile)
+                go_changed=true
+                openapi_check_changed=true
+                ;;
+              scripts/ci/*)
+                go_changed=true
+                ;;
+              web/*)
+                web_changed=true
+                frontend_api_audit_changed=true
+                ;;
+              scripts/dev/audit_frontend_api_usage.py|scripts/dev/frontend_api_audit_ignores.json)
+                frontend_api_audit_changed=true
+                ;;
+              .golangci.yml|.golangci.yaml)
+                go_changed=true
+                ;;
+            esac
+          done
+
+          printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
+
+  openapi-check:
+    name: OpenAPI Check
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.openapi_check_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Configure Go Toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
+          if [[ -d "${cached_go_bin}" ]]; then
+            echo "${cached_go_bin}" >> "${GITHUB_PATH}"
+          fi
+
+          command -v go
+          go version
+
+      - name: Verify Generated OpenAPI Artifacts
+        run: make openapi-check-ci
+
+  frontend-api-audit-check:
+    name: Frontend API Audit Check
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.frontend_api_audit_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Decide Whether To Audit Frontend API Usage
+        id: scope
+        run: echo "run_audit=${{ needs.changes.outputs.frontend_api_audit_changed }}" >> "${GITHUB_OUTPUT}"
+
+      - name: Skip Frontend API Audit
+        if: steps.scope.outputs.run_audit != 'true'
+        run: echo "No frontend API audit relevant changes detected; skipping."
+
+      - name: Audit Frontend API Usage Coverage
+        if: steps.scope.outputs.run_audit == 'true'
+        run: make frontend-api-audit-check
+  frontend:
+    name: Frontend Checks
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.web_changed == 'true'
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Reset Frontend Test Artifacts
+        run: rm -rf test-results ../.playwright-artifacts
+
+      - name: Install Web Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install chromium
+
+      - name: Run Web CI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if pnpm run ci; then
+            exit 0
+          fi
+
+          echo "Frontend CI diagnostics:"
+          pnpm exec prettier --version || true
+          sha256sum src/routes/\(app\)/orgs/+page.svelte || true
+          pnpm exec prettier --check src/routes/\(app\)/orgs/+page.svelte || true
+          pnpm exec prettier --debug-check src/routes/\(app\)/orgs/+page.svelte || true
+          exit 1
+
+      - name: Upload Embedded Web Assets
+        uses: actions/upload-artifact@v6
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+          if-no-files-found: error
+
+      - name: Cleanup Frontend Test Artifacts
+        if: always()
+        run: rm -rf test-results ../.playwright-artifacts
+
+  backend:
+    name: Backend Checks
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 60
+    needs:
+      - changes
+      - openapi-check
+      - frontend-api-audit-check
+      - frontend
+    if: |
+      always() &&
+      needs.changes.result == 'success' &&
+      (needs['openapi-check'].result == 'success' || needs['openapi-check'].result == 'skipped') &&
+      (needs['frontend-api-audit-check'].result == 'success' || needs['frontend-api-audit-check'].result == 'skipped') &&
+      needs.changes.outputs.go_changed == 'true' &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download Embedded Web Assets
+        if: needs.changes.outputs.web_changed == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Backend Formatting, Tests, And Coverage Gates
+        timeout-minutes: 45
+        shell: bash
+        env:
+          OPENASE_GO_TEST_PROGRESS_MODE: plain
+        run: |
+          set -euo pipefail
+
+          heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
+          heartbeat_interval_seconds=15
+
+          heartbeat() {
+            while true; do
+              now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+              printf '%s\n' "${now}" > "${heartbeat_file}"
+              printf '[backend-heartbeat] %s make check still running\n' "${now}"
+              # Long plain `go test` runs can stay quiet long enough to trip runner watchdogs.
+              sleep "${heartbeat_interval_seconds}"
+            done
+          }
+
+          cleanup() {
+            status=$?
+            trap - EXIT
+            kill "${heartbeat_pid}" 2>/dev/null || true
+            wait "${heartbeat_pid}" 2>/dev/null || true
+
+            if [[ -f "${heartbeat_file}" ]]; then
+              printf 'Last backend heartbeat: %s\n' "$(cat "${heartbeat_file}")"
+            else
+              printf 'Last backend heartbeat: unavailable\n'
+            fi
+
+            exit "${status}"
+          }
+
+          trap cleanup EXIT
+
+          heartbeat &
+          heartbeat_pid=$!
+
+          make check
+
+      - name: Build OpenASE Binary
+        timeout-minutes: 10
+        run: make build
+
+  go-lint:
+    name: Go Lint
+    runs-on: [self-hosted, Linux, X64]
+    needs: changes
+    if: needs.changes.outputs.go_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Ensure Embedded Web Placeholder
+        run: |
+          mkdir -p internal/webui/static
+          printf 'lint placeholder for embedded web assets\n' > internal/webui/static/lint-placeholder.txt
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Fetch Base Branch
+        if: github.event_name == 'pull_request'
+        run: git fetch --no-tags origin "${{ github.event.pull_request.base.ref }}"
+
+      - name: Fetch Main Branch
+        if: github.event_name != 'pull_request'
+        run: git fetch --no-tags origin main
+
+      - name: Run Incremental Lint
+        if: github.event_name == 'pull_request'
+        env:
+          LINT_BASE_REV: ${{ github.event.pull_request.base.sha }}
+        run: make lint
+
+      - name: Run Incremental Lint From Main
+        if: github.event_name != 'pull_request'
+        run: make lint
+
+      - name: Run Depguard Architecture Checks
+        run: make lint-depguard
+
+      - name: Run Repository Architecture Guard
+        run: make lint-architecture

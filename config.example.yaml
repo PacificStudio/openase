@@ -1,0 +1,37 @@
+server:
+  host: 0.0.0.0
+  port: 40023
+  read_timeout: 15s
+  write_timeout: 15s
+  shutdown_timeout: 10s
+
+auth:
+  mode: disabled
+  oidc:
+    issuer_url: https://idp.example.com/realms/openase
+    client_id: openase
+    client_secret: ${OIDC_CLIENT_SECRET}
+    redirect_url: http://127.0.0.1:40023/api/v1/auth/oidc/callback
+    scopes:
+      - openid
+      - profile
+      - email
+      - groups
+    email_claim: email
+    name_claim: name
+    username_claim: preferred_username
+    groups_claim: groups
+    allowed_email_domains: []
+    bootstrap_admin_emails: []
+    session_ttl: 8h
+    session_idle_ttl: 30m
+
+database:
+  dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
+
+orchestrator:
+  tick_interval: 5s
+
+log:
+  level: info
+  format: text

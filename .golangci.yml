@@ -1,0 +1,161 @@
+version: "2"
+
+run:
+  timeout: 5m
+  relative-path-mode: gomod
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+    - revive
+    - misspell
+    - prealloc
+    - unconvert
+    - unparam
+    - gosec
+    - bodyclose
+    - depguard
+  exclusions:
+    generated: strict
+    paths:
+      - internal/webui/static/
+  settings:
+    depguard:
+      rules:
+        domain-no-upper-layers:
+          files:
+            - internal/domain/*.go
+            - internal/domain/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/ent
+              desc: domain packages must not depend on persistence models
+            - pkg: github.com/BetterAndBetterII/openase/internal/agentplatform
+              desc: domain packages must not depend on platform services
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: domain packages must not depend on app wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
+              desc: domain packages must not depend on delivery handlers
+            - pkg: github.com/BetterAndBetterII/openase/internal/infra
+              desc: domain packages must not depend on infra adapters
+            - pkg: github.com/BetterAndBetterII/openase/internal/orchestrator
+              desc: domain packages must not depend on orchestrator runtime
+            - pkg: github.com/BetterAndBetterII/openase/internal/repo
+              desc: domain packages must not depend on repositories
+            - pkg: github.com/BetterAndBetterII/openase/internal/runtime
+              desc: domain packages must not depend on runtime wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/service
+              desc: domain packages must not depend on application services
+            - pkg: github.com/BetterAndBetterII/openase/internal/setup
+              desc: domain packages must not depend on setup flows
+            - pkg: github.com/BetterAndBetterII/openase/internal/webui
+              desc: domain packages must not depend on UI delivery
+        provider-no-runtime-or-delivery:
+          files:
+            - internal/provider/*.go
+            - internal/provider/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/agentplatform
+              desc: provider contracts must stay independent from platform services
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: provider contracts must stay independent from app wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
+              desc: provider contracts must stay independent from delivery handlers
+            - pkg: github.com/BetterAndBetterII/openase/internal/infra
+              desc: provider contracts must stay independent from infra adapters
+            - pkg: github.com/BetterAndBetterII/openase/internal/orchestrator
+              desc: provider contracts must stay independent from orchestrator runtime
+            - pkg: github.com/BetterAndBetterII/openase/internal/repo
+              desc: provider contracts must stay independent from repositories
+            - pkg: github.com/BetterAndBetterII/openase/internal/runtime
+              desc: provider contracts must stay independent from runtime wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/service
+              desc: provider contracts must stay independent from application services
+            - pkg: github.com/BetterAndBetterII/openase/internal/setup
+              desc: provider contracts must stay independent from setup flows
+            - pkg: github.com/BetterAndBetterII/openase/internal/webui
+              desc: provider contracts must stay independent from UI delivery
+        repo-no-delivery-or-wiring:
+          files:
+            - internal/repo/*.go
+            - internal/repo/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/agentplatform
+              desc: repositories must not depend on platform services
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: repositories must not depend on app wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
+              desc: repositories must not depend on delivery handlers
+            - pkg: github.com/BetterAndBetterII/openase/internal/orchestrator
+              desc: repositories must not depend on orchestrator runtime
+            - pkg: github.com/BetterAndBetterII/openase/internal/runtime
+              desc: repositories must not depend on runtime wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/setup
+              desc: repositories must not depend on setup flows
+            - pkg: github.com/BetterAndBetterII/openase/internal/webui
+              desc: repositories must not depend on UI delivery
+        service-no-delivery-or-wiring:
+          files:
+            - internal/service/*.go
+            - internal/service/**/*.go
+            - internal/agentplatform/*.go
+            - internal/agentplatform/**/*.go
+            - internal/ticket/*.go
+            - internal/ticket/**/*.go
+            - internal/ticketstatus/*.go
+            - internal/ticketstatus/**/*.go
+            - internal/workflow/*.go
+            - internal/workflow/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/repo
+              desc: services must depend on consumer-owned repository ports, not repo adapters
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: services must not depend on app wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
+              desc: services must not depend on delivery handlers
+            - pkg: github.com/BetterAndBetterII/openase/internal/runtime
+              desc: services must not depend on runtime wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/setup
+              desc: services must not depend on setup flows
+            - pkg: github.com/BetterAndBetterII/openase/internal/webui
+              desc: services must not depend on UI delivery
+        catalog-service-no-peer-service-impls:
+          files:
+            - internal/service/catalog/*.go
+            - internal/service/catalog/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/ticketstatus
+              desc: catalog service must consume project-status bootstrapping through an injected port
+        runtime-no-delivery:
+          files:
+            - internal/runtime/*.go
+            - internal/runtime/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: runtime packages must stay below app wiring
+            - pkg: github.com/BetterAndBetterII/openase/internal/httpapi
+              desc: runtime packages must not depend on delivery handlers
+            - pkg: github.com/BetterAndBetterII/openase/internal/setup
+              desc: runtime packages must not depend on setup flows
+            - pkg: github.com/BetterAndBetterII/openase/internal/webui
+              desc: runtime packages must not depend on UI delivery
+        httpapi-no-app:
+          files:
+            - internal/httpapi/*.go
+            - internal/httpapi/**/*.go
+          deny:
+            - pkg: github.com/BetterAndBetterII/openase/internal/app
+              desc: delivery handlers must not depend on app wiring
+    revive:
+      rules:
+        - name: unexported-return
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return
+        - name: error-naming
+        - name: increment-decrement
