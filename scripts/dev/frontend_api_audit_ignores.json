@@ -93,8 +93,8 @@
     {
       "method": "get",
       "path": "/api/v1/projects/{projectId}/token-usage",
-      "categories": ["backend_only"],
-      "reason": "Project token usage is now queryable for backend and operator flows, but the current browser UI does not yet expose a project-scoped token analytics surface."
+      "categories": ["backend_only", "wrapped_but_unused"],
+      "reason": "Project token usage is queryable for backend and operator flows, and the generated frontend wrapper exists, but the current browser UI does not yet expose a project-scoped token analytics surface."
     },
     {
       "method": "get",
@@ -149,12 +149,6 @@
       "path": "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
       "categories": ["wrapped_but_unused"],
       "reason": "Ticket detail embeds repo scopes in the detail payload, so the standalone repo-scope list wrapper is intentionally unused."
-    },
-    {
-      "method": "get",
-      "path": "/api/v1/projects/{projectId}/token-usage",
-      "categories": ["wrapped_but_unused"],
-      "reason": "The project token usage route is part of the generated contract surface, but the current frontend does not yet expose a project-level token analytics panel."
     },
     {
       "method": "get",
