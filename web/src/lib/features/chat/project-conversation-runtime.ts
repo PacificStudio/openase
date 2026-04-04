@@ -3,24 +3,29 @@ import {
   getProjectConversation,
   listProjectConversationEntries,
   listProjectConversations,
-  watchProjectConversation,
   type ProjectConversationEntry,
   type ProjectConversationStreamEvent,
 } from '$lib/api/chat'
+import { watchProjectConversationMux } from './project-conversation-event-bus'
 import { isAbortError } from './project-conversation-storage'
 
 export function startProjectConversationStream(params: {
+  projectId: string
   conversationId: string
   abortController: AbortController | null
   onEvent: (event: ProjectConversationStreamEvent) => void
+  onReconnect?: () => void
   onError: (message: string) => void
 }) {
   params.abortController?.abort()
 
   const controller = new AbortController()
-  const stream = watchProjectConversation(params.conversationId, {
+  const stream = watchProjectConversationMux({
+    projectId: params.projectId,
+    conversationId: params.conversationId,
     signal: controller.signal,
     onEvent: params.onEvent,
+    onReconnect: params.onReconnect,
   }).catch((caughtError) => {
     if (isAbortError(caughtError)) {
       return

@@ -132,11 +132,13 @@ export function appendProjectConversationChunk(
 
 export function connectProjectConversationStream(params: {
   state: ProjectConversationControllerState
+  projectId: string
   conversationId: string
   resolveState?: () => ProjectConversationControllerState | null
   onStateChanged?: () => void
   onError?: (message: string) => void
   onEvent?: (event: ProjectConversationStreamEvent) => void
+  onReconnect?: (streamId: number) => void
   onClosed?: (streamId: number) => void
 }) {
   const initialState = params.resolveState?.() ?? params.state
@@ -144,6 +146,7 @@ export function connectProjectConversationStream(params: {
   let streamFailed = false
   let receivedNonSessionEvent = false
   const started = startProjectConversationStream({
+    projectId: params.projectId,
     conversationId: params.conversationId,
     abortController: initialState.abortController,
     onEvent: (event) => {
@@ -154,13 +157,14 @@ export function connectProjectConversationStream(params: {
       if (event.kind !== 'session') {
         receivedNonSessionEvent = true
       }
-      applyProjectConversationStreamEvent({
-        state: liveState,
-        event,
-        onError: params.onError,
-      })
-      params.onStateChanged?.()
       params.onEvent?.(event)
+    },
+    onReconnect: () => {
+      const liveState = params.resolveState?.() ?? params.state
+      if (currentStreamId !== liveState.streamId) {
+        return
+      }
+      params.onReconnect?.(currentStreamId)
     },
     onError: (message) => {
       const liveState = params.resolveState?.() ?? params.state

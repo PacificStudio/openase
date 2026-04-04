@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -71,6 +73,13 @@ type openAPIContractSnapshotItem struct {
 	PathParams       []openAPIInputField `json:"path_params,omitempty"`
 	QueryParams      []openAPIInputField `json:"query_params,omitempty"`
 	BodyFields       []openAPIInputField `json:"body_fields,omitempty"`
+}
+
+type cliProjectResponseEnvelope struct {
+	Project struct {
+		ID             string `json:"id"`
+		OrganizationID string `json:"organization_id"`
+	} `json:"project"`
 }
 
 var (
@@ -495,11 +504,86 @@ func newProjectCommand() *cobra.Command {
 		Use:   "project",
 		Short: "Operate on projects through the OpenASE API.",
 	}
+	command.AddCommand(newProjectCurrentCommand())
+	command.AddCommand(newProjectUpdatesCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List projects.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [projectId]", Short: "Get a project.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
+	return command
+}
+
+func newProjectUpdatesCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "updates",
+		Short: "Operate on project update threads.",
+		Long: strings.TrimSpace(`
+Operate on project update threads.
+
+These first-class commands expose the curated project updates surface without
+falling back to raw ` + "`openase api`" + ` calls.
+
+Project scope defaults to [projectId], then --project-id, then OPENASE_PROJECT_ID.
+When a command also needs [threadId], you can pass --thread-id while letting
+project scope fall back to OPENASE_PROJECT_ID.
+`),
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List project update threads.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/updates",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"If [projectId] is omitted, the command falls back to --project-id and then OPENASE_PROJECT_ID.",
+		},
+		Example: "openase project updates list\nopenase project updates list $OPENASE_PROJECT_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a project update thread.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/updates",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"If [projectId] is omitted, the command falls back to --project-id and then OPENASE_PROJECT_ID.",
+		},
+		Example: "openase project updates create --status on_track --title \"CLI parity\" --body \"Implemented runtime-safe project and machine commands.\"",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [projectId] [threadId]",
+		Short:            "Update a project update thread.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates update --thread-id $OPENASE_THREAD_ID --status at_risk --title \"CLI parity\" --body \"Waiting on review.\"",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [threadId]",
+		Short:            "Delete a project update thread.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates delete --thread-id $OPENASE_THREAD_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "revisions [projectId] [threadId]",
+		Short:            "List project update thread revisions.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}/revisions",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates revisions --thread-id $OPENASE_THREAD_ID",
+	}))
 	return command
 }
 
@@ -674,20 +758,7 @@ func newMachineCommand() *cobra.Command {
 		Use:   "machine",
 		Short: "Operate on machines through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
-		Use:              "list [orgId]",
-		Short:            "List machines.",
-		Method:           http.MethodGet,
-		Path:             "/api/v1/orgs/{orgId}/machines",
-		PositionalParams: []string{"orgId"},
-		HelpNotes: []string{
-			"Use this to audit machine status, heartbeat freshness, workspace roots, and the latest cached resource snapshot before scheduling work.",
-		},
-		Example: strings.TrimSpace(`
-  openase machine list $OPENASE_ORG_ID
-  openase machine list 550e8400-e29b-41d4-a716-446655440000 --json machines
-`),
-	}))
+	command.AddCommand(newMachineListCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
 		Use:              "get [machineId]",
 		Short:            "Get a machine.",
@@ -747,7 +818,229 @@ func newMachineCommand() *cobra.Command {
   openase machine refresh-health 550e8400-e29b-41d4-a716-446655440000
 `),
 	}))
+	command.AddCommand(newMachineStreamCommand())
 	return command
+}
+
+func newProjectCurrentCommand() *cobra.Command {
+	var apiOptions apiCommandOptions
+	var output apiOutputOptions
+	var projectID string
+
+	command := &cobra.Command{
+		Use:   "current",
+		Short: "Get the current project.",
+		Long: strings.TrimSpace(`
+Get the current project.
+
+This command resolves the target project from --project-id and then OPENASE_PROJECT_ID,
+so project-scoped runtimes can inspect the active project without falling back to raw API calls.
+
+The response includes organization_id, which can be used directly or bridged into
+machine inspection with ` + "`openase machine list --project-id $OPENASE_PROJECT_ID`" + `.
+`),
+		Example: strings.TrimSpace(`
+  openase project current
+  openase project current --project-id $OPENASE_PROJECT_ID --json project.organization_id
+`),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			if err != nil {
+				return err
+			}
+
+			resolvedProjectID := strings.TrimSpace(firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")))
+			if resolvedProjectID == "" {
+				return fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID")
+			}
+
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+				Method: http.MethodGet,
+				Path:   "projects/" + urlPathEscape(resolvedProjectID),
+			})
+			if err != nil {
+				return err
+			}
+			return writeAPIOutput(cmd.OutOrStdout(), response.Body, outputOptionsFromFlags(cmd.Flags()))
+		},
+	}
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLICommandFlagNormalization(command)
+	bindAPICommandFlags(command.Flags(), &apiOptions)
+	bindAPIOutputFlags(command.Flags(), &output)
+	command.Flags().StringVar(&projectID, "project-id", "", "Project ID override. Defaults to OPENASE_PROJECT_ID.")
+	return command
+}
+
+func newMachineListCommand() *cobra.Command {
+	var apiOptions apiCommandOptions
+	var output apiOutputOptions
+	var orgID string
+	var projectID string
+
+	command := &cobra.Command{
+		Use:   "list [orgId]",
+		Short: "List machines.",
+		Long: strings.TrimSpace(`
+List machines.
+
+Use this to audit machine status, heartbeat freshness, workspace roots, and the latest cached
+resource snapshot before scheduling work.
+
+Positional [orgId] values must be UUIDs.
+
+The command resolves organization scope in this order:
+1. positional [orgId]
+2. --org-id
+3. OPENASE_ORG_ID
+4. --project-id
+5. OPENASE_PROJECT_ID
+
+When project context is used, the CLI fetches the project first and derives organization_id automatically.
+`),
+		Example: strings.TrimSpace(`
+  openase machine list $OPENASE_ORG_ID
+  openase machine list --project-id $OPENASE_PROJECT_ID
+  openase machine list 550e8400-e29b-41d4-a716-446655440000 --json machines
+`),
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			if err != nil {
+				return err
+			}
+
+			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
+				cmd.Context(),
+				apiCommandDeps{httpClient: http.DefaultClient},
+				apiContext,
+				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
+				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
+			)
+			if err != nil {
+				return err
+			}
+
+			response, err := apiContext.do(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiRequest{
+				Method: http.MethodGet,
+				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines",
+			})
+			if err != nil {
+				return err
+			}
+			return writeAPIOutput(cmd.OutOrStdout(), response.Body, outputOptionsFromFlags(cmd.Flags()))
+		},
+	}
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLICommandFlagNormalization(command)
+	bindAPICommandFlags(command.Flags(), &apiOptions)
+	bindAPIOutputFlags(command.Flags(), &output)
+	command.Flags().StringVar(&orgID, "org-id", "", "Organization ID override. Defaults to OPENASE_ORG_ID.")
+	command.Flags().StringVar(&projectID, "project-id", "", "Project ID fallback. Defaults to OPENASE_PROJECT_ID when organization scope is not set.")
+	return command
+}
+
+func newMachineStreamCommand() *cobra.Command {
+	var apiOptions apiCommandOptions
+	var orgID string
+	var projectID string
+
+	command := &cobra.Command{
+		Use:   "stream [orgId]",
+		Short: "Stream organization machine events.",
+		Long: strings.TrimSpace(`
+Stream organization machine events.
+
+This command opens the organization machine event stream and keeps the connection open until the
+server closes it or you interrupt the process.
+
+Positional [orgId] values must be UUIDs.
+
+Organization scope resolves from [orgId], --org-id, OPENASE_ORG_ID, --project-id, and then
+OPENASE_PROJECT_ID. When project context is used, the CLI derives organization_id from the project first.
+
+Use Ctrl-C to stop the stream when running interactively.
+`),
+		Example: strings.TrimSpace(`
+  openase machine stream $OPENASE_ORG_ID
+  openase machine stream --project-id $OPENASE_PROJECT_ID
+`),
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			if err != nil {
+				return err
+			}
+
+			resolvedOrgID, err := resolveOrganizationIDForMachineCommand(
+				cmd.Context(),
+				apiCommandDeps{httpClient: http.DefaultClient},
+				apiContext,
+				firstNonEmpty(firstArg(args), orgID, os.Getenv("OPENASE_ORG_ID")),
+				firstNonEmpty(projectID, os.Getenv("OPENASE_PROJECT_ID")),
+			)
+			if err != nil {
+				return err
+			}
+
+			return apiContext.stream(cmd.Context(), apiCommandDeps{httpClient: http.DefaultClient}, apiStreamRequest{
+				Method: http.MethodGet,
+				Path:   "orgs/" + urlPathEscape(resolvedOrgID) + "/machines/stream",
+			}, cmd.OutOrStdout())
+		},
+	}
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLICommandFlagNormalization(command)
+	bindAPICommandFlags(command.Flags(), &apiOptions)
+	command.Flags().StringVar(&orgID, "org-id", "", "Organization ID override. Defaults to OPENASE_ORG_ID.")
+	command.Flags().StringVar(&projectID, "project-id", "", "Project ID fallback. Defaults to OPENASE_PROJECT_ID when organization scope is not set.")
+	return command
+}
+
+func resolveOrganizationIDForMachineCommand(
+	ctx context.Context,
+	deps apiCommandDeps,
+	apiContext apiCommandContext,
+	explicitOrgID string,
+	projectID string,
+) (string, error) {
+	resolvedOrgID := strings.TrimSpace(explicitOrgID)
+	if resolvedOrgID != "" {
+		return resolvedOrgID, nil
+	}
+
+	resolvedProjectID := strings.TrimSpace(projectID)
+	if resolvedProjectID == "" {
+		return "", fmt.Errorf("organization id is required via positional argument, --org-id, OPENASE_ORG_ID, --project-id, or OPENASE_PROJECT_ID")
+	}
+
+	project, err := fetchCLIProject(ctx, deps, apiContext, resolvedProjectID)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(project.Project.OrganizationID) == "" {
+		return "", fmt.Errorf("project %s response did not include organization_id", resolvedProjectID)
+	}
+	return strings.TrimSpace(project.Project.OrganizationID), nil
+}
+
+func fetchCLIProject(ctx context.Context, deps apiCommandDeps, apiContext apiCommandContext, projectID string) (cliProjectResponseEnvelope, error) {
+	response, err := apiContext.do(ctx, deps, apiRequest{
+		Method: http.MethodGet,
+		Path:   "projects/" + urlPathEscape(strings.TrimSpace(projectID)),
+	})
+	if err != nil {
+		return cliProjectResponseEnvelope{}, err
+	}
+
+	var payload cliProjectResponseEnvelope
+	if err := json.Unmarshal(response.Body, &payload); err != nil {
+		return cliProjectResponseEnvelope{}, fmt.Errorf("decode project response: %w", err)
+	}
+	if strings.TrimSpace(payload.Project.ID) == "" {
+		return cliProjectResponseEnvelope{}, fmt.Errorf("decode project response: missing project.id")
+	}
+	return payload, nil
 }
 
 func newProviderCommand() *cobra.Command {
@@ -948,7 +1241,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 		Example: strings.TrimSpace(spec.Example),
 		Args:    cobra.MaximumNArgs(len(spec.PositionalParams)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolve()
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
 			if err != nil {
 				return err
 			}
@@ -1049,7 +1342,7 @@ func buildOpenAPIStreamHelp(spec openAPICommandSpec, summary string) string {
 }
 
 func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolve()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
 	if err != nil {
 		return err
 	}
@@ -1073,7 +1366,7 @@ func runOpenAPIOperationCommand(cmd *cobra.Command, deps apiCommandDeps, contrac
 }
 
 func runOpenAPIStreamCommand(cmd *cobra.Command, deps apiCommandDeps, contract openAPICommandContract, args []string) error {
-	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolve()
+	apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
 	if err != nil {
 		return err
 	}
@@ -1120,19 +1413,27 @@ func registerOpenAPIStreamFlags(flags *pflag.FlagSet, contract openAPICommandCon
 }
 
 func registerFieldFlag(flags *pflag.FlagSet, field openAPIInputField) {
+	registerFieldFlagName(flags, field, field.Name)
+	for _, alias := range fieldFlagAliases(field.Name) {
+		registerFieldFlagName(flags, field, alias)
+		_ = flags.MarkHidden(alias)
+	}
+}
+
+func registerFieldFlagName(flags *pflag.FlagSet, field openAPIInputField, name string) {
 	switch field.Kind {
 	case flagValueString:
-		flags.String(field.Name, "", field.Description)
+		flags.String(name, "", field.Description)
 	case flagValueStringSlice:
-		flags.StringSlice(field.Name, nil, field.Description)
+		flags.StringSlice(name, nil, field.Description)
 	case flagValueInt64:
-		flags.Int64(field.Name, 0, field.Description)
+		flags.Int64(name, 0, field.Description)
 	case flagValueFloat64:
-		flags.Float64(field.Name, 0, field.Description)
+		flags.Float64(name, 0, field.Description)
 	case flagValueBool:
-		flags.Bool(field.Name, false, field.Description)
+		flags.Bool(name, false, field.Description)
 	default:
-		flags.String(field.Name, "", field.Description)
+		flags.String(name, "", field.Description)
 	}
 }
 
@@ -1244,47 +1545,66 @@ func resolveCommandPathValue(cmd *cobra.Command, name string, args []string, ind
 
 func resolveCommandFlagValue(cmd *cobra.Command, field openAPIInputField) (string, error) {
 	flags := cmd.Flags()
+	names := append([]string{field.Name}, fieldFlagAliases(field.Name)...)
 	switch field.Kind {
 	case flagValueInt64:
-		value, err := flags.GetInt64(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetInt64(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return fmt.Sprintf("%d", value), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return fmt.Sprintf("%d", value), nil
+		return "", nil
 	case flagValueFloat64:
-		value, err := flags.GetFloat64(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetFloat64(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.TrimSpace(strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", value), "0"), ".")), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return strings.TrimSpace(strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", value), "0"), ".")), nil
+		return "", nil
 	case flagValueBool:
-		value, err := flags.GetBool(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetBool(name)
+			if err != nil {
+				return "", err
+			}
+			if !flags.Changed(name) {
+				continue
+			}
+			if value {
+				return "true", nil
+			}
+			return "false", nil
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		if value {
-			return "true", nil
-		}
-		return "false", nil
+		return "", nil
 	case flagValueStringSlice:
-		values, err := flags.GetStringSlice(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			values, err := flags.GetStringSlice(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.Join(trimNonEmpty(values), ","), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return strings.Join(trimNonEmpty(values), ","), nil
+		return "", nil
 	default:
+		for _, name := range names {
+			value, err := flags.GetString(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.TrimSpace(value), nil
+			}
+		}
 		value, err := flags.GetString(field.Name)
 		if err != nil {
 			return "", err
@@ -1305,30 +1625,96 @@ func resolveCommandQueryValue(cmd *cobra.Command, field openAPIInputField) (stri
 }
 
 func isFieldSet(flags *pflag.FlagSet, field openAPIInputField) bool {
-	return flags.Changed(field.Name)
+	for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+		if flags.Changed(name) {
+			return true
+		}
+	}
+	return false
 }
 
 func readFieldValue(flags *pflag.FlagSet, field openAPIInputField) (any, error) {
 	switch field.Kind {
 	case flagValueInt64:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetInt64(name)
+			}
+		}
 		return flags.GetInt64(field.Name)
 	case flagValueFloat64:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetFloat64(name)
+			}
+		}
 		return flags.GetFloat64(field.Name)
 	case flagValueBool:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetBool(name)
+			}
+		}
 		return flags.GetBool(field.Name)
 	case flagValueStringSlice:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if !flags.Changed(name) {
+				continue
+			}
+			values, err := flags.GetStringSlice(name)
+			if err != nil {
+				return nil, err
+			}
+			return trimNonEmpty(values), nil
+		}
 		values, err := flags.GetStringSlice(field.Name)
 		if err != nil {
 			return nil, err
 		}
 		return trimNonEmpty(values), nil
 	default:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if !flags.Changed(name) {
+				continue
+			}
+			value, err := flags.GetString(name)
+			if err != nil {
+				return nil, err
+			}
+			return strings.TrimSpace(value), nil
+		}
 		value, err := flags.GetString(field.Name)
 		if err != nil {
 			return nil, err
 		}
 		return strings.TrimSpace(value), nil
 	}
+}
+
+func fieldFlagAliases(name string) []string {
+	snake := snakeCaseParameterName(name)
+	if snake == "" || snake == name {
+		return nil
+	}
+	return []string{snake}
+}
+
+func snakeCaseParameterName(name string) string {
+	var builder strings.Builder
+	for index, r := range strings.TrimSpace(name) {
+		switch {
+		case r == '-' || r == '_':
+			builder.WriteByte('_')
+		case unicode.IsUpper(r):
+			if index > 0 {
+				builder.WriteByte('_')
+			}
+			builder.WriteRune(unicode.ToLower(r))
+		default:
+			builder.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return builder.String()
 }
 
 func parseHeaderPairs(values []string) (http.Header, error) {
@@ -1629,6 +2015,11 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}},
 		{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
 		{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId]", Short: "List project update threads.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a project update thread.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
+		{Use: "update [projectId] [threadId]", Short: "Update a project update thread.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/updates/{threadId}", PositionalParams: []string{"projectId", "threadId"}},
+		{Use: "delete [projectId] [threadId]", Short: "Delete a project update thread.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/updates/{threadId}", PositionalParams: []string{"projectId", "threadId"}},
+		{Use: "revisions [projectId] [threadId]", Short: "List project update thread revisions.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/updates/{threadId}/revisions", PositionalParams: []string{"projectId", "threadId"}},
 		{Use: "list [projectId]", Short: "List project repositories.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a project repository.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
 		{Use: "update [projectId] [repoId]", Short: "Update a project repository.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/repos/{repoId}", PositionalParams: []string{"projectId", "repoId"}},

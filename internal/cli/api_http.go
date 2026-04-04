@@ -76,6 +76,14 @@ func bindAPICommandFlags(flags *pflag.FlagSet, options *apiCommandOptions) {
 }
 
 func (options apiCommandOptions) resolve() (apiCommandContext, error) {
+	return options.resolveWithResourceBase(false)
+}
+
+func (options apiCommandOptions) resolveResource() (apiCommandContext, error) {
+	return options.resolveWithResourceBase(true)
+}
+
+func (options apiCommandOptions) resolveWithResourceBase(normalizeResourceBase bool) (apiCommandContext, error) {
 	baseURL := strings.TrimRight(strings.TrimSpace(firstNonEmpty(options.apiURL, os.Getenv("OPENASE_API_URL"), defaultAPIURL)), "/")
 	if baseURL == "" {
 		return apiCommandContext{}, fmt.Errorf("api url must not be empty")
@@ -83,11 +91,26 @@ func (options apiCommandOptions) resolve() (apiCommandContext, error) {
 	if _, err := url.ParseRequestURI(baseURL); err != nil {
 		return apiCommandContext{}, fmt.Errorf("parse api url: %w", err)
 	}
+	if normalizeResourceBase {
+		baseURL = normalizeResourceAPIBaseURL(baseURL)
+	}
 
 	return apiCommandContext{
 		apiURL: baseURL,
 		token:  strings.TrimSpace(firstNonEmpty(options.token, os.Getenv("OPENASE_AGENT_TOKEN"))),
 	}, nil
+}
+
+func normalizeResourceAPIBaseURL(baseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil {
+		return strings.TrimSpace(baseURL)
+	}
+	if strings.HasSuffix(parsed.Path, "/api/v1/platform") {
+		parsed.Path = strings.TrimSuffix(parsed.Path, "/platform")
+		parsed.RawPath = ""
+	}
+	return parsed.String()
 }
 
 func (ctx apiCommandContext) do(ctx2 context.Context, deps apiCommandDeps, request apiRequest) (apiResponse, error) {

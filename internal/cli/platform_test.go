@@ -424,7 +424,7 @@ func TestTicketListCommandBuildsQueryFromFilters(t *testing.T) {
 	}
 }
 
-func TestProjectUpdateCommandPatchesDescription(t *testing.T) {
+func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 	var method string
 	var path string
 	var payload map[string]any
@@ -448,7 +448,17 @@ func TestProjectUpdateCommandPatchesDescription(t *testing.T) {
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)
-	command.SetArgs([]string{"update", "--description", "Coverage raised"})
+	command.SetArgs([]string{
+		"update",
+		"--name", "OpenASE Automation",
+		"--slug", "openase-automation",
+		"--description", "Coverage raised",
+		"--status", "In Progress",
+		"--default-agent-provider-id", "provider-123",
+		"--accessible-machine-ids", "machine-a,machine-b",
+		"--max-concurrent-agents", "4",
+		"--agent-run-summary-prompt", "Summarize blockers first.",
+	})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("ExecuteContext returned error: %v", err)
@@ -460,8 +470,18 @@ func TestProjectUpdateCommandPatchesDescription(t *testing.T) {
 	if path != "/projects/project-123" {
 		t.Fatalf("expected project patch path, got %q", path)
 	}
-	if payload["description"] != "Coverage raised" {
+	if payload["name"] != "OpenASE Automation" ||
+		payload["slug"] != "openase-automation" ||
+		payload["description"] != "Coverage raised" ||
+		payload["status"] != "In Progress" ||
+		payload["default_agent_provider_id"] != "provider-123" ||
+		payload["max_concurrent_agents"] != float64(4) ||
+		payload["agent_run_summary_prompt"] != "Summarize blockers first." {
 		t.Fatalf("unexpected project update payload: %+v", payload)
+	}
+	accessibleMachineIDs, ok := payload["accessible_machine_ids"].([]any)
+	if !ok || len(accessibleMachineIDs) != 2 || accessibleMachineIDs[0] != "machine-a" || accessibleMachineIDs[1] != "machine-b" {
+		t.Fatalf("unexpected accessible_machine_ids payload: %+v", payload["accessible_machine_ids"])
 	}
 	if !strings.Contains(stdout.String(), `"description": "Coverage raised"`) {
 		t.Fatalf("expected pretty JSON output, got %q", stdout.String())

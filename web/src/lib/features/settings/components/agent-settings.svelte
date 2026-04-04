@@ -1,9 +1,9 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import type { AgentProvider, Machine } from '$lib/api/contracts'
+  import type { Agent, AgentProvider, Machine } from '$lib/api/contracts'
   import { listAgents, listMachines, listProviders, updateProject } from '$lib/api/openase'
+  import { ProviderCreationDialog } from '$lib/features/catalog-creation'
   import {
-    applyUpdatedProviderState,
     buildProviderCards,
     createProviderEditorState,
     ProviderConfigSheet,
@@ -18,6 +18,7 @@
 
   let providers = $state(buildProviderOptions([], []))
   let providerCards = $state<ProviderConfig[]>([])
+  let agentItems = $state<Agent[]>([])
   let machineItems = $state<Machine[]>([])
   let providerItems = $state<AgentProvider[]>([])
   let loading = $state(false)
@@ -25,6 +26,7 @@
   let saving = $state(false)
   let selectedDefaultProviderId = $state('')
   let providerConfigOpen = $state(false)
+  let providerCreateOpen = $state(false)
 
   const providerEditor = createProviderEditorState()
 
@@ -43,6 +45,7 @@
     if (!projectId || !orgId) {
       providers = []
       providerCards = []
+      agentItems = []
       machineItems = []
       providerItems = []
       loading = false
@@ -69,13 +72,8 @@
 
         if (cancelled) return
 
-        providerItems = providerPayload.providers
-        providers = buildProviderOptions(providerPayload.providers, agentPayload.agents)
-        providerCards = buildProviderCards(
-          providerPayload.providers,
-          agentPayload.agents,
-          appStore.currentOrg?.default_agent_provider_id ?? null,
-        )
+        agentItems = agentPayload.agents
+        syncProviderState(providerPayload.providers, agentPayload.agents)
         machineItems = machinePayload.machines
       } catch (caughtError) {
         if (cancelled) return
@@ -141,14 +139,33 @@
     providerEditor.updateField(field, value)
   }
 
+  function syncProviderState(
+    nextProviderItems: AgentProvider[],
+    nextAgentItems: Agent[] = agentItems,
+  ) {
+    providerItems = nextProviderItems
+    providers = buildProviderOptions(nextProviderItems, nextAgentItems)
+    providerCards = buildProviderCards(
+      nextProviderItems,
+      nextAgentItems,
+      appStore.currentOrg?.default_agent_provider_id ?? null,
+    )
+  }
+
   function applyUpdatedProvider(updatedProvider: AgentProvider) {
-    providerItems = providerItems.map((p) => (p.id === updatedProvider.id ? updatedProvider : p))
+    syncProviderState(
+      providerItems.map((provider) =>
+        provider.id === updatedProvider.id ? updatedProvider : provider,
+      ),
+    )
+    const nextProvider = providerCards.find((provider) => provider.id === updatedProvider.id)
+    if (nextProvider) {
+      providerEditor.open(nextProvider)
+    }
+  }
 
-    const nextState = applyUpdatedProviderState(providerCards, [], updatedProvider)
-    providerCards = nextState.providers
-    if (nextState.provider) providerEditor.open(nextState.provider)
-
-    providers = buildProviderOptions(providerItems, [])
+  function handleProviderCreated(createdProvider: AgentProvider) {
+    syncProviderState([...providerItems, createdProvider])
   }
 
   async function handleProviderSave() {
@@ -198,7 +215,11 @@
       {selectedDefaultProviderId}
       orgDefaultProviderId={appStore.currentOrg?.default_agent_provider_id ?? null}
       orgDefaultProviderName={orgDefaultProvider?.name ?? null}
+      machineCount={machineItems.length}
       {saving}
+      onAddProvider={() => {
+        providerCreateOpen = true
+      }}
       onSelectionChange={(value) => {
         selectedDefaultProviderId = value
       }}
@@ -217,3 +238,13 @@
   onDraftChange={handleProviderDraftChange}
   onSave={handleProviderSave}
 />
+
+{#if appStore.currentOrg?.id}
+  <ProviderCreationDialog
+    orgId={appStore.currentOrg.id}
+    bind:open={providerCreateOpen}
+    title="Add provider"
+    description="Register a provider for this organization without leaving the current project settings."
+    onCreated={handleProviderCreated}
+  />
+{/if}

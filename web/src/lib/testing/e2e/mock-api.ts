@@ -123,11 +123,18 @@ const projectConversationStreamControllers = new Map<
   Set<ReadableStreamDefaultController<Uint8Array>>
 >()
 const queuedProjectConversationFrames = new Map<string, string[]>()
+const projectConversationMuxStreamControllers = new Map<
+  string,
+  Set<ReadableStreamDefaultController<Uint8Array>>
+>()
+const queuedProjectConversationMuxFrames = new Map<string, string[]>()
 
 export function resetMockState() {
   mockState = createInitialState()
   projectConversationStreamControllers.clear()
   queuedProjectConversationFrames.clear()
+  projectConversationMuxStreamControllers.clear()
+  queuedProjectConversationMuxFrames.clear()
   return clone(mockState)
 }
 
@@ -165,7 +172,7 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
     return jsonResponse({ ok: true })
   }
 
-  if (url.pathname.endsWith('/stream') && !url.pathname.startsWith('/api/v1/chat/conversations/')) {
+  if (url.pathname.endsWith('/stream') && !url.pathname.startsWith('/api/v1/chat/')) {
     return streamResponse()
   }
 
@@ -796,6 +803,18 @@ async function handleChatRoutes(request: Request, segments: string[]) {
   }
 
   if (segments[1] !== 'conversations') {
+    if (
+      segments[1] === 'projects' &&
+      segments.length === 5 &&
+      segments[3] === 'conversations' &&
+      segments[4] === 'stream' &&
+      request.method === 'GET'
+    ) {
+      if (segments[2] !== PROJECT_ID) {
+        return notFound('Project not found.')
+      }
+      return projectConversationMuxStreamResponse(segments[2])
+    }
     return notFound('Mock chat route not found.')
   }
 
@@ -926,30 +945,37 @@ async function handleChatRoutes(request: Request, segments: string[]) {
     conversation.updated_at = assistantEntry.created_at
     conversation.rolling_summary = message
 
-    queueOrBroadcastProjectConversationFrame(
+    const sessionSentAt = shiftedIso(turnIndex)
+    queueOrBroadcastProjectConversationEvent(
       segments[2],
-      encodeSSEFrame('session', {
+      'session',
+      {
         conversation_id: segments[2],
         runtime_state: 'active',
-      }),
+      },
+      sessionSentAt,
     )
     setTimeout(() => {
-      queueOrBroadcastProjectConversationFrame(
+      queueOrBroadcastProjectConversationEvent(
         segments[2],
-        encodeSSEFrame('message', {
+        'message',
+        {
           type: 'text',
           content: String(assistantEntry.payload.content ?? ''),
-        }),
+        },
+        shiftedIso(turnIndex + 1),
       )
     }, 25)
     setTimeout(() => {
-      queueOrBroadcastProjectConversationFrame(
+      queueOrBroadcastProjectConversationEvent(
         segments[2],
-        encodeSSEFrame('turn_done', {
+        'turn_done',
+        {
           conversation_id: segments[2],
           turn_id: turnId,
           cost_usd: 0.01,
-        }),
+        },
+        shiftedIso(turnIndex + 2),
       )
     }, 50)
 
@@ -2582,6 +2608,49 @@ function projectConversationStreamResponse(conversationId: string) {
   })
 }
 
+function projectConversationMuxStreamResponse(projectId: string) {
+  let sink: ReadableStreamDefaultController<Uint8Array> | null = null
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      sink = controller
+      controller.enqueue(encoder.encode(': openase-e2e\n\n'))
+      let sinks = projectConversationMuxStreamControllers.get(projectId)
+      if (!sinks) {
+        sinks = new Set()
+        projectConversationMuxStreamControllers.set(projectId, sinks)
+      }
+      sinks.add(controller)
+
+      const queuedFrames = queuedProjectConversationMuxFrames.get(projectId) ?? []
+      for (const frame of queuedFrames) {
+        controller.enqueue(encoder.encode(frame))
+      }
+      queuedProjectConversationMuxFrames.delete(projectId)
+    },
+    cancel() {
+      if (!sink) {
+        return
+      }
+      const sinks = projectConversationMuxStreamControllers.get(projectId)
+      if (!sinks) {
+        return
+      }
+      sinks.delete(sink)
+      if (sinks.size === 0) {
+        projectConversationMuxStreamControllers.delete(projectId)
+      }
+    },
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-store',
+      connection: 'keep-alive',
+    },
+  })
+}
+
 function queueOrBroadcastProjectConversationFrame(conversationId: string, frame: string) {
   const sinks = projectConversationStreamControllers.get(conversationId)
   if (!sinks || sinks.size === 0) {
@@ -2602,6 +2671,52 @@ function queueOrBroadcastProjectConversationFrame(conversationId: string, frame:
   if (sinks.size === 0) {
     projectConversationStreamControllers.delete(conversationId)
   }
+}
+
+function queueOrBroadcastProjectConversationMuxFrame(projectId: string, frame: string) {
+  const sinks = projectConversationMuxStreamControllers.get(projectId)
+  if (!sinks || sinks.size === 0) {
+    const queued = queuedProjectConversationMuxFrames.get(projectId) ?? []
+    queued.push(frame)
+    queuedProjectConversationMuxFrames.set(projectId, queued)
+    return
+  }
+
+  for (const sink of sinks) {
+    try {
+      sink.enqueue(encoder.encode(frame))
+    } catch {
+      sinks.delete(sink)
+    }
+  }
+
+  if (sinks.size === 0) {
+    projectConversationMuxStreamControllers.delete(projectId)
+  }
+}
+
+function queueOrBroadcastProjectConversationEvent(
+  conversationId: string,
+  event: string,
+  payload: Record<string, unknown>,
+  sentAt: string,
+) {
+  queueOrBroadcastProjectConversationFrame(conversationId, encodeSSEFrame(event, payload))
+
+  const conversation = findById(mockState.projectConversations, conversationId)
+  const projectId = asString(conversation?.project_id)
+  if (!projectId) {
+    return
+  }
+
+  queueOrBroadcastProjectConversationMuxFrame(
+    projectId,
+    encodeSSEFrame(event, {
+      conversation_id: conversationId,
+      sent_at: sentAt,
+      payload,
+    }),
+  )
 }
 
 function encodeSSEFrame(event: string, payload: Record<string, unknown>) {
