@@ -551,6 +551,44 @@ export async function watchProjectConversation(
   })
 }
 
+export async function watchProjectConversationMuxStream(
+  projectId: string,
+  handlers: {
+    signal?: AbortSignal
+    onOpen?: () => void
+    onFrame: (frame: ProjectConversationMuxFrame) => void
+  },
+) {
+  const headers = buildRequestHeaders('GET', {
+    accept: 'text/event-stream',
+  })
+  const response = await fetch(
+    `/api/v1/chat/projects/${encodeURIComponent(projectId)}/conversations/stream`,
+    {
+      method: 'GET',
+      headers,
+      credentials: 'same-origin',
+      signal: handlers.signal,
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+  if (!response.body) {
+    throw new Error('project conversation mux stream response body is unavailable')
+  }
+
+  handlers.onOpen?.()
+  await consumeEventStream(response.body, (frame) => {
+    const parsed = parseRawProjectConversationMuxFrame(frame)
+    if (parsed.ok) {
+      handlers.onFrame(parsed.value)
+    }
+  })
+}
+
 export function respondProjectConversationInterrupt(
   conversationId: string,
   interruptId: string,

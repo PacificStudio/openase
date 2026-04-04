@@ -1,8 +1,8 @@
 import {
-  parseRawProjectConversationMuxFrame,
   type ProjectConversationStreamEvent,
+  watchProjectConversationMuxStream,
 } from '$lib/api/chat'
-import { connectEventStream, type StreamConnectionState } from '$lib/api/sse'
+import type { StreamConnectionState } from '$lib/api/sse'
 
 type ProjectConversationEventSubscriber = {
   conversationId: string
@@ -93,44 +93,13 @@ function ensureRuntimeConnection(runtime: ProjectConversationEventBusRuntime) {
     return
   }
 
-  runtime.disconnect = connectEventStream(
-    `/api/v1/chat/projects/${encodeURIComponent(runtime.projectId)}/conversations/stream`,
-    {
-      onEvent: (frame) => {
-        const parsed = parseRawProjectConversationMuxFrame(frame)
-        if (!parsed.ok) {
-          console.error('Project conversation mux parse error:', parsed.error)
-          return
-        }
+  const controller = new AbortController()
+  runtime.disconnect = () => {
+    controller.abort()
+    runtime.state = 'idle'
+  }
 
-        if (parsed.value.event.kind === 'session') {
-          runtime.latestSessionByConversationId.set(parsed.value.conversationId, parsed.value.event)
-        }
-
-        for (const subscriber of runtime.subscribers.values()) {
-          if (subscriber.conversationId === parsed.value.conversationId) {
-            subscriber.onEvent(parsed.value.event)
-          }
-        }
-      },
-      onStateChange: (state) => {
-        const previousState = runtime.state
-        runtime.state = state
-        if (state === 'live') {
-          const reconnected = runtime.hasConnected && previousState !== 'live'
-          runtime.hasConnected = true
-          if (reconnected) {
-            for (const subscriber of runtime.subscribers.values()) {
-              subscriber.onReconnect?.()
-            }
-          }
-        }
-      },
-      onError: (error) => {
-        console.error('Project conversation mux bus error:', error)
-      },
-    },
-  )
+  void runRuntimeConnection(runtime, controller.signal)
 }
 
 function cleanupRuntime(runtime: ProjectConversationEventBusRuntime) {
@@ -143,4 +112,79 @@ function cleanupRuntime(runtime: ProjectConversationEventBusRuntime) {
   runtime.hasConnected = false
   runtime.latestSessionByConversationId.clear()
   runtimes.delete(runtime.projectId)
+}
+
+async function runRuntimeConnection(
+  runtime: ProjectConversationEventBusRuntime,
+  signal: AbortSignal,
+) {
+  let firstAttempt = true
+
+  while (!signal.aborted) {
+    runtime.state = firstAttempt ? 'connecting' : 'retrying'
+
+    try {
+      await watchProjectConversationMuxStream(runtime.projectId, {
+        signal,
+        onOpen: () => {
+          const reconnected = runtime.hasConnected
+          runtime.state = 'live'
+          runtime.hasConnected = true
+          if (reconnected) {
+            for (const subscriber of runtime.subscribers.values()) {
+              subscriber.onReconnect?.()
+            }
+          }
+        },
+        onFrame: (frame) => {
+          if (frame.event.kind === 'session') {
+            runtime.latestSessionByConversationId.set(frame.conversationId, frame.event)
+          }
+
+          for (const subscriber of runtime.subscribers.values()) {
+            if (subscriber.conversationId === frame.conversationId) {
+              subscriber.onEvent(frame.event)
+            }
+          }
+        },
+      })
+    } catch (error) {
+      if (isAbortError(error)) {
+        return
+      }
+      console.error('Project conversation mux bus error:', error)
+    }
+
+    if (signal.aborted) {
+      return
+    }
+
+    firstAttempt = false
+    await waitForRetry(signal, 2000)
+  }
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+function waitForRetry(signal: AbortSignal, delayMs: number) {
+  return new Promise<void>((resolve) => {
+    if (signal.aborted) {
+      resolve()
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, delayMs)
+
+    const onAbort = () => {
+      window.clearTimeout(timeoutId)
+      resolve()
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
 }

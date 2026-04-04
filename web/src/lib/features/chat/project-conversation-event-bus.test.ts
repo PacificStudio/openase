@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const { connectEventStream } = vi.hoisted(() => ({
-  connectEventStream: vi.fn(),
+const { watchProjectConversationMuxStream } = vi.hoisted(() => ({
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
-vi.mock('$lib/api/sse', () => ({
-  connectEventStream,
+vi.mock('$lib/api/chat', () => ({
+  watchProjectConversationMuxStream,
 }))
 
 import { watchProjectConversationMux } from './project-conversation-event-bus'
@@ -16,8 +16,22 @@ describe('watchProjectConversationMux', () => {
   })
 
   it('shares one SSE connection across multiple conversation subscriptions in the same project', async () => {
-    const disconnect = vi.fn()
-    connectEventStream.mockReturnValue(disconnect)
+    let firstCall:
+      | {
+          onOpen?: () => void
+          onFrame: (frame: { conversationId: string; sentAt: string; event: unknown }) => void
+        }
+      | undefined
+    watchProjectConversationMuxStream.mockImplementation((_projectId, handlers) => {
+      firstCall = handlers
+      return new Promise<void>((resolve, reject) => {
+        handlers.signal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true },
+        )
+      })
+    })
 
     const firstController = new AbortController()
     const secondController = new AbortController()
@@ -37,30 +51,42 @@ describe('watchProjectConversationMux', () => {
       onEvent: (event) => secondEvents.push(event),
     })
 
-    expect(connectEventStream).toHaveBeenCalledTimes(1)
-    const streamOptions = connectEventStream.mock.calls[0]?.[1]
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(1)
+    firstCall?.onOpen?.()
 
-    streamOptions?.onEvent({
-      event: 'session',
-      data: JSON.stringify({
-        conversation_id: 'conversation-1',
-        sent_at: '2026-04-04T12:00:00Z',
+    firstCall?.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-04T12:00:00Z',
+      event: {
+        kind: 'session',
         payload: {
-          conversation_id: 'conversation-1',
-          runtime_state: 'ready',
+          conversationId: 'conversation-1',
+          runtimeState: 'ready',
+          providerAnchorKind: undefined,
+          providerAnchorId: undefined,
+          providerTurnId: undefined,
+          providerTurnSupported: undefined,
+          providerStatus: undefined,
+          providerActiveFlags: [],
         },
-      }),
+      },
     })
-    streamOptions?.onEvent({
-      event: 'session',
-      data: JSON.stringify({
-        conversation_id: 'conversation-2',
-        sent_at: '2026-04-04T12:00:01Z',
+    firstCall?.onFrame({
+      conversationId: 'conversation-2',
+      sentAt: '2026-04-04T12:00:01Z',
+      event: {
+        kind: 'session',
         payload: {
-          conversation_id: 'conversation-2',
-          runtime_state: 'executing',
+          conversationId: 'conversation-2',
+          runtimeState: 'executing',
+          providerAnchorKind: undefined,
+          providerAnchorId: undefined,
+          providerTurnId: undefined,
+          providerTurnSupported: undefined,
+          providerStatus: undefined,
+          providerActiveFlags: [],
         },
-      }),
+      },
     })
 
     expect(firstEvents).toEqual([
@@ -98,13 +124,31 @@ describe('watchProjectConversationMux', () => {
     secondController.abort()
     await firstWatch
     await secondWatch
-
-    expect(disconnect).toHaveBeenCalledTimes(1)
   })
 
   it('replays cached session frames to late subscribers and signals reconnect after retries', async () => {
-    const disconnect = vi.fn()
-    connectEventStream.mockReturnValue(disconnect)
+    vi.useFakeTimers()
+
+    const calls: Array<{
+      handlers: {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: { conversationId: string; sentAt: string; event: unknown }) => void
+      }
+      resolve: () => void
+      reject: (error: unknown) => void
+    }> = []
+    watchProjectConversationMuxStream.mockImplementation((_projectId, handlers) => {
+      return new Promise<void>((resolve, reject) => {
+        const call = { handlers, resolve, reject }
+        calls.push(call)
+        handlers.signal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true },
+        )
+      })
+    })
 
     const firstController = new AbortController()
     const reconnected = vi.fn()
@@ -118,20 +162,24 @@ describe('watchProjectConversationMux', () => {
       onReconnect: reconnected,
     })
 
-    const streamOptions = connectEventStream.mock.calls[0]?.[1]
-    streamOptions?.onStateChange('connecting')
-    streamOptions?.onEvent({
-      event: 'session',
-      data: JSON.stringify({
-        conversation_id: 'conversation-1',
-        sent_at: '2026-04-04T12:00:00Z',
+    calls[0]?.handlers.onOpen?.()
+    calls[0]?.handlers.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-04T12:00:00Z',
+      event: {
+        kind: 'session',
         payload: {
-          conversation_id: 'conversation-1',
-          runtime_state: 'ready',
+          conversationId: 'conversation-1',
+          runtimeState: 'ready',
+          providerAnchorKind: undefined,
+          providerAnchorId: undefined,
+          providerTurnId: undefined,
+          providerTurnSupported: undefined,
+          providerStatus: undefined,
+          providerActiveFlags: [],
         },
-      }),
+      },
     })
-    streamOptions?.onStateChange('live')
 
     const secondController = new AbortController()
     const secondWatch = watchProjectConversationMux({
@@ -157,13 +205,19 @@ describe('watchProjectConversationMux', () => {
       },
     ])
 
-    streamOptions?.onStateChange('retrying')
-    streamOptions?.onStateChange('live')
+    calls[0]?.resolve()
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(2)
+
+    calls[1]?.handlers.onOpen?.()
     expect(reconnected).toHaveBeenCalledTimes(1)
 
     firstController.abort()
     secondController.abort()
     await firstWatch
     await secondWatch
+
+    vi.useRealTimers()
   })
 })
