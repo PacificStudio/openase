@@ -5,9 +5,8 @@ This guide covers the current repository state for building OpenASE from source,
 ## What You Need
 
 - Go `1.26.1` on `PATH`
-- PostgreSQL reachable from the machine that will run OpenASE
+- PostgreSQL reachable from the machine that will run OpenASE, or Docker if you want setup to start a local PostgreSQL for you
 - `git`
-- A local checkout of a repository you want OpenASE to bind into the project
 - Optional: `pnpm` via `corepack pnpm` when you modify files under `web/`
 - Optional: `codex`, `claude`, or `gemini` on `PATH` if you want setup to seed detected agent providers
 
@@ -84,17 +83,17 @@ Use the compiled binary for service management commands such as `up`, `down`, `r
 
 ## 3. Prepare PostgreSQL
 
-Start from the sample config if you want a repo-local config file:
-
-```bash
-cp config.example.yaml ./config.yaml
-```
-
-Update `database.dsn` to a reachable PostgreSQL instance. The minimum working value looks like:
+You can skip this section and let `openase setup` start a local Docker-backed PostgreSQL for you. If you already have PostgreSQL and want to configure it manually, the minimum working DSN looks like this:
 
 ```yaml
 database:
   dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
+```
+
+If you prefer to manage config by hand instead of using setup, start from the sample config:
+
+```bash
+cp config.example.yaml ./config.yaml
 ```
 
 Config lookup order for most commands is:
@@ -143,38 +142,42 @@ sg docker -c 'docker ps'
 
 ## 4. Run First-Time Setup
 
-Launch the setup wizard:
+Launch the interactive terminal setup:
 
 ```bash
-./bin/openase setup --host 127.0.0.1 --port 19836
+./bin/openase setup
 ```
 
-Then open `http://127.0.0.1:19836/setup` if the browser does not open automatically.
+The default flow stays inside the terminal and does not open a browser. It walks through:
 
-The wizard currently asks for:
-
-- workspace mode: `personal`, `team`, or `enterprise`
-- PostgreSQL host, port, database, user, password, and SSL mode
-- primary project name
-- project repo path: must already exist locally and contain `.git/`
-- project repo URL: optional
-- default branch
-- detected agent CLIs to seed as providers
+- choosing a database source:
+  - start a local Docker PostgreSQL automatically
+  - enter an existing PostgreSQL connection manually
+- validating the chosen database connection inside setup
+- checking local CLI availability and version probes for `git`, `codex`, `claude`, and other built-in provider CLIs
+- writing `~/.openase/config.yaml`
+- writing `~/.openase/.env` with the generated platform auth token
+- creating `~/.openase/logs/` and `~/.openase/workspaces/`
+- initializing the default local organization, project, ticket statuses, and detected provider seed data
 
 Successful setup does all of the following:
 
 - tests database connectivity and migrates the schema
 - writes `~/.openase/config.yaml`
-- writes `~/.openase/.env` with the generated platform auth token
+- writes `~/.openase/.env`
 - creates `~/.openase/logs/` and `~/.openase/workspaces/`
-- scaffolds `.openase/` assets inside the selected project repo
+- does not require a repo path, repo URL, default branch, or mode selection
+- does not scaffold repo-local `.openase/` assets during setup
 
-The project repo scaffold currently includes:
+When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
 
-- `.openase/harnesses/coding.md`
-- `.openase/harnesses/roles/*.md`
-- `.openase/skills/*/SKILL.md`
-- `.openase/bin/openase`
+- container: `openase-local-postgres`
+- volume: `openase-local-postgres-data`
+- database: `openase`
+- user: `openase`
+- host port: `127.0.0.1:15432`
+
+Setup generates the PostgreSQL password automatically, validates the container-backed connection, and prints reuse / stop / remove commands after success.
 
 ## 5. Start OpenASE
 
@@ -252,7 +255,7 @@ Recommended validation sequence after build or doc-driven startup changes:
 ./bin/openase all-in-one --help
 ```
 
-`doctor` checks config loading, git availability, detected agent CLIs, PostgreSQL reachability, `~/.openase/` layout, harness files, and referenced hook scripts.
+`doctor` checks config loading, local CLI availability, PostgreSQL reachability, and the `~/.openase/` layout produced by setup.
 
 For a live instance, also verify the HTTP health endpoints directly:
 
@@ -266,7 +269,7 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 - `make build-web` is the safe source-build path because it regenerates the embedded UI before compiling the Go binary.
 - Rebuild `web/` before compiling if you changed the Svelte app, otherwise the binary will still embed the old frontend output.
 - `make build` only compiles the Go binary against the current contents of `internal/webui/static/`; with only the tracked placeholder present, the root UI will serve a 503 guidance response until you rebuild `web/`.
-- `setup` requires the project repo path to be a real Git repository. A plain directory is rejected.
+- If Docker-backed setup fails, check whether Docker is installed, the daemon is running, the selected port is free, and the container name is unused.
 - `up` should be run from a compiled binary path you intend to keep, because the managed service stores the executable path it was installed with.
 - `serve`, `orchestrate`, and `all-in-one` all accept `--config`, and `serve` / `all-in-one` also accept host and port overrides.
 - If `all-in-one` fails with `bind: address already in use`, inspect the current listener with `lsof -nP -iTCP:<port> -sTCP:LISTEN`.

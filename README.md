@@ -8,7 +8,7 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 
 - a single Go binary with `serve`, `orchestrate`, and `all-in-one` modes
 - an embedded web control plane served from the Go binary
-- first-run setup that seeds `~/.openase/` and scaffolds repository-local `.openase/` assets
+- first-run terminal setup that seeds `~/.openase/` for a runnable local installation
 - organizations, projects, project repos, agent providers, agents, activity events, and project-level ticket statuses
 - ticket CRUD, ticket detail, parent/child relationships, and dependency management
 - workflow CRUD plus Git-backed harness documents, validation, hooks, skill binding, and built-in role templates
@@ -24,7 +24,7 @@ The repository has moved beyond the initial scaffold. The current vertical slice
 - `Binary-first`: release binaries ship the web UI embedded with `go:embed`, so end users do not need Node.js at runtime.
 - `Issue-driven orchestration`: tickets, workflows, statuses, and activity are the core operating model.
 - `Multi-agent adapters`: setup currently detects and can seed providers for Claude Code, OpenAI Codex, and Gemini CLI.
-- `Git-backed behavior`: workflow harnesses and scaffolded skills live in `.openase/` inside the target repo, not hidden in a database.
+- `Git-backed behavior`: workflow harnesses and skills remain repo-aware at runtime, but first-run setup itself no longer requires binding a repo.
 
 ## Build
 
@@ -80,7 +80,7 @@ export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?ss
 
 ### 2. Run setup or start the managed service
 
-First-run setup opens a local wizard that creates the home directory layout, writes config under `~/.openase/`, migrates the database, seeds the initial org/project/provider data, and scaffolds `.openase/` inside the selected project repository.
+First-run setup now stays inside the terminal. It prepares or validates PostgreSQL, checks key local CLIs, writes config under `~/.openase/`, and seeds the initial org/project/provider data without asking for repo or mode selection.
 
 ```bash
 ./bin/openase setup
@@ -122,9 +122,9 @@ export OPENASE_LOG_FORMAT=json
 
 If you plan to require browser login, also set `auth.mode=oidc` and the matching `auth.oidc.*` settings in your config. The sample values live in [`config.example.yaml`](./config.example.yaml), and the operational guide lives in [`docs/human-auth-oidc-rbac.md`](./docs/human-auth-oidc-rbac.md).
 
-## What Setup Scaffolds
+## What Setup Creates
 
-The setup flow seeds both home-directory and repo-local assets.
+The setup flow seeds home-directory assets only.
 
 Under `~/.openase/`:
 
@@ -132,12 +132,7 @@ Under `~/.openase/`:
 - `.env` with the local auth token used by the managed service
 - `logs/` and `workspaces/`
 
-Inside the selected project repository:
-
-- `.openase/harnesses/coding.md`
-- `.openase/harnesses/roles/*.md` for built-in role templates
-- `.openase/skills/*/SKILL.md` for built-in skills
-- `.openase/bin/openase` wrapper that forwards to the installed binary while preserving injected agent env vars
+Setup no longer creates repo-local scaffold files or requires an existing Git repository.
 
 ## Control Plane and API Surface
 
@@ -224,7 +219,7 @@ openase project update --description "Latest project context"
 - `internal/orchestrator/`: scheduling, health checks, retries
 - `internal/workflow/`: workflow service, harness registry, hook execution, skill binding, validation
 - `internal/agentplatform/`: agent token issuance and authentication
-- `internal/setup/`: first-run setup service and wizard
+- `internal/setup/`: first-run setup service and legacy web bootstrap server
 - `internal/builtin/`: built-in role and skill templates
 - `internal/webui/static/`: generated frontend output embedded into the binary during source builds
 - `web/`: SvelteKit source for the control plane
