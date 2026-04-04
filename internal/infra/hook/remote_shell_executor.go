@@ -255,8 +255,15 @@ func buildRemoteCommand(workingDirectory string, command string, environment []s
 
 func extractRemoteExitCode(err error) (int, bool) {
 	var exitErr *gossh.ExitError
-	if !errors.As(err, &exitErr) {
-		return 0, false
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitStatus(), true
 	}
-	return exitErr.ExitStatus(), true
+	type exitStatusProvider interface {
+		ExitStatus() int
+	}
+	var provider exitStatusProvider
+	if errors.As(err, &provider) {
+		return provider.ExitStatus(), true
+	}
+	return 0, false
 }

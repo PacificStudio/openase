@@ -3,7 +3,6 @@ package machinetransport
 import (
 	"archive/tar"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 )
@@ -109,34 +107,19 @@ func copyLocalFile(sourcePath string, targetPath string) error {
 	return nil
 }
 
-func syncRemoteArtifacts(
-	ctx context.Context,
-	pool *sshinfra.Pool,
-	machine domain.Machine,
-	request SyncArtifactsRequest,
-) error {
-	if pool == nil {
-		return fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
+func syncArtifactsWithSession(session CommandSession, request SyncArtifactsRequest) error {
+	if session == nil {
+		return fmt.Errorf("artifact sync session unavailable")
 	}
-
-	client, err := pool.Get(ctx, machine)
-	if err != nil {
-		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
-	}
-	defer func() { _ = session.Close() }()
 
 	stdin, err := session.StdinPipe()
 	if err != nil {
-		return fmt.Errorf("open ssh stdin for artifact sync: %w", err)
+		return fmt.Errorf("open stdin for artifact sync: %w", err)
 	}
 	stderr, err := session.StderrPipe()
 	if err != nil {
 		_ = stdin.Close()
-		return fmt.Errorf("open ssh stderr for artifact sync: %w", err)
+		return fmt.Errorf("open stderr for artifact sync: %w", err)
 	}
 
 	var stderrBuffer bytes.Buffer
@@ -150,7 +133,7 @@ func syncRemoteArtifacts(
 	if err := session.Start(command); err != nil {
 		_ = stdin.Close()
 		<-stderrDone
-		return fmt.Errorf("start remote artifact sync: %w", err)
+		return fmt.Errorf("start artifact sync: %w", err)
 	}
 
 	writer := tar.NewWriter(stdin)

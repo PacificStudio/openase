@@ -67,7 +67,7 @@
       <h3 class="text-foreground text-sm font-semibold">Identity & network</h3>
       <p class="text-muted-foreground mt-1 text-xs">
         {mode === 'create'
-          ? 'Register the machine identity and network endpoint.'
+          ? 'Register the machine identity, transport, and advertised endpoint.'
           : 'Update how OpenASE addresses this machine.'}
       </p>
     </div>

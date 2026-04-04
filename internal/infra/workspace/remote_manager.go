@@ -18,6 +18,10 @@ type RemoteManager struct {
 	pool *sshinfra.Pool
 }
 
+type commandRunner interface {
+	CombinedOutput(cmd string) ([]byte, error)
+}
+
 func NewRemoteManager(pool *sshinfra.Pool) *RemoteManager {
 	return &RemoteManager{pool: pool}
 }
@@ -46,11 +50,19 @@ func (m *RemoteManager) Prepare(ctx context.Context, machine domain.Machine, req
 		_ = session.Close()
 	}()
 
+	return PrepareWithCommandRunner(session, request)
+}
+
+func PrepareWithCommandRunner(runner commandRunner, request SetupRequest) (Workspace, error) {
+	if runner == nil {
+		return Workspace{}, fmt.Errorf("command runner unavailable")
+	}
+
 	command, err := buildPrepareWorkspaceCommand(request)
 	if err != nil {
 		return Workspace{}, fmt.Errorf("build remote workspace command: %w", err)
 	}
-	if output, err := session.CombinedOutput(command); err != nil {
+	if output, err := runner.CombinedOutput(command); err != nil {
 		return Workspace{}, fmt.Errorf("prepare remote workspace: %w: %s", err, strings.TrimSpace(string(output)))
 	}
 
