@@ -201,6 +201,7 @@ export function connectProjectConversationStream(params: {
       params.onClosed?.(currentStreamId)
     }
   })
+  return started.connected
 }
 
 export function applyProjectConversationStreamEvent(params: {

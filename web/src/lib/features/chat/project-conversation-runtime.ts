@@ -20,13 +20,14 @@ export function startProjectConversationStream(params: {
   params.abortController?.abort()
 
   const controller = new AbortController()
-  const stream = watchProjectConversationMux({
+  const subscription = watchProjectConversationMux({
     projectId: params.projectId,
     conversationId: params.conversationId,
     signal: controller.signal,
     onEvent: params.onEvent,
     onReconnect: params.onReconnect,
-  }).catch((caughtError) => {
+  })
+  const stream = subscription.stream.catch((caughtError) => {
     if (isAbortError(caughtError)) {
       return
     }
@@ -37,7 +38,7 @@ export function startProjectConversationStream(params: {
     )
   })
 
-  return { controller, stream }
+  return { controller, stream, connected: subscription.connected }
 }
 
 export async function restoreProjectConversation(params: {

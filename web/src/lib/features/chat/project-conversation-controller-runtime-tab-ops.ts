@@ -35,7 +35,7 @@ type ProjectConversationRuntimeTabOpsInput = {
     conversationId: string,
     restored: boolean,
   ) => Promise<boolean>
-  connectTabStream: (tab: ProjectConversationTabState, conversationId: string) => void
+  connectTabStream: (tab: ProjectConversationTabState, conversationId: string) => Promise<void>
   sortProjectConversations: (value: ProjectConversation[]) => ProjectConversation[]
   touchConversation: (conversationId: string) => void
 }
@@ -43,6 +43,19 @@ type ProjectConversationRuntimeTabOpsInput = {
 export function createProjectConversationRuntimeTabOps(
   input: ProjectConversationRuntimeTabOpsInput,
 ) {
+  async function waitForStreamConnection(
+    tab: ProjectConversationTabState,
+    conversationId: string,
+    timeoutMs = 3000,
+  ) {
+    await Promise.race([
+      input.connectTabStream(tab, conversationId),
+      new Promise<void>((resolve) => {
+        window.setTimeout(resolve, timeoutMs)
+      }),
+    ])
+  }
+
   function restoreTabConversationMetadata(
     tab: ProjectConversationTabState,
     conversation: ProjectConversation,
@@ -150,10 +163,10 @@ export function createProjectConversationRuntimeTabOps(
         )
         input.persistTabs()
         activeTab.phase = 'connecting_stream'
-        input.connectTabStream(activeTab, activeTab.conversationId)
+        await waitForStreamConnection(activeTab, activeTab.conversationId)
       } else if (!activeTab.abortController) {
         activeTab.phase = 'connecting_stream'
-        input.connectTabStream(activeTab, activeTab.conversationId)
+        await waitForStreamConnection(activeTab, activeTab.conversationId)
       }
 
       if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return false

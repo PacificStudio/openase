@@ -53,6 +53,7 @@ describe('watchProjectConversationMux', () => {
 
     expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(1)
     firstCall?.onOpen?.()
+    await Promise.all([firstWatch.connected, secondWatch.connected])
 
     firstCall?.onFrame({
       conversationId: 'conversation-1',
@@ -122,8 +123,8 @@ describe('watchProjectConversationMux', () => {
 
     firstController.abort()
     secondController.abort()
-    await firstWatch
-    await secondWatch
+    await firstWatch.stream
+    await secondWatch.stream
   })
 
   it('replays cached session frames to late subscribers and signals reconnect after retries', async () => {
@@ -212,11 +213,12 @@ describe('watchProjectConversationMux', () => {
 
     calls[1]?.handlers.onOpen?.()
     expect(reconnected).toHaveBeenCalledTimes(1)
+    await Promise.all([firstWatch.connected, secondWatch.connected])
 
     firstController.abort()
     secondController.abort()
-    await firstWatch
-    await secondWatch
+    await firstWatch.stream
+    await secondWatch.stream
 
     vi.useRealTimers()
   })
