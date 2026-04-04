@@ -1,9 +1,9 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { ChevronRight, LoaderCircle, Layers } from '@lucide/svelte'
-  import EphemeralChatDiffCard from './ephemeral-chat-diff-card.svelte'
   import ChatMarkdownContent from './chat-markdown-content.svelte'
   import ProjectConversationCommandOutputCard from './project-conversation-command-output-card.svelte'
+  import ProjectConversationDiffCard from './project-conversation-diff-card.svelte'
   import ProjectConversationInterruptCard from './project-conversation-interrupt-card.svelte'
   import ProjectConversationTaskStatusCard from './project-conversation-task-status-card.svelte'
   import ProjectConversationToolCallCard from './project-conversation-tool-call-card.svelte'
@@ -64,7 +64,7 @@
       {@const entry = item.entry}
 
       {#if entry.kind === 'diff'}
-        <EphemeralChatDiffCard {entry} />
+        <ProjectConversationDiffCard {entry} />
       {:else if entry.kind === 'interrupt'}
         <ProjectConversationInterruptCard {entry} {onRespondInterrupt} />
       {:else if entry.kind === 'command_output'}
