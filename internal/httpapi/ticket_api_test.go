@@ -2094,7 +2094,7 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	}
 }
 
-func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
+func TestTicketRouteStatusChangeRetainsPickupAssignmentAndReleasesOnFinish(t *testing.T) {
 	client := openTestEntClient(t)
 	server := NewServer(
 		config.ServerConfig{Port: 40024},
@@ -2150,6 +2150,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
 	workflowItem, err := client.Workflow.Create().
@@ -2177,6 +2178,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		SetIdentifier("ASE-1").
 		SetTitle("Implement pickup/finish state transitions").
 		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
 		SetCreatedBy("user:test").
 		Save(ctx)
 	if err != nil {
@@ -2189,6 +2191,7 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		SetTicketID(ticketItem.ID).
 		SetProviderID(provider.ID).
 		SetStatus(entagentrun.StatusReady).
+		SetSessionID("session-ready").
 		SetRuntimeStartedAt(runStartedAt).
 		SetLastHeartbeatAt(runStartedAt).
 		Save(ctx)
@@ -2252,6 +2255,48 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 	if runAfterTitleOnly.Status != entagentrun.StatusReady {
 		t.Fatalf("expected non-status update to keep run ready, got %+v", runAfterTitleOnly)
 	}
+	if _, err := client.Workflow.UpdateOneID(workflowItem.ID).
+		AddPickupStatusIDs(backlogID).
+		Save(ctx); err != nil {
+		t.Fatalf("add backlog pickup status: %v", err)
+	}
+
+	pickupStatusResp := struct {
+		Ticket ticketResponse `json:"ticket"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"status_id": backlogID.String()},
+		http.StatusOK,
+		&pickupStatusResp,
+	)
+
+	ticketAfterPickupStatusChange, err := client.Ticket.Get(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("reload ticket after pickup status update: %v", err)
+	}
+	if ticketAfterPickupStatusChange.StatusID != backlogID {
+		t.Fatalf("expected ticket status %s, got %s", backlogID, ticketAfterPickupStatusChange.StatusID)
+	}
+	if ticketAfterPickupStatusChange.CurrentRunID == nil || *ticketAfterPickupStatusChange.CurrentRunID != runItem.ID {
+		t.Fatalf("expected pickup status update to keep current run, got %+v", ticketAfterPickupStatusChange.CurrentRunID)
+	}
+	if pickupStatusResp.Ticket.CurrentRunID == nil || *pickupStatusResp.Ticket.CurrentRunID != runItem.ID.String() {
+		t.Fatalf("expected pickup status response to keep current_run_id %s, got %+v", runItem.ID, pickupStatusResp.Ticket.CurrentRunID)
+	}
+	runAfterPickupStatusChange, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run after pickup status update: %v", err)
+	}
+	if runAfterPickupStatusChange.Status != entagentrun.StatusReady ||
+		runAfterPickupStatusChange.SessionID != "session-ready" ||
+		runAfterPickupStatusChange.RuntimeStartedAt == nil ||
+		runAfterPickupStatusChange.LastHeartbeatAt == nil {
+		t.Fatalf("expected pickup status update to preserve run state, got %+v", runAfterPickupStatusChange)
+	}
 
 	statusResp := struct {
 		Ticket ticketResponse `json:"ticket"`
@@ -2308,14 +2353,20 @@ func TestTicketRouteStatusChangeClearsAssignmentAndReleasesAgent(t *testing.T) {
 		&statusesAfterResp,
 	)
 	todoStatusAfter := ticketstatus.Status{}
+	backlogStatusAfter := ticketstatus.Status{}
 	for _, status := range statusesAfterResp.Statuses {
-		if status.Name == "Todo" {
+		switch status.Name {
+		case "Todo":
 			todoStatusAfter = status
-			break
+		case "Backlog":
+			backlogStatusAfter = status
 		}
 	}
 	if todoStatusAfter.ID == uuid.Nil || todoStatusAfter.ActiveRuns != 0 {
 		t.Fatalf("expected Todo status active_runs=0 after status transition, got %+v", todoStatusAfter)
+	}
+	if backlogStatusAfter.ID == uuid.Nil || backlogStatusAfter.ActiveRuns != 0 {
+		t.Fatalf("expected Backlog status active_runs=0 after finish transition, got %+v", backlogStatusAfter)
 	}
 }
 

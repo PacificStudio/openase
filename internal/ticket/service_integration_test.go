@@ -762,6 +762,98 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	}
 }
 
+func TestTicketServiceKeepsCurrentRunWhenStatusStaysWithinWorkflowPickupSet(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := newTicketService(client)
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		AddPickupStatusIDs(fixture.backlogID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+				"on_cancel": []any{
+					map[string]any{"cmd": `printf 'cancel\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("configure workflow pickup hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Keep current run within pickup set",
+		StatusID:   &fixture.todoID,
+		Priority:   priorityPtr(PriorityHigh),
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+	workspaceRoot := seedTicketHookWorkspace(ctx, t, client, fixture.projectID, ticketItem.ID, runID, "agent/planner/ASE-retain")
+
+	updated, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.backlogID),
+		RestrictStatusToWorkflowFinishSet: false,
+	})
+	if err != nil {
+		t.Fatalf("update ticket status within pickup set: %v", err)
+	}
+	if updated.CurrentRunID == nil || *updated.CurrentRunID != runID {
+		t.Fatalf("expected current run to remain attached, got %+v", updated.CurrentRunID)
+	}
+	if updated.StatusID != fixture.backlogID {
+		t.Fatalf("expected status %s, got %s", fixture.backlogID, updated.StatusID)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runID)
+	if err != nil {
+		t.Fatalf("reload run after pickup status change: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusExecuting ||
+		runAfter.SessionID != "sess-active" ||
+		runAfter.RuntimeStartedAt == nil ||
+		runAfter.LastHeartbeatAt == nil {
+		t.Fatalf("expected executing run to stay intact, got %+v", runAfter)
+	}
+	agentAfter, err := client.Agent.Get(ctx, fixture.agentID)
+	if err != nil {
+		t.Fatalf("reload agent after pickup status change: %v", err)
+	}
+	if agentAfter.RuntimeControlState != entagent.RuntimeControlStatePaused {
+		t.Fatalf("expected agent control state to remain unchanged, got %+v", agentAfter)
+	}
+	if _, err := os.Stat(filepath.Join(workspaceRoot, "hook.log")); !os.IsNotExist(err) {
+		t.Fatalf("expected no lifecycle hook output, got err=%v", err)
+	}
+}
+
 func TestTicketServiceRunsCancelHookWhenArchivingReleasesCurrentRun(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()

@@ -421,6 +421,7 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 	statusChanged := false
 	archivedChanged := false
 	targetMachineChanged := false
+	statusChangeDisposition := ticketing.StatusChangeRunDispositionRetain
 	releasedRunID := current.CurrentRunID
 	releasedWorkflowID := current.WorkflowID
 	var releasedHookName string
@@ -442,11 +443,16 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 		}
 		statusChanged = input.StatusID.Value != current.StatusID
 		if statusChanged {
-			hookName, err := releasedRunHookForStatusChange(ctx, tx, current.WorkflowID, input.StatusID.Value)
+			statusChangeDisposition, err = classifyStatusChangeRunDisposition(ctx, tx, current, input.StatusID.Value)
 			if err != nil {
 				return UpdateResult{}, err
 			}
-			releasedHookName = hookName
+			switch statusChangeDisposition {
+			case ticketing.StatusChangeRunDispositionDone:
+				releasedHookName = "on_done"
+			case ticketing.StatusChangeRunDispositionCancel:
+				releasedHookName = "on_cancel"
+			}
 		}
 		builder.SetStatusID(input.StatusID.Value)
 	}
@@ -522,17 +528,17 @@ func (r *EntRepository) Update(ctx context.Context, input UpdateInput) (UpdateRe
 			builder.SetParentTicketID(*input.ParentTicketID.Value)
 		}
 	}
-	if statusChanged || (archivedChanged && input.Archived.Value) {
+	if statusChangeDisposition != ticketing.StatusChangeRunDispositionRetain || (archivedChanged && input.Archived.Value) {
 		builder.ClearCurrentRunID()
 	}
-	if statusChanged || targetMachineChanged || (archivedChanged && input.Archived.Value) {
+	if statusChangeDisposition != ticketing.StatusChangeRunDispositionRetain || targetMachineChanged || (archivedChanged && input.Archived.Value) {
 		ResetRetryBaseline(builder, current)
 	}
 
 	if _, err := builder.Save(ctx); err != nil {
 		return UpdateResult{}, mapTicketWriteError("update ticket", err)
 	}
-	if statusChanged || targetMachineChanged || (archivedChanged && input.Archived.Value) {
+	if statusChangeDisposition != ticketing.StatusChangeRunDispositionRetain || targetMachineChanged || (archivedChanged && input.Archived.Value) {
 		if err := releaseTicketAgentClaim(ctx, tx, current, entagentrun.StatusTerminated); err != nil {
 			return UpdateResult{}, err
 		}
@@ -1205,43 +1211,46 @@ func ensureStatusAllowedByWorkflowFinishSet(ctx context.Context, tx *ent.Tx, wor
 	return ErrStatusNotAllowed
 }
 
-func releasedRunHookForStatusChange(
+func classifyStatusChangeRunDisposition(
 	ctx context.Context,
 	tx *ent.Tx,
-	workflowID *uuid.UUID,
-	statusID uuid.UUID,
-) (string, error) {
-	if workflowID != nil {
-		allowed, err := isWorkflowFinishStatus(ctx, tx, *workflowID, statusID)
-		if err != nil {
-			return "", err
-		}
-		if allowed {
-			return "on_done", nil
-		}
+	current *ent.Ticket,
+	nextStatusID uuid.UUID,
+) (ticketing.StatusChangeRunDisposition, error) {
+	if current == nil || current.CurrentRunID == nil {
+		return ticketing.StatusChangeRunDispositionRetain, nil
+	}
+	if current.WorkflowID == nil {
+		return ticketing.StatusChangeRunDispositionCancel, nil
 	}
 
-	return "on_cancel", nil
-}
-
-func isWorkflowFinishStatus(ctx context.Context, tx *ent.Tx, workflowID uuid.UUID, statusID uuid.UUID) (bool, error) {
 	workflowItem, err := tx.Workflow.Query().
-		Where(entworkflow.IDEQ(workflowID)).
+		Where(entworkflow.IDEQ(*current.WorkflowID)).
+		WithPickupStatuses().
 		WithFinishStatuses().
 		Only(ctx)
 	if err != nil {
 		if ent.IsNotFound(err) {
-			return false, ErrWorkflowNotFound
+			return "", ErrWorkflowNotFound
 		}
-		return false, fmt.Errorf("load workflow finish statuses: %w", err)
+		return "", fmt.Errorf("load workflow status ownership: %w", err)
 	}
 
-	for _, finishStatus := range workflowItem.Edges.FinishStatuses {
-		if finishStatus.ID == statusID {
-			return true, nil
-		}
+	pickupStatusIDs := make([]uuid.UUID, 0, len(workflowItem.Edges.PickupStatuses))
+	for _, status := range workflowItem.Edges.PickupStatuses {
+		pickupStatusIDs = append(pickupStatusIDs, status.ID)
 	}
-	return false, nil
+	finishStatusIDs := make([]uuid.UUID, 0, len(workflowItem.Edges.FinishStatuses))
+	for _, status := range workflowItem.Edges.FinishStatuses {
+		finishStatusIDs = append(finishStatusIDs, status.ID)
+	}
+
+	return ticketing.ClassifyStatusChangeRunDisposition(
+		true,
+		nextStatusID,
+		pickupStatusIDs,
+		finishStatusIDs,
+	), nil
 }
 
 func ensureTicketBelongsToProject(ctx context.Context, tx *ent.Tx, projectID uuid.UUID, ticketID uuid.UUID, notFound error) error {
