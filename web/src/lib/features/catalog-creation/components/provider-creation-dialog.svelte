@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation'
-  import type { AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
+  import type { AgentProvider, AgentProviderModelCatalogEntry, Machine } from '$lib/api/contracts'
   import { ApiError } from '$lib/api/client'
   import { createProvider, listMachines, listProviderModelOptions } from '$lib/api/openase'
   import {
@@ -16,15 +16,22 @@
   let {
     orgId,
     open = $bindable(false),
+    title = 'Create provider',
+    description = 'Register a model adapter to use with agents in this organization.',
+    onCreated,
   }: {
     orgId: string
     open?: boolean
+    title?: string
+    description?: string
+    onCreated?: (provider: AgentProvider) => void | Promise<void>
   } = $props()
 
   let draft = $state<ProviderDraft>(createEmptyProviderDraft())
   let creating = $state(false)
   let machines = $state<Machine[]>([])
   let modelCatalog = $state<AgentProviderModelCatalogEntry[]>([])
+  const canSubmit = $derived(machines.length > 0)
 
   function reset() {
     draft = createEmptyProviderDraft()
@@ -68,10 +75,14 @@
     creating = true
 
     try {
-      await createProvider(orgId, parsed.value)
+      const payload = await createProvider(orgId, parsed.value)
+      if (payload.provider && onCreated) {
+        await onCreated(payload.provider)
+      } else {
+        await invalidateAll()
+      }
       open = false
       reset()
-      await invalidateAll()
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.',
@@ -90,10 +101,8 @@
 >
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Create provider</Dialog.Title>
-      <Dialog.Description>
-        Register a model adapter to use with agents in this organization.
-      </Dialog.Description>
+      <Dialog.Title>{title}</Dialog.Title>
+      <Dialog.Description>{description}</Dialog.Description>
     </Dialog.Header>
 
     <form
@@ -112,13 +121,19 @@
         }}
       />
 
+      {#if !canSubmit}
+        <p class="text-muted-foreground text-sm">
+          Register an execution machine in this organization before creating a provider.
+        </p>
+      {/if}
+
       <Dialog.Footer>
         <Dialog.Close>
           {#snippet child({ props })}
             <Button variant="outline" {...props}>Cancel</Button>
           {/snippet}
         </Dialog.Close>
-        <Button type="submit" disabled={creating}>
+        <Button type="submit" disabled={creating || !canSubmit}>
           {creating ? 'Creating...' : 'Create provider'}
         </Button>
       </Dialog.Footer>
