@@ -27,6 +27,12 @@ type AgentToken func(*sql.Selector)
 // AgentTraceEvent is the predicate function for agenttraceevent builders.
 type AgentTraceEvent func(*sql.Selector)
 
+// ApprovalPolicyRule is the predicate function for approvalpolicyrule builders.
+type ApprovalPolicyRule func(*sql.Selector)
+
+// BrowserSession is the predicate function for browsersession builders.
+type BrowserSession func(*sql.Selector)
+
 // ChatConversation is the predicate function for chatconversation builders.
 type ChatConversation func(*sql.Selector)
 
@@ -84,6 +90,9 @@ type ProjectUpdateThread func(*sql.Selector)
 // ProjectUpdateThreadRevision is the predicate function for projectupdatethreadrevision builders.
 type ProjectUpdateThreadRevision func(*sql.Selector)
 
+// RoleBinding is the predicate function for rolebinding builders.
+type RoleBinding func(*sql.Selector)
+
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
 
@@ -122,6 +131,15 @@ type TicketRepoWorkspace func(*sql.Selector)
 
 // TicketStatus is the predicate function for ticketstatus builders.
 type TicketStatus func(*sql.Selector)
+
+// User is the predicate function for user builders.
+type User func(*sql.Selector)
+
+// UserGroupMembership is the predicate function for usergroupmembership builders.
+type UserGroupMembership func(*sql.Selector)
+
+// UserIdentity is the predicate function for useridentity builders.
+type UserIdentity func(*sql.Selector)
 
 // Workflow is the predicate function for workflow builders.
 type Workflow func(*sql.Selector)

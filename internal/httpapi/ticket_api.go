@@ -336,6 +336,7 @@ func (s *Server) handleCreateTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseCreateTicketRequest(projectID, raw)
 	if err != nil {
@@ -463,6 +464,7 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseUpdateTicketRequest(ticketID, raw)
 	if err != nil {
@@ -580,6 +582,7 @@ func (s *Server) handleCreateTicketComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseCreateTicketCommentRequest(ticketID, raw)
 	if err != nil {
@@ -631,6 +634,7 @@ func (s *Server) handleUpdateTicketComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseUpdateTicketCommentRequest(ticketID, commentID, raw)
 	if err != nil {

@@ -31,6 +31,7 @@ import (
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
+	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
@@ -42,6 +43,7 @@ import (
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
+	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -203,6 +205,9 @@ func (a *App) RunServe(ctx context.Context) error {
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
 	)
 	ticketWorkspaceResetSvc := orchestrator.NewTicketWorkspaceResetService(client, a.logger, sshPool)
+	humanAuthRepo := humanauthrepo.NewEntRepository(client)
+	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
+	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -215,6 +220,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
+		httpapi.WithHumanAuthConfig(a.config.Auth),
+		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),
 		httpapi.WithMetricsHandler(a.metricsHandler),

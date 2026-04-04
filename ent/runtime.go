@@ -12,6 +12,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -31,6 +33,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
+	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
 	"github.com/BetterAndBetterII/openase/ent/skill"
@@ -45,6 +48,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/usergroupmembership"
+	"github.com/BetterAndBetterII/openase/ent/useridentity"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
@@ -249,6 +255,74 @@ func init() {
 	agenttraceeventDescID := agenttraceeventFields[0].Descriptor()
 	// agenttraceevent.DefaultID holds the default value on creation for the id field.
 	agenttraceevent.DefaultID = agenttraceeventDescID.Default.(func() uuid.UUID)
+	approvalpolicyruleFields := schema.ApprovalPolicyRule{}.Fields()
+	_ = approvalpolicyruleFields
+	// approvalpolicyruleDescScopeID is the schema descriptor for scope_id field.
+	approvalpolicyruleDescScopeID := approvalpolicyruleFields[2].Descriptor()
+	// approvalpolicyrule.DefaultScopeID holds the default value on creation for the scope_id field.
+	approvalpolicyrule.DefaultScopeID = approvalpolicyruleDescScopeID.Default.(string)
+	// approvalpolicyruleDescActionKey is the schema descriptor for action_key field.
+	approvalpolicyruleDescActionKey := approvalpolicyruleFields[3].Descriptor()
+	// approvalpolicyrule.ActionKeyValidator is a validator for the "action_key" field. It is called by the builders before save.
+	approvalpolicyrule.ActionKeyValidator = approvalpolicyruleDescActionKey.Validators[0].(func(string) error)
+	// approvalpolicyruleDescRequireRoleKey is the schema descriptor for require_role_key field.
+	approvalpolicyruleDescRequireRoleKey := approvalpolicyruleFields[4].Descriptor()
+	// approvalpolicyrule.DefaultRequireRoleKey holds the default value on creation for the require_role_key field.
+	approvalpolicyrule.DefaultRequireRoleKey = approvalpolicyruleDescRequireRoleKey.Default.(string)
+	// approvalpolicyruleDescRequireTicketStatus is the schema descriptor for require_ticket_status field.
+	approvalpolicyruleDescRequireTicketStatus := approvalpolicyruleFields[5].Descriptor()
+	// approvalpolicyrule.DefaultRequireTicketStatus holds the default value on creation for the require_ticket_status field.
+	approvalpolicyrule.DefaultRequireTicketStatus = approvalpolicyruleDescRequireTicketStatus.Default.(string)
+	// approvalpolicyruleDescEnabled is the schema descriptor for enabled field.
+	approvalpolicyruleDescEnabled := approvalpolicyruleFields[6].Descriptor()
+	// approvalpolicyrule.DefaultEnabled holds the default value on creation for the enabled field.
+	approvalpolicyrule.DefaultEnabled = approvalpolicyruleDescEnabled.Default.(bool)
+	// approvalpolicyruleDescCreatedAt is the schema descriptor for created_at field.
+	approvalpolicyruleDescCreatedAt := approvalpolicyruleFields[7].Descriptor()
+	// approvalpolicyrule.DefaultCreatedAt holds the default value on creation for the created_at field.
+	approvalpolicyrule.DefaultCreatedAt = approvalpolicyruleDescCreatedAt.Default.(func() time.Time)
+	// approvalpolicyruleDescUpdatedAt is the schema descriptor for updated_at field.
+	approvalpolicyruleDescUpdatedAt := approvalpolicyruleFields[8].Descriptor()
+	// approvalpolicyrule.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	approvalpolicyrule.DefaultUpdatedAt = approvalpolicyruleDescUpdatedAt.Default.(func() time.Time)
+	// approvalpolicyrule.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	approvalpolicyrule.UpdateDefaultUpdatedAt = approvalpolicyruleDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// approvalpolicyruleDescID is the schema descriptor for id field.
+	approvalpolicyruleDescID := approvalpolicyruleFields[0].Descriptor()
+	// approvalpolicyrule.DefaultID holds the default value on creation for the id field.
+	approvalpolicyrule.DefaultID = approvalpolicyruleDescID.Default.(func() uuid.UUID)
+	browsersessionFields := schema.BrowserSession{}.Fields()
+	_ = browsersessionFields
+	// browsersessionDescSessionHash is the schema descriptor for session_hash field.
+	browsersessionDescSessionHash := browsersessionFields[2].Descriptor()
+	// browsersession.SessionHashValidator is a validator for the "session_hash" field. It is called by the builders before save.
+	browsersession.SessionHashValidator = browsersessionDescSessionHash.Validators[0].(func(string) error)
+	// browsersessionDescCsrfSecret is the schema descriptor for csrf_secret field.
+	browsersessionDescCsrfSecret := browsersessionFields[5].Descriptor()
+	// browsersession.CsrfSecretValidator is a validator for the "csrf_secret" field. It is called by the builders before save.
+	browsersession.CsrfSecretValidator = browsersessionDescCsrfSecret.Validators[0].(func(string) error)
+	// browsersessionDescUserAgentHash is the schema descriptor for user_agent_hash field.
+	browsersessionDescUserAgentHash := browsersessionFields[6].Descriptor()
+	// browsersession.DefaultUserAgentHash holds the default value on creation for the user_agent_hash field.
+	browsersession.DefaultUserAgentHash = browsersessionDescUserAgentHash.Default.(string)
+	// browsersessionDescIPPrefix is the schema descriptor for ip_prefix field.
+	browsersessionDescIPPrefix := browsersessionFields[7].Descriptor()
+	// browsersession.DefaultIPPrefix holds the default value on creation for the ip_prefix field.
+	browsersession.DefaultIPPrefix = browsersessionDescIPPrefix.Default.(string)
+	// browsersessionDescCreatedAt is the schema descriptor for created_at field.
+	browsersessionDescCreatedAt := browsersessionFields[9].Descriptor()
+	// browsersession.DefaultCreatedAt holds the default value on creation for the created_at field.
+	browsersession.DefaultCreatedAt = browsersessionDescCreatedAt.Default.(func() time.Time)
+	// browsersessionDescUpdatedAt is the schema descriptor for updated_at field.
+	browsersessionDescUpdatedAt := browsersessionFields[10].Descriptor()
+	// browsersession.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	browsersession.DefaultUpdatedAt = browsersessionDescUpdatedAt.Default.(func() time.Time)
+	// browsersession.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	browsersession.UpdateDefaultUpdatedAt = browsersessionDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// browsersessionDescID is the schema descriptor for id field.
+	browsersessionDescID := browsersessionFields[0].Descriptor()
+	// browsersession.DefaultID holds the default value on creation for the id field.
+	browsersession.DefaultID = browsersessionDescID.Default.(func() uuid.UUID)
 	chatconversationFields := schema.ChatConversation{}.Fields()
 	_ = chatconversationFields
 	// chatconversationDescUserID is the schema descriptor for user_id field.
@@ -765,6 +839,38 @@ func init() {
 	projectupdatethreadrevisionDescID := projectupdatethreadrevisionFields[0].Descriptor()
 	// projectupdatethreadrevision.DefaultID holds the default value on creation for the id field.
 	projectupdatethreadrevision.DefaultID = projectupdatethreadrevisionDescID.Default.(func() uuid.UUID)
+	rolebindingFields := schema.RoleBinding{}.Fields()
+	_ = rolebindingFields
+	// rolebindingDescScopeID is the schema descriptor for scope_id field.
+	rolebindingDescScopeID := rolebindingFields[2].Descriptor()
+	// rolebinding.DefaultScopeID holds the default value on creation for the scope_id field.
+	rolebinding.DefaultScopeID = rolebindingDescScopeID.Default.(string)
+	// rolebindingDescSubjectKey is the schema descriptor for subject_key field.
+	rolebindingDescSubjectKey := rolebindingFields[4].Descriptor()
+	// rolebinding.SubjectKeyValidator is a validator for the "subject_key" field. It is called by the builders before save.
+	rolebinding.SubjectKeyValidator = rolebindingDescSubjectKey.Validators[0].(func(string) error)
+	// rolebindingDescRoleKey is the schema descriptor for role_key field.
+	rolebindingDescRoleKey := rolebindingFields[5].Descriptor()
+	// rolebinding.RoleKeyValidator is a validator for the "role_key" field. It is called by the builders before save.
+	rolebinding.RoleKeyValidator = rolebindingDescRoleKey.Validators[0].(func(string) error)
+	// rolebindingDescGrantedBy is the schema descriptor for granted_by field.
+	rolebindingDescGrantedBy := rolebindingFields[6].Descriptor()
+	// rolebinding.DefaultGrantedBy holds the default value on creation for the granted_by field.
+	rolebinding.DefaultGrantedBy = rolebindingDescGrantedBy.Default.(string)
+	// rolebindingDescCreatedAt is the schema descriptor for created_at field.
+	rolebindingDescCreatedAt := rolebindingFields[8].Descriptor()
+	// rolebinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	rolebinding.DefaultCreatedAt = rolebindingDescCreatedAt.Default.(func() time.Time)
+	// rolebindingDescUpdatedAt is the schema descriptor for updated_at field.
+	rolebindingDescUpdatedAt := rolebindingFields[9].Descriptor()
+	// rolebinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	rolebinding.DefaultUpdatedAt = rolebindingDescUpdatedAt.Default.(func() time.Time)
+	// rolebinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	rolebinding.UpdateDefaultUpdatedAt = rolebindingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// rolebindingDescID is the schema descriptor for id field.
+	rolebindingDescID := rolebindingFields[0].Descriptor()
+	// rolebinding.DefaultID holds the default value on creation for the id field.
+	rolebinding.DefaultID = rolebindingDescID.Default.(func() uuid.UUID)
 	scheduledjobFields := schema.ScheduledJob{}.Fields()
 	_ = scheduledjobFields
 	// scheduledjobDescName is the schema descriptor for name field.
@@ -1101,6 +1207,110 @@ func init() {
 	ticketstatusDescID := ticketstatusFields[0].Descriptor()
 	// ticketstatus.DefaultID holds the default value on creation for the id field.
 	ticketstatus.DefaultID = ticketstatusDescID.Default.(func() uuid.UUID)
+	userFields := schema.User{}.Fields()
+	_ = userFields
+	// userDescPrimaryEmail is the schema descriptor for primary_email field.
+	userDescPrimaryEmail := userFields[2].Descriptor()
+	// user.DefaultPrimaryEmail holds the default value on creation for the primary_email field.
+	user.DefaultPrimaryEmail = userDescPrimaryEmail.Default.(string)
+	// userDescDisplayName is the schema descriptor for display_name field.
+	userDescDisplayName := userFields[3].Descriptor()
+	// user.DefaultDisplayName holds the default value on creation for the display_name field.
+	user.DefaultDisplayName = userDescDisplayName.Default.(string)
+	// userDescAvatarURL is the schema descriptor for avatar_url field.
+	userDescAvatarURL := userFields[4].Descriptor()
+	// user.DefaultAvatarURL holds the default value on creation for the avatar_url field.
+	user.DefaultAvatarURL = userDescAvatarURL.Default.(string)
+	// userDescCreatedAt is the schema descriptor for created_at field.
+	userDescCreatedAt := userFields[6].Descriptor()
+	// user.DefaultCreatedAt holds the default value on creation for the created_at field.
+	user.DefaultCreatedAt = userDescCreatedAt.Default.(func() time.Time)
+	// userDescUpdatedAt is the schema descriptor for updated_at field.
+	userDescUpdatedAt := userFields[7].Descriptor()
+	// user.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	user.DefaultUpdatedAt = userDescUpdatedAt.Default.(func() time.Time)
+	// user.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	user.UpdateDefaultUpdatedAt = userDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// userDescID is the schema descriptor for id field.
+	userDescID := userFields[0].Descriptor()
+	// user.DefaultID holds the default value on creation for the id field.
+	user.DefaultID = userDescID.Default.(func() uuid.UUID)
+	usergroupmembershipFields := schema.UserGroupMembership{}.Fields()
+	_ = usergroupmembershipFields
+	// usergroupmembershipDescIssuer is the schema descriptor for issuer field.
+	usergroupmembershipDescIssuer := usergroupmembershipFields[2].Descriptor()
+	// usergroupmembership.IssuerValidator is a validator for the "issuer" field. It is called by the builders before save.
+	usergroupmembership.IssuerValidator = usergroupmembershipDescIssuer.Validators[0].(func(string) error)
+	// usergroupmembershipDescGroupKey is the schema descriptor for group_key field.
+	usergroupmembershipDescGroupKey := usergroupmembershipFields[3].Descriptor()
+	// usergroupmembership.GroupKeyValidator is a validator for the "group_key" field. It is called by the builders before save.
+	usergroupmembership.GroupKeyValidator = usergroupmembershipDescGroupKey.Validators[0].(func(string) error)
+	// usergroupmembershipDescGroupName is the schema descriptor for group_name field.
+	usergroupmembershipDescGroupName := usergroupmembershipFields[4].Descriptor()
+	// usergroupmembership.DefaultGroupName holds the default value on creation for the group_name field.
+	usergroupmembership.DefaultGroupName = usergroupmembershipDescGroupName.Default.(string)
+	// usergroupmembershipDescLastSyncedAt is the schema descriptor for last_synced_at field.
+	usergroupmembershipDescLastSyncedAt := usergroupmembershipFields[5].Descriptor()
+	// usergroupmembership.DefaultLastSyncedAt holds the default value on creation for the last_synced_at field.
+	usergroupmembership.DefaultLastSyncedAt = usergroupmembershipDescLastSyncedAt.Default.(func() time.Time)
+	// usergroupmembershipDescCreatedAt is the schema descriptor for created_at field.
+	usergroupmembershipDescCreatedAt := usergroupmembershipFields[6].Descriptor()
+	// usergroupmembership.DefaultCreatedAt holds the default value on creation for the created_at field.
+	usergroupmembership.DefaultCreatedAt = usergroupmembershipDescCreatedAt.Default.(func() time.Time)
+	// usergroupmembershipDescUpdatedAt is the schema descriptor for updated_at field.
+	usergroupmembershipDescUpdatedAt := usergroupmembershipFields[7].Descriptor()
+	// usergroupmembership.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	usergroupmembership.DefaultUpdatedAt = usergroupmembershipDescUpdatedAt.Default.(func() time.Time)
+	// usergroupmembership.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	usergroupmembership.UpdateDefaultUpdatedAt = usergroupmembershipDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// usergroupmembershipDescID is the schema descriptor for id field.
+	usergroupmembershipDescID := usergroupmembershipFields[0].Descriptor()
+	// usergroupmembership.DefaultID holds the default value on creation for the id field.
+	usergroupmembership.DefaultID = usergroupmembershipDescID.Default.(func() uuid.UUID)
+	useridentityFields := schema.UserIdentity{}.Fields()
+	_ = useridentityFields
+	// useridentityDescIssuer is the schema descriptor for issuer field.
+	useridentityDescIssuer := useridentityFields[2].Descriptor()
+	// useridentity.IssuerValidator is a validator for the "issuer" field. It is called by the builders before save.
+	useridentity.IssuerValidator = useridentityDescIssuer.Validators[0].(func(string) error)
+	// useridentityDescSubject is the schema descriptor for subject field.
+	useridentityDescSubject := useridentityFields[3].Descriptor()
+	// useridentity.SubjectValidator is a validator for the "subject" field. It is called by the builders before save.
+	useridentity.SubjectValidator = useridentityDescSubject.Validators[0].(func(string) error)
+	// useridentityDescEmail is the schema descriptor for email field.
+	useridentityDescEmail := useridentityFields[4].Descriptor()
+	// useridentity.DefaultEmail holds the default value on creation for the email field.
+	useridentity.DefaultEmail = useridentityDescEmail.Default.(string)
+	// useridentityDescEmailVerified is the schema descriptor for email_verified field.
+	useridentityDescEmailVerified := useridentityFields[5].Descriptor()
+	// useridentity.DefaultEmailVerified holds the default value on creation for the email_verified field.
+	useridentity.DefaultEmailVerified = useridentityDescEmailVerified.Default.(bool)
+	// useridentityDescClaimsVersion is the schema descriptor for claims_version field.
+	useridentityDescClaimsVersion := useridentityFields[6].Descriptor()
+	// useridentity.DefaultClaimsVersion holds the default value on creation for the claims_version field.
+	useridentity.DefaultClaimsVersion = useridentityDescClaimsVersion.Default.(int)
+	// useridentityDescRawClaimsJSON is the schema descriptor for raw_claims_json field.
+	useridentityDescRawClaimsJSON := useridentityFields[7].Descriptor()
+	// useridentity.DefaultRawClaimsJSON holds the default value on creation for the raw_claims_json field.
+	useridentity.DefaultRawClaimsJSON = useridentityDescRawClaimsJSON.Default.(string)
+	// useridentityDescLastSyncedAt is the schema descriptor for last_synced_at field.
+	useridentityDescLastSyncedAt := useridentityFields[8].Descriptor()
+	// useridentity.DefaultLastSyncedAt holds the default value on creation for the last_synced_at field.
+	useridentity.DefaultLastSyncedAt = useridentityDescLastSyncedAt.Default.(func() time.Time)
+	// useridentityDescCreatedAt is the schema descriptor for created_at field.
+	useridentityDescCreatedAt := useridentityFields[9].Descriptor()
+	// useridentity.DefaultCreatedAt holds the default value on creation for the created_at field.
+	useridentity.DefaultCreatedAt = useridentityDescCreatedAt.Default.(func() time.Time)
+	// useridentityDescUpdatedAt is the schema descriptor for updated_at field.
+	useridentityDescUpdatedAt := useridentityFields[10].Descriptor()
+	// useridentity.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	useridentity.DefaultUpdatedAt = useridentityDescUpdatedAt.Default.(func() time.Time)
+	// useridentity.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	useridentity.UpdateDefaultUpdatedAt = useridentityDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// useridentityDescID is the schema descriptor for id field.
+	useridentityDescID := useridentityFields[0].Descriptor()
+	// useridentity.DefaultID holds the default value on creation for the id field.
+	useridentity.DefaultID = useridentityDescID.Default.(func() uuid.UUID)
 	workflowFields := schema.Workflow{}.Fields()
 	_ = workflowFields
 	// workflowDescName is the schema descriptor for name field.

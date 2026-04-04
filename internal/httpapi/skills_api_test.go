@@ -129,6 +129,55 @@ func TestWriteSkillRefinementError(t *testing.T) {
 	}
 }
 
+func TestHandleStartSkillRefinementRejectsHeaderFallbackInOIDCMode(t *testing.T) {
+	skillID := uuid.New()
+	projectID := uuid.New()
+	providerID := uuid.New()
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeOIDC}),
+		WithSkillRefinementService(&chatservice.SkillRefinementService{}),
+	)
+
+	body := fmt.Sprintf(`{
+		"project_id":"%s",
+		"message":"Tighten the skill.",
+		"provider_id":"%s",
+		"files":[
+			{"path":"SKILL.md","content_base64":"%s","media_type":"text/markdown; charset=utf-8","is_executable":false}
+		]
+	}`,
+		projectID,
+		providerID,
+		base64.StdEncoding.EncodeToString([]byte("---\nname: deploy-openase\n---\n")),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/skills/%s/refinement-runs", skillID), strings.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(chatUserHeader, "user:spoofed-header")
+	rec := httptest.NewRecorder()
+	ctx := server.echo.NewContext(req, rec)
+	ctx.SetPath("/api/v1/skills/:skillId/refinement-runs")
+	ctx.SetParamNames("skillId")
+	ctx.SetParamValues(skillID.String())
+
+	if err := server.handleStartSkillRefinement(ctx); err != nil {
+		t.Fatalf("handleStartSkillRefinement() error = %v", err)
+	}
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "HUMAN_SESSION_REQUIRED") {
+		t.Fatalf("handleStartSkillRefinement() = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	client := openTestEntClient(t)
 	repoRoot := createTestGitRepo(t)

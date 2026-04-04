@@ -251,8 +251,8 @@ func TestGeminiRuntimeStartTurnLeavesActionProposalJSONAsText(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 3 {
-		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
+	if len(events) != 4 {
+		t.Fatalf("stream event count = %d, want 4: %+v", len(events), events)
 	}
 
 	anchor, ok := events[0].Payload.(RuntimeSessionAnchor)
@@ -271,9 +271,17 @@ func TestGeminiRuntimeStartTurnLeavesActionProposalJSONAsText(t *testing.T) {
 		t.Fatalf("unexpected action proposal text payload: %#v", payload)
 	}
 
-	done, ok := events[2].Payload.(donePayload)
-	if events[2].Event != "done" || !ok {
-		t.Fatalf("third event = %+v, want done payload", events[2])
+	usage, ok := events[2].Payload.(runtimeTokenUsagePayload)
+	if events[2].Event != "token_usage_updated" || !ok {
+		t.Fatalf("third event = %+v, want token usage payload", events[2])
+	}
+	if usage.TotalInputTokens != 7 || usage.TotalOutputTokens != 3 || usage.TotalTokens != 10 {
+		t.Fatalf("unexpected token usage payload: %#v", usage)
+	}
+
+	done, ok := events[3].Payload.(donePayload)
+	if events[3].Event != "done" || !ok {
+		t.Fatalf("fourth event = %+v, want done payload", events[3])
 	}
 	if done.SessionID != "session-gemini-1" || done.TurnsUsed != 1 || done.TurnsRemaining == nil || *done.TurnsRemaining != DefaultMaxTurns-1 {
 		t.Fatalf("unexpected done payload: %#v", done)
@@ -323,8 +331,8 @@ func TestGeminiRuntimeStartTurnPromotesDiffJSON(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 3 {
-		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
+	if len(events) != 4 {
+		t.Fatalf("stream event count = %d, want 4: %+v", len(events), events)
 	}
 
 	payload, ok := events[1].Payload.(diffPayload)
@@ -333,6 +341,20 @@ func TestGeminiRuntimeStartTurnPromotesDiffJSON(t *testing.T) {
 	}
 	if payload.Type != chatMessageTypeDiff || payload.File != "harness content" {
 		t.Fatalf("unexpected diff payload: %#v", payload)
+	}
+	usage, ok := events[2].Payload.(runtimeTokenUsagePayload)
+	if events[2].Event != "token_usage_updated" || !ok {
+		t.Fatalf("third event = %+v, want token usage payload", events[2])
+	}
+	if usage.TotalInputTokens != 8 || usage.TotalOutputTokens != 4 || usage.TotalTokens != 12 {
+		t.Fatalf("unexpected token usage payload: %#v", usage)
+	}
+	done, ok := events[3].Payload.(donePayload)
+	if events[3].Event != "done" || !ok {
+		t.Fatalf("fourth event = %+v, want done payload", events[3])
+	}
+	if done.SessionID != "session-gemini-diff-1" || done.TurnsUsed != 1 {
+		t.Fatalf("unexpected done payload: %#v", done)
 	}
 }
 
@@ -375,13 +397,21 @@ func TestMapClaudeEventDoneIncludesProviderReportedCost(t *testing.T) {
 		NumTurns:     2,
 		TotalCostUSD: &costUSD,
 	}, nil)
-	if len(events) != 1 {
-		t.Fatalf("mapClaudeEvent() len = %d, want 1", len(events))
+	if len(events) != 2 {
+		t.Fatalf("mapClaudeEvent() len = %d, want 2", len(events))
 	}
 
-	done, ok := events[0].Payload.(donePayload)
-	if !ok {
-		t.Fatalf("payload = %#v, want done payload", events[0].Payload)
+	usage, ok := events[0].Payload.(runtimeTokenUsagePayload)
+	if events[0].Event != "token_usage_updated" || !ok {
+		t.Fatalf("first event = %+v, want token usage payload", events[0])
+	}
+	if usage.CostUSD == nil || *usage.CostUSD != costUSD {
+		t.Fatalf("usage cost = %#v, want %.2f", usage.CostUSD, costUSD)
+	}
+
+	done, ok := events[1].Payload.(donePayload)
+	if events[1].Event != "done" || !ok {
+		t.Fatalf("second event payload = %#v, want done payload", events[1].Payload)
 	}
 	if done.CostUSD == nil || *done.CostUSD != costUSD {
 		t.Fatalf("done cost = %#v, want %.2f", done.CostUSD, costUSD)
@@ -865,13 +895,21 @@ func TestGeminiRuntimeDoneIncludesProviderPricedUsageCost(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 3 {
-		t.Fatalf("stream event count = %d, want 3: %+v", len(events), events)
+	if len(events) != 4 {
+		t.Fatalf("stream event count = %d, want 4: %+v", len(events), events)
 	}
 
-	done, ok := events[2].Payload.(donePayload)
-	if events[2].Event != "done" || !ok {
-		t.Fatalf("last event = %+v, want done payload", events[2])
+	usage, ok := events[2].Payload.(runtimeTokenUsagePayload)
+	if events[2].Event != "token_usage_updated" || !ok {
+		t.Fatalf("third event = %+v, want token usage payload", events[2])
+	}
+	if usage.CostUSD == nil || *usage.CostUSD != 0.19 {
+		t.Fatalf("usage cost = %#v, want 0.19", usage.CostUSD)
+	}
+
+	done, ok := events[3].Payload.(donePayload)
+	if events[3].Event != "done" || !ok {
+		t.Fatalf("last event = %+v, want done payload", events[3])
 	}
 	if done.CostUSD == nil || *done.CostUSD != 0.19 {
 		t.Fatalf("done cost = %#v, want 0.19", done.CostUSD)
@@ -911,8 +949,8 @@ func TestGeminiRuntimeStartTurnStreamsToolUseAndCommandOutput(t *testing.T) {
 	}
 
 	events := collectStreamEvents(stream.Events)
-	if len(events) != 6 {
-		t.Fatalf("stream event count = %d, want 6: %+v", len(events), events)
+	if len(events) != 7 {
+		t.Fatalf("stream event count = %d, want 7: %+v", len(events), events)
 	}
 
 	toolCall, ok := events[1].Payload.(map[string]any)
@@ -943,6 +981,27 @@ func TestGeminiRuntimeStartTurnStreamsToolUseAndCommandOutput(t *testing.T) {
 	warningRaw, _ := warningEvent["raw"].(map[string]any)
 	if warningRaw["message"] != "Near turn budget" || warningRaw["severity"] != "warning" {
 		t.Fatalf("unexpected warning payload: %#v", warningRaw)
+	}
+
+	textMessage, ok := events[4].Payload.(textPayload)
+	if events[4].Event != "message" || !ok || textMessage.Content != "Done." {
+		t.Fatalf("fifth event = %+v, want assistant text payload", events[4])
+	}
+
+	usage, ok := events[5].Payload.(runtimeTokenUsagePayload)
+	if events[5].Event != "token_usage_updated" || !ok {
+		t.Fatalf("sixth event = %+v, want token usage payload", events[5])
+	}
+	if usage.TotalInputTokens != 7 || usage.TotalOutputTokens != 3 || usage.TotalTokens != 10 {
+		t.Fatalf("unexpected token usage payload: %#v", usage)
+	}
+
+	done, ok := events[6].Payload.(donePayload)
+	if events[6].Event != "done" || !ok {
+		t.Fatalf("seventh event = %+v, want done payload", events[6])
+	}
+	if done.SessionID != "session-gemini-tool" || done.TurnsUsed != 1 {
+		t.Fatalf("unexpected done payload: %#v", done)
 	}
 }
 

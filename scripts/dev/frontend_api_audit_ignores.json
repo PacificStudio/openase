@@ -2,6 +2,12 @@
   "operations": [
     {
       "method": "get",
+      "path": "/api/v1/auth/oidc/callback",
+      "categories": ["backend_only"],
+      "reason": "OIDC callback is a browser redirect target handled by the IdP round-trip, so the frontend intentionally does not call it through a runtime wrapper."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/events/stream",
       "categories": ["backend_only"],
       "reason": "The web app subscribes only to project-scoped streams; the global platform stream is currently exposed for non-frontend consumers."
@@ -86,9 +92,27 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/projects/{projectId}/token-usage",
+      "categories": ["backend_only"],
+      "reason": "Project token usage is now queryable for backend and operator flows, but the current browser UI does not yet expose a project-scoped token analytics surface."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/orgs",
+      "categories": ["wrapped_but_unused"],
+      "reason": "Workspace bootstrap currently restores organizations through app-context and server-provided session state instead of the legacy standalone organizations wrapper."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/orgs/{orgId}/projects",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The current app shell derives project navigation from existing summary/bootstrap flows, so this older standalone organization-projects wrapper remains intentionally unused."
     },
     {
       "method": "post",

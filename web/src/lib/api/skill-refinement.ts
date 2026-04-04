@@ -1,11 +1,6 @@
-import { ApiError } from './client'
+import { ApiError, buildRequestHeaders } from './client'
 import type { SkillFile } from './contracts'
 import { consumeEventStream, type SSEFrame } from './sse'
-
-const chatUserHeader = 'X-OpenASE-Chat-User'
-const chatUserStorageKey = 'openase.ephemeral-chat-user-id'
-
-let cachedChatUserId = ''
 
 export type SkillRefinementRequest = {
   projectId: string
@@ -150,14 +145,14 @@ export async function streamSkillRefinement(
     onEvent: (event: SkillRefinementStreamEvent) => void
   },
 ) {
+  const headers = buildRequestHeaders('POST', {
+    accept: 'text/event-stream',
+    'Content-Type': 'application/json',
+  })
   const skillId = encodeURIComponent(request.skillId)
   const response = await fetch(`/api/v1/skills/${skillId}/refinement-runs`, {
     method: 'POST',
-    headers: {
-      accept: 'text/event-stream',
-      'Content-Type': 'application/json',
-      [chatUserHeader]: resolveChatUserId(),
-    },
+    headers,
     body: JSON.stringify({
       project_id: request.projectId,
       message: request.message,
@@ -190,11 +185,10 @@ export async function streamSkillRefinement(
 }
 
 export async function closeSkillRefinementSession(sessionId: string) {
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(`/api/v1/skills/refinement-runs/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
-    headers: {
-      [chatUserHeader]: resolveChatUserId(),
-    },
+    headers,
     credentials: 'same-origin',
   })
 
@@ -398,36 +392,6 @@ export function parseSkillRefinementStreamEvent(
     default:
       return null
   }
-}
-
-function resolveChatUserId() {
-  if (typeof window === 'undefined') {
-    return 'chat-user-server'
-  }
-  if (cachedChatUserId) {
-    return cachedChatUserId
-  }
-  try {
-    const stored = window.localStorage.getItem(chatUserStorageKey)
-    if (stored && stored.trim() !== '') {
-      cachedChatUserId = stored
-      return cachedChatUserId
-    }
-  } catch {
-    // Ignore storage read failures.
-  }
-
-  const generated =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `chat-user-${Date.now().toString(36)}`
-  cachedChatUserId = generated
-  try {
-    window.localStorage.setItem(chatUserStorageKey, generated)
-  } catch {
-    // Ignore storage write failures and keep the in-memory identifier.
-  }
-  return cachedChatUserId
 }
 
 function parseJSONObject(raw: string): unknown | null {

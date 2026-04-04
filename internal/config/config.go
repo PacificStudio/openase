@@ -22,6 +22,7 @@ const (
 
 type Config struct {
 	Server        ServerConfig
+	Auth          AuthConfig
 	GitHub        GitHubConfig
 	Database      DatabaseConfig
 	Orchestrator  OrchestratorConfig
@@ -135,6 +136,7 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("server.read_timeout", 15*time.Second)
 	v.SetDefault("server.write_timeout", 15*time.Second)
 	v.SetDefault("server.shutdown_timeout", 10*time.Second)
+	configureAuthDefaults(v)
 	v.SetDefault("github.webhook_secret", "")
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
@@ -222,6 +224,11 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, fmt.Errorf("parse server.shutdown_timeout: %w", err)
 	}
 
+	authConfig, err := parseAuthConfig(v)
+	if err != nil {
+		return Config{}, err
+	}
+
 	gitHubWebhookSecret, err := parseOptionalString(v.Get("github.webhook_secret"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse github.webhook_secret: %w", err)
@@ -296,6 +303,7 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			WriteTimeout:    writeTimeout,
 			ShutdownTimeout: shutdownTimeout,
 		},
+		Auth: authConfig,
 		GitHub: GitHubConfig{
 			WebhookSecret: gitHubWebhookSecret,
 		},
@@ -516,6 +524,9 @@ func validateConfig(cfg Config) error {
 	}
 	if driver == EventDriverPGNotify && cfg.Database.DSN == "" {
 		return errors.New("database.dsn is required when event.driver resolves to pgnotify")
+	}
+	if err := validateAuthConfig(cfg.Auth); err != nil {
+		return err
 	}
 
 	return nil

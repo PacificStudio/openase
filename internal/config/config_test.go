@@ -11,7 +11,32 @@ import (
 	"github.com/spf13/viper"
 )
 
+func clearOpenASEEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{
+		"OPENASE_SERVER_MODE",
+		"OPENASE_SERVER_HOST",
+		"OPENASE_SERVER_PORT",
+		"OPENASE_GITHUB_WEBHOOK_SECRET",
+		"OPENASE_DATABASE_DSN",
+		"OPENASE_ORCHESTRATOR_TICK_INTERVAL",
+		"OPENASE_EVENT_DRIVER",
+		"OPENASE_OBSERVABILITY_METRICS_ENABLED",
+		"OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS",
+		"OPENASE_OBSERVABILITY_METRICS_EXPORT_OTLP_ENDPOINT",
+		"OPENASE_OBSERVABILITY_TRACING_ENABLED",
+		"OPENASE_OBSERVABILITY_TRACING_ENDPOINT",
+		"OPENASE_OBSERVABILITY_TRACING_SERVICE_NAME",
+		"OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO",
+		"OPENASE_LOG_FORMAT",
+		"OPENASE_LOG_LEVEL",
+	} {
+		t.Setenv(key, "")
+	}
+}
+
 func TestLoadDefaults(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 
 	cfg, err := Load(LoadOptions{})
@@ -65,6 +90,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnvironment(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
@@ -149,6 +175,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 }
 
 func TestLoadFromConfigFile(t *testing.T) {
+	clearOpenASEEnv(t)
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.yaml")
 	writeFile(t, configPath, []byte(`
@@ -253,7 +280,127 @@ log:
 	}
 }
 
+func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
+	v := viper.New()
+	configureAuthDefaults(v)
+	v.Set("auth.mode", "oidc")
+	v.Set("auth.oidc.issuer_url", " https://idp.example.com ")
+	v.Set("auth.oidc.client_id", " openase ")
+	v.Set("auth.oidc.client_secret", " super-secret ")
+	v.Set("auth.oidc.redirect_url", " http://127.0.0.1:19836/auth/oidc/callback ")
+	v.Set("auth.oidc.scopes", "openid, profile , email , groups")
+	v.Set("auth.oidc.allowed_email_domains", "Example.com, ops.example.com ")
+	v.Set("auth.oidc.bootstrap_admin_emails", []string{" Admin@Example.com ", "owner@example.com"})
+	v.Set("auth.oidc.session_ttl", "8h")
+	v.Set("auth.oidc.session_idle_ttl", "30m")
+
+	cfg, err := parseAuthConfig(v)
+	if err != nil {
+		t.Fatalf("parseAuthConfig() error = %v", err)
+	}
+	if err := validateAuthConfig(cfg); err != nil {
+		t.Fatalf("validateAuthConfig() error = %v", err)
+	}
+
+	if cfg.Mode != AuthModeOIDC {
+		t.Fatalf("Mode = %q, want %q", cfg.Mode, AuthModeOIDC)
+	}
+	if cfg.OIDC.IssuerURL != "https://idp.example.com" {
+		t.Fatalf("IssuerURL = %q", cfg.OIDC.IssuerURL)
+	}
+	if cfg.OIDC.ClientID != "openase" {
+		t.Fatalf("ClientID = %q", cfg.OIDC.ClientID)
+	}
+	if cfg.OIDC.ClientSecret != "super-secret" {
+		t.Fatalf("ClientSecret = %q", cfg.OIDC.ClientSecret)
+	}
+	if cfg.OIDC.RedirectURL != "http://127.0.0.1:19836/auth/oidc/callback" {
+		t.Fatalf("RedirectURL = %q", cfg.OIDC.RedirectURL)
+	}
+	if got, want := cfg.OIDC.Scopes, []string{"openid", "profile", "email", "groups"}; !slicesEqual(got, want) {
+		t.Fatalf("Scopes = %#v, want %#v", got, want)
+	}
+	if got, want := cfg.OIDC.AllowedEmailDomains, []string{"example.com", "ops.example.com"}; !slicesEqual(got, want) {
+		t.Fatalf("AllowedEmailDomains = %#v, want %#v", got, want)
+	}
+	if got, want := cfg.OIDC.BootstrapAdminEmails, []string{"admin@example.com", "owner@example.com"}; !slicesEqual(got, want) {
+		t.Fatalf("BootstrapAdminEmails = %#v, want %#v", got, want)
+	}
+	if cfg.OIDC.SessionTTL != 8*time.Hour {
+		t.Fatalf("SessionTTL = %s, want 8h", cfg.OIDC.SessionTTL)
+	}
+	if cfg.OIDC.SessionIdleTTL != 30*time.Minute {
+		t.Fatalf("SessionIdleTTL = %s, want 30m", cfg.OIDC.SessionIdleTTL)
+	}
+}
+
+func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
+	base := AuthConfig{
+		Mode: AuthModeOIDC,
+		OIDC: OIDCConfig{
+			IssuerURL:    "https://idp.example.com",
+			ClientID:     "openase",
+			ClientSecret: "secret",
+			RedirectURL:  "http://127.0.0.1:19836/auth/oidc/callback",
+			Scopes:       []string{"openid"},
+			SessionTTL:   time.Hour,
+		},
+	}
+
+	cases := []struct {
+		name string
+		mut  func(*AuthConfig)
+		want string
+	}{
+		{
+			name: "missing issuer",
+			mut: func(cfg *AuthConfig) {
+				cfg.OIDC.IssuerURL = ""
+			},
+			want: "auth.oidc.issuer_url is required when auth.mode=oidc",
+		},
+		{
+			name: "missing client id",
+			mut: func(cfg *AuthConfig) {
+				cfg.OIDC.ClientID = ""
+			},
+			want: "auth.oidc.client_id is required when auth.mode=oidc",
+		},
+		{
+			name: "idle ttl exceeds ttl",
+			mut: func(cfg *AuthConfig) {
+				cfg.OIDC.SessionIdleTTL = 2 * time.Hour
+			},
+			want: "auth.oidc.session_idle_ttl must not exceed auth.oidc.session_ttl",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base
+			tc.mut(&cfg)
+			err := validateAuthConfig(cfg)
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("validateAuthConfig() error = %v, want %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func slicesEqual[T comparable](got []T, want []T) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for idx := range got {
+		if got[idx] != want[idx] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestLoadRejectsInvalidPort(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "70000")
 
@@ -263,6 +410,7 @@ func TestLoadRejectsInvalidPort(t *testing.T) {
 }
 
 func TestLoadRejectsChannelDriverOutsideAllInOne(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
 	t.Setenv("OPENASE_EVENT_DRIVER", "channel")
@@ -273,6 +421,7 @@ func TestLoadRejectsChannelDriverOutsideAllInOne(t *testing.T) {
 }
 
 func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
 
@@ -282,6 +431,7 @@ func TestLoadRejectsMissingDatabaseDSNForResolvedPGNotify(t *testing.T) {
 }
 
 func TestLoadRejectsInvalidTracingSampleRatio(t *testing.T) {
+	clearOpenASEEnv(t)
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_OBSERVABILITY_TRACING_SAMPLE_RATIO", "1.2")
 

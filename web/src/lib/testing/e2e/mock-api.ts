@@ -20,6 +20,58 @@ const DEFAULT_STATUS_IDS = {
 } as const
 
 type JsonValue = unknown
+type MockGitHubCredentialScope = 'organization' | 'project'
+
+type MockGitHubProbe = {
+  state: string
+  configured: boolean
+  valid: boolean
+  login?: string
+  permissions: string[]
+  repo_access: string
+  checked_at?: string
+  last_error: string
+}
+
+type MockGitHubSlot = {
+  scope: MockGitHubCredentialScope
+  configured: boolean
+  source: string
+  token_preview: string
+  probe: MockGitHubProbe
+}
+
+type MockSecuritySettings = {
+  project_id: string
+  agent_tokens: {
+    transport: string
+    environment_variable: string
+    token_prefix: string
+    default_scopes: string[]
+    supported_project_scopes: string[]
+  }
+  github: {
+    effective: MockGitHubSlot
+    organization: MockGitHubSlot
+    project_override: MockGitHubSlot
+  }
+  webhooks: {
+    connector_endpoint: string
+  }
+  secret_hygiene: {
+    notification_channel_configs_redacted: boolean
+  }
+  approval_policies: {
+    status: string
+    rules_count: number
+    summary: string
+  }
+  deferred: Array<{
+    key: string
+    title: string
+    summary: string
+  }>
+}
 
 type MockState = {
   organizations: Record<string, unknown>[]
@@ -47,6 +99,7 @@ type MockState = {
   projectConversationEntries: Record<string, unknown>[]
   skills: Record<string, unknown>[]
   builtinRoles: Record<string, unknown>[]
+  securitySettingsByProjectId: Record<string, MockSecuritySettings>
   harnessVariables: { groups: Record<string, unknown>[] }
   counters: {
     machine: number
@@ -81,6 +134,22 @@ export function resetMockState() {
 export async function handleMockApi(request: Request, url: URL): Promise<Response | null> {
   if (!url.pathname.startsWith('/api/v1/')) {
     return null
+  }
+
+  if (url.pathname === '/api/v1/auth/session' && request.method === 'GET') {
+    return jsonResponse({
+      auth_mode: 'disabled',
+      authenticated: false,
+      issuer_url: '',
+      user: null,
+      csrf_token: '',
+      roles: [],
+      permissions: [],
+    })
+  }
+
+  if (url.pathname === '/api/v1/auth/logout' && request.method === 'POST') {
+    return noContentResponse()
   }
 
   if (url.pathname === '/api/v1/__e2e__/reset' && request.method === 'POST') {
@@ -239,6 +308,78 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     return jsonResponse({
       events: clone(mockState.activityEvents.filter((event) => event.project_id === projectId)),
     })
+  }
+
+  if (segments[2] === 'security-settings') {
+    const security = resolveSecuritySettings(projectId)
+
+    if (segments.length === 3 && request.method === 'GET') {
+      return jsonResponse({ security: clone(security) })
+    }
+
+    if (segments[3] !== 'github-outbound-credential') {
+      return notFound('Mock project route not found.')
+    }
+
+    if (segments.length === 4 && request.method === 'PUT') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const scope = parseGitHubCredentialScope(asString(body.scope))
+      if (!scope) {
+        return jsonResponse({ detail: 'GitHub credential scope is required.' }, 400)
+      }
+      const slot = resolveGitHubCredentialSlot(security, scope)
+      const token = asString(body.token)?.trim() || 'ghu_mock_manual_token'
+      slot.configured = true
+      slot.source = 'manual'
+      slot.token_preview = previewToken(token)
+      slot.probe = createConfiguredGitHubProbe('manual-user')
+      syncEffectiveGitHubSlot(security)
+      return jsonResponse({ security: clone(security) })
+    }
+
+    if (segments.length === 5 && segments[4] === 'import-gh-cli' && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const scope = parseGitHubCredentialScope(asString(body.scope))
+      if (!scope) {
+        return jsonResponse({ detail: 'GitHub credential scope is required.' }, 400)
+      }
+      const slot = resolveGitHubCredentialSlot(security, scope)
+      slot.configured = true
+      slot.source = 'gh_cli_import'
+      slot.token_preview = previewToken('ghu_mock_cli_token')
+      slot.probe = createConfiguredGitHubProbe('octocat')
+      syncEffectiveGitHubSlot(security)
+      return jsonResponse({ security: clone(security) })
+    }
+
+    if (segments.length === 5 && segments[4] === 'retest' && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const scope = parseGitHubCredentialScope(asString(body.scope))
+      if (!scope) {
+        return jsonResponse({ detail: 'GitHub credential scope is required.' }, 400)
+      }
+      const slot = resolveGitHubCredentialSlot(security, scope)
+      if (!slot.configured) {
+        return notFound('GitHub credential not configured.')
+      }
+      slot.probe = createConfiguredGitHubProbe(slot.probe.login || 'octocat')
+      syncEffectiveGitHubSlot(security)
+      return jsonResponse({ security: clone(security) })
+    }
+
+    if (segments.length === 4 && request.method === 'DELETE') {
+      const scope = parseGitHubCredentialScope(new URL(request.url).searchParams.get('scope'))
+      if (!scope) {
+        return jsonResponse({ detail: 'GitHub credential scope is required.' }, 400)
+      }
+      const slot = resolveGitHubCredentialSlot(security, scope)
+      slot.configured = false
+      slot.source = ''
+      slot.token_preview = ''
+      slot.probe = createUnconfiguredGitHubProbe()
+      syncEffectiveGitHubSlot(security)
+      return jsonResponse({ security: clone(security) })
+    }
   }
 
   if (segments[2] === 'tickets') {
@@ -1525,6 +1666,9 @@ function createInitialState(): MockState {
     projectConversationEntries: [],
     skills,
     builtinRoles,
+    securitySettingsByProjectId: {
+      [PROJECT_ID]: createDefaultSecuritySettings(PROJECT_ID),
+    },
     harnessVariables,
     counters: {
       machine: 2,
@@ -1574,6 +1718,119 @@ function seedBoardState(countsByStatusID: Record<string, number>) {
 
   mockState.tickets = seededTickets
   mockState.activityEvents = []
+}
+
+function resolveSecuritySettings(projectId: string): MockSecuritySettings {
+  const existing = mockState.securitySettingsByProjectId[projectId]
+  if (existing) {
+    return existing
+  }
+  const created = createDefaultSecuritySettings(projectId)
+  mockState.securitySettingsByProjectId[projectId] = created
+  return created
+}
+
+function createDefaultSecuritySettings(projectId: string): MockSecuritySettings {
+  const organization = createEmptyGitHubSlot('organization')
+  const projectOverride = createEmptyGitHubSlot('project')
+  return {
+    project_id: projectId,
+    agent_tokens: {
+      transport: 'Bearer token',
+      environment_variable: 'OPENASE_AGENT_TOKEN',
+      token_prefix: 'ase_agent_',
+      default_scopes: ['tickets.create', 'tickets.list'],
+      supported_project_scopes: ['projects.update', 'projects.add_repo'],
+    },
+    github: {
+      effective: clone(organization),
+      organization,
+      project_override: projectOverride,
+    },
+    webhooks: {
+      connector_endpoint: 'POST /api/v1/webhooks/:connector/:provider',
+    },
+    secret_hygiene: {
+      notification_channel_configs_redacted: true,
+    },
+    approval_policies: {
+      status: 'reserved',
+      rules_count: 0,
+      summary:
+        'Approval policy storage is reserved for future second-factor or approver requirements and stays separate from RBAC grants.',
+    },
+    deferred: [
+      {
+        key: 'github-device-flow',
+        title: 'GitHub Device Flow',
+        summary: 'Deferred until OAuth app wiring is available.',
+      },
+    ],
+  }
+}
+
+function createEmptyGitHubSlot(scope: MockGitHubCredentialScope): MockGitHubSlot {
+  return {
+    scope,
+    configured: false,
+    source: '',
+    token_preview: '',
+    probe: createUnconfiguredGitHubProbe(),
+  }
+}
+
+function createConfiguredGitHubProbe(login: string): MockGitHubProbe {
+  return {
+    state: 'valid',
+    configured: true,
+    valid: true,
+    login,
+    permissions: ['repo', 'read:org'],
+    repo_access: 'granted',
+    checked_at: nowIso,
+    last_error: '',
+  }
+}
+
+function createUnconfiguredGitHubProbe(): MockGitHubProbe {
+  return {
+    state: 'missing',
+    configured: false,
+    valid: false,
+    permissions: [],
+    repo_access: 'not_checked',
+    checked_at: undefined,
+    last_error: '',
+  }
+}
+
+function resolveGitHubCredentialSlot(
+  security: MockSecuritySettings,
+  scope: MockGitHubCredentialScope,
+): MockGitHubSlot {
+  return scope === 'organization' ? security.github.organization : security.github.project_override
+}
+
+function syncEffectiveGitHubSlot(security: MockSecuritySettings) {
+  security.github.effective = clone(
+    security.github.project_override.configured
+      ? security.github.project_override
+      : security.github.organization,
+  )
+}
+
+function parseGitHubCredentialScope(
+  raw: string | null | undefined,
+): MockGitHubCredentialScope | null {
+  return raw === 'organization' || raw === 'project' ? raw : null
+}
+
+function previewToken(token: string): string {
+  const trimmed = token.trim()
+  if (trimmed.length <= 8) {
+    return trimmed
+  }
+  return `${trimmed.slice(0, 8)}...${trimmed.slice(-4)}`
 }
 
 function createMockTicketRecord(input: {
@@ -2247,6 +2504,15 @@ function jsonResponse(body: JsonValue | Record<string, unknown>, status = 200) {
     status,
     headers: {
       'content-type': 'application/json',
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+function noContentResponse() {
+  return new Response(null, {
+    status: 204,
+    headers: {
       'cache-control': 'no-store',
     },
   })

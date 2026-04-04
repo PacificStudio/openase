@@ -138,6 +138,7 @@
             variant="ghost"
             size="icon-xs"
             title="Configure provider"
+            aria-label="Configure provider"
             onclick={() => onConfigure?.(provider.id)}
           >
             <Settings class="size-3.5" />

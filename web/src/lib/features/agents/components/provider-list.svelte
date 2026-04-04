@@ -86,6 +86,7 @@
           class="w-full"
           onclick={() => onConfigure?.(provider)}
           title="Configure provider"
+          aria-label="Configure provider"
         >
           <Settings class="size-3.5" />
           Configure

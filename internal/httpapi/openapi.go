@@ -1488,6 +1488,12 @@ type OpenAPISecuritySecretHygiene struct {
 	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
 }
 
+type OpenAPISecurityApprovalPolicies struct {
+	Status     string `json:"status"`
+	RulesCount int    `json:"rules_count"`
+	Summary    string `json:"summary"`
+}
+
 type OpenAPIGitHubTokenProbe struct {
 	State       string   `json:"state"`
 	Configured  bool     `json:"configured"`
@@ -1513,16 +1519,80 @@ type OpenAPIGitHubOutboundCredential struct {
 }
 
 type OpenAPISecuritySettings struct {
-	ProjectID     string                              `json:"project_id"`
-	AgentTokens   OpenAPISecurityAgentTokens          `json:"agent_tokens"`
-	GitHub        OpenAPIGitHubOutboundCredential     `json:"github"`
-	Webhooks      OpenAPISecurityWebhooks             `json:"webhooks"`
-	SecretHygiene OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
-	Deferred      []OpenAPISecurityDeferredCapability `json:"deferred"`
+	ProjectID        string                              `json:"project_id"`
+	AgentTokens      OpenAPISecurityAgentTokens          `json:"agent_tokens"`
+	GitHub           OpenAPIGitHubOutboundCredential     `json:"github"`
+	Webhooks         OpenAPISecurityWebhooks             `json:"webhooks"`
+	SecretHygiene    OpenAPISecuritySecretHygiene        `json:"secret_hygiene"`
+	ApprovalPolicies OpenAPISecurityApprovalPolicies     `json:"approval_policies"`
+	Deferred         []OpenAPISecurityDeferredCapability `json:"deferred"`
 }
 
 type OpenAPISecuritySettingsResponse struct {
 	Security OpenAPISecuritySettings `json:"security"`
+}
+
+type OpenAPIAuthSessionUser struct {
+	ID           string `json:"id"`
+	PrimaryEmail string `json:"primary_email"`
+	DisplayName  string `json:"display_name"`
+	AvatarURL    string `json:"avatar_url,omitempty"`
+}
+
+type OpenAPIAuthSessionResponse struct {
+	AuthMode      string                  `json:"auth_mode"`
+	Authenticated bool                    `json:"authenticated"`
+	IssuerURL     string                  `json:"issuer_url,omitempty"`
+	User          *OpenAPIAuthSessionUser `json:"user,omitempty"`
+	CSRFToken     string                  `json:"csrf_token,omitempty"`
+	Roles         []string                `json:"roles,omitempty"`
+	Permissions   []string                `json:"permissions,omitempty"`
+}
+
+type OpenAPIHumanScope struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
+
+type OpenAPIHumanGroupMembership struct {
+	GroupKey  string `json:"group_key"`
+	GroupName string `json:"group_name"`
+	Issuer    string `json:"issuer"`
+}
+
+type OpenAPIAuthPermissionsResponse struct {
+	User        OpenAPIAuthSessionUser        `json:"user"`
+	Scope       OpenAPIHumanScope             `json:"scope"`
+	Roles       []string                      `json:"roles"`
+	Permissions []string                      `json:"permissions"`
+	Groups      []OpenAPIHumanGroupMembership `json:"groups"`
+}
+
+type OpenAPIRoleBinding struct {
+	ID          string  `json:"id"`
+	ScopeKind   string  `json:"scope_kind"`
+	ScopeID     string  `json:"scope_id"`
+	SubjectKind string  `json:"subject_kind"`
+	SubjectKey  string  `json:"subject_key"`
+	RoleKey     string  `json:"role_key"`
+	GrantedBy   string  `json:"granted_by"`
+	ExpiresAt   *string `json:"expires_at,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+}
+
+type OpenAPIRoleBindingsResponse struct {
+	RoleBindings []OpenAPIRoleBinding `json:"role_bindings"`
+}
+
+type OpenAPIRoleBindingResponse struct {
+	RoleBinding OpenAPIRoleBinding `json:"role_binding"`
+}
+
+type OpenAPICreateRoleBindingRequest struct {
+	SubjectKind string  `json:"subject_kind"`
+	SubjectKey  string  `json:"subject_key"`
+	RoleKey     string  `json:"role_key"`
+	ExpiresAt   *string `json:"expires_at,omitempty"`
 }
 
 type OpenAPITicketDetailResponse struct {
@@ -1884,6 +1954,12 @@ var (
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
 		"answer":   "Structured answer payload for requestUserInput interrupts.",
 	}
+	openAPIRoleBindingRequestDescriptions = map[string]string{
+		"subject_kind": "Binding subject kind. Supported values are user and group.",
+		"subject_key":  "Stable user identifier/email or synchronized OIDC group key that receives the role.",
+		"role_key":     "Builtin OpenASE role key to grant on the selected scope.",
+		"expires_at":   "Optional RFC3339 timestamp after which the binding automatically expires.",
+	}
 	openAPISkillBindingDescriptions = map[string]string{
 		"skills": "Skill names included in this workflow skill binding request.",
 	}
@@ -1967,6 +2043,8 @@ var (
 		"POST /api/v1/chat/conversations":                                                              openAPIProjectConversationCreateDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
 		"POST /api/v1/projects/{projectId}/skills/refresh":                                             openAPISkillSyncDescriptions,
 		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
@@ -2005,6 +2083,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 		},
 		Tags: openapi3.Tags{
 			{Name: "system"},
+			{Name: "auth"},
 			{Name: "catalog"},
 			{Name: "tickets"},
 			{Name: "workflows"},
@@ -2019,6 +2098,9 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 
 	builder := openAPISpecBuilder{doc: doc}
 	if err := builder.addSystemOperations(); err != nil {
+		return nil, err
+	}
+	if err := builder.addAuthOperations(); err != nil {
 		return nil, err
 	}
 	if err := builder.addCatalogOperations(); err != nil {
@@ -2096,6 +2178,199 @@ func (b openAPISpecBuilder) addSystemOperations() error {
 		return err
 	}
 	b.doc.AddOperation("/api/v1/system/dashboard", http.MethodGet, dashboardGet)
+
+	return nil
+}
+
+func (b openAPISpecBuilder) addAuthOperations() error {
+	oidcStart := openapi3.NewOperation()
+	oidcStart.OperationID = "startOIDCLogin"
+	oidcStart.Summary = "Start the browser OIDC login flow"
+	oidcStart.Tags = []string{"auth"}
+	oidcStart.Responses = openapi3.NewResponsesWithCapacity(3)
+	oidcStart.AddResponse(http.StatusFound, openapi3.NewResponse().WithDescription("OIDC login redirect response."))
+	for _, code := range []int{http.StatusNotFound, http.StatusBadGateway} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		oidcStart.AddResponse(code, errorResponse)
+	}
+	oidcStart.AddParameter(openapi3.NewQueryParameter("return_to").
+		WithDescription("Optional same-origin path to redirect back to after login completes.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/auth/oidc/start", http.MethodGet, oidcStart)
+
+	oidcCallback := openapi3.NewOperation()
+	oidcCallback.OperationID = "handleOIDCCallback"
+	oidcCallback.Summary = "Complete the browser OIDC login callback"
+	oidcCallback.Tags = []string{"auth"}
+	oidcCallback.Responses = openapi3.NewResponsesWithCapacity(4)
+	oidcCallback.AddResponse(http.StatusFound, openapi3.NewResponse().WithDescription("OIDC callback redirect response."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		oidcCallback.AddResponse(code, errorResponse)
+	}
+	oidcCallback.AddParameter(openapi3.NewQueryParameter("code").
+		WithDescription("Authorization code returned by the upstream OIDC provider.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	oidcCallback.AddParameter(openapi3.NewQueryParameter("state").
+		WithDescription("Opaque OIDC state value that must match the login flow cookie.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/auth/oidc/callback", http.MethodGet, oidcCallback)
+
+	authSession, err := b.jsonOperation(
+		"getAuthSession",
+		"Get the current browser human-auth session",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthSessionResponse{},
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/auth/session", http.MethodGet, authSession)
+
+	authLogout := openapi3.NewOperation()
+	authLogout.OperationID = "logoutHumanSession"
+	authLogout.Summary = "Revoke the current browser human-auth session"
+	authLogout.Tags = []string{"auth"}
+	authLogout.Responses = openapi3.NewResponsesWithCapacity(2)
+	authLogout.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Browser session revoked."))
+	errorResponse, err := b.errorResponse(http.StatusForbidden)
+	if err != nil {
+		return err
+	}
+	authLogout.AddResponse(http.StatusForbidden, errorResponse)
+	b.doc.AddOperation("/api/v1/auth/logout", http.MethodPost, authLogout)
+
+	myPermissions, err := b.jsonOperation(
+		"getMyEffectivePermissions",
+		"Get effective OpenASE roles and permissions for the authenticated human",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthPermissionsResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+	)
+	if err != nil {
+		return err
+	}
+	myPermissions.AddParameter(uuidQueryParameter("project_id", "Optional project scope to evaluate."))
+	myPermissions.AddParameter(uuidQueryParameter("org_id", "Optional organization scope to evaluate."))
+	b.doc.AddOperation("/api/v1/auth/me/permissions", http.MethodGet, myPermissions)
+
+	orgRoleBindings, err := b.jsonOperation(
+		"listOrganizationRoleBindings",
+		"List organization-scoped role bindings",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIRoleBindingsResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgRoleBindings.AddParameter(uuidPathParameter("orgId", "Organization ID that owns the role bindings."))
+	b.doc.AddOperation("/api/v1/organizations/{orgId}/role-bindings", http.MethodGet, orgRoleBindings)
+
+	createOrgRoleBinding, err := b.jsonOperation(
+		"createOrganizationRoleBinding",
+		"Create an organization-scoped role binding",
+		[]string{"auth"},
+		http.StatusCreated,
+		OpenAPIRoleBindingResponse{},
+		OpenAPICreateRoleBindingRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+	)
+	if err != nil {
+		return err
+	}
+	createOrgRoleBinding.AddParameter(uuidPathParameter("orgId", "Organization ID that owns the role bindings."))
+	b.doc.AddOperation("/api/v1/organizations/{orgId}/role-bindings", http.MethodPost, createOrgRoleBinding)
+
+	deleteOrgRoleBinding := openapi3.NewOperation()
+	deleteOrgRoleBinding.OperationID = "deleteOrganizationRoleBinding"
+	deleteOrgRoleBinding.Summary = "Delete an organization-scoped role binding"
+	deleteOrgRoleBinding.Tags = []string{"auth"}
+	deleteOrgRoleBinding.Responses = openapi3.NewResponsesWithCapacity(4)
+	deleteOrgRoleBinding.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Role binding deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		deleteOrgRoleBinding.AddResponse(code, errorResponse)
+	}
+	deleteOrgRoleBinding.AddParameter(uuidPathParameter("orgId", "Organization ID that owns the role bindings."))
+	deleteOrgRoleBinding.AddParameter(uuidPathParameter("bindingId", "Role binding ID to delete."))
+	b.doc.AddOperation("/api/v1/organizations/{orgId}/role-bindings/{bindingId}", http.MethodDelete, deleteOrgRoleBinding)
+
+	projectRoleBindings, err := b.jsonOperation(
+		"listProjectRoleBindings",
+		"List project-scoped role bindings",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIRoleBindingsResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectRoleBindings.AddParameter(uuidPathParameter("projectId", "Project ID that owns the role bindings."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/role-bindings", http.MethodGet, projectRoleBindings)
+
+	createProjectRoleBinding, err := b.jsonOperation(
+		"createProjectRoleBinding",
+		"Create a project-scoped role binding",
+		[]string{"auth"},
+		http.StatusCreated,
+		OpenAPIRoleBindingResponse{},
+		OpenAPICreateRoleBindingRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+	)
+	if err != nil {
+		return err
+	}
+	createProjectRoleBinding.AddParameter(uuidPathParameter("projectId", "Project ID that owns the role bindings."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/role-bindings", http.MethodPost, createProjectRoleBinding)
+
+	deleteProjectRoleBinding := openapi3.NewOperation()
+	deleteProjectRoleBinding.OperationID = "deleteProjectRoleBinding"
+	deleteProjectRoleBinding.Summary = "Delete a project-scoped role binding"
+	deleteProjectRoleBinding.Tags = []string{"auth"}
+	deleteProjectRoleBinding.Responses = openapi3.NewResponsesWithCapacity(4)
+	deleteProjectRoleBinding.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Role binding deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		deleteProjectRoleBinding.AddResponse(code, errorResponse)
+	}
+	deleteProjectRoleBinding.AddParameter(uuidPathParameter("projectId", "Project ID that owns the role bindings."))
+	deleteProjectRoleBinding.AddParameter(uuidPathParameter("bindingId", "Role binding ID to delete."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/role-bindings/{bindingId}", http.MethodDelete, deleteProjectRoleBinding)
 
 	return nil
 }
