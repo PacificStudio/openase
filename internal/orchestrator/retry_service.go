@@ -72,7 +72,7 @@ func (s *RetryService) MarkAttemptFailed(ctx context.Context, ticketID uuid.UUID
 	}
 	nextAttemptCount := current.AttemptCount + 1
 	nextConsecutiveErrors := current.ConsecutiveErrors + 1
-	nextRetryAt := s.now().UTC().Add(ticketing.ComputeRetryBackoff(nextAttemptCount))
+	nextRetryAt := s.now().UTC().Add(ticketing.ComputeRetryBackoff(nextConsecutiveErrors))
 	pauseReason := ticketing.PauseReason("")
 	if ticketing.ShouldPauseForBudget(current.CostAmount, current.BudgetUsd) {
 		pauseReason = ticketing.PauseReasonBudgetExhausted
