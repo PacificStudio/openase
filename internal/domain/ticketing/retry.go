@@ -19,13 +19,13 @@ func ComputeRetryBackoff(attemptCount int) time.Duration {
 	if attemptCount <= 1 {
 		return initialRetryBackoff
 	}
-	if attemptCount >= 7 {
-		return maxRetryBackoff
-	}
 
 	backoff := initialRetryBackoff
 	for attempt := 1; attempt < attemptCount; attempt++ {
 		backoff *= 2
+		if backoff >= maxRetryBackoff {
+			return maxRetryBackoff
+		}
 	}
 
 	return backoff

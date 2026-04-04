@@ -250,6 +250,60 @@ func TestRetryServiceLogsStructuredRetryDecision(t *testing.T) {
 	}
 }
 
+func TestRetryServiceMarkAttemptFailedUsesConsecutiveErrorsForBackoff(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	now := time.Date(2026, 3, 20, 16, 30, 0, 0, time.UTC)
+
+	workflow, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(2).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	agentItem := fixture.createAgent(ctx, t, "coding-05", 0)
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-406").
+		SetTitle("Retry backoff follows current failure streak").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflow.ID).
+		SetAttemptCount(8).
+		SetConsecutiveErrors(0).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	_ = mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
+
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	retryService.now = func() time.Time {
+		return now
+	}
+
+	result, err := retryService.MarkAttemptFailed(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("mark attempt failed: %v", err)
+	}
+
+	wantNextRetryAt := now.Add(10 * time.Second)
+	if !result.NextRetryAt.Equal(wantNextRetryAt) {
+		t.Fatalf("expected next retry at %s, got %s", wantNextRetryAt, result.NextRetryAt)
+	}
+	if result.AttemptCount != 9 || result.ConsecutiveErrors != 1 {
+		t.Fatalf("unexpected retry result counters: %+v", result)
+	}
+}
+
 func TestSchedulerRunTickSkipsRetryPausedTickets(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

@@ -37,64 +37,27 @@ func (r *EntRepository) GetOrganizationTokenUsage(
 	}
 
 	recomputedAt := time.Now().UTC()
-	if err := r.materializeUnrecordedRunsInRange(
-		ctx,
-		organization.ID,
-		input.FromDate,
-		input.ToDate,
-		recomputedAt,
-	); err != nil {
-		return domain.OrganizationTokenUsageReport{}, err
-	}
-
-	if err := r.backfillMissingOrganizationTokenUsageDays(
-		ctx,
-		organization.ID,
-		input.FromDate,
-		input.ToDate,
-		recomputedAt,
-	); err != nil {
-		return domain.OrganizationTokenUsageReport{}, err
-	}
-
-	rows, err := r.listOrganizationTokenUsageRows(ctx, organization.ID, input.FromDate, input.ToDate)
+	projectIDs, err := organizationProjectIDs(ctx, r.client, organization.ID)
 	if err != nil {
 		return domain.OrganizationTokenUsageReport{}, err
 	}
-
-	report := domain.OrganizationTokenUsageReport{
-		OrganizationID: organization.ID,
-		FromDate:       input.FromDate.UTC(),
-		ToDate:         input.ToDate.UTC(),
-		Days:           make([]domain.OrganizationDailyTokenUsage, 0, inclusiveUTCDateCount(input.FromDate, input.ToDate)),
+	totalsByDay, agentRunIDs, err := r.buildRunUsageTotalsByProjectScope(ctx, projectIDs, input.FromDate, input.ToDate)
+	if err != nil {
+		return domain.OrganizationTokenUsageReport{}, err
+	}
+	if err := r.replaceOrganizationTokenUsageRange(
+		ctx,
+		organization.ID,
+		input.FromDate,
+		input.ToDate,
+		totalsByDay,
+		agentRunIDs,
+		recomputedAt,
+	); err != nil {
+		return domain.OrganizationTokenUsageReport{}, err
 	}
 
-	usageByDay := make(map[time.Time]domain.OrganizationDailyTokenUsage, len(rows))
-	for _, row := range rows {
-		usageByDay[row.UsageDate] = row
-	}
-
-	dayCount := 0
-	for cursor := startOfUTCDay(input.FromDate); !cursor.After(input.ToDate); cursor = cursor.AddDate(0, 0, 1) {
-		dayCount++
-		current := usageByDay[cursor]
-		if current.UsageDate.IsZero() {
-			current.UsageDate = cursor
-		}
-		report.Days = append(report.Days, current)
-		report.Summary.TotalTokens += current.TotalTokens
-		if report.Summary.PeakDay == nil || current.TotalTokens > report.Summary.PeakDay.TotalTokens {
-			report.Summary.PeakDay = &domain.OrganizationTokenUsagePeakDay{
-				Date:        current.UsageDate,
-				TotalTokens: current.TotalTokens,
-			}
-		}
-	}
-	if dayCount > 0 {
-		report.Summary.AvgDailyTokens = report.Summary.TotalTokens / int64(dayCount)
-	}
-
-	return report, nil
+	return buildOrganizationTokenUsageReport(organization.ID, input.FromDate, input.ToDate, recomputedAt, totalsByDay), nil
 }
 
 func MaterializeAgentRunDailyUsage(

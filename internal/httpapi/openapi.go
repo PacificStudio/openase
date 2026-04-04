@@ -1097,6 +1097,11 @@ type OpenAPIOrganizationTokenUsageResponse struct {
 	Summary OpenAPIOrganizationTokenUsageSummary `json:"summary"`
 }
 
+type OpenAPIProjectTokenUsageDay = OpenAPIOrganizationTokenUsageDay
+type OpenAPIProjectTokenUsagePeakDay = OpenAPIOrganizationTokenUsagePeakDay
+type OpenAPIProjectTokenUsageSummary = OpenAPIOrganizationTokenUsageSummary
+type OpenAPIProjectTokenUsageResponse = OpenAPIOrganizationTokenUsageResponse
+
 type OpenAPIMachinesResponse struct {
 	Machines []OpenAPIMachine `json:"machines"`
 }
@@ -2747,6 +2752,29 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	}
 	projectGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}", http.MethodGet, projectGet)
+
+	projectTokenUsageGet, err := b.jsonOperation(
+		"getProjectTokenUsage",
+		"Get project daily token usage for a UTC date range",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIProjectTokenUsageResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectTokenUsageGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectTokenUsageGet.AddParameter(openapi3.NewQueryParameter("from").
+		WithDescription("UTC start date in YYYY-MM-DD format. Defaults to the last 30 days when omitted with to.").
+		WithSchema(openapi3.NewStringSchema()))
+	projectTokenUsageGet.AddParameter(openapi3.NewQueryParameter("to").
+		WithDescription("UTC end date in YYYY-MM-DD format. Defaults to today when omitted with from.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/token-usage", http.MethodGet, projectTokenUsageGet)
 
 	projectPatch, err := b.jsonOperation(
 		"updateProject",

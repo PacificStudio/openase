@@ -655,6 +655,15 @@ func TestRuntimeRunnerHelperCoverage(t *testing.T) {
 	if prompt := buildContinuationPrompt(nil, 2, 10, ""); containsAll(prompt, "Address the latest blocker") {
 		t.Fatalf("buildContinuationPrompt(nil) should omit blocker line: %q", prompt)
 	}
+	if got := composeRuntimeTurnPrompt("workflow prompt", "continuation prompt"); got != "workflow prompt\n\ncontinuation prompt" {
+		t.Fatalf("composeRuntimeTurnPrompt() = %q", got)
+	}
+	if got := composeRuntimeTurnPrompt(" workflow prompt ", " "); got != "workflow prompt" {
+		t.Fatalf("composeRuntimeTurnPrompt(base-only) = %q", got)
+	}
+	if got := composeRuntimeTurnPrompt(" ", " continuation prompt "); got != "continuation prompt" {
+		t.Fatalf("composeRuntimeTurnPrompt(continuation-only) = %q", got)
+	}
 	if isCleanTurnSessionClose(nil) {
 		t.Fatal("isCleanTurnSessionClose(nil) expected false")
 	}

@@ -161,6 +161,13 @@ func (s *service) GetOrganizationTokenUsage(
 	return s.repo.GetOrganizationTokenUsage(ctx, input)
 }
 
+func (s *service) GetProjectTokenUsage(
+	ctx context.Context,
+	input domain.GetProjectTokenUsage,
+) (domain.ProjectTokenUsageReport, error) {
+	return s.repo.GetProjectTokenUsage(ctx, input)
+}
+
 func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (domain.Machine, domain.MachineProbe, error) {
 	if s.machineTester == nil {
 		return domain.Machine{}, domain.MachineProbe{}, ErrMachineTestingUnavailable

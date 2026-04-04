@@ -13,6 +13,7 @@ import (
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	chatconversationdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/google/uuid"
 )
@@ -51,7 +52,7 @@ func (r *EntRepository) GetWorkspaceDashboardSummary(ctx context.Context) (domai
 		return domain.WorkspaceDashboardSummary{}, err
 	}
 	todayStart := startOfUTCDay(time.Now().UTC())
-	todayCostByProject, err := r.sumTodayTicketCostByProject(ctx, projectIDsFromEnt(projects), todayStart)
+	todayCostByProject, err := r.sumTodayProjectCostByProject(ctx, projectIDsFromEnt(projects), todayStart)
 	if err != nil {
 		return domain.WorkspaceDashboardSummary{}, err
 	}
@@ -164,7 +165,7 @@ func (r *EntRepository) GetOrganizationDashboardSummary(ctx context.Context, org
 		return domain.OrganizationDashboardSummary{}, err
 	}
 	todayStart := startOfUTCDay(time.Now().UTC())
-	todayCostByProject, err := r.sumTodayTicketCostByProject(ctx, projectIDs, todayStart)
+	todayCostByProject, err := r.sumTodayProjectCostByProject(ctx, projectIDs, todayStart)
 	if err != nil {
 		return domain.OrganizationDashboardSummary{}, err
 	}
@@ -248,7 +249,7 @@ func (r *EntRepository) listProjectsForOrganizations(ctx context.Context, organi
 	return items, nil
 }
 
-func (r *EntRepository) sumTodayTicketCostByProject(ctx context.Context, projectIDs []uuid.UUID, since time.Time) (map[uuid.UUID]float64, error) {
+func (r *EntRepository) sumTodayProjectCostByProject(ctx context.Context, projectIDs []uuid.UUID, since time.Time) (map[uuid.UUID]float64, error) {
 	sums := make(map[uuid.UUID]float64, len(projectIDs))
 	if len(projectIDs) == 0 {
 		return sums, nil
@@ -257,12 +258,12 @@ func (r *EntRepository) sumTodayTicketCostByProject(ctx context.Context, project
 	items, err := r.client.ActivityEvent.Query().
 		Where(
 			entactivityevent.ProjectIDIn(projectIDs...),
-			entactivityevent.EventTypeEQ(ticketing.CostRecordedEventType),
+			entactivityevent.EventTypeIn(ticketing.CostRecordedEventType, chatconversationdomain.CostRecordedEventType),
 			entactivityevent.CreatedAtGTE(since.UTC()),
 		).
 		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list ticket cost events for summary: %w", err)
+		return nil, fmt.Errorf("list project cost events for summary: %w", err)
 	}
 
 	for _, item := range items {

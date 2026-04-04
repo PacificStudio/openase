@@ -79,10 +79,16 @@ type organizationTokenUsageResponse struct {
 	Summary organizationTokenUsageSummaryResponse `json:"summary"`
 }
 
+type projectTokenUsageDayResponse = organizationTokenUsageDayResponse
+type projectTokenUsagePeakDayResponse = organizationTokenUsagePeakDayResponse
+type projectTokenUsageSummaryResponse = organizationTokenUsageSummaryResponse
+type projectTokenUsageResponse = organizationTokenUsageResponse
+
 func (s *Server) registerWorkspaceSummaryRoutes(api *echo.Group) {
 	api.GET("/workspace/summary", s.handleGetWorkspaceSummary)
 	api.GET("/orgs/:orgId/summary", s.handleGetOrganizationSummary)
 	api.GET("/orgs/:orgId/token-usage", s.handleGetOrganizationTokenUsage)
+	api.GET("/projects/:projectId/token-usage", s.handleGetProjectTokenUsage)
 }
 
 func (s *Server) handleGetWorkspaceSummary(c echo.Context) error {
@@ -134,6 +140,28 @@ func (s *Server) handleGetOrganizationTokenUsage(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, mapOrganizationTokenUsageResponse(report))
+}
+
+func (s *Server) handleGetProjectTokenUsage(c echo.Context) error {
+	projectID, err := parseUUIDPathParam(c, "projectId")
+	if err != nil {
+		return err
+	}
+
+	query, err := domain.ParseProjectTokenUsage(projectID, domain.ProjectTokenUsageListInput{
+		From: c.QueryParam("from"),
+		To:   c.QueryParam("to"),
+	}, time.Now().UTC())
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	report, err := s.catalog.GetProjectTokenUsage(c.Request().Context(), query)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, mapProjectTokenUsageResponse(report))
 }
 
 func mapWorkspaceDashboardMetrics(summary domain.WorkspaceDashboardSummary) workspaceDashboardMetricsResponse {
@@ -231,4 +259,13 @@ func mapOrganizationTokenUsageResponse(report domain.OrganizationTokenUsageRepor
 	}
 
 	return response
+}
+
+func mapProjectTokenUsageResponse(report domain.ProjectTokenUsageReport) projectTokenUsageResponse {
+	return projectTokenUsageResponse(mapOrganizationTokenUsageResponse(domain.OrganizationTokenUsageReport{
+		FromDate: report.FromDate,
+		ToDate:   report.ToDate,
+		Days:     report.Days,
+		Summary:  report.Summary,
+	}))
 }

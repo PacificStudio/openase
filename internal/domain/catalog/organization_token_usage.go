@@ -15,6 +15,11 @@ type OrganizationTokenUsageListInput struct {
 	To   string
 }
 
+type ProjectTokenUsageListInput struct {
+	From string
+	To   string
+}
+
 type GetOrganizationTokenUsage struct {
 	OrganizationID uuid.UUID
 	FromDate       time.Time
@@ -52,36 +57,32 @@ type OrganizationTokenUsageReport struct {
 	Summary        OrganizationTokenUsageSummary
 }
 
+type GetProjectTokenUsage struct {
+	ProjectID uuid.UUID
+	FromDate  time.Time
+	ToDate    time.Time
+}
+
+type ProjectDailyTokenUsage = OrganizationDailyTokenUsage
+type ProjectTokenUsagePeakDay = OrganizationTokenUsagePeakDay
+type ProjectTokenUsageSummary = OrganizationTokenUsageSummary
+
+type ProjectTokenUsageReport struct {
+	ProjectID uuid.UUID
+	FromDate  time.Time
+	ToDate    time.Time
+	Days      []ProjectDailyTokenUsage
+	Summary   ProjectTokenUsageSummary
+}
+
 func ParseOrganizationTokenUsage(
 	organizationID uuid.UUID,
 	raw OrganizationTokenUsageListInput,
 	now time.Time,
 ) (GetOrganizationTokenUsage, error) {
-	fromRaw := strings.TrimSpace(raw.From)
-	toRaw := strings.TrimSpace(raw.To)
-	if fromRaw == "" && toRaw == "" {
-		end := startOfUTCDate(now.UTC())
-		start := end.AddDate(0, 0, -(DefaultOrganizationTokenUsageWindowDays - 1))
-		return GetOrganizationTokenUsage{
-			OrganizationID: organizationID,
-			FromDate:       start,
-			ToDate:         end,
-		}, nil
-	}
-	if fromRaw == "" || toRaw == "" {
-		return GetOrganizationTokenUsage{}, fmt.Errorf("from and to must both be provided in YYYY-MM-DD format")
-	}
-
-	fromDate, err := parseUTCDate("from", fromRaw)
+	fromDate, toDate, err := parseTokenUsageDateRange(raw.From, raw.To, now)
 	if err != nil {
 		return GetOrganizationTokenUsage{}, err
-	}
-	toDate, err := parseUTCDate("to", toRaw)
-	if err != nil {
-		return GetOrganizationTokenUsage{}, err
-	}
-	if toDate.Before(fromDate) {
-		return GetOrganizationTokenUsage{}, fmt.Errorf("to must be greater than or equal to from")
 	}
 
 	return GetOrganizationTokenUsage{
@@ -89,6 +90,49 @@ func ParseOrganizationTokenUsage(
 		FromDate:       fromDate,
 		ToDate:         toDate,
 	}, nil
+}
+
+func ParseProjectTokenUsage(
+	projectID uuid.UUID,
+	raw ProjectTokenUsageListInput,
+	now time.Time,
+) (GetProjectTokenUsage, error) {
+	fromDate, toDate, err := parseTokenUsageDateRange(raw.From, raw.To, now)
+	if err != nil {
+		return GetProjectTokenUsage{}, err
+	}
+
+	return GetProjectTokenUsage{
+		ProjectID: projectID,
+		FromDate:  fromDate,
+		ToDate:    toDate,
+	}, nil
+}
+
+func parseTokenUsageDateRange(from string, to string, now time.Time) (time.Time, time.Time, error) {
+	fromRaw := strings.TrimSpace(from)
+	toRaw := strings.TrimSpace(to)
+	if fromRaw == "" && toRaw == "" {
+		end := startOfUTCDate(now.UTC())
+		start := end.AddDate(0, 0, -(DefaultOrganizationTokenUsageWindowDays - 1))
+		return start, end, nil
+	}
+	if fromRaw == "" || toRaw == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("from and to must both be provided in YYYY-MM-DD format")
+	}
+
+	fromDate, err := parseUTCDate("from", fromRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	toDate, err := parseUTCDate("to", toRaw)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	if toDate.Before(fromDate) {
+		return time.Time{}, time.Time{}, fmt.Errorf("to must be greater than or equal to from")
+	}
+	return fromDate, toDate, nil
 }
 
 func parseUTCDate(fieldName string, raw string) (time.Time, error) {
