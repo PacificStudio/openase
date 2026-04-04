@@ -16,6 +16,7 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server:\n  mode: all-in-one\ndatabase:\n  dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable\n"))
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o600)
 	mkdirAll(t, filepath.Join(homeDir, ".openase", "logs"))
+	mkdirAll(t, filepath.Join(homeDir, ".openase", "workspaces"))
 
 	report := Diagnose(context.Background(), Options{
 		ConfigFile: filepath.Join(repoRoot, "config.yaml"),
@@ -33,6 +34,8 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 				return "claude 1.2.3\n", nil
 			case "codex":
 				return "codex 0.9.0\n", nil
+			case "gemini":
+				return "gemini 3.1.0\n", nil
 			default:
 				return base + " 0.0.0\n", nil
 			}
@@ -51,6 +54,7 @@ func TestDiagnoseHealthyEnvironment(t *testing.T) {
 
 	assertStatus(t, report, "Git", StatusOK)
 	assertStatus(t, report, "PostgreSQL", StatusOK)
+	assertStatus(t, report, "Gemini CLI", StatusOK)
 
 	rendered := report.Render()
 	if !strings.Contains(rendered, "git version 2.44.0") {
@@ -63,7 +67,7 @@ func TestDiagnoseReportsConfigAndPermissionProblems(t *testing.T) {
 	homeDir := t.TempDir()
 
 	writeFile(t, filepath.Join(repoRoot, ".git"), []byte("gitdir"))
-	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server:\n  mode: invalid\n"))
+	writeFile(t, filepath.Join(repoRoot, "config.yaml"), []byte("server: [\n"))
 	writeFileMode(t, filepath.Join(homeDir, ".openase", ".env"), []byte("OPENASE_TOKEN=x\n"), 0o644)
 
 	report := Diagnose(context.Background(), Options{
@@ -87,7 +91,8 @@ func TestDiagnoseReportsConfigAndPermissionProblems(t *testing.T) {
 
 	assertStatus(t, report, "配置", StatusError)
 	assertStatus(t, report, "~/.openase", StatusWarning)
-	assertStatus(t, report, "Codex", StatusWarning)
+	assertStatus(t, report, "OpenAI Codex", StatusWarning)
+	assertStatus(t, report, "Gemini CLI", StatusWarning)
 }
 
 func TestDoctorHelperFunctions(t *testing.T) {

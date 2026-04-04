@@ -167,9 +167,9 @@ func TestCLIWireBuilders(t *testing.T) {
 
 func TestCLISetupHelpers(t *testing.T) {
 	var banner bytes.Buffer
-	printSetupWizardBanner(&banner, "http://127.0.0.1:19836/setup")
+	printSetupWebBanner(&banner, "http://127.0.0.1:19836/setup")
 	if !strings.Contains(banner.String(), "http://127.0.0.1:19836/setup") {
-		t.Fatalf("printSetupWizardBanner() = %q", banner.String())
+		t.Fatalf("printSetupWebBanner() = %q", banner.String())
 	}
 
 	t.Setenv("PATH", t.TempDir())
@@ -178,12 +178,12 @@ func TestCLISetupHelpers(t *testing.T) {
 	}
 
 	var wizard bytes.Buffer
-	err := runSetupWizard(context.Background(), &wizard, "300.300.300.300", freeCLIPort(t))
+	err := runSetupWebWizard(context.Background(), &wizard, "300.300.300.300", freeCLIPort(t))
 	if err == nil {
-		t.Fatal("runSetupWizard() expected listener error for invalid host")
+		t.Fatal("runSetupWebWizard() expected listener error for invalid host")
 	}
-	if !strings.Contains(wizard.String(), "请在浏览器中完成配置") {
-		t.Fatalf("runSetupWizard() output = %q", wizard.String())
+	if !strings.Contains(wizard.String(), "legacy web setup") {
+		t.Fatalf("runSetupWebWizard() output = %q", wizard.String())
 	}
 }
 

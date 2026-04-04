@@ -35,13 +35,13 @@ func newUpCommand(options *rootOptions) *cobra.Command {
 func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Command {
 	return &cobra.Command{
 		Use:   "up",
-		Short: "Start setup wizard on first run, otherwise install or update the user service.",
+		Short: "Run first-time setup on an empty machine, otherwise install or update the user service.",
 		Long: strings.TrimSpace(`
 Install or update the managed user service for OpenASE.
 
 If no config file can be resolved yet, this command runs the first-run setup
-wizard instead. Once a config exists, it installs or refreshes the managed
-user service definition for the current platform.
+flow instead. Once a config exists, it installs or refreshes the managed user
+service definition for the current platform.
 `),
 		Example: "openase up\nopenase up --config ~/.openase/config.yaml",
 		RunE: func(cmd *cobra.Command, _ []string) error {
