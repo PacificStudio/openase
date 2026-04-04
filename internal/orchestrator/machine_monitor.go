@@ -145,33 +145,39 @@ func (m *MachineMonitor) RunTick(ctx context.Context) (MachineMonitorReport, err
 }
 
 type monitoredMachine struct {
-	OrganizationID  uuid.UUID
-	ID              uuid.UUID
-	Name            string
-	Host            string
-	Port            int
-	SSHUser         *string
-	SSHKeyPath      *string
-	WorkspaceRoot   *string
-	AgentCLIPath    *string
-	Status          entmachine.Status
-	Labels          []string
-	LastHeartbeatAt time.Time
-	Resources       map[string]any
+	OrganizationID     uuid.UUID
+	ID                 uuid.UUID
+	Name               string
+	Host               string
+	Port               int
+	ConnectionMode     entmachine.ConnectionMode
+	SSHUser            *string
+	SSHKeyPath         *string
+	AdvertisedEndpoint *string
+	WorkspaceRoot      *string
+	AgentCLIPath       *string
+	DaemonStatus       domain.MachineDaemonStatus
+	Status             entmachine.Status
+	Labels             []string
+	LastHeartbeatAt    time.Time
+	Resources          map[string]any
 }
 
 func (m monitoredMachine) toDomain() domain.Machine {
 	return domain.Machine{
-		ID:             m.ID,
-		OrganizationID: m.OrganizationID,
-		Name:           m.Name,
-		Host:           m.Host,
-		Port:           m.Port,
-		SSHUser:        m.SSHUser,
-		SSHKeyPath:     m.SSHKeyPath,
-		WorkspaceRoot:  m.WorkspaceRoot,
-		AgentCLIPath:   m.AgentCLIPath,
-		Labels:         append([]string(nil), m.Labels...),
+		ID:                 m.ID,
+		OrganizationID:     m.OrganizationID,
+		Name:               m.Name,
+		Host:               m.Host,
+		Port:               m.Port,
+		ConnectionMode:     domain.MachineConnectionMode(m.ConnectionMode),
+		SSHUser:            m.SSHUser,
+		SSHKeyPath:         m.SSHKeyPath,
+		AdvertisedEndpoint: m.AdvertisedEndpoint,
+		WorkspaceRoot:      m.WorkspaceRoot,
+		AgentCLIPath:       m.AgentCLIPath,
+		DaemonStatus:       m.DaemonStatus,
+		Labels:             append([]string(nil), m.Labels...),
 	}
 }
 
@@ -197,6 +203,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	level4ProbeFailure := false
 	level5ProbeFailure := false
 	domainMachine := machine.toDomain()
+	isWebsocketMachine := domainMachine.ConnectionMode == domain.MachineConnectionModeWSReverse || domainMachine.ConnectionMode == domain.MachineConnectionModeWSListener
 
 	if level1Due {
 		report.L1Checks++
@@ -220,7 +227,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
-	if level2Due && !softReachabilityFailure && !hardReachabilityFailure {
+	if level2Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
 		report.L2Checks++
 		systemResources, err := m.collector.CollectSystemResources(ctx, domainMachine)
 		if err != nil {
@@ -232,7 +239,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
-	if level3Due && !softReachabilityFailure && !hardReachabilityFailure {
+	if level3Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
 		report.L3Checks++
 		gpuResources, err := m.collector.CollectGPUResources(ctx, domainMachine)
 		if err != nil {
@@ -243,7 +250,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
-	if level4Due && !softReachabilityFailure && !hardReachabilityFailure {
+	if level4Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
 		report.L4Checks++
 		agentEnvironment, err := m.collector.CollectAgentEnvironment(ctx, domainMachine)
 		if err != nil {
@@ -255,7 +262,7 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		}
 	}
 
-	if level5Due && !softReachabilityFailure && !hardReachabilityFailure {
+	if level5Due && !softReachabilityFailure && !hardReachabilityFailure && !isWebsocketMachine {
 		report.L5Checks++
 		fullAudit, err := m.collector.CollectFullAudit(ctx, domainMachine)
 		if err != nil {
@@ -279,19 +286,22 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	}
 
 	return monitoredMachine{
-		OrganizationID:  machine.OrganizationID,
-		ID:              machine.ID,
-		Name:            machine.Name,
-		Host:            machine.Host,
-		Port:            machine.Port,
-		SSHUser:         cloneMachineString(machine.SSHUser),
-		SSHKeyPath:      cloneMachineString(machine.SSHKeyPath),
-		WorkspaceRoot:   cloneMachineString(machine.WorkspaceRoot),
-		AgentCLIPath:    cloneMachineString(machine.AgentCLIPath),
-		Status:          status,
-		Labels:          append([]string(nil), machine.Labels...),
-		LastHeartbeatAt: lastHeartbeatAt,
-		Resources:       resources,
+		OrganizationID:     machine.OrganizationID,
+		ID:                 machine.ID,
+		Name:               machine.Name,
+		Host:               machine.Host,
+		Port:               machine.Port,
+		ConnectionMode:     machine.ConnectionMode,
+		SSHUser:            cloneMachineString(machine.SSHUser),
+		SSHKeyPath:         cloneMachineString(machine.SSHKeyPath),
+		AdvertisedEndpoint: cloneMachineString(machine.AdvertisedEndpoint),
+		WorkspaceRoot:      cloneMachineString(machine.WorkspaceRoot),
+		AgentCLIPath:       cloneMachineString(machine.AgentCLIPath),
+		DaemonStatus:       machine.DaemonStatus,
+		Status:             status,
+		Labels:             append([]string(nil), machine.Labels...),
+		LastHeartbeatAt:    lastHeartbeatAt,
+		Resources:          resources,
 	}, true
 }
 
@@ -510,20 +520,36 @@ func mapMachineEntity(item *ent.Machine) monitoredMachine {
 	}
 
 	return monitoredMachine{
-		OrganizationID:  item.OrganizationID,
-		ID:              item.ID,
-		Name:            item.Name,
-		Host:            item.Host,
-		Port:            item.Port,
-		SSHUser:         optionalMachineString(item.SSHUser),
-		SSHKeyPath:      optionalMachineString(item.SSHKeyPath),
-		WorkspaceRoot:   optionalMachineString(item.WorkspaceRoot),
-		AgentCLIPath:    optionalMachineString(item.AgentCliPath),
+		OrganizationID:     item.OrganizationID,
+		ID:                 item.ID,
+		Name:               item.Name,
+		Host:               item.Host,
+		Port:               item.Port,
+		ConnectionMode:     item.ConnectionMode,
+		SSHUser:            optionalMachineString(item.SSHUser),
+		SSHKeyPath:         optionalMachineString(item.SSHKeyPath),
+		AdvertisedEndpoint: optionalMachineString(item.AdvertisedEndpoint),
+		WorkspaceRoot:      optionalMachineString(item.WorkspaceRoot),
+		AgentCLIPath:       optionalMachineString(item.AgentCliPath),
+		DaemonStatus: domain.MachineDaemonStatus{
+			Registered:       item.DaemonRegistered,
+			LastRegisteredAt: cloneTimePointer(item.DaemonLastRegisteredAt),
+			CurrentSessionID: optionalMachineString(item.DaemonSessionID),
+			SessionState:     domain.MachineTransportSessionState(item.DaemonSessionState),
+		},
 		Status:          item.Status,
 		Labels:          append([]string(nil), item.Labels...),
 		LastHeartbeatAt: lastHeartbeatAt,
 		Resources:       cloneResourceMap(item.Resources),
 	}
+}
+
+func cloneTimePointer(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	copied := value.UTC()
+	return &copied
 }
 
 func optionalMachineString(value string) *string {

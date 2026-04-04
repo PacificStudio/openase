@@ -573,9 +573,11 @@ type fakeMachineMonitorCollector struct {
 	gpuCalls          int
 	agentEnvCalls     int
 	fullAuditCalls    int
+	lastMachine       domain.Machine
 }
 
-func (f *fakeMachineMonitorCollector) CollectReachability(context.Context, domain.Machine) (domain.MachineReachability, error) {
+func (f *fakeMachineMonitorCollector) CollectReachability(_ context.Context, machine domain.Machine) (domain.MachineReachability, error) {
+	f.lastMachine = machine
 	f.reachabilityCalls++
 	checkedAt := time.Now().UTC()
 	if f.now != nil {
@@ -590,6 +592,54 @@ func (f *fakeMachineMonitorCollector) CollectReachability(context.Context, domai
 		reachability.FailureCause = f.reachabilityError.Error()
 	}
 	return reachability, f.reachabilityError
+}
+
+func TestMachineMonitorRunTickKeepsReverseWebsocketMachineOnlineWithoutSSHCollectors(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	orgID := createMachineMonitorOrg(ctx, t, client)
+
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(orgID).
+		SetName("reverse-01").
+		SetHost("reverse-01.example.com").
+		SetConnectionMode(entmachine.ConnectionModeWsReverse).
+		SetDaemonRegistered(true).
+		SetDaemonSessionID("session-1").
+		SetDaemonSessionState(entmachine.DaemonSessionStateConnected).
+		SetStatus(entmachine.StatusOnline).
+		SetResources(map[string]any{}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create reverse websocket machine: %v", err)
+	}
+
+	now := time.Date(2026, 4, 4, 15, 0, 0, 0, time.UTC)
+	collector := &fakeMachineMonitorCollector{now: func() time.Time { return now }}
+	monitor := NewMachineMonitor(client, slog.New(slog.NewTextHandler(io.Discard, nil)), collector)
+	monitor.now = func() time.Time { return now }
+
+	report, err := monitor.RunTick(ctx)
+	if err != nil {
+		t.Fatalf("RunTick returned error: %v", err)
+	}
+	if report.L1Checks != 1 || report.L2Checks != 0 || report.L3Checks != 0 || report.L4Checks != 0 || report.L5Checks != 0 {
+		t.Fatalf("expected only L1 check for reverse websocket machine, got %+v", report)
+	}
+	if collector.systemCalls != 0 || collector.gpuCalls != 0 || collector.agentEnvCalls != 0 || collector.fullAuditCalls != 0 {
+		t.Fatalf("expected websocket machine to skip SSH-only collectors, got %+v", collector)
+	}
+	if collector.lastMachine.ConnectionMode != domain.MachineConnectionModeWSReverse || !collector.lastMachine.DaemonStatus.Registered {
+		t.Fatalf("expected collector to receive websocket connection metadata, got %+v", collector.lastMachine)
+	}
+
+	machineAfter, err := client.Machine.Get(ctx, machineItem.ID)
+	if err != nil {
+		t.Fatalf("reload machine: %v", err)
+	}
+	if machineAfter.Status != entmachine.StatusOnline {
+		t.Fatalf("expected reverse websocket machine to stay online, got %+v", machineAfter)
+	}
 }
 
 func (f *fakeMachineMonitorCollector) CollectSystemResources(context.Context, domain.Machine) (domain.MachineSystemResources, error) {
