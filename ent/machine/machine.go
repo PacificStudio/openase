@@ -71,6 +71,8 @@ const (
 	FieldResources = "resources"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
+	// EdgeChannelTokens holds the string denoting the channel_tokens edge name in mutations.
+	EdgeChannelTokens = "channel_tokens"
 	// EdgeProviders holds the string denoting the providers edge name in mutations.
 	EdgeProviders = "providers"
 	// EdgeTargetTickets holds the string denoting the target_tickets edge name in mutations.
@@ -84,6 +86,13 @@ const (
 	OrganizationInverseTable = "organizations"
 	// OrganizationColumn is the table column denoting the organization relation/edge.
 	OrganizationColumn = "organization_id"
+	// ChannelTokensTable is the table that holds the channel_tokens relation/edge.
+	ChannelTokensTable = "machine_channel_tokens"
+	// ChannelTokensInverseTable is the table name for the MachineChannelToken entity.
+	// It exists in this package in order to avoid circular dependency with the "machinechanneltoken" package.
+	ChannelTokensInverseTable = "machine_channel_tokens"
+	// ChannelTokensColumn is the table column denoting the channel_tokens relation/edge.
+	ChannelTokensColumn = "machine_id"
 	// ProvidersTable is the table that holds the providers relation/edge.
 	ProvidersTable = "agent_providers"
 	// ProvidersInverseTable is the table name for the AgentProvider entity.
@@ -495,6 +504,20 @@ func ByOrganizationField(field string, opts ...sql.OrderTermOption) OrderOption 
 	}
 }
 
+// ByChannelTokensCount orders the results by channel_tokens count.
+func ByChannelTokensCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newChannelTokensStep(), opts...)
+	}
+}
+
+// ByChannelTokens orders the results by channel_tokens terms.
+func ByChannelTokens(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newChannelTokensStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByProvidersCount orders the results by providers count.
 func ByProvidersCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -527,6 +550,13 @@ func newOrganizationStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(OrganizationInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, OrganizationTable, OrganizationColumn),
+	)
+}
+func newChannelTokensStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ChannelTokensInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ChannelTokensTable, ChannelTokensColumn),
 	)
 }
 func newProvidersStep() *sqlgraph.Step {

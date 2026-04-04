@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -99,6 +100,8 @@ type Client struct {
 	ChatTurn *ChatTurnClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
+	// MachineChannelToken is the client for interacting with the MachineChannelToken builders.
+	MachineChannelToken *MachineChannelTokenClient
 	// NotificationChannel is the client for interacting with the NotificationChannel builders.
 	NotificationChannel *NotificationChannelClient
 	// NotificationRule is the client for interacting with the NotificationRule builders.
@@ -192,6 +195,7 @@ func (c *Client) init() {
 	c.ChatPendingInterrupt = NewChatPendingInterruptClient(c.config)
 	c.ChatTurn = NewChatTurnClient(c.config)
 	c.Machine = NewMachineClient(c.config)
+	c.MachineChannelToken = NewMachineChannelTokenClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
 	c.NotificationRule = NewNotificationRuleClient(c.config)
 	c.Organization = NewOrganizationClient(c.config)
@@ -332,6 +336,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
 		Machine:                       NewMachineClient(cfg),
+		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
 		NotificationRule:              NewNotificationRuleClient(cfg),
 		Organization:                  NewOrganizationClient(cfg),
@@ -399,6 +404,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
 		Machine:                       NewMachineClient(cfg),
+		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
 		NotificationRule:              NewNotificationRuleClient(cfg),
 		Organization:                  NewOrganizationClient(cfg),
@@ -465,11 +471,11 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.BrowserSession,
 		c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt, c.ChatTurn, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization,
-		c.OrganizationDailyTokenUsage, c.Project, c.ProjectConversationPrincipal,
-		c.ProjectConversationRun, c.ProjectConversationStepEvent,
-		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
-		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
+		c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.ProjectConversationPrincipal, c.ProjectConversationRun,
+		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Skill,
 		c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
@@ -488,11 +494,11 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.BrowserSession,
 		c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt, c.ChatTurn, c.Machine,
-		c.NotificationChannel, c.NotificationRule, c.Organization,
-		c.OrganizationDailyTokenUsage, c.Project, c.ProjectConversationPrincipal,
-		c.ProjectConversationRun, c.ProjectConversationStepEvent,
-		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
-		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
+		c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.ProjectConversationPrincipal, c.ProjectConversationRun,
+		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Skill,
 		c.SkillBlob, c.SkillVersion, c.SkillVersionFile, c.Ticket, c.TicketComment,
 		c.TicketCommentRevision, c.TicketDependency, c.TicketExternalLink,
@@ -535,6 +541,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatTurn.mutate(ctx, m)
 	case *MachineMutation:
 		return c.Machine.mutate(ctx, m)
+	case *MachineChannelTokenMutation:
+		return c.MachineChannelToken.mutate(ctx, m)
 	case *NotificationChannelMutation:
 		return c.NotificationChannel.mutate(ctx, m)
 	case *NotificationRuleMutation:
@@ -3261,6 +3269,22 @@ func (c *MachineClient) QueryOrganization(_m *Machine) *OrganizationQuery {
 	return query
 }
 
+// QueryChannelTokens queries the channel_tokens edge of a Machine.
+func (c *MachineClient) QueryChannelTokens(_m *Machine) *MachineChannelTokenQuery {
+	query := (&MachineChannelTokenClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machine.Table, machine.FieldID, id),
+			sqlgraph.To(machinechanneltoken.Table, machinechanneltoken.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, machine.ChannelTokensTable, machine.ChannelTokensColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryProviders queries the providers edge of a Machine.
 func (c *MachineClient) QueryProviders(_m *Machine) *AgentProviderQuery {
 	query := (&AgentProviderClient{config: c.config}).Query()
@@ -3315,6 +3339,155 @@ func (c *MachineClient) mutate(ctx context.Context, m *MachineMutation) (Value, 
 		return (&MachineDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Machine mutation op: %q", m.Op())
+	}
+}
+
+// MachineChannelTokenClient is a client for the MachineChannelToken schema.
+type MachineChannelTokenClient struct {
+	config
+}
+
+// NewMachineChannelTokenClient returns a client for the MachineChannelToken from the given config.
+func NewMachineChannelTokenClient(c config) *MachineChannelTokenClient {
+	return &MachineChannelTokenClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `machinechanneltoken.Hooks(f(g(h())))`.
+func (c *MachineChannelTokenClient) Use(hooks ...Hook) {
+	c.hooks.MachineChannelToken = append(c.hooks.MachineChannelToken, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `machinechanneltoken.Intercept(f(g(h())))`.
+func (c *MachineChannelTokenClient) Intercept(interceptors ...Interceptor) {
+	c.inters.MachineChannelToken = append(c.inters.MachineChannelToken, interceptors...)
+}
+
+// Create returns a builder for creating a MachineChannelToken entity.
+func (c *MachineChannelTokenClient) Create() *MachineChannelTokenCreate {
+	mutation := newMachineChannelTokenMutation(c.config, OpCreate)
+	return &MachineChannelTokenCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of MachineChannelToken entities.
+func (c *MachineChannelTokenClient) CreateBulk(builders ...*MachineChannelTokenCreate) *MachineChannelTokenCreateBulk {
+	return &MachineChannelTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *MachineChannelTokenClient) MapCreateBulk(slice any, setFunc func(*MachineChannelTokenCreate, int)) *MachineChannelTokenCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &MachineChannelTokenCreateBulk{err: fmt.Errorf("calling to MachineChannelTokenClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*MachineChannelTokenCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &MachineChannelTokenCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for MachineChannelToken.
+func (c *MachineChannelTokenClient) Update() *MachineChannelTokenUpdate {
+	mutation := newMachineChannelTokenMutation(c.config, OpUpdate)
+	return &MachineChannelTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *MachineChannelTokenClient) UpdateOne(_m *MachineChannelToken) *MachineChannelTokenUpdateOne {
+	mutation := newMachineChannelTokenMutation(c.config, OpUpdateOne, withMachineChannelToken(_m))
+	return &MachineChannelTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *MachineChannelTokenClient) UpdateOneID(id uuid.UUID) *MachineChannelTokenUpdateOne {
+	mutation := newMachineChannelTokenMutation(c.config, OpUpdateOne, withMachineChannelTokenID(id))
+	return &MachineChannelTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for MachineChannelToken.
+func (c *MachineChannelTokenClient) Delete() *MachineChannelTokenDelete {
+	mutation := newMachineChannelTokenMutation(c.config, OpDelete)
+	return &MachineChannelTokenDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *MachineChannelTokenClient) DeleteOne(_m *MachineChannelToken) *MachineChannelTokenDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *MachineChannelTokenClient) DeleteOneID(id uuid.UUID) *MachineChannelTokenDeleteOne {
+	builder := c.Delete().Where(machinechanneltoken.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &MachineChannelTokenDeleteOne{builder}
+}
+
+// Query returns a query builder for MachineChannelToken.
+func (c *MachineChannelTokenClient) Query() *MachineChannelTokenQuery {
+	return &MachineChannelTokenQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeMachineChannelToken},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a MachineChannelToken entity by its id.
+func (c *MachineChannelTokenClient) Get(ctx context.Context, id uuid.UUID) (*MachineChannelToken, error) {
+	return c.Query().Where(machinechanneltoken.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *MachineChannelTokenClient) GetX(ctx context.Context, id uuid.UUID) *MachineChannelToken {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryMachine queries the machine edge of a MachineChannelToken.
+func (c *MachineChannelTokenClient) QueryMachine(_m *MachineChannelToken) *MachineQuery {
+	query := (&MachineClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(machinechanneltoken.Table, machinechanneltoken.FieldID, id),
+			sqlgraph.To(machine.Table, machine.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, machinechanneltoken.MachineTable, machinechanneltoken.MachineColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *MachineChannelTokenClient) Hooks() []Hook {
+	return c.hooks.MachineChannelToken
+}
+
+// Interceptors returns the client interceptors.
+func (c *MachineChannelTokenClient) Interceptors() []Interceptor {
+	return c.inters.MachineChannelToken
+}
+
+func (c *MachineChannelTokenClient) mutate(ctx context.Context, m *MachineChannelTokenMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&MachineChannelTokenCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&MachineChannelTokenUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&MachineChannelTokenUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&MachineChannelTokenDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown MachineChannelToken mutation op: %q", m.Op())
 	}
 }
 
@@ -9397,29 +9570,31 @@ type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, BrowserSession, ChatConversation,
-		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, NotificationChannel,
-		NotificationRule, Organization, OrganizationDailyTokenUsage, Project,
-		ProjectConversationPrincipal, ProjectConversationRun,
-		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
-		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
-		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Skill, SkillBlob,
-		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
-		WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, MachineChannelToken,
+		NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
+		ProjectConversationRun, ProjectConversationStepEvent,
+		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,
+		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
+		RoleBinding, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
+		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus, User,
+		UserGroupMembership, UserIdentity, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, BrowserSession, ChatConversation,
-		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, NotificationChannel,
-		NotificationRule, Organization, OrganizationDailyTokenUsage, Project,
-		ProjectConversationPrincipal, ProjectConversationRun,
-		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
-		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
-		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Skill, SkillBlob,
-		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
-		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
-		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
-		WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, MachineChannelToken,
+		NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
+		ProjectConversationRun, ProjectConversationStepEvent,
+		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,
+		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
+		RoleBinding, ScheduledJob, Skill, SkillBlob, SkillVersion, SkillVersionFile,
+		Ticket, TicketComment, TicketCommentRevision, TicketDependency,
+		TicketExternalLink, TicketRepoScope, TicketRepoWorkspace, TicketStatus, User,
+		UserGroupMembership, UserIdentity, Workflow, WorkflowSkillBinding,
+		WorkflowVersion []ent.Interceptor
 	}
 )

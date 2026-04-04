@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -465,6 +466,20 @@ func init() {
 	machineDescID := machineFields[0].Descriptor()
 	// machine.DefaultID holds the default value on creation for the id field.
 	machine.DefaultID = machineDescID.Default.(func() uuid.UUID)
+	machinechanneltokenFields := schema.MachineChannelToken{}.Fields()
+	_ = machinechanneltokenFields
+	// machinechanneltokenDescTokenHash is the schema descriptor for token_hash field.
+	machinechanneltokenDescTokenHash := machinechanneltokenFields[2].Descriptor()
+	// machinechanneltoken.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	machinechanneltoken.TokenHashValidator = machinechanneltokenDescTokenHash.Validators[0].(func(string) error)
+	// machinechanneltokenDescCreatedAt is the schema descriptor for created_at field.
+	machinechanneltokenDescCreatedAt := machinechanneltokenFields[5].Descriptor()
+	// machinechanneltoken.DefaultCreatedAt holds the default value on creation for the created_at field.
+	machinechanneltoken.DefaultCreatedAt = machinechanneltokenDescCreatedAt.Default.(func() time.Time)
+	// machinechanneltokenDescID is the schema descriptor for id field.
+	machinechanneltokenDescID := machinechanneltokenFields[0].Descriptor()
+	// machinechanneltoken.DefaultID holds the default value on creation for the id field.
+	machinechanneltoken.DefaultID = machinechanneltokenDescID.Default.(func() uuid.UUID)
 	notificationchannelFields := schema.NotificationChannel{}.Fields()
 	_ = notificationchannelFields
 	// notificationchannelDescName is the schema descriptor for name field.

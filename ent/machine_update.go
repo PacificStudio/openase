@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
 	"github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/ticket"
@@ -475,6 +476,21 @@ func (_u *MachineUpdate) SetOrganization(v *Organization) *MachineUpdate {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddChannelTokenIDs adds the "channel_tokens" edge to the MachineChannelToken entity by IDs.
+func (_u *MachineUpdate) AddChannelTokenIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.AddChannelTokenIDs(ids...)
+	return _u
+}
+
+// AddChannelTokens adds the "channel_tokens" edges to the MachineChannelToken entity.
+func (_u *MachineUpdate) AddChannelTokens(v ...*MachineChannelToken) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChannelTokenIDs(ids...)
+}
+
 // AddProviderIDs adds the "providers" edge to the AgentProvider entity by IDs.
 func (_u *MachineUpdate) AddProviderIDs(ids ...uuid.UUID) *MachineUpdate {
 	_u.mutation.AddProviderIDs(ids...)
@@ -514,6 +530,27 @@ func (_u *MachineUpdate) Mutation() *MachineMutation {
 func (_u *MachineUpdate) ClearOrganization() *MachineUpdate {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearChannelTokens clears all "channel_tokens" edges to the MachineChannelToken entity.
+func (_u *MachineUpdate) ClearChannelTokens() *MachineUpdate {
+	_u.mutation.ClearChannelTokens()
+	return _u
+}
+
+// RemoveChannelTokenIDs removes the "channel_tokens" edge to MachineChannelToken entities by IDs.
+func (_u *MachineUpdate) RemoveChannelTokenIDs(ids ...uuid.UUID) *MachineUpdate {
+	_u.mutation.RemoveChannelTokenIDs(ids...)
+	return _u
+}
+
+// RemoveChannelTokens removes "channel_tokens" edges to MachineChannelToken entities.
+func (_u *MachineUpdate) RemoveChannelTokens(v ...*MachineChannelToken) *MachineUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChannelTokenIDs(ids...)
 }
 
 // ClearProviders clears all "providers" edges to the AgentProvider entity.
@@ -795,6 +832,51 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ChannelTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChannelTokensIDs(); len(nodes) > 0 && !_u.mutation.ChannelTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChannelTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1354,6 +1436,21 @@ func (_u *MachineUpdateOne) SetOrganization(v *Organization) *MachineUpdateOne {
 	return _u.SetOrganizationID(v.ID)
 }
 
+// AddChannelTokenIDs adds the "channel_tokens" edge to the MachineChannelToken entity by IDs.
+func (_u *MachineUpdateOne) AddChannelTokenIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.AddChannelTokenIDs(ids...)
+	return _u
+}
+
+// AddChannelTokens adds the "channel_tokens" edges to the MachineChannelToken entity.
+func (_u *MachineUpdateOne) AddChannelTokens(v ...*MachineChannelToken) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddChannelTokenIDs(ids...)
+}
+
 // AddProviderIDs adds the "providers" edge to the AgentProvider entity by IDs.
 func (_u *MachineUpdateOne) AddProviderIDs(ids ...uuid.UUID) *MachineUpdateOne {
 	_u.mutation.AddProviderIDs(ids...)
@@ -1393,6 +1490,27 @@ func (_u *MachineUpdateOne) Mutation() *MachineMutation {
 func (_u *MachineUpdateOne) ClearOrganization() *MachineUpdateOne {
 	_u.mutation.ClearOrganization()
 	return _u
+}
+
+// ClearChannelTokens clears all "channel_tokens" edges to the MachineChannelToken entity.
+func (_u *MachineUpdateOne) ClearChannelTokens() *MachineUpdateOne {
+	_u.mutation.ClearChannelTokens()
+	return _u
+}
+
+// RemoveChannelTokenIDs removes the "channel_tokens" edge to MachineChannelToken entities by IDs.
+func (_u *MachineUpdateOne) RemoveChannelTokenIDs(ids ...uuid.UUID) *MachineUpdateOne {
+	_u.mutation.RemoveChannelTokenIDs(ids...)
+	return _u
+}
+
+// RemoveChannelTokens removes "channel_tokens" edges to MachineChannelToken entities.
+func (_u *MachineUpdateOne) RemoveChannelTokens(v ...*MachineChannelToken) *MachineUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveChannelTokenIDs(ids...)
 }
 
 // ClearProviders clears all "providers" edges to the AgentProvider entity.
@@ -1704,6 +1822,51 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organization.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ChannelTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedChannelTokensIDs(); len(nodes) > 0 && !_u.mutation.ChannelTokensCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ChannelTokensIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   machine.ChannelTokensTable,
+			Columns: []string{machine.ChannelTokensColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(machinechanneltoken.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

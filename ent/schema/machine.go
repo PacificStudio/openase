@@ -69,6 +69,7 @@ func (Machine) Edges() []ent.Edge {
 			Field("organization_id").
 			Unique().
 			Required(),
+		edge.To("channel_tokens", MachineChannelToken.Type),
 		edge.To("providers", AgentProvider.Type),
 		edge.To("target_tickets", Ticket.Type),
 	}

@@ -19,6 +19,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
+	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -65,6 +66,8 @@ type Server struct {
 	humanAuthorizer            *humanauthservice.Authorizer
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
 	ticketWorkspaceResetter    ticketWorkspaceResetter
+	machineChannel             *machinechannelservice.Service
+	machineSessions            *machinechannelservice.SessionRegistry
 }
 
 type ticketWorkspaceResetter interface {
@@ -161,6 +164,13 @@ func WithMetricsHandler(handler http.Handler) ServerOption {
 func WithProcessMemoryCollector(collector runtimeobservability.ProcessMemoryCollector) ServerOption {
 	return func(server *Server) {
 		server.memoryCollector = collector
+	}
+}
+
+func WithMachineChannel(service *machinechannelservice.Service, sessions *machinechannelservice.SessionRegistry) ServerOption {
+	return func(server *Server) {
+		server.machineChannel = service
+		server.machineSessions = sessions
 	}
 }
 
@@ -276,6 +286,9 @@ func (s *Server) Run(ctx context.Context) error {
 			s.logger.Error("close sse hub", "error", err)
 		}
 	}()
+	if s.machineChannel != nil && s.machineSessions != nil {
+		go s.runMachineSessionExpiryLoop(ctx)
+	}
 
 	errCh := make(chan error, 1)
 	httpServer := &http.Server{
