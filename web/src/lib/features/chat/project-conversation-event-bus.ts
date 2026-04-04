@@ -8,6 +8,7 @@ type ProjectConversationEventSubscriber = {
   conversationId: string
   onEvent: (event: ProjectConversationStreamEvent) => void
   onReconnect?: () => void
+  onConnected?: () => void
 }
 
 type ProjectConversationEventBusRuntime = {
@@ -29,17 +30,29 @@ export function watchProjectConversationMux(params: {
   onEvent: (event: ProjectConversationStreamEvent) => void
   onReconnect?: () => void
 }) {
+  let resolveConnected!: () => void
+  const connected = new Promise<void>((resolve) => {
+    resolveConnected = resolve
+  })
+
   const projectId = params.projectId.trim()
   const conversationId = params.conversationId.trim()
   if (!projectId) {
-    return Promise.reject(new Error('project conversation mux project id is required'))
+    return {
+      stream: Promise.reject(new Error('project conversation mux project id is required')),
+      connected,
+    }
   }
   if (!conversationId) {
-    return Promise.reject(new Error('project conversation mux conversation id is required'))
+    return {
+      stream: Promise.reject(new Error('project conversation mux conversation id is required')),
+      connected,
+    }
   }
 
-  return new Promise<void>((resolve) => {
+  const stream = new Promise<void>((resolve) => {
     if (params.signal?.aborted) {
+      resolveConnected()
       resolve()
       return
     }
@@ -51,8 +64,12 @@ export function watchProjectConversationMux(params: {
       conversationId,
       onEvent: params.onEvent,
       onReconnect: params.onReconnect,
+      onConnected: resolveConnected,
     })
     ensureRuntimeConnection(runtime)
+    if (runtime.state === 'live') {
+      resolveConnected()
+    }
 
     const cachedSession = runtime.latestSessionByConversationId.get(conversationId)
     if (cachedSession) {
@@ -61,12 +78,15 @@ export function watchProjectConversationMux(params: {
 
     const cleanup = () => {
       runtime.subscribers.delete(subscriberId)
+      resolveConnected()
       cleanupRuntime(runtime)
       resolve()
     }
 
     params.signal?.addEventListener('abort', cleanup, { once: true })
   })
+
+  return { stream, connected }
 }
 
 function getRuntime(projectId: string) {
@@ -130,6 +150,9 @@ async function runRuntimeConnection(
           const reconnected = runtime.hasConnected
           runtime.state = 'live'
           runtime.hasConnected = true
+          for (const subscriber of runtime.subscribers.values()) {
+            subscriber.onConnected?.()
+          }
           if (reconnected) {
             for (const subscriber of runtime.subscribers.values()) {
               subscriber.onReconnect?.()

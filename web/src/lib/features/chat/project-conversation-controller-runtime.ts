@@ -65,10 +65,10 @@ export function createProjectConversationControllerRuntime(
   function connectTabStream(tab: ProjectConversationTabState, conversationId: string) {
     const projectId = getProjectId()
     if (!projectId) {
-      return
+      return Promise.resolve()
     }
     const streamTab = findProjectConversationTab(input.getTabs(), tab.id) ?? tab
-    connectProjectConversationStream({
+    return connectProjectConversationStream({
       state: streamTab,
       projectId,
       conversationId,
