@@ -206,6 +206,10 @@ func newTicketListCommand(options *ticketCommandOptions, client platformClient) 
 	var statusNames []string
 	var priorities []string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodGet,
+		Path:   "/api/v1/projects/{projectId}/tickets",
+	}
 	command := &cobra.Command{
 		Use:   "list",
 		Short: "List tickets in the current project.",
@@ -246,10 +250,14 @@ func newTicketListCommand(options *ticketCommandOptions, client platformClient) 
 	command.Flags().StringSliceVar(&statusNames, "status-name", nil, "Filter by one or more status names.")
 	command.Flags().StringSliceVar(&priorities, "priority", nil, "Filter by one or more priorities.")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketCommentListCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
+	spec := openAPICommandSpec{
+		Method: http.MethodGet,
+		Path:   "/api/v1/tickets/{ticketId}/comments",
+	}
 	command := &cobra.Command{
 		Use:   "list [ticket-id]",
 		Short: "List comments for the current ticket.",
@@ -287,13 +295,17 @@ func newTicketCommentListCommand(options *ticketCommandOptions, client platformC
 		},
 	}
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketCommentCreateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
 	var body string
 	var bodyFile string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPost,
+		Path:   "/api/v1/tickets/{ticketId}/comments",
+	}
 	command := &cobra.Command{
 		Use:   "create [ticket-id]",
 		Short: "Create a comment on the current ticket.",
@@ -338,13 +350,17 @@ func newTicketCommentCreateCommand(options *ticketCommandOptions, client platfor
 	command.Flags().StringVar(&body, "body", "", "Comment markdown body.")
 	command.Flags().StringVar(&bodyFile, "body-file", "", "Read comment markdown from a file. Use '-' for stdin.")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
 	var body string
 	var bodyFile string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPatch,
+		Path:   "/api/v1/tickets/{ticketId}/comments/{commentId}",
+	}
 	command := &cobra.Command{
 		Use:   "update [ticket-id] [comment-id]",
 		Short: "Update a comment on the current ticket.",
@@ -393,7 +409,7 @@ func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platfor
 	command.Flags().StringVar(&body, "body", "", "Comment markdown body.")
 	command.Flags().StringVar(&bodyFile, "body-file", "", "Read comment markdown from a file. Use '-' for stdin.")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketCreateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
@@ -403,6 +419,10 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 	var typeName string
 	var externalRef string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPost,
+		Path:   "/api/v1/projects/{projectId}/tickets",
+	}
 	command := &cobra.Command{
 		Use:   "create",
 		Short: "Create a ticket in the current project.",
@@ -446,7 +466,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().StringVar(&externalRef, "external-ref", "", "External reference, for example PacificStudio/openase#39.")
 	_ = command.MarkFlagRequired("title")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
@@ -456,6 +476,10 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	var statusID string
 	var statusName string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPatch,
+		Path:   "/api/v1/tickets/{ticketId}",
+	}
 	command := &cobra.Command{
 		Use:   "update [ticket-id]",
 		Short: "Update the current ticket or a specific ticket ID.",
@@ -512,7 +536,7 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 	command.Flags().StringVar(&statusName, "status-name", "", "Updated ticket status name.")
 	command.Flags().StringVar(&statusID, "status-id", "", "Updated ticket status ID.")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketReportUsageCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
@@ -583,6 +607,10 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	var maxConcurrentAgents int
 	var agentRunSummaryPrompt string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPatch,
+		Path:   "/api/v1/projects/{projectId}",
+	}
 	command := &cobra.Command{
 		Use:   "update",
 		Short: "Update the current project.",
@@ -645,7 +673,7 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	command.Flags().IntVar(&maxConcurrentAgents, "max-concurrent-agents", 0, "Updated maximum concurrent agents.")
 	command.Flags().StringVar(&agentRunSummaryPrompt, "agent-run-summary-prompt", "", "Updated agent run summary prompt. Set to an empty string to clear it.")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newProjectAddRepoCommand(options *projectCommandOptions, client platformClient) *cobra.Command {
@@ -654,6 +682,10 @@ func newProjectAddRepoCommand(options *projectCommandOptions, client platformCli
 	var defaultBranch string
 	var labels []string
 
+	spec := openAPICommandSpec{
+		Method: http.MethodPost,
+		Path:   "/api/v1/projects/{projectId}/repos",
+	}
 	command := &cobra.Command{
 		Use:   "add-repo",
 		Short: "Register a repository in the current project.",
@@ -699,7 +731,7 @@ func newProjectAddRepoCommand(options *projectCommandOptions, client platformCli
 	_ = command.MarkFlagRequired("name")
 	_ = command.MarkFlagRequired("url")
 
-	return command
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func (options *ticketCommandOptions) resolve() (platformContext, error) {
