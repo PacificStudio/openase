@@ -18877,6 +18877,171 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/token-usage": {
+      "get": {
+        "operationId": "getProjectTokenUsage",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UTC start date in YYYY-MM-DD format. Defaults to the last 30 days when omitted with to.",
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "UTC end date in YYYY-MM-DD format. Defaults to today when omitted with from.",
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "days": {
+                      "items": {
+                        "properties": {
+                          "cached_input_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "finalized_run_count": {
+                            "type": "integer"
+                          },
+                          "input_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "output_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "reasoning_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "total_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "summary": {
+                      "properties": {
+                        "avg_daily_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "peak_day": {
+                          "nullable": true,
+                          "properties": {
+                            "date": {
+                              "type": "string"
+                            },
+                            "total_tokens": {
+                              "format": "int64",
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "total_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project daily token usage for a UTC date range response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get project daily token usage for a UTC date range",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/updates": {
       "get": {
         "operationId": "listProjectUpdates",
