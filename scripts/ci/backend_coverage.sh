@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+TEST_ENV_WRAPPER="${ROOT_DIR}/scripts/ci/with_clean_openase_test_env.sh"
 
 toolchain_paths=()
 for candidate in \
@@ -96,11 +97,11 @@ PY
 
 run_go_test() {
   if [[ "${GO_TEST_PROGRESS_MODE}" == "json" ]]; then
-    "${GO_BIN}" test -json "$@"
+    "${TEST_ENV_WRAPPER}" "${GO_BIN}" test -json "$@"
     return
   fi
 
-  "${GO_BIN}" test "$@"
+  "${TEST_ENV_WRAPPER}" "${GO_BIN}" test "$@"
 }
 
 run_backend_full_suite() {

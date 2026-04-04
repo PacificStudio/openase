@@ -61,7 +61,7 @@ fmt-check:
 	fi
 
 test:
-	$(GO) test ./...
+	./scripts/ci/with_clean_openase_test_env.sh $(GO) test ./...
 
 test-backend-coverage:
 	./scripts/ci/backend_coverage.sh
