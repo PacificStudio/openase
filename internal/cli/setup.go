@@ -462,9 +462,9 @@ func (p *setupPrompter) secretValue(label string, currentValue string) (string, 
 	if currentValue != "" {
 		prompt += " [press Enter to keep existing value]"
 	}
-	if p.inFile != nil && term.IsTerminal(int(p.inFile.Fd())) {
+	if fd, ok := terminalFileDescriptor(p.inFile); ok && term.IsTerminal(fd) {
 		_, _ = fmt.Fprintf(p.out, "%s: ", prompt)
-		value, err := term.ReadPassword(int(p.inFile.Fd()))
+		value, err := term.ReadPassword(fd)
 		_, _ = fmt.Fprintln(p.out)
 		if err != nil {
 			return "", err
@@ -543,6 +543,20 @@ func (p *setupPrompter) line(prompt string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(value), nil
+}
+
+func terminalFileDescriptor(file *os.File) (int, bool) {
+	if file == nil {
+		return 0, false
+	}
+
+	fd := file.Fd()
+	maxInt := uintptr(^uint(0) >> 1)
+	if fd > maxInt {
+		return 0, false
+	}
+
+	return int(fd), true
 }
 
 func runSetupWebWizard(ctx context.Context, out io.Writer, host string, port int) error {

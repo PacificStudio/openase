@@ -109,6 +109,7 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	}
 
 	configPath := filepath.Join(homeDir, ".openase", "config.yaml")
+	//nolint:gosec // test reads a controlled temp-home file created by setup.
 	configContent, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("ReadFile config returned error: %v", err)

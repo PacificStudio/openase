@@ -235,14 +235,7 @@ func (c DatabaseConfig) DSN() string {
 }
 
 func (c DatabaseConfig) Raw() RawDatabaseInput {
-	return RawDatabaseInput{
-		Host:     c.Host,
-		Port:     c.Port,
-		Name:     c.Name,
-		User:     c.User,
-		Password: c.Password,
-		SSLMode:  c.SSLMode,
-	}
+	return RawDatabaseInput(c)
 }
 
 func parseDockerDatabaseInput(raw RawDockerDatabaseInput) (DockerDatabaseConfig, error) {
