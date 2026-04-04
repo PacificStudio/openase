@@ -930,6 +930,18 @@ export function retireWorkflow(workflowId: string, body: { edited_by?: string | 
   return api.post<WorkflowUpdateResponse>(`/api/v1/workflows/${workflowId}/retire`, { body })
 }
 
+export function replaceWorkflowReferences(
+  workflowId: string,
+  body: {
+    replacement_workflow_id: string
+    edited_by?: string | null
+  },
+) {
+  return api.post<{
+    result: import('$lib/features/workflows/types').WorkflowReplaceReferencesResult
+  }>(`/api/v1/workflows/${workflowId}/replace-references`, { body })
+}
+
 export function deleteWorkflow(workflowId: string) {
   return api.delete<WorkflowDeleteResponse>(`/api/v1/workflows/${workflowId}`)
 }

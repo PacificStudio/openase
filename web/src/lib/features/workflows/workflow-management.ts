@@ -1,5 +1,16 @@
-import { deleteWorkflow, getWorkflowImpact, retireWorkflow, updateWorkflow } from '$lib/api/openase'
-import type { WorkflowImpact, WorkflowStatusOption, WorkflowSummary } from './types'
+import {
+  deleteWorkflow,
+  getWorkflowImpact,
+  replaceWorkflowReferences,
+  retireWorkflow,
+  updateWorkflow,
+} from '$lib/api/openase'
+import type {
+  WorkflowImpact,
+  WorkflowReplaceReferencesResult,
+  WorkflowStatusOption,
+  WorkflowSummary,
+} from './types'
 import { mapWorkflowSummary } from './data'
 import type { WorkflowLifecyclePayload } from './workflow-lifecycle'
 import { mergeWorkflowHooksPayload } from './workflow-hooks'
@@ -45,6 +56,16 @@ export async function retireWorkflowLifecycle(
 export async function loadWorkflowImpact(workflowId: string): Promise<WorkflowImpact> {
   const response = await getWorkflowImpact(workflowId)
   return response.impact
+}
+
+export async function replaceWorkflowLifecycleReferences(
+  workflowId: string,
+  replacementWorkflowId: string,
+): Promise<WorkflowReplaceReferencesResult> {
+  const response = await replaceWorkflowReferences(workflowId, {
+    replacement_workflow_id: replacementWorkflowId,
+  })
+  return response.result
 }
 
 export function removeWorkflowFromList(workflows: WorkflowSummary[], workflowId: string) {
