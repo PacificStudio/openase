@@ -18,29 +18,33 @@
     selectedDefaultProviderId,
     orgDefaultProviderId = null,
     orgDefaultProviderName = null,
+    machineCount = 0,
     saving = false,
     onSelectionChange,
     onSave,
     onConfigure,
+    onAddProvider,
   }: {
     providers: ProviderOption[]
     selectedDefaultProviderId: string
     orgDefaultProviderId?: string | null
     orgDefaultProviderName?: string | null
+    machineCount?: number
     saving?: boolean
     onSelectionChange?: (value: string) => void
     onSave?: () => void
     onConfigure?: (providerId: string) => void
+    onAddProvider?: () => void
   } = $props()
 
   const effectiveDefaultId = $derived(selectedDefaultProviderId || orgDefaultProviderId || '')
   const hasUnsavedChange = $derived(
     selectedDefaultProviderId !== (appStore.currentProject?.default_agent_provider_id ?? ''),
   )
+  const canAddProvider = $derived(machineCount > 0)
 </script>
 
 <div class="space-y-4">
-  <!-- Header with save -->
   <div class="flex items-center justify-between gap-3">
     <div>
       <h3 class="text-foreground text-sm font-semibold">Agent Providers</h3>
@@ -49,18 +53,34 @@
         provider.
       </p>
     </div>
-    {#if hasUnsavedChange}
-      <Button size="sm" onclick={onSave} disabled={saving}>
-        {saving ? 'Saving…' : 'Save default'}
+    <div class="flex items-center gap-2">
+      <Button variant="outline" size="sm" onclick={onAddProvider} disabled={!canAddProvider}>
+        Add provider
       </Button>
-    {/if}
+      {#if hasUnsavedChange}
+        <Button size="sm" onclick={onSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save default'}
+        </Button>
+      {/if}
+    </div>
   </div>
+
+  {#if !canAddProvider}
+    <p class="text-muted-foreground text-xs">
+      Register an execution machine in this organization before creating a provider from project
+      settings.
+    </p>
+  {/if}
 
   {#if providers.length === 0}
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
     >
-      No providers registered for this organization yet.
+      {#if canAddProvider}
+        No providers registered for this organization yet.
+      {:else}
+        No providers or execution machines are registered for this organization yet.
+      {/if}
     </div>
   {:else}
     <div class="space-y-2">
@@ -76,7 +96,6 @@
             isDefault && 'border-primary/30 bg-primary/5',
           )}
         >
-          <!-- Set default button -->
           <button
             type="button"
             class={cn(
@@ -93,7 +112,6 @@
             <Star class={cn('size-4', isProjectDefault && 'fill-current')} />
           </button>
 
-          <!-- Provider icon -->
           <div class="bg-muted flex size-8 shrink-0 items-center justify-center rounded-lg">
             {#if iconPath}
               <img src={iconPath} alt="" class="size-5" />
@@ -102,7 +120,6 @@
             {/if}
           </div>
 
-          <!-- Provider info -->
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1.5">
               <span class="text-foreground text-sm font-semibold">{provider.name}</span>
@@ -133,7 +150,6 @@
             {/if}
           </div>
 
-          <!-- Configure button -->
           <Button
             variant="ghost"
             size="icon-xs"
