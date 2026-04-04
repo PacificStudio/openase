@@ -18,10 +18,14 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/gorilla/websocket"
 )
 
 const websocketWriteTimeout = 10 * time.Second
+
+var websocketTransportComponent = logging.DeclareComponent("machine-transport-websocket")
+var websocketTransportLogger = logging.WithComponent(nil, websocketTransportComponent)
 
 type ProcessExitError struct {
 	code int
@@ -99,11 +103,14 @@ func dialWebsocketCommandSession(ctx context.Context, machine domain.Machine) (C
 		if response != nil && response.Body != nil {
 			_ = response.Body.Close()
 		}
-		return nil, classifyWebsocketDialError(machine, endpoint, response, err)
+		classifiedErr := classifyWebsocketDialError(machine, endpoint, response, err)
+		websocketTransportLogger.Warn("dial listener websocket failed", "machine_id", machine.ID.String(), "machine_name", machine.Name, "endpoint", endpoint, "error", classifiedErr)
+		return nil, classifiedErr
 	}
 	if response != nil && response.Body != nil {
 		_ = response.Body.Close()
 	}
+	websocketTransportLogger.Debug("dialed listener websocket", "machine_id", machine.ID.String(), "machine_name", machine.Name, "endpoint", endpoint)
 	return newWebsocketCommandSession(conn), nil
 }
 
