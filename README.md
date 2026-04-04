@@ -1,7 +1,7 @@
-<h1 align="center">OpenASE<br><sub>Issue-Driven Automated Software Engineering</sub></h1>
+<h1 align="center">OpenASE<br><sub>Ticket-Driven Automated Software Engineering</sub></h1>
 
 <p align="center">
-  <strong>OpenASE</strong> is an all-in-one platform that turns tickets into working code — AI agents automatically pick up issues, execute workflows on your machines, and deliver results with full traceability.
+  <strong>OpenASE</strong> is an all-in-one platform that turns tickets into working code — AI agents automatically pick up tickets, execute workflows on your machines, and deliver results with full traceability.
 </p>
 
 <p align="center">
@@ -119,7 +119,7 @@
 
 ## 🤔 What is OpenASE?
 
-OpenASE is a **single Go binary** that ships an API server, workflow orchestrator, and embedded web UI together. It follows an **issue-driven** model: every piece of work is a ticket, every ticket has a workflow, and AI agents automatically pick up and execute tickets based on status triggers.
+OpenASE is a **single Go binary** that ships an API server, workflow orchestrator, and embedded web UI together. It follows a **ticket-driven** model: every piece of work is a ticket, every ticket has a workflow, and AI agents automatically pick up and execute tickets based on status triggers.
 
 ```
 You create a ticket  →  Orchestrator detects pickup status
@@ -421,7 +421,7 @@ OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID Connect 
 |-----------|-------------|
 | **All-Go Monolith** | API server, orchestrator, setup flow, and embedded UI in one binary |
 | **Binary-first** | Web UI embedded via `go:embed` — no Node.js at runtime |
-| **Issue-driven** | Tickets, workflows, statuses, and activity are the core operating model |
+| **Ticket-driven** | Tickets, workflows, statuses, and activity are the core operating model |
 | **Multi-agent** | Adapter-based support for Claude Code, Codex, and Gemini CLI |
 | **Git-backed** | Workflow harnesses and skills are repo-aware at runtime |
 
