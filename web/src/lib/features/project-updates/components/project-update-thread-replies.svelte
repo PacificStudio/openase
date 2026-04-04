@@ -31,7 +31,7 @@
 
 {#if showComments || thread.commentCount === 0}
   {#if thread.comments.length > 0 || !thread.isDeleted}
-    <div class="mt-2 ml-6.5 space-y-2">
+    <div class="border-border/40 mt-1.5 space-y-0 border-t pt-1.5">
       {#each thread.comments as comment (comment.id)}
         <ProjectUpdateCommentItem
           threadId={thread.id}
@@ -42,7 +42,7 @@
       {/each}
 
       {#if !thread.isDeleted}
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 pt-0.5">
           <input
             type="text"
             bind:value={commentDraft}

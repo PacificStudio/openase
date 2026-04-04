@@ -812,6 +812,64 @@ func TestClaudeRuntimeRespondInterruptResumesSessionAndStreamsContinuation(t *te
 	}
 }
 
+func TestClaudeRuntimeStartTurnAppliesPermissionProfileArgs(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name          string
+		profile       catalogdomain.AgentProviderPermissionProfile
+		wantBypassArg bool
+	}{
+		{
+			name:          "standard omits permission bypass",
+			profile:       catalogdomain.AgentProviderPermissionProfileStandard,
+			wantBypassArg: false,
+		},
+		{
+			name:          "unrestricted enables permission bypass",
+			profile:       catalogdomain.AgentProviderPermissionProfileUnrestricted,
+			wantBypassArg: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			manager := &fakeAgentCLIProcessManager{
+				process: &fakeAgentCLIProcess{
+					stdin: &trackingWriteCloser{},
+					stdout: strings.Join([]string{
+						`{"type":"system","subtype":"init","data":{"session_id":"claude-session-permission"}}`,
+						`{"type":"result","subtype":"success","session_id":"claude-session-permission","num_turns":1}`,
+					}, "\n"),
+				},
+			}
+			runtime := NewClaudeRuntime(newClaudeAdapterForManager(manager))
+
+			stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+				SessionID:    SessionID("session-claude-permission"),
+				Message:      "Check permissions",
+				SystemPrompt: "You are OpenASE.",
+				Provider: catalogdomain.AgentProvider{
+					AdapterType:       catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
+					CliCommand:        "claude",
+					PermissionProfile: tc.profile,
+				},
+			})
+			if err != nil {
+				t.Fatalf("StartTurn() error = %v", err)
+			}
+			_ = collectStreamEvents(stream.Events)
+
+			got := hasClaudePermissionBypassArg(manager.startSpec.Args)
+			if got != tc.wantBypassArg {
+				t.Fatalf("process args = %v, bypass arg presence = %v, want %v", manager.startSpec.Args, got, tc.wantBypassArg)
+			}
+		})
+	}
+}
+
 func TestGeminiRuntimeCloseSessionStopsProcess(t *testing.T) {
 	process := &fakeAgentCLIProcess{
 		stdin:         &trackingWriteCloser{},
@@ -1043,6 +1101,64 @@ func TestGeminiRuntimeStartTurnEmitsResultError(t *testing.T) {
 	}
 	if payload.Message != "Maximum session turns exceeded" {
 		t.Fatalf("error message = %q, want Maximum session turns exceeded", payload.Message)
+	}
+}
+
+func TestGeminiRuntimeStartTurnAppliesPermissionProfileArgs(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name        string
+		profile     catalogdomain.AgentProviderPermissionProfile
+		wantYoloArg bool
+	}{
+		{
+			name:        "standard omits yolo approval mode",
+			profile:     catalogdomain.AgentProviderPermissionProfileStandard,
+			wantYoloArg: false,
+		},
+		{
+			name:        "unrestricted enables yolo approval mode",
+			profile:     catalogdomain.AgentProviderPermissionProfileUnrestricted,
+			wantYoloArg: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			manager := &fakeAgentCLIProcessManager{
+				process: &fakeAgentCLIProcess{
+					stdin: &trackingWriteCloser{},
+					stdout: strings.Join([]string{
+						`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-permission","model":"gemini-2.5-pro"}`,
+						`{"type":"result","timestamp":"2026-04-03T06:00:01Z","status":"success","stats":{"total_tokens":1,"input_tokens":1,"output_tokens":0,"cached":0,"input":1,"duration_ms":1,"tool_calls":0,"models":{"gemini-2.5-pro":{"total_tokens":1,"input_tokens":1,"output_tokens":0,"cached":0,"input":1}}}}`,
+					}, "\n"),
+				},
+			}
+			runtime := NewGeminiRuntime(manager)
+
+			stream, err := runtime.StartTurn(context.Background(), RuntimeTurnInput{
+				SessionID:    SessionID("session-gemini-permission"),
+				Message:      "Check permissions",
+				SystemPrompt: "You are OpenASE.",
+				Provider: catalogdomain.AgentProvider{
+					AdapterType:       catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+					CliCommand:        "gemini",
+					PermissionProfile: tc.profile,
+				},
+			})
+			if err != nil {
+				t.Fatalf("StartTurn() error = %v", err)
+			}
+			_ = collectStreamEvents(stream.Events)
+
+			got := hasGeminiApprovalModeYoloArg(manager.startSpec.Args)
+			if got != tc.wantYoloArg {
+				t.Fatalf("process args = %v, yolo arg presence = %v, want %v", manager.startSpec.Args, got, tc.wantYoloArg)
+			}
+		})
 	}
 }
 
