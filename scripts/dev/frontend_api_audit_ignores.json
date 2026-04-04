@@ -152,6 +152,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/projects/{projectId}/token-usage",
+      "categories": ["wrapped_but_unused"],
+      "reason": "The project token usage route is part of the generated contract surface, but the current frontend does not yet expose a project-level token analytics panel."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/workflows/{workflowId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Workflow screens load list and harness payloads and do not currently issue a standalone workflow detail request."
