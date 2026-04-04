@@ -23,6 +23,7 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -50,6 +51,7 @@ type runtimeCompletionSummaryCoordinator struct {
 	adapters       *agentAdapterRegistry
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
+	transports     *machinetransport.Resolver
 	workflow       *workflowservice.Service
 	now            func() time.Time
 	timeout        time.Duration
@@ -80,6 +82,7 @@ func newRuntimeCompletionSummaryCoordinator(
 		adapters:       adapters,
 		processManager: processManager,
 		sshPool:        sshPool,
+		transports:     machinetransport.NewResolver(processManager, sshPool),
 		workflow:       workflow,
 		now:            now,
 		timeout:        timeout,
@@ -574,16 +577,14 @@ func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryWorking
 }
 
 func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryProcessManager(machine catalogdomain.Machine) (provider.AgentCLIProcessManager, error) {
-	if machine.Host == catalogdomain.LocalMachineHost {
-		if c == nil || c.processManager == nil {
-			return nil, fmt.Errorf("local process manager unavailable for completion summary")
-		}
-		return c.processManager, nil
+	if c == nil || c.transports == nil {
+		return nil, fmt.Errorf("machine transport resolver unavailable for completion summary on machine %s", machine.Name)
 	}
-	if c == nil || c.sshPool == nil {
-		return nil, fmt.Errorf("ssh pool unavailable for completion summary on machine %s", machine.Name)
+	transport, err := c.transports.Resolve(machine)
+	if err != nil {
+		return nil, err
 	}
-	return sshinfra.NewProcessManager(c.sshPool, machine), nil
+	return machinetransport.NewProcessManager(transport, machine), nil
 }
 
 func buildRunCompletionSummaryDeveloperInstructions(project *ent.Project) string {
@@ -1110,17 +1111,16 @@ func (c *runtimeCompletionSummaryCoordinator) runCompletionSummaryGitCommand(
 		}
 		return output, nil
 	}
-	if c == nil || c.sshPool == nil {
-		return nil, fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
+	if c == nil || c.transports == nil {
+		return nil, fmt.Errorf("machine transport resolver unavailable for machine %s", machine.Name)
 	}
-
-	client, err := c.sshPool.Get(ctx, machine)
+	transport, err := c.transports.Resolve(machine)
 	if err != nil {
 		return nil, err
 	}
-	session, err := client.NewSession()
+	session, err := transport.OpenCommandSession(ctx, machine)
 	if err != nil {
-		return nil, fmt.Errorf("open ssh session for run completion summary: %w", err)
+		return nil, fmt.Errorf("open remote command session for run completion summary: %w", err)
 	}
 	defer func() { _ = session.Close() }()
 

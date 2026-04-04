@@ -1,11 +1,8 @@
 package chat
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -16,6 +13,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -31,6 +29,7 @@ type projectConversationRuntimeManager struct {
 	skillSync           projectConversationSkillSync
 	localProcessManager provider.AgentCLIProcessManager
 	sshPool             *sshinfra.Pool
+	transports          *machinetransport.Resolver
 	githubAuth          githubauthservice.TokenResolver
 	newCodexRuntime     func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error)
 
@@ -55,6 +54,7 @@ func newProjectConversationRuntimeManager(
 		runtimeStore:        runtimeStore,
 		localProcessManager: localProcessManager,
 		sshPool:             sshPool,
+		transports:          machinetransport.NewResolver(localProcessManager, sshPool),
 		newCodexRuntime:     newCodexRuntime,
 		live:                map[uuid.UUID]*liveProjectConversation{},
 	}
@@ -242,20 +242,16 @@ func (m *projectConversationRuntimeManager) ensureConversationWorkspace(
 		return "", fmt.Errorf("prepare chat workspace auth: %w", err)
 	}
 
-	var workspaceItem workspaceinfra.Workspace
-	if machine.Host == catalogdomain.LocalMachineHost {
-		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
-		if err != nil {
+	transport, err := m.resolveTransport(machine)
+	if err != nil {
+		return "", err
+	}
+	workspaceItem, err := transport.PrepareWorkspace(ctx, machine, request)
+	if err != nil {
+		if machine.Host == catalogdomain.LocalMachineHost {
 			return "", fmt.Errorf("prepare local chat workspace: %w", err)
 		}
-	} else {
-		if m.sshPool == nil {
-			return "", fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
-		}
-		workspaceItem, err = workspaceinfra.NewRemoteManager(m.sshPool).Prepare(ctx, machine, request)
-		if err != nil {
-			return "", fmt.Errorf("prepare remote chat workspace: %w", err)
-		}
+		return "", fmt.Errorf("prepare remote chat workspace: %w", err)
 	}
 	if err := m.syncConversationWorkspaceSkills(ctx, machine, project.ID, workspaceItem.Path, string(providerItem.AdapterType)); err != nil {
 		return "", err
@@ -264,16 +260,11 @@ func (m *projectConversationRuntimeManager) ensureConversationWorkspace(
 }
 
 func (m *projectConversationRuntimeManager) resolveProcessManager(machine catalogdomain.Machine) (provider.AgentCLIProcessManager, error) {
-	if machine.Host == catalogdomain.LocalMachineHost {
-		if m.localProcessManager == nil {
-			return nil, fmt.Errorf("local chat process manager unavailable")
-		}
-		return m.localProcessManager, nil
+	transport, err := m.resolveTransport(machine)
+	if err != nil {
+		return nil, err
 	}
-	if m.sshPool == nil {
-		return nil, fmt.Errorf("ssh process manager unavailable")
-	}
-	return sshinfra.NewProcessManager(m.sshPool, machine), nil
+	return machinetransport.NewProcessManager(transport, machine), nil
 }
 
 func (m *projectConversationRuntimeManager) syncConversationWorkspaceSkills(
@@ -326,75 +317,25 @@ func (m *projectConversationRuntimeManager) copyConversationWorkspaceArtifactsRe
 	remoteWorkspaceRoot string,
 	adapterType string,
 ) error {
-	if m == nil || m.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
-	}
-
 	target, err := workflowservice.ResolveSkillTargetForRuntime(remoteWorkspaceRoot, adapterType)
 	if err != nil {
 		return err
 	}
 	relativePaths := conversationWorkspaceArtifactPaths(localRoot, adapterType)
-
-	client, err := m.sshPool.Get(ctx, machine)
+	skillsRelativePath, err := filepath.Rel(remoteWorkspaceRoot, target.SkillsDir)
+	if err != nil {
+		return fmt.Errorf("derive remote skills relative path: %w", err)
+	}
+	transport, err := m.resolveTransport(machine)
 	if err != nil {
 		return err
 	}
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("open ssh session for project conversation skill sync: %w", err)
-	}
-	defer func() { _ = session.Close() }()
-
-	stdin, err := session.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("open ssh stdin for project conversation skill sync: %w", err)
-	}
-	stderr, err := session.StderrPipe()
-	if err != nil {
-		_ = stdin.Close()
-		return fmt.Errorf("open ssh stderr for project conversation skill sync: %w", err)
-	}
-
-	var stderrBuffer bytes.Buffer
-	stderrDone := make(chan struct{})
-	go func() {
-		_, _ = io.Copy(&stderrBuffer, stderr)
-		close(stderrDone)
-	}()
-
-	command := strings.Join([]string{
-		"set -eu",
-		"rm -rf " + sshinfra.ShellQuote(target.SkillsDir),
-		"rm -rf " + sshinfra.ShellQuote(filepath.Join(remoteWorkspaceRoot, ".openase", "bin")),
-		"mkdir -p " + sshinfra.ShellQuote(remoteWorkspaceRoot),
-		"tar -C " + sshinfra.ShellQuote(remoteWorkspaceRoot) + " -xf -",
-	}, " && ")
-	if err := session.Start(command); err != nil {
-		_ = stdin.Close()
-		<-stderrDone
-		return fmt.Errorf("start ssh skill sync command: %w", err)
-	}
-
-	tarWriter := tar.NewWriter(stdin)
-	writeErr := writeConversationWorkspaceArchive(tarWriter, localRoot, relativePaths)
-	closeErr := tarWriter.Close()
-	stdinCloseErr := stdin.Close()
-	waitErr := session.Wait()
-	<-stderrDone
-	if writeErr != nil {
-		return writeErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if stdinCloseErr != nil {
-		return stdinCloseErr
-	}
-	if waitErr != nil {
-		return fmt.Errorf("%w: %s", waitErr, strings.TrimSpace(stderrBuffer.String()))
-	}
-	return nil
+	return transport.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
+		LocalRoot:   localRoot,
+		TargetRoot:  remoteWorkspaceRoot,
+		Paths:       relativePaths,
+		RemovePaths: []string{filepath.ToSlash(skillsRelativePath), ".openase/bin"},
+	})
 }
 
 func (m *projectConversationRuntimeManager) applyGitHubWorkspaceAuth(
@@ -403,4 +344,11 @@ func (m *projectConversationRuntimeManager) applyGitHubWorkspaceAuth(
 	request workspaceinfra.SetupRequest,
 ) (workspaceinfra.SetupRequest, error) {
 	return githubauthservice.ApplyWorkspaceAuth(ctx, m.githubAuth, projectID, request)
+}
+
+func (m *projectConversationRuntimeManager) resolveTransport(machine catalogdomain.Machine) (machinetransport.Transport, error) {
+	if m == nil || m.transports == nil {
+		return nil, fmt.Errorf("chat machine transport resolver unavailable for machine %s", machine.Name)
+	}
+	return m.transports.Resolve(machine)
 }

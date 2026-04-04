@@ -453,8 +453,12 @@ func init() {
 	machineDescPort := machineFields[4].Descriptor()
 	// machine.DefaultPort holds the default value on creation for the port field.
 	machine.DefaultPort = machineDescPort.Default.(int)
+	// machineDescDaemonRegistered is the schema descriptor for daemon_registered field.
+	machineDescDaemonRegistered := machineFields[10].Descriptor()
+	// machine.DefaultDaemonRegistered holds the default value on creation for the daemon_registered field.
+	machine.DefaultDaemonRegistered = machineDescDaemonRegistered.Default.(bool)
 	// machineDescResources is the schema descriptor for resources field.
-	machineDescResources := machineFields[14].Descriptor()
+	machineDescResources := machineFields[27].Descriptor()
 	// machine.DefaultResources holds the default value on creation for the resources field.
 	machine.DefaultResources = machineDescResources.Default.(func() map[string]interface{})
 	// machineDescID is the schema descriptor for id field.

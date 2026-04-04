@@ -14,73 +14,108 @@ const (
 )
 
 type Machine struct {
-	ID              uuid.UUID
-	OrganizationID  uuid.UUID
-	Name            string
-	Host            string
-	Port            int
-	SSHUser         *string
-	SSHKeyPath      *string
-	Description     string
-	Labels          []string
-	Status          MachineStatus
-	WorkspaceRoot   *string
-	AgentCLIPath    *string
-	EnvVars         []string
-	LastHeartbeatAt *time.Time
-	Resources       map[string]any
+	ID                    uuid.UUID
+	OrganizationID        uuid.UUID
+	Name                  string
+	Host                  string
+	Port                  int
+	ConnectionMode        MachineConnectionMode
+	TransportCapabilities []MachineTransportCapability
+	SSHUser               *string
+	SSHKeyPath            *string
+	AdvertisedEndpoint    *string
+	DaemonStatus          MachineDaemonStatus
+	DetectedOS            MachineDetectedOS
+	DetectedArch          MachineDetectedArch
+	DetectionStatus       MachineDetectionStatus
+	ChannelCredential     MachineChannelCredential
+	Description           string
+	Labels                []string
+	Status                MachineStatus
+	WorkspaceRoot         *string
+	AgentCLIPath          *string
+	EnvVars               []string
+	LastHeartbeatAt       *time.Time
+	Resources             map[string]any
 }
 
 type MachineProbe struct {
-	CheckedAt time.Time
-	Transport string
-	Output    string
-	Resources map[string]any
+	CheckedAt       time.Time
+	Transport       string
+	Output          string
+	Resources       map[string]any
+	DetectedOS      MachineDetectedOS
+	DetectedArch    MachineDetectedArch
+	DetectionStatus MachineDetectionStatus
 }
 
 type MachineInput struct {
-	Name          string   `json:"name"`
-	Host          string   `json:"host"`
-	Port          *int     `json:"port"`
-	SSHUser       *string  `json:"ssh_user"`
-	SSHKeyPath    *string  `json:"ssh_key_path"`
-	Description   string   `json:"description"`
-	Labels        []string `json:"labels"`
-	Status        string   `json:"status"`
-	WorkspaceRoot *string  `json:"workspace_root"`
-	AgentCLIPath  *string  `json:"agent_cli_path"`
-	EnvVars       []string `json:"env_vars"`
+	Name                  string                         `json:"name"`
+	Host                  string                         `json:"host"`
+	Port                  *int                           `json:"port"`
+	ConnectionMode        string                         `json:"connection_mode"`
+	TransportCapabilities []string                       `json:"transport_capabilities"`
+	SSHUser               *string                        `json:"ssh_user"`
+	SSHKeyPath            *string                        `json:"ssh_key_path"`
+	AdvertisedEndpoint    *string                        `json:"advertised_endpoint"`
+	DaemonStatus          MachineDaemonStatusInput       `json:"daemon_status"`
+	DetectedOS            string                         `json:"detected_os"`
+	DetectedArch          string                         `json:"detected_arch"`
+	DetectionStatus       string                         `json:"detection_status"`
+	ChannelCredential     *MachineChannelCredentialInput `json:"channel_credential"`
+	Description           string                         `json:"description"`
+	Labels                []string                       `json:"labels"`
+	Status                string                         `json:"status"`
+	WorkspaceRoot         *string                        `json:"workspace_root"`
+	AgentCLIPath          *string                        `json:"agent_cli_path"`
+	EnvVars               []string                       `json:"env_vars"`
 }
 
 type CreateMachine struct {
-	OrganizationID uuid.UUID
-	Name           string
-	Host           string
-	Port           int
-	SSHUser        *string
-	SSHKeyPath     *string
-	Description    string
-	Labels         []string
-	Status         MachineStatus
-	WorkspaceRoot  *string
-	AgentCLIPath   *string
-	EnvVars        []string
+	OrganizationID        uuid.UUID
+	Name                  string
+	Host                  string
+	Port                  int
+	ConnectionMode        MachineConnectionMode
+	TransportCapabilities []MachineTransportCapability
+	SSHUser               *string
+	SSHKeyPath            *string
+	AdvertisedEndpoint    *string
+	DaemonStatus          MachineDaemonStatus
+	DetectedOS            MachineDetectedOS
+	DetectedArch          MachineDetectedArch
+	DetectionStatus       MachineDetectionStatus
+	ChannelCredential     MachineChannelCredential
+	Description           string
+	Labels                []string
+	Status                MachineStatus
+	WorkspaceRoot         *string
+	AgentCLIPath          *string
+	EnvVars               []string
 }
 
 type UpdateMachine struct {
-	ID             uuid.UUID
-	OrganizationID uuid.UUID
-	Name           string
-	Host           string
-	Port           int
-	SSHUser        *string
-	SSHKeyPath     *string
-	Description    string
-	Labels         []string
-	Status         MachineStatus
-	WorkspaceRoot  *string
-	AgentCLIPath   *string
-	EnvVars        []string
+	ID                    uuid.UUID
+	OrganizationID        uuid.UUID
+	Name                  string
+	Host                  string
+	Port                  int
+	ConnectionMode        MachineConnectionMode
+	TransportCapabilities []MachineTransportCapability
+	SSHUser               *string
+	SSHKeyPath            *string
+	AdvertisedEndpoint    *string
+	DaemonStatus          MachineDaemonStatus
+	DetectedOS            MachineDetectedOS
+	DetectedArch          MachineDetectedArch
+	DetectionStatus       MachineDetectionStatus
+	ChannelCredential     MachineChannelCredential
+	Description           string
+	Labels                []string
+	Status                MachineStatus
+	WorkspaceRoot         *string
+	AgentCLIPath          *string
+	EnvVars               []string
 }
 
 type RecordMachineProbe struct {
@@ -88,6 +123,9 @@ type RecordMachineProbe struct {
 	Status          MachineStatus
 	LastHeartbeatAt time.Time
 	Resources       map[string]any
+	DetectedOS      MachineDetectedOS
+	DetectedArch    MachineDetectedArch
+	DetectionStatus MachineDetectionStatus
 }
 
 func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachine, error) {
@@ -108,6 +146,17 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		return CreateMachine{}, fmt.Errorf("machine %q must use host %q", LocalMachineName, LocalMachineHost)
 	}
 
+	connectionMode, err := parseMachineConnectionMode(raw.ConnectionMode, host)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	if connectionMode == MachineConnectionModeLocal && host != LocalMachineHost {
+		return CreateMachine{}, fmt.Errorf("connection_mode local requires host %q", LocalMachineHost)
+	}
+	if connectionMode != MachineConnectionModeLocal && host == LocalMachineHost {
+		return CreateMachine{}, fmt.Errorf("host %q requires connection_mode local", LocalMachineHost)
+	}
+
 	port, err := parseMachinePort(raw.Port)
 	if err != nil {
 		return CreateMachine{}, err
@@ -115,13 +164,41 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 
 	sshUser := parseOptionalText(raw.SSHUser)
 	sshKeyPath := parseOptionalText(raw.SSHKeyPath)
-	if host != LocalMachineHost {
+	if connectionMode == MachineConnectionModeSSH {
 		if sshUser == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_user must not be empty for remote machines")
+			return CreateMachine{}, fmt.Errorf("ssh_user must not be empty for ssh machines")
 		}
 		if sshKeyPath == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_key_path must not be empty for remote machines")
+			return CreateMachine{}, fmt.Errorf("ssh_key_path must not be empty for ssh machines")
 		}
+	}
+	transportCapabilities, err := parseMachineTransportCapabilities(raw.TransportCapabilities, connectionMode)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	advertisedEndpoint, err := parseMachineAdvertisedEndpoint(raw.AdvertisedEndpoint, connectionMode)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	daemonStatus, err := parseMachineDaemonStatus(raw.DaemonStatus)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	detectedOS, err := parseMachineDetectedOS(raw.DetectedOS)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	detectedArch, err := parseMachineDetectedArch(raw.DetectedArch)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	detectionStatus, err := parseMachineDetectionStatus(raw.DetectionStatus)
+	if err != nil {
+		return CreateMachine{}, err
+	}
+	channelCredential, err := parseMachineChannelCredential(raw.ChannelCredential)
+	if err != nil {
+		return CreateMachine{}, err
 	}
 
 	labels, err := parseLabels(raw.Labels)
@@ -140,18 +217,26 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 	}
 
 	return CreateMachine{
-		OrganizationID: organizationID,
-		Name:           name,
-		Host:           host,
-		Port:           port,
-		SSHUser:        sshUser,
-		SSHKeyPath:     sshKeyPath,
-		Description:    strings.TrimSpace(raw.Description),
-		Labels:         labels,
-		Status:         status,
-		WorkspaceRoot:  parseOptionalText(raw.WorkspaceRoot),
-		AgentCLIPath:   parseOptionalText(raw.AgentCLIPath),
-		EnvVars:        envVars,
+		OrganizationID:        organizationID,
+		Name:                  name,
+		Host:                  host,
+		Port:                  port,
+		ConnectionMode:        connectionMode,
+		TransportCapabilities: transportCapabilities,
+		SSHUser:               sshUser,
+		SSHKeyPath:            sshKeyPath,
+		AdvertisedEndpoint:    advertisedEndpoint,
+		DaemonStatus:          daemonStatus,
+		DetectedOS:            detectedOS,
+		DetectedArch:          detectedArch,
+		DetectionStatus:       detectionStatus,
+		ChannelCredential:     channelCredential,
+		Description:           strings.TrimSpace(raw.Description),
+		Labels:                labels,
+		Status:                status,
+		WorkspaceRoot:         parseOptionalText(raw.WorkspaceRoot),
+		AgentCLIPath:          parseOptionalText(raw.AgentCLIPath),
+		EnvVars:               envVars,
 	}, nil
 }
 
@@ -162,19 +247,27 @@ func ParseUpdateMachine(id uuid.UUID, organizationID uuid.UUID, raw MachineInput
 	}
 
 	return UpdateMachine{
-		ID:             id,
-		OrganizationID: input.OrganizationID,
-		Name:           input.Name,
-		Host:           input.Host,
-		Port:           input.Port,
-		SSHUser:        input.SSHUser,
-		SSHKeyPath:     input.SSHKeyPath,
-		Description:    input.Description,
-		Labels:         input.Labels,
-		Status:         input.Status,
-		WorkspaceRoot:  input.WorkspaceRoot,
-		AgentCLIPath:   input.AgentCLIPath,
-		EnvVars:        input.EnvVars,
+		ID:                    id,
+		OrganizationID:        input.OrganizationID,
+		Name:                  input.Name,
+		Host:                  input.Host,
+		Port:                  input.Port,
+		ConnectionMode:        input.ConnectionMode,
+		TransportCapabilities: input.TransportCapabilities,
+		SSHUser:               input.SSHUser,
+		SSHKeyPath:            input.SSHKeyPath,
+		AdvertisedEndpoint:    input.AdvertisedEndpoint,
+		DaemonStatus:          input.DaemonStatus,
+		DetectedOS:            input.DetectedOS,
+		DetectedArch:          input.DetectedArch,
+		DetectionStatus:       input.DetectionStatus,
+		ChannelCredential:     input.ChannelCredential,
+		Description:           input.Description,
+		Labels:                input.Labels,
+		Status:                input.Status,
+		WorkspaceRoot:         input.WorkspaceRoot,
+		AgentCLIPath:          input.AgentCLIPath,
+		EnvVars:               input.EnvVars,
 	}, nil
 }
 

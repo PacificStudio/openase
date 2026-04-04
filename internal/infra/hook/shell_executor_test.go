@@ -13,7 +13,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/google/uuid"
 )
 
@@ -365,7 +365,7 @@ func TestShellExecutorHonorsFailurePolicies(t *testing.T) {
 func TestRemoteShellExecutorInjectsEnvironmentAndRunsInRemoteWorkdir(t *testing.T) {
 	session := newRemoteHookTestSession("remote-out", "remote-err", nil)
 	executor := NewRemoteShellExecutor(&remoteHookTestPool{
-		client: &remoteHookTestClient{session: session},
+		session: session,
 	}, catalogdomain.Machine{
 		ID:   uuid.New(),
 		Name: "gpu-01",
@@ -550,29 +550,15 @@ func assertFileContent(t *testing.T, path string, want string) {
 }
 
 type remoteHookTestPool struct {
-	client sshinfra.Client
+	session machinetransport.CommandSession
 }
 
-func (p *remoteHookTestPool) Get(context.Context, catalogdomain.Machine) (sshinfra.Client, error) {
-	return p.client, nil
-}
-
-type remoteHookTestClient struct {
-	session sshinfra.Session
-}
-
-func (c *remoteHookTestClient) NewSession() (sshinfra.Session, error) {
-	if c.session == nil {
+func (p *remoteHookTestPool) OpenCommandSession(context.Context, catalogdomain.Machine) (machinetransport.CommandSession, error) {
+	if p.session == nil {
 		return nil, fmt.Errorf("session unavailable")
 	}
-	return c.session, nil
+	return p.session, nil
 }
-
-func (c *remoteHookTestClient) SendRequest(string, bool, []byte) (bool, []byte, error) {
-	return true, nil, nil
-}
-
-func (c *remoteHookTestClient) Close() error { return nil }
 
 type remoteHookTestSession struct {
 	stdoutRead  *io.PipeReader

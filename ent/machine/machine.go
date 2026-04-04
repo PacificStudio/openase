@@ -23,10 +23,36 @@ const (
 	FieldHost = "host"
 	// FieldPort holds the string denoting the port field in the database.
 	FieldPort = "port"
+	// FieldConnectionMode holds the string denoting the connection_mode field in the database.
+	FieldConnectionMode = "connection_mode"
+	// FieldTransportCapabilities holds the string denoting the transport_capabilities field in the database.
+	FieldTransportCapabilities = "transport_capabilities"
 	// FieldSSHUser holds the string denoting the ssh_user field in the database.
 	FieldSSHUser = "ssh_user"
 	// FieldSSHKeyPath holds the string denoting the ssh_key_path field in the database.
 	FieldSSHKeyPath = "ssh_key_path"
+	// FieldAdvertisedEndpoint holds the string denoting the advertised_endpoint field in the database.
+	FieldAdvertisedEndpoint = "advertised_endpoint"
+	// FieldDaemonRegistered holds the string denoting the daemon_registered field in the database.
+	FieldDaemonRegistered = "daemon_registered"
+	// FieldDaemonLastRegisteredAt holds the string denoting the daemon_last_registered_at field in the database.
+	FieldDaemonLastRegisteredAt = "daemon_last_registered_at"
+	// FieldDaemonSessionID holds the string denoting the daemon_session_id field in the database.
+	FieldDaemonSessionID = "daemon_session_id"
+	// FieldDaemonSessionState holds the string denoting the daemon_session_state field in the database.
+	FieldDaemonSessionState = "daemon_session_state"
+	// FieldDetectedOs holds the string denoting the detected_os field in the database.
+	FieldDetectedOs = "detected_os"
+	// FieldDetectedArch holds the string denoting the detected_arch field in the database.
+	FieldDetectedArch = "detected_arch"
+	// FieldDetectionStatus holds the string denoting the detection_status field in the database.
+	FieldDetectionStatus = "detection_status"
+	// FieldChannelCredentialKind holds the string denoting the channel_credential_kind field in the database.
+	FieldChannelCredentialKind = "channel_credential_kind"
+	// FieldChannelTokenID holds the string denoting the channel_token_id field in the database.
+	FieldChannelTokenID = "channel_token_id"
+	// FieldChannelCertificateID holds the string denoting the channel_certificate_id field in the database.
+	FieldChannelCertificateID = "channel_certificate_id"
 	// FieldDescription holds the string denoting the description field in the database.
 	FieldDescription = "description"
 	// FieldLabels holds the string denoting the labels field in the database.
@@ -81,8 +107,21 @@ var Columns = []string{
 	FieldName,
 	FieldHost,
 	FieldPort,
+	FieldConnectionMode,
+	FieldTransportCapabilities,
 	FieldSSHUser,
 	FieldSSHKeyPath,
+	FieldAdvertisedEndpoint,
+	FieldDaemonRegistered,
+	FieldDaemonLastRegisteredAt,
+	FieldDaemonSessionID,
+	FieldDaemonSessionState,
+	FieldDetectedOs,
+	FieldDetectedArch,
+	FieldDetectionStatus,
+	FieldChannelCredentialKind,
+	FieldChannelTokenID,
+	FieldChannelCertificateID,
 	FieldDescription,
 	FieldLabels,
 	FieldStatus,
@@ -110,11 +149,178 @@ var (
 	HostValidator func(string) error
 	// DefaultPort holds the default value on creation for the "port" field.
 	DefaultPort int
+	// DefaultDaemonRegistered holds the default value on creation for the "daemon_registered" field.
+	DefaultDaemonRegistered bool
 	// DefaultResources holds the default value on creation for the "resources" field.
 	DefaultResources func() map[string]interface{}
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
+
+// ConnectionMode defines the type for the "connection_mode" enum field.
+type ConnectionMode string
+
+// ConnectionModeSSH is the default value of the ConnectionMode enum.
+const DefaultConnectionMode = ConnectionModeSSH
+
+// ConnectionMode values.
+const (
+	ConnectionModeLocal      ConnectionMode = "local"
+	ConnectionModeSSH        ConnectionMode = "ssh"
+	ConnectionModeWsReverse  ConnectionMode = "ws_reverse"
+	ConnectionModeWsListener ConnectionMode = "ws_listener"
+)
+
+func (cm ConnectionMode) String() string {
+	return string(cm)
+}
+
+// ConnectionModeValidator is a validator for the "connection_mode" field enum values. It is called by the builders before save.
+func ConnectionModeValidator(cm ConnectionMode) error {
+	switch cm {
+	case ConnectionModeLocal, ConnectionModeSSH, ConnectionModeWsReverse, ConnectionModeWsListener:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for connection_mode field: %q", cm)
+	}
+}
+
+// DaemonSessionState defines the type for the "daemon_session_state" enum field.
+type DaemonSessionState string
+
+// DaemonSessionStateUnknown is the default value of the DaemonSessionState enum.
+const DefaultDaemonSessionState = DaemonSessionStateUnknown
+
+// DaemonSessionState values.
+const (
+	DaemonSessionStateUnknown      DaemonSessionState = "unknown"
+	DaemonSessionStateConnected    DaemonSessionState = "connected"
+	DaemonSessionStateDisconnected DaemonSessionState = "disconnected"
+	DaemonSessionStateUnavailable  DaemonSessionState = "unavailable"
+)
+
+func (dss DaemonSessionState) String() string {
+	return string(dss)
+}
+
+// DaemonSessionStateValidator is a validator for the "daemon_session_state" field enum values. It is called by the builders before save.
+func DaemonSessionStateValidator(dss DaemonSessionState) error {
+	switch dss {
+	case DaemonSessionStateUnknown, DaemonSessionStateConnected, DaemonSessionStateDisconnected, DaemonSessionStateUnavailable:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for daemon_session_state field: %q", dss)
+	}
+}
+
+// DetectedOs defines the type for the "detected_os" enum field.
+type DetectedOs string
+
+// DetectedOsUnknown is the default value of the DetectedOs enum.
+const DefaultDetectedOs = DetectedOsUnknown
+
+// DetectedOs values.
+const (
+	DetectedOsDarwin  DetectedOs = "darwin"
+	DetectedOsLinux   DetectedOs = "linux"
+	DetectedOsUnknown DetectedOs = "unknown"
+)
+
+func (do DetectedOs) String() string {
+	return string(do)
+}
+
+// DetectedOsValidator is a validator for the "detected_os" field enum values. It is called by the builders before save.
+func DetectedOsValidator(do DetectedOs) error {
+	switch do {
+	case DetectedOsDarwin, DetectedOsLinux, DetectedOsUnknown:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for detected_os field: %q", do)
+	}
+}
+
+// DetectedArch defines the type for the "detected_arch" enum field.
+type DetectedArch string
+
+// DetectedArchUnknown is the default value of the DetectedArch enum.
+const DefaultDetectedArch = DetectedArchUnknown
+
+// DetectedArch values.
+const (
+	DetectedArchAmd64   DetectedArch = "amd64"
+	DetectedArchArm64   DetectedArch = "arm64"
+	DetectedArchUnknown DetectedArch = "unknown"
+)
+
+func (da DetectedArch) String() string {
+	return string(da)
+}
+
+// DetectedArchValidator is a validator for the "detected_arch" field enum values. It is called by the builders before save.
+func DetectedArchValidator(da DetectedArch) error {
+	switch da {
+	case DetectedArchAmd64, DetectedArchArm64, DetectedArchUnknown:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for detected_arch field: %q", da)
+	}
+}
+
+// DetectionStatus defines the type for the "detection_status" enum field.
+type DetectionStatus string
+
+// DetectionStatusUnknown is the default value of the DetectionStatus enum.
+const DefaultDetectionStatus = DetectionStatusUnknown
+
+// DetectionStatus values.
+const (
+	DetectionStatusPending  DetectionStatus = "pending"
+	DetectionStatusOk       DetectionStatus = "ok"
+	DetectionStatusDegraded DetectionStatus = "degraded"
+	DetectionStatusUnknown  DetectionStatus = "unknown"
+)
+
+func (ds DetectionStatus) String() string {
+	return string(ds)
+}
+
+// DetectionStatusValidator is a validator for the "detection_status" field enum values. It is called by the builders before save.
+func DetectionStatusValidator(ds DetectionStatus) error {
+	switch ds {
+	case DetectionStatusPending, DetectionStatusOk, DetectionStatusDegraded, DetectionStatusUnknown:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for detection_status field: %q", ds)
+	}
+}
+
+// ChannelCredentialKind defines the type for the "channel_credential_kind" enum field.
+type ChannelCredentialKind string
+
+// ChannelCredentialKindNone is the default value of the ChannelCredentialKind enum.
+const DefaultChannelCredentialKind = ChannelCredentialKindNone
+
+// ChannelCredentialKind values.
+const (
+	ChannelCredentialKindNone        ChannelCredentialKind = "none"
+	ChannelCredentialKindToken       ChannelCredentialKind = "token"
+	ChannelCredentialKindCertificate ChannelCredentialKind = "certificate"
+)
+
+func (cck ChannelCredentialKind) String() string {
+	return string(cck)
+}
+
+// ChannelCredentialKindValidator is a validator for the "channel_credential_kind" field enum values. It is called by the builders before save.
+func ChannelCredentialKindValidator(cck ChannelCredentialKind) error {
+	switch cck {
+	case ChannelCredentialKindNone, ChannelCredentialKindToken, ChannelCredentialKindCertificate:
+		return nil
+	default:
+		return fmt.Errorf("machine: invalid enum value for channel_credential_kind field: %q", cck)
+	}
+}
 
 // Status defines the type for the "status" enum field.
 type Status string
@@ -172,6 +378,16 @@ func ByPort(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPort, opts...).ToFunc()
 }
 
+// ByConnectionMode orders the results by the connection_mode field.
+func ByConnectionMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldConnectionMode, opts...).ToFunc()
+}
+
+// ByTransportCapabilities orders the results by the transport_capabilities field.
+func ByTransportCapabilities(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTransportCapabilities, opts...).ToFunc()
+}
+
 // BySSHUser orders the results by the ssh_user field.
 func BySSHUser(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSSHUser, opts...).ToFunc()
@@ -180,6 +396,61 @@ func BySSHUser(opts ...sql.OrderTermOption) OrderOption {
 // BySSHKeyPath orders the results by the ssh_key_path field.
 func BySSHKeyPath(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSSHKeyPath, opts...).ToFunc()
+}
+
+// ByAdvertisedEndpoint orders the results by the advertised_endpoint field.
+func ByAdvertisedEndpoint(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAdvertisedEndpoint, opts...).ToFunc()
+}
+
+// ByDaemonRegistered orders the results by the daemon_registered field.
+func ByDaemonRegistered(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDaemonRegistered, opts...).ToFunc()
+}
+
+// ByDaemonLastRegisteredAt orders the results by the daemon_last_registered_at field.
+func ByDaemonLastRegisteredAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDaemonLastRegisteredAt, opts...).ToFunc()
+}
+
+// ByDaemonSessionID orders the results by the daemon_session_id field.
+func ByDaemonSessionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDaemonSessionID, opts...).ToFunc()
+}
+
+// ByDaemonSessionState orders the results by the daemon_session_state field.
+func ByDaemonSessionState(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDaemonSessionState, opts...).ToFunc()
+}
+
+// ByDetectedOs orders the results by the detected_os field.
+func ByDetectedOs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDetectedOs, opts...).ToFunc()
+}
+
+// ByDetectedArch orders the results by the detected_arch field.
+func ByDetectedArch(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDetectedArch, opts...).ToFunc()
+}
+
+// ByDetectionStatus orders the results by the detection_status field.
+func ByDetectionStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDetectionStatus, opts...).ToFunc()
+}
+
+// ByChannelCredentialKind orders the results by the channel_credential_kind field.
+func ByChannelCredentialKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelCredentialKind, opts...).ToFunc()
+}
+
+// ByChannelTokenID orders the results by the channel_token_id field.
+func ByChannelTokenID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelTokenID, opts...).ToFunc()
+}
+
+// ByChannelCertificateID orders the results by the channel_certificate_id field.
+func ByChannelCertificateID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldChannelCertificateID, opts...).ToFunc()
 }
 
 // ByDescription orders the results by the description field.

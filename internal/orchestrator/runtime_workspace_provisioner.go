@@ -12,6 +12,7 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
@@ -22,6 +23,7 @@ type runtimeWorkspaceProvisioner struct {
 	client     *ent.Client
 	logger     *slog.Logger
 	sshPool    *sshinfra.Pool
+	transports *machinetransport.Resolver
 	githubAuth githubauthservice.TokenResolver
 	now        func() time.Time
 }
@@ -39,10 +41,11 @@ func newRuntimeWorkspaceProvisioner(
 		now = time.Now
 	}
 	return &runtimeWorkspaceProvisioner{
-		client:  client,
-		logger:  logger.With("component", "runtime-workspace-provisioner"),
-		sshPool: sshPool,
-		now:     now,
+		client:     client,
+		logger:     logger.With("component", "runtime-workspace-provisioner"),
+		sshPool:    sshPool,
+		transports: machinetransport.NewResolver(nil, sshPool),
+		now:        now,
 	}
 }
 
@@ -69,14 +72,11 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	}
 
 	var workspaceItem workspaceinfra.Workspace
-	if remote {
-		if p.sshPool == nil {
-			err = fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
-		} else {
-			workspaceItem, err = workspaceinfra.NewRemoteManager(p.sshPool).Prepare(ctx, machine, request)
-		}
+	transport, transportErr := p.resolveTransport(machine)
+	if transportErr != nil {
+		err = transportErr
 	} else {
-		workspaceItem, err = workspaceinfra.NewManager().Prepare(ctx, request)
+		workspaceItem, err = transport.PrepareWorkspace(ctx, machine, request)
 	}
 	if err != nil {
 		if updateErr := p.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
@@ -391,17 +391,14 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 		}
 		return nil
 	}
-	if p.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s during workspace cleanup", machine.Name)
+	transport, err := p.resolveTransport(machine)
+	if err != nil {
+		return err
 	}
 
-	client, err := p.sshPool.Get(ctx, machine)
+	session, err := transport.OpenCommandSession(ctx, machine)
 	if err != nil {
-		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
-	}
-	session, err := client.NewSession()
-	if err != nil {
-		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
 	defer func() {
 		_ = session.Close()
@@ -412,4 +409,11 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 		return fmt.Errorf("remove remote workspace %s: %w: %s", trimmedRoot, err, strings.TrimSpace(string(output)))
 	}
 	return nil
+}
+
+func (p *runtimeWorkspaceProvisioner) resolveTransport(machine catalogdomain.Machine) (machinetransport.Transport, error) {
+	if p == nil || p.transports == nil {
+		return nil, fmt.Errorf("machine transport resolver unavailable for machine %s", machine.Name)
+	}
+	return p.transports.Resolve(machine)
 }

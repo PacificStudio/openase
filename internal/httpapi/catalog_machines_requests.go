@@ -6,17 +6,25 @@ import (
 )
 
 type machinePatchRequest struct {
-	Name          *string   `json:"name"`
-	Host          *string   `json:"host"`
-	Port          *int      `json:"port"`
-	SSHUser       *string   `json:"ssh_user"`
-	SSHKeyPath    *string   `json:"ssh_key_path"`
-	Description   *string   `json:"description"`
-	Labels        *[]string `json:"labels"`
-	Status        *string   `json:"status"`
-	WorkspaceRoot *string   `json:"workspace_root"`
-	AgentCLIPath  *string   `json:"agent_cli_path"`
-	EnvVars       *[]string `json:"env_vars"`
+	Name                  *string                               `json:"name"`
+	Host                  *string                               `json:"host"`
+	Port                  *int                                  `json:"port"`
+	ConnectionMode        *string                               `json:"connection_mode"`
+	TransportCapabilities *[]string                             `json:"transport_capabilities"`
+	SSHUser               *string                               `json:"ssh_user"`
+	SSHKeyPath            *string                               `json:"ssh_key_path"`
+	AdvertisedEndpoint    *string                               `json:"advertised_endpoint"`
+	DaemonStatus          *domain.MachineDaemonStatusInput      `json:"daemon_status"`
+	DetectedOS            *string                               `json:"detected_os"`
+	DetectedArch          *string                               `json:"detected_arch"`
+	DetectionStatus       *string                               `json:"detection_status"`
+	ChannelCredential     *domain.MachineChannelCredentialInput `json:"channel_credential"`
+	Description           *string                               `json:"description"`
+	Labels                *[]string                             `json:"labels"`
+	Status                *string                               `json:"status"`
+	WorkspaceRoot         *string                               `json:"workspace_root"`
+	AgentCLIPath          *string                               `json:"agent_cli_path"`
+	EnvVars               *[]string                             `json:"env_vars"`
 }
 
 func parseMachinePatchRequest(
@@ -25,11 +33,28 @@ func parseMachinePatchRequest(
 	patch machinePatchRequest,
 ) (domain.UpdateMachine, error) {
 	request := domain.MachineInput{
-		Name:          current.Name,
-		Host:          current.Host,
-		Port:          intPointer(current.Port),
-		SSHUser:       current.SSHUser,
-		SSHKeyPath:    current.SSHKeyPath,
+		Name:                  current.Name,
+		Host:                  current.Host,
+		Port:                  intPointer(current.Port),
+		ConnectionMode:        current.ConnectionMode.String(),
+		TransportCapabilities: machineTransportCapabilityStrings(current.TransportCapabilities),
+		SSHUser:               current.SSHUser,
+		SSHKeyPath:            current.SSHKeyPath,
+		AdvertisedEndpoint:    current.AdvertisedEndpoint,
+		DaemonStatus: domain.MachineDaemonStatusInput{
+			Registered:       boolPointer(current.DaemonStatus.Registered),
+			LastRegisteredAt: timeToStringPointer(current.DaemonStatus.LastRegisteredAt),
+			CurrentSessionID: cloneStringPointerValue(current.DaemonStatus.CurrentSessionID),
+			SessionState:     current.DaemonStatus.SessionState.String(),
+		},
+		DetectedOS:      current.DetectedOS.String(),
+		DetectedArch:    current.DetectedArch.String(),
+		DetectionStatus: current.DetectionStatus.String(),
+		ChannelCredential: &domain.MachineChannelCredentialInput{
+			Kind:          current.ChannelCredential.Kind.String(),
+			TokenID:       cloneStringPointerValue(current.ChannelCredential.TokenID),
+			CertificateID: cloneStringPointerValue(current.ChannelCredential.CertificateID),
+		},
 		Description:   current.Description,
 		Labels:        cloneStringSlice(current.Labels),
 		Status:        current.Status.String(),
@@ -46,11 +71,35 @@ func parseMachinePatchRequest(
 	if patch.Port != nil {
 		request.Port = patch.Port
 	}
+	if patch.ConnectionMode != nil {
+		request.ConnectionMode = *patch.ConnectionMode
+	}
+	if patch.TransportCapabilities != nil {
+		request.TransportCapabilities = *patch.TransportCapabilities
+	}
 	if patch.SSHUser != nil {
 		request.SSHUser = patch.SSHUser
 	}
 	if patch.SSHKeyPath != nil {
 		request.SSHKeyPath = patch.SSHKeyPath
+	}
+	if patch.AdvertisedEndpoint != nil {
+		request.AdvertisedEndpoint = patch.AdvertisedEndpoint
+	}
+	if patch.DaemonStatus != nil {
+		request.DaemonStatus = *patch.DaemonStatus
+	}
+	if patch.DetectedOS != nil {
+		request.DetectedOS = *patch.DetectedOS
+	}
+	if patch.DetectedArch != nil {
+		request.DetectedArch = *patch.DetectedArch
+	}
+	if patch.DetectionStatus != nil {
+		request.DetectionStatus = *patch.DetectionStatus
+	}
+	if patch.ChannelCredential != nil {
+		request.ChannelCredential = patch.ChannelCredential
 	}
 	if patch.Description != nil {
 		request.Description = *patch.Description

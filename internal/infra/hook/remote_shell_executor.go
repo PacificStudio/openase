@@ -11,6 +11,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
@@ -22,7 +23,7 @@ var hookRemoteShellExecutorComponent = logging.DeclareComponent("hook-remote-she
 var hookRemoteShellExecutorLogger = logging.WithComponent(nil, hookRemoteShellExecutorComponent)
 
 type remoteSessionFactory interface {
-	Get(ctx context.Context, machine catalogdomain.Machine) (sshinfra.Client, error)
+	OpenCommandSession(ctx context.Context, machine catalogdomain.Machine) (machinetransport.CommandSession, error)
 }
 
 type RemoteShellExecutor struct {
@@ -84,9 +85,9 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 	}
 	defer cancel()
 
-	client, err := e.pool.Get(commandContext, e.machine)
+	session, err := e.pool.OpenCommandSession(commandContext, e.machine)
 	if err != nil {
-		hookRemoteShellExecutorLogger.Warn("acquire remote hook ssh client failed", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "error", err)
+		hookRemoteShellExecutorLogger.Warn("acquire remote hook session failed", "hook_name", hookName, "command", hook.Command, "machine_id", e.machine.ID.String(), "machine_name", e.machine.Name, "host", e.machine.Host, "error", err)
 		return Result{
 			Name:             hook.Command,
 			HookName:         hookName,
@@ -99,19 +100,6 @@ func (e *RemoteShellExecutor) run(ctx context.Context, hookName TicketHookName, 
 		}, err
 	}
 
-	session, err := client.NewSession()
-	if err != nil {
-		return Result{
-			Name:             hook.Command,
-			HookName:         hookName,
-			Command:          hook.Command,
-			WorkingDirectory: workingDirectory,
-			Policy:           hook.OnFailure,
-			Outcome:          OutcomeError,
-			Duration:         time.Since(startedAt),
-			Error:            err.Error(),
-		}, err
-	}
 	defer func() {
 		_ = session.Close()
 	}()

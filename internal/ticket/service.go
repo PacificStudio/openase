@@ -11,6 +11,7 @@ import (
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/google/uuid"
 )
@@ -25,6 +26,10 @@ type ticketHookAgentPlatform interface {
 	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
 }
 
+type ticketHookTransportResolver interface {
+	Resolve(machine catalogdomain.Machine) (machinetransport.Transport, error)
+}
+
 type RunLifecycleHookInput struct {
 	TicketID   uuid.UUID
 	RunID      uuid.UUID
@@ -37,6 +42,7 @@ type Service struct {
 	repo           Repository
 	logger         *slog.Logger
 	sshPool        ticketHookSSHPool
+	transport      ticketHookTransportResolver
 	agentPlatform  ticketHookAgentPlatform
 	platformAPIURL string
 }
@@ -60,6 +66,13 @@ func (s *Service) ConfigureSSHPool(pool ticketHookSSHPool) {
 		return
 	}
 	s.sshPool = pool
+}
+
+func (s *Service) ConfigureTransportResolver(resolver ticketHookTransportResolver) {
+	if s == nil {
+		return
+	}
+	s.transport = resolver
 }
 
 func (s *Service) ConfigurePlatformEnvironment(apiURL string, agentPlatform ticketHookAgentPlatform) {
@@ -344,10 +357,32 @@ func (s *Service) ticketHookExecutor(machine catalogdomain.Machine, remote bool)
 	if !remote {
 		return infrahook.NewShellExecutor(), nil
 	}
+	if s.transport != nil {
+		transport, err := s.transport.Resolve(machine)
+		if err != nil {
+			return nil, err
+		}
+		return infrahook.NewRemoteShellExecutor(transport, machine), nil
+	}
 	if s.sshPool == nil {
 		return nil, fmt.Errorf("ticket hook ssh pool unavailable for machine %s", machine.Name)
 	}
-	return infrahook.NewRemoteShellExecutor(s.sshPool, machine), nil
+	return infrahook.NewRemoteShellExecutor(sshSessionFactory{s.sshPool}, machine), nil
+}
+
+type sshSessionFactory struct {
+	pool ticketHookSSHPool
+}
+
+func (f sshSessionFactory) OpenCommandSession(ctx context.Context, machine catalogdomain.Machine) (machinetransport.CommandSession, error) {
+	if f.pool == nil {
+		return nil, fmt.Errorf("ticket hook ssh pool unavailable for machine %s", machine.Name)
+	}
+	client, err := f.pool.Get(ctx, machine)
+	if err != nil {
+		return nil, err
+	}
+	return client.NewSession()
 }
 
 func (s *Service) logHookResults(

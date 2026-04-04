@@ -40,21 +40,42 @@ type projectResponse struct {
 }
 
 type machineResponse struct {
-	ID              string         `json:"id"`
-	OrganizationID  string         `json:"organization_id"`
-	Name            string         `json:"name"`
-	Host            string         `json:"host"`
-	Port            int            `json:"port"`
-	SSHUser         *string        `json:"ssh_user,omitempty"`
-	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
-	Description     string         `json:"description"`
-	Labels          []string       `json:"labels"`
-	Status          string         `json:"status"`
-	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
-	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
-	EnvVars         []string       `json:"env_vars"`
-	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
-	Resources       map[string]any `json:"resources"`
+	ID                    string                           `json:"id"`
+	OrganizationID        string                           `json:"organization_id"`
+	Name                  string                           `json:"name"`
+	Host                  string                           `json:"host"`
+	Port                  int                              `json:"port"`
+	ConnectionMode        string                           `json:"connection_mode"`
+	TransportCapabilities []string                         `json:"transport_capabilities,omitempty"`
+	SSHUser               *string                          `json:"ssh_user,omitempty"`
+	SSHKeyPath            *string                          `json:"ssh_key_path,omitempty"`
+	AdvertisedEndpoint    *string                          `json:"advertised_endpoint,omitempty"`
+	DaemonStatus          machineDaemonStatusResponse      `json:"daemon_status"`
+	DetectedOS            string                           `json:"detected_os"`
+	DetectedArch          string                           `json:"detected_arch"`
+	DetectionStatus       string                           `json:"detection_status"`
+	ChannelCredential     machineChannelCredentialResponse `json:"channel_credential"`
+	Description           string                           `json:"description"`
+	Labels                []string                         `json:"labels"`
+	Status                string                           `json:"status"`
+	WorkspaceRoot         *string                          `json:"workspace_root,omitempty"`
+	AgentCLIPath          *string                          `json:"agent_cli_path,omitempty"`
+	EnvVars               []string                         `json:"env_vars"`
+	LastHeartbeatAt       *string                          `json:"last_heartbeat_at,omitempty"`
+	Resources             map[string]any                   `json:"resources"`
+}
+
+type machineDaemonStatusResponse struct {
+	Registered       bool    `json:"registered"`
+	LastRegisteredAt *string `json:"last_registered_at,omitempty"`
+	CurrentSessionID *string `json:"current_session_id,omitempty"`
+	SessionState     string  `json:"session_state"`
+}
+
+type machineChannelCredentialResponse struct {
+	Kind          string  `json:"kind"`
+	TokenID       *string `json:"token_id,omitempty"`
+	CertificateID *string `json:"certificate_id,omitempty"`
 }
 
 type machineProbeResponse struct {
@@ -297,21 +318,29 @@ func mapProjectResponse(item domain.Project) projectResponse {
 
 func mapMachineResponse(item domain.Machine) machineResponse {
 	return machineResponse{
-		ID:              item.ID.String(),
-		OrganizationID:  item.OrganizationID.String(),
-		Name:            item.Name,
-		Host:            item.Host,
-		Port:            item.Port,
-		SSHUser:         item.SSHUser,
-		SSHKeyPath:      item.SSHKeyPath,
-		Description:     item.Description,
-		Labels:          cloneStringSlice(item.Labels),
-		Status:          item.Status.String(),
-		WorkspaceRoot:   item.WorkspaceRoot,
-		AgentCLIPath:    item.AgentCLIPath,
-		EnvVars:         cloneStringSlice(item.EnvVars),
-		LastHeartbeatAt: timeToStringPointer(item.LastHeartbeatAt),
-		Resources:       cloneMap(item.Resources),
+		ID:                    item.ID.String(),
+		OrganizationID:        item.OrganizationID.String(),
+		Name:                  item.Name,
+		Host:                  item.Host,
+		Port:                  item.Port,
+		ConnectionMode:        item.ConnectionMode.String(),
+		TransportCapabilities: machineTransportCapabilityStrings(item.TransportCapabilities),
+		SSHUser:               item.SSHUser,
+		SSHKeyPath:            item.SSHKeyPath,
+		AdvertisedEndpoint:    item.AdvertisedEndpoint,
+		DaemonStatus:          mapMachineDaemonStatusResponse(item.DaemonStatus),
+		DetectedOS:            item.DetectedOS.String(),
+		DetectedArch:          item.DetectedArch.String(),
+		DetectionStatus:       item.DetectionStatus.String(),
+		ChannelCredential:     mapMachineChannelCredentialResponse(item.ChannelCredential),
+		Description:           item.Description,
+		Labels:                cloneStringSlice(item.Labels),
+		Status:                item.Status.String(),
+		WorkspaceRoot:         item.WorkspaceRoot,
+		AgentCLIPath:          item.AgentCLIPath,
+		EnvVars:               cloneStringSlice(item.EnvVars),
+		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
+		Resources:             cloneMap(item.Resources),
 	}
 }
 
@@ -415,4 +444,29 @@ func stringPointer(value string) *string {
 func boolPointer(value bool) *bool {
 	copied := value
 	return &copied
+}
+
+func mapMachineDaemonStatusResponse(status domain.MachineDaemonStatus) machineDaemonStatusResponse {
+	return machineDaemonStatusResponse{
+		Registered:       status.Registered,
+		LastRegisteredAt: timeToStringPointer(status.LastRegisteredAt),
+		CurrentSessionID: cloneStringPointerValue(status.CurrentSessionID),
+		SessionState:     status.SessionState.String(),
+	}
+}
+
+func mapMachineChannelCredentialResponse(credential domain.MachineChannelCredential) machineChannelCredentialResponse {
+	return machineChannelCredentialResponse{
+		Kind:          credential.Kind.String(),
+		TokenID:       cloneStringPointerValue(credential.TokenID),
+		CertificateID: cloneStringPointerValue(credential.CertificateID),
+	}
+}
+
+func machineTransportCapabilityStrings(items []domain.MachineTransportCapability) []string {
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		values = append(values, item.String())
+	}
+	return values
 }

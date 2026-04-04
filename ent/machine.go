@@ -29,10 +29,36 @@ type Machine struct {
 	Host string `json:"host,omitempty"`
 	// Port holds the value of the "port" field.
 	Port int `json:"port,omitempty"`
+	// ConnectionMode holds the value of the "connection_mode" field.
+	ConnectionMode machine.ConnectionMode `json:"connection_mode,omitempty"`
+	// TransportCapabilities holds the value of the "transport_capabilities" field.
+	TransportCapabilities pgarray.StringArray `json:"transport_capabilities,omitempty"`
 	// SSHUser holds the value of the "ssh_user" field.
 	SSHUser string `json:"ssh_user,omitempty"`
 	// SSHKeyPath holds the value of the "ssh_key_path" field.
 	SSHKeyPath string `json:"ssh_key_path,omitempty"`
+	// AdvertisedEndpoint holds the value of the "advertised_endpoint" field.
+	AdvertisedEndpoint string `json:"advertised_endpoint,omitempty"`
+	// DaemonRegistered holds the value of the "daemon_registered" field.
+	DaemonRegistered bool `json:"daemon_registered,omitempty"`
+	// DaemonLastRegisteredAt holds the value of the "daemon_last_registered_at" field.
+	DaemonLastRegisteredAt *time.Time `json:"daemon_last_registered_at,omitempty"`
+	// DaemonSessionID holds the value of the "daemon_session_id" field.
+	DaemonSessionID string `json:"daemon_session_id,omitempty"`
+	// DaemonSessionState holds the value of the "daemon_session_state" field.
+	DaemonSessionState machine.DaemonSessionState `json:"daemon_session_state,omitempty"`
+	// DetectedOs holds the value of the "detected_os" field.
+	DetectedOs machine.DetectedOs `json:"detected_os,omitempty"`
+	// DetectedArch holds the value of the "detected_arch" field.
+	DetectedArch machine.DetectedArch `json:"detected_arch,omitempty"`
+	// DetectionStatus holds the value of the "detection_status" field.
+	DetectionStatus machine.DetectionStatus `json:"detection_status,omitempty"`
+	// ChannelCredentialKind holds the value of the "channel_credential_kind" field.
+	ChannelCredentialKind machine.ChannelCredentialKind `json:"channel_credential_kind,omitempty"`
+	// ChannelTokenID holds the value of the "channel_token_id" field.
+	ChannelTokenID string `json:"channel_token_id,omitempty"`
+	// ChannelCertificateID holds the value of the "channel_certificate_id" field.
+	ChannelCertificateID string `json:"channel_certificate_id,omitempty"`
 	// Description holds the value of the "description" field.
 	Description string `json:"description,omitempty"`
 	// Labels holds the value of the "labels" field.
@@ -104,13 +130,15 @@ func (*Machine) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case machine.FieldResources:
 			values[i] = new([]byte)
-		case machine.FieldLabels, machine.FieldEnvVars:
+		case machine.FieldTransportCapabilities, machine.FieldLabels, machine.FieldEnvVars:
 			values[i] = new(pgarray.StringArray)
+		case machine.FieldDaemonRegistered:
+			values[i] = new(sql.NullBool)
 		case machine.FieldPort:
 			values[i] = new(sql.NullInt64)
-		case machine.FieldName, machine.FieldHost, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
+		case machine.FieldName, machine.FieldHost, machine.FieldConnectionMode, machine.FieldSSHUser, machine.FieldSSHKeyPath, machine.FieldAdvertisedEndpoint, machine.FieldDaemonSessionID, machine.FieldDaemonSessionState, machine.FieldDetectedOs, machine.FieldDetectedArch, machine.FieldDetectionStatus, machine.FieldChannelCredentialKind, machine.FieldChannelTokenID, machine.FieldChannelCertificateID, machine.FieldDescription, machine.FieldStatus, machine.FieldWorkspaceRoot, machine.FieldAgentCliPath:
 			values[i] = new(sql.NullString)
-		case machine.FieldLastHeartbeatAt:
+		case machine.FieldDaemonLastRegisteredAt, machine.FieldLastHeartbeatAt:
 			values[i] = new(sql.NullTime)
 		case machine.FieldID, machine.FieldOrganizationID:
 			values[i] = new(uuid.UUID)
@@ -159,6 +187,18 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Port = int(value.Int64)
 			}
+		case machine.FieldConnectionMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field connection_mode", values[i])
+			} else if value.Valid {
+				_m.ConnectionMode = machine.ConnectionMode(value.String)
+			}
+		case machine.FieldTransportCapabilities:
+			if value, ok := values[i].(*pgarray.StringArray); !ok {
+				return fmt.Errorf("unexpected type %T for field transport_capabilities", values[i])
+			} else if value != nil {
+				_m.TransportCapabilities = *value
+			}
 		case machine.FieldSSHUser:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field ssh_user", values[i])
@@ -170,6 +210,73 @@ func (_m *Machine) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field ssh_key_path", values[i])
 			} else if value.Valid {
 				_m.SSHKeyPath = value.String
+			}
+		case machine.FieldAdvertisedEndpoint:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field advertised_endpoint", values[i])
+			} else if value.Valid {
+				_m.AdvertisedEndpoint = value.String
+			}
+		case machine.FieldDaemonRegistered:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field daemon_registered", values[i])
+			} else if value.Valid {
+				_m.DaemonRegistered = value.Bool
+			}
+		case machine.FieldDaemonLastRegisteredAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field daemon_last_registered_at", values[i])
+			} else if value.Valid {
+				_m.DaemonLastRegisteredAt = new(time.Time)
+				*_m.DaemonLastRegisteredAt = value.Time
+			}
+		case machine.FieldDaemonSessionID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field daemon_session_id", values[i])
+			} else if value.Valid {
+				_m.DaemonSessionID = value.String
+			}
+		case machine.FieldDaemonSessionState:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field daemon_session_state", values[i])
+			} else if value.Valid {
+				_m.DaemonSessionState = machine.DaemonSessionState(value.String)
+			}
+		case machine.FieldDetectedOs:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field detected_os", values[i])
+			} else if value.Valid {
+				_m.DetectedOs = machine.DetectedOs(value.String)
+			}
+		case machine.FieldDetectedArch:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field detected_arch", values[i])
+			} else if value.Valid {
+				_m.DetectedArch = machine.DetectedArch(value.String)
+			}
+		case machine.FieldDetectionStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field detection_status", values[i])
+			} else if value.Valid {
+				_m.DetectionStatus = machine.DetectionStatus(value.String)
+			}
+		case machine.FieldChannelCredentialKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field channel_credential_kind", values[i])
+			} else if value.Valid {
+				_m.ChannelCredentialKind = machine.ChannelCredentialKind(value.String)
+			}
+		case machine.FieldChannelTokenID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field channel_token_id", values[i])
+			} else if value.Valid {
+				_m.ChannelTokenID = value.String
+			}
+		case machine.FieldChannelCertificateID:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field channel_certificate_id", values[i])
+			} else if value.Valid {
+				_m.ChannelCertificateID = value.String
 			}
 		case machine.FieldDescription:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -285,11 +392,52 @@ func (_m *Machine) String() string {
 	builder.WriteString("port=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Port))
 	builder.WriteString(", ")
+	builder.WriteString("connection_mode=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ConnectionMode))
+	builder.WriteString(", ")
+	builder.WriteString("transport_capabilities=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TransportCapabilities))
+	builder.WriteString(", ")
 	builder.WriteString("ssh_user=")
 	builder.WriteString(_m.SSHUser)
 	builder.WriteString(", ")
 	builder.WriteString("ssh_key_path=")
 	builder.WriteString(_m.SSHKeyPath)
+	builder.WriteString(", ")
+	builder.WriteString("advertised_endpoint=")
+	builder.WriteString(_m.AdvertisedEndpoint)
+	builder.WriteString(", ")
+	builder.WriteString("daemon_registered=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DaemonRegistered))
+	builder.WriteString(", ")
+	if v := _m.DaemonLastRegisteredAt; v != nil {
+		builder.WriteString("daemon_last_registered_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("daemon_session_id=")
+	builder.WriteString(_m.DaemonSessionID)
+	builder.WriteString(", ")
+	builder.WriteString("daemon_session_state=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DaemonSessionState))
+	builder.WriteString(", ")
+	builder.WriteString("detected_os=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DetectedOs))
+	builder.WriteString(", ")
+	builder.WriteString("detected_arch=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DetectedArch))
+	builder.WriteString(", ")
+	builder.WriteString("detection_status=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DetectionStatus))
+	builder.WriteString(", ")
+	builder.WriteString("channel_credential_kind=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ChannelCredentialKind))
+	builder.WriteString(", ")
+	builder.WriteString("channel_token_id=")
+	builder.WriteString(_m.ChannelTokenID)
+	builder.WriteString(", ")
+	builder.WriteString("channel_certificate_id=")
+	builder.WriteString(_m.ChannelCertificateID)
 	builder.WriteString(", ")
 	builder.WriteString("description=")
 	builder.WriteString(_m.Description)
