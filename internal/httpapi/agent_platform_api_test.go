@@ -1142,7 +1142,7 @@ func TestAgentPlatformRouteErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "report usage invalid ticket", method: http.MethodPost, target: "/api/v1/platform/tickets/not-a-uuid/usage", body: `{"input_tokens":1}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
 		{name: "report usage invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/tickets/%s/usage", currentTicketID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update project invalid project", method: http.MethodPatch, target: "/api/v1/platform/projects/not-a-uuid", body: `{"description":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
-		{name: "update project missing description", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s", projectID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "description is required"},
+		{name: "update project missing fields", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s", projectID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "at least one project field must be provided"},
 		{name: "create repo invalid project", method: http.MethodPost, target: "/api/v1/platform/projects/not-a-uuid/repos", body: `{"name":"worker-tools","repository_url":"https://github.com/acme/worker-tools.git"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
 		{name: "create repo invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/projects/%s/repos", projectID), body: `{"name":"","repository_url":"bad"}`, wantStatus: http.StatusBadRequest, wantBody: "name must not be empty"},
 	} {

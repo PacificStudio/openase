@@ -183,6 +183,93 @@ func TestProviderGetHelpMentionsAvailabilitySemantics(t *testing.T) {
 	}
 }
 
+func TestProjectCurrentHelpMentionsProjectContextBridge(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"project", "current"})
+	if err != nil {
+		t.Fatalf("Find(project current) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected project current command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_PROJECT_ID",
+		"organization_id",
+		"openase machine list --project-id $OPENASE_PROJECT_ID",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestMachineListHelpMentionsProjectAwareBridge(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"machine", "list"})
+	if err != nil {
+		t.Fatalf("Find(machine list) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected machine list command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_PROJECT_ID",
+		"--project-id",
+		"organization_id automatically",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
+func TestMachineStreamHelpMentionsProjectAwareBridge(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"machine", "stream"})
+	if err != nil {
+		t.Fatalf("Find(machine stream) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected machine stream command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_PROJECT_ID",
+		"Use Ctrl-C to stop the stream",
+		"openase machine stream --project-id $OPENASE_PROJECT_ID",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestTypedTicketCommentCommandExposesPrimitiveSubcommandsOnly(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"ticket", "comment"})
