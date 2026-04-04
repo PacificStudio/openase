@@ -15,7 +15,9 @@ func TestComputeRetryBackoff(t *testing.T) {
 		{name: "first_attempt_uses_initial_backoff", attempt: 1, wantBackoff: 10 * time.Second},
 		{name: "second_attempt_doubles_backoff", attempt: 2, wantBackoff: 20 * time.Second},
 		{name: "sixth_attempt_keeps_exponential_backoff", attempt: 6, wantBackoff: 320 * time.Second},
-		{name: "seventh_attempt_caps_at_thirty_minutes", attempt: 7, wantBackoff: 30 * time.Minute},
+		{name: "seventh_attempt_keeps_exponential_backoff", attempt: 7, wantBackoff: 640 * time.Second},
+		{name: "eighth_attempt_keeps_exponential_backoff", attempt: 8, wantBackoff: 1280 * time.Second},
+		{name: "ninth_attempt_caps_at_thirty_minutes", attempt: 9, wantBackoff: 30 * time.Minute},
 		{name: "later_attempts_stay_capped", attempt: 12, wantBackoff: 30 * time.Minute},
 	}
 
