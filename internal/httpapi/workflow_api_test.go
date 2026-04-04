@@ -1609,11 +1609,11 @@ func TestWorkflowCreateAndUpdateRoutesRejectInvalidPayloads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset ticket statuses: %v", err)
 	}
-		todoID := findStatusIDByName(t, statuses, "Todo")
-		backlogID := findStatusIDByName(t, statuses, "Backlog")
-		inReviewID := findStatusIDByName(t, statuses, "In Review")
-		inProgressID := findStatusIDByName(t, statuses, "In Progress")
-		doneID := findStatusIDByName(t, statuses, "Done")
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+	inReviewID := findStatusIDByName(t, statuses, "In Review")
+	inProgressID := findStatusIDByName(t, statuses, "In Progress")
+	doneID := findStatusIDByName(t, statuses, "Done")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetMachineID(localMachine.ID).
