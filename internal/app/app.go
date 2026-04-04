@@ -24,6 +24,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -33,6 +34,7 @@ import (
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthrepo "github.com/BetterAndBetterII/openase/internal/repo/githubauth"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
+	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
@@ -211,6 +213,8 @@ func (a *App) RunServe(ctx context.Context) error {
 	humanAuthRepo := humanauthrepo.NewEntRepository(client)
 	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
+	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
+	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
 	server := httpapi.NewServer(
 		a.config.Server,
 		a.config.GitHub,
@@ -234,6 +238,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithSkillRefinementService(skillRefinementSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
+		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()

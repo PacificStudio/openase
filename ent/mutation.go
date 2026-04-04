@@ -25,6 +25,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/machine"
+	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -88,6 +89,7 @@ const (
 	TypeChatPendingInterrupt          = "ChatPendingInterrupt"
 	TypeChatTurn                      = "ChatTurn"
 	TypeMachine                       = "Machine"
+	TypeMachineChannelToken           = "MachineChannelToken"
 	TypeNotificationChannel           = "NotificationChannel"
 	TypeNotificationRule              = "NotificationRule"
 	TypeOrganization                  = "Organization"
@@ -16413,6 +16415,9 @@ type MachineMutation struct {
 	clearedFields             map[string]struct{}
 	organization              *uuid.UUID
 	clearedorganization       bool
+	channel_tokens            map[uuid.UUID]struct{}
+	removedchannel_tokens     map[uuid.UUID]struct{}
+	clearedchannel_tokens     bool
 	providers                 map[uuid.UUID]struct{}
 	removedproviders          map[uuid.UUID]struct{}
 	clearedproviders          bool
@@ -17729,6 +17734,60 @@ func (m *MachineMutation) ResetOrganization() {
 	m.clearedorganization = false
 }
 
+// AddChannelTokenIDs adds the "channel_tokens" edge to the MachineChannelToken entity by ids.
+func (m *MachineMutation) AddChannelTokenIDs(ids ...uuid.UUID) {
+	if m.channel_tokens == nil {
+		m.channel_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.channel_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// ClearChannelTokens clears the "channel_tokens" edge to the MachineChannelToken entity.
+func (m *MachineMutation) ClearChannelTokens() {
+	m.clearedchannel_tokens = true
+}
+
+// ChannelTokensCleared reports if the "channel_tokens" edge to the MachineChannelToken entity was cleared.
+func (m *MachineMutation) ChannelTokensCleared() bool {
+	return m.clearedchannel_tokens
+}
+
+// RemoveChannelTokenIDs removes the "channel_tokens" edge to the MachineChannelToken entity by IDs.
+func (m *MachineMutation) RemoveChannelTokenIDs(ids ...uuid.UUID) {
+	if m.removedchannel_tokens == nil {
+		m.removedchannel_tokens = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.channel_tokens, ids[i])
+		m.removedchannel_tokens[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedChannelTokens returns the removed IDs of the "channel_tokens" edge to the MachineChannelToken entity.
+func (m *MachineMutation) RemovedChannelTokensIDs() (ids []uuid.UUID) {
+	for id := range m.removedchannel_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ChannelTokensIDs returns the "channel_tokens" edge IDs in the mutation.
+func (m *MachineMutation) ChannelTokensIDs() (ids []uuid.UUID) {
+	for id := range m.channel_tokens {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetChannelTokens resets all changes to the "channel_tokens" edge.
+func (m *MachineMutation) ResetChannelTokens() {
+	m.channel_tokens = nil
+	m.clearedchannel_tokens = false
+	m.removedchannel_tokens = nil
+}
+
 // AddProviderIDs adds the "providers" edge to the AgentProvider entity by ids.
 func (m *MachineMutation) AddProviderIDs(ids ...uuid.UUID) {
 	if m.providers == nil {
@@ -18514,9 +18573,12 @@ func (m *MachineMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *MachineMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.organization != nil {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.channel_tokens != nil {
+		edges = append(edges, machine.EdgeChannelTokens)
 	}
 	if m.providers != nil {
 		edges = append(edges, machine.EdgeProviders)
@@ -18535,6 +18597,12 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 		if id := m.organization; id != nil {
 			return []ent.Value{*id}
 		}
+	case machine.EdgeChannelTokens:
+		ids := make([]ent.Value, 0, len(m.channel_tokens))
+		for id := range m.channel_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeProviders:
 		ids := make([]ent.Value, 0, len(m.providers))
 		for id := range m.providers {
@@ -18553,7 +18621,10 @@ func (m *MachineMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *MachineMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
+	if m.removedchannel_tokens != nil {
+		edges = append(edges, machine.EdgeChannelTokens)
+	}
 	if m.removedproviders != nil {
 		edges = append(edges, machine.EdgeProviders)
 	}
@@ -18567,6 +18638,12 @@ func (m *MachineMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case machine.EdgeChannelTokens:
+		ids := make([]ent.Value, 0, len(m.removedchannel_tokens))
+		for id := range m.removedchannel_tokens {
+			ids = append(ids, id)
+		}
+		return ids
 	case machine.EdgeProviders:
 		ids := make([]ent.Value, 0, len(m.removedproviders))
 		for id := range m.removedproviders {
@@ -18585,9 +18662,12 @@ func (m *MachineMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *MachineMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedorganization {
 		edges = append(edges, machine.EdgeOrganization)
+	}
+	if m.clearedchannel_tokens {
+		edges = append(edges, machine.EdgeChannelTokens)
 	}
 	if m.clearedproviders {
 		edges = append(edges, machine.EdgeProviders)
@@ -18604,6 +18684,8 @@ func (m *MachineMutation) EdgeCleared(name string) bool {
 	switch name {
 	case machine.EdgeOrganization:
 		return m.clearedorganization
+	case machine.EdgeChannelTokens:
+		return m.clearedchannel_tokens
 	case machine.EdgeProviders:
 		return m.clearedproviders
 	case machine.EdgeTargetTickets:
@@ -18630,6 +18712,9 @@ func (m *MachineMutation) ResetEdge(name string) error {
 	case machine.EdgeOrganization:
 		m.ResetOrganization()
 		return nil
+	case machine.EdgeChannelTokens:
+		m.ResetChannelTokens()
+		return nil
 	case machine.EdgeProviders:
 		m.ResetProviders()
 		return nil
@@ -18638,6 +18723,757 @@ func (m *MachineMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown Machine edge %s", name)
+}
+
+// MachineChannelTokenMutation represents an operation that mutates the MachineChannelToken nodes in the graph.
+type MachineChannelTokenMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *uuid.UUID
+	token_hash     *string
+	status         *machinechanneltoken.Status
+	expires_at     *time.Time
+	created_at     *time.Time
+	last_used_at   *time.Time
+	revoked_at     *time.Time
+	clearedFields  map[string]struct{}
+	machine        *uuid.UUID
+	clearedmachine bool
+	done           bool
+	oldValue       func(context.Context) (*MachineChannelToken, error)
+	predicates     []predicate.MachineChannelToken
+}
+
+var _ ent.Mutation = (*MachineChannelTokenMutation)(nil)
+
+// machinechanneltokenOption allows management of the mutation configuration using functional options.
+type machinechanneltokenOption func(*MachineChannelTokenMutation)
+
+// newMachineChannelTokenMutation creates new mutation for the MachineChannelToken entity.
+func newMachineChannelTokenMutation(c config, op Op, opts ...machinechanneltokenOption) *MachineChannelTokenMutation {
+	m := &MachineChannelTokenMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeMachineChannelToken,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withMachineChannelTokenID sets the ID field of the mutation.
+func withMachineChannelTokenID(id uuid.UUID) machinechanneltokenOption {
+	return func(m *MachineChannelTokenMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *MachineChannelToken
+		)
+		m.oldValue = func(ctx context.Context) (*MachineChannelToken, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().MachineChannelToken.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withMachineChannelToken sets the old MachineChannelToken of the mutation.
+func withMachineChannelToken(node *MachineChannelToken) machinechanneltokenOption {
+	return func(m *MachineChannelTokenMutation) {
+		m.oldValue = func(context.Context) (*MachineChannelToken, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m MachineChannelTokenMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m MachineChannelTokenMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of MachineChannelToken entities.
+func (m *MachineChannelTokenMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *MachineChannelTokenMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *MachineChannelTokenMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().MachineChannelToken.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetMachineID sets the "machine_id" field.
+func (m *MachineChannelTokenMutation) SetMachineID(u uuid.UUID) {
+	m.machine = &u
+}
+
+// MachineID returns the value of the "machine_id" field in the mutation.
+func (m *MachineChannelTokenMutation) MachineID() (r uuid.UUID, exists bool) {
+	v := m.machine
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMachineID returns the old "machine_id" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldMachineID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMachineID: %w", err)
+	}
+	return oldValue.MachineID, nil
+}
+
+// ResetMachineID resets all changes to the "machine_id" field.
+func (m *MachineChannelTokenMutation) ResetMachineID() {
+	m.machine = nil
+}
+
+// SetTokenHash sets the "token_hash" field.
+func (m *MachineChannelTokenMutation) SetTokenHash(s string) {
+	m.token_hash = &s
+}
+
+// TokenHash returns the value of the "token_hash" field in the mutation.
+func (m *MachineChannelTokenMutation) TokenHash() (r string, exists bool) {
+	v := m.token_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTokenHash returns the old "token_hash" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldTokenHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTokenHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTokenHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTokenHash: %w", err)
+	}
+	return oldValue.TokenHash, nil
+}
+
+// ResetTokenHash resets all changes to the "token_hash" field.
+func (m *MachineChannelTokenMutation) ResetTokenHash() {
+	m.token_hash = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *MachineChannelTokenMutation) SetStatus(value machinechanneltoken.Status) {
+	m.status = &value
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *MachineChannelTokenMutation) Status() (r machinechanneltoken.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldStatus(ctx context.Context) (v machinechanneltoken.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *MachineChannelTokenMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *MachineChannelTokenMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *MachineChannelTokenMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *MachineChannelTokenMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *MachineChannelTokenMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *MachineChannelTokenMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *MachineChannelTokenMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetLastUsedAt sets the "last_used_at" field.
+func (m *MachineChannelTokenMutation) SetLastUsedAt(t time.Time) {
+	m.last_used_at = &t
+}
+
+// LastUsedAt returns the value of the "last_used_at" field in the mutation.
+func (m *MachineChannelTokenMutation) LastUsedAt() (r time.Time, exists bool) {
+	v := m.last_used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLastUsedAt returns the old "last_used_at" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldLastUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLastUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLastUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLastUsedAt: %w", err)
+	}
+	return oldValue.LastUsedAt, nil
+}
+
+// ClearLastUsedAt clears the value of the "last_used_at" field.
+func (m *MachineChannelTokenMutation) ClearLastUsedAt() {
+	m.last_used_at = nil
+	m.clearedFields[machinechanneltoken.FieldLastUsedAt] = struct{}{}
+}
+
+// LastUsedAtCleared returns if the "last_used_at" field was cleared in this mutation.
+func (m *MachineChannelTokenMutation) LastUsedAtCleared() bool {
+	_, ok := m.clearedFields[machinechanneltoken.FieldLastUsedAt]
+	return ok
+}
+
+// ResetLastUsedAt resets all changes to the "last_used_at" field.
+func (m *MachineChannelTokenMutation) ResetLastUsedAt() {
+	m.last_used_at = nil
+	delete(m.clearedFields, machinechanneltoken.FieldLastUsedAt)
+}
+
+// SetRevokedAt sets the "revoked_at" field.
+func (m *MachineChannelTokenMutation) SetRevokedAt(t time.Time) {
+	m.revoked_at = &t
+}
+
+// RevokedAt returns the value of the "revoked_at" field in the mutation.
+func (m *MachineChannelTokenMutation) RevokedAt() (r time.Time, exists bool) {
+	v := m.revoked_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRevokedAt returns the old "revoked_at" field's value of the MachineChannelToken entity.
+// If the MachineChannelToken object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineChannelTokenMutation) OldRevokedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRevokedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRevokedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRevokedAt: %w", err)
+	}
+	return oldValue.RevokedAt, nil
+}
+
+// ClearRevokedAt clears the value of the "revoked_at" field.
+func (m *MachineChannelTokenMutation) ClearRevokedAt() {
+	m.revoked_at = nil
+	m.clearedFields[machinechanneltoken.FieldRevokedAt] = struct{}{}
+}
+
+// RevokedAtCleared returns if the "revoked_at" field was cleared in this mutation.
+func (m *MachineChannelTokenMutation) RevokedAtCleared() bool {
+	_, ok := m.clearedFields[machinechanneltoken.FieldRevokedAt]
+	return ok
+}
+
+// ResetRevokedAt resets all changes to the "revoked_at" field.
+func (m *MachineChannelTokenMutation) ResetRevokedAt() {
+	m.revoked_at = nil
+	delete(m.clearedFields, machinechanneltoken.FieldRevokedAt)
+}
+
+// ClearMachine clears the "machine" edge to the Machine entity.
+func (m *MachineChannelTokenMutation) ClearMachine() {
+	m.clearedmachine = true
+	m.clearedFields[machinechanneltoken.FieldMachineID] = struct{}{}
+}
+
+// MachineCleared reports if the "machine" edge to the Machine entity was cleared.
+func (m *MachineChannelTokenMutation) MachineCleared() bool {
+	return m.clearedmachine
+}
+
+// MachineIDs returns the "machine" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MachineID instead. It exists only for internal usage by the builders.
+func (m *MachineChannelTokenMutation) MachineIDs() (ids []uuid.UUID) {
+	if id := m.machine; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMachine resets all changes to the "machine" edge.
+func (m *MachineChannelTokenMutation) ResetMachine() {
+	m.machine = nil
+	m.clearedmachine = false
+}
+
+// Where appends a list predicates to the MachineChannelTokenMutation builder.
+func (m *MachineChannelTokenMutation) Where(ps ...predicate.MachineChannelToken) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the MachineChannelTokenMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *MachineChannelTokenMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.MachineChannelToken, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *MachineChannelTokenMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *MachineChannelTokenMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (MachineChannelToken).
+func (m *MachineChannelTokenMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *MachineChannelTokenMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.machine != nil {
+		fields = append(fields, machinechanneltoken.FieldMachineID)
+	}
+	if m.token_hash != nil {
+		fields = append(fields, machinechanneltoken.FieldTokenHash)
+	}
+	if m.status != nil {
+		fields = append(fields, machinechanneltoken.FieldStatus)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, machinechanneltoken.FieldExpiresAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, machinechanneltoken.FieldCreatedAt)
+	}
+	if m.last_used_at != nil {
+		fields = append(fields, machinechanneltoken.FieldLastUsedAt)
+	}
+	if m.revoked_at != nil {
+		fields = append(fields, machinechanneltoken.FieldRevokedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *MachineChannelTokenMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case machinechanneltoken.FieldMachineID:
+		return m.MachineID()
+	case machinechanneltoken.FieldTokenHash:
+		return m.TokenHash()
+	case machinechanneltoken.FieldStatus:
+		return m.Status()
+	case machinechanneltoken.FieldExpiresAt:
+		return m.ExpiresAt()
+	case machinechanneltoken.FieldCreatedAt:
+		return m.CreatedAt()
+	case machinechanneltoken.FieldLastUsedAt:
+		return m.LastUsedAt()
+	case machinechanneltoken.FieldRevokedAt:
+		return m.RevokedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *MachineChannelTokenMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case machinechanneltoken.FieldMachineID:
+		return m.OldMachineID(ctx)
+	case machinechanneltoken.FieldTokenHash:
+		return m.OldTokenHash(ctx)
+	case machinechanneltoken.FieldStatus:
+		return m.OldStatus(ctx)
+	case machinechanneltoken.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case machinechanneltoken.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case machinechanneltoken.FieldLastUsedAt:
+		return m.OldLastUsedAt(ctx)
+	case machinechanneltoken.FieldRevokedAt:
+		return m.OldRevokedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown MachineChannelToken field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MachineChannelTokenMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case machinechanneltoken.FieldMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMachineID(v)
+		return nil
+	case machinechanneltoken.FieldTokenHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTokenHash(v)
+		return nil
+	case machinechanneltoken.FieldStatus:
+		v, ok := value.(machinechanneltoken.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case machinechanneltoken.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case machinechanneltoken.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case machinechanneltoken.FieldLastUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLastUsedAt(v)
+		return nil
+	case machinechanneltoken.FieldRevokedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRevokedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown MachineChannelToken field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *MachineChannelTokenMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *MachineChannelTokenMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *MachineChannelTokenMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown MachineChannelToken numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *MachineChannelTokenMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(machinechanneltoken.FieldLastUsedAt) {
+		fields = append(fields, machinechanneltoken.FieldLastUsedAt)
+	}
+	if m.FieldCleared(machinechanneltoken.FieldRevokedAt) {
+		fields = append(fields, machinechanneltoken.FieldRevokedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *MachineChannelTokenMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *MachineChannelTokenMutation) ClearField(name string) error {
+	switch name {
+	case machinechanneltoken.FieldLastUsedAt:
+		m.ClearLastUsedAt()
+		return nil
+	case machinechanneltoken.FieldRevokedAt:
+		m.ClearRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown MachineChannelToken nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *MachineChannelTokenMutation) ResetField(name string) error {
+	switch name {
+	case machinechanneltoken.FieldMachineID:
+		m.ResetMachineID()
+		return nil
+	case machinechanneltoken.FieldTokenHash:
+		m.ResetTokenHash()
+		return nil
+	case machinechanneltoken.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case machinechanneltoken.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case machinechanneltoken.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case machinechanneltoken.FieldLastUsedAt:
+		m.ResetLastUsedAt()
+		return nil
+	case machinechanneltoken.FieldRevokedAt:
+		m.ResetRevokedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown MachineChannelToken field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *MachineChannelTokenMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.machine != nil {
+		edges = append(edges, machinechanneltoken.EdgeMachine)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *MachineChannelTokenMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case machinechanneltoken.EdgeMachine:
+		if id := m.machine; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *MachineChannelTokenMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *MachineChannelTokenMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *MachineChannelTokenMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedmachine {
+		edges = append(edges, machinechanneltoken.EdgeMachine)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *MachineChannelTokenMutation) EdgeCleared(name string) bool {
+	switch name {
+	case machinechanneltoken.EdgeMachine:
+		return m.clearedmachine
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *MachineChannelTokenMutation) ClearEdge(name string) error {
+	switch name {
+	case machinechanneltoken.EdgeMachine:
+		m.ClearMachine()
+		return nil
+	}
+	return fmt.Errorf("unknown MachineChannelToken unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *MachineChannelTokenMutation) ResetEdge(name string) error {
+	switch name {
+	case machinechanneltoken.EdgeMachine:
+		m.ResetMachine()
+		return nil
+	}
+	return fmt.Errorf("unknown MachineChannelToken edge %s", name)
 }
 
 // NotificationChannelMutation represents an operation that mutates the NotificationChannel nodes in the graph.
