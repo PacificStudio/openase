@@ -9,6 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.134.0
 	github.com/go-git/go-git/v5 v5.17.0
 	github.com/google/uuid v1.6.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/itchyny/gojq v0.12.17
 	github.com/jackc/pgx/v5 v5.7.6
 	github.com/labstack/echo/v4 v4.13.4

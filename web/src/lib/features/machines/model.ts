@@ -100,6 +100,19 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
   const sshUser = draft.sshUser.trim()
   const sshKeyPath = draft.sshKeyPath.trim()
   const advertisedEndpoint = draft.advertisedEndpoint.trim()
+  if (connectionMode === 'ws_listener') {
+    try {
+      const parsed = new URL(advertisedEndpoint)
+      if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+        return { ok: false, error: 'Advertised endpoint must use ws:// or wss://.' }
+      }
+      if (!parsed.host.trim()) {
+        return { ok: false, error: 'Advertised endpoint must include a host.' }
+      }
+    } catch {
+      return { ok: false, error: 'Advertised endpoint must be a valid websocket URL.' }
+    }
+  }
 
   return {
     ok: true,
@@ -177,6 +190,7 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
       machine.host,
       machine.status,
       machine.connection_mode,
+      machine.advertised_endpoint,
       machine.detected_os,
       machine.detected_arch,
       (machine.labels ?? []).join(' '),

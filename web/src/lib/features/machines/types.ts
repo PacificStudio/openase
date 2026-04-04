@@ -13,9 +13,9 @@ export type MachineDraft = {
   host: string
   port: string
   connectionMode: MachineConnectionMode
+  advertisedEndpoint: string
   sshUser: string
   sshKeyPath: string
-  advertisedEndpoint: string
   description: string
   labels: string
   status: MachineStatus
@@ -29,9 +29,9 @@ export type MachineMutationInput = {
   host: string
   port: number
   connection_mode: MachineConnectionMode
+  advertised_endpoint: string
   ssh_user: string
   ssh_key_path: string
-  advertised_endpoint: string
   description: string
   labels: string[]
   status: MachineStatus

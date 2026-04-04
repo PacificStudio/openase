@@ -102,4 +102,46 @@ describe('machines model', () => {
     const parsedWithEndpoint = parseMachineDraft(withEndpoint)
     expect(parsedWithEndpoint.ok).toBe(true)
   })
+
+  it('rejects listener endpoints that do not use websocket schemes', () => {
+    const draft = updateMachineDraft(
+      createEmptyMachineDraft(),
+      'connectionMode',
+      'ws_listener',
+      null,
+    )
+    draft.name = 'listener'
+    draft.host = 'listener.internal'
+    draft.port = '443'
+    draft.workspaceRoot = '/srv/openase/workspace'
+    draft.advertisedEndpoint = 'https://listener.internal/openase'
+
+    expect(parseMachineDraft(draft)).toEqual({
+      ok: false,
+      error: 'Advertised endpoint must use ws:// or wss://.',
+    })
+  })
+
+  it('accepts valid listener websocket machine drafts without SSH credentials', () => {
+    const draft = {
+      ...createEmptyMachineDraft(),
+      name: 'listener-01',
+      host: 'listener.internal',
+      connectionMode: 'ws_listener' as const,
+      advertisedEndpoint: 'wss://listener.internal/openase/transport',
+      sshUser: '',
+      sshKeyPath: '',
+      workspaceRoot: '/srv/openase/workspace',
+    }
+
+    expect(parseMachineDraft(draft)).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        connection_mode: 'ws_listener',
+        advertised_endpoint: 'wss://listener.internal/openase/transport',
+        ssh_user: '',
+        ssh_key_path: '',
+      }),
+    })
+  })
 })
