@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -119,6 +121,9 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshot(
 	if err != nil {
 		return err
 	}
+	if transport.Mode() == catalogdomain.MachineConnectionModeWSListener {
+		return l.materializeRemoteRuntimeSnapshotWithSync(ctx, transport, machine, workspaceRoot, adapterType, snapshot)
+	}
 	session, err := transport.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
@@ -133,6 +138,58 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshot(
 	}
 	if output, runErr := session.CombinedOutput(command); runErr != nil {
 		return fmt.Errorf("materialize remote runtime snapshot: %w: %s", runErr, strings.TrimSpace(string(output)))
+	}
+	return nil
+}
+
+func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshotWithSync(
+	ctx context.Context,
+	transport machinetransport.Transport,
+	machine catalogdomain.Machine,
+	workspaceRoot string,
+	adapterType string,
+	snapshot workflowservice.RuntimeSnapshot,
+) error {
+	if l == nil || l.workflow == nil {
+		return fmt.Errorf("runtime snapshot workflow service unavailable")
+	}
+
+	tempRoot, err := os.MkdirTemp("", "openase-runtime-snapshot-*")
+	if err != nil {
+		return fmt.Errorf("create runtime snapshot temp root: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(tempRoot) }()
+
+	materialized, err := l.workflow.MaterializeRuntimeSnapshot(workflowservice.MaterializeRuntimeSnapshotInput{
+		WorkspaceRoot: tempRoot,
+		AdapterType:   adapterType,
+		Snapshot:      snapshot,
+	})
+	if err != nil {
+		return fmt.Errorf("materialize runtime snapshot locally for websocket sync: %w", err)
+	}
+
+	harnessRelativePath, err := filepath.Rel(tempRoot, materialized.HarnessPath)
+	if err != nil {
+		return fmt.Errorf("derive runtime harness relative path: %w", err)
+	}
+	skillsRelativePath, err := filepath.Rel(tempRoot, materialized.SkillsDir)
+	if err != nil {
+		return fmt.Errorf("derive runtime skills relative path: %w", err)
+	}
+
+	paths := []string{
+		filepath.ToSlash(harnessRelativePath),
+		filepath.ToSlash(skillsRelativePath),
+		".openase/bin/openase",
+	}
+	if err := transport.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
+		LocalRoot:   tempRoot,
+		TargetRoot:  workspaceRoot,
+		Paths:       paths,
+		RemovePaths: []string{filepath.ToSlash(skillsRelativePath), ".openase/bin"},
+	}); err != nil {
+		return fmt.Errorf("sync websocket runtime snapshot artifacts: %w", err)
 	}
 	return nil
 }

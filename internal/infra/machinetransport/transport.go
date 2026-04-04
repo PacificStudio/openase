@@ -312,7 +312,7 @@ func (t sshTransport) Probe(ctx context.Context, machine domain.Machine) (domain
 
 func (t sshTransport) PrepareWorkspace(ctx context.Context, machine domain.Machine, request workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error) {
 	if t.pool == nil {
-		return workspaceinfra.Workspace{}, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+		return workspaceinfra.Workspace{}, workspaceinfra.WrapPrepareTransportError(machine.Name, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name))
 	}
 	return workspaceinfra.NewRemoteManager(t.pool).Prepare(ctx, machine, request)
 }
@@ -417,7 +417,7 @@ func (t websocketTransport) PrepareWorkspace(ctx context.Context, machine domain
 
 	session, err := t.OpenCommandSession(ctx, machine)
 	if err != nil {
-		return workspaceinfra.Workspace{}, err
+		return workspaceinfra.Workspace{}, workspaceinfra.WrapPrepareTransportError(machine.Name, err)
 	}
 	defer func() { _ = session.Close() }()
 	return workspaceinfra.PrepareWithCommandRunner(session, request)

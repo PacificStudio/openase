@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -115,6 +116,54 @@ func TestBuildPrepareWorkspaceCommandAddsHTTPSAuthForGitHubRepos(t *testing.T) {
 	}
 }
 
+func TestPrepareWithCommandRunnerClassifiesRepositoryAuthFailures(t *testing.T) {
+	request := SetupRequest{
+		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		TicketIdentifier: "ASE-106",
+	}
+
+	_, err := PrepareWithCommandRunner(remoteFailingRunner{
+		output: "fatal: Authentication failed for 'https://github.com/acme/backend.git/'",
+		err:    errors.New("exit status 128"),
+	}, request)
+	if err == nil {
+		t.Fatal("PrepareWithCommandRunner() error = nil, want repo auth failure")
+	}
+	var prepareErr *PrepareError
+	if !errors.As(err, &prepareErr) {
+		t.Fatalf("PrepareWithCommandRunner() error = %T, want *PrepareError", err)
+	}
+	if prepareErr.Stage != PrepareFailureStageRepoAuth {
+		t.Fatalf("PrepareWithCommandRunner() stage = %q, want %q", prepareErr.Stage, PrepareFailureStageRepoAuth)
+	}
+}
+
+func TestPrepareWithCommandRunnerClassifiesWorkspaceRootFailures(t *testing.T) {
+	request := SetupRequest{
+		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		TicketIdentifier: "ASE-107",
+	}
+
+	_, err := PrepareWithCommandRunner(remoteFailingRunner{
+		output: "mkdir: cannot create directory '/srv/openase/workspaces/acme': Permission denied",
+		err:    errors.New("exit status 1"),
+	}, request)
+	if err == nil {
+		t.Fatal("PrepareWithCommandRunner() error = nil, want workspace root failure")
+	}
+	var prepareErr *PrepareError
+	if !errors.As(err, &prepareErr) {
+		t.Fatalf("PrepareWithCommandRunner() error = %T, want *PrepareError", err)
+	}
+	if prepareErr.Stage != PrepareFailureStageWorkspaceRoot {
+		t.Fatalf("PrepareWithCommandRunner() stage = %q, want %q", prepareErr.Stage, PrepareFailureStageWorkspaceRoot)
+	}
+}
+
 type remoteTestDialer struct {
 	client sshinfra.Client
 }
@@ -174,4 +223,13 @@ func remoteTestMachine() domain.Machine {
 		SSHKeyPath:    &keyPath,
 		WorkspaceRoot: &workspaceRoot,
 	}
+}
+
+type remoteFailingRunner struct {
+	output string
+	err    error
+}
+
+func (r remoteFailingRunner) CombinedOutput(string) ([]byte, error) {
+	return []byte(r.output), r.err
 }

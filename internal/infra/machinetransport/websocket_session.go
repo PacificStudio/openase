@@ -402,6 +402,7 @@ type websocketListenerSession struct {
 	conn   *websocket.Conn
 
 	writeMu sync.Mutex
+	streams sync.WaitGroup
 
 	command *exec.Cmd
 	stdin   io.WriteCloser
@@ -482,6 +483,7 @@ func (s *websocketListenerSession) startCommand(command string) error {
 
 	s.command = cmd
 	s.stdin = stdin
+	s.streams.Add(2)
 	go s.streamPipe("stdout", stdout)
 	go s.streamPipe("stderr", stderr)
 	go s.waitForExit()
@@ -502,11 +504,13 @@ func (s *websocketListenerSession) waitForExit() {
 			exitCode = 1
 		}
 	}
+	s.streams.Wait()
 	_ = s.writeFrame(websocketFrame{Type: "exit", ExitCode: exitCode})
 	s.stopProcess()
 }
 
 func (s *websocketListenerSession) streamPipe(streamType string, reader io.Reader) {
+	defer s.streams.Done()
 	buffer := make([]byte, 32*1024)
 	for {
 		n, err := reader.Read(buffer)
