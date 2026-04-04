@@ -14,6 +14,7 @@ import {
   listProjectConversationEntries,
   listProjectConversations,
   parseRawProjectConversationMuxFrame,
+  respondProjectConversationInterrupt,
   startProjectConversationTurn,
   streamChatTurn,
   watchProjectConversation,
@@ -587,6 +588,42 @@ describe('project conversation REST mapping', () => {
         },
       ],
     })
+  })
+
+  it('sends chat user headers when responding to project conversation interrupts', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          interrupt: {
+            id: 'interrupt-1',
+          },
+        }),
+      }),
+    )
+
+    await respondProjectConversationInterrupt('conversation-1', 'interrupt-1', {
+      decision: 'approve_once',
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining(
+        '/api/v1/chat/conversations/conversation-1/interrupts/interrupt-1/respond',
+      ),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-OpenASE-Chat-User': expect.any(String),
+        }),
+        body: JSON.stringify({
+          decision: 'approve_once',
+          answer: undefined,
+        }),
+      }),
+    )
   })
 })
 

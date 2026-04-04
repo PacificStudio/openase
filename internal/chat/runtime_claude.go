@@ -145,7 +145,7 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 
 	return provider.NewClaudeCodeSessionSpec(
 		command,
-		buildBaseArgs(input.Provider.CliArgs, input.Provider.ModelName),
+		buildClaudeArgs(input.Provider.CliArgs, input.Provider.ModelName, input.Provider.PermissionProfile),
 		workingDirectory,
 		environment,
 		nil,
@@ -155,6 +155,35 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 		resumeSessionID,
 		true,
 	)
+}
+
+func buildClaudeArgs(
+	cliArgs []string,
+	modelName string,
+	profile catalogdomain.AgentProviderPermissionProfile,
+) []string {
+	args := buildBaseArgs(cliArgs, modelName)
+	if normalizeRuntimePermissionProfile(profile) == catalogdomain.AgentProviderPermissionProfileUnrestricted &&
+		!hasClaudePermissionBypassArg(args) {
+		args = append(args, "--permission-mode", "bypassPermissions")
+	}
+	return args
+}
+
+func hasClaudePermissionBypassArg(args []string) bool {
+	for index := 0; index < len(args); index++ {
+		if args[index] == "--dangerously-skip-permissions" {
+			return true
+		}
+		if args[index] == "--permission-mode" && index+1 < len(args) &&
+			strings.EqualFold(strings.TrimSpace(args[index+1]), "bypassPermissions") {
+			return true
+		}
+		if strings.EqualFold(strings.TrimSpace(args[index]), "--permission-mode=bypassPermissions") {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *ClaudeRuntime) bridgeSession(
