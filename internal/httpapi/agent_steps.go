@@ -83,7 +83,10 @@ func (s *Server) streamAgentSteps(c echo.Context) error {
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), agentStepStreamTopic)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.sseHub.Register(streamCtx, agentStepStreamTopic)
 	if err != nil {
 		return fmt.Errorf("register agent step stream: %w", err)
 	}
@@ -105,7 +108,7 @@ func (s *Server) streamAgentSteps(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {

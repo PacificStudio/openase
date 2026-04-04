@@ -67,7 +67,10 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 		return fmt.Errorf("disable project event stream write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), projectPassiveStreamTopics...)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.sseHub.Register(streamCtx, projectPassiveStreamTopics...)
 	if err != nil {
 		return fmt.Errorf("register project event stream: %w", err)
 	}
@@ -97,14 +100,14 @@ func (s *Server) handleProjectEventStream(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {
 				return nil
 			}
 
-			streamEvents, buildErr := s.buildProjectStreamEvents(c.Request().Context(), projectID, event)
+			streamEvents, buildErr := s.buildProjectStreamEvents(streamCtx, projectID, event)
 			if buildErr != nil {
 				s.logger.Warn(
 					"skip malformed project event bus payload",
@@ -191,7 +194,10 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), topics...)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.sseHub.Register(streamCtx, topics...)
 	if err != nil {
 		return fmt.Errorf("register sse connection: %w", err)
 	}
@@ -213,7 +219,7 @@ func (s *Server) handleEventStreamForTopics(c echo.Context, topics ...provider.T
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {
@@ -241,7 +247,10 @@ func (s *Server) handleOrganizationScopedEventStream(
 		return fmt.Errorf("disable sse write deadline: %w", err)
 	}
 
-	stream, err := s.sseHub.Register(c.Request().Context(), topic)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.sseHub.Register(streamCtx, topic)
 	if err != nil {
 		return fmt.Errorf("register %s stream: %w", streamName, err)
 	}
@@ -263,7 +272,7 @@ func (s *Server) handleOrganizationScopedEventStream(
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-stream:
 			if !ok {

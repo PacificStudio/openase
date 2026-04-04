@@ -383,7 +383,10 @@ func (s *Server) handleStartSkillRefinement(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
 	}
 
-	stream, err := s.skillRefinementService.Start(c.Request().Context(), userID, input)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.skillRefinementService.Start(streamCtx, userID, input)
 	if err != nil {
 		return writeSkillRefinementError(c, err)
 	}
@@ -409,7 +412,7 @@ func (s *Server) handleStartSkillRefinement(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case <-heartbeat.C:
 			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {

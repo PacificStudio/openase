@@ -69,7 +69,10 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return writeChatUserError(c, err)
 	}
 
-	stream, err := s.chatService.StartTurn(c.Request().Context(), userID, input)
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	stream, err := s.chatService.StartTurn(streamCtx, userID, input)
 	if err != nil {
 		s.logChatStartFailure(c, raw, input, userID, err)
 		return writeChatError(c, err)
@@ -109,10 +112,10 @@ func (s *Server) handleStartChat(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			streamLog.Warn(
 				"chat stream request context ended before completion",
-				"error", c.Request().Context().Err(),
+				"error", streamCtx.Err(),
 				"duration", time.Since(streamStartedAt).String(),
 				"events_sent", eventsSent,
 				"last_event", lastEvent,
@@ -201,8 +204,11 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 		return writeChatUserError(c, err)
 	}
 
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
 	events, cleanup, err := s.projectConversationService.WatchProjectConversations(
-		c.Request().Context(),
+		streamCtx,
 		userID,
 		projectID,
 	)
@@ -233,7 +239,7 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-events:
 			if !ok {
@@ -571,7 +577,11 @@ func (s *Server) handleProjectConversationStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	events, cleanup := s.projectConversationService.WatchConversation(c.Request().Context(), conversationID)
+
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+
+	events, cleanup := s.projectConversationService.WatchConversation(streamCtx, conversationID)
 	defer cleanup()
 
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
@@ -596,7 +606,7 @@ func (s *Server) handleProjectConversationStream(c echo.Context) error {
 
 	for {
 		select {
-		case <-c.Request().Context().Done():
+		case <-streamCtx.Done():
 			return nil
 		case event, ok := <-events:
 			if !ok {
