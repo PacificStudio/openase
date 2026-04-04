@@ -2968,7 +2968,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 		t.Fatalf("create conversation: %v", err)
 	}
 
-	remoteRepoPath, _ := createConversationRemoteRepo(t, "main", map[string]string{
+	remoteRepoPath, _ := createConversationRemoteRepo(t, "develop", map[string]string{
 		"README.md": "project ai repo",
 	})
 	workspaceRoot := t.TempDir()
@@ -2994,7 +2994,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 					ProjectID:     project.ID,
 					Name:          "backend",
 					RepositoryURL: remoteRepoPath,
-					DefaultBranch: "main",
+					DefaultBranch: "develop",
 				},
 			},
 			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
@@ -3056,7 +3056,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if err != nil {
 		t.Fatalf("repository head: %v", err)
 	}
-	if head.Name().Short() != "agent/"+projectConversationWorkspaceName(conversation.ID) {
+	if head.Name().Short() != "develop" {
 		t.Fatalf("head branch = %q", head.Name().Short())
 	}
 
@@ -3206,7 +3206,7 @@ func TestProjectConversationWorkspaceDiffSummary(t *testing.T) {
 			t.Fatalf("unexpected modified summary: %+v", summary)
 		}
 		repo := summary.Repos[0]
-		if repo.Name != "backend" || repo.Branch != "agent/"+projectConversationWorkspaceName(fixture.conversation.ID) {
+		if repo.Name != "backend" || repo.Branch != "main" {
 			t.Fatalf("unexpected repo summary: %+v", repo)
 		}
 		if repo.Path != "backend" || repo.FilesChanged != 1 || repo.Added != 1 || repo.Removed != 0 {
