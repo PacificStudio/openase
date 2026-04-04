@@ -605,6 +605,9 @@ func (l *RuntimeLauncher) recordSSHRuntimeFallback(
 	machine catalogdomain.Machine,
 	launchErr error,
 ) {
+	if l == nil {
+		return
+	}
 	logAttrs := []any{
 		"machine_id", machine.ID.String(),
 		"transport_mode", machine.ConnectionMode.String(),
@@ -620,7 +623,7 @@ func (l *RuntimeLauncher) recordSSHRuntimeFallback(
 	}
 	l.logger.Warn("fallback runtime launch to ssh", logAttrs...)
 
-	if l == nil || l.client == nil || assignment.ticket == nil || assignment.agent == nil || launchContext.project == nil {
+	if l.client == nil || assignment.ticket == nil || assignment.agent == nil || launchContext.project == nil {
 		return
 	}
 	metadata := mergeRuntimeFailureMetadata(map[string]any{

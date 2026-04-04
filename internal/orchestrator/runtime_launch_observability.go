@@ -97,15 +97,6 @@ func runtimeLaunchFailureDetails(err error) *runtimeLaunchFailure {
 	return nil
 }
 
-func runtimeLaunchStageMetadata(stage runtimeLaunchFailureStage) map[string]any {
-	if strings.TrimSpace(string(stage)) == "" {
-		return nil
-	}
-	return map[string]any{
-		"failure_stage": string(stage),
-	}
-}
-
 func mergeRuntimeFailureMetadata(metadata map[string]any, err error) map[string]any {
 	cloned := cloneLifecycleMetadata(metadata)
 	details := runtimeLaunchFailureDetails(err)

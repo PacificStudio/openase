@@ -120,14 +120,14 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 			DisconnectedAt: time.Now().UTC(),
 			Reason:         "registered_reply_failed",
 		})
-		s.recordMachineChannelActiveSessions("ws_reverse")
+		s.recordMachineChannelActiveSessions()
 		s.emitMachineChannelDisconnectActivityBestEffort(context.Background(), machineRecord.OrganizationID, parsedMachineID, sessionID, "registered_reply_failed")
 		return nil
 	}
 
 	s.publishMachineChannelEvent(ctx, parsedMachineID, sessionID, registered.Replaced)
-	s.recordMachineChannelMetric("registered", "ws_reverse")
-	s.recordMachineChannelActiveSessions("ws_reverse")
+	s.recordMachineChannelMetric("registered")
+	s.recordMachineChannelActiveSessions()
 	s.emitMachineChannelActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, registered.Replaced)
 	s.logger.Info(
 		"machine reverse websocket registered",
@@ -175,7 +175,7 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 				Reason:         strings.TrimSpace(goodbyePayload.Reason),
 			})
 			s.publishMachineChannelDisconnect(ctx, parsedMachineID, sessionID, "goodbye")
-			s.recordMachineChannelActiveSessions("ws_reverse")
+			s.recordMachineChannelActiveSessions()
 			s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "goodbye")
 			return nil
 		default:
@@ -194,7 +194,7 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		Reason:         "connection_closed",
 	})
 	s.publishMachineChannelDisconnect(ctx, parsedMachineID, sessionID, "connection_closed")
-	s.recordMachineChannelActiveSessions("ws_reverse")
+	s.recordMachineChannelActiveSessions()
 	s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "connection_closed")
 	return nil
 }
@@ -215,8 +215,8 @@ func (s *Server) runMachineSessionExpiryLoop(ctx context.Context) {
 					Reason:         "heartbeat_timeout",
 				})
 				s.publishMachineChannelDisconnect(context.Background(), expired.MachineID, expired.SessionID, "heartbeat_timeout")
-				s.recordMachineChannelMetric("timeout", "ws_reverse")
-				s.recordMachineChannelActiveSessions("ws_reverse")
+				s.recordMachineChannelMetric("timeout")
+				s.recordMachineChannelActiveSessions()
 				s.emitMachineChannelDisconnectActivityBestEffort(context.Background(), machineRecord.OrganizationID, expired.MachineID, expired.SessionID, "heartbeat_timeout")
 				s.logger.Warn(
 					"machine reverse websocket expired",
@@ -257,7 +257,7 @@ func (s *Server) failMachineConnection(
 		s.publishMachineTransportEvent(ctx, machineChannelAuthFailedEventType, payload)
 		s.emitMachineChannelAuthFailedActivityBestEffort(ctx, machineID, sessionID, code, err)
 	}
-	s.recordMachineChannelMetric("auth_failed", "ws_reverse")
+	s.recordMachineChannelMetric("auth_failed")
 	s.logger.Warn(
 		"machine reverse websocket handshake failed",
 		"machine_id", machineID.String(),
@@ -272,7 +272,7 @@ func (s *Server) publishMachineChannelEvent(ctx context.Context, machineID uuid.
 	eventType := machineChannelRegisteredEventType
 	if replaced {
 		eventType = machineChannelReconnectedEventType
-		s.recordMachineChannelMetric("reconnected", "ws_reverse")
+		s.recordMachineChannelMetric("reconnected")
 		if s.metrics != nil {
 			s.metrics.Counter("openase.machine_channel.websocket_reconnect_total", provider.Tags{
 				"transport_mode": "ws_reverse",
@@ -293,7 +293,7 @@ func (s *Server) publishMachineChannelDisconnect(ctx context.Context, machineID 
 		"transport_mode": "ws_reverse",
 		"reason":         reason,
 	})
-	s.recordMachineChannelMetric("disconnected", "ws_reverse")
+	s.recordMachineChannelMetric("disconnected")
 }
 
 func (s *Server) publishMachineTransportEvent(ctx context.Context, eventType provider.EventType, payload map[string]any) {
@@ -307,22 +307,22 @@ func (s *Server) publishMachineTransportEvent(ctx context.Context, eventType pro
 	_ = activityevent.TypeUnknown
 }
 
-func (s *Server) recordMachineChannelMetric(event string, transportMode string) {
+func (s *Server) recordMachineChannelMetric(event string) {
 	if s.metrics == nil {
 		return
 	}
 	s.metrics.Counter("openase.machine_channel.events_total", provider.Tags{
 		"event":          event,
-		"transport_mode": strings.TrimSpace(transportMode),
+		"transport_mode": "ws_reverse",
 	}).Add(1)
 }
 
-func (s *Server) recordMachineChannelActiveSessions(transportMode string) {
+func (s *Server) recordMachineChannelActiveSessions() {
 	if s.metrics == nil || s.machineSessions == nil {
 		return
 	}
 	s.metrics.Gauge("openase.machine_channel.active_sessions", provider.Tags{
-		"transport_mode": strings.TrimSpace(transportMode),
+		"transport_mode": "ws_reverse",
 	}).Set(float64(s.machineSessions.Count()))
 }
 
