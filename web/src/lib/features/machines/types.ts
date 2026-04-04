@@ -3,11 +3,14 @@ import type { Machine, MachineProbe, Organization } from '$lib/api/contracts'
 export type ResourceMap = Record<string, unknown>
 
 export type MachineStatus = 'online' | 'offline' | 'degraded' | 'maintenance'
+export type MachineConnectionMode = 'local' | 'ssh' | 'ws_reverse' | 'ws_listener'
 
 export type MachineDraft = {
   name: string
   host: string
   port: string
+  connectionMode: MachineConnectionMode
+  advertisedEndpoint: string
   sshUser: string
   sshKeyPath: string
   description: string
@@ -22,6 +25,8 @@ export type MachineMutationInput = {
   name: string
   host: string
   port: number
+  connection_mode: MachineConnectionMode
+  advertised_endpoint: string
   ssh_user: string
   ssh_key_path: string
   description: string

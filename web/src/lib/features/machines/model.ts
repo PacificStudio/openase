@@ -1,5 +1,10 @@
 import type { Machine } from '$lib/api/contracts'
-import type { MachineDraft, MachineDraftParseResult, MachineStatus } from './types'
+import type {
+  MachineConnectionMode,
+  MachineDraft,
+  MachineDraftParseResult,
+  MachineStatus,
+} from './types'
 export { parseMachineSnapshot } from './snapshot'
 
 export function createEmptyMachineDraft(): MachineDraft {
@@ -7,6 +12,8 @@ export function createEmptyMachineDraft(): MachineDraft {
     name: '',
     host: '',
     port: '22',
+    connectionMode: 'ssh',
+    advertisedEndpoint: '',
     sshUser: '',
     sshKeyPath: '',
     description: '',
@@ -23,6 +30,8 @@ export function machineToDraft(machine: Machine): MachineDraft {
     name: machine.name,
     host: machine.host,
     port: String(machine.port || 22),
+    connectionMode: normalizeMachineConnectionMode(machine.connection_mode, machine.host),
+    advertisedEndpoint: machine.advertised_endpoint ?? '',
     sshUser: machine.ssh_user ?? '',
     sshKeyPath: machine.ssh_key_path ?? '',
     description: machine.description,
@@ -59,14 +68,38 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
     return { ok: false, error: 'The machine named "local" must use host "local".' }
   }
 
+  const connectionMode =
+    normalizedHost === 'local'
+      ? 'local'
+      : normalizeMachineConnectionMode(draft.connectionMode, draft.host.trim())
+  const advertisedEndpoint = draft.advertisedEndpoint.trim()
   const sshUser = draft.sshUser.trim()
   const sshKeyPath = draft.sshKeyPath.trim()
-  if (normalizedHost !== 'local') {
+  if (connectionMode === 'ssh') {
     if (!sshUser) {
       return { ok: false, error: 'SSH user is required for remote machines.' }
     }
     if (!sshKeyPath) {
       return { ok: false, error: 'SSH key path is required for remote machines.' }
+    }
+  }
+  if (connectionMode === 'ws_listener') {
+    if (!advertisedEndpoint) {
+      return {
+        ok: false,
+        error: 'Advertised websocket endpoint is required for listener machines.',
+      }
+    }
+    try {
+      const parsed = new URL(advertisedEndpoint)
+      if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+        return { ok: false, error: 'Advertised endpoint must use ws:// or wss://.' }
+      }
+      if (!parsed.host.trim()) {
+        return { ok: false, error: 'Advertised endpoint must include a host.' }
+      }
+    } catch {
+      return { ok: false, error: 'Advertised endpoint must be a valid websocket URL.' }
     }
   }
 
@@ -76,8 +109,10 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
       name,
       host,
       port,
-      ssh_user: normalizedHost === 'local' ? '' : sshUser,
-      ssh_key_path: normalizedHost === 'local' ? '' : sshKeyPath,
+      connection_mode: connectionMode,
+      advertised_endpoint: connectionMode === 'ws_listener' ? advertisedEndpoint : '',
+      ssh_user: connectionMode === 'ssh' ? sshUser : '',
+      ssh_key_path: connectionMode === 'ssh' ? sshKeyPath : '',
       description: draft.description.trim(),
       labels: splitLabels(draft.labels),
       status: normalizeMachineStatus(draft.status),
@@ -133,6 +168,19 @@ export function machineStatusBadgeClass(status: string): string {
   }
 }
 
+export function normalizeMachineConnectionMode(
+  mode: string | null | undefined,
+  host: string | null | undefined,
+): MachineConnectionMode {
+  if ((host ?? '').trim().toLowerCase() === 'local') {
+    return 'local'
+  }
+  if (mode === 'local' || mode === 'ssh' || mode === 'ws_reverse' || mode === 'ws_listener') {
+    return mode
+  }
+  return 'ssh'
+}
+
 export function filterMachines(machines: Machine[], searchQuery: string): Machine[] {
   const query = searchQuery.trim().toLowerCase()
   if (!query) {
@@ -143,6 +191,8 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
     [
       machine.name,
       machine.host,
+      machine.connection_mode,
+      machine.advertised_endpoint,
       machine.status,
       (machine.labels ?? []).join(' '),
       machine.description,

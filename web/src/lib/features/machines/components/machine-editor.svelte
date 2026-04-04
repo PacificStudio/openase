@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
   import { isLocalMachine } from '../model'
   import type { MachineDraft, MachineDraftField, MachineEditorMode, MachineItem } from '../types'
@@ -18,6 +19,7 @@
   } = $props()
 
   const localMachine = $derived(isLocalMachine(machine, draft))
+  const effectiveConnectionMode = $derived(localMachine ? 'local' : draft.connectionMode)
 
   function updateField(field: MachineDraftField, event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
@@ -37,7 +39,7 @@
       <h3 class="text-foreground text-sm font-semibold">Identity & network</h3>
       <p class="text-muted-foreground mt-1 text-xs">
         {mode === 'create'
-          ? 'Register the machine identity and network endpoint.'
+          ? 'Register the machine identity, transport, and advertised endpoint.'
           : 'Update how OpenASE addresses this machine.'}
       </p>
     </div>
@@ -72,13 +74,45 @@
         />
       </div>
     </div>
+
+    <div class="grid gap-4 md:grid-cols-2">
+      <div class="space-y-2">
+        <Label>Transport</Label>
+        <Select.Root
+          type="single"
+          value={effectiveConnectionMode}
+          onValueChange={(value) => onDraftChange?.('connectionMode', value || 'ssh')}
+          disabled={localMachine}
+        >
+          <Select.Trigger class="w-full">{effectiveConnectionMode}</Select.Trigger>
+          <Select.Content>
+            <Select.Item value="local">local</Select.Item>
+            <Select.Item value="ssh">ssh</Select.Item>
+            <Select.Item value="ws_listener">ws_listener</Select.Item>
+            <Select.Item value="ws_reverse">ws_reverse</Select.Item>
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      {#if effectiveConnectionMode === 'ws_listener'}
+        <div class="space-y-2">
+          <Label for="machine-advertised-endpoint">Advertised websocket endpoint</Label>
+          <Input
+            id="machine-advertised-endpoint"
+            value={draft.advertisedEndpoint}
+            placeholder="wss://machine.example.com/openase/transport"
+            oninput={(event) => updateField('advertisedEndpoint', event)}
+          />
+        </div>
+      {/if}
+    </div>
   </section>
 
   <section class="border-border space-y-4 border-t pt-6">
     <div>
       <h3 class="text-foreground text-sm font-semibold">SSH access</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Credentials used for remote execution and health probes.
+        Credentials used when the machine transport is SSH.
       </p>
     </div>
 
@@ -88,7 +122,7 @@
         <Input
           id="machine-ssh-user"
           value={draft.sshUser}
-          disabled={localMachine}
+          disabled={localMachine || effectiveConnectionMode !== 'ssh'}
           oninput={(event) => updateField('sshUser', event)}
         />
       </div>
@@ -98,7 +132,7 @@
         <Input
           id="machine-ssh-key"
           value={draft.sshKeyPath}
-          disabled={localMachine}
+          disabled={localMachine || effectiveConnectionMode !== 'ssh'}
           oninput={(event) => updateField('sshKeyPath', event)}
         />
       </div>

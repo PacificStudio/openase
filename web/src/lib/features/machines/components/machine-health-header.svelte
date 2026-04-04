@@ -32,6 +32,17 @@
         No heartbeat has been recorded yet.
       {/if}
     </p>
+    {#if machine}
+      <div class="text-muted-foreground mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+        <Badge variant="outline">{machine.connection_mode}</Badge>
+        {#if machine.connection_mode === 'ws_listener' && machine.advertised_endpoint}
+          <span class="truncate font-mono">{machine.advertised_endpoint}</span>
+        {/if}
+        {#if machine.connection_mode !== 'local'}
+          <span>session {machine.daemon_status?.session_state ?? 'unknown'}</span>
+        {/if}
+      </div>
+    {/if}
   </div>
   <div class="flex items-center gap-2">
     {#if loading || refreshing}
