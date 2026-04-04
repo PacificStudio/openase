@@ -43,43 +43,43 @@ type MachineRecord struct {
 }
 
 type CreateTokenRecord struct {
-	MachineID  uuid.UUID
-	TokenHash  string
-	ExpiresAt  time.Time
+	MachineID uuid.UUID
+	TokenHash string
+	ExpiresAt time.Time
 }
 
 type TokenRecord struct {
-	TokenID    uuid.UUID
-	MachineID  uuid.UUID
-	TokenHash  string
-	Status     string
-	ExpiresAt  time.Time
-	RevokedAt  *time.Time
+	TokenID   uuid.UUID
+	MachineID uuid.UUID
+	TokenHash string
+	Status    string
+	ExpiresAt time.Time
+	RevokedAt *time.Time
 }
 
 type ConnectedSessionRecord struct {
-	MachineID         uuid.UUID
-	SessionID         string
-	ConnectedAt       time.Time
-	SystemInfo        domain.SystemInfo
-	ToolInventory     []domain.ToolInfo
-	ResourceSnapshot  *domain.ResourceSnapshot
+	MachineID        uuid.UUID
+	SessionID        string
+	ConnectedAt      time.Time
+	SystemInfo       domain.SystemInfo
+	ToolInventory    []domain.ToolInfo
+	ResourceSnapshot *domain.ResourceSnapshot
 }
 
 type HeartbeatRecord struct {
-	MachineID         uuid.UUID
-	SessionID         string
-	HeartbeatAt       time.Time
-	SystemInfo        *domain.SystemInfo
-	ToolInventory     []domain.ToolInfo
-	ResourceSnapshot  *domain.ResourceSnapshot
+	MachineID        uuid.UUID
+	SessionID        string
+	HeartbeatAt      time.Time
+	SystemInfo       *domain.SystemInfo
+	ToolInventory    []domain.ToolInfo
+	ResourceSnapshot *domain.ResourceSnapshot
 }
 
 type DisconnectedSessionRecord struct {
-	MachineID       uuid.UUID
-	SessionID       string
-	DisconnectedAt  time.Time
-	Reason          string
+	MachineID      uuid.UUID
+	SessionID      string
+	DisconnectedAt time.Time
+	Reason         string
 }
 
 type Service struct {

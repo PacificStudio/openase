@@ -20,16 +20,16 @@ const (
 )
 
 var (
-	ErrNotFound            = errors.New("machine channel record not found")
-	ErrInvalidToken        = errors.New("machine channel token is invalid")
-	ErrTokenExpired        = errors.New("machine channel token expired")
-	ErrTokenRevoked        = errors.New("machine channel token is revoked")
-	ErrUnexpectedMessage   = errors.New("machine channel message is unexpected")
-	ErrUnsupportedVersion  = errors.New("machine channel version is unsupported")
-	ErrConnectionMode      = errors.New("machine connection mode does not support reverse websocket registration")
-	ErrMachineDisabled     = errors.New("machine is disabled for reverse websocket registration")
-	ErrSessionReplaced     = errors.New("machine channel session was replaced")
-	ErrHeartbeatTimedOut   = errors.New("machine channel heartbeat timed out")
+	ErrNotFound             = errors.New("machine channel record not found")
+	ErrInvalidToken         = errors.New("machine channel token is invalid")
+	ErrTokenExpired         = errors.New("machine channel token expired")
+	ErrTokenRevoked         = errors.New("machine channel token is revoked")
+	ErrUnexpectedMessage    = errors.New("machine channel message is unexpected")
+	ErrUnsupportedVersion   = errors.New("machine channel version is unsupported")
+	ErrConnectionMode       = errors.New("machine connection mode does not support reverse websocket registration")
+	ErrMachineDisabled      = errors.New("machine is disabled for reverse websocket registration")
+	ErrSessionReplaced      = errors.New("machine channel session was replaced")
+	ErrHeartbeatTimedOut    = errors.New("machine channel heartbeat timed out")
 	ErrAuthenticationFailed = errors.New("machine channel authentication failed")
 )
 
@@ -52,13 +52,13 @@ type Claims struct {
 }
 
 type DaemonConfig struct {
-	MachineID          uuid.UUID
-	Token              string
-	ControlPlaneURL    string
-	HeartbeatInterval  time.Duration
-	ReconnectBackoff   time.Duration
-	OpenASEBinaryPath  string
-	AgentCLIPath       string
+	MachineID         uuid.UUID
+	Token             string
+	ControlPlaneURL   string
+	HeartbeatInterval time.Duration
+	ReconnectBackoff  time.Duration
+	OpenASEBinaryPath string
+	AgentCLIPath      string
 }
 
 func ParseDaemonConfig(
@@ -102,17 +102,17 @@ func ParseDaemonConfig(
 type MessageType string
 
 const (
-	MessageTypeHello        MessageType = "hello"
-	MessageTypeAuthenticate MessageType = "authenticate"
-	MessageTypeRegistered   MessageType = "registered"
-	MessageTypeHeartbeat    MessageType = "heartbeat"
-	MessageTypeReconnect    MessageType = "reconnect"
-	MessageTypeGoodbye      MessageType = "goodbye"
-	MessageTypeCapabilities MessageType = "capabilities"
-	MessageTypeSystemInfo   MessageType = "system_info"
+	MessageTypeHello         MessageType = "hello"
+	MessageTypeAuthenticate  MessageType = "authenticate"
+	MessageTypeRegistered    MessageType = "registered"
+	MessageTypeHeartbeat     MessageType = "heartbeat"
+	MessageTypeReconnect     MessageType = "reconnect"
+	MessageTypeGoodbye       MessageType = "goodbye"
+	MessageTypeCapabilities  MessageType = "capabilities"
+	MessageTypeSystemInfo    MessageType = "system_info"
 	MessageTypeToolInventory MessageType = "tool_inventory"
-	MessageTypeError        MessageType = "error"
-	MessageTypeRetryAfter   MessageType = "retry_after"
+	MessageTypeError         MessageType = "error"
+	MessageTypeRetryAfter    MessageType = "retry_after"
 )
 
 const ProtocolVersion = 1
@@ -130,12 +130,12 @@ type Hello struct {
 }
 
 type Authenticate struct {
-	Token          string           `json:"token"`
-	MachineID      string           `json:"machine_id"`
-	TransportMode  string           `json:"transport_mode"`
-	SystemInfo     SystemInfo       `json:"system_info"`
-	Capabilities   []string         `json:"capabilities,omitempty"`
-	ToolInventory  []ToolInfo       `json:"tool_inventory,omitempty"`
+	Token            string            `json:"token"`
+	MachineID        string            `json:"machine_id"`
+	TransportMode    string            `json:"transport_mode"`
+	SystemInfo       SystemInfo        `json:"system_info"`
+	Capabilities     []string          `json:"capabilities,omitempty"`
+	ToolInventory    []ToolInfo        `json:"tool_inventory,omitempty"`
 	ResourceSnapshot *ResourceSnapshot `json:"resource_snapshot,omitempty"`
 }
 
@@ -159,17 +159,17 @@ type Goodbye struct {
 }
 
 type ErrorPayload struct {
-	Code               string `json:"code"`
-	Message            string `json:"message"`
-	RetryAfterSeconds  int    `json:"retry_after_seconds,omitempty"`
+	Code              string `json:"code"`
+	Message           string `json:"message"`
+	RetryAfterSeconds int    `json:"retry_after_seconds,omitempty"`
 }
 
 type SystemInfo struct {
-	Hostname         string `json:"hostname"`
-	OS               string `json:"os"`
-	Arch             string `json:"arch"`
+	Hostname          string `json:"hostname"`
+	OS                string `json:"os"`
+	Arch              string `json:"arch"`
 	OpenASEBinaryPath string `json:"openase_binary_path,omitempty"`
-	AgentCLIPath     string `json:"agent_cli_path,omitempty"`
+	AgentCLIPath      string `json:"agent_cli_path,omitempty"`
 }
 
 type ToolInfo struct {
@@ -223,16 +223,16 @@ type FullAudit struct {
 }
 
 type ResourceSnapshot struct {
-	CollectedAt        string      `json:"collected_at"`
-	CPUCores           int         `json:"cpu_cores"`
-	CPUUsagePercent    float64     `json:"cpu_usage_percent"`
-	MemoryTotalGB      float64     `json:"memory_total_gb"`
-	MemoryUsedGB       float64     `json:"memory_used_gb"`
-	MemoryAvailableGB  float64     `json:"memory_available_gb"`
-	DiskTotalGB        float64     `json:"disk_total_gb"`
-	DiskAvailableGB    float64     `json:"disk_available_gb"`
-	GPUs               []GPUInfo   `json:"gpus,omitempty"`
-	FullAudit          *FullAudit  `json:"full_audit,omitempty"`
+	CollectedAt       string     `json:"collected_at"`
+	CPUCores          int        `json:"cpu_cores"`
+	CPUUsagePercent   float64    `json:"cpu_usage_percent"`
+	MemoryTotalGB     float64    `json:"memory_total_gb"`
+	MemoryUsedGB      float64    `json:"memory_used_gb"`
+	MemoryAvailableGB float64    `json:"memory_available_gb"`
+	DiskTotalGB       float64    `json:"disk_total_gb"`
+	DiskAvailableGB   float64    `json:"disk_available_gb"`
+	GPUs              []GPUInfo  `json:"gpus,omitempty"`
+	FullAudit         *FullAudit `json:"full_audit,omitempty"`
 }
 
 func ParseToken(raw string) (string, error) {
