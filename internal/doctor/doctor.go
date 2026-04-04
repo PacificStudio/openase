@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	"github.com/BetterAndBetterII/openase/internal/localdiag"
 	// Register the pgx database/sql driver used by doctor connectivity checks.
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -72,12 +73,10 @@ func Diagnose(ctx context.Context, opts Options) Report {
 	homeDir, homeErr := resolveHomeDir(opts.HomeDir)
 	repoRoot, _ := resolveRepoRoot(opts.RepoRoot)
 
-	results := make([]Result, 0, 6)
+	results := make([]Result, 0, 8)
 	cfg := diagnoseConfig(opts.ConfigFile, repoRoot, homeDir)
 	results = append(results, cfg.result)
-	results = append(results, diagnoseGit(ctx, lookPath, runCommand))
-	results = append(results, diagnoseAgentCLI(ctx, lookPath, runCommand, "claude", "Claude Code"))
-	results = append(results, diagnoseAgentCLI(ctx, lookPath, runCommand, "codex", "Codex"))
+	results = append(results, diagnoseCommands(ctx, lookPath, runCommand)...)
 	results = append(results, diagnosePostgres(ctx, cfg, pingDatabase))
 
 	layoutResult := diagnoseOpenASELayout(homeDir, homeErr)
@@ -203,71 +202,43 @@ func diagnoseConfig(configFile string, repoRoot string, homeDir string) loadedCo
 	}
 }
 
-func diagnoseGit(ctx context.Context, lookPath func(string) (string, error), runCommand func(context.Context, string, ...string) (string, error)) Result {
-	gitPath, err := lookPath("git")
-	if err != nil {
-		return Result{
-			Name:    "Git",
-			Status:  StatusError,
-			Summary: "未安装或不在 PATH 中",
-			Fix:     "安装 Git，并确保 `git` 可执行文件在 PATH 中",
-		}
-	}
-
-	output, err := runCommand(ctx, gitPath, "--version")
-	if err != nil {
-		return Result{
-			Name:    "Git",
-			Status:  StatusError,
-			Summary: "已找到可执行文件，但无法读取版本",
-			Detail:  err.Error(),
-		}
-	}
-
-	return Result{
-		Name:    "Git",
-		Status:  StatusOK,
-		Summary: strings.TrimSpace(output),
-	}
-}
-
-func diagnoseAgentCLI(
+func diagnoseCommands(
 	ctx context.Context,
 	lookPath func(string) (string, error),
 	runCommand func(context.Context, string, ...string) (string, error),
-	commandName string,
-	displayName string,
-) Result {
-	path, err := lookPath(commandName)
-	if err != nil {
-		return Result{
-			Name:    displayName,
-			Status:  StatusWarning,
-			Summary: "未安装（可选）",
+) []Result {
+	reports := localdiag.Inspect(ctx, localdiag.SetupCommandSpecs(), localdiag.Options{
+		LookPath:   lookPath,
+		RunCommand: runCommand,
+	})
+
+	results := make([]Result, 0, len(reports))
+	for _, report := range reports {
+		switch report.Status {
+		case localdiag.StatusReady:
+			results = append(results, Result{
+				Name:    report.Name,
+				Status:  StatusOK,
+				Summary: report.Version,
+				Detail:  report.Path,
+			})
+		case localdiag.StatusVersionError:
+			results = append(results, Result{
+				Name:    report.Name,
+				Status:  StatusWarning,
+				Summary: "已安装，但版本探测失败",
+				Detail:  fmt.Sprintf("%s: %s", report.Path, report.Error),
+			})
+		default:
+			results = append(results, Result{
+				Name:    report.Name,
+				Status:  StatusWarning,
+				Summary: "未安装（可选）",
+			})
 		}
 	}
 
-	output, err := runCommand(ctx, path, "--version")
-	if err != nil {
-		return Result{
-			Name:    displayName,
-			Status:  StatusWarning,
-			Summary: "已安装，但版本探测失败",
-			Detail:  fmt.Sprintf("%s: %s", path, err),
-		}
-	}
-
-	versionLine := firstNonEmptyLine(output)
-	if versionLine == "" {
-		versionLine = path
-	}
-
-	return Result{
-		Name:    displayName,
-		Status:  StatusOK,
-		Summary: versionLine,
-		Detail:  path,
-	}
+	return results
 }
 
 func diagnosePostgres(ctx context.Context, cfg loadedConfig, pingDatabase func(context.Context, string) error) Result {
@@ -374,6 +345,22 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 		details = append(details, "~/.openase/logs 不是目录")
 	}
 
+	workspacesPath := filepath.Join(baseDir, "workspaces")
+	if info, err := os.Stat(workspacesPath); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			missing = append(missing, "~/.openase/workspaces")
+		} else {
+			return Result{
+				Name:    "~/.openase",
+				Status:  StatusError,
+				Summary: "无法检查工作区目录",
+				Detail:  err.Error(),
+			}
+		}
+	} else if !info.IsDir() {
+		details = append(details, "~/.openase/workspaces 不是目录")
+	}
+
 	if len(missing) == 0 && len(details) == 0 {
 		return Result{
 			Name:    "~/.openase",
@@ -385,7 +372,7 @@ func diagnoseOpenASELayout(homeDir string, homeErr error) Result {
 
 	fixes := make([]string, 0, 2)
 	if len(missing) > 0 {
-		fixes = append(fixes, "mkdir -p ~/.openase/logs && touch ~/.openase/.env")
+		fixes = append(fixes, "mkdir -p ~/.openase/logs ~/.openase/workspaces && touch ~/.openase/.env")
 	}
 	if len(details) > 0 {
 		fixes = append(fixes, "chmod 600 ~/.openase/.env")
@@ -514,16 +501,6 @@ func statusIcon(status Status) string {
 	default:
 		return "❌"
 	}
-}
-
-func firstNonEmptyLine(raw string) string {
-	for _, line := range strings.Split(raw, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }
 
 func runExecCommand(ctx context.Context, name string, args ...string) (string, error) {

@@ -3,25 +3,56 @@ package setup
 import (
 	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
+	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
-type Mode string
+type DatabaseSourceType string
+type AuthModeType string
 
 const (
-	ModePersonal   Mode = "personal"
-	ModeTeam       Mode = "team"
-	ModeEnterprise Mode = "enterprise"
+	DatabaseSourceManual DatabaseSourceType = "manual"
+	DatabaseSourceDocker DatabaseSourceType = "docker"
 )
 
-type ModeOption struct {
-	ID          Mode   `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+const (
+	AuthModeDisabled AuthModeType = "disabled"
+	AuthModeOIDC     AuthModeType = "oidc"
+)
+
+const (
+	DefaultOrganizationName = "Local Workspace"
+	DefaultOrganizationSlug = "local-workspace"
+	DefaultProjectName      = "OpenASE Workspace"
+	DefaultProjectSlug      = "openase-workspace"
+	DefaultOIDCRedirectURL  = "http://127.0.0.1:19836/api/v1" + "/auth/oidc/callback"
+	DefaultOIDCScopes       = "openid,profile,email,groups"
+	DefaultOIDCSessionTTL   = "8h"
+	DefaultOIDCIdleTTL      = "30m"
+)
+
+type DatabaseSourceOption struct {
+	ID          DatabaseSourceType `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+}
+
+type CLIDiagnostic struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Command string `json:"command"`
+	Status  string `json:"status"`
+	Path    string `json:"path,omitempty"`
+	Version string `json:"version,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+type AuthModeOption struct {
+	ID          AuthModeType `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
 }
 
 type AgentOption struct {
@@ -32,20 +63,23 @@ type AgentOption struct {
 	ModelName   string                                 `json:"model_name"`
 	Available   bool                                   `json:"available"`
 	Path        string                                 `json:"path,omitempty"`
+	Version     string                                 `json:"version,omitempty"`
 }
 
 type Bootstrap struct {
-	ConfigExists bool          `json:"config_exists"`
-	ConfigPath   string        `json:"config_path"`
-	Modes        []ModeOption  `json:"modes"`
-	Agents       []AgentOption `json:"agents"`
-	Defaults     Defaults      `json:"defaults"`
+	ConfigExists bool                   `json:"config_exists"`
+	ConfigPath   string                 `json:"config_path"`
+	Sources      []DatabaseSourceOption `json:"sources"`
+	AuthModes    []AuthModeOption       `json:"auth_modes"`
+	Agents       []AgentOption          `json:"agents"`
+	CLI          []CLIDiagnostic        `json:"cli"`
+	Defaults     Defaults               `json:"defaults"`
 }
 
 type Defaults struct {
-	Mode          Mode             `json:"mode"`
-	DefaultBranch string           `json:"default_branch"`
-	Database      RawDatabaseInput `json:"database"`
+	ManualDatabase RawDatabaseInput       `json:"manual_database"`
+	DockerDatabase RawDockerDatabaseInput `json:"docker_database"`
+	Auth           RawAuthInput           `json:"auth"`
 }
 
 type RawDatabaseInput struct {
@@ -57,18 +91,42 @@ type RawDatabaseInput struct {
 	SSLMode  string `json:"ssl_mode"`
 }
 
-type RawProjectInput struct {
-	Name          string `json:"name"`
-	RepoPath      string `json:"repo_path"`
-	RepoURL       string `json:"repo_url"`
-	DefaultBranch string `json:"default_branch"`
+type RawDockerDatabaseInput struct {
+	ContainerName string `json:"container_name"`
+	DatabaseName  string `json:"database_name"`
+	User          string `json:"user"`
+	Port          int    `json:"port"`
+	VolumeName    string `json:"volume_name"`
+	Image         string `json:"image"`
+}
+
+type RawDatabaseSourceInput struct {
+	Type   string                  `json:"type"`
+	Manual *RawDatabaseInput       `json:"manual,omitempty"`
+	Docker *RawDockerDatabaseInput `json:"docker,omitempty"`
+}
+
+type RawOIDCInput struct {
+	IssuerURL            string `json:"issuer_url"`
+	ClientID             string `json:"client_id"`
+	ClientSecret         string `json:"client_secret"`
+	RedirectURL          string `json:"redirect_url"`
+	Scopes               string `json:"scopes"`
+	AllowedEmailDomains  string `json:"allowed_email_domains,omitempty"`
+	BootstrapAdminEmails string `json:"bootstrap_admin_emails,omitempty"`
+	SessionTTL           string `json:"session_ttl,omitempty"`
+	SessionIdleTTL       string `json:"session_idle_ttl,omitempty"`
+}
+
+type RawAuthInput struct {
+	Mode string        `json:"mode"`
+	OIDC *RawOIDCInput `json:"oidc,omitempty"`
 }
 
 type RawCompleteRequest struct {
-	Mode     string           `json:"mode"`
-	Database RawDatabaseInput `json:"database"`
-	Agents   []string         `json:"agents"`
-	Project  RawProjectInput  `json:"project"`
+	Database       RawDatabaseInput `json:"database"`
+	Auth           RawAuthInput     `json:"auth"`
+	AllowOverwrite bool             `json:"allow_overwrite,omitempty"`
 }
 
 type DatabaseConfig struct {
@@ -80,45 +138,130 @@ type DatabaseConfig struct {
 	SSLMode  string
 }
 
-type ProjectConfig struct {
-	Name          string
-	RepoPath      string
-	RepoURL       string
-	DefaultBranch string
+type DockerDatabaseConfig struct {
+	ContainerName string
+	DatabaseName  string
+	User          string
+	Port          int
+	VolumeName    string
+	Image         string
+}
+
+type DatabaseSourceConfig struct {
+	Type   DatabaseSourceType
+	Manual *DatabaseConfig
+	Docker *DockerDatabaseConfig
 }
 
 type CompleteRequest struct {
-	Mode     Mode
-	Database DatabaseConfig
-	Agents   []string
-	Project  ProjectConfig
+	Database       DatabaseConfig
+	Auth           AuthConfig
+	AllowOverwrite bool
 }
 
 type DatabaseTestResult struct {
 	Message string `json:"message"`
 }
 
+type PreparedDatabase struct {
+	Source DatabaseSourceType
+	Config DatabaseConfig
+	Docker *DockerDatabaseRuntime
+}
+
+type DockerDatabaseRuntime struct {
+	ContainerName string `json:"container_name"`
+	DatabaseName  string `json:"database_name"`
+	User          string `json:"user"`
+	Port          int    `json:"port"`
+	VolumeName    string `json:"volume_name"`
+	Image         string `json:"image"`
+}
+
+type OIDCConfig struct {
+	IssuerURL            string
+	ClientID             string
+	ClientSecret         string
+	RedirectURL          string
+	Scopes               []string
+	AllowedEmailDomains  []string
+	BootstrapAdminEmails []string
+	SessionTTL           string
+	SessionIdleTTL       string
+}
+
+type AuthConfig struct {
+	Mode AuthModeType
+	OIDC *OIDCConfig
+}
+
+func ParseAuthInput(raw RawAuthInput) (AuthConfig, error) {
+	return parseAuthInput(raw)
+}
+
 type CompleteResult struct {
-	ConfigPath      string   `json:"config_path"`
-	EnvPath         string   `json:"env_path"`
-	RepoPath        string   `json:"repo_path"`
-	ScaffoldedFiles []string `json:"scaffolded_files"`
-	ProjectName     string   `json:"project_name"`
-	Mode            Mode     `json:"mode"`
+	ConfigPath       string `json:"config_path"`
+	EnvPath          string `json:"env_path"`
+	OrganizationName string `json:"organization_name"`
+	OrganizationSlug string `json:"organization_slug"`
+	ProjectName      string `json:"project_name"`
+	ProjectSlug      string `json:"project_slug"`
 }
 
-type parsedAgentSet struct {
-	IDs     []string
-	Options []AgentOption
+func defaultRawDatabaseInput() RawDatabaseInput {
+	return RawDatabaseInput{
+		Host:    "127.0.0.1",
+		Port:    5432,
+		Name:    "openase",
+		User:    "openase",
+		SSLMode: "disable",
+	}
 }
 
-func parseMode(raw string) (Mode, error) {
-	mode := Mode(strings.TrimSpace(strings.ToLower(raw)))
+func defaultRawDockerDatabaseInput() RawDockerDatabaseInput {
+	return RawDockerDatabaseInput{
+		ContainerName: "openase-local-postgres",
+		DatabaseName:  "openase",
+		User:          "openase",
+		Port:          15432,
+		VolumeName:    "openase-local-postgres-data",
+		Image:         "postgres:16-alpine",
+	}
+}
+
+func defaultRawAuthInput() RawAuthInput {
+	return RawAuthInput{
+		Mode: string(AuthModeDisabled),
+		OIDC: &RawOIDCInput{
+			ClientID:       "openase",
+			RedirectURL:    DefaultOIDCRedirectURL,
+			Scopes:         DefaultOIDCScopes,
+			SessionTTL:     DefaultOIDCSessionTTL,
+			SessionIdleTTL: DefaultOIDCIdleTTL,
+		},
+	}
+}
+
+func parseDatabaseSourceType(raw string) (DatabaseSourceType, error) {
+	sourceType := DatabaseSourceType(strings.TrimSpace(strings.ToLower(raw)))
+	switch sourceType {
+	case DatabaseSourceManual, DatabaseSourceDocker:
+		return sourceType, nil
+	default:
+		return "", fmt.Errorf("database.type must be one of manual, docker")
+	}
+}
+
+func parseAuthModeType(raw string) (AuthModeType, error) {
+	mode := AuthModeType(strings.TrimSpace(strings.ToLower(raw)))
+	if mode == "" {
+		mode = AuthModeDisabled
+	}
 	switch mode {
-	case ModePersonal, ModeTeam, ModeEnterprise:
+	case AuthModeDisabled, AuthModeOIDC:
 		return mode, nil
 	default:
-		return "", fmt.Errorf("mode must be one of personal, team, enterprise")
+		return "", fmt.Errorf("auth.mode must be one of disabled, oidc")
 	}
 }
 
@@ -176,102 +319,252 @@ func (c DatabaseConfig) DSN() string {
 	}).String()
 }
 
-func parseProjectInput(raw RawProjectInput) (ProjectConfig, error) {
-	name := strings.TrimSpace(raw.Name)
-	if name == "" {
-		return ProjectConfig{}, fmt.Errorf("project.name must not be empty")
+func (c DatabaseConfig) Raw() RawDatabaseInput {
+	return RawDatabaseInput(c)
+}
+
+func (c AuthConfig) Raw() RawAuthInput {
+	raw := RawAuthInput{Mode: string(c.Mode)}
+	if c.OIDC == nil {
+		return raw
 	}
 
-	repoPath := strings.TrimSpace(raw.RepoPath)
-	if repoPath == "" {
-		return ProjectConfig{}, fmt.Errorf("project.repo_path must not be empty")
+	raw.OIDC = &RawOIDCInput{
+		IssuerURL:            c.OIDC.IssuerURL,
+		ClientID:             c.OIDC.ClientID,
+		ClientSecret:         c.OIDC.ClientSecret,
+		RedirectURL:          c.OIDC.RedirectURL,
+		Scopes:               strings.Join(c.OIDC.Scopes, ","),
+		AllowedEmailDomains:  strings.Join(c.OIDC.AllowedEmailDomains, ","),
+		BootstrapAdminEmails: strings.Join(c.OIDC.BootstrapAdminEmails, ","),
+		SessionTTL:           c.OIDC.SessionTTL,
+		SessionIdleTTL:       c.OIDC.SessionIdleTTL,
 	}
-	absoluteRepoPath, err := filepath.Abs(repoPath)
-	if err != nil {
-		return ProjectConfig{}, fmt.Errorf("resolve project.repo_path: %w", err)
+	return raw
+}
+
+func parseDockerDatabaseInput(raw RawDockerDatabaseInput) (DockerDatabaseConfig, error) {
+	defaults := defaultRawDockerDatabaseInput()
+
+	containerName := strings.TrimSpace(raw.ContainerName)
+	if containerName == "" {
+		containerName = defaults.ContainerName
 	}
 
-	info, err := os.Stat(absoluteRepoPath)
-	if err != nil {
-		return ProjectConfig{}, fmt.Errorf("stat project.repo_path: %w", err)
-	}
-	if !info.IsDir() {
-		return ProjectConfig{}, fmt.Errorf("project.repo_path must be a directory")
-	}
-	if _, err := os.Stat(filepath.Join(absoluteRepoPath, ".git")); err != nil {
-		return ProjectConfig{}, fmt.Errorf("project.repo_path must point to a git repository")
+	databaseName := strings.TrimSpace(raw.DatabaseName)
+	if databaseName == "" {
+		databaseName = defaults.DatabaseName
 	}
 
-	defaultBranch := strings.TrimSpace(raw.DefaultBranch)
-	if defaultBranch == "" {
-		defaultBranch = "main"
+	user := strings.TrimSpace(raw.User)
+	if user == "" {
+		user = defaults.User
 	}
 
-	return ProjectConfig{
-		Name:          name,
-		RepoPath:      absoluteRepoPath,
-		RepoURL:       strings.TrimSpace(raw.RepoURL),
-		DefaultBranch: defaultBranch,
+	port := raw.Port
+	if port == 0 {
+		port = defaults.Port
+	}
+	if port < 1 || port > 65535 {
+		return DockerDatabaseConfig{}, fmt.Errorf("database.docker.port must be between 1 and 65535")
+	}
+
+	volumeName := strings.TrimSpace(raw.VolumeName)
+	if volumeName == "" {
+		volumeName = defaults.VolumeName
+	}
+
+	image := strings.TrimSpace(raw.Image)
+	if image == "" {
+		image = defaults.Image
+	}
+
+	return DockerDatabaseConfig{
+		ContainerName: containerName,
+		DatabaseName:  databaseName,
+		User:          user,
+		Port:          port,
+		VolumeName:    volumeName,
+		Image:         image,
 	}, nil
 }
 
-func parseCompleteRequest(raw RawCompleteRequest, availableAgents []AgentOption) (CompleteRequest, error) {
-	mode, err := parseMode(raw.Mode)
+func parseDatabaseSourceInput(raw RawDatabaseSourceInput) (DatabaseSourceConfig, error) {
+	sourceType, err := parseDatabaseSourceType(raw.Type)
 	if err != nil {
-		return CompleteRequest{}, err
+		return DatabaseSourceConfig{}, err
 	}
 
+	switch sourceType {
+	case DatabaseSourceManual:
+		manualRaw := defaultRawDatabaseInput()
+		if raw.Manual != nil {
+			manualRaw = *raw.Manual
+		}
+		manual, err := parseDatabaseInput(manualRaw)
+		if err != nil {
+			return DatabaseSourceConfig{}, err
+		}
+		return DatabaseSourceConfig{
+			Type:   DatabaseSourceManual,
+			Manual: &manual,
+		}, nil
+	case DatabaseSourceDocker:
+		dockerRaw := defaultRawDockerDatabaseInput()
+		if raw.Docker != nil {
+			dockerRaw = *raw.Docker
+		}
+		docker, err := parseDockerDatabaseInput(dockerRaw)
+		if err != nil {
+			return DatabaseSourceConfig{}, err
+		}
+		return DatabaseSourceConfig{
+			Type:   DatabaseSourceDocker,
+			Docker: &docker,
+		}, nil
+	default:
+		return DatabaseSourceConfig{}, fmt.Errorf("unsupported database source %q", sourceType)
+	}
+}
+
+func parseCompleteRequest(raw RawCompleteRequest) (CompleteRequest, error) {
 	database, err := parseDatabaseInput(raw.Database)
 	if err != nil {
 		return CompleteRequest{}, err
 	}
-
-	project, err := parseProjectInput(raw.Project)
-	if err != nil {
-		return CompleteRequest{}, err
-	}
-
-	agents, err := parseAgentIDs(raw.Agents, availableAgents)
+	auth, err := parseAuthInput(raw.Auth)
 	if err != nil {
 		return CompleteRequest{}, err
 	}
 
 	return CompleteRequest{
-		Mode:     mode,
-		Database: database,
-		Agents:   agents.IDs,
-		Project:  project,
+		Database:       database,
+		Auth:           auth,
+		AllowOverwrite: raw.AllowOverwrite,
 	}, nil
 }
 
-func parseAgentIDs(raw []string, availableAgents []AgentOption) (parsedAgentSet, error) {
-	known := make(map[string]AgentOption, len(availableAgents))
-	for _, option := range availableAgents {
-		known[option.ID] = option
+func parseAuthInput(raw RawAuthInput) (AuthConfig, error) {
+	mode, err := parseAuthModeType(raw.Mode)
+	if err != nil {
+		return AuthConfig{}, err
+	}
+	if mode == AuthModeDisabled {
+		return AuthConfig{Mode: AuthModeDisabled}, nil
 	}
 
-	seen := make(map[string]struct{}, len(raw))
-	ids := make([]string, 0, len(raw))
-	options := make([]AgentOption, 0, len(raw))
-	for index, item := range raw {
-		id := strings.TrimSpace(item)
-		if id == "" {
-			return parsedAgentSet{}, fmt.Errorf("agents[%d] must not be empty", index)
-		}
-		option, ok := known[id]
-		if !ok {
-			return parsedAgentSet{}, fmt.Errorf("agents[%d] references unsupported agent %q", index, id)
-		}
-		if !option.Available {
-			return parsedAgentSet{}, fmt.Errorf("agents[%d] references unavailable agent %q", index, id)
-		}
-		if _, exists := seen[id]; exists {
+	oidcRaw := defaultRawAuthInput().OIDC
+	if raw.OIDC != nil {
+		oidcRaw = raw.OIDC
+	}
+	if oidcRaw == nil {
+		return AuthConfig{}, fmt.Errorf("auth.oidc must be provided when auth.mode=oidc")
+	}
+
+	oidc, err := parseOIDCInput(*oidcRaw)
+	if err != nil {
+		return AuthConfig{}, err
+	}
+
+	return AuthConfig{
+		Mode: AuthModeOIDC,
+		OIDC: &oidc,
+	}, nil
+}
+
+func parseOIDCInput(raw RawOIDCInput) (OIDCConfig, error) {
+	defaults := defaultRawAuthInput().OIDC
+	if defaults == nil {
+		return OIDCConfig{}, fmt.Errorf("oidc defaults are unavailable")
+	}
+
+	issuerURL := strings.TrimSpace(raw.IssuerURL)
+	if issuerURL == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.issuer_url must not be empty when auth.mode=oidc")
+	}
+
+	clientID := strings.TrimSpace(raw.ClientID)
+	if clientID == "" {
+		clientID = defaults.ClientID
+	}
+	if clientID == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.client_id must not be empty when auth.mode=oidc")
+	}
+
+	clientSecret := strings.TrimSpace(raw.ClientSecret)
+	if clientSecret == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.client_secret must not be empty when auth.mode=oidc")
+	}
+
+	redirectURL := strings.TrimSpace(raw.RedirectURL)
+	if redirectURL == "" {
+		redirectURL = defaults.RedirectURL
+	}
+	if redirectURL == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.redirect_url must not be empty when auth.mode=oidc")
+	}
+
+	scopesInput := strings.TrimSpace(raw.Scopes)
+	if scopesInput == "" {
+		scopesInput = defaults.Scopes
+	}
+	scopes := normalizeCSV(scopesInput)
+	if len(scopes) == 0 {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.scopes must not be empty when auth.mode=oidc")
+	}
+
+	sessionTTL := strings.TrimSpace(raw.SessionTTL)
+	if sessionTTL == "" {
+		sessionTTL = defaults.SessionTTL
+	}
+	if _, err := time.ParseDuration(sessionTTL); err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_ttl must be a valid duration: %w", err)
+	}
+
+	sessionIdleTTL := strings.TrimSpace(raw.SessionIdleTTL)
+	if sessionIdleTTL == "" {
+		sessionIdleTTL = defaults.SessionIdleTTL
+	}
+	idleDuration, err := time.ParseDuration(sessionIdleTTL)
+	if err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_idle_ttl must be a valid duration: %w", err)
+	}
+
+	sessionDuration, err := time.ParseDuration(sessionTTL)
+	if err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_ttl must be a valid duration: %w", err)
+	}
+	if idleDuration > sessionDuration {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_idle_ttl must not exceed auth.oidc.session_ttl")
+	}
+
+	return OIDCConfig{
+		IssuerURL:            issuerURL,
+		ClientID:             clientID,
+		ClientSecret:         clientSecret,
+		RedirectURL:          redirectURL,
+		Scopes:               scopes,
+		AllowedEmailDomains:  normalizeCSV(raw.AllowedEmailDomains),
+		BootstrapAdminEmails: normalizeCSV(raw.BootstrapAdminEmails),
+		SessionTTL:           sessionTTL,
+		SessionIdleTTL:       sessionIdleTTL,
+	}, nil
+}
+
+func normalizeCSV(raw string) []string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(trimmed, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
 			continue
 		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
-		options = append(options, option)
+		items = append(items, value)
 	}
-
-	return parsedAgentSet{IDs: ids, Options: options}, nil
+	return items
 }
