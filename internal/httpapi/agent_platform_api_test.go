@@ -1318,6 +1318,7 @@ func TestAgentPlatformForbiddenBoundaryPaths(t *testing.T) {
 }
 
 type agentPlatformExpandedFixture struct {
+	client               *ent.Client
 	server               *Server
 	platformService      *agentplatform.Service
 	projectID            uuid.UUID
@@ -1397,6 +1398,58 @@ func TestAgentPlatformExpandedTicketRepoScopeRoutesRequireExplicitScopes(t *test
 		t.Run(tc.name, func(t *testing.T) {
 			assertPlatformScopeRoute(t, fixture, tc.scope, tc.method, tc.path, tc.body, tc.wantStatus, tc.wantBody)
 		})
+	}
+}
+
+func TestAgentPlatformProjectConversationTokenCanListTicketRepoScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	ctx := context.Background()
+	conversationID := uuid.New()
+
+	if _, err := fixture.client.ChatConversation.Create().
+		SetID(conversationID).
+		SetProjectID(fixture.projectID).
+		SetUserID("browser-user").
+		SetSource("project_sidebar").
+		SetProviderID(fixture.providerID).
+		SetStatus("active").
+		Save(ctx); err != nil {
+		t.Fatalf("create chat conversation: %v", err)
+	}
+	if _, err := fixture.client.ProjectConversationPrincipal.Create().
+		SetID(conversationID).
+		SetConversationID(conversationID).
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("project-conversation:" + conversationID.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+
+	issued, err := fixture.platformService.IssueToken(ctx, agentplatform.IssueInput{
+		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+		PrincipalID:    conversationID,
+		ProjectID:      fixture.projectID,
+		ConversationID: conversationID,
+		Scopes:         []string{string(agentplatform.ScopeTicketRepoScopesList)},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
+	}
+
+	rec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID),
+		nil,
+		issued.Token,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected project conversation repo scope list to return 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"repo_scopes":[`) {
+		t.Fatalf("expected repo scope list response, got %s", rec.Body.String())
 	}
 }
 
@@ -1676,6 +1729,7 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	)
 
 	return &agentPlatformExpandedFixture{
+		client:               client,
 		server:               server,
 		platformService:      platformService,
 		projectID:            projectID,

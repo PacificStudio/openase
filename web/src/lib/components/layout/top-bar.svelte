@@ -6,9 +6,10 @@
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
   import * as Tooltip from '$ui/tooltip'
-  import { ChevronDown, Search, Plus, Settings, LogOut, Moon, Check } from '@lucide/svelte'
+  import { Check, ChevronDown, Plus } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
-  import * as Avatar from '$ui/avatar'
+  import TopBarPrimaryActions from './top-bar-primary-actions.svelte'
+  import TopBarUserMenu from './top-bar-user-menu.svelte'
 
   let {
     organizations = [],
@@ -24,11 +25,19 @@
     searchEnabled = false,
     newTicketEnabled = false,
     newTicketTitle,
+    settingsEnabled = false,
+    settingsHref = '',
+    userDisplayName = '',
+    userPrimaryEmail = '',
+    userAvatarURL = '',
+    logoutPending = false,
     onToggleTheme,
     onNewTicket,
     onOpenSearch,
     onCreateOrg,
     onCreateProject,
+    onOpenSettings,
+    onLogout,
   }: {
     organizations?: Organization[]
     projects?: Project[]
@@ -43,11 +52,19 @@
     searchEnabled?: boolean
     newTicketEnabled?: boolean
     newTicketTitle?: string
+    settingsEnabled?: boolean
+    settingsHref?: string
+    userDisplayName?: string
+    userPrimaryEmail?: string
+    userAvatarURL?: string
+    logoutPending?: boolean
     onToggleTheme?: () => void
     onNewTicket?: () => void
     onOpenSearch?: () => void
     onCreateOrg?: () => void
     onCreateProject?: () => void
+    onOpenSettings?: () => void
+    onLogout?: () => void
   } = $props()
 
   const healthDotClass = $derived.by(() => {
@@ -76,14 +93,22 @@
     return goto(projectPath(currentOrgId, projectId, section))
   }
 
-  function handleOpenSearchClick() {
-    onOpenSearch?.()
-  }
-
   function warmRoute(href: string) {
     void preloadCode(href)
     void preloadData(href)
   }
+
+  const userInitials = $derived.by(() => {
+    const source = userDisplayName.trim() || userPrimaryEmail.trim()
+    if (!source) {
+      return 'U'
+    }
+    const parts = source.split(/\s+/).filter((value) => value !== '')
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase()
+    }
+    return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase()
+  })
 </script>
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
@@ -229,68 +254,26 @@
 
   <div class="flex-1"></div>
 
-  {#if searchEnabled}
-    <Button
-      variant="outline"
-      size="sm"
-      class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
-      onclick={handleOpenSearchClick}
-    >
-      <Search class="size-3.5" />
-      <span class="text-xs">Search...</span>
-      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
-    </Button>
+  <TopBarPrimaryActions
+    {searchEnabled}
+    {newTicketEnabled}
+    {newTicketTitle}
+    {sseStatus}
+    {onOpenSearch}
+    {onNewTicket}
+  />
 
-    <Separator orientation="vertical" class="mx-1 h-5" />
-  {/if}
-
-  <Button
-    size="sm"
-    class="gap-1.5"
-    disabled={!newTicketEnabled}
-    title={newTicketEnabled
-      ? 'Create ticket'
-      : (newTicketTitle ?? 'Ticket creation is not available.')}
-    onclick={onNewTicket}
-  >
-    <Plus class="size-3.5" />
-    <span class="hidden text-xs sm:inline">New Ticket</span>
-  </Button>
-
-  <div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
-    {#if sseStatus === 'live'}
-      <span class="bg-success size-1.5 rounded-full"></span>
-    {:else if sseStatus === 'connecting' || sseStatus === 'retrying'}
-      <span class="bg-warning size-1.5 animate-pulse rounded-full"></span>
-    {:else}
-      <span class="bg-destructive size-1.5 rounded-full"></span>
-    {/if}
-  </div>
-
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger>
-      {#snippet child({ props })}
-        <button {...props} class="rounded-full">
-          <Avatar.Root class="size-7">
-            <Avatar.Fallback class="bg-primary/10 text-primary text-xs">U</Avatar.Fallback>
-          </Avatar.Root>
-        </button>
-      {/snippet}
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Content align="end" class="w-48">
-      <DropdownMenu.Item onclick={onToggleTheme}>
-        <Moon class="mr-2 size-4" />
-        Toggle Theme
-      </DropdownMenu.Item>
-      <DropdownMenu.Item>
-        <Settings class="mr-2 size-4" />
-        Settings
-      </DropdownMenu.Item>
-      <DropdownMenu.Separator />
-      <DropdownMenu.Item>
-        <LogOut class="mr-2 size-4" />
-        Logout
-      </DropdownMenu.Item>
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
+  <TopBarUserMenu
+    {userDisplayName}
+    {userPrimaryEmail}
+    {userAvatarURL}
+    {userInitials}
+    {logoutPending}
+    {settingsEnabled}
+    {settingsHref}
+    {onToggleTheme}
+    {onOpenSettings}
+    onWarmSettings={warmRoute}
+    {onLogout}
+  />
 </header>

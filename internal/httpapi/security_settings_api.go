@@ -9,6 +9,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -48,6 +49,12 @@ type securitySecretHygieneResponse struct {
 	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
 }
 
+type securityApprovalPoliciesResponse struct {
+	Status     string `json:"status"`
+	RulesCount int    `json:"rules_count"`
+	Summary    string `json:"summary"`
+}
+
 type securityGitHubTokenProbeResponse struct {
 	State       string   `json:"state"`
 	Configured  bool     `json:"configured"`
@@ -74,12 +81,13 @@ type securityGitHubOutboundCredentialResponse struct {
 }
 
 type securitySettingsResponse struct {
-	ProjectID     string                                   `json:"project_id"`
-	AgentTokens   securityAgentTokensResponse              `json:"agent_tokens"`
-	GitHub        securityGitHubOutboundCredentialResponse `json:"github"`
-	Webhooks      securityWebhookBoundaryResponse          `json:"webhooks"`
-	SecretHygiene securitySecretHygieneResponse            `json:"secret_hygiene"`
-	Deferred      []securityDeferredCapabilityResponse     `json:"deferred"`
+	ProjectID        string                                   `json:"project_id"`
+	AgentTokens      securityAgentTokensResponse              `json:"agent_tokens"`
+	GitHub           securityGitHubOutboundCredentialResponse `json:"github"`
+	Webhooks         securityWebhookBoundaryResponse          `json:"webhooks"`
+	SecretHygiene    securitySecretHygieneResponse            `json:"secret_hygiene"`
+	ApprovalPolicies securityApprovalPoliciesResponse         `json:"approval_policies"`
+	Deferred         []securityDeferredCapabilityResponse     `json:"deferred"`
 }
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
@@ -225,13 +233,14 @@ func (s *Server) writeSecuritySettingsResponse(
 	github securityGitHubOutboundCredentialResponse,
 ) error {
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, github),
+		"security": buildSecuritySettingsResponse(projectID, github, s.resolveApprovalPoliciesSummary(c)),
 	})
 }
 
 func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
 	github securityGitHubOutboundCredentialResponse,
+	approvalPolicies securityApprovalPoliciesResponse,
 ) securitySettingsResponse {
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
@@ -250,21 +259,12 @@ func buildSecuritySettingsResponse(
 		SecretHygiene: securitySecretHygieneResponse{
 			NotificationChannelConfigsRedacted: true,
 		},
+		ApprovalPolicies: approvalPolicies,
 		Deferred: []securityDeferredCapabilityResponse{
 			{
 				Key:     "github-device-flow",
 				Title:   "GitHub Device Flow",
 				Summary: "GitHub Device Flow remains deferred until the platform has OAuth app wiring for a fully managed browserless authorization hand-off.",
-			},
-			{
-				Key:     "human-auth",
-				Title:   "Human sign-in and OIDC",
-				Summary: "Browser-facing local token distribution and OIDC setup remain outside the shipped Settings boundary.",
-			},
-			{
-				Key:     "rbac",
-				Title:   "Roles and permission policy",
-				Summary: "Role mapping, approval policy, and broader access governance still need a dedicated control-plane surface.",
 			},
 			{
 				Key:     "provider-secret-rotation",
@@ -273,6 +273,27 @@ func buildSecuritySettingsResponse(
 			},
 		},
 	}
+}
+
+func (s *Server) resolveApprovalPoliciesSummary(c echo.Context) securityApprovalPoliciesResponse {
+	response := securityApprovalPoliciesResponse{
+		Status:  "reserved",
+		Summary: "Approval policy storage is reserved for future second-factor or approver requirements and stays separate from RBAC grants.",
+	}
+	if s == nil || s.humanAuthService == nil {
+		return response
+	}
+	count, err := s.humanAuthService.CountApprovalPolicies(c.Request().Context())
+	if err != nil {
+		if errors.Is(err, humanauthservice.ErrAuthDisabled) {
+			return response
+		}
+		response.Status = "unavailable"
+		response.Summary = "Approval policy diagnostics are unavailable because stored policy rules could not be queried."
+		return response
+	}
+	response.RulesCount = count
+	return response
 }
 
 func mapSecurityScopeGroups(items []agentplatform.ScopeGroup) []securityScopeGroupResponse {

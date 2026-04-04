@@ -123,7 +123,7 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
   securitySettings: {
     state: 'available',
     summary:
-      'Security settings are available via GET /api/v1/projects/{projectId}/security-settings, documenting shipped runtime boundaries while broader security control plane changes stay explicitly deferred.',
+      'Security settings are available via GET /api/v1/projects/{projectId}/security-settings, surfacing shipped human auth, RBAC, and outbound GitHub credential diagnostics while approval policy expansion and GitHub Device Flow remain explicitly deferred.',
   },
 }
 

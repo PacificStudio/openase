@@ -18,17 +18,182 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
+
+func TestCurrentRequestChatUserIDUsesHumanPrincipalInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(chatUserHeader, "browser-user-1")
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	userID := uuid.MustParse("8db7261e-e16d-458e-8926-cd01550686a5")
+	setHumanPrincipal(ctx, humanauthdomain.AuthenticatedPrincipal{
+		User: humanauthdomain.User{ID: userID},
+	})
+
+	got, err := server.currentRequestChatUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentRequestChatUserID() error = %v", err)
+	}
+	if got != chatservice.UserID("user:"+userID.String()) {
+		t.Fatalf("currentRequestChatUserID() = %q, want %q", got, "user:"+userID.String())
+	}
+}
+
+func TestCurrentRequestChatUserIDRejectsHeaderFallbackInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(chatUserHeader, "browser-user-1")
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	_, err := server.currentRequestChatUserID(ctx)
+	if !errors.Is(err, humanauthservice.ErrUnauthorized) {
+		t.Fatalf("currentRequestChatUserID() error = %v, want %v", err, humanauthservice.ErrUnauthorized)
+	}
+}
+
+func TestCurrentRequestChatUserIDAllowsHeaderFallbackWhenAuthDisabled(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeDisabled}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(chatUserHeader, "browser-user-1")
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	got, err := server.currentRequestChatUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentRequestChatUserID() error = %v", err)
+	}
+	if got != "browser-user-1" {
+		t.Fatalf("currentRequestChatUserID() = %q, want %q", got, "browser-user-1")
+	}
+}
+
+func TestPrepareProjectConversationActionBodyInjectsExplicitAuditActor(t *testing.T) {
+	conversationID := uuid.MustParse("57cdcb4e-6e4c-4474-839a-4daa5abdd8d2")
+	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), conversationID)
+
+	tests := []struct {
+		name      string
+		method    string
+		path      string
+		body      map[string]any
+		fieldName string
+	}{
+		{
+			name:      "ticket create",
+			method:    http.MethodPost,
+			path:      "/api/v1/projects/" + uuid.NewString() + "/tickets",
+			body:      map[string]any{"title": "Follow up"},
+			fieldName: "created_by",
+		},
+		{
+			name:      "ticket comment patch",
+			method:    http.MethodPatch,
+			path:      "/api/v1/tickets/" + uuid.NewString() + "/comments/" + uuid.NewString(),
+			body:      map[string]any{"body": "Updated after confirmation"},
+			fieldName: "edited_by",
+		},
+		{
+			name:      "workflow harness update",
+			method:    http.MethodPut,
+			path:      "/api/v1/workflows/" + uuid.NewString() + "/harness",
+			body:      map[string]any{"content": "new harness"},
+			fieldName: "edited_by",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			prepared, err := prepareProjectConversationActionBody(tc.method, tc.path, tc.body, executedBy)
+			if err != nil {
+				t.Fatalf("prepareProjectConversationActionBody() error = %v", err)
+			}
+			if got := prepared[tc.fieldName]; got != executedBy {
+				t.Fatalf("prepareProjectConversationActionBody() %s = %#v, want %q", tc.fieldName, got, executedBy)
+			}
+		})
+	}
+}
+
+func TestPrepareProjectConversationActionBodyRejectsImplicitAuditRoutes(t *testing.T) {
+	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), uuid.New())
+
+	_, err := prepareProjectConversationActionBody(
+		http.MethodPost,
+		"/api/v1/projects/"+uuid.NewString()+"/repos",
+		map[string]any{"name": "repo"},
+		executedBy,
+	)
+	if err == nil {
+		t.Fatal("expected unsupported path to be rejected")
+	}
+	if !strings.Contains(err.Error(), "audit actor is not explicit") {
+		t.Fatalf("unexpected error = %v", err)
+	}
+}
+
+func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) {
+	projectConversationService := chatservice.NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeOIDC}),
+		WithHumanAuthService(nil, &humanauthservice.Authorizer{}),
+		WithProjectConversationService(projectConversationService),
+	)
+
+	conversationID := uuid.NewString()
+	interruptID := uuid.NewString()
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		target string
+		body   string
+	}{
+		{
+			name:   "close runtime",
+			method: http.MethodDelete,
+			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",
+		},
+		{
+			name:   "respond interrupt",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/interrupts/" + interruptID + "/respond",
+			body:   `{"decision":"approve"}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := performJSONRequest(t, server, tc.method, tc.target, tc.body)
+			if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "HUMAN_SESSION_REQUIRED") {
+				t.Fatalf("expected 401 HUMAN_SESSION_REQUIRED, got %d: %s", rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
 
 func TestMapProjectConversationResponseIncludesProviderAnchors(t *testing.T) {
 	threadID := "thread-1"

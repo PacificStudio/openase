@@ -19,6 +19,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -38,6 +40,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
+	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
@@ -51,6 +54,9 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/ent/ticketstatus"
+	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/BetterAndBetterII/openase/ent/usergroupmembership"
+	"github.com/BetterAndBetterII/openase/ent/useridentity"
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
@@ -121,6 +127,8 @@ func checkColumn(t, c string) error {
 			agentstepevent.Table:                agentstepevent.ValidColumn,
 			agenttoken.Table:                    agenttoken.ValidColumn,
 			agenttraceevent.Table:               agenttraceevent.ValidColumn,
+			approvalpolicyrule.Table:            approvalpolicyrule.ValidColumn,
+			browsersession.Table:                browsersession.ValidColumn,
 			chatconversation.Table:              chatconversation.ValidColumn,
 			chatentry.Table:                     chatentry.ValidColumn,
 			chatpendinginterrupt.Table:          chatpendinginterrupt.ValidColumn,
@@ -140,6 +148,7 @@ func checkColumn(t, c string) error {
 			projectupdatecommentrevision.Table:  projectupdatecommentrevision.ValidColumn,
 			projectupdatethread.Table:           projectupdatethread.ValidColumn,
 			projectupdatethreadrevision.Table:   projectupdatethreadrevision.ValidColumn,
+			rolebinding.Table:                   rolebinding.ValidColumn,
 			scheduledjob.Table:                  scheduledjob.ValidColumn,
 			skill.Table:                         skill.ValidColumn,
 			skillblob.Table:                     skillblob.ValidColumn,
@@ -153,6 +162,9 @@ func checkColumn(t, c string) error {
 			ticketreposcope.Table:               ticketreposcope.ValidColumn,
 			ticketrepoworkspace.Table:           ticketrepoworkspace.ValidColumn,
 			ticketstatus.Table:                  ticketstatus.ValidColumn,
+			user.Table:                          user.ValidColumn,
+			usergroupmembership.Table:           usergroupmembership.ValidColumn,
+			useridentity.Table:                  useridentity.ValidColumn,
 			workflow.Table:                      workflow.ValidColumn,
 			workflowskillbinding.Table:          workflowskillbinding.ValidColumn,
 			workflowversion.Table:               workflowversion.ValidColumn,

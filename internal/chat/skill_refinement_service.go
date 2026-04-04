@@ -101,6 +101,8 @@ type skillRefinementRuntimeEventParseResult struct {
 
 type skillRefinementSessionRecord struct {
 	UserID        UserID
+	ProjectID     uuid.UUID
+	SkillID       uuid.UUID
 	ProviderID    uuid.UUID
 	WorkspaceRoot string
 }
@@ -114,10 +116,12 @@ type skillRefinementSessionRegistry struct {
 func (r *skillRefinementSessionRegistry) Register(
 	userID UserID,
 	sessionID SessionID,
+	projectID uuid.UUID,
+	skillID uuid.UUID,
 	providerID uuid.UUID,
 	workspaceRoot string,
 ) {
-	if userID == "" || sessionID == "" || providerID == uuid.Nil || strings.TrimSpace(workspaceRoot) == "" {
+	if userID == "" || sessionID == "" || projectID == uuid.Nil || skillID == uuid.Nil || providerID == uuid.Nil || strings.TrimSpace(workspaceRoot) == "" {
 		return
 	}
 	r.mu.Lock()
@@ -133,6 +137,8 @@ func (r *skillRefinementSessionRegistry) Register(
 	}
 	r.bySession[sessionID] = skillRefinementSessionRecord{
 		UserID:        userID,
+		ProjectID:     projectID,
+		SkillID:       skillID,
 		ProviderID:    providerID,
 		WorkspaceRoot: workspaceRoot,
 	}
@@ -267,7 +273,7 @@ func (s *SkillRefinementService) Start(
 		return TurnStream{}, err
 	}
 
-	s.sessions.Register(userID, sessionID, providerItem.ID, projection.WorkspaceRoot)
+	s.sessions.Register(userID, sessionID, input.ProjectID, input.SkillID, providerItem.ID, projection.WorkspaceRoot)
 
 	events := make(chan StreamEvent, 64)
 	go s.run(ctx, sessionID, providerItem, projection, skillDetail.Name, input.Message, events)
@@ -284,6 +290,17 @@ func (s *SkillRefinementService) CloseSession(userID UserID, sessionID SessionID
 	s.sessions.Delete(sessionID)
 	s.shutdown(record.WorkspaceRoot, sessionID)
 	return true
+}
+
+func (s *SkillRefinementService) ResolveSessionScopeForUser(
+	userID UserID,
+	sessionID SessionID,
+) (uuid.UUID, uuid.UUID, bool) {
+	record, ok := s.sessions.ResolveForUser(userID, sessionID)
+	if !ok {
+		return uuid.Nil, uuid.Nil, false
+	}
+	return record.ProjectID, record.SkillID, true
 }
 
 func (s *SkillRefinementService) closeSession(sessionID SessionID) {

@@ -923,6 +923,387 @@
         ]
       }
     },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logoutHumanSession",
+        "responses": {
+          "204": {
+            "description": "Browser session revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Revoke the current browser human-auth session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me/permissions": {
+      "get": {
+        "operationId": "getMyEffectivePermissions",
+        "parameters": [
+          {
+            "description": "Optional project scope to evaluate.",
+            "in": "query",
+            "name": "project_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional organization scope to evaluate.",
+            "in": "query",
+            "name": "org_id",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "groups": {
+                      "items": {
+                        "properties": {
+                          "group_key": {
+                            "type": "string"
+                          },
+                          "group_name": {
+                            "type": "string"
+                          },
+                          "issuer": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "permissions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "roles": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "scope": {
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "user": {
+                      "properties": {
+                        "avatar_url": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "primary_email": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get effective OpenASE roles and permissions for the authenticated human response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Get effective OpenASE roles and permissions for the authenticated human",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/callback": {
+      "get": {
+        "operationId": "handleOIDCCallback",
+        "parameters": [
+          {
+            "description": "Authorization code returned by the upstream OIDC provider.",
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque OIDC state value that must match the login flow cookie.",
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "OIDC callback redirect response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          }
+        },
+        "summary": "Complete the browser OIDC login callback",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/start": {
+      "get": {
+        "operationId": "startOIDCLogin",
+        "parameters": [
+          {
+            "description": "Optional same-origin path to redirect back to after login completes.",
+            "in": "query",
+            "name": "return_to",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "OIDC login redirect response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          }
+        },
+        "summary": "Start the browser OIDC login flow",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "getAuthSession",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "auth_mode": {
+                      "type": "string"
+                    },
+                    "authenticated": {
+                      "type": "boolean"
+                    },
+                    "csrf_token": {
+                      "type": "string"
+                    },
+                    "issuer_url": {
+                      "type": "string"
+                    },
+                    "permissions": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "roles": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "user": {
+                      "nullable": true,
+                      "properties": {
+                        "avatar_url": {
+                          "type": "string"
+                        },
+                        "display_name": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "primary_email": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get the current browser human-auth session response."
+          }
+        },
+        "summary": "Get the current browser human-auth session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/channels/{channelId}": {
       "delete": {
         "operationId": "deleteNotificationChannel",
@@ -4870,6 +5251,371 @@
         "summary": "Update a notification rule",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/api/v1/organizations/{orgId}/role-bindings": {
+      "get": {
+        "operationId": "listOrganizationRoleBindings",
+        "parameters": [
+          {
+            "description": "Organization ID that owns the role bindings.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_bindings": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "granted_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "role_key": {
+                            "type": "string"
+                          },
+                          "scope_id": {
+                            "type": "string"
+                          },
+                          "scope_kind": {
+                            "type": "string"
+                          },
+                          "subject_key": {
+                            "type": "string"
+                          },
+                          "subject_kind": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List organization-scoped role bindings response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List organization-scoped role bindings",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "createOrganizationRoleBinding",
+        "parameters": [
+          {
+            "description": "Organization ID that owns the role bindings.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expires_at": {
+                    "description": "Optional RFC3339 timestamp after which the binding automatically expires.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_key": {
+                    "description": "Builtin OpenASE role key to grant on the selected scope.",
+                    "type": "string"
+                  },
+                  "subject_key": {
+                    "description": "Stable user identifier/email or synchronized OIDC group key that receives the role.",
+                    "type": "string"
+                  },
+                  "subject_kind": {
+                    "description": "Binding subject kind. Supported values are user and group.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create an organization-scoped role binding request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_binding": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "granted_by": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "role_key": {
+                          "type": "string"
+                        },
+                        "scope_id": {
+                          "type": "string"
+                        },
+                        "scope_kind": {
+                          "type": "string"
+                        },
+                        "subject_key": {
+                          "type": "string"
+                        },
+                        "subject_kind": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create an organization-scoped role binding response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Create an organization-scoped role binding",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/organizations/{orgId}/role-bindings/{bindingId}": {
+      "delete": {
+        "operationId": "deleteOrganizationRoleBinding",
+        "parameters": [
+          {
+            "description": "Organization ID that owns the role bindings.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Role binding ID to delete.",
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Role binding deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Delete an organization-scoped role binding",
+        "tags": [
+          "auth"
         ]
       }
     },
@@ -11844,6 +12590,371 @@
         ]
       }
     },
+    "/api/v1/projects/{projectId}/role-bindings": {
+      "get": {
+        "operationId": "listProjectRoleBindings",
+        "parameters": [
+          {
+            "description": "Project ID that owns the role bindings.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_bindings": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "granted_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "role_key": {
+                            "type": "string"
+                          },
+                          "scope_id": {
+                            "type": "string"
+                          },
+                          "scope_kind": {
+                            "type": "string"
+                          },
+                          "subject_key": {
+                            "type": "string"
+                          },
+                          "subject_kind": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List project-scoped role bindings response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List project-scoped role bindings",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "createProjectRoleBinding",
+        "parameters": [
+          {
+            "description": "Project ID that owns the role bindings.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expires_at": {
+                    "description": "Optional RFC3339 timestamp after which the binding automatically expires.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_key": {
+                    "description": "Builtin OpenASE role key to grant on the selected scope.",
+                    "type": "string"
+                  },
+                  "subject_key": {
+                    "description": "Stable user identifier/email or synchronized OIDC group key that receives the role.",
+                    "type": "string"
+                  },
+                  "subject_kind": {
+                    "description": "Binding subject kind. Supported values are user and group.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a project-scoped role binding request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_binding": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "granted_by": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "role_key": {
+                          "type": "string"
+                        },
+                        "scope_id": {
+                          "type": "string"
+                        },
+                        "scope_kind": {
+                          "type": "string"
+                        },
+                        "subject_key": {
+                          "type": "string"
+                        },
+                        "subject_kind": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a project-scoped role binding response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Create a project-scoped role binding",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/role-bindings/{bindingId}": {
+      "delete": {
+        "operationId": "deleteProjectRoleBinding",
+        "parameters": [
+          {
+            "description": "Project ID that owns the role bindings.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Role binding ID to delete.",
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Role binding deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Delete a project-scoped role binding",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/projects/{projectId}/scheduled-jobs": {
       "get": {
         "operationId": "listScheduledJobs",
@@ -12213,6 +13324,20 @@
                           },
                           "type": "object"
                         },
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "deferred": {
                           "items": {
                             "properties": {
@@ -12555,6 +13680,20 @@
                               "type": "string"
                             },
                             "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
                               "type": "string"
                             }
                           },
@@ -12917,6 +14056,20 @@
                           },
                           "type": "object"
                         },
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "deferred": {
                           "items": {
                             "properties": {
@@ -13272,6 +14425,20 @@
                           },
                           "type": "object"
                         },
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "deferred": {
                           "items": {
                             "properties": {
@@ -13622,6 +14789,20 @@
                               "type": "string"
                             },
                             "transport": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
                               "type": "string"
                             }
                           },
@@ -17693,6 +18874,171 @@
         "summary": "Get ticket run transcript data",
         "tags": [
           "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/token-usage": {
+      "get": {
+        "operationId": "getProjectTokenUsage",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UTC start date in YYYY-MM-DD format. Defaults to the last 30 days when omitted with to.",
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "UTC end date in YYYY-MM-DD format. Defaults to today when omitted with from.",
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "days": {
+                      "items": {
+                        "properties": {
+                          "cached_input_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "date": {
+                            "type": "string"
+                          },
+                          "finalized_run_count": {
+                            "type": "integer"
+                          },
+                          "input_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "output_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "reasoning_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "total_tokens": {
+                            "format": "int64",
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "summary": {
+                      "properties": {
+                        "avg_daily_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "peak_day": {
+                          "nullable": true,
+                          "properties": {
+                            "date": {
+                              "type": "string"
+                            },
+                            "total_tokens": {
+                              "format": "int64",
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "total_tokens": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project daily token usage for a UTC date range response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get project daily token usage for a UTC date range",
+        "tags": [
+          "catalog"
         ]
       }
     },
@@ -27907,6 +29253,9 @@
   "tags": [
     {
       "name": "system"
+    },
+    {
+      "name": "auth"
     },
     {
       "name": "catalog"

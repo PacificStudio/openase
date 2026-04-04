@@ -92,6 +92,7 @@ import type {
   Organization,
   OrganizationSummaryResponse,
   OrganizationTokenUsageResponse,
+  ProjectTokenUsageResponse,
   OrganizationArchiveResponse,
   OrganizationResponse,
   OrganizationUpdateResponse,
@@ -148,6 +149,24 @@ export function getOrganizationTokenUsage(
   })
   return api.get<OrganizationTokenUsageResponse>(
     `/api/v1/orgs/${orgId}/token-usage?${params.toString()}`,
+    opts,
+  )
+}
+
+export function getProjectTokenUsage(
+  projectId: string,
+  query: {
+    from: string
+    to: string
+  },
+  opts?: { signal?: AbortSignal },
+) {
+  const params = new URLSearchParams({
+    from: query.from,
+    to: query.to,
+  })
+  return api.get<ProjectTokenUsageResponse>(
+    `/api/v1/projects/${projectId}/token-usage?${params.toString()}`,
     opts,
   )
 }

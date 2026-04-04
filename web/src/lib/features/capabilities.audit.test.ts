@@ -144,7 +144,13 @@ const settingsAuditCases: SettingsAuditCase[] = [
     section: 'security',
     capability: 'securitySettings',
     expectedState: 'available',
-    summarySnippets: ['GET /api/v1/projects/{projectId}/security-settings', 'explicitly deferred'],
+    summarySnippets: [
+      'GET /api/v1/projects/{projectId}/security-settings',
+      'human auth',
+      'RBAC',
+      'approval policy expansion',
+      'GitHub Device Flow remain explicitly deferred',
+    ],
     sources: [
       {
         file: './settings/components/settings-page.svelte',

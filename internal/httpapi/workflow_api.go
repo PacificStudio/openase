@@ -117,6 +117,7 @@ func (s *Server) handleCreateWorkflow(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseCreateWorkflowRequest(projectID, raw)
 	if err != nil {
@@ -185,6 +186,7 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseUpdateWorkflowRequest(workflowID, raw)
 	if err != nil {
@@ -434,6 +436,7 @@ func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
+	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
 	input, err := parseUpdateHarnessRequest(workflowID, raw)
 	if err != nil {

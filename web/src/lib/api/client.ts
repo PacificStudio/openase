@@ -1,3 +1,5 @@
+import { authStore } from '$lib/stores/auth.svelte'
+
 const API_BASE = ''
 
 type QueryParamValue = string | number | boolean
@@ -19,6 +21,21 @@ export class ApiError extends Error {
   }
 }
 
+function isMutatingMethod(method: string) {
+  return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS'
+}
+
+export function buildRequestHeaders(method: string, initialHeaders: Record<string, string> = {}) {
+  const headers = { ...initialHeaders }
+  if (isMutatingMethod(method)) {
+    const csrfToken = authStore.csrfToken.trim()
+    if (csrfToken) {
+      headers['X-OpenASE-CSRF'] = csrfToken
+    }
+  }
+  return headers
+}
+
 async function request<T>(method: string, path: string, opts: FetchOptions = {}): Promise<T> {
   const url = new URL(`${API_BASE}${path}`, window.location.origin)
   if (opts.params) {
@@ -30,7 +47,11 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
     }
   }
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  let headers: Record<string, string> = {}
+  if (opts.body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+  }
+  headers = buildRequestHeaders(method, headers)
 
   const res = await fetch(url.toString(), {
     method,

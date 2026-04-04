@@ -60,6 +60,7 @@ make web-validate
 ```
 
 For a complete zero-to-run source deployment guide, see [`docs/source-build-and-run.md`](./docs/source-build-and-run.md).
+For OIDC browser login, session cookies, and RBAC setup, see [`docs/human-auth-oidc-rbac.md`](./docs/human-auth-oidc-rbac.md).
 
 ## Quick Start
 
@@ -119,6 +120,8 @@ export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
 
+If you plan to require browser login, also set `auth.mode=oidc` and the matching `auth.oidc.*` settings in your config. The sample values live in [`config.example.yaml`](./config.example.yaml), and the operational guide lives in [`docs/human-auth-oidc-rbac.md`](./docs/human-auth-oidc-rbac.md).
+
 ## What Setup Scaffolds
 
 The setup flow seeds both home-directory and repo-local assets.
@@ -144,11 +147,15 @@ Representative HTTP routes:
 
 - `GET /healthz`
 - `GET /api/v1/healthz`
+- `GET /auth/oidc/start`, `GET /auth/oidc/callback`, `GET /auth/session`, and `POST /auth/logout`
 - `GET/POST /api/v1/orgs`, `GET/PATCH /api/v1/orgs/:orgId`, and `GET/POST /api/v1/orgs/:orgId/projects`
 - `GET/PATCH/DELETE /api/v1/projects/:projectId`, plus repo, agent, activity, and repo-scope endpoints under the project
 - `GET/POST /api/v1/projects/:projectId/tickets`, `GET /api/v1/projects/:projectId/tickets/:ticketId/detail`, `GET/PATCH /api/v1/tickets/:ticketId`, and dependency endpoints
 - `GET/POST /api/v1/projects/:projectId/workflows`, `GET/PATCH/DELETE /api/v1/workflows/:workflowId`, plus harness read/write and validation
 - `GET /api/v1/projects/:projectId/skills`, `POST /api/v1/projects/:projectId/skills/{refresh,harvest}`, and workflow skill bind/unbind endpoints
+- `GET /api/v1/auth/me/permissions`
+- `GET/POST/DELETE /api/v1/organizations/:orgId/role-bindings`
+- `GET/POST/DELETE /api/v1/projects/:projectId/role-bindings`
 - `GET /api/v1/roles/builtin`
 - `GET /api/v1/projects/:projectId/{tickets,agents,hooks,activity}/stream`
 - `POST /api/v1/webhooks/:connector/:provider`

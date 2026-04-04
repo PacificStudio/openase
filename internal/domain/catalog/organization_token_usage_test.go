@@ -73,3 +73,42 @@ func TestParseOrganizationTokenUsageAcceptsExplicitRange(t *testing.T) {
 		t.Fatalf("expected to %s, got %s", want.Format(time.RFC3339), parsed.ToDate.Format(time.RFC3339))
 	}
 }
+
+func TestParseProjectTokenUsageDefaultsToLastThirtyUTCDays(t *testing.T) {
+	projectID := uuid.New()
+	now := time.Date(2026, 4, 1, 15, 30, 0, 0, time.UTC)
+
+	parsed, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{}, now)
+	if err != nil {
+		t.Fatalf("ParseProjectTokenUsage() error = %v", err)
+	}
+
+	if parsed.ProjectID != projectID {
+		t.Fatalf("expected project %s, got %s", projectID, parsed.ProjectID)
+	}
+	if want := time.Date(2026, 3, 3, 0, 0, 0, 0, time.UTC); !parsed.FromDate.Equal(want) {
+		t.Fatalf("expected from %s, got %s", want.Format(time.RFC3339), parsed.FromDate.Format(time.RFC3339))
+	}
+	if want := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC); !parsed.ToDate.Equal(want) {
+		t.Fatalf("expected to %s, got %s", want.Format(time.RFC3339), parsed.ToDate.Format(time.RFC3339))
+	}
+}
+
+func TestParseProjectTokenUsageAcceptsExplicitRange(t *testing.T) {
+	projectID := uuid.New()
+
+	parsed, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{
+		From: " 2026-03-01 ",
+		To:   "2026-03-31 ",
+	}, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("ParseProjectTokenUsage() error = %v", err)
+	}
+
+	if want := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC); !parsed.FromDate.Equal(want) {
+		t.Fatalf("expected from %s, got %s", want.Format(time.RFC3339), parsed.FromDate.Format(time.RFC3339))
+	}
+	if want := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC); !parsed.ToDate.Equal(want) {
+		t.Fatalf("expected to %s, got %s", want.Format(time.RFC3339), parsed.ToDate.Format(time.RFC3339))
+	}
+}
