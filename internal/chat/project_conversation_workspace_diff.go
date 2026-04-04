@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
@@ -55,6 +56,8 @@ const (
 	ProjectConversationWorkspaceFileStatusRenamed   ProjectConversationWorkspaceFileStatus = "renamed"
 	ProjectConversationWorkspaceFileStatusUntracked ProjectConversationWorkspaceFileStatus = "untracked"
 )
+
+var errProjectConversationWorkspaceLocationUnavailable = errors.New("project conversation workspace location unavailable")
 
 type projectConversationWorkspaceLocation struct {
 	machine       catalogdomain.Machine
@@ -101,6 +104,10 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 
 	location, err := s.resolveConversationWorkspaceLocation(ctx, project, providerItem, conversationID)
 	if err != nil {
+		if errors.Is(err, errProjectConversationWorkspaceLocationUnavailable) &&
+			projectConversationWorkspaceMayNotExistYet(conversation) {
+			return ProjectConversationWorkspaceDiff{ConversationID: conversationID}, nil
+		}
 		return ProjectConversationWorkspaceDiff{}, err
 	}
 
@@ -194,7 +201,10 @@ func (s *ProjectConversationService) resolveConversationWorkspacePath(
 		root = localRoot
 	}
 	if root == "" {
-		return "", fmt.Errorf("chat provider machine %s is missing workspace_root", machine.Name)
+		return "", fmt.Errorf("%w: chat provider machine %s is missing workspace_root", errProjectConversationWorkspaceLocationUnavailable, machine.Name)
+	}
+	if !filepath.IsAbs(root) {
+		return "", fmt.Errorf("%w: chat provider machine %s workspace_root must be absolute", errProjectConversationWorkspaceLocationUnavailable, machine.Name)
 	}
 
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(
@@ -472,4 +482,8 @@ func isMissingGitWorkspace(output []byte) bool {
 func projectConversationCommandExitedWithCode(err error, code int) bool {
 	var exitErr *exec.ExitError
 	return errors.As(err, &exitErr) && exitErr.ExitCode() == code
+}
+
+func projectConversationWorkspaceMayNotExistYet(conversation chatdomain.Conversation) bool {
+	return conversation.LastTurnID == nil && conversation.ProviderThreadID == nil
 }

@@ -7,8 +7,8 @@ describe('ProjectConversationTranscript', () => {
     cleanup()
   })
 
-  it('renders command output directly while hiding noisy task status entries', () => {
-    const { getAllByRole, getByText, getAllByText, queryByText } = render(
+  it('renders command output directly while hiding noisy task status entries', async () => {
+    const { getAllByRole, getByRole, getByText, getAllByText, queryByText } = render(
       ProjectConversationTranscript,
       {
         props: {
@@ -97,6 +97,8 @@ describe('ProjectConversationTranscript', () => {
 
     // Standalone entries are still rendered directly
     expect(getAllByText('README.md').length).toBeGreaterThan(0)
+    expect(queryByText('+new line')).toBeNull()
+    await fireEvent.click(getByRole('button', { name: /README\.md/i }))
     expect(getByText('+new line')).toBeTruthy()
     expect(getByText('Command approval required')).toBeTruthy()
     expect(getByText('Approve once')).toBeTruthy()

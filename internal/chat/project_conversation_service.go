@@ -1880,6 +1880,10 @@ func mapConversationWorkspaceRepos(items []catalogdomain.ProjectRepo) []workspac
 			RepositoryURL: item.RepositoryURL,
 			DefaultBranch: item.DefaultBranch,
 		}
+		if branchName := strings.TrimSpace(item.DefaultBranch); branchName != "" {
+			value := branchName
+			repo.BranchName = &value
+		}
 		if workspaceDirname := strings.TrimSpace(item.WorkspaceDirname); workspaceDirname != "" && workspaceDirname != strings.TrimSpace(item.Name) {
 			value := workspaceDirname
 			repo.WorkspaceDirname = &value
