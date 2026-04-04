@@ -277,6 +277,7 @@ const (
 	AgentRuntimeControlStateActive         AgentRuntimeControlState = "active"
 	AgentRuntimeControlStatePauseRequested AgentRuntimeControlState = "pause_requested"
 	AgentRuntimeControlStatePaused         AgentRuntimeControlState = "paused"
+	AgentRuntimeControlStateRetired        AgentRuntimeControlState = "retired"
 )
 
 func (s AgentRuntimeControlState) String() string {
@@ -285,7 +286,7 @@ func (s AgentRuntimeControlState) String() string {
 
 func (s AgentRuntimeControlState) IsValid() bool {
 	switch s {
-	case AgentRuntimeControlStateActive, AgentRuntimeControlStatePauseRequested, AgentRuntimeControlStatePaused:
+	case AgentRuntimeControlStateActive, AgentRuntimeControlStatePauseRequested, AgentRuntimeControlStatePaused, AgentRuntimeControlStateRetired:
 		return true
 	default:
 		return false

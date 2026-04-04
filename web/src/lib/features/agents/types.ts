@@ -8,7 +8,7 @@ export type AgentInstance = {
   permissionProfile: ProviderPermissionProfile
   status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
-  runtimeControlState: 'active' | 'pause_requested' | 'paused'
+  runtimeControlState: 'active' | 'pause_requested' | 'paused' | 'retired'
   activeRunCount: number
   currentTicket?: { id: string; identifier: string; title: string }
   lastHeartbeat?: string | null

@@ -11,6 +11,7 @@ import (
 	githubrepodomain "github.com/BetterAndBetterII/openase/internal/domain/githubrepo"
 	notificationdomain "github.com/BetterAndBetterII/openase/internal/domain/notification"
 	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
+	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3gen"
@@ -277,6 +278,31 @@ type OpenAPIAgentRuntimeControlResponse struct {
 	Agent       OpenAPIAgent `json:"agent"`
 	Transition  string       `json:"transition"`
 	RequestedAt string       `json:"requested_at"`
+}
+
+type OpenAPIWorkflowTicketReference workflowdomain.WorkflowTicketReference
+type OpenAPIWorkflowScheduledJobReference workflowdomain.WorkflowScheduledJobReference
+type OpenAPIWorkflowAgentRunReference workflowdomain.WorkflowAgentRunReference
+type OpenAPIWorkflowReplaceableReferences workflowdomain.WorkflowReplaceableReferences
+type OpenAPIWorkflowBlockingReferences workflowdomain.WorkflowBlockingReferences
+type OpenAPIWorkflowImpactSummary workflowdomain.WorkflowImpactSummary
+type OpenAPIWorkflowImpactAnalysis workflowdomain.WorkflowImpactAnalysis
+
+type OpenAPIWorkflowImpactResponse struct {
+	Impact OpenAPIWorkflowImpactAnalysis `json:"impact"`
+}
+
+type OpenAPIWorkflowReplaceReferencesResult struct {
+	WorkflowID            string                                 `json:"workflow_id"`
+	ReplacementWorkflowID string                                 `json:"replacement_workflow_id"`
+	TicketCount           int                                    `json:"ticket_count"`
+	ScheduledJobCount     int                                    `json:"scheduled_job_count"`
+	Tickets               []OpenAPIWorkflowTicketReference       `json:"tickets"`
+	ScheduledJobs         []OpenAPIWorkflowScheduledJobReference `json:"scheduled_jobs"`
+}
+
+type OpenAPIWorkflowReplaceReferencesResponse struct {
+	Result OpenAPIWorkflowReplaceReferencesResult `json:"result"`
 }
 
 type OpenAPIActivityEvent struct {
@@ -1625,6 +1651,8 @@ type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
 type OpenAPICreateWorkflowRequest rawCreateWorkflowRequest
 type OpenAPIUpdateWorkflowRequest rawUpdateWorkflowRequest
+type OpenAPIRetireWorkflowRequest rawRetireWorkflowRequest
+type OpenAPIReplaceWorkflowReferencesRequest rawReplaceWorkflowReferencesRequest
 type OpenAPIUpdateHarnessRequest rawUpdateHarnessRequest
 type OpenAPIValidateHarnessRequest rawValidateHarnessRequest
 type OpenAPICreateScheduledJobRequest rawCreateScheduledJobRequest
@@ -2018,6 +2046,8 @@ var (
 		"PATCH /api/v1/agents/{agentId}":                                                               openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
+		"POST /api/v1/workflows/{workflowId}/retire":                                                   map[string]string{"edited_by": openAPIWorkflowRequestDescriptions["edited_by"]},
+		"POST /api/v1/workflows/{workflowId}/replace-references":                                       map[string]string{"replacement_workflow_id": "Workflow ID that should receive replaceable scheduled job and active ticket references.", "edited_by": openAPIWorkflowRequestDescriptions["edited_by"]},
 		"PUT /api/v1/workflows/{workflowId}/harness":                                                   openAPIHarnessContentDescriptions,
 		"POST /api/v1/harness/validate":                                                                openAPIHarnessContentDescriptions,
 		"POST /api/v1/projects/{projectId}/scheduled-jobs":                                             openAPIScheduledJobDescriptions,
@@ -3284,6 +3314,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentResume.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}/resume", http.MethodPost, agentResume)
 
+	agentRetire, err := b.jsonOperation(
+		"retireAgent",
+		"Retire an agent definition",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentRetire.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/retire", http.MethodPost, agentRetire)
+
 	activityGet, err := b.jsonOperation(
 		"listActivityEvents",
 		"List activity events",
@@ -3643,6 +3691,23 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	workflowGet.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}", http.MethodGet, workflowGet)
 
+	workflowImpact, err := b.jsonOperation(
+		"getWorkflowImpact",
+		"Get workflow delete impact analysis",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIWorkflowImpactResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	workflowImpact.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
+	b.doc.AddOperation("/api/v1/workflows/{workflowId}/impact", http.MethodGet, workflowImpact)
+
 	workflowPatch, err := b.jsonOperation(
 		"updateWorkflow",
 		"Update a workflow",
@@ -3660,6 +3725,42 @@ func (b openAPISpecBuilder) addWorkflowOperations() error {
 	}
 	workflowPatch.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
 	b.doc.AddOperation("/api/v1/workflows/{workflowId}", http.MethodPatch, workflowPatch)
+
+	workflowRetire, err := b.jsonOperation(
+		"retireWorkflow",
+		"Retire a workflow by deactivating it",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIWorkflowResponse{},
+		OpenAPIRetireWorkflowRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	workflowRetire.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
+	b.doc.AddOperation("/api/v1/workflows/{workflowId}/retire", http.MethodPost, workflowRetire)
+
+	workflowReplaceReferences, err := b.jsonOperation(
+		"replaceWorkflowReferences",
+		"Replace workflow references in scheduled jobs and active tickets",
+		[]string{"workflows"},
+		http.StatusOK,
+		OpenAPIWorkflowReplaceReferencesResponse{},
+		OpenAPIReplaceWorkflowReferencesRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	workflowReplaceReferences.AddParameter(uuidPathParameter("workflowId", "Workflow ID."))
+	b.doc.AddOperation("/api/v1/workflows/{workflowId}/replace-references", http.MethodPost, workflowReplaceReferences)
 
 	workflowDelete, err := b.jsonOperation(
 		"deleteWorkflow",

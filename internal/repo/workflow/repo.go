@@ -60,6 +60,7 @@ func (r *EntRepository) EnsureAgentBelongsToProject(ctx context.Context, project
 		Where(
 			entagent.ProjectIDEQ(projectID),
 			entagent.IDEQ(agentID),
+			entagent.RuntimeControlStateNEQ(entagent.RuntimeControlStateRetired),
 		).
 		Exist(ctx)
 	if err != nil {
@@ -341,6 +342,13 @@ func (r *EntRepository) Delete(ctx context.Context, workflowID uuid.UUID) (domai
 	current, err := r.Get(ctx, workflowID)
 	if err != nil {
 		return domain.Workflow{}, err
+	}
+	impact, err := r.ImpactAnalysis(ctx, workflowID)
+	if err != nil {
+		return domain.Workflow{}, err
+	}
+	if conflictErr := workflowDeleteConflictError(impact); conflictErr != nil {
+		return domain.Workflow{}, &domain.WorkflowImpactConflict{Err: conflictErr, Impact: impact}
 	}
 
 	tx, err := r.client.Tx(ctx)
@@ -1620,17 +1628,49 @@ func mapWorkflowReadError(action string, err error) error {
 }
 
 func mapWorkflowWriteError(action string, err error) error {
+	var impactConflict *domain.WorkflowImpactConflict
 	switch {
 	case ent.IsNotFound(err):
 		return domain.ErrWorkflowNotFound
 	case ent.IsConstraintError(err):
 		return fmt.Errorf("%w: workflow name already exists in this project", domain.ErrWorkflowNameConflict)
+	case errors.Is(err, domain.ErrWorkflowReplacementRequired):
+		return err
+	case errors.Is(err, domain.ErrWorkflowActiveAgentRuns):
+		return err
+	case errors.Is(err, domain.ErrWorkflowHistoricalAgentRuns):
+		return err
+	case errors.Is(err, domain.ErrWorkflowReplacementInvalid):
+		return err
+	case errors.Is(err, domain.ErrWorkflowReplacementNotFound):
+		return err
+	case errors.Is(err, domain.ErrWorkflowReplacementProjectMismatch):
+		return err
+	case errors.Is(err, domain.ErrWorkflowReplacementInactive):
+		return err
+	case errors.As(err, &impactConflict):
+		return err
 	case strings.Contains(strings.ToLower(err.Error()), "tickets"):
 		return fmt.Errorf("%w: tickets still reference this workflow", domain.ErrWorkflowReferencedByTickets)
 	case strings.Contains(strings.ToLower(err.Error()), "scheduled_jobs"):
 		return fmt.Errorf("%w: scheduled jobs still reference this workflow", domain.ErrWorkflowReferencedByScheduledJobs)
 	default:
 		return fmt.Errorf("%s: %w", action, err)
+	}
+}
+
+func workflowDeleteConflictError(impact domain.WorkflowImpactAnalysis) error {
+	switch {
+	case impact.Summary.ActiveAgentRunCount > 0:
+		return domain.ErrWorkflowActiveAgentRuns
+	case impact.Summary.HistoricalAgentRunCount > 0:
+		return domain.ErrWorkflowHistoricalAgentRuns
+	case impact.Summary.ReplaceableReferenceCount > 0:
+		return domain.ErrWorkflowReplacementRequired
+	case impact.Summary.BlockingReferenceCount > 0:
+		return domain.ErrWorkflowInUse
+	default:
+		return nil
 	}
 }
 

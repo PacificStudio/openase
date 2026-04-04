@@ -301,11 +301,68 @@ func (r *EntRepository) DeleteAgent(ctx context.Context, id uuid.UUID) (domain.A
 		return domain.Agent{}, mapReadError("get agent before delete", err)
 	}
 
+	conflict, err := r.agentDeleteConflict(ctx, id)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+	if conflict != nil {
+		return domain.Agent{}, conflict
+	}
+
 	if err := r.client.Agent.DeleteOneID(id).Exec(ctx); err != nil {
 		return domain.Agent{}, mapWriteError("delete agent", err)
 	}
 
 	return mapAgent(item, agentCurrentRunSummary{}), nil
+}
+
+func (r *EntRepository) agentDeleteConflict(ctx context.Context, agentID uuid.UUID) (*domain.AgentDeleteConflict, error) {
+	activeRuns, err := r.client.AgentRun.Query().
+		Where(
+			entagentrun.AgentIDEQ(agentID),
+			entagentrun.TerminalAtIsNil(),
+		).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list active agent runs for delete: %w", err)
+	}
+
+	historicalRuns, err := r.client.AgentRun.Query().
+		Where(
+			entagentrun.AgentIDEQ(agentID),
+			entagentrun.TerminalAtNotNil(),
+		).
+		Order(ent.Desc(entagentrun.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list historical agent runs for delete: %w", err)
+	}
+
+	if len(activeRuns) == 0 && len(historicalRuns) == 0 {
+		return nil, nil
+	}
+
+	conflict := &domain.AgentDeleteConflict{
+		AgentID:        agentID,
+		ActiveRuns:     make([]domain.AgentRunReference, 0, len(activeRuns)),
+		HistoricalRuns: make([]domain.AgentRunReference, 0, len(historicalRuns)),
+	}
+	for _, item := range activeRuns {
+		conflict.ActiveRuns = append(conflict.ActiveRuns, domain.AgentRunReference{
+			ID:       item.ID,
+			TicketID: item.TicketID,
+			Status:   item.Status.String(),
+		})
+	}
+	for _, item := range historicalRuns {
+		conflict.HistoricalRuns = append(conflict.HistoricalRuns, domain.AgentRunReference{
+			ID:       item.ID,
+			TicketID: item.TicketID,
+			Status:   item.Status.String(),
+		})
+	}
+	return conflict, nil
 }
 
 func mapAgentProviders(items []*ent.AgentProvider) []domain.AgentProvider {

@@ -603,6 +603,51 @@ func TestRequestAgentResumePersistsActiveState(t *testing.T) {
 	}
 }
 
+func TestRetireAgentPersistsRetiredState(t *testing.T) {
+	agentID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.RetireAgent(context.Background(), agentID)
+	if err != nil {
+		t.Fatalf("RetireAgent returned error: %v", err)
+	}
+	if item.RuntimeControlState != domain.AgentRuntimeControlStateRetired {
+		t.Fatalf("expected retired state, got %+v", item)
+	}
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != domain.AgentRuntimeControlStateRetired {
+		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
+	}
+}
+
+func TestRetireAgentRejectsActiveRun(t *testing.T) {
+	agentID := uuid.New()
+	runID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStateActive,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID: &runID,
+				Status:       domain.AgentStatusRunning,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	_, err := svc.RetireAgent(context.Background(), agentID)
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected runtime control conflict, got %v", err)
+	}
+}
+
 func TestAgentProviderAvailabilityHelpers(t *testing.T) {
 	codexPath := "/usr/local/bin/codex"
 	remoteCodexID := uuid.New()

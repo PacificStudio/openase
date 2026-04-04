@@ -148,7 +148,10 @@
 
   async function handleDelete() {
     formError = ''
-    if (!confirm(`Delete workflow "${workflow.name}"? This cannot be undone.`)) return
+    const message = workflow.isActive
+      ? `Retire workflow "${workflow.name}"? It will stop participating in new pickup and scheduling.`
+      : `Delete workflow "${workflow.name}" permanently? This cannot be undone.`
+    if (!confirm(message)) return
     await onDelete?.()
   }
 </script>
@@ -278,6 +281,7 @@
       {saving}
       {deleting}
       {isDirty}
+      isActive={workflow.isActive}
       onDelete={handleDelete}
     />
   </form>

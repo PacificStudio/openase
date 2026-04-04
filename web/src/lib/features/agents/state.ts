@@ -35,7 +35,8 @@ export function normalizeRuntimeControlState(
   if (
     runtimeControlState === 'active' ||
     runtimeControlState === 'pause_requested' ||
-    runtimeControlState === 'paused'
+    runtimeControlState === 'paused' ||
+    runtimeControlState === 'retired'
   ) {
     return runtimeControlState
   }

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -70,11 +71,23 @@ type harnessVariablesResponse struct {
 	Groups []workflowservice.HarnessVariableGroup `json:"groups"`
 }
 
+type workflowReplaceReferencesResponse struct {
+	WorkflowID            string                                          `json:"workflow_id"`
+	ReplacementWorkflowID string                                          `json:"replacement_workflow_id"`
+	TicketCount           int                                             `json:"ticket_count"`
+	ScheduledJobCount     int                                             `json:"scheduled_job_count"`
+	Tickets               []workflowservice.WorkflowTicketReference       `json:"tickets"`
+	ScheduledJobs         []workflowservice.WorkflowScheduledJobReference `json:"scheduled_jobs"`
+}
+
 func (s *Server) registerWorkflowRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleListWorkflows)
 	api.POST("/projects/:projectId/workflows", s.handleCreateWorkflow)
 	api.GET("/workflows/:workflowId", s.handleGetWorkflow)
+	api.GET("/workflows/:workflowId/impact", s.handleGetWorkflowImpact)
 	api.PATCH("/workflows/:workflowId", s.handleUpdateWorkflow)
+	api.POST("/workflows/:workflowId/retire", s.handleRetireWorkflow)
+	api.POST("/workflows/:workflowId/replace-references", s.handleReplaceWorkflowReferences)
 	api.DELETE("/workflows/:workflowId", s.handleDeleteWorkflow)
 	api.GET("/workflows/:workflowId/harness", s.handleGetWorkflowHarness)
 	api.GET("/workflows/:workflowId/harness/history", s.handleGetWorkflowHarnessHistory)
@@ -349,6 +362,121 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleGetWorkflowImpact(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	workflowID, err := parseUUIDPathParamValue(c, "workflowId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_ID", err.Error())
+	}
+
+	impact, err := s.workflowService.ImpactAnalysis(c.Request().Context(), workflowID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"impact": impact,
+	})
+}
+
+func (s *Server) handleRetireWorkflow(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	workflowID, err := parseUUIDPathParamValue(c, "workflowId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_ID", err.Error())
+	}
+
+	var raw rawRetireWorkflowRequest
+	if err := decodeJSON(c, &raw); err != nil && !errors.Is(err, io.EOF) {
+		return err
+	}
+	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
+
+	editedBy := parseRetireWorkflowRequest(workflowID, raw)
+
+	item, err := s.workflowService.Retire(c.Request().Context(), workflowID, editedBy)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   item.AgentID,
+		EventType: activityevent.TypeWorkflowDeactivated,
+		Message:   "Retired workflow " + item.Name,
+		Metadata: map[string]any{
+			"workflow_id":    item.ID.String(),
+			"workflow_name":  item.Name,
+			"is_active":      item.IsActive,
+			"audit_actor":    editedBy,
+			"changed_fields": []string{"is_active"},
+		},
+	}); err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"workflow": mapWorkflowDetailResponse(item),
+	})
+}
+
+func (s *Server) handleReplaceWorkflowReferences(c echo.Context) error {
+	if s.workflowService == nil {
+		return writeWorkflowError(c, workflowservice.ErrUnavailable)
+	}
+
+	workflowID, err := parseUUIDPathParamValue(c, "workflowId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_ID", err.Error())
+	}
+
+	var raw rawReplaceWorkflowReferencesRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
+
+	input, editedBy, err := parseReplaceWorkflowReferencesRequest(workflowID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	result, err := s.workflowService.ReplaceReferences(c.Request().Context(), input)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	source, err := s.workflowService.Get(c.Request().Context(), workflowID)
+	if err != nil {
+		return writeWorkflowError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: source.ProjectID,
+		AgentID:   source.AgentID,
+		EventType: activityevent.TypeWorkflowUpdated,
+		Message:   "Replaced workflow references for " + source.Name,
+		Metadata: map[string]any{
+			"workflow_id":             source.ID.String(),
+			"workflow_name":           source.Name,
+			"replacement_workflow_id": result.ReplacementWorkflowID.String(),
+			"ticket_count":            result.TicketCount,
+			"scheduled_job_count":     result.ScheduledJobCount,
+			"audit_actor":             editedBy,
+			"changed_fields":          []string{"workflow_references"},
+		},
+	}); err != nil {
+		return writeWorkflowError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"result": mapWorkflowReplaceReferencesResponse(result),
+	})
+}
+
 func (s *Server) handleDeleteWorkflow(c echo.Context) error {
 	if s.workflowService == nil {
 		return writeWorkflowError(c, workflowservice.ErrUnavailable)
@@ -493,6 +621,7 @@ func (s *Server) handleListHarnessVariables(c echo.Context) error {
 }
 
 func writeWorkflowError(c echo.Context, err error) error {
+	var impactConflict *workflowservice.WorkflowImpactConflict
 	switch {
 	case errors.Is(err, workflowservice.ErrUnavailable):
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
@@ -520,6 +649,28 @@ func writeWorkflowError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_CONFLICT", err.Error())
 	case errors.Is(err, workflowservice.ErrWorkflowInUse):
 		return writeAPIError(c, http.StatusConflict, "WORKFLOW_IN_USE", err.Error())
+	case errors.As(err, &impactConflict):
+		return writeAPIErrorWithDetails(
+			c,
+			http.StatusConflict,
+			workflowConflictCode(err),
+			normalizeWorkflowErrorMessage(err, impactConflict.Err),
+			impactConflict.Impact,
+		)
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementRequired):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_REPLACEMENT_REQUIRED", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowActiveAgentRuns):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_ACTIVE_AGENT_RUNS", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowHistoricalAgentRuns):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_HISTORICAL_AGENT_RUNS", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementInvalid):
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_WORKFLOW_REPLACEMENT", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementNotFound):
+		return writeAPIError(c, http.StatusNotFound, "REPLACEMENT_WORKFLOW_NOT_FOUND", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementProjectMismatch):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_REPLACEMENT_PROJECT_MISMATCH", err.Error())
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementInactive):
+		return writeAPIError(c, http.StatusConflict, "WORKFLOW_REPLACEMENT_INACTIVE", err.Error())
 	case errors.Is(err, workflowservice.ErrSkillNotFound):
 		return writeAPIError(c, http.StatusNotFound, "SKILL_NOT_FOUND", err.Error())
 	case errors.Is(err, workflowservice.ErrSkillInvalid):
@@ -634,4 +785,28 @@ func mapWorkflowVersionResponses(items []workflowservice.VersionSummary) []workf
 		})
 	}
 	return response
+}
+
+func mapWorkflowReplaceReferencesResponse(result workflowservice.ReplaceWorkflowReferencesResult) workflowReplaceReferencesResponse {
+	return workflowReplaceReferencesResponse{
+		WorkflowID:            result.WorkflowID.String(),
+		ReplacementWorkflowID: result.ReplacementWorkflowID.String(),
+		TicketCount:           result.TicketCount,
+		ScheduledJobCount:     result.ScheduledJobCount,
+		Tickets:               result.Tickets,
+		ScheduledJobs:         result.ScheduledJobs,
+	}
+}
+
+func workflowConflictCode(err error) string {
+	switch {
+	case errors.Is(err, workflowservice.ErrWorkflowActiveAgentRuns):
+		return "WORKFLOW_ACTIVE_AGENT_RUNS"
+	case errors.Is(err, workflowservice.ErrWorkflowHistoricalAgentRuns):
+		return "WORKFLOW_HISTORICAL_AGENT_RUNS"
+	case errors.Is(err, workflowservice.ErrWorkflowReplacementRequired):
+		return "WORKFLOW_REPLACEMENT_REQUIRED"
+	default:
+		return "WORKFLOW_IN_USE"
+	}
 }

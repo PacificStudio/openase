@@ -43,12 +43,14 @@
     active: 'Active',
     pause_requested: 'Pause Requested',
     paused: 'Paused',
+    retired: 'Retired',
   }
 
   const runtimeControlClasses: Record<AgentInstance['runtimeControlState'], string> = {
     active: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     pause_requested: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     paused: 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+    retired: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
   }
 
   function canPause(agent: AgentInstance) {

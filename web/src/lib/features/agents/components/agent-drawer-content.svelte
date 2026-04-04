@@ -2,7 +2,7 @@
   import { formatCurrency, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Pause, Play, Trash2 } from '@lucide/svelte'
+  import { Archive, Pause, Play, Trash2 } from '@lucide/svelte'
 
   import type { AgentInstance } from '../types'
 
@@ -11,16 +11,20 @@
     actionBusy = false,
     canPause = false,
     canResume = false,
+    canRetire = false,
     onPause,
     onResume,
+    onRetire,
     onDelete,
   }: {
     agent: AgentInstance
     actionBusy?: boolean
     canPause?: boolean
     canResume?: boolean
+    canRetire?: boolean
     onPause?: () => void
     onResume?: () => void
+    onRetire?: () => void
     onDelete?: () => void
   } = $props()
 </script>
@@ -123,6 +127,12 @@
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onPause}>
         <Pause class="size-3.5" />
         Pause
+      </Button>
+    {/if}
+    {#if canRetire}
+      <Button variant="outline" size="sm" disabled={actionBusy} onclick={onRetire}>
+        <Archive class="size-3.5" />
+        Retire
       </Button>
     {/if}
     <div class="flex-1"></div>

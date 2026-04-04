@@ -129,6 +129,35 @@ func parseUUIDPathParamValue(c echo.Context, name string) (uuid.UUID, error) {
 }
 
 func writeCatalogError(c echo.Context, err error) error {
+	var projectRepoConflict *domain.ProjectRepoDeleteConflict
+	var ticketRepoScopeConflict *domain.TicketRepoScopeDeleteConflict
+	var agentDeleteConflict *domain.AgentDeleteConflict
+	switch {
+	case errors.As(err, &projectRepoConflict):
+		return writeAPIErrorWithDetails(
+			c,
+			http.StatusConflict,
+			"REPOSITORY_IN_USE",
+			"Repository cannot be deleted because tickets or workspaces still reference it.",
+			projectRepoConflict,
+		)
+	case errors.As(err, &ticketRepoScopeConflict):
+		return writeAPIErrorWithDetails(
+			c,
+			http.StatusConflict,
+			"TICKET_REPO_SCOPE_IN_USE",
+			"Repository scope cannot be deleted while the ticket has an active run or repo workspace activity.",
+			ticketRepoScopeConflict,
+		)
+	case errors.As(err, &agentDeleteConflict):
+		return writeAPIErrorWithDetails(
+			c,
+			http.StatusConflict,
+			"AGENT_IN_USE",
+			"Agent cannot be deleted because runs still reference it.",
+			agentDeleteConflict,
+		)
+	}
 	statusCode, code, message := catalogErrorResponse(err)
 	return writeAPIError(c, statusCode, code, message)
 }
@@ -183,6 +212,8 @@ func catalogErrorResponse(err error) (statusCode int, code string, message strin
 		return http.StatusConflict, "REPOSITORY_IN_USE", "Repository cannot be deleted because tickets or workspaces still reference it."
 	case errors.Is(err, domain.ErrTicketRepoScopeConflict):
 		return http.StatusConflict, "TICKET_REPO_SCOPE_CONFLICT", "Repository is already attached to this ticket."
+	case errors.Is(err, domain.ErrTicketRepoScopeInUseConflict):
+		return http.StatusConflict, "TICKET_REPO_SCOPE_IN_USE", "Repository scope cannot be deleted while the ticket has an active run or repo workspace activity."
 	case errors.Is(err, domain.ErrAgentNameConflict):
 		return http.StatusConflict, "AGENT_NAME_CONFLICT", "Agent name already exists in this project."
 	case errors.Is(err, domain.ErrAgentInUseConflict):

@@ -1241,11 +1241,11 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 			t.Fatalf("mapWorkflowReadError() = %v", got)
 		}
 	}
-	if got := service.mapWorkflowWriteError("delete workflow", errors.New("tickets still reference workflow")); !errors.Is(got, ErrWorkflowReferencedByTickets) {
-		t.Fatalf("mapWorkflowWriteError(tickets) = %v, want %v", got, ErrWorkflowReferencedByTickets)
+	if got := service.mapWorkflowWriteError("delete workflow", errors.New("tickets still reference workflow")); got == nil || got.Error() != "delete workflow: tickets still reference workflow" {
+		t.Fatalf("mapWorkflowWriteError(tickets) = %v", got)
 	}
-	if got := service.mapWorkflowWriteError("delete workflow", errors.New("scheduled_jobs still reference workflow")); !errors.Is(got, ErrWorkflowReferencedByScheduledJobs) {
-		t.Fatalf("mapWorkflowWriteError(scheduled_jobs) = %v, want %v", got, ErrWorkflowReferencedByScheduledJobs)
+	if got := service.mapWorkflowWriteError("delete workflow", errors.New("scheduled_jobs still reference workflow")); got == nil || got.Error() != "delete workflow: scheduled_jobs still reference workflow" {
+		t.Fatalf("mapWorkflowWriteError(scheduled_jobs) = %v", got)
 	}
 
 	if _, err := validateConfiguredHooks(map[string]any{"workflow_hooks": "bad"}); !errors.Is(err, ErrHookConfigInvalid) {

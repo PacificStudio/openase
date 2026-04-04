@@ -17,5 +17,6 @@ func (s *Server) registerCatalogAgentRoutes(api *echo.Group) {
 	api.PATCH("/agents/:agentId", s.patchAgent)
 	api.POST("/agents/:agentId/pause", s.pauseAgent)
 	api.POST("/agents/:agentId/resume", s.resumeAgent)
+	api.POST("/agents/:agentId/retire", s.retireAgent)
 	api.DELETE("/agents/:agentId", s.deleteAgent)
 }

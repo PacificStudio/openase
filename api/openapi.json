@@ -923,6 +923,189 @@
         ]
       }
     },
+    "/api/v1/agents/{agentId}/retire": {
+      "post": {
+        "operationId": "retireAgent",
+        "parameters": [
+          {
+            "description": "Agent ID.",
+            "in": "path",
+            "name": "agentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "agent": {
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "provider_id": {
+                          "type": "string"
+                        },
+                        "runtime": {
+                          "nullable": true,
+                          "properties": {
+                            "active_run_count": {
+                              "type": "integer"
+                            },
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
+                        "total_tickets_completed": {
+                          "type": "integer"
+                        },
+                        "total_tokens_used": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Retire an agent definition response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Retire an agent definition",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "operationId": "logoutHumanSession",
@@ -28955,6 +29138,617 @@
           }
         },
         "summary": "List published workflow harness versions",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/impact": {
+      "get": {
+        "operationId": "getWorkflowImpact",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "impact": {
+                      "properties": {
+                        "blocking_references": {
+                          "properties": {
+                            "active_agent_runs": {
+                              "items": {
+                                "properties": {
+                                  "created_at": {
+                                    "format": "date-time",
+                                    "type": "string"
+                                  },
+                                  "id": {},
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "ticket_id": {},
+                                  "ticket_identifier": {
+                                    "type": "string"
+                                  },
+                                  "ticket_title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "historical_agent_runs": {
+                              "items": {
+                                "properties": {
+                                  "created_at": {
+                                    "format": "date-time",
+                                    "type": "string"
+                                  },
+                                  "id": {},
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "ticket_id": {},
+                                  "ticket_identifier": {
+                                    "type": "string"
+                                  },
+                                  "ticket_title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "can_purge": {
+                          "type": "boolean"
+                        },
+                        "can_replace_references": {
+                          "type": "boolean"
+                        },
+                        "can_retire": {
+                          "type": "boolean"
+                        },
+                        "replaceable_references": {
+                          "properties": {
+                            "scheduled_jobs": {
+                              "items": {
+                                "properties": {
+                                  "id": {},
+                                  "is_enabled": {
+                                    "type": "boolean"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "tickets": {
+                              "items": {
+                                "properties": {
+                                  "current_run_id": {
+                                    "nullable": true
+                                  },
+                                  "id": {},
+                                  "identifier": {
+                                    "type": "string"
+                                  },
+                                  "status_id": {},
+                                  "status_name": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "summary": {
+                          "properties": {
+                            "active_agent_run_count": {
+                              "type": "integer"
+                            },
+                            "blocking_reference_count": {
+                              "type": "integer"
+                            },
+                            "historical_agent_run_count": {
+                              "type": "integer"
+                            },
+                            "replaceable_reference_count": {
+                              "type": "integer"
+                            },
+                            "scheduled_job_count": {
+                              "type": "integer"
+                            },
+                            "ticket_count": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_id": {}
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get workflow delete impact analysis response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Get workflow delete impact analysis",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/replace-references": {
+      "post": {
+        "operationId": "replaceWorkflowReferences",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "edited_by": {
+                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "replacement_workflow_id": {
+                    "description": "Workflow ID that should receive replaceable scheduled job and active ticket references.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Replace workflow references in scheduled jobs and active tickets request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "result": {
+                      "properties": {
+                        "replacement_workflow_id": {
+                          "type": "string"
+                        },
+                        "scheduled_job_count": {
+                          "type": "integer"
+                        },
+                        "scheduled_jobs": {
+                          "items": {
+                            "properties": {
+                              "id": {},
+                              "is_enabled": {
+                                "type": "boolean"
+                              },
+                              "name": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "ticket_count": {
+                          "type": "integer"
+                        },
+                        "tickets": {
+                          "items": {
+                            "properties": {
+                              "current_run_id": {
+                                "nullable": true
+                              },
+                              "id": {},
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "status_id": {},
+                              "status_name": {
+                                "type": "string"
+                              },
+                              "title": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "workflow_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Replace workflow references in scheduled jobs and active tickets response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Replace workflow references in scheduled jobs and active tickets",
+        "tags": [
+          "workflows"
+        ]
+      }
+    },
+    "/api/v1/workflows/{workflowId}/retire": {
+      "post": {
+        "operationId": "retireWorkflow",
+        "parameters": [
+          {
+            "description": "Workflow ID.",
+            "in": "path",
+            "name": "workflowId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "edited_by": {
+                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Retire a workflow by deactivating it request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workflow": {
+                      "properties": {
+                        "agent_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "finish_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "harness_content": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "harness_path": {
+                          "type": "string"
+                        },
+                        "hooks": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "is_active": {
+                          "type": "boolean"
+                        },
+                        "max_concurrent": {
+                          "type": "integer"
+                        },
+                        "max_retry_attempts": {
+                          "type": "integer"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "pickup_status_ids": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "stall_timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "timeout_minutes": {
+                          "type": "integer"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "workflow_classification": {
+                          "properties": {
+                            "confidence": {
+                              "format": "double",
+                              "type": "number"
+                            },
+                            "family": {
+                              "type": "string"
+                            },
+                            "reasons": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workflow_family": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Retire a workflow by deactivating it response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Retire a workflow by deactivating it",
         "tags": [
           "workflows"
         ]

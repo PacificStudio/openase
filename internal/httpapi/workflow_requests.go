@@ -55,6 +55,15 @@ type rawUpdateHarnessRequest struct {
 	EditedBy *string `json:"edited_by"`
 }
 
+type rawRetireWorkflowRequest struct {
+	EditedBy *string `json:"edited_by"`
+}
+
+type rawReplaceWorkflowReferencesRequest struct {
+	ReplacementWorkflowID string  `json:"replacement_workflow_id"`
+	EditedBy              *string `json:"edited_by"`
+}
+
 type rawValidateHarnessRequest struct {
 	Content string `json:"content"`
 }
@@ -260,6 +269,32 @@ func parseNormalizedStringList(raw []string) []string {
 		normalized = append(normalized, trimmed)
 	}
 	return normalized
+}
+
+func parseRetireWorkflowRequest(workflowID uuid.UUID, raw rawRetireWorkflowRequest) string {
+	_ = workflowID
+	if raw.EditedBy == nil {
+		return ""
+	}
+	return strings.TrimSpace(*raw.EditedBy)
+}
+
+func parseReplaceWorkflowReferencesRequest(
+	workflowID uuid.UUID,
+	raw rawReplaceWorkflowReferencesRequest,
+) (workflowservice.ReplaceWorkflowReferencesInput, string, error) {
+	replacementWorkflowID, err := parseUUIDString("replacement_workflow_id", raw.ReplacementWorkflowID)
+	if err != nil {
+		return workflowservice.ReplaceWorkflowReferencesInput{}, "", err
+	}
+	editedBy := ""
+	if raw.EditedBy != nil {
+		editedBy = strings.TrimSpace(*raw.EditedBy)
+	}
+	return workflowservice.ReplaceWorkflowReferencesInput{
+		WorkflowID:            workflowID,
+		ReplacementWorkflowID: replacementWorkflowID,
+	}, editedBy, nil
 }
 
 func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest) (workflowservice.UpdateHarnessInput, error) {

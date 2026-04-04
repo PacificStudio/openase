@@ -112,3 +112,31 @@ func TestParseProjectTokenUsageAcceptsExplicitRange(t *testing.T) {
 		t.Fatalf("expected to %s, got %s", want.Format(time.RFC3339), parsed.ToDate.Format(time.RFC3339))
 	}
 }
+
+func TestParseProjectTokenUsageRejectsInvalidRanges(t *testing.T) {
+	projectID := uuid.New()
+
+	if _, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{
+		From: "2026-03-01",
+	}, time.Now().UTC()); err == nil {
+		t.Fatal("expected missing to to fail")
+	}
+	if _, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{
+		From: "not-a-date",
+		To:   "2026-03-01",
+	}, time.Now().UTC()); err == nil {
+		t.Fatal("expected invalid from date to fail")
+	}
+	if _, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{
+		From: "2026-03-01",
+		To:   "bad-date",
+	}, time.Now().UTC()); err == nil {
+		t.Fatal("expected invalid to date to fail")
+	}
+	if _, err := ParseProjectTokenUsage(projectID, ProjectTokenUsageListInput{
+		From: "2026-03-02",
+		To:   "2026-03-01",
+	}, time.Now().UTC()); err == nil {
+		t.Fatal("expected descending date range to fail")
+	}
+}

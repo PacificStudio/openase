@@ -541,6 +541,47 @@ func (s *Server) resumeAgent(c echo.Context) error {
 	})
 }
 
+func (s *Server) retireAgent(c echo.Context) error {
+	agentID, err := parseUUIDPathParam(c, "agentId")
+	if err != nil {
+		return err
+	}
+
+	item, err := s.catalog.RetireAgent(c.Request().Context(), agentID)
+	if err != nil {
+		if errors.Is(err, catalogservice.ErrNotFound) {
+			return writeCatalogError(c, err)
+		}
+		if errors.Is(err, catalogservice.ErrConflict) {
+			return writeAPIError(
+				c,
+				http.StatusConflict,
+				"AGENT_RUNTIME_CONTROL_CONFLICT",
+				catalogConflictMessage(err),
+			)
+		}
+		return writeCatalogError(c, err)
+	}
+	if err := s.emitActivity(c.Request().Context(), activitysvc.RecordInput{
+		ProjectID: item.ProjectID,
+		AgentID:   &item.ID,
+		EventType: activityevent.TypeAgentUpdated,
+		Message:   "Retired agent " + item.Name,
+		Metadata: map[string]any{
+			"agent_id":       item.ID.String(),
+			"agent_name":     item.Name,
+			"runtime_state":  item.RuntimeControlState.String(),
+			"changed_fields": []string{"runtime_control_state"},
+		},
+	}); err != nil {
+		return writeCatalogError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"agent": mapAgentResponse(item),
+	})
+}
+
 func (s *Server) deleteAgent(c echo.Context) error {
 	agentID, err := parseUUIDPathParam(c, "agentId")
 	if err != nil {

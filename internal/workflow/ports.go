@@ -23,6 +23,8 @@ type WorkflowRepository interface {
 	Get(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error)
 	Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error)
 	Update(ctx context.Context, workflow domain.Workflow) (domain.Workflow, error)
+	ImpactAnalysis(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowImpactAnalysis, error)
+	ReplaceReferences(ctx context.Context, input domain.ReplaceWorkflowReferencesInput) (domain.ReplaceWorkflowReferencesResult, error)
 	Delete(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error)
 }
 

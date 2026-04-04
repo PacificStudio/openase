@@ -286,6 +286,7 @@ func (s *Server) handleDeleteNotificationRule(c echo.Context) error {
 }
 
 func writeNotificationError(c echo.Context, err error) error {
+	var channelConflict *domain.ChannelUsageConflict
 	switch {
 	case errors.Is(err, notificationservice.ErrUnavailable):
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
@@ -295,6 +296,8 @@ func writeNotificationError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_NOT_FOUND", err.Error())
 	case errors.Is(err, notificationservice.ErrChannelNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHANNEL_NOT_FOUND", err.Error())
+	case errors.As(err, &channelConflict):
+		return writeAPIErrorWithDetails(c, http.StatusConflict, "CHANNEL_IN_USE", notificationservice.ErrChannelInUse.Error(), channelConflict)
 	case errors.Is(err, notificationservice.ErrDuplicateChannelName):
 		return writeAPIError(c, http.StatusConflict, "CHANNEL_NAME_CONFLICT", err.Error())
 	case errors.Is(err, notificationservice.ErrRuleNotFound):
