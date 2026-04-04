@@ -64,11 +64,7 @@ describe('workspace summary helpers', () => {
     const signal = new AbortController().signal
     get.mockResolvedValue({ days: [], summary: { total_tokens: 0, avg_daily_tokens: 0 } })
 
-    await getProjectTokenUsage(
-      'project-123',
-      { from: '2026-03-03', to: '2026-04-01' },
-      { signal },
-    )
+    await getProjectTokenUsage('project-123', { from: '2026-03-03', to: '2026-04-01' }, { signal })
 
     expect(get).toHaveBeenCalledWith(
       '/api/v1/projects/project-123/token-usage?from=2026-03-03&to=2026-04-01',

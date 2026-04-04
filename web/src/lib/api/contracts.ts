@@ -51,7 +51,10 @@ export type OrganizationTokenUsageResponse = ResponseFor<'/api/v1/orgs/{orgId}/t
 export type OrganizationTokenUsageDay = ItemOf<NonNullable<OrganizationTokenUsageResponse['days']>>
 export type OrganizationTokenUsageSummary = NonNullable<OrganizationTokenUsageResponse['summary']>
 export type OrganizationTokenUsagePeakDay = NonNullable<OrganizationTokenUsageSummary['peak_day']>
-export type ProjectTokenUsageResponse = ResponseFor<'/api/v1/projects/{projectId}/token-usage', 'get'>
+export type ProjectTokenUsageResponse = ResponseFor<
+  '/api/v1/projects/{projectId}/token-usage',
+  'get'
+>
 export type ProjectTokenUsageDay = ItemOf<NonNullable<ProjectTokenUsageResponse['days']>>
 export type ProjectTokenUsageSummary = NonNullable<ProjectTokenUsageResponse['summary']>
 export type ProjectTokenUsagePeakDay = NonNullable<ProjectTokenUsageSummary['peak_day']>
