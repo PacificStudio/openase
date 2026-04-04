@@ -280,25 +280,28 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, runID uuid.UUI
 		return runtimeExecutionState{}, "", fmt.Errorf("run %s workspace path must not be empty", runID)
 	}
 
-	var prompt string
-	if turnNumber == 1 {
-		runtimeSnapshot, snapshotErr := l.loadRecordedRuntimeSnapshot(ctx, assignment.run.ID)
-		if snapshotErr != nil {
-			return runtimeExecutionState{}, "", snapshotErr
-		}
-		prompt, err = l.buildDeveloperInstructions(
-			ctx,
-			launchContext,
-			machine,
-			workspace,
-			runtimeSnapshot,
-			l.ticketRuntimePlatformContract(launchContext, agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindTicketAgent)),
+	runtimeSnapshot, snapshotErr := l.loadRecordedRuntimeSnapshot(ctx, assignment.run.ID)
+	if snapshotErr != nil {
+		return runtimeExecutionState{}, "", snapshotErr
+	}
+	developerInstructions, err := l.buildDeveloperInstructions(
+		ctx,
+		launchContext,
+		machine,
+		workspace,
+		runtimeSnapshot,
+		l.ticketRuntimePlatformContract(launchContext, agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindTicketAgent)),
+	)
+	if err != nil {
+		return runtimeExecutionState{}, "", err
+	}
+
+	prompt := strings.TrimSpace(developerInstructions)
+	if turnNumber > 1 {
+		prompt = composeRuntimeTurnPrompt(
+			prompt,
+			buildContinuationPrompt(launchContext.ticket, turnNumber, defaultRuntimeMaxTurns, lastError),
 		)
-		if err != nil {
-			return runtimeExecutionState{}, "", err
-		}
-	} else {
-		prompt = buildContinuationPrompt(launchContext.ticket, turnNumber, defaultRuntimeMaxTurns, lastError)
 	}
 
 	return runtimeExecutionState{
@@ -307,6 +310,20 @@ func (l *RuntimeLauncher) loadExecutionState(ctx context.Context, runID uuid.UUI
 		ticket:        launchContext.ticket,
 		launchContext: launchContext,
 	}, prompt, nil
+}
+
+func composeRuntimeTurnPrompt(basePrompt string, continuationPrompt string) string {
+	basePrompt = strings.TrimSpace(basePrompt)
+	continuationPrompt = strings.TrimSpace(continuationPrompt)
+
+	switch {
+	case basePrompt == "":
+		return continuationPrompt
+	case continuationPrompt == "":
+		return basePrompt
+	default:
+		return basePrompt + "\n\n" + continuationPrompt
+	}
 }
 
 func buildContinuationPrompt(ticket *ent.Ticket, turnNumber int, maxTurns int, lastError string) string {

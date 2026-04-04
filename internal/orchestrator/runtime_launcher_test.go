@@ -1735,6 +1735,28 @@ Implement the ticket using the current workspace.
 	if manager.capturedTurnCount() != defaultRuntimeMaxTurns {
 		t.Fatalf("expected %d turns, got %d", defaultRuntimeMaxTurns, manager.capturedTurnCount())
 	}
+	capturedTurns := manager.capturedTurnsSnapshot()
+	if len(capturedTurns) != defaultRuntimeMaxTurns {
+		t.Fatalf("expected %d captured turn payloads, got %d", defaultRuntimeMaxTurns, len(capturedTurns))
+	}
+	for index, turn := range capturedTurns {
+		if len(turn.Input) != 1 {
+			t.Fatalf("turn %d input = %+v, want single text input", index+1, turn.Input)
+		}
+		text := turn.Input[0].Text
+		if !strings.Contains(text, "Implement the ticket using the current workspace.") {
+			t.Fatalf("turn %d prompt missing rendered workflow content: %q", index+1, text)
+		}
+		if index == 0 {
+			if strings.Contains(text, "Continuation guidance:") {
+				t.Fatalf("turn 1 prompt should not include continuation guidance: %q", text)
+			}
+			continue
+		}
+		if !strings.Contains(text, "Continuation guidance:") {
+			t.Fatalf("turn %d prompt missing continuation guidance: %q", index+1, text)
+		}
+	}
 	outputCount, err := client.ActivityEvent.Query().
 		Where(
 			entactivityevent.AgentIDEQ(agentItem.ID),
@@ -4451,6 +4473,27 @@ func (m *runtimeFakeProcessManager) capturedTurnCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.turnCount
+}
+
+func (m *runtimeFakeProcessManager) capturedTurnsSnapshot() []runtimeTurnStartParams {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	items := make([]runtimeTurnStartParams, 0, len(m.capturedTurns))
+	for _, turn := range m.capturedTurns {
+		copied := runtimeTurnStartParams{
+			ThreadID: turn.ThreadID,
+			CWD:      turn.CWD,
+			Title:    turn.Title,
+			Input: make([]struct {
+				Type string `json:"type"`
+				Text string `json:"text,omitempty"`
+			}, len(turn.Input)),
+		}
+		copy(copied.Input, turn.Input)
+		items = append(items, copied)
+	}
+	return items
 }
 
 type runtimeFakeProcess struct {
