@@ -211,6 +211,7 @@ func NewServer(
 	e.Use(middleware.Recover())
 	e.Use(middleware.RequestID())
 
+	//nolint:gosec // stored on Server and invoked during beginShutdown
 	shutdownCtx, shutdownCancel := context.WithCancel(context.Background())
 
 	server := &Server{
@@ -293,7 +294,9 @@ func (s *Server) Handler() http.Handler {
 
 func (s *Server) shutdownAwareContext(parent context.Context) (context.Context, context.CancelFunc) {
 	if s == nil || s.shutdownCtx == nil {
-		return context.WithCancel(parent)
+		//nolint:gosec // returned to the caller for request lifecycle control
+		ctx, cancel := context.WithCancel(parent)
+		return ctx, cancel
 	}
 
 	ctx, cancel := context.WithCancel(parent)

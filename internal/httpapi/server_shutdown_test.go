@@ -180,6 +180,7 @@ func TestServerRunShutdownClosesReverseWebsocketSessions(t *testing.T) {
 func startShutdownTestServer(t *testing.T, server *Server) (string, context.CancelFunc, <-chan error) {
 	t.Helper()
 
+	//nolint:gosec // returned to the caller so the test can trigger shutdown
 	runCtx, cancel := context.WithCancel(context.Background())
 	runErrCh := make(chan error, 1)
 	go func() {
