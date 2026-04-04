@@ -43,6 +43,11 @@ func (r routeRegistrar) registerAPIRoutes() {
 	public := r.api.Group("")
 	protected := r.api.Group("", r.server.requireHumanSession, r.server.authorizeHumanAPI)
 
+	r.registerPublicAPIRoutes(public)
+	r.registerProtectedAPIRoutes(protected)
+}
+
+func (r routeRegistrar) registerPublicAPIRoutes(public *echo.Group) {
 	public.GET("/openapi.json", r.server.handleOpenAPI)
 	public.GET("/system/dashboard", r.server.handleSystemDashboard)
 	public.GET("/system/metrics", r.server.handleMetrics)
@@ -52,6 +57,9 @@ func (r routeRegistrar) registerAPIRoutes() {
 	if r.server.agentPlatform != nil {
 		r.server.registerAgentPlatformRoutes(public.Group("/platform", r.server.authenticateAgentToken))
 	}
+}
+
+func (r routeRegistrar) registerProtectedAPIRoutes(protected *echo.Group) {
 	if !r.server.catalog.Empty() {
 		r.server.registerOrganizationRoutes(protected)
 		r.server.registerProjectRoutes(protected)

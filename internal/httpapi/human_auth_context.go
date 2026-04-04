@@ -10,6 +10,7 @@ import (
 const (
 	humanSessionCookieName = "openase_session"
 	oidcFlowCookieName     = "openase_oidc_flow"
+	oidcFlowCookiePath     = "/api/v1/auth/oidc/callback"
 	csrfHeaderName         = "X-OpenASE-CSRF"
 )
 

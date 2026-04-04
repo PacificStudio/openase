@@ -32,6 +32,23 @@ type roleBindingResponse struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
+type humanRouteScopeResolver uint8
+
+const (
+	humanRouteScopeResolverInstance humanRouteScopeResolver = iota
+	humanRouteScopeResolverOrganization
+	humanRouteScopeResolverProject
+	humanRouteScopeResolverSkillRefinementSession
+)
+
+type humanRouteAuthorizationRule struct {
+	scopeResolver humanRouteScopeResolver
+	resource      string
+	paramName     string
+	permission    humanauthdomain.PermissionKey
+	checkRequired bool
+}
+
 func (s *Server) registerRoleBindingRoutes(api *echo.Group) {
 	api.GET("/organizations/:orgId/role-bindings", s.handleListOrganizationRoleBindings)
 	api.POST("/organizations/:orgId/role-bindings", s.handleCreateOrganizationRoleBinding)
@@ -75,63 +92,27 @@ func (s *Server) requiredScopeAndPermission(
 ) (humanauthdomain.ScopeRef, humanauthdomain.PermissionKey, bool, error) {
 	path := c.Path()
 	method := c.Request().Method
-	switch path {
-	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions":
-		return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, "", false, nil
-	case "/api/v1/orgs":
-		if method == http.MethodGet {
-			return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, "", false, nil
-		}
-		return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, humanauthdomain.PermissionOrgUpdate, true, nil
-	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/projects", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/organizations/:orgId/role-bindings":
-		scope, err := s.humanAuthorizer.ResolveOrganizationScope(c.Request().Context(), "organization", parseUUIDStringUnsafe(c.Param("orgId")))
+	rule, ok := humanRouteAuthorizationRuleFor(path, method)
+	if !ok {
+		return humanauthdomain.ScopeRef{}, "", true, humanauthservice.ErrPermissionDenied
+	}
+
+	switch rule.scopeResolver {
+	case humanRouteScopeResolverInstance:
+		return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, rule.permission, rule.checkRequired, nil
+	case humanRouteScopeResolverOrganization:
+		scope, err := s.humanAuthorizer.ResolveOrganizationScope(c.Request().Context(), rule.resource, parseUUIDStringUnsafe(c.Param(rule.paramName)))
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
-		return scope, organizationPermissionForPath(path, method), true, nil
-	case "/api/v1/machines/:machineId", "/api/v1/machines/:machineId/test", "/api/v1/machines/:machineId/refresh-health":
-		scope, err := s.humanAuthorizer.ResolveOrganizationScope(c.Request().Context(), "machine", parseUUIDStringUnsafe(c.Param("machineId")))
+		return scope, rule.permission, rule.checkRequired, nil
+	case humanRouteScopeResolverProject:
+		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), rule.resource, parseUUIDStringUnsafe(c.Param(rule.paramName)))
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
-		if method == http.MethodGet {
-			return scope, humanauthdomain.PermissionOrgRead, true, nil
-		}
-		return scope, humanauthdomain.PermissionOrgUpdate, true, nil
-	case "/api/v1/providers/:providerId":
-		scope, err := s.humanAuthorizer.ResolveOrganizationScope(c.Request().Context(), "provider", parseUUIDStringUnsafe(c.Param("providerId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		if method == http.MethodGet {
-			return scope, humanauthdomain.PermissionOrgRead, true, nil
-		}
-		return scope, humanauthdomain.PermissionOrgUpdate, true, nil
-	case "/api/v1/channels/:channelId", "/api/v1/channels/:channelId/test":
-		scope, err := s.humanAuthorizer.ResolveOrganizationScope(c.Request().Context(), "channel", parseUUIDStringUnsafe(c.Param("channelId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, humanauthdomain.PermissionOrgUpdate, true, nil
-	case "/api/v1/projects/:projectId", "/api/v1/projects/:projectId/activity", "/api/v1/projects/:projectId/events/stream", "/api/v1/projects/:projectId/updates", "/api/v1/projects/:projectId/notification-rules", "/api/v1/projects/:projectId/scheduled-jobs", "/api/v1/projects/:projectId/skills", "/api/v1/projects/:projectId/skills/import", "/api/v1/projects/:projectId/skills/refresh", "/api/v1/projects/:projectId/workflows", "/api/v1/projects/:projectId/statuses", "/api/v1/projects/:projectId/statuses/reset", "/api/v1/projects/:projectId/tickets", "/api/v1/projects/:projectId/tickets/archived", "/api/v1/projects/:projectId/tickets/:ticketId/detail", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes", "/api/v1/projects/:projectId/repos", "/api/v1/projects/:projectId/github/namespaces", "/api/v1/projects/:projectId/github/repos", "/api/v1/projects/:projectId/agents", "/api/v1/projects/:projectId/agent-runs", "/api/v1/projects/:projectId/agents/:agentId/output", "/api/v1/projects/:projectId/agents/:agentId/output/stream", "/api/v1/projects/:projectId/agents/:agentId/steps", "/api/v1/projects/:projectId/agents/:agentId/steps/stream", "/api/v1/projects/:projectId/security-settings", "/api/v1/projects/:projectId/security-settings/github-outbound-credential", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/retest", "/api/v1/projects/:projectId/hr-advisor", "/api/v1/projects/:projectId/hr-advisor/activate", "/api/v1/projects/:projectId/role-bindings", "/api/v1/chat/projects/:projectId/conversations/stream":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "project", parseUUIDStringUnsafe(c.Param("projectId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, projectPermissionForPath(path, method), true, nil
-	case "/api/v1/projects/:projectId/repos/:repoId", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "project", parseUUIDStringUnsafe(c.Param("projectId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, humanauthdomain.PermissionRepoManage, true, nil
-	case "/api/v1/skills/:skillId", "/api/v1/skills/:skillId/files", "/api/v1/skills/:skillId/history", "/api/v1/skills/:skillId/enable", "/api/v1/skills/:skillId/disable", "/api/v1/skills/:skillId/bind", "/api/v1/skills/:skillId/unbind", "/api/v1/skills/:skillId/refinement-runs":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "skill", parseUUIDStringUnsafe(c.Param("skillId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, skillPermissionForPath(path, method), true, nil
-	case "/api/v1/skills/refinement-runs/:sessionId":
+		return scope, rule.permission, rule.checkRequired, nil
+	case humanRouteScopeResolverSkillRefinementSession:
 		if s.skillRefinementService == nil {
 			return humanauthdomain.ScopeRef{}, "", false, humanauthservice.ErrPermissionDenied
 		}
@@ -151,55 +132,159 @@ func (s *Server) requiredScopeAndPermission(
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
-		return scope, humanauthdomain.PermissionSkillManage, true, nil
-	case "/api/v1/workflows/:workflowId", "/api/v1/workflows/:workflowId/impact", "/api/v1/workflows/:workflowId/harness", "/api/v1/workflows/:workflowId/harness/history", "/api/v1/workflows/:workflowId/retire", "/api/v1/workflows/:workflowId/replace-references", "/api/v1/workflows/:workflowId/skills/bind", "/api/v1/workflows/:workflowId/skills/unbind":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "workflow", parseUUIDStringUnsafe(c.Param("workflowId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, workflowPermissionForPath(path, method), true, nil
-	case "/api/v1/statuses/:statusId":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "status", parseUUIDStringUnsafe(c.Param("statusId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, humanauthdomain.PermissionProjectUpdate, true, nil
-	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "agent", parseUUIDStringUnsafe(c.Param("agentId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, agentPermissionForPath(path, method), true, nil
-	case "/api/v1/scheduled-jobs/:jobId", "/api/v1/scheduled-jobs/:jobId/trigger":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "scheduled_job", parseUUIDStringUnsafe(c.Param("jobId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, humanauthdomain.PermissionJobManage, true, nil
-	case "/api/v1/notification-rules/:ruleId":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "notification_rule", parseUUIDStringUnsafe(c.Param("ruleId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, humanauthdomain.PermissionProjectUpdate, true, nil
-	case "/api/v1/tickets/:ticketId", "/api/v1/tickets/:ticketId/comments", "/api/v1/tickets/:ticketId/comments/:commentId", "/api/v1/tickets/:ticketId/dependencies", "/api/v1/tickets/:ticketId/dependencies/:dependencyId", "/api/v1/tickets/:ticketId/external-links", "/api/v1/tickets/:ticketId/external-links/:externalLinkId", "/api/v1/tickets/:ticketId/workspace/reset", "/api/v1/tickets/:ticketId/retry/resume":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "ticket", parseUUIDStringUnsafe(c.Param("ticketId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, ticketPermissionForPath(path, method), true, nil
-	case "/api/v1/chat":
-		return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, "", false, nil
-	case "/api/v1/chat/conversations":
-		return humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}, "", false, nil
-	case "/api/v1/chat/conversations/:conversationId", "/api/v1/chat/conversations/:conversationId/entries", "/api/v1/chat/conversations/:conversationId/stream", "/api/v1/chat/conversations/:conversationId/workspace-diff", "/api/v1/chat/conversations/:conversationId/turns", "/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond", "/api/v1/chat/conversations/:conversationId/runtime":
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "conversation", parseUUIDStringUnsafe(c.Param("conversationId")))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, chatPermissionForPath(path, method), true, nil
+		return scope, rule.permission, rule.checkRequired, nil
 	default:
 		return humanauthdomain.ScopeRef{}, "", true, humanauthservice.ErrPermissionDenied
+	}
+}
+
+func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAuthorizationRule, bool) {
+	switch path {
+	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions", "/api/v1/roles/builtin", "/api/v1/roles/builtin/:roleSlug", "/api/v1/harness/variables", "/api/v1/harness/validate", "/api/v1/notification-event-types", "/api/v1/chat", "/api/v1/chat/:sessionId", "/api/v1/chat/conversations":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverInstance,
+			checkRequired: false,
+		}, true
+	case "/api/v1/orgs":
+		if method == http.MethodGet {
+			return humanRouteAuthorizationRule{
+				scopeResolver: humanRouteScopeResolverInstance,
+				checkRequired: false,
+			}, true
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverInstance,
+			permission:    humanauthdomain.PermissionOrgUpdate,
+			checkRequired: true,
+		}, true
+	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/projects", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "organization",
+			paramName:     "orgId",
+			permission:    organizationPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/machines/:machineId", "/api/v1/machines/:machineId/test", "/api/v1/machines/:machineId/refresh-health", "/api/v1/machines/:machineId/resources":
+		permission := humanauthdomain.PermissionOrgUpdate
+		if method == http.MethodGet {
+			permission = humanauthdomain.PermissionOrgRead
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "machine",
+			paramName:     "machineId",
+			permission:    permission,
+			checkRequired: true,
+		}, true
+	case "/api/v1/providers/:providerId":
+		permission := humanauthdomain.PermissionOrgUpdate
+		if method == http.MethodGet {
+			permission = humanauthdomain.PermissionOrgRead
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "provider",
+			paramName:     "providerId",
+			permission:    permission,
+			checkRequired: true,
+		}, true
+	case "/api/v1/channels/:channelId", "/api/v1/channels/:channelId/test":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "channel",
+			paramName:     "channelId",
+			permission:    humanauthdomain.PermissionOrgUpdate,
+			checkRequired: true,
+		}, true
+	case "/api/v1/projects/:projectId", "/api/v1/projects/:projectId/activity", "/api/v1/projects/:projectId/events/stream", "/api/v1/projects/:projectId/updates", "/api/v1/projects/:projectId/updates/:threadId", "/api/v1/projects/:projectId/updates/:threadId/revisions", "/api/v1/projects/:projectId/updates/:threadId/comments", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId/revisions", "/api/v1/projects/:projectId/notification-rules", "/api/v1/projects/:projectId/scheduled-jobs", "/api/v1/projects/:projectId/skills", "/api/v1/projects/:projectId/skills/import", "/api/v1/projects/:projectId/skills/refresh", "/api/v1/projects/:projectId/workflows", "/api/v1/projects/:projectId/statuses", "/api/v1/projects/:projectId/statuses/reset", "/api/v1/projects/:projectId/tickets", "/api/v1/projects/:projectId/tickets/archived", "/api/v1/projects/:projectId/tickets/:ticketId/detail", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes", "/api/v1/projects/:projectId/tickets/:ticketId/runs", "/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId", "/api/v1/projects/:projectId/repos", "/api/v1/projects/:projectId/token-usage", "/api/v1/projects/:projectId/github/namespaces", "/api/v1/projects/:projectId/github/repos", "/api/v1/projects/:projectId/agents", "/api/v1/projects/:projectId/agent-runs", "/api/v1/projects/:projectId/agents/:agentId/output", "/api/v1/projects/:projectId/agents/:agentId/output/stream", "/api/v1/projects/:projectId/agents/:agentId/steps", "/api/v1/projects/:projectId/agents/:agentId/steps/stream", "/api/v1/projects/:projectId/security-settings", "/api/v1/projects/:projectId/security-settings/github-outbound-credential", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/retest", "/api/v1/projects/:projectId/hr-advisor", "/api/v1/projects/:projectId/hr-advisor/activate", "/api/v1/projects/:projectId/role-bindings", "/api/v1/projects/:projectId/role-bindings/:bindingId", "/api/v1/chat/projects/:projectId/conversations/stream":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "project",
+			paramName:     "projectId",
+			permission:    projectPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/projects/:projectId/repos/:repoId", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "project",
+			paramName:     "projectId",
+			permission:    humanauthdomain.PermissionRepoManage,
+			checkRequired: true,
+		}, true
+	case "/api/v1/skills/:skillId", "/api/v1/skills/:skillId/files", "/api/v1/skills/:skillId/history", "/api/v1/skills/:skillId/enable", "/api/v1/skills/:skillId/disable", "/api/v1/skills/:skillId/bind", "/api/v1/skills/:skillId/unbind", "/api/v1/skills/:skillId/refinement-runs":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "skill",
+			paramName:     "skillId",
+			permission:    skillPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/skills/refinement-runs/:sessionId":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverSkillRefinementSession,
+			permission:    humanauthdomain.PermissionSkillManage,
+			checkRequired: true,
+		}, true
+	case "/api/v1/workflows/:workflowId", "/api/v1/workflows/:workflowId/impact", "/api/v1/workflows/:workflowId/harness", "/api/v1/workflows/:workflowId/harness/history", "/api/v1/workflows/:workflowId/retire", "/api/v1/workflows/:workflowId/replace-references", "/api/v1/workflows/:workflowId/skills/bind", "/api/v1/workflows/:workflowId/skills/unbind":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "workflow",
+			paramName:     "workflowId",
+			permission:    workflowPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/statuses/:statusId":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "status",
+			paramName:     "statusId",
+			permission:    humanauthdomain.PermissionProjectUpdate,
+			checkRequired: true,
+		}, true
+	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "agent",
+			paramName:     "agentId",
+			permission:    agentPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/scheduled-jobs/:jobId", "/api/v1/scheduled-jobs/:jobId/trigger":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "scheduled_job",
+			paramName:     "jobId",
+			permission:    humanauthdomain.PermissionJobManage,
+			checkRequired: true,
+		}, true
+	case "/api/v1/notification-rules/:ruleId":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "notification_rule",
+			paramName:     "ruleId",
+			permission:    humanauthdomain.PermissionProjectUpdate,
+			checkRequired: true,
+		}, true
+	case "/api/v1/tickets/:ticketId", "/api/v1/tickets/:ticketId/comments", "/api/v1/tickets/:ticketId/comments/:commentId", "/api/v1/tickets/:ticketId/comments/:commentId/revisions", "/api/v1/tickets/:ticketId/dependencies", "/api/v1/tickets/:ticketId/dependencies/:dependencyId", "/api/v1/tickets/:ticketId/external-links", "/api/v1/tickets/:ticketId/external-links/:externalLinkId", "/api/v1/tickets/:ticketId/workspace/reset", "/api/v1/tickets/:ticketId/retry/resume":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "ticket",
+			paramName:     "ticketId",
+			permission:    ticketPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	case "/api/v1/chat/conversations/:conversationId", "/api/v1/chat/conversations/:conversationId/entries", "/api/v1/chat/conversations/:conversationId/stream", "/api/v1/chat/conversations/:conversationId/workspace-diff", "/api/v1/chat/conversations/:conversationId/turns", "/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond", "/api/v1/chat/conversations/:conversationId/runtime":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverProject,
+			resource:      "conversation",
+			paramName:     "conversationId",
+			permission:    chatPermissionForPath(path, method),
+			checkRequired: true,
+		}, true
+	default:
+		return humanRouteAuthorizationRule{}, false
 	}
 }
 

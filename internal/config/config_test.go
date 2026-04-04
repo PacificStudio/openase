@@ -287,7 +287,7 @@ func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
 	v.Set("auth.oidc.issuer_url", " https://idp.example.com ")
 	v.Set("auth.oidc.client_id", " openase ")
 	v.Set("auth.oidc.client_secret", " super-secret ")
-	v.Set("auth.oidc.redirect_url", " http://127.0.0.1:19836/auth/oidc/callback ")
+	v.Set("auth.oidc.redirect_url", " http://127.0.0.1:19836/api/v1/auth/oidc/callback ")
 	v.Set("auth.oidc.scopes", "openid, profile , email , groups")
 	v.Set("auth.oidc.allowed_email_domains", "Example.com, ops.example.com ")
 	v.Set("auth.oidc.bootstrap_admin_emails", []string{" Admin@Example.com ", "owner@example.com"})
@@ -314,7 +314,7 @@ func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
 	if cfg.OIDC.ClientSecret != "super-secret" {
 		t.Fatalf("ClientSecret = %q", cfg.OIDC.ClientSecret)
 	}
-	if cfg.OIDC.RedirectURL != "http://127.0.0.1:19836/auth/oidc/callback" {
+	if cfg.OIDC.RedirectURL != "http://127.0.0.1:19836/api/v1/auth/oidc/callback" {
 		t.Fatalf("RedirectURL = %q", cfg.OIDC.RedirectURL)
 	}
 	if got, want := cfg.OIDC.Scopes, []string{"openid", "profile", "email", "groups"}; !slicesEqual(got, want) {
@@ -341,7 +341,7 @@ func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
 			IssuerURL:    "https://idp.example.com",
 			ClientID:     "openase",
 			ClientSecret: "secret",
-			RedirectURL:  "http://127.0.0.1:19836/auth/oidc/callback",
+			RedirectURL:  "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
 			Scopes:       []string{"openid"},
 			SessionTTL:   time.Hour,
 		},

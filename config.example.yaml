@@ -11,7 +11,7 @@ auth:
     issuer_url: https://idp.example.com/realms/openase
     client_id: openase
     client_secret: ${OIDC_CLIENT_SECRET}
-    redirect_url: http://127.0.0.1:40023/auth/oidc/callback
+    redirect_url: http://127.0.0.1:40023/api/v1/auth/oidc/callback
     scopes:
       - openid
       - profile

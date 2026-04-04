@@ -24,7 +24,7 @@ auth:
     issuer_url: https://idp.example.com/realms/openase
     client_id: openase
     client_secret: ${OIDC_CLIENT_SECRET}
-    redirect_url: http://127.0.0.1:19836/auth/oidc/callback
+    redirect_url: http://127.0.0.1:19836/api/v1/auth/oidc/callback
     scopes: ["openid", "profile", "email", "groups"]
     email_claim: email
     name_claim: name
@@ -55,7 +55,7 @@ OpenASE uses Authorization Code + PKCE:
 
 1. The browser starts at `GET /auth/oidc/start`.
 2. OpenASE stores signed login flow state in a short-lived cookie.
-3. The IdP redirects back to `GET /auth/oidc/callback`.
+3. The IdP redirects back to `GET /api/v1/auth/oidc/callback`.
 4. OpenASE performs discovery, exchanges the code server-side, verifies the ID token, synchronizes the local user cache, and creates a browser session.
 5. The browser receives only the OpenASE `openase_session` cookie and uses same-origin requests after login.
 

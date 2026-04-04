@@ -151,7 +151,7 @@ func (s *Server) setFlowCookie(c echo.Context, value string) {
 	c.SetCookie(&http.Cookie{
 		Name:     oidcFlowCookieName,
 		Value:    value,
-		Path:     "/auth/oidc/callback",
+		Path:     oidcFlowCookiePath,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cookieSecure(c),
@@ -175,7 +175,7 @@ func (s *Server) clearOIDCFlowCookie(c echo.Context) {
 	c.SetCookie(&http.Cookie{
 		Name:     oidcFlowCookieName,
 		Value:    "",
-		Path:     "/auth/oidc/callback",
+		Path:     oidcFlowCookiePath,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cookieSecure(c),

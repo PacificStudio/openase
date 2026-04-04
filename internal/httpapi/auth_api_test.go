@@ -19,7 +19,47 @@ import (
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 )
+
+func TestOIDCFlowCookiePathMatchesAPICallback(t *testing.T) {
+	t.Parallel()
+
+	server := &Server{}
+	echoServer := echo.New()
+
+	startReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", nil)
+	startRec := httptest.NewRecorder()
+	startCtx := echoServer.NewContext(startReq, startRec)
+	server.setFlowCookie(startCtx, "flow-token")
+
+	startCookies := startRec.Result().Cookies()
+	if len(startCookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(startCookies))
+	}
+	if startCookies[0].Name != oidcFlowCookieName {
+		t.Fatalf("cookie name = %q, want %q", startCookies[0].Name, oidcFlowCookieName)
+	}
+	if startCookies[0].Path != oidcFlowCookiePath {
+		t.Fatalf("cookie path = %q, want %q", startCookies[0].Path, oidcFlowCookiePath)
+	}
+
+	clearReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/callback", nil)
+	clearRec := httptest.NewRecorder()
+	clearCtx := echoServer.NewContext(clearReq, clearRec)
+	server.clearOIDCFlowCookie(clearCtx)
+
+	clearCookies := clearRec.Result().Cookies()
+	if len(clearCookies) != 1 {
+		t.Fatalf("expected 1 cookie, got %d", len(clearCookies))
+	}
+	if clearCookies[0].Path != oidcFlowCookiePath {
+		t.Fatalf("cleared cookie path = %q, want %q", clearCookies[0].Path, oidcFlowCookiePath)
+	}
+	if clearCookies[0].MaxAge != -1 {
+		t.Fatalf("cleared cookie max age = %d, want -1", clearCookies[0].MaxAge)
+	}
+}
 
 func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 	t.Parallel()
