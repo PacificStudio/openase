@@ -41,6 +41,10 @@ func (r *EntRepository) CreateMachine(ctx context.Context, input domain.CreateMa
 	if !exists {
 		return domain.Machine{}, ErrNotFound
 	}
+	input, err = normalizeCreateMachineDefaults(input)
+	if err != nil {
+		return domain.Machine{}, fmt.Errorf("normalize machine before create: %w", err)
+	}
 
 	item, err := machineCreateBuilder(r.client.Machine.Create(), input).Save(ctx)
 	if err != nil {
@@ -70,6 +74,10 @@ func (r *EntRepository) UpdateMachine(ctx context.Context, input domain.UpdateMa
 	if current.Name == domain.LocalMachineName && (input.Name != domain.LocalMachineName || input.Host != domain.LocalMachineHost) {
 		return domain.Machine{}, fmt.Errorf("%w: local machine name and host are immutable", ErrInvalidInput)
 	}
+	input, err = normalizeUpdateMachineDefaults(input)
+	if err != nil {
+		return domain.Machine{}, fmt.Errorf("normalize machine before update: %w", err)
+	}
 
 	item, err := machineUpdateBuilder(r.client.Machine.UpdateOneID(input.ID), input).Save(ctx)
 	if err != nil {
@@ -96,12 +104,24 @@ func (r *EntRepository) DeleteMachine(ctx context.Context, id uuid.UUID) (domain
 }
 
 func (r *EntRepository) RecordMachineProbe(ctx context.Context, input domain.RecordMachineProbe) error {
+	detectedOS, err := domain.ParseStoredMachineDetectedOS(input.DetectedOS.String())
+	if err != nil {
+		return fmt.Errorf("normalize probe detected os: %w", err)
+	}
+	detectedArch, err := domain.ParseStoredMachineDetectedArch(input.DetectedArch.String())
+	if err != nil {
+		return fmt.Errorf("normalize probe detected arch: %w", err)
+	}
+	detectionStatus, err := domain.ParseStoredMachineDetectionStatus(input.DetectionStatus.String())
+	if err != nil {
+		return fmt.Errorf("normalize probe detection status: %w", err)
+	}
 	builder := r.client.Machine.UpdateOneID(input.ID).
 		SetStatus(toEntMachineStatus(input.Status)).
 		SetLastHeartbeatAt(input.LastHeartbeatAt.UTC()).
-		SetDetectedOs(entmachine.DetectedOs(input.DetectedOS.String())).
-		SetDetectedArch(entmachine.DetectedArch(input.DetectedArch.String())).
-		SetDetectionStatus(entmachine.DetectionStatus(input.DetectionStatus.String())).
+		SetDetectedOs(entmachine.DetectedOs(detectedOS.String())).
+		SetDetectedArch(entmachine.DetectedArch(detectedArch.String())).
+		SetDetectionStatus(entmachine.DetectionStatus(detectionStatus.String())).
 		SetResources(cloneAnyMap(input.Resources))
 	if err := builder.Exec(ctx); err != nil {
 		return mapWriteError("record machine probe", err)
@@ -248,6 +268,82 @@ func machineUpdateBuilder(builder *ent.MachineUpdateOne, input domain.UpdateMach
 	}
 
 	return builder
+}
+
+func normalizeCreateMachineDefaults(input domain.CreateMachine) (domain.CreateMachine, error) {
+	mode, err := domain.ParseStoredMachineConnectionMode(input.ConnectionMode.String(), input.Host)
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	capabilities, err := domain.ParseStoredMachineTransportCapabilities(domainTransportCapabilityStrings(input.TransportCapabilities), mode)
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	detectedOS, err := domain.ParseStoredMachineDetectedOS(input.DetectedOS.String())
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	detectedArch, err := domain.ParseStoredMachineDetectedArch(input.DetectedArch.String())
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	detectionStatus, err := domain.ParseStoredMachineDetectionStatus(input.DetectionStatus.String())
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	channelCredentialKind, err := domain.ParseStoredMachineChannelCredentialKind(input.ChannelCredential.Kind.String())
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+	sessionState, err := domain.ParseStoredMachineSessionState(input.DaemonStatus.SessionState.String())
+	if err != nil {
+		return domain.CreateMachine{}, err
+	}
+
+	input.ConnectionMode = mode
+	input.TransportCapabilities = capabilities
+	input.DetectedOS = detectedOS
+	input.DetectedArch = detectedArch
+	input.DetectionStatus = detectionStatus
+	input.ChannelCredential.Kind = channelCredentialKind
+	input.DaemonStatus.SessionState = sessionState
+	return input, nil
+}
+
+func normalizeUpdateMachineDefaults(input domain.UpdateMachine) (domain.UpdateMachine, error) {
+	createInput, err := normalizeCreateMachineDefaults(domain.CreateMachine{
+		OrganizationID:        input.OrganizationID,
+		Name:                  input.Name,
+		Host:                  input.Host,
+		Port:                  input.Port,
+		ConnectionMode:        input.ConnectionMode,
+		TransportCapabilities: input.TransportCapabilities,
+		SSHUser:               input.SSHUser,
+		SSHKeyPath:            input.SSHKeyPath,
+		AdvertisedEndpoint:    input.AdvertisedEndpoint,
+		DaemonStatus:          input.DaemonStatus,
+		DetectedOS:            input.DetectedOS,
+		DetectedArch:          input.DetectedArch,
+		DetectionStatus:       input.DetectionStatus,
+		ChannelCredential:     input.ChannelCredential,
+		Description:           input.Description,
+		Labels:                input.Labels,
+		Status:                input.Status,
+		WorkspaceRoot:         input.WorkspaceRoot,
+		AgentCLIPath:          input.AgentCLIPath,
+		EnvVars:               input.EnvVars,
+	})
+	if err != nil {
+		return domain.UpdateMachine{}, err
+	}
+	input.ConnectionMode = createInput.ConnectionMode
+	input.TransportCapabilities = createInput.TransportCapabilities
+	input.DaemonStatus = createInput.DaemonStatus
+	input.DetectedOS = createInput.DetectedOS
+	input.DetectedArch = createInput.DetectedArch
+	input.DetectionStatus = createInput.DetectionStatus
+	input.ChannelCredential = createInput.ChannelCredential
+	return input, nil
 }
 
 func mapMachines(items []*ent.Machine) []domain.Machine {
