@@ -4087,11 +4087,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -4139,6 +4190,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4254,11 +4311,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -4306,6 +4414,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4400,13 +4514,85 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "advertised_endpoint": {
+                    "description": "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "agent_cli_path": {
                     "description": "Absolute path to the agent CLI executable on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
+                  "channel_credential": {
+                    "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
+                    "nullable": true,
+                    "properties": {
+                      "certificate_id": {
+                        "description": "Opaque certificate identifier reserved for machine channel registration.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "kind": {
+                        "description": "Credential kind reserved for machine transport registration, such as none, token, or certificate.",
+                        "type": "string"
+                      },
+                      "token_id": {
+                        "description": "Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens.",
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "connection_mode": {
+                    "description": "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "daemon_status": {
+                    "description": "Daemon registration and session metadata for websocket-capable machine transports.",
+                    "nullable": true,
+                    "properties": {
+                      "current_session_id": {
+                        "description": "Current daemon transport session identifier, when one is active.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "last_registered_at": {
+                        "description": "RFC3339 timestamp for the daemon's last successful registration heartbeat.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "registered": {
+                        "description": "Whether the machine daemon currently has an active registration with the control plane.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "session_state": {
+                        "description": "Current machine transport session state reported for the daemon connection.",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "description": {
                     "description": "Human-readable machine description.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "detected_arch": {
+                    "description": "Detected CPU architecture reported for the machine.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "detected_os": {
+                    "description": "Detected operating system reported for the machine.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "detection_status": {
+                    "description": "Status of machine OS and architecture detection.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4437,17 +4623,17 @@
                     "type": "string"
                   },
                   "port": {
-                    "description": "SSH port used to connect to the machine.",
+                    "description": "Transport-specific port used to connect to the machine.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for machine access.",
+                    "description": "Path to the SSH private key used for machine access when connection_mode is ssh.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH username used for machine access.",
+                    "description": "SSH username used for machine access when connection_mode is ssh.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4455,6 +4641,14 @@
                     "description": "Machine lifecycle status value.",
                     "nullable": true,
                     "type": "string"
+                  },
+                  "transport_capabilities": {
+                    "description": "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
                   },
                   "workspace_root": {
                     "description": "Filesystem root directory where ticket workspaces are created on the machine.",
@@ -4477,11 +4671,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -4529,6 +4774,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4646,11 +4897,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -4698,6 +5000,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4983,11 +5291,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -5035,6 +5394,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -6682,11 +7047,62 @@
                     "machines": {
                       "items": {
                         "properties": {
+                          "advertised_endpoint": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "agent_cli_path": {
                             "nullable": true,
                             "type": "string"
                           },
+                          "channel_credential": {
+                            "properties": {
+                              "certificate_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "token_id": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "connection_mode": {
+                            "type": "string"
+                          },
+                          "daemon_status": {
+                            "properties": {
+                              "current_session_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "last_registered_at": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "registered": {
+                                "type": "boolean"
+                              },
+                              "session_state": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "description": {
+                            "type": "string"
+                          },
+                          "detected_arch": {
+                            "type": "string"
+                          },
+                          "detected_os": {
+                            "type": "string"
+                          },
+                          "detection_status": {
                             "type": "string"
                           },
                           "env_vars": {
@@ -6734,6 +7150,12 @@
                           },
                           "status": {
                             "type": "string"
+                          },
+                          "transport_capabilities": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "workspace_root": {
                             "nullable": true,
@@ -6830,13 +7252,80 @@
             "application/json": {
               "schema": {
                 "properties": {
+                  "advertised_endpoint": {
+                    "description": "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "agent_cli_path": {
                     "description": "Absolute path to the agent CLI executable on the machine.",
                     "nullable": true,
                     "type": "string"
                   },
+                  "channel_credential": {
+                    "description": "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
+                    "nullable": true,
+                    "properties": {
+                      "certificate_id": {
+                        "description": "Opaque certificate identifier reserved for machine channel registration.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "kind": {
+                        "description": "Credential kind reserved for machine transport registration, such as none, token, or certificate.",
+                        "type": "string"
+                      },
+                      "token_id": {
+                        "description": "Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens.",
+                        "nullable": true,
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "connection_mode": {
+                    "description": "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
+                    "type": "string"
+                  },
+                  "daemon_status": {
+                    "description": "Daemon registration and session metadata for websocket-capable machine transports.",
+                    "properties": {
+                      "current_session_id": {
+                        "description": "Current daemon transport session identifier, when one is active.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "last_registered_at": {
+                        "description": "RFC3339 timestamp for the daemon's last successful registration heartbeat.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "registered": {
+                        "description": "Whether the machine daemon currently has an active registration with the control plane.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "session_state": {
+                        "description": "Current machine transport session state reported for the daemon connection.",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "description": {
                     "description": "Human-readable machine description.",
+                    "type": "string"
+                  },
+                  "detected_arch": {
+                    "description": "Detected CPU architecture reported for the machine.",
+                    "type": "string"
+                  },
+                  "detected_os": {
+                    "description": "Detected operating system reported for the machine.",
+                    "type": "string"
+                  },
+                  "detection_status": {
+                    "description": "Status of machine OS and architecture detection.",
                     "type": "string"
                   },
                   "env_vars": {
@@ -6862,23 +7351,30 @@
                     "type": "string"
                   },
                   "port": {
-                    "description": "SSH port used to connect to the machine.",
+                    "description": "Transport-specific port used to connect to the machine.",
                     "nullable": true,
                     "type": "integer"
                   },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for machine access.",
+                    "description": "Path to the SSH private key used for machine access when connection_mode is ssh.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH username used for machine access.",
+                    "description": "SSH username used for machine access when connection_mode is ssh.",
                     "nullable": true,
                     "type": "string"
                   },
                   "status": {
                     "description": "Machine lifecycle status value.",
                     "type": "string"
+                  },
+                  "transport_capabilities": {
+                    "description": "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "workspace_root": {
                     "description": "Filesystem root directory where ticket workspaces are created on the machine.",
@@ -6901,11 +7397,62 @@
                   "properties": {
                     "machine": {
                       "properties": {
+                        "advertised_endpoint": {
+                          "nullable": true,
+                          "type": "string"
+                        },
                         "agent_cli_path": {
                           "nullable": true,
                           "type": "string"
                         },
+                        "channel_credential": {
+                          "properties": {
+                            "certificate_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "token_id": {
+                              "nullable": true,
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "connection_mode": {
+                          "type": "string"
+                        },
+                        "daemon_status": {
+                          "properties": {
+                            "current_session_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_registered_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "registered": {
+                              "type": "boolean"
+                            },
+                            "session_state": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "description": {
+                          "type": "string"
+                        },
+                        "detected_arch": {
+                          "type": "string"
+                        },
+                        "detected_os": {
+                          "type": "string"
+                        },
+                        "detection_status": {
                           "type": "string"
                         },
                         "env_vars": {
@@ -6953,6 +7500,12 @@
                         },
                         "status": {
                           "type": "string"
+                        },
+                        "transport_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,

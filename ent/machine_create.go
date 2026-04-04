@@ -57,6 +57,26 @@ func (_c *MachineCreate) SetNillablePort(v *int) *MachineCreate {
 	return _c
 }
 
+// SetConnectionMode sets the "connection_mode" field.
+func (_c *MachineCreate) SetConnectionMode(v machine.ConnectionMode) *MachineCreate {
+	_c.mutation.SetConnectionMode(v)
+	return _c
+}
+
+// SetNillableConnectionMode sets the "connection_mode" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableConnectionMode(v *machine.ConnectionMode) *MachineCreate {
+	if v != nil {
+		_c.SetConnectionMode(*v)
+	}
+	return _c
+}
+
+// SetTransportCapabilities sets the "transport_capabilities" field.
+func (_c *MachineCreate) SetTransportCapabilities(v pgarray.StringArray) *MachineCreate {
+	_c.mutation.SetTransportCapabilities(v)
+	return _c
+}
+
 // SetSSHUser sets the "ssh_user" field.
 func (_c *MachineCreate) SetSSHUser(v string) *MachineCreate {
 	_c.mutation.SetSSHUser(v)
@@ -81,6 +101,160 @@ func (_c *MachineCreate) SetSSHKeyPath(v string) *MachineCreate {
 func (_c *MachineCreate) SetNillableSSHKeyPath(v *string) *MachineCreate {
 	if v != nil {
 		_c.SetSSHKeyPath(*v)
+	}
+	return _c
+}
+
+// SetAdvertisedEndpoint sets the "advertised_endpoint" field.
+func (_c *MachineCreate) SetAdvertisedEndpoint(v string) *MachineCreate {
+	_c.mutation.SetAdvertisedEndpoint(v)
+	return _c
+}
+
+// SetNillableAdvertisedEndpoint sets the "advertised_endpoint" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableAdvertisedEndpoint(v *string) *MachineCreate {
+	if v != nil {
+		_c.SetAdvertisedEndpoint(*v)
+	}
+	return _c
+}
+
+// SetDaemonRegistered sets the "daemon_registered" field.
+func (_c *MachineCreate) SetDaemonRegistered(v bool) *MachineCreate {
+	_c.mutation.SetDaemonRegistered(v)
+	return _c
+}
+
+// SetNillableDaemonRegistered sets the "daemon_registered" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDaemonRegistered(v *bool) *MachineCreate {
+	if v != nil {
+		_c.SetDaemonRegistered(*v)
+	}
+	return _c
+}
+
+// SetDaemonLastRegisteredAt sets the "daemon_last_registered_at" field.
+func (_c *MachineCreate) SetDaemonLastRegisteredAt(v time.Time) *MachineCreate {
+	_c.mutation.SetDaemonLastRegisteredAt(v)
+	return _c
+}
+
+// SetNillableDaemonLastRegisteredAt sets the "daemon_last_registered_at" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDaemonLastRegisteredAt(v *time.Time) *MachineCreate {
+	if v != nil {
+		_c.SetDaemonLastRegisteredAt(*v)
+	}
+	return _c
+}
+
+// SetDaemonSessionID sets the "daemon_session_id" field.
+func (_c *MachineCreate) SetDaemonSessionID(v string) *MachineCreate {
+	_c.mutation.SetDaemonSessionID(v)
+	return _c
+}
+
+// SetNillableDaemonSessionID sets the "daemon_session_id" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDaemonSessionID(v *string) *MachineCreate {
+	if v != nil {
+		_c.SetDaemonSessionID(*v)
+	}
+	return _c
+}
+
+// SetDaemonSessionState sets the "daemon_session_state" field.
+func (_c *MachineCreate) SetDaemonSessionState(v machine.DaemonSessionState) *MachineCreate {
+	_c.mutation.SetDaemonSessionState(v)
+	return _c
+}
+
+// SetNillableDaemonSessionState sets the "daemon_session_state" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDaemonSessionState(v *machine.DaemonSessionState) *MachineCreate {
+	if v != nil {
+		_c.SetDaemonSessionState(*v)
+	}
+	return _c
+}
+
+// SetDetectedOs sets the "detected_os" field.
+func (_c *MachineCreate) SetDetectedOs(v machine.DetectedOs) *MachineCreate {
+	_c.mutation.SetDetectedOs(v)
+	return _c
+}
+
+// SetNillableDetectedOs sets the "detected_os" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDetectedOs(v *machine.DetectedOs) *MachineCreate {
+	if v != nil {
+		_c.SetDetectedOs(*v)
+	}
+	return _c
+}
+
+// SetDetectedArch sets the "detected_arch" field.
+func (_c *MachineCreate) SetDetectedArch(v machine.DetectedArch) *MachineCreate {
+	_c.mutation.SetDetectedArch(v)
+	return _c
+}
+
+// SetNillableDetectedArch sets the "detected_arch" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDetectedArch(v *machine.DetectedArch) *MachineCreate {
+	if v != nil {
+		_c.SetDetectedArch(*v)
+	}
+	return _c
+}
+
+// SetDetectionStatus sets the "detection_status" field.
+func (_c *MachineCreate) SetDetectionStatus(v machine.DetectionStatus) *MachineCreate {
+	_c.mutation.SetDetectionStatus(v)
+	return _c
+}
+
+// SetNillableDetectionStatus sets the "detection_status" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableDetectionStatus(v *machine.DetectionStatus) *MachineCreate {
+	if v != nil {
+		_c.SetDetectionStatus(*v)
+	}
+	return _c
+}
+
+// SetChannelCredentialKind sets the "channel_credential_kind" field.
+func (_c *MachineCreate) SetChannelCredentialKind(v machine.ChannelCredentialKind) *MachineCreate {
+	_c.mutation.SetChannelCredentialKind(v)
+	return _c
+}
+
+// SetNillableChannelCredentialKind sets the "channel_credential_kind" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableChannelCredentialKind(v *machine.ChannelCredentialKind) *MachineCreate {
+	if v != nil {
+		_c.SetChannelCredentialKind(*v)
+	}
+	return _c
+}
+
+// SetChannelTokenID sets the "channel_token_id" field.
+func (_c *MachineCreate) SetChannelTokenID(v string) *MachineCreate {
+	_c.mutation.SetChannelTokenID(v)
+	return _c
+}
+
+// SetNillableChannelTokenID sets the "channel_token_id" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableChannelTokenID(v *string) *MachineCreate {
+	if v != nil {
+		_c.SetChannelTokenID(*v)
+	}
+	return _c
+}
+
+// SetChannelCertificateID sets the "channel_certificate_id" field.
+func (_c *MachineCreate) SetChannelCertificateID(v string) *MachineCreate {
+	_c.mutation.SetChannelCertificateID(v)
+	return _c
+}
+
+// SetNillableChannelCertificateID sets the "channel_certificate_id" field if the given value is not nil.
+func (_c *MachineCreate) SetNillableChannelCertificateID(v *string) *MachineCreate {
+	if v != nil {
+		_c.SetChannelCertificateID(*v)
 	}
 	return _c
 }
@@ -261,6 +435,34 @@ func (_c *MachineCreate) defaults() {
 		v := machine.DefaultPort
 		_c.mutation.SetPort(v)
 	}
+	if _, ok := _c.mutation.ConnectionMode(); !ok {
+		v := machine.DefaultConnectionMode
+		_c.mutation.SetConnectionMode(v)
+	}
+	if _, ok := _c.mutation.DaemonRegistered(); !ok {
+		v := machine.DefaultDaemonRegistered
+		_c.mutation.SetDaemonRegistered(v)
+	}
+	if _, ok := _c.mutation.DaemonSessionState(); !ok {
+		v := machine.DefaultDaemonSessionState
+		_c.mutation.SetDaemonSessionState(v)
+	}
+	if _, ok := _c.mutation.DetectedOs(); !ok {
+		v := machine.DefaultDetectedOs
+		_c.mutation.SetDetectedOs(v)
+	}
+	if _, ok := _c.mutation.DetectedArch(); !ok {
+		v := machine.DefaultDetectedArch
+		_c.mutation.SetDetectedArch(v)
+	}
+	if _, ok := _c.mutation.DetectionStatus(); !ok {
+		v := machine.DefaultDetectionStatus
+		_c.mutation.SetDetectionStatus(v)
+	}
+	if _, ok := _c.mutation.ChannelCredentialKind(); !ok {
+		v := machine.DefaultChannelCredentialKind
+		_c.mutation.SetChannelCredentialKind(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := machine.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -298,6 +500,57 @@ func (_c *MachineCreate) check() error {
 	}
 	if _, ok := _c.mutation.Port(); !ok {
 		return &ValidationError{Name: "port", err: errors.New(`ent: missing required field "Machine.port"`)}
+	}
+	if _, ok := _c.mutation.ConnectionMode(); !ok {
+		return &ValidationError{Name: "connection_mode", err: errors.New(`ent: missing required field "Machine.connection_mode"`)}
+	}
+	if v, ok := _c.mutation.ConnectionMode(); ok {
+		if err := machine.ConnectionModeValidator(v); err != nil {
+			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DaemonRegistered(); !ok {
+		return &ValidationError{Name: "daemon_registered", err: errors.New(`ent: missing required field "Machine.daemon_registered"`)}
+	}
+	if _, ok := _c.mutation.DaemonSessionState(); !ok {
+		return &ValidationError{Name: "daemon_session_state", err: errors.New(`ent: missing required field "Machine.daemon_session_state"`)}
+	}
+	if v, ok := _c.mutation.DaemonSessionState(); ok {
+		if err := machine.DaemonSessionStateValidator(v); err != nil {
+			return &ValidationError{Name: "daemon_session_state", err: fmt.Errorf(`ent: validator failed for field "Machine.daemon_session_state": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DetectedOs(); !ok {
+		return &ValidationError{Name: "detected_os", err: errors.New(`ent: missing required field "Machine.detected_os"`)}
+	}
+	if v, ok := _c.mutation.DetectedOs(); ok {
+		if err := machine.DetectedOsValidator(v); err != nil {
+			return &ValidationError{Name: "detected_os", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_os": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DetectedArch(); !ok {
+		return &ValidationError{Name: "detected_arch", err: errors.New(`ent: missing required field "Machine.detected_arch"`)}
+	}
+	if v, ok := _c.mutation.DetectedArch(); ok {
+		if err := machine.DetectedArchValidator(v); err != nil {
+			return &ValidationError{Name: "detected_arch", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_arch": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.DetectionStatus(); !ok {
+		return &ValidationError{Name: "detection_status", err: errors.New(`ent: missing required field "Machine.detection_status"`)}
+	}
+	if v, ok := _c.mutation.DetectionStatus(); ok {
+		if err := machine.DetectionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "detection_status", err: fmt.Errorf(`ent: validator failed for field "Machine.detection_status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ChannelCredentialKind(); !ok {
+		return &ValidationError{Name: "channel_credential_kind", err: errors.New(`ent: missing required field "Machine.channel_credential_kind"`)}
+	}
+	if v, ok := _c.mutation.ChannelCredentialKind(); ok {
+		if err := machine.ChannelCredentialKindValidator(v); err != nil {
+			return &ValidationError{Name: "channel_credential_kind", err: fmt.Errorf(`ent: validator failed for field "Machine.channel_credential_kind": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Machine.status"`)}
@@ -360,6 +613,14 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 		_spec.SetField(machine.FieldPort, field.TypeInt, value)
 		_node.Port = value
 	}
+	if value, ok := _c.mutation.ConnectionMode(); ok {
+		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
+		_node.ConnectionMode = value
+	}
+	if value, ok := _c.mutation.TransportCapabilities(); ok {
+		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)
+		_node.TransportCapabilities = value
+	}
 	if value, ok := _c.mutation.SSHUser(); ok {
 		_spec.SetField(machine.FieldSSHUser, field.TypeString, value)
 		_node.SSHUser = value
@@ -367,6 +628,50 @@ func (_c *MachineCreate) createSpec() (*Machine, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SSHKeyPath(); ok {
 		_spec.SetField(machine.FieldSSHKeyPath, field.TypeString, value)
 		_node.SSHKeyPath = value
+	}
+	if value, ok := _c.mutation.AdvertisedEndpoint(); ok {
+		_spec.SetField(machine.FieldAdvertisedEndpoint, field.TypeString, value)
+		_node.AdvertisedEndpoint = value
+	}
+	if value, ok := _c.mutation.DaemonRegistered(); ok {
+		_spec.SetField(machine.FieldDaemonRegistered, field.TypeBool, value)
+		_node.DaemonRegistered = value
+	}
+	if value, ok := _c.mutation.DaemonLastRegisteredAt(); ok {
+		_spec.SetField(machine.FieldDaemonLastRegisteredAt, field.TypeTime, value)
+		_node.DaemonLastRegisteredAt = &value
+	}
+	if value, ok := _c.mutation.DaemonSessionID(); ok {
+		_spec.SetField(machine.FieldDaemonSessionID, field.TypeString, value)
+		_node.DaemonSessionID = value
+	}
+	if value, ok := _c.mutation.DaemonSessionState(); ok {
+		_spec.SetField(machine.FieldDaemonSessionState, field.TypeEnum, value)
+		_node.DaemonSessionState = value
+	}
+	if value, ok := _c.mutation.DetectedOs(); ok {
+		_spec.SetField(machine.FieldDetectedOs, field.TypeEnum, value)
+		_node.DetectedOs = value
+	}
+	if value, ok := _c.mutation.DetectedArch(); ok {
+		_spec.SetField(machine.FieldDetectedArch, field.TypeEnum, value)
+		_node.DetectedArch = value
+	}
+	if value, ok := _c.mutation.DetectionStatus(); ok {
+		_spec.SetField(machine.FieldDetectionStatus, field.TypeEnum, value)
+		_node.DetectionStatus = value
+	}
+	if value, ok := _c.mutation.ChannelCredentialKind(); ok {
+		_spec.SetField(machine.FieldChannelCredentialKind, field.TypeEnum, value)
+		_node.ChannelCredentialKind = value
+	}
+	if value, ok := _c.mutation.ChannelTokenID(); ok {
+		_spec.SetField(machine.FieldChannelTokenID, field.TypeString, value)
+		_node.ChannelTokenID = value
+	}
+	if value, ok := _c.mutation.ChannelCertificateID(); ok {
+		_spec.SetField(machine.FieldChannelCertificateID, field.TypeString, value)
+		_node.ChannelCertificateID = value
 	}
 	if value, ok := _c.mutation.Description(); ok {
 		_spec.SetField(machine.FieldDescription, field.TypeString, value)

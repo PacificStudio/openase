@@ -92,21 +92,42 @@ type OpenAPIOrganizationProjectSummary struct {
 }
 
 type OpenAPIMachine struct {
-	ID              string         `json:"id"`
-	OrganizationID  string         `json:"organization_id"`
-	Name            string         `json:"name"`
-	Host            string         `json:"host"`
-	Port            int            `json:"port"`
-	SSHUser         *string        `json:"ssh_user,omitempty"`
-	SSHKeyPath      *string        `json:"ssh_key_path,omitempty"`
-	Description     string         `json:"description"`
-	Labels          []string       `json:"labels,omitempty"`
-	Status          string         `json:"status"`
-	WorkspaceRoot   *string        `json:"workspace_root,omitempty"`
-	AgentCLIPath    *string        `json:"agent_cli_path,omitempty"`
-	EnvVars         []string       `json:"env_vars,omitempty"`
-	LastHeartbeatAt *string        `json:"last_heartbeat_at,omitempty"`
-	Resources       map[string]any `json:"resources"`
+	ID                    string                          `json:"id"`
+	OrganizationID        string                          `json:"organization_id"`
+	Name                  string                          `json:"name"`
+	Host                  string                          `json:"host"`
+	Port                  int                             `json:"port"`
+	ConnectionMode        string                          `json:"connection_mode"`
+	TransportCapabilities []string                        `json:"transport_capabilities,omitempty"`
+	SSHUser               *string                         `json:"ssh_user,omitempty"`
+	SSHKeyPath            *string                         `json:"ssh_key_path,omitempty"`
+	AdvertisedEndpoint    *string                         `json:"advertised_endpoint,omitempty"`
+	DaemonStatus          OpenAPIMachineDaemonStatus      `json:"daemon_status"`
+	DetectedOS            string                          `json:"detected_os"`
+	DetectedArch          string                          `json:"detected_arch"`
+	DetectionStatus       string                          `json:"detection_status"`
+	ChannelCredential     OpenAPIMachineChannelCredential `json:"channel_credential"`
+	Description           string                          `json:"description"`
+	Labels                []string                        `json:"labels,omitempty"`
+	Status                string                          `json:"status"`
+	WorkspaceRoot         *string                         `json:"workspace_root,omitempty"`
+	AgentCLIPath          *string                         `json:"agent_cli_path,omitempty"`
+	EnvVars               []string                        `json:"env_vars,omitempty"`
+	LastHeartbeatAt       *string                         `json:"last_heartbeat_at,omitempty"`
+	Resources             map[string]any                  `json:"resources"`
+}
+
+type OpenAPIMachineDaemonStatus struct {
+	Registered       bool    `json:"registered"`
+	LastRegisteredAt *string `json:"last_registered_at,omitempty"`
+	CurrentSessionID *string `json:"current_session_id,omitempty"`
+	SessionState     string  `json:"session_state"`
+}
+
+type OpenAPIMachineChannelCredential struct {
+	Kind          string  `json:"kind"`
+	TokenID       *string `json:"token_id,omitempty"`
+	CertificateID *string `json:"certificate_id,omitempty"`
 }
 
 type OpenAPIMachineProbe struct {
@@ -1712,17 +1733,32 @@ var (
 		"is_enabled": "Whether the channel is enabled for delivery.",
 	}
 	openAPIMachineRequestDescriptions = map[string]string{
-		"name":           "Human-readable machine name.",
-		"host":           "Hostname or address used to reach the machine.",
-		"port":           "SSH port used to connect to the machine.",
-		"ssh_user":       "SSH username used for machine access.",
-		"ssh_key_path":   "Path to the SSH private key used for machine access.",
-		"description":    "Human-readable machine description.",
-		"labels":         "Labels attached to the machine for operator reference.",
-		"status":         "Machine lifecycle status value.",
-		"workspace_root": "Filesystem root directory where ticket workspaces are created on the machine.",
-		"agent_cli_path": "Absolute path to the agent CLI executable on the machine.",
-		"env_vars":       "Environment variable entries exported when work runs on the machine.",
+		"name":                              "Human-readable machine name.",
+		"host":                              "Hostname or address used to reach the machine.",
+		"port":                              "Transport-specific port used to connect to the machine.",
+		"connection_mode":                   "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
+		"transport_capabilities":            "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
+		"ssh_user":                          "SSH username used for machine access when connection_mode is ssh.",
+		"ssh_key_path":                      "Path to the SSH private key used for machine access when connection_mode is ssh.",
+		"advertised_endpoint":               "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+		"daemon_status":                     "Daemon registration and session metadata for websocket-capable machine transports.",
+		"daemon_status.registered":          "Whether the machine daemon currently has an active registration with the control plane.",
+		"daemon_status.last_registered_at":  "RFC3339 timestamp for the daemon's last successful registration heartbeat.",
+		"daemon_status.current_session_id":  "Current daemon transport session identifier, when one is active.",
+		"daemon_status.session_state":       "Current machine transport session state reported for the daemon connection.",
+		"detected_os":                       "Detected operating system reported for the machine.",
+		"detected_arch":                     "Detected CPU architecture reported for the machine.",
+		"detection_status":                  "Status of machine OS and architecture detection.",
+		"channel_credential":                "Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens.",
+		"channel_credential.kind":           "Credential kind reserved for machine transport registration, such as none, token, or certificate.",
+		"channel_credential.token_id":       "Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens.",
+		"channel_credential.certificate_id": "Opaque certificate identifier reserved for machine channel registration.",
+		"description":                       "Human-readable machine description.",
+		"labels":                            "Labels attached to the machine for operator reference.",
+		"status":                            "Machine lifecycle status value.",
+		"workspace_root":                    "Filesystem root directory where ticket workspaces are created on the machine.",
+		"agent_cli_path":                    "Absolute path to the agent CLI executable on the machine.",
+		"env_vars":                          "Environment variable entries exported when work runs on the machine.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{
 		"name":                      "Human-readable project name.",

@@ -53,6 +53,7 @@ func (l *RuntimeLauncher) ensureWorkspaceProvisioner() *runtimeWorkspaceProvisio
 	l.workspaces.client = l.client
 	l.workspaces.logger = l.logger.With("component", "runtime-workspace-provisioner")
 	l.workspaces.sshPool = l.sshPool
+	l.workspaces.transports = l.transports
 	l.workspaces.githubAuth = l.githubAuth
 	l.workspaces.now = now
 	return l.workspaces
@@ -84,6 +85,7 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 	l.completionSummaries.adapters = l.adapters
 	l.completionSummaries.processManager = l.processManager
 	l.completionSummaries.sshPool = l.sshPool
+	l.completionSummaries.transports = l.transports
 	l.completionSummaries.workflow = l.workflow
 	l.completionSummaries.now = now
 	return l.completionSummaries

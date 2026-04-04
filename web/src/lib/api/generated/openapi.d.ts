@@ -4460,8 +4460,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -4476,6 +4492,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4539,8 +4556,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -4555,6 +4588,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4624,10 +4658,40 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Listener websocket endpoint advertised by the machine when connection_mode is ws_listener. */
+          advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
+          channel_credential?: {
+            /** @description Opaque certificate identifier reserved for machine channel registration. */
+            certificate_id?: string | null
+            /** @description Credential kind reserved for machine transport registration, such as none, token, or certificate. */
+            kind?: string
+            /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
+            token_id?: string | null
+          } | null
+          /** @description Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener. */
+          connection_mode?: string | null
+          /** @description Daemon registration and session metadata for websocket-capable machine transports. */
+          daemon_status?: {
+            /** @description Current daemon transport session identifier, when one is active. */
+            current_session_id?: string | null
+            /** @description RFC3339 timestamp for the daemon's last successful registration heartbeat. */
+            last_registered_at?: string | null
+            /** @description Whether the machine daemon currently has an active registration with the control plane. */
+            registered?: boolean | null
+            /** @description Current machine transport session state reported for the daemon connection. */
+            session_state?: string
+          } | null
           /** @description Human-readable machine description. */
           description?: string | null
+          /** @description Detected CPU architecture reported for the machine. */
+          detected_arch?: string | null
+          /** @description Detected operating system reported for the machine. */
+          detected_os?: string | null
+          /** @description Status of machine OS and architecture detection. */
+          detection_status?: string | null
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[] | null
           /** @description Hostname or address used to reach the machine. */
@@ -4636,14 +4700,16 @@ export interface operations {
           labels?: string[] | null
           /** @description Human-readable machine name. */
           name?: string | null
-          /** @description SSH port used to connect to the machine. */
+          /** @description Transport-specific port used to connect to the machine. */
           port?: number | null
-          /** @description Path to the SSH private key used for machine access. */
+          /** @description Path to the SSH private key used for machine access when connection_mode is ssh. */
           ssh_key_path?: string | null
-          /** @description SSH username used for machine access. */
+          /** @description SSH username used for machine access when connection_mode is ssh. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string | null
+          /** @description Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming. */
+          transport_capabilities?: string[] | null
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -4658,8 +4724,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -4674,6 +4756,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4749,8 +4832,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -4765,6 +4864,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4925,8 +5025,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -4941,6 +5057,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
             probe?: {
@@ -5934,8 +6051,24 @@ export interface operations {
         content: {
           'application/json': {
             machines?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -5950,6 +6083,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }[]
           }
@@ -6007,10 +6141,40 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Listener websocket endpoint advertised by the machine when connection_mode is ws_listener. */
+          advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
+          /** @description Machine channel credential reference reserved for transport registration, kept separate from runtime agent tokens. */
+          channel_credential?: {
+            /** @description Opaque certificate identifier reserved for machine channel registration. */
+            certificate_id?: string | null
+            /** @description Credential kind reserved for machine transport registration, such as none, token, or certificate. */
+            kind?: string
+            /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
+            token_id?: string | null
+          } | null
+          /** @description Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener. */
+          connection_mode?: string
+          /** @description Daemon registration and session metadata for websocket-capable machine transports. */
+          daemon_status?: {
+            /** @description Current daemon transport session identifier, when one is active. */
+            current_session_id?: string | null
+            /** @description RFC3339 timestamp for the daemon's last successful registration heartbeat. */
+            last_registered_at?: string | null
+            /** @description Whether the machine daemon currently has an active registration with the control plane. */
+            registered?: boolean | null
+            /** @description Current machine transport session state reported for the daemon connection. */
+            session_state?: string
+          }
           /** @description Human-readable machine description. */
           description?: string
+          /** @description Detected CPU architecture reported for the machine. */
+          detected_arch?: string
+          /** @description Detected operating system reported for the machine. */
+          detected_os?: string
+          /** @description Status of machine OS and architecture detection. */
+          detection_status?: string
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[]
           /** @description Hostname or address used to reach the machine. */
@@ -6019,14 +6183,16 @@ export interface operations {
           labels?: string[]
           /** @description Human-readable machine name. */
           name?: string
-          /** @description SSH port used to connect to the machine. */
+          /** @description Transport-specific port used to connect to the machine. */
           port?: number | null
-          /** @description Path to the SSH private key used for machine access. */
+          /** @description Path to the SSH private key used for machine access when connection_mode is ssh. */
           ssh_key_path?: string | null
-          /** @description SSH username used for machine access. */
+          /** @description SSH username used for machine access when connection_mode is ssh. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string
+          /** @description Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming. */
+          transport_capabilities?: string[]
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -6041,8 +6207,24 @@ export interface operations {
         content: {
           'application/json': {
             machine?: {
+              advertised_endpoint?: string | null
               agent_cli_path?: string | null
+              channel_credential?: {
+                certificate_id?: string | null
+                kind?: string
+                token_id?: string | null
+              }
+              connection_mode?: string
+              daemon_status?: {
+                current_session_id?: string | null
+                last_registered_at?: string | null
+                registered?: boolean
+                session_state?: string
+              }
               description?: string
+              detected_arch?: string
+              detected_os?: string
+              detection_status?: string
               env_vars?: string[]
               host?: string
               id?: string
@@ -6057,6 +6239,7 @@ export interface operations {
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
+              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }

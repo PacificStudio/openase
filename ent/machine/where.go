@@ -77,6 +77,11 @@ func Port(v int) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldPort, v))
 }
 
+// TransportCapabilities applies equality check predicate on the "transport_capabilities" field. It's identical to TransportCapabilitiesEQ.
+func TransportCapabilities(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldTransportCapabilities, v))
+}
+
 // SSHUser applies equality check predicate on the "ssh_user" field. It's identical to SSHUserEQ.
 func SSHUser(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldSSHUser, v))
@@ -85,6 +90,36 @@ func SSHUser(v string) predicate.Machine {
 // SSHKeyPath applies equality check predicate on the "ssh_key_path" field. It's identical to SSHKeyPathEQ.
 func SSHKeyPath(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldSSHKeyPath, v))
+}
+
+// AdvertisedEndpoint applies equality check predicate on the "advertised_endpoint" field. It's identical to AdvertisedEndpointEQ.
+func AdvertisedEndpoint(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldAdvertisedEndpoint, v))
+}
+
+// DaemonRegistered applies equality check predicate on the "daemon_registered" field. It's identical to DaemonRegisteredEQ.
+func DaemonRegistered(v bool) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonRegistered, v))
+}
+
+// DaemonLastRegisteredAt applies equality check predicate on the "daemon_last_registered_at" field. It's identical to DaemonLastRegisteredAtEQ.
+func DaemonLastRegisteredAt(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonSessionID applies equality check predicate on the "daemon_session_id" field. It's identical to DaemonSessionIDEQ.
+func DaemonSessionID(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonSessionID, v))
+}
+
+// ChannelTokenID applies equality check predicate on the "channel_token_id" field. It's identical to ChannelTokenIDEQ.
+func ChannelTokenID(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldChannelTokenID, v))
+}
+
+// ChannelCertificateID applies equality check predicate on the "channel_certificate_id" field. It's identical to ChannelCertificateIDEQ.
+func ChannelCertificateID(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldChannelCertificateID, v))
 }
 
 // Description applies equality check predicate on the "description" field. It's identical to DescriptionEQ.
@@ -307,6 +342,76 @@ func PortLTE(v int) predicate.Machine {
 	return predicate.Machine(sql.FieldLTE(FieldPort, v))
 }
 
+// ConnectionModeEQ applies the EQ predicate on the "connection_mode" field.
+func ConnectionModeEQ(v ConnectionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldConnectionMode, v))
+}
+
+// ConnectionModeNEQ applies the NEQ predicate on the "connection_mode" field.
+func ConnectionModeNEQ(v ConnectionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldConnectionMode, v))
+}
+
+// ConnectionModeIn applies the In predicate on the "connection_mode" field.
+func ConnectionModeIn(vs ...ConnectionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldConnectionMode, vs...))
+}
+
+// ConnectionModeNotIn applies the NotIn predicate on the "connection_mode" field.
+func ConnectionModeNotIn(vs ...ConnectionMode) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldConnectionMode, vs...))
+}
+
+// TransportCapabilitiesEQ applies the EQ predicate on the "transport_capabilities" field.
+func TransportCapabilitiesEQ(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesNEQ applies the NEQ predicate on the "transport_capabilities" field.
+func TransportCapabilitiesNEQ(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesIn applies the In predicate on the "transport_capabilities" field.
+func TransportCapabilitiesIn(vs ...pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldTransportCapabilities, vs...))
+}
+
+// TransportCapabilitiesNotIn applies the NotIn predicate on the "transport_capabilities" field.
+func TransportCapabilitiesNotIn(vs ...pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldTransportCapabilities, vs...))
+}
+
+// TransportCapabilitiesGT applies the GT predicate on the "transport_capabilities" field.
+func TransportCapabilitiesGT(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesGTE applies the GTE predicate on the "transport_capabilities" field.
+func TransportCapabilitiesGTE(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesLT applies the LT predicate on the "transport_capabilities" field.
+func TransportCapabilitiesLT(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesLTE applies the LTE predicate on the "transport_capabilities" field.
+func TransportCapabilitiesLTE(v pgarray.StringArray) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldTransportCapabilities, v))
+}
+
+// TransportCapabilitiesIsNil applies the IsNil predicate on the "transport_capabilities" field.
+func TransportCapabilitiesIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldTransportCapabilities))
+}
+
+// TransportCapabilitiesNotNil applies the NotNil predicate on the "transport_capabilities" field.
+func TransportCapabilitiesNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldTransportCapabilities))
+}
+
 // SSHUserEQ applies the EQ predicate on the "ssh_user" field.
 func SSHUserEQ(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldEQ(FieldSSHUser, v))
@@ -455,6 +560,466 @@ func SSHKeyPathEqualFold(v string) predicate.Machine {
 // SSHKeyPathContainsFold applies the ContainsFold predicate on the "ssh_key_path" field.
 func SSHKeyPathContainsFold(v string) predicate.Machine {
 	return predicate.Machine(sql.FieldContainsFold(FieldSSHKeyPath, v))
+}
+
+// AdvertisedEndpointEQ applies the EQ predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointNEQ applies the NEQ predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointNEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointIn applies the In predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldAdvertisedEndpoint, vs...))
+}
+
+// AdvertisedEndpointNotIn applies the NotIn predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointNotIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldAdvertisedEndpoint, vs...))
+}
+
+// AdvertisedEndpointGT applies the GT predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointGT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointGTE applies the GTE predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointGTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointLT applies the LT predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointLT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointLTE applies the LTE predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointLTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointContains applies the Contains predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointContains(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContains(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointHasPrefix applies the HasPrefix predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointHasPrefix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasPrefix(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointHasSuffix applies the HasSuffix predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointHasSuffix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasSuffix(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointIsNil applies the IsNil predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldAdvertisedEndpoint))
+}
+
+// AdvertisedEndpointNotNil applies the NotNil predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldAdvertisedEndpoint))
+}
+
+// AdvertisedEndpointEqualFold applies the EqualFold predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointEqualFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEqualFold(FieldAdvertisedEndpoint, v))
+}
+
+// AdvertisedEndpointContainsFold applies the ContainsFold predicate on the "advertised_endpoint" field.
+func AdvertisedEndpointContainsFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContainsFold(FieldAdvertisedEndpoint, v))
+}
+
+// DaemonRegisteredEQ applies the EQ predicate on the "daemon_registered" field.
+func DaemonRegisteredEQ(v bool) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonRegistered, v))
+}
+
+// DaemonRegisteredNEQ applies the NEQ predicate on the "daemon_registered" field.
+func DaemonRegisteredNEQ(v bool) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDaemonRegistered, v))
+}
+
+// DaemonLastRegisteredAtEQ applies the EQ predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtEQ(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtNEQ applies the NEQ predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtNEQ(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtIn applies the In predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtIn(vs ...time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDaemonLastRegisteredAt, vs...))
+}
+
+// DaemonLastRegisteredAtNotIn applies the NotIn predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtNotIn(vs ...time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDaemonLastRegisteredAt, vs...))
+}
+
+// DaemonLastRegisteredAtGT applies the GT predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtGT(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtGTE applies the GTE predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtGTE(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtLT applies the LT predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtLT(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtLTE applies the LTE predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtLTE(v time.Time) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldDaemonLastRegisteredAt, v))
+}
+
+// DaemonLastRegisteredAtIsNil applies the IsNil predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldDaemonLastRegisteredAt))
+}
+
+// DaemonLastRegisteredAtNotNil applies the NotNil predicate on the "daemon_last_registered_at" field.
+func DaemonLastRegisteredAtNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldDaemonLastRegisteredAt))
+}
+
+// DaemonSessionIDEQ applies the EQ predicate on the "daemon_session_id" field.
+func DaemonSessionIDEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDNEQ applies the NEQ predicate on the "daemon_session_id" field.
+func DaemonSessionIDNEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDIn applies the In predicate on the "daemon_session_id" field.
+func DaemonSessionIDIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDaemonSessionID, vs...))
+}
+
+// DaemonSessionIDNotIn applies the NotIn predicate on the "daemon_session_id" field.
+func DaemonSessionIDNotIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDaemonSessionID, vs...))
+}
+
+// DaemonSessionIDGT applies the GT predicate on the "daemon_session_id" field.
+func DaemonSessionIDGT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDGTE applies the GTE predicate on the "daemon_session_id" field.
+func DaemonSessionIDGTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDLT applies the LT predicate on the "daemon_session_id" field.
+func DaemonSessionIDLT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDLTE applies the LTE predicate on the "daemon_session_id" field.
+func DaemonSessionIDLTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDContains applies the Contains predicate on the "daemon_session_id" field.
+func DaemonSessionIDContains(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContains(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDHasPrefix applies the HasPrefix predicate on the "daemon_session_id" field.
+func DaemonSessionIDHasPrefix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasPrefix(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDHasSuffix applies the HasSuffix predicate on the "daemon_session_id" field.
+func DaemonSessionIDHasSuffix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasSuffix(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDIsNil applies the IsNil predicate on the "daemon_session_id" field.
+func DaemonSessionIDIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldDaemonSessionID))
+}
+
+// DaemonSessionIDNotNil applies the NotNil predicate on the "daemon_session_id" field.
+func DaemonSessionIDNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldDaemonSessionID))
+}
+
+// DaemonSessionIDEqualFold applies the EqualFold predicate on the "daemon_session_id" field.
+func DaemonSessionIDEqualFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEqualFold(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionIDContainsFold applies the ContainsFold predicate on the "daemon_session_id" field.
+func DaemonSessionIDContainsFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContainsFold(FieldDaemonSessionID, v))
+}
+
+// DaemonSessionStateEQ applies the EQ predicate on the "daemon_session_state" field.
+func DaemonSessionStateEQ(v DaemonSessionState) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDaemonSessionState, v))
+}
+
+// DaemonSessionStateNEQ applies the NEQ predicate on the "daemon_session_state" field.
+func DaemonSessionStateNEQ(v DaemonSessionState) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDaemonSessionState, v))
+}
+
+// DaemonSessionStateIn applies the In predicate on the "daemon_session_state" field.
+func DaemonSessionStateIn(vs ...DaemonSessionState) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDaemonSessionState, vs...))
+}
+
+// DaemonSessionStateNotIn applies the NotIn predicate on the "daemon_session_state" field.
+func DaemonSessionStateNotIn(vs ...DaemonSessionState) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDaemonSessionState, vs...))
+}
+
+// DetectedOsEQ applies the EQ predicate on the "detected_os" field.
+func DetectedOsEQ(v DetectedOs) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDetectedOs, v))
+}
+
+// DetectedOsNEQ applies the NEQ predicate on the "detected_os" field.
+func DetectedOsNEQ(v DetectedOs) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDetectedOs, v))
+}
+
+// DetectedOsIn applies the In predicate on the "detected_os" field.
+func DetectedOsIn(vs ...DetectedOs) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDetectedOs, vs...))
+}
+
+// DetectedOsNotIn applies the NotIn predicate on the "detected_os" field.
+func DetectedOsNotIn(vs ...DetectedOs) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDetectedOs, vs...))
+}
+
+// DetectedArchEQ applies the EQ predicate on the "detected_arch" field.
+func DetectedArchEQ(v DetectedArch) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDetectedArch, v))
+}
+
+// DetectedArchNEQ applies the NEQ predicate on the "detected_arch" field.
+func DetectedArchNEQ(v DetectedArch) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDetectedArch, v))
+}
+
+// DetectedArchIn applies the In predicate on the "detected_arch" field.
+func DetectedArchIn(vs ...DetectedArch) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDetectedArch, vs...))
+}
+
+// DetectedArchNotIn applies the NotIn predicate on the "detected_arch" field.
+func DetectedArchNotIn(vs ...DetectedArch) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDetectedArch, vs...))
+}
+
+// DetectionStatusEQ applies the EQ predicate on the "detection_status" field.
+func DetectionStatusEQ(v DetectionStatus) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldDetectionStatus, v))
+}
+
+// DetectionStatusNEQ applies the NEQ predicate on the "detection_status" field.
+func DetectionStatusNEQ(v DetectionStatus) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldDetectionStatus, v))
+}
+
+// DetectionStatusIn applies the In predicate on the "detection_status" field.
+func DetectionStatusIn(vs ...DetectionStatus) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldDetectionStatus, vs...))
+}
+
+// DetectionStatusNotIn applies the NotIn predicate on the "detection_status" field.
+func DetectionStatusNotIn(vs ...DetectionStatus) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldDetectionStatus, vs...))
+}
+
+// ChannelCredentialKindEQ applies the EQ predicate on the "channel_credential_kind" field.
+func ChannelCredentialKindEQ(v ChannelCredentialKind) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldChannelCredentialKind, v))
+}
+
+// ChannelCredentialKindNEQ applies the NEQ predicate on the "channel_credential_kind" field.
+func ChannelCredentialKindNEQ(v ChannelCredentialKind) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldChannelCredentialKind, v))
+}
+
+// ChannelCredentialKindIn applies the In predicate on the "channel_credential_kind" field.
+func ChannelCredentialKindIn(vs ...ChannelCredentialKind) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldChannelCredentialKind, vs...))
+}
+
+// ChannelCredentialKindNotIn applies the NotIn predicate on the "channel_credential_kind" field.
+func ChannelCredentialKindNotIn(vs ...ChannelCredentialKind) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldChannelCredentialKind, vs...))
+}
+
+// ChannelTokenIDEQ applies the EQ predicate on the "channel_token_id" field.
+func ChannelTokenIDEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDNEQ applies the NEQ predicate on the "channel_token_id" field.
+func ChannelTokenIDNEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDIn applies the In predicate on the "channel_token_id" field.
+func ChannelTokenIDIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldChannelTokenID, vs...))
+}
+
+// ChannelTokenIDNotIn applies the NotIn predicate on the "channel_token_id" field.
+func ChannelTokenIDNotIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldChannelTokenID, vs...))
+}
+
+// ChannelTokenIDGT applies the GT predicate on the "channel_token_id" field.
+func ChannelTokenIDGT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDGTE applies the GTE predicate on the "channel_token_id" field.
+func ChannelTokenIDGTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDLT applies the LT predicate on the "channel_token_id" field.
+func ChannelTokenIDLT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDLTE applies the LTE predicate on the "channel_token_id" field.
+func ChannelTokenIDLTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDContains applies the Contains predicate on the "channel_token_id" field.
+func ChannelTokenIDContains(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContains(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDHasPrefix applies the HasPrefix predicate on the "channel_token_id" field.
+func ChannelTokenIDHasPrefix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasPrefix(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDHasSuffix applies the HasSuffix predicate on the "channel_token_id" field.
+func ChannelTokenIDHasSuffix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasSuffix(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDIsNil applies the IsNil predicate on the "channel_token_id" field.
+func ChannelTokenIDIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldChannelTokenID))
+}
+
+// ChannelTokenIDNotNil applies the NotNil predicate on the "channel_token_id" field.
+func ChannelTokenIDNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldChannelTokenID))
+}
+
+// ChannelTokenIDEqualFold applies the EqualFold predicate on the "channel_token_id" field.
+func ChannelTokenIDEqualFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEqualFold(FieldChannelTokenID, v))
+}
+
+// ChannelTokenIDContainsFold applies the ContainsFold predicate on the "channel_token_id" field.
+func ChannelTokenIDContainsFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContainsFold(FieldChannelTokenID, v))
+}
+
+// ChannelCertificateIDEQ applies the EQ predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEQ(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDNEQ applies the NEQ predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDNEQ(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldNEQ(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDIn applies the In predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldIn(FieldChannelCertificateID, vs...))
+}
+
+// ChannelCertificateIDNotIn applies the NotIn predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDNotIn(vs ...string) predicate.Machine {
+	return predicate.Machine(sql.FieldNotIn(FieldChannelCertificateID, vs...))
+}
+
+// ChannelCertificateIDGT applies the GT predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDGT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGT(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDGTE applies the GTE predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDGTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldGTE(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDLT applies the LT predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDLT(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLT(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDLTE applies the LTE predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDLTE(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldLTE(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDContains applies the Contains predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDContains(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContains(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDHasPrefix applies the HasPrefix predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDHasPrefix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasPrefix(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDHasSuffix applies the HasSuffix predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDHasSuffix(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldHasSuffix(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDIsNil applies the IsNil predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDIsNil() predicate.Machine {
+	return predicate.Machine(sql.FieldIsNull(FieldChannelCertificateID))
+}
+
+// ChannelCertificateIDNotNil applies the NotNil predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDNotNil() predicate.Machine {
+	return predicate.Machine(sql.FieldNotNull(FieldChannelCertificateID))
+}
+
+// ChannelCertificateIDEqualFold applies the EqualFold predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDEqualFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldEqualFold(FieldChannelCertificateID, v))
+}
+
+// ChannelCertificateIDContainsFold applies the ContainsFold predicate on the "channel_certificate_id" field.
+func ChannelCertificateIDContainsFold(v string) predicate.Machine {
+	return predicate.Machine(sql.FieldContainsFold(FieldChannelCertificateID, v))
 }
 
 // DescriptionEQ applies the EQ predicate on the "description" field.

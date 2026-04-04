@@ -22,6 +22,7 @@ import (
 	codex "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/infra/agentcli"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
@@ -118,6 +119,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		return fmt.Errorf("resolve user home directory: %w", err)
 	}
 	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
 	defer func() {
 		if closeErr := sshPool.Close(); closeErr != nil {
 			a.logger.Error("close ssh pool", "error", closeErr)
@@ -132,14 +134,15 @@ func (a *App) RunServe(ctx context.Context) error {
 	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
 	ticketSvc := ticketservice.NewService(ticketrepo.NewEntRepository(client))
 	ticketSvc.ConfigureSSHPool(sshPool)
+	ticketSvc.ConfigureTransportResolver(transportResolver)
 	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	ticketStatusSvc := ticketstatus.NewService(ticketStatusRepo)
 	catalogSvc := catalogservice.New(
 		catalogRepo,
 		executable.NewPathResolver(),
-		sshinfra.NewTester(sshPool),
-		catalogservice.WithMachineHealthCollector(sshinfra.NewMonitorCollector(sshPool)),
+		machinetransport.NewTester(transportResolver),
+		catalogservice.WithMachineHealthCollector(machinetransport.NewMonitorCollector(transportResolver, sshPool)),
 		catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
 			_, err := ticketStatusSvc.ResetToDefaultTemplate(ctx, projectID)
 			return err
@@ -268,6 +271,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		return fmt.Errorf("resolve user home directory: %w", err)
 	}
 	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
+	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
 	defer func() {
 		if closeErr := sshPool.Close(); closeErr != nil {
 			a.logger.Error("close ssh pool", "error", closeErr)
@@ -281,7 +285,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
-	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, sshinfra.NewMonitorCollector(sshPool))
+	machineMonitor := orchestrator.NewMachineMonitor(client, a.logger, machinetransport.NewMonitorCollector(transportResolver, sshPool))
 	machineMonitor.ConfigureEvents(a.events)
 	healthChecker.ConfigureEvents(a.events)
 	runtimeLauncher := orchestrator.NewRuntimeLauncher(

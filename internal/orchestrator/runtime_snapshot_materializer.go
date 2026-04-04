@@ -111,17 +111,17 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshot(
 	adapterType string,
 	snapshot workflowservice.RuntimeSnapshot,
 ) error {
-	if l == nil || l.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+	if l == nil || l.transports == nil {
+		return fmt.Errorf("machine transport resolver unavailable for remote machine %s", machine.Name)
 	}
 
-	client, err := l.sshPool.Get(ctx, machine)
+	transport, err := l.transports.Resolve(machine)
 	if err != nil {
-		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+		return err
 	}
-	session, err := client.NewSession()
+	session, err := transport.OpenCommandSession(ctx, machine)
 	if err != nil {
-		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
 	defer func() {
 		_ = session.Close()

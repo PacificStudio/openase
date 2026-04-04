@@ -21,8 +21,33 @@ func (Machine) Fields() []ent.Field {
 		field.String("name").NotEmpty(),
 		field.String("host").NotEmpty(),
 		field.Int("port").Default(22),
+		field.Enum("connection_mode").
+			Values("local", "ssh", "ws_reverse", "ws_listener").
+			Default("ssh"),
+		textArrayField("transport_capabilities"),
 		field.String("ssh_user").Optional(),
 		field.String("ssh_key_path").Optional(),
+		field.String("advertised_endpoint").Optional(),
+		field.Bool("daemon_registered").Default(false),
+		field.Time("daemon_last_registered_at").Optional().Nillable(),
+		field.String("daemon_session_id").Optional(),
+		field.Enum("daemon_session_state").
+			Values("unknown", "connected", "disconnected", "unavailable").
+			Default("unknown"),
+		field.Enum("detected_os").
+			Values("darwin", "linux", "unknown").
+			Default("unknown"),
+		field.Enum("detected_arch").
+			Values("amd64", "arm64", "unknown").
+			Default("unknown"),
+		field.Enum("detection_status").
+			Values("pending", "ok", "degraded", "unknown").
+			Default("unknown"),
+		field.Enum("channel_credential_kind").
+			Values("none", "token", "certificate").
+			Default("none"),
+		field.String("channel_token_id").Optional(),
+		field.String("channel_certificate_id").Optional(),
 		field.Text("description").Optional(),
 		textArrayField("labels"),
 		field.Enum("status").

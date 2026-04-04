@@ -96,6 +96,32 @@ func (_u *MachineUpdate) AddPort(v int) *MachineUpdate {
 	return _u
 }
 
+// SetConnectionMode sets the "connection_mode" field.
+func (_u *MachineUpdate) SetConnectionMode(v machine.ConnectionMode) *MachineUpdate {
+	_u.mutation.SetConnectionMode(v)
+	return _u
+}
+
+// SetNillableConnectionMode sets the "connection_mode" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableConnectionMode(v *machine.ConnectionMode) *MachineUpdate {
+	if v != nil {
+		_u.SetConnectionMode(*v)
+	}
+	return _u
+}
+
+// SetTransportCapabilities sets the "transport_capabilities" field.
+func (_u *MachineUpdate) SetTransportCapabilities(v pgarray.StringArray) *MachineUpdate {
+	_u.mutation.SetTransportCapabilities(v)
+	return _u
+}
+
+// ClearTransportCapabilities clears the value of the "transport_capabilities" field.
+func (_u *MachineUpdate) ClearTransportCapabilities() *MachineUpdate {
+	_u.mutation.ClearTransportCapabilities()
+	return _u
+}
+
 // SetSSHUser sets the "ssh_user" field.
 func (_u *MachineUpdate) SetSSHUser(v string) *MachineUpdate {
 	_u.mutation.SetSSHUser(v)
@@ -133,6 +159,190 @@ func (_u *MachineUpdate) SetNillableSSHKeyPath(v *string) *MachineUpdate {
 // ClearSSHKeyPath clears the value of the "ssh_key_path" field.
 func (_u *MachineUpdate) ClearSSHKeyPath() *MachineUpdate {
 	_u.mutation.ClearSSHKeyPath()
+	return _u
+}
+
+// SetAdvertisedEndpoint sets the "advertised_endpoint" field.
+func (_u *MachineUpdate) SetAdvertisedEndpoint(v string) *MachineUpdate {
+	_u.mutation.SetAdvertisedEndpoint(v)
+	return _u
+}
+
+// SetNillableAdvertisedEndpoint sets the "advertised_endpoint" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableAdvertisedEndpoint(v *string) *MachineUpdate {
+	if v != nil {
+		_u.SetAdvertisedEndpoint(*v)
+	}
+	return _u
+}
+
+// ClearAdvertisedEndpoint clears the value of the "advertised_endpoint" field.
+func (_u *MachineUpdate) ClearAdvertisedEndpoint() *MachineUpdate {
+	_u.mutation.ClearAdvertisedEndpoint()
+	return _u
+}
+
+// SetDaemonRegistered sets the "daemon_registered" field.
+func (_u *MachineUpdate) SetDaemonRegistered(v bool) *MachineUpdate {
+	_u.mutation.SetDaemonRegistered(v)
+	return _u
+}
+
+// SetNillableDaemonRegistered sets the "daemon_registered" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDaemonRegistered(v *bool) *MachineUpdate {
+	if v != nil {
+		_u.SetDaemonRegistered(*v)
+	}
+	return _u
+}
+
+// SetDaemonLastRegisteredAt sets the "daemon_last_registered_at" field.
+func (_u *MachineUpdate) SetDaemonLastRegisteredAt(v time.Time) *MachineUpdate {
+	_u.mutation.SetDaemonLastRegisteredAt(v)
+	return _u
+}
+
+// SetNillableDaemonLastRegisteredAt sets the "daemon_last_registered_at" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDaemonLastRegisteredAt(v *time.Time) *MachineUpdate {
+	if v != nil {
+		_u.SetDaemonLastRegisteredAt(*v)
+	}
+	return _u
+}
+
+// ClearDaemonLastRegisteredAt clears the value of the "daemon_last_registered_at" field.
+func (_u *MachineUpdate) ClearDaemonLastRegisteredAt() *MachineUpdate {
+	_u.mutation.ClearDaemonLastRegisteredAt()
+	return _u
+}
+
+// SetDaemonSessionID sets the "daemon_session_id" field.
+func (_u *MachineUpdate) SetDaemonSessionID(v string) *MachineUpdate {
+	_u.mutation.SetDaemonSessionID(v)
+	return _u
+}
+
+// SetNillableDaemonSessionID sets the "daemon_session_id" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDaemonSessionID(v *string) *MachineUpdate {
+	if v != nil {
+		_u.SetDaemonSessionID(*v)
+	}
+	return _u
+}
+
+// ClearDaemonSessionID clears the value of the "daemon_session_id" field.
+func (_u *MachineUpdate) ClearDaemonSessionID() *MachineUpdate {
+	_u.mutation.ClearDaemonSessionID()
+	return _u
+}
+
+// SetDaemonSessionState sets the "daemon_session_state" field.
+func (_u *MachineUpdate) SetDaemonSessionState(v machine.DaemonSessionState) *MachineUpdate {
+	_u.mutation.SetDaemonSessionState(v)
+	return _u
+}
+
+// SetNillableDaemonSessionState sets the "daemon_session_state" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDaemonSessionState(v *machine.DaemonSessionState) *MachineUpdate {
+	if v != nil {
+		_u.SetDaemonSessionState(*v)
+	}
+	return _u
+}
+
+// SetDetectedOs sets the "detected_os" field.
+func (_u *MachineUpdate) SetDetectedOs(v machine.DetectedOs) *MachineUpdate {
+	_u.mutation.SetDetectedOs(v)
+	return _u
+}
+
+// SetNillableDetectedOs sets the "detected_os" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDetectedOs(v *machine.DetectedOs) *MachineUpdate {
+	if v != nil {
+		_u.SetDetectedOs(*v)
+	}
+	return _u
+}
+
+// SetDetectedArch sets the "detected_arch" field.
+func (_u *MachineUpdate) SetDetectedArch(v machine.DetectedArch) *MachineUpdate {
+	_u.mutation.SetDetectedArch(v)
+	return _u
+}
+
+// SetNillableDetectedArch sets the "detected_arch" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDetectedArch(v *machine.DetectedArch) *MachineUpdate {
+	if v != nil {
+		_u.SetDetectedArch(*v)
+	}
+	return _u
+}
+
+// SetDetectionStatus sets the "detection_status" field.
+func (_u *MachineUpdate) SetDetectionStatus(v machine.DetectionStatus) *MachineUpdate {
+	_u.mutation.SetDetectionStatus(v)
+	return _u
+}
+
+// SetNillableDetectionStatus sets the "detection_status" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableDetectionStatus(v *machine.DetectionStatus) *MachineUpdate {
+	if v != nil {
+		_u.SetDetectionStatus(*v)
+	}
+	return _u
+}
+
+// SetChannelCredentialKind sets the "channel_credential_kind" field.
+func (_u *MachineUpdate) SetChannelCredentialKind(v machine.ChannelCredentialKind) *MachineUpdate {
+	_u.mutation.SetChannelCredentialKind(v)
+	return _u
+}
+
+// SetNillableChannelCredentialKind sets the "channel_credential_kind" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableChannelCredentialKind(v *machine.ChannelCredentialKind) *MachineUpdate {
+	if v != nil {
+		_u.SetChannelCredentialKind(*v)
+	}
+	return _u
+}
+
+// SetChannelTokenID sets the "channel_token_id" field.
+func (_u *MachineUpdate) SetChannelTokenID(v string) *MachineUpdate {
+	_u.mutation.SetChannelTokenID(v)
+	return _u
+}
+
+// SetNillableChannelTokenID sets the "channel_token_id" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableChannelTokenID(v *string) *MachineUpdate {
+	if v != nil {
+		_u.SetChannelTokenID(*v)
+	}
+	return _u
+}
+
+// ClearChannelTokenID clears the value of the "channel_token_id" field.
+func (_u *MachineUpdate) ClearChannelTokenID() *MachineUpdate {
+	_u.mutation.ClearChannelTokenID()
+	return _u
+}
+
+// SetChannelCertificateID sets the "channel_certificate_id" field.
+func (_u *MachineUpdate) SetChannelCertificateID(v string) *MachineUpdate {
+	_u.mutation.SetChannelCertificateID(v)
+	return _u
+}
+
+// SetNillableChannelCertificateID sets the "channel_certificate_id" field if the given value is not nil.
+func (_u *MachineUpdate) SetNillableChannelCertificateID(v *string) *MachineUpdate {
+	if v != nil {
+		_u.SetChannelCertificateID(*v)
+	}
+	return _u
+}
+
+// ClearChannelCertificateID clears the value of the "channel_certificate_id" field.
+func (_u *MachineUpdate) ClearChannelCertificateID() *MachineUpdate {
+	_u.mutation.ClearChannelCertificateID()
 	return _u
 }
 
@@ -387,6 +597,36 @@ func (_u *MachineUpdate) check() error {
 			return &ValidationError{Name: "host", err: fmt.Errorf(`ent: validator failed for field "Machine.host": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ConnectionMode(); ok {
+		if err := machine.ConnectionModeValidator(v); err != nil {
+			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DaemonSessionState(); ok {
+		if err := machine.DaemonSessionStateValidator(v); err != nil {
+			return &ValidationError{Name: "daemon_session_state", err: fmt.Errorf(`ent: validator failed for field "Machine.daemon_session_state": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectedOs(); ok {
+		if err := machine.DetectedOsValidator(v); err != nil {
+			return &ValidationError{Name: "detected_os", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_os": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectedArch(); ok {
+		if err := machine.DetectedArchValidator(v); err != nil {
+			return &ValidationError{Name: "detected_arch", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_arch": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectionStatus(); ok {
+		if err := machine.DetectionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "detection_status", err: fmt.Errorf(`ent: validator failed for field "Machine.detection_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ChannelCredentialKind(); ok {
+		if err := machine.ChannelCredentialKindValidator(v); err != nil {
+			return &ValidationError{Name: "channel_credential_kind", err: fmt.Errorf(`ent: validator failed for field "Machine.channel_credential_kind": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := machine.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Machine.status": %w`, err)}
@@ -422,6 +662,15 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.AddedPort(); ok {
 		_spec.AddField(machine.FieldPort, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ConnectionMode(); ok {
+		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.TransportCapabilities(); ok {
+		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)
+	}
+	if _u.mutation.TransportCapabilitiesCleared() {
+		_spec.ClearField(machine.FieldTransportCapabilities, field.TypeOther)
+	}
 	if value, ok := _u.mutation.SSHUser(); ok {
 		_spec.SetField(machine.FieldSSHUser, field.TypeString, value)
 	}
@@ -433,6 +682,54 @@ func (_u *MachineUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.SSHKeyPathCleared() {
 		_spec.ClearField(machine.FieldSSHKeyPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.AdvertisedEndpoint(); ok {
+		_spec.SetField(machine.FieldAdvertisedEndpoint, field.TypeString, value)
+	}
+	if _u.mutation.AdvertisedEndpointCleared() {
+		_spec.ClearField(machine.FieldAdvertisedEndpoint, field.TypeString)
+	}
+	if value, ok := _u.mutation.DaemonRegistered(); ok {
+		_spec.SetField(machine.FieldDaemonRegistered, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DaemonLastRegisteredAt(); ok {
+		_spec.SetField(machine.FieldDaemonLastRegisteredAt, field.TypeTime, value)
+	}
+	if _u.mutation.DaemonLastRegisteredAtCleared() {
+		_spec.ClearField(machine.FieldDaemonLastRegisteredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DaemonSessionID(); ok {
+		_spec.SetField(machine.FieldDaemonSessionID, field.TypeString, value)
+	}
+	if _u.mutation.DaemonSessionIDCleared() {
+		_spec.ClearField(machine.FieldDaemonSessionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.DaemonSessionState(); ok {
+		_spec.SetField(machine.FieldDaemonSessionState, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectedOs(); ok {
+		_spec.SetField(machine.FieldDetectedOs, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectedArch(); ok {
+		_spec.SetField(machine.FieldDetectedArch, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectionStatus(); ok {
+		_spec.SetField(machine.FieldDetectionStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelCredentialKind(); ok {
+		_spec.SetField(machine.FieldChannelCredentialKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelTokenID(); ok {
+		_spec.SetField(machine.FieldChannelTokenID, field.TypeString, value)
+	}
+	if _u.mutation.ChannelTokenIDCleared() {
+		_spec.ClearField(machine.FieldChannelTokenID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ChannelCertificateID(); ok {
+		_spec.SetField(machine.FieldChannelCertificateID, field.TypeString, value)
+	}
+	if _u.mutation.ChannelCertificateIDCleared() {
+		_spec.ClearField(machine.FieldChannelCertificateID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(machine.FieldDescription, field.TypeString, value)
@@ -678,6 +975,32 @@ func (_u *MachineUpdateOne) AddPort(v int) *MachineUpdateOne {
 	return _u
 }
 
+// SetConnectionMode sets the "connection_mode" field.
+func (_u *MachineUpdateOne) SetConnectionMode(v machine.ConnectionMode) *MachineUpdateOne {
+	_u.mutation.SetConnectionMode(v)
+	return _u
+}
+
+// SetNillableConnectionMode sets the "connection_mode" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableConnectionMode(v *machine.ConnectionMode) *MachineUpdateOne {
+	if v != nil {
+		_u.SetConnectionMode(*v)
+	}
+	return _u
+}
+
+// SetTransportCapabilities sets the "transport_capabilities" field.
+func (_u *MachineUpdateOne) SetTransportCapabilities(v pgarray.StringArray) *MachineUpdateOne {
+	_u.mutation.SetTransportCapabilities(v)
+	return _u
+}
+
+// ClearTransportCapabilities clears the value of the "transport_capabilities" field.
+func (_u *MachineUpdateOne) ClearTransportCapabilities() *MachineUpdateOne {
+	_u.mutation.ClearTransportCapabilities()
+	return _u
+}
+
 // SetSSHUser sets the "ssh_user" field.
 func (_u *MachineUpdateOne) SetSSHUser(v string) *MachineUpdateOne {
 	_u.mutation.SetSSHUser(v)
@@ -715,6 +1038,190 @@ func (_u *MachineUpdateOne) SetNillableSSHKeyPath(v *string) *MachineUpdateOne {
 // ClearSSHKeyPath clears the value of the "ssh_key_path" field.
 func (_u *MachineUpdateOne) ClearSSHKeyPath() *MachineUpdateOne {
 	_u.mutation.ClearSSHKeyPath()
+	return _u
+}
+
+// SetAdvertisedEndpoint sets the "advertised_endpoint" field.
+func (_u *MachineUpdateOne) SetAdvertisedEndpoint(v string) *MachineUpdateOne {
+	_u.mutation.SetAdvertisedEndpoint(v)
+	return _u
+}
+
+// SetNillableAdvertisedEndpoint sets the "advertised_endpoint" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableAdvertisedEndpoint(v *string) *MachineUpdateOne {
+	if v != nil {
+		_u.SetAdvertisedEndpoint(*v)
+	}
+	return _u
+}
+
+// ClearAdvertisedEndpoint clears the value of the "advertised_endpoint" field.
+func (_u *MachineUpdateOne) ClearAdvertisedEndpoint() *MachineUpdateOne {
+	_u.mutation.ClearAdvertisedEndpoint()
+	return _u
+}
+
+// SetDaemonRegistered sets the "daemon_registered" field.
+func (_u *MachineUpdateOne) SetDaemonRegistered(v bool) *MachineUpdateOne {
+	_u.mutation.SetDaemonRegistered(v)
+	return _u
+}
+
+// SetNillableDaemonRegistered sets the "daemon_registered" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDaemonRegistered(v *bool) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDaemonRegistered(*v)
+	}
+	return _u
+}
+
+// SetDaemonLastRegisteredAt sets the "daemon_last_registered_at" field.
+func (_u *MachineUpdateOne) SetDaemonLastRegisteredAt(v time.Time) *MachineUpdateOne {
+	_u.mutation.SetDaemonLastRegisteredAt(v)
+	return _u
+}
+
+// SetNillableDaemonLastRegisteredAt sets the "daemon_last_registered_at" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDaemonLastRegisteredAt(v *time.Time) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDaemonLastRegisteredAt(*v)
+	}
+	return _u
+}
+
+// ClearDaemonLastRegisteredAt clears the value of the "daemon_last_registered_at" field.
+func (_u *MachineUpdateOne) ClearDaemonLastRegisteredAt() *MachineUpdateOne {
+	_u.mutation.ClearDaemonLastRegisteredAt()
+	return _u
+}
+
+// SetDaemonSessionID sets the "daemon_session_id" field.
+func (_u *MachineUpdateOne) SetDaemonSessionID(v string) *MachineUpdateOne {
+	_u.mutation.SetDaemonSessionID(v)
+	return _u
+}
+
+// SetNillableDaemonSessionID sets the "daemon_session_id" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDaemonSessionID(v *string) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDaemonSessionID(*v)
+	}
+	return _u
+}
+
+// ClearDaemonSessionID clears the value of the "daemon_session_id" field.
+func (_u *MachineUpdateOne) ClearDaemonSessionID() *MachineUpdateOne {
+	_u.mutation.ClearDaemonSessionID()
+	return _u
+}
+
+// SetDaemonSessionState sets the "daemon_session_state" field.
+func (_u *MachineUpdateOne) SetDaemonSessionState(v machine.DaemonSessionState) *MachineUpdateOne {
+	_u.mutation.SetDaemonSessionState(v)
+	return _u
+}
+
+// SetNillableDaemonSessionState sets the "daemon_session_state" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDaemonSessionState(v *machine.DaemonSessionState) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDaemonSessionState(*v)
+	}
+	return _u
+}
+
+// SetDetectedOs sets the "detected_os" field.
+func (_u *MachineUpdateOne) SetDetectedOs(v machine.DetectedOs) *MachineUpdateOne {
+	_u.mutation.SetDetectedOs(v)
+	return _u
+}
+
+// SetNillableDetectedOs sets the "detected_os" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDetectedOs(v *machine.DetectedOs) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDetectedOs(*v)
+	}
+	return _u
+}
+
+// SetDetectedArch sets the "detected_arch" field.
+func (_u *MachineUpdateOne) SetDetectedArch(v machine.DetectedArch) *MachineUpdateOne {
+	_u.mutation.SetDetectedArch(v)
+	return _u
+}
+
+// SetNillableDetectedArch sets the "detected_arch" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDetectedArch(v *machine.DetectedArch) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDetectedArch(*v)
+	}
+	return _u
+}
+
+// SetDetectionStatus sets the "detection_status" field.
+func (_u *MachineUpdateOne) SetDetectionStatus(v machine.DetectionStatus) *MachineUpdateOne {
+	_u.mutation.SetDetectionStatus(v)
+	return _u
+}
+
+// SetNillableDetectionStatus sets the "detection_status" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableDetectionStatus(v *machine.DetectionStatus) *MachineUpdateOne {
+	if v != nil {
+		_u.SetDetectionStatus(*v)
+	}
+	return _u
+}
+
+// SetChannelCredentialKind sets the "channel_credential_kind" field.
+func (_u *MachineUpdateOne) SetChannelCredentialKind(v machine.ChannelCredentialKind) *MachineUpdateOne {
+	_u.mutation.SetChannelCredentialKind(v)
+	return _u
+}
+
+// SetNillableChannelCredentialKind sets the "channel_credential_kind" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableChannelCredentialKind(v *machine.ChannelCredentialKind) *MachineUpdateOne {
+	if v != nil {
+		_u.SetChannelCredentialKind(*v)
+	}
+	return _u
+}
+
+// SetChannelTokenID sets the "channel_token_id" field.
+func (_u *MachineUpdateOne) SetChannelTokenID(v string) *MachineUpdateOne {
+	_u.mutation.SetChannelTokenID(v)
+	return _u
+}
+
+// SetNillableChannelTokenID sets the "channel_token_id" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableChannelTokenID(v *string) *MachineUpdateOne {
+	if v != nil {
+		_u.SetChannelTokenID(*v)
+	}
+	return _u
+}
+
+// ClearChannelTokenID clears the value of the "channel_token_id" field.
+func (_u *MachineUpdateOne) ClearChannelTokenID() *MachineUpdateOne {
+	_u.mutation.ClearChannelTokenID()
+	return _u
+}
+
+// SetChannelCertificateID sets the "channel_certificate_id" field.
+func (_u *MachineUpdateOne) SetChannelCertificateID(v string) *MachineUpdateOne {
+	_u.mutation.SetChannelCertificateID(v)
+	return _u
+}
+
+// SetNillableChannelCertificateID sets the "channel_certificate_id" field if the given value is not nil.
+func (_u *MachineUpdateOne) SetNillableChannelCertificateID(v *string) *MachineUpdateOne {
+	if v != nil {
+		_u.SetChannelCertificateID(*v)
+	}
+	return _u
+}
+
+// ClearChannelCertificateID clears the value of the "channel_certificate_id" field.
+func (_u *MachineUpdateOne) ClearChannelCertificateID() *MachineUpdateOne {
+	_u.mutation.ClearChannelCertificateID()
 	return _u
 }
 
@@ -982,6 +1489,36 @@ func (_u *MachineUpdateOne) check() error {
 			return &ValidationError{Name: "host", err: fmt.Errorf(`ent: validator failed for field "Machine.host": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ConnectionMode(); ok {
+		if err := machine.ConnectionModeValidator(v); err != nil {
+			return &ValidationError{Name: "connection_mode", err: fmt.Errorf(`ent: validator failed for field "Machine.connection_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DaemonSessionState(); ok {
+		if err := machine.DaemonSessionStateValidator(v); err != nil {
+			return &ValidationError{Name: "daemon_session_state", err: fmt.Errorf(`ent: validator failed for field "Machine.daemon_session_state": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectedOs(); ok {
+		if err := machine.DetectedOsValidator(v); err != nil {
+			return &ValidationError{Name: "detected_os", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_os": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectedArch(); ok {
+		if err := machine.DetectedArchValidator(v); err != nil {
+			return &ValidationError{Name: "detected_arch", err: fmt.Errorf(`ent: validator failed for field "Machine.detected_arch": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.DetectionStatus(); ok {
+		if err := machine.DetectionStatusValidator(v); err != nil {
+			return &ValidationError{Name: "detection_status", err: fmt.Errorf(`ent: validator failed for field "Machine.detection_status": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ChannelCredentialKind(); ok {
+		if err := machine.ChannelCredentialKindValidator(v); err != nil {
+			return &ValidationError{Name: "channel_credential_kind", err: fmt.Errorf(`ent: validator failed for field "Machine.channel_credential_kind": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := machine.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Machine.status": %w`, err)}
@@ -1034,6 +1571,15 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	if value, ok := _u.mutation.AddedPort(); ok {
 		_spec.AddField(machine.FieldPort, field.TypeInt, value)
 	}
+	if value, ok := _u.mutation.ConnectionMode(); ok {
+		_spec.SetField(machine.FieldConnectionMode, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.TransportCapabilities(); ok {
+		_spec.SetField(machine.FieldTransportCapabilities, field.TypeOther, value)
+	}
+	if _u.mutation.TransportCapabilitiesCleared() {
+		_spec.ClearField(machine.FieldTransportCapabilities, field.TypeOther)
+	}
 	if value, ok := _u.mutation.SSHUser(); ok {
 		_spec.SetField(machine.FieldSSHUser, field.TypeString, value)
 	}
@@ -1045,6 +1591,54 @@ func (_u *MachineUpdateOne) sqlSave(ctx context.Context) (_node *Machine, err er
 	}
 	if _u.mutation.SSHKeyPathCleared() {
 		_spec.ClearField(machine.FieldSSHKeyPath, field.TypeString)
+	}
+	if value, ok := _u.mutation.AdvertisedEndpoint(); ok {
+		_spec.SetField(machine.FieldAdvertisedEndpoint, field.TypeString, value)
+	}
+	if _u.mutation.AdvertisedEndpointCleared() {
+		_spec.ClearField(machine.FieldAdvertisedEndpoint, field.TypeString)
+	}
+	if value, ok := _u.mutation.DaemonRegistered(); ok {
+		_spec.SetField(machine.FieldDaemonRegistered, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.DaemonLastRegisteredAt(); ok {
+		_spec.SetField(machine.FieldDaemonLastRegisteredAt, field.TypeTime, value)
+	}
+	if _u.mutation.DaemonLastRegisteredAtCleared() {
+		_spec.ClearField(machine.FieldDaemonLastRegisteredAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DaemonSessionID(); ok {
+		_spec.SetField(machine.FieldDaemonSessionID, field.TypeString, value)
+	}
+	if _u.mutation.DaemonSessionIDCleared() {
+		_spec.ClearField(machine.FieldDaemonSessionID, field.TypeString)
+	}
+	if value, ok := _u.mutation.DaemonSessionState(); ok {
+		_spec.SetField(machine.FieldDaemonSessionState, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectedOs(); ok {
+		_spec.SetField(machine.FieldDetectedOs, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectedArch(); ok {
+		_spec.SetField(machine.FieldDetectedArch, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.DetectionStatus(); ok {
+		_spec.SetField(machine.FieldDetectionStatus, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelCredentialKind(); ok {
+		_spec.SetField(machine.FieldChannelCredentialKind, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.ChannelTokenID(); ok {
+		_spec.SetField(machine.FieldChannelTokenID, field.TypeString, value)
+	}
+	if _u.mutation.ChannelTokenIDCleared() {
+		_spec.ClearField(machine.FieldChannelTokenID, field.TypeString)
+	}
+	if value, ok := _u.mutation.ChannelCertificateID(); ok {
+		_spec.SetField(machine.FieldChannelCertificateID, field.TypeString, value)
+	}
+	if _u.mutation.ChannelCertificateIDCleared() {
+		_spec.ClearField(machine.FieldChannelCertificateID, field.TypeString)
 	}
 	if value, ok := _u.mutation.Description(); ok {
 		_spec.SetField(machine.FieldDescription, field.TypeString, value)

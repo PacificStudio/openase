@@ -16380,35 +16380,48 @@ func (m *ChatTurnMutation) ResetEdge(name string) error {
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.
 type MachineMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *uuid.UUID
-	name                  *string
-	host                  *string
-	port                  *int
-	addport               *int
-	ssh_user              *string
-	ssh_key_path          *string
-	description           *string
-	labels                *pgarray.StringArray
-	status                *machine.Status
-	workspace_root        *string
-	agent_cli_path        *string
-	env_vars              *pgarray.StringArray
-	last_heartbeat_at     *time.Time
-	resources             *map[string]interface{}
-	clearedFields         map[string]struct{}
-	organization          *uuid.UUID
-	clearedorganization   bool
-	providers             map[uuid.UUID]struct{}
-	removedproviders      map[uuid.UUID]struct{}
-	clearedproviders      bool
-	target_tickets        map[uuid.UUID]struct{}
-	removedtarget_tickets map[uuid.UUID]struct{}
-	clearedtarget_tickets bool
-	done                  bool
-	oldValue              func(context.Context) (*Machine, error)
-	predicates            []predicate.Machine
+	op                        Op
+	typ                       string
+	id                        *uuid.UUID
+	name                      *string
+	host                      *string
+	port                      *int
+	addport                   *int
+	connection_mode           *machine.ConnectionMode
+	transport_capabilities    *pgarray.StringArray
+	ssh_user                  *string
+	ssh_key_path              *string
+	advertised_endpoint       *string
+	daemon_registered         *bool
+	daemon_last_registered_at *time.Time
+	daemon_session_id         *string
+	daemon_session_state      *machine.DaemonSessionState
+	detected_os               *machine.DetectedOs
+	detected_arch             *machine.DetectedArch
+	detection_status          *machine.DetectionStatus
+	channel_credential_kind   *machine.ChannelCredentialKind
+	channel_token_id          *string
+	channel_certificate_id    *string
+	description               *string
+	labels                    *pgarray.StringArray
+	status                    *machine.Status
+	workspace_root            *string
+	agent_cli_path            *string
+	env_vars                  *pgarray.StringArray
+	last_heartbeat_at         *time.Time
+	resources                 *map[string]interface{}
+	clearedFields             map[string]struct{}
+	organization              *uuid.UUID
+	clearedorganization       bool
+	providers                 map[uuid.UUID]struct{}
+	removedproviders          map[uuid.UUID]struct{}
+	clearedproviders          bool
+	target_tickets            map[uuid.UUID]struct{}
+	removedtarget_tickets     map[uuid.UUID]struct{}
+	clearedtarget_tickets     bool
+	done                      bool
+	oldValue                  func(context.Context) (*Machine, error)
+	predicates                []predicate.Machine
 }
 
 var _ ent.Mutation = (*MachineMutation)(nil)
@@ -16679,6 +16692,91 @@ func (m *MachineMutation) ResetPort() {
 	m.addport = nil
 }
 
+// SetConnectionMode sets the "connection_mode" field.
+func (m *MachineMutation) SetConnectionMode(mm machine.ConnectionMode) {
+	m.connection_mode = &mm
+}
+
+// ConnectionMode returns the value of the "connection_mode" field in the mutation.
+func (m *MachineMutation) ConnectionMode() (r machine.ConnectionMode, exists bool) {
+	v := m.connection_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConnectionMode returns the old "connection_mode" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldConnectionMode(ctx context.Context) (v machine.ConnectionMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConnectionMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConnectionMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConnectionMode: %w", err)
+	}
+	return oldValue.ConnectionMode, nil
+}
+
+// ResetConnectionMode resets all changes to the "connection_mode" field.
+func (m *MachineMutation) ResetConnectionMode() {
+	m.connection_mode = nil
+}
+
+// SetTransportCapabilities sets the "transport_capabilities" field.
+func (m *MachineMutation) SetTransportCapabilities(pa pgarray.StringArray) {
+	m.transport_capabilities = &pa
+}
+
+// TransportCapabilities returns the value of the "transport_capabilities" field in the mutation.
+func (m *MachineMutation) TransportCapabilities() (r pgarray.StringArray, exists bool) {
+	v := m.transport_capabilities
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTransportCapabilities returns the old "transport_capabilities" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldTransportCapabilities(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTransportCapabilities is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTransportCapabilities requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTransportCapabilities: %w", err)
+	}
+	return oldValue.TransportCapabilities, nil
+}
+
+// ClearTransportCapabilities clears the value of the "transport_capabilities" field.
+func (m *MachineMutation) ClearTransportCapabilities() {
+	m.transport_capabilities = nil
+	m.clearedFields[machine.FieldTransportCapabilities] = struct{}{}
+}
+
+// TransportCapabilitiesCleared returns if the "transport_capabilities" field was cleared in this mutation.
+func (m *MachineMutation) TransportCapabilitiesCleared() bool {
+	_, ok := m.clearedFields[machine.FieldTransportCapabilities]
+	return ok
+}
+
+// ResetTransportCapabilities resets all changes to the "transport_capabilities" field.
+func (m *MachineMutation) ResetTransportCapabilities() {
+	m.transport_capabilities = nil
+	delete(m.clearedFields, machine.FieldTransportCapabilities)
+}
+
 // SetSSHUser sets the "ssh_user" field.
 func (m *MachineMutation) SetSSHUser(s string) {
 	m.ssh_user = &s
@@ -16775,6 +16873,467 @@ func (m *MachineMutation) SSHKeyPathCleared() bool {
 func (m *MachineMutation) ResetSSHKeyPath() {
 	m.ssh_key_path = nil
 	delete(m.clearedFields, machine.FieldSSHKeyPath)
+}
+
+// SetAdvertisedEndpoint sets the "advertised_endpoint" field.
+func (m *MachineMutation) SetAdvertisedEndpoint(s string) {
+	m.advertised_endpoint = &s
+}
+
+// AdvertisedEndpoint returns the value of the "advertised_endpoint" field in the mutation.
+func (m *MachineMutation) AdvertisedEndpoint() (r string, exists bool) {
+	v := m.advertised_endpoint
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAdvertisedEndpoint returns the old "advertised_endpoint" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldAdvertisedEndpoint(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAdvertisedEndpoint is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAdvertisedEndpoint requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAdvertisedEndpoint: %w", err)
+	}
+	return oldValue.AdvertisedEndpoint, nil
+}
+
+// ClearAdvertisedEndpoint clears the value of the "advertised_endpoint" field.
+func (m *MachineMutation) ClearAdvertisedEndpoint() {
+	m.advertised_endpoint = nil
+	m.clearedFields[machine.FieldAdvertisedEndpoint] = struct{}{}
+}
+
+// AdvertisedEndpointCleared returns if the "advertised_endpoint" field was cleared in this mutation.
+func (m *MachineMutation) AdvertisedEndpointCleared() bool {
+	_, ok := m.clearedFields[machine.FieldAdvertisedEndpoint]
+	return ok
+}
+
+// ResetAdvertisedEndpoint resets all changes to the "advertised_endpoint" field.
+func (m *MachineMutation) ResetAdvertisedEndpoint() {
+	m.advertised_endpoint = nil
+	delete(m.clearedFields, machine.FieldAdvertisedEndpoint)
+}
+
+// SetDaemonRegistered sets the "daemon_registered" field.
+func (m *MachineMutation) SetDaemonRegistered(b bool) {
+	m.daemon_registered = &b
+}
+
+// DaemonRegistered returns the value of the "daemon_registered" field in the mutation.
+func (m *MachineMutation) DaemonRegistered() (r bool, exists bool) {
+	v := m.daemon_registered
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDaemonRegistered returns the old "daemon_registered" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDaemonRegistered(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDaemonRegistered is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDaemonRegistered requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDaemonRegistered: %w", err)
+	}
+	return oldValue.DaemonRegistered, nil
+}
+
+// ResetDaemonRegistered resets all changes to the "daemon_registered" field.
+func (m *MachineMutation) ResetDaemonRegistered() {
+	m.daemon_registered = nil
+}
+
+// SetDaemonLastRegisteredAt sets the "daemon_last_registered_at" field.
+func (m *MachineMutation) SetDaemonLastRegisteredAt(t time.Time) {
+	m.daemon_last_registered_at = &t
+}
+
+// DaemonLastRegisteredAt returns the value of the "daemon_last_registered_at" field in the mutation.
+func (m *MachineMutation) DaemonLastRegisteredAt() (r time.Time, exists bool) {
+	v := m.daemon_last_registered_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDaemonLastRegisteredAt returns the old "daemon_last_registered_at" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDaemonLastRegisteredAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDaemonLastRegisteredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDaemonLastRegisteredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDaemonLastRegisteredAt: %w", err)
+	}
+	return oldValue.DaemonLastRegisteredAt, nil
+}
+
+// ClearDaemonLastRegisteredAt clears the value of the "daemon_last_registered_at" field.
+func (m *MachineMutation) ClearDaemonLastRegisteredAt() {
+	m.daemon_last_registered_at = nil
+	m.clearedFields[machine.FieldDaemonLastRegisteredAt] = struct{}{}
+}
+
+// DaemonLastRegisteredAtCleared returns if the "daemon_last_registered_at" field was cleared in this mutation.
+func (m *MachineMutation) DaemonLastRegisteredAtCleared() bool {
+	_, ok := m.clearedFields[machine.FieldDaemonLastRegisteredAt]
+	return ok
+}
+
+// ResetDaemonLastRegisteredAt resets all changes to the "daemon_last_registered_at" field.
+func (m *MachineMutation) ResetDaemonLastRegisteredAt() {
+	m.daemon_last_registered_at = nil
+	delete(m.clearedFields, machine.FieldDaemonLastRegisteredAt)
+}
+
+// SetDaemonSessionID sets the "daemon_session_id" field.
+func (m *MachineMutation) SetDaemonSessionID(s string) {
+	m.daemon_session_id = &s
+}
+
+// DaemonSessionID returns the value of the "daemon_session_id" field in the mutation.
+func (m *MachineMutation) DaemonSessionID() (r string, exists bool) {
+	v := m.daemon_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDaemonSessionID returns the old "daemon_session_id" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDaemonSessionID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDaemonSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDaemonSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDaemonSessionID: %w", err)
+	}
+	return oldValue.DaemonSessionID, nil
+}
+
+// ClearDaemonSessionID clears the value of the "daemon_session_id" field.
+func (m *MachineMutation) ClearDaemonSessionID() {
+	m.daemon_session_id = nil
+	m.clearedFields[machine.FieldDaemonSessionID] = struct{}{}
+}
+
+// DaemonSessionIDCleared returns if the "daemon_session_id" field was cleared in this mutation.
+func (m *MachineMutation) DaemonSessionIDCleared() bool {
+	_, ok := m.clearedFields[machine.FieldDaemonSessionID]
+	return ok
+}
+
+// ResetDaemonSessionID resets all changes to the "daemon_session_id" field.
+func (m *MachineMutation) ResetDaemonSessionID() {
+	m.daemon_session_id = nil
+	delete(m.clearedFields, machine.FieldDaemonSessionID)
+}
+
+// SetDaemonSessionState sets the "daemon_session_state" field.
+func (m *MachineMutation) SetDaemonSessionState(mss machine.DaemonSessionState) {
+	m.daemon_session_state = &mss
+}
+
+// DaemonSessionState returns the value of the "daemon_session_state" field in the mutation.
+func (m *MachineMutation) DaemonSessionState() (r machine.DaemonSessionState, exists bool) {
+	v := m.daemon_session_state
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDaemonSessionState returns the old "daemon_session_state" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDaemonSessionState(ctx context.Context) (v machine.DaemonSessionState, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDaemonSessionState is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDaemonSessionState requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDaemonSessionState: %w", err)
+	}
+	return oldValue.DaemonSessionState, nil
+}
+
+// ResetDaemonSessionState resets all changes to the "daemon_session_state" field.
+func (m *MachineMutation) ResetDaemonSessionState() {
+	m.daemon_session_state = nil
+}
+
+// SetDetectedOs sets the "detected_os" field.
+func (m *MachineMutation) SetDetectedOs(mo machine.DetectedOs) {
+	m.detected_os = &mo
+}
+
+// DetectedOs returns the value of the "detected_os" field in the mutation.
+func (m *MachineMutation) DetectedOs() (r machine.DetectedOs, exists bool) {
+	v := m.detected_os
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetectedOs returns the old "detected_os" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDetectedOs(ctx context.Context) (v machine.DetectedOs, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetectedOs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetectedOs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetectedOs: %w", err)
+	}
+	return oldValue.DetectedOs, nil
+}
+
+// ResetDetectedOs resets all changes to the "detected_os" field.
+func (m *MachineMutation) ResetDetectedOs() {
+	m.detected_os = nil
+}
+
+// SetDetectedArch sets the "detected_arch" field.
+func (m *MachineMutation) SetDetectedArch(ma machine.DetectedArch) {
+	m.detected_arch = &ma
+}
+
+// DetectedArch returns the value of the "detected_arch" field in the mutation.
+func (m *MachineMutation) DetectedArch() (r machine.DetectedArch, exists bool) {
+	v := m.detected_arch
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetectedArch returns the old "detected_arch" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDetectedArch(ctx context.Context) (v machine.DetectedArch, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetectedArch is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetectedArch requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetectedArch: %w", err)
+	}
+	return oldValue.DetectedArch, nil
+}
+
+// ResetDetectedArch resets all changes to the "detected_arch" field.
+func (m *MachineMutation) ResetDetectedArch() {
+	m.detected_arch = nil
+}
+
+// SetDetectionStatus sets the "detection_status" field.
+func (m *MachineMutation) SetDetectionStatus(ms machine.DetectionStatus) {
+	m.detection_status = &ms
+}
+
+// DetectionStatus returns the value of the "detection_status" field in the mutation.
+func (m *MachineMutation) DetectionStatus() (r machine.DetectionStatus, exists bool) {
+	v := m.detection_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDetectionStatus returns the old "detection_status" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldDetectionStatus(ctx context.Context) (v machine.DetectionStatus, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDetectionStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDetectionStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDetectionStatus: %w", err)
+	}
+	return oldValue.DetectionStatus, nil
+}
+
+// ResetDetectionStatus resets all changes to the "detection_status" field.
+func (m *MachineMutation) ResetDetectionStatus() {
+	m.detection_status = nil
+}
+
+// SetChannelCredentialKind sets the "channel_credential_kind" field.
+func (m *MachineMutation) SetChannelCredentialKind(mck machine.ChannelCredentialKind) {
+	m.channel_credential_kind = &mck
+}
+
+// ChannelCredentialKind returns the value of the "channel_credential_kind" field in the mutation.
+func (m *MachineMutation) ChannelCredentialKind() (r machine.ChannelCredentialKind, exists bool) {
+	v := m.channel_credential_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChannelCredentialKind returns the old "channel_credential_kind" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldChannelCredentialKind(ctx context.Context) (v machine.ChannelCredentialKind, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChannelCredentialKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChannelCredentialKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChannelCredentialKind: %w", err)
+	}
+	return oldValue.ChannelCredentialKind, nil
+}
+
+// ResetChannelCredentialKind resets all changes to the "channel_credential_kind" field.
+func (m *MachineMutation) ResetChannelCredentialKind() {
+	m.channel_credential_kind = nil
+}
+
+// SetChannelTokenID sets the "channel_token_id" field.
+func (m *MachineMutation) SetChannelTokenID(s string) {
+	m.channel_token_id = &s
+}
+
+// ChannelTokenID returns the value of the "channel_token_id" field in the mutation.
+func (m *MachineMutation) ChannelTokenID() (r string, exists bool) {
+	v := m.channel_token_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChannelTokenID returns the old "channel_token_id" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldChannelTokenID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChannelTokenID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChannelTokenID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChannelTokenID: %w", err)
+	}
+	return oldValue.ChannelTokenID, nil
+}
+
+// ClearChannelTokenID clears the value of the "channel_token_id" field.
+func (m *MachineMutation) ClearChannelTokenID() {
+	m.channel_token_id = nil
+	m.clearedFields[machine.FieldChannelTokenID] = struct{}{}
+}
+
+// ChannelTokenIDCleared returns if the "channel_token_id" field was cleared in this mutation.
+func (m *MachineMutation) ChannelTokenIDCleared() bool {
+	_, ok := m.clearedFields[machine.FieldChannelTokenID]
+	return ok
+}
+
+// ResetChannelTokenID resets all changes to the "channel_token_id" field.
+func (m *MachineMutation) ResetChannelTokenID() {
+	m.channel_token_id = nil
+	delete(m.clearedFields, machine.FieldChannelTokenID)
+}
+
+// SetChannelCertificateID sets the "channel_certificate_id" field.
+func (m *MachineMutation) SetChannelCertificateID(s string) {
+	m.channel_certificate_id = &s
+}
+
+// ChannelCertificateID returns the value of the "channel_certificate_id" field in the mutation.
+func (m *MachineMutation) ChannelCertificateID() (r string, exists bool) {
+	v := m.channel_certificate_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldChannelCertificateID returns the old "channel_certificate_id" field's value of the Machine entity.
+// If the Machine object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *MachineMutation) OldChannelCertificateID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldChannelCertificateID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldChannelCertificateID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldChannelCertificateID: %w", err)
+	}
+	return oldValue.ChannelCertificateID, nil
+}
+
+// ClearChannelCertificateID clears the value of the "channel_certificate_id" field.
+func (m *MachineMutation) ClearChannelCertificateID() {
+	m.channel_certificate_id = nil
+	m.clearedFields[machine.FieldChannelCertificateID] = struct{}{}
+}
+
+// ChannelCertificateIDCleared returns if the "channel_certificate_id" field was cleared in this mutation.
+func (m *MachineMutation) ChannelCertificateIDCleared() bool {
+	_, ok := m.clearedFields[machine.FieldChannelCertificateID]
+	return ok
+}
+
+// ResetChannelCertificateID resets all changes to the "channel_certificate_id" field.
+func (m *MachineMutation) ResetChannelCertificateID() {
+	m.channel_certificate_id = nil
+	delete(m.clearedFields, machine.FieldChannelCertificateID)
 }
 
 // SetDescription sets the "description" field.
@@ -17312,7 +17871,7 @@ func (m *MachineMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *MachineMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 27)
 	if m.organization != nil {
 		fields = append(fields, machine.FieldOrganizationID)
 	}
@@ -17325,11 +17884,50 @@ func (m *MachineMutation) Fields() []string {
 	if m.port != nil {
 		fields = append(fields, machine.FieldPort)
 	}
+	if m.connection_mode != nil {
+		fields = append(fields, machine.FieldConnectionMode)
+	}
+	if m.transport_capabilities != nil {
+		fields = append(fields, machine.FieldTransportCapabilities)
+	}
 	if m.ssh_user != nil {
 		fields = append(fields, machine.FieldSSHUser)
 	}
 	if m.ssh_key_path != nil {
 		fields = append(fields, machine.FieldSSHKeyPath)
+	}
+	if m.advertised_endpoint != nil {
+		fields = append(fields, machine.FieldAdvertisedEndpoint)
+	}
+	if m.daemon_registered != nil {
+		fields = append(fields, machine.FieldDaemonRegistered)
+	}
+	if m.daemon_last_registered_at != nil {
+		fields = append(fields, machine.FieldDaemonLastRegisteredAt)
+	}
+	if m.daemon_session_id != nil {
+		fields = append(fields, machine.FieldDaemonSessionID)
+	}
+	if m.daemon_session_state != nil {
+		fields = append(fields, machine.FieldDaemonSessionState)
+	}
+	if m.detected_os != nil {
+		fields = append(fields, machine.FieldDetectedOs)
+	}
+	if m.detected_arch != nil {
+		fields = append(fields, machine.FieldDetectedArch)
+	}
+	if m.detection_status != nil {
+		fields = append(fields, machine.FieldDetectionStatus)
+	}
+	if m.channel_credential_kind != nil {
+		fields = append(fields, machine.FieldChannelCredentialKind)
+	}
+	if m.channel_token_id != nil {
+		fields = append(fields, machine.FieldChannelTokenID)
+	}
+	if m.channel_certificate_id != nil {
+		fields = append(fields, machine.FieldChannelCertificateID)
 	}
 	if m.description != nil {
 		fields = append(fields, machine.FieldDescription)
@@ -17371,10 +17969,36 @@ func (m *MachineMutation) Field(name string) (ent.Value, bool) {
 		return m.Host()
 	case machine.FieldPort:
 		return m.Port()
+	case machine.FieldConnectionMode:
+		return m.ConnectionMode()
+	case machine.FieldTransportCapabilities:
+		return m.TransportCapabilities()
 	case machine.FieldSSHUser:
 		return m.SSHUser()
 	case machine.FieldSSHKeyPath:
 		return m.SSHKeyPath()
+	case machine.FieldAdvertisedEndpoint:
+		return m.AdvertisedEndpoint()
+	case machine.FieldDaemonRegistered:
+		return m.DaemonRegistered()
+	case machine.FieldDaemonLastRegisteredAt:
+		return m.DaemonLastRegisteredAt()
+	case machine.FieldDaemonSessionID:
+		return m.DaemonSessionID()
+	case machine.FieldDaemonSessionState:
+		return m.DaemonSessionState()
+	case machine.FieldDetectedOs:
+		return m.DetectedOs()
+	case machine.FieldDetectedArch:
+		return m.DetectedArch()
+	case machine.FieldDetectionStatus:
+		return m.DetectionStatus()
+	case machine.FieldChannelCredentialKind:
+		return m.ChannelCredentialKind()
+	case machine.FieldChannelTokenID:
+		return m.ChannelTokenID()
+	case machine.FieldChannelCertificateID:
+		return m.ChannelCertificateID()
 	case machine.FieldDescription:
 		return m.Description()
 	case machine.FieldLabels:
@@ -17408,10 +18032,36 @@ func (m *MachineMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldHost(ctx)
 	case machine.FieldPort:
 		return m.OldPort(ctx)
+	case machine.FieldConnectionMode:
+		return m.OldConnectionMode(ctx)
+	case machine.FieldTransportCapabilities:
+		return m.OldTransportCapabilities(ctx)
 	case machine.FieldSSHUser:
 		return m.OldSSHUser(ctx)
 	case machine.FieldSSHKeyPath:
 		return m.OldSSHKeyPath(ctx)
+	case machine.FieldAdvertisedEndpoint:
+		return m.OldAdvertisedEndpoint(ctx)
+	case machine.FieldDaemonRegistered:
+		return m.OldDaemonRegistered(ctx)
+	case machine.FieldDaemonLastRegisteredAt:
+		return m.OldDaemonLastRegisteredAt(ctx)
+	case machine.FieldDaemonSessionID:
+		return m.OldDaemonSessionID(ctx)
+	case machine.FieldDaemonSessionState:
+		return m.OldDaemonSessionState(ctx)
+	case machine.FieldDetectedOs:
+		return m.OldDetectedOs(ctx)
+	case machine.FieldDetectedArch:
+		return m.OldDetectedArch(ctx)
+	case machine.FieldDetectionStatus:
+		return m.OldDetectionStatus(ctx)
+	case machine.FieldChannelCredentialKind:
+		return m.OldChannelCredentialKind(ctx)
+	case machine.FieldChannelTokenID:
+		return m.OldChannelTokenID(ctx)
+	case machine.FieldChannelCertificateID:
+		return m.OldChannelCertificateID(ctx)
 	case machine.FieldDescription:
 		return m.OldDescription(ctx)
 	case machine.FieldLabels:
@@ -17465,6 +18115,20 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetPort(v)
 		return nil
+	case machine.FieldConnectionMode:
+		v, ok := value.(machine.ConnectionMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConnectionMode(v)
+		return nil
+	case machine.FieldTransportCapabilities:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTransportCapabilities(v)
+		return nil
 	case machine.FieldSSHUser:
 		v, ok := value.(string)
 		if !ok {
@@ -17478,6 +18142,83 @@ func (m *MachineMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSSHKeyPath(v)
+		return nil
+	case machine.FieldAdvertisedEndpoint:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAdvertisedEndpoint(v)
+		return nil
+	case machine.FieldDaemonRegistered:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDaemonRegistered(v)
+		return nil
+	case machine.FieldDaemonLastRegisteredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDaemonLastRegisteredAt(v)
+		return nil
+	case machine.FieldDaemonSessionID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDaemonSessionID(v)
+		return nil
+	case machine.FieldDaemonSessionState:
+		v, ok := value.(machine.DaemonSessionState)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDaemonSessionState(v)
+		return nil
+	case machine.FieldDetectedOs:
+		v, ok := value.(machine.DetectedOs)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetectedOs(v)
+		return nil
+	case machine.FieldDetectedArch:
+		v, ok := value.(machine.DetectedArch)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetectedArch(v)
+		return nil
+	case machine.FieldDetectionStatus:
+		v, ok := value.(machine.DetectionStatus)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDetectionStatus(v)
+		return nil
+	case machine.FieldChannelCredentialKind:
+		v, ok := value.(machine.ChannelCredentialKind)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChannelCredentialKind(v)
+		return nil
+	case machine.FieldChannelTokenID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChannelTokenID(v)
+		return nil
+	case machine.FieldChannelCertificateID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetChannelCertificateID(v)
 		return nil
 	case machine.FieldDescription:
 		v, ok := value.(string)
@@ -17580,11 +18321,29 @@ func (m *MachineMutation) AddField(name string, value ent.Value) error {
 // mutation.
 func (m *MachineMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(machine.FieldTransportCapabilities) {
+		fields = append(fields, machine.FieldTransportCapabilities)
+	}
 	if m.FieldCleared(machine.FieldSSHUser) {
 		fields = append(fields, machine.FieldSSHUser)
 	}
 	if m.FieldCleared(machine.FieldSSHKeyPath) {
 		fields = append(fields, machine.FieldSSHKeyPath)
+	}
+	if m.FieldCleared(machine.FieldAdvertisedEndpoint) {
+		fields = append(fields, machine.FieldAdvertisedEndpoint)
+	}
+	if m.FieldCleared(machine.FieldDaemonLastRegisteredAt) {
+		fields = append(fields, machine.FieldDaemonLastRegisteredAt)
+	}
+	if m.FieldCleared(machine.FieldDaemonSessionID) {
+		fields = append(fields, machine.FieldDaemonSessionID)
+	}
+	if m.FieldCleared(machine.FieldChannelTokenID) {
+		fields = append(fields, machine.FieldChannelTokenID)
+	}
+	if m.FieldCleared(machine.FieldChannelCertificateID) {
+		fields = append(fields, machine.FieldChannelCertificateID)
 	}
 	if m.FieldCleared(machine.FieldDescription) {
 		fields = append(fields, machine.FieldDescription)
@@ -17618,11 +18377,29 @@ func (m *MachineMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *MachineMutation) ClearField(name string) error {
 	switch name {
+	case machine.FieldTransportCapabilities:
+		m.ClearTransportCapabilities()
+		return nil
 	case machine.FieldSSHUser:
 		m.ClearSSHUser()
 		return nil
 	case machine.FieldSSHKeyPath:
 		m.ClearSSHKeyPath()
+		return nil
+	case machine.FieldAdvertisedEndpoint:
+		m.ClearAdvertisedEndpoint()
+		return nil
+	case machine.FieldDaemonLastRegisteredAt:
+		m.ClearDaemonLastRegisteredAt()
+		return nil
+	case machine.FieldDaemonSessionID:
+		m.ClearDaemonSessionID()
+		return nil
+	case machine.FieldChannelTokenID:
+		m.ClearChannelTokenID()
+		return nil
+	case machine.FieldChannelCertificateID:
+		m.ClearChannelCertificateID()
 		return nil
 	case machine.FieldDescription:
 		m.ClearDescription()
@@ -17662,11 +18439,50 @@ func (m *MachineMutation) ResetField(name string) error {
 	case machine.FieldPort:
 		m.ResetPort()
 		return nil
+	case machine.FieldConnectionMode:
+		m.ResetConnectionMode()
+		return nil
+	case machine.FieldTransportCapabilities:
+		m.ResetTransportCapabilities()
+		return nil
 	case machine.FieldSSHUser:
 		m.ResetSSHUser()
 		return nil
 	case machine.FieldSSHKeyPath:
 		m.ResetSSHKeyPath()
+		return nil
+	case machine.FieldAdvertisedEndpoint:
+		m.ResetAdvertisedEndpoint()
+		return nil
+	case machine.FieldDaemonRegistered:
+		m.ResetDaemonRegistered()
+		return nil
+	case machine.FieldDaemonLastRegisteredAt:
+		m.ResetDaemonLastRegisteredAt()
+		return nil
+	case machine.FieldDaemonSessionID:
+		m.ResetDaemonSessionID()
+		return nil
+	case machine.FieldDaemonSessionState:
+		m.ResetDaemonSessionState()
+		return nil
+	case machine.FieldDetectedOs:
+		m.ResetDetectedOs()
+		return nil
+	case machine.FieldDetectedArch:
+		m.ResetDetectedArch()
+		return nil
+	case machine.FieldDetectionStatus:
+		m.ResetDetectionStatus()
+		return nil
+	case machine.FieldChannelCredentialKind:
+		m.ResetChannelCredentialKind()
+		return nil
+	case machine.FieldChannelTokenID:
+		m.ResetChannelTokenID()
+		return nil
+	case machine.FieldChannelCertificateID:
+		m.ResetChannelCertificateID()
 		return nil
 	case machine.FieldDescription:
 		m.ResetDescription()

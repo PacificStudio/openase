@@ -889,6 +889,12 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if createMachine.Port != 2222 || len(createMachine.Labels) != 2 || len(createMachine.EnvVars) != 2 {
 		t.Fatalf("ParseCreateMachine() = %+v", createMachine)
 	}
+	if createMachine.ConnectionMode != MachineConnectionModeSSH {
+		t.Fatalf("ParseCreateMachine() connection mode = %q, want ssh", createMachine.ConnectionMode)
+	}
+	if got := len(createMachine.TransportCapabilities); got != 4 {
+		t.Fatalf("ParseCreateMachine() default transport capabilities = %d, want 4", got)
+	}
 
 	updateMachine, err := ParseUpdateMachine(uuid.New(), orgID, MachineInput{
 		Name:   "local",
@@ -900,6 +906,68 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	if updateMachine.Status != MachineStatusOnline || updateMachine.Port != 22 {
 		t.Fatalf("ParseUpdateMachine() defaults = %+v", updateMachine)
+	}
+	if updateMachine.ConnectionMode != MachineConnectionModeLocal {
+		t.Fatalf("ParseUpdateMachine() connection mode = %q, want local", updateMachine.ConnectionMode)
+	}
+
+	registered := true
+	lastRegisteredAt := "2026-04-04T10:15:00Z"
+	currentSessionID := " ws-session-01 "
+	endpoint := " wss://machines.example.com/connect "
+	tokenID := " machine-token-01 "
+	websocketMachine, err := ParseCreateMachine(orgID, MachineInput{
+		Name:           " listener-01 ",
+		Host:           " listener.example.com ",
+		ConnectionMode: " ws_listener ",
+		TransportCapabilities: []string{
+			" process_streaming ",
+			"artifact_sync",
+			"process_streaming",
+		},
+		AdvertisedEndpoint: &endpoint,
+		DaemonStatus: MachineDaemonStatusInput{
+			Registered:       &registered,
+			LastRegisteredAt: &lastRegisteredAt,
+			CurrentSessionID: &currentSessionID,
+			SessionState:     " connected ",
+		},
+		DetectedOS:      " linux ",
+		DetectedArch:    " arm64 ",
+		DetectionStatus: " ok ",
+		ChannelCredential: &MachineChannelCredentialInput{
+			Kind:    " token ",
+			TokenID: &tokenID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseCreateMachine(ws_listener) error = %v", err)
+	}
+	if websocketMachine.ConnectionMode != MachineConnectionModeWSListener {
+		t.Fatalf("ParseCreateMachine(ws_listener) mode = %q", websocketMachine.ConnectionMode)
+	}
+	if websocketMachine.AdvertisedEndpoint == nil || *websocketMachine.AdvertisedEndpoint != "wss://machines.example.com/connect" {
+		t.Fatalf("ParseCreateMachine(ws_listener) endpoint = %v", websocketMachine.AdvertisedEndpoint)
+	}
+	if websocketMachine.DetectedOS != MachineDetectedOSLinux {
+		t.Fatalf("ParseCreateMachine(ws_listener) detected os = %q", websocketMachine.DetectedOS)
+	}
+	if websocketMachine.DetectedArch != MachineDetectedArchARM64 {
+		t.Fatalf("ParseCreateMachine(ws_listener) detected arch = %q", websocketMachine.DetectedArch)
+	}
+	if websocketMachine.DetectionStatus != MachineDetectionStatusOK {
+		t.Fatalf("ParseCreateMachine(ws_listener) detection status = %q", websocketMachine.DetectionStatus)
+	}
+	if websocketMachine.DaemonStatus.CurrentSessionID == nil || *websocketMachine.DaemonStatus.CurrentSessionID != "ws-session-01" {
+		t.Fatalf("ParseCreateMachine(ws_listener) daemon status = %+v", websocketMachine.DaemonStatus)
+	}
+	if websocketMachine.ChannelCredential.Kind != MachineChannelCredentialKindToken ||
+		websocketMachine.ChannelCredential.TokenID == nil ||
+		*websocketMachine.ChannelCredential.TokenID != "machine-token-01" {
+		t.Fatalf("ParseCreateMachine(ws_listener) channel credential = %+v", websocketMachine.ChannelCredential)
+	}
+	if got := len(websocketMachine.TransportCapabilities); got != 2 {
+		t.Fatalf("ParseCreateMachine(ws_listener) transport capabilities = %d, want 2", got)
 	}
 
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "local"}); err == nil {
@@ -934,6 +1002,43 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	if _, err := ParseUpdateMachine(uuid.New(), orgID, MachineInput{Name: "remote", Host: "10.0.0.1"}); err == nil {
 		t.Fatal("ParseUpdateMachine() expected validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", ConnectionMode: "telnet"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected connection_mode validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_listener"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected advertised_endpoint validation error")
+	}
+	badEndpoint := "https://machines.example.com/connect"
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_listener", AdvertisedEndpoint: &badEndpoint}); err == nil {
+		t.Fatal("ParseCreateMachine() expected advertised_endpoint scheme validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectedOS: "windows"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected detected_os validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectedArch: "386"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected detected_arch validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectionStatus: "bad"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected detection_status validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:           "listener",
+		Host:           "listener.example.com",
+		ConnectionMode: "ws_reverse",
+		DaemonStatus:   MachineDaemonStatusInput{SessionState: "broken"},
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected daemon_status.session_state validation error")
+	}
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:           "listener",
+		Host:           "listener.example.com",
+		ConnectionMode: "ws_reverse",
+		ChannelCredential: &MachineChannelCredentialInput{
+			Kind: "token",
+		},
+	}); err == nil {
+		t.Fatal("ParseCreateMachine() expected channel credential token validation error")
 	}
 	if _, err := parseMachineName(""); err == nil {
 		t.Fatal("parseMachineName() expected validation error")

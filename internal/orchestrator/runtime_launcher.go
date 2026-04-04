@@ -28,6 +28,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -54,6 +55,7 @@ type RuntimeLauncher struct {
 	events         provider.EventProvider
 	processManager provider.AgentCLIProcessManager
 	sshPool        *sshinfra.Pool
+	transports     *machinetransport.Resolver
 	workflow       *workflowservice.Service
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
@@ -106,6 +108,7 @@ func NewRuntimeLauncher(
 		events:         events,
 		processManager: processManager,
 		sshPool:        sshPool,
+		transports:     machinetransport.NewResolver(processManager, sshPool),
 		workflow:       workflow,
 		now:            time.Now,
 		launchTimeout:  defaultLaunchTimeout,
@@ -118,6 +121,7 @@ func NewRuntimeLauncher(
 		tickets:        ticketservice.NewService(ticketrepo.NewEntRepository(client)),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
+	launcher.tickets.ConfigureTransportResolver(launcher.transports)
 	launcher.workspaces = newRuntimeWorkspaceProvisioner(client, launcher.logger, sshPool, launcher.now)
 	launcher.completionSummaries = newRuntimeCompletionSummaryCoordinator(
 		client,
@@ -872,8 +876,12 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	}
 
 	processManager := l.processManager
-	if remote {
-		processManager = sshinfra.NewProcessManager(l.sshPool, machine)
+	if l.transports != nil {
+		transport, transportErr := l.transports.Resolve(machine)
+		if transportErr != nil {
+			return nil, transportErr
+		}
+		processManager = machinetransport.NewProcessManager(transport, machine)
 	}
 
 	processSpec, err := provider.NewAgentCLIProcessSpec(
@@ -1047,8 +1055,8 @@ func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
 	if l == nil || l.workflow == nil {
 		return nil
 	}
-	if l.sshPool == nil {
-		return fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+	if l.transports == nil {
+		return fmt.Errorf("machine transport resolver unavailable for remote machine %s", machine.Name)
 	}
 
 	skillNames, err := l.resolveLaunchSkillNames(ctx, projectID, workflowID)
@@ -1060,13 +1068,13 @@ func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
 		return err
 	}
 
-	client, err := l.sshPool.Get(ctx, machine)
+	transport, err := l.transports.Resolve(machine)
 	if err != nil {
-		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+		return err
 	}
-	session, err := client.NewSession()
+	session, err := transport.OpenCommandSession(ctx, machine)
 	if err != nil {
-		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
 	defer func() {
 		_ = session.Close()
