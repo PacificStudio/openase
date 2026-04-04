@@ -155,6 +155,12 @@ The default flow stays inside the terminal and does not open a browser. It walks
   - enter an existing PostgreSQL connection manually
 - validating the chosen database connection inside setup
 - checking local CLI availability and version probes for `git`, `codex`, `claude`, and other built-in provider CLIs
+- choosing the browser auth mode:
+  - `disabled`
+  - `oidc`, with in-flow prompts for issuer URL, client ID, client secret, redirect URL, scopes, and bootstrap admins
+- choosing how OpenASE should run after setup:
+  - config-only
+  - install/update the current-user `systemd --user` service when the machine supports it
 - writing `~/.openase/config.yaml`
 - writing `~/.openase/.env` with the generated platform auth token
 - creating `~/.openase/logs/` and `~/.openase/workspaces/`
@@ -168,6 +174,8 @@ Successful setup does all of the following:
 - creates `~/.openase/logs/` and `~/.openase/workspaces/`
 - does not require a repo path, repo URL, default branch, or mode selection
 - does not scaffold repo-local `.openase/` assets during setup
+- can install the managed OpenASE service directly when `systemd --user` is available
+- can write runnable OIDC browser-login settings directly into the generated config
 
 When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
 
@@ -178,6 +186,8 @@ When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
 - host port: `127.0.0.1:15432`
 
 Setup generates the PostgreSQL password automatically, validates the container-backed connection, and prints reuse / stop / remove commands after success.
+
+If you choose OIDC mode during setup, the flow points to [`docs/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md) and is intended for standard OIDC providers such as Auth0 or Azure Entra ID.
 
 ## 5. Start OpenASE
 
@@ -226,7 +236,7 @@ Run these when you want the API server and orchestrator as separate processes:
 
 ## 6. Managed User Service
 
-After setup has created a config file, you can let OpenASE install a per-user background service:
+Setup can install the managed service inline when you choose the service runtime mode. You can also apply or refresh it later with:
 
 ```bash
 ./bin/openase up --config ~/.openase/config.yaml

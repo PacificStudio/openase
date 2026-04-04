@@ -80,7 +80,7 @@ export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?ss
 
 ### 2. Run setup or start the managed service
 
-First-run setup now stays inside the terminal. It prepares or validates PostgreSQL, checks key local CLIs, writes config under `~/.openase/`, and seeds the initial org/project/provider data without asking for repo or mode selection.
+First-run setup now stays inside the terminal. It prepares or validates PostgreSQL, checks key local CLIs, asks for the auth mode (`disabled` or `oidc`), can install the current-user `systemd --user` service when supported, and seeds the initial org/project/provider data without asking for repo or mode selection.
 
 ```bash
 ./bin/openase setup
@@ -120,7 +120,7 @@ export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
 
-If you plan to require browser login, also set `auth.mode=oidc` and the matching `auth.oidc.*` settings in your config. The sample values live in [`config.example.yaml`](./config.example.yaml), and the operational guide lives in [`docs/human-auth-oidc-rbac.md`](./docs/human-auth-oidc-rbac.md).
+If you plan to require browser login, setup can collect the OIDC values directly, or you can set `auth.mode=oidc` and the matching `auth.oidc.*` settings manually. The sample values live in [`config.example.yaml`](./config.example.yaml), and the operational guide lives in [`docs/human-auth-oidc-rbac.md`](./docs/human-auth-oidc-rbac.md). Standard OIDC providers such as Auth0 and Azure Entra ID work with this flow.
 
 ## What Setup Creates
 

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/setup"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -22,9 +23,29 @@ import (
 const (
 	defaultSetupHost = "127.0.0.1"
 	defaultSetupPort = 19836
+	oidcGuideURL     = "https://github.com/PacificStudio/openase/blob/main/docs/human-auth-oidc-rbac.md"
 )
 
 var errSetupAborted = errors.New("setup aborted")
+
+type setupRuntimeMode string
+
+const (
+	setupRuntimeModeConfigOnly         setupRuntimeMode = "config-only"
+	setupRuntimeModeSystemdUserService setupRuntimeMode = "systemd-user-service"
+)
+
+type setupFlowDeps struct {
+	buildUserServiceManager        func() (provider.UserServiceManager, error)
+	buildManagedServiceInstallSpec func(string) (provider.UserServiceInstallSpec, error)
+	checkSystemdUserServiceSupport func(context.Context) error
+	verifySystemdUserService       func(context.Context, provider.ServiceName) error
+}
+
+type installedSetupService struct {
+	Name     provider.ServiceName
+	Platform string
+}
 
 type setupFlowService interface {
 	Bootstrap(context.Context) (setup.Bootstrap, error)
@@ -55,7 +76,8 @@ func newSetupCommand() *cobra.Command {
 Run the interactive local setup flow for OpenASE.
 
 The default flow stays inside the terminal, prepares a PostgreSQL connection,
-checks key local CLIs, and writes a runnable ~/.openase/config.yaml plus
+checks key local CLIs, configures auth mode, optionally installs the current-
+user systemd service, and writes a runnable ~/.openase/config.yaml plus
 ~/.openase/.env. Use --web only for legacy browser-based troubleshooting.
 `),
 		Example: "openase setup\nopenase setup --force\nopenase setup --web --host 127.0.0.1 --port 19836",
@@ -89,10 +111,22 @@ func runSetupFlowCommand(ctx context.Context, in io.Reader, out io.Writer, opts 
 	if err != nil {
 		return err
 	}
-	return runSetupFlow(ctx, in, out, service, opts)
+	return runSetupFlowWithDeps(ctx, in, out, service, opts, setupFlowDeps{
+		buildUserServiceManager:        buildUserServiceManager,
+		buildManagedServiceInstallSpec: buildManagedServiceInstallSpec,
+		checkSystemdUserServiceSupport: checkSystemdUserServiceSupport,
+		verifySystemdUserService:       verifySystemdUserService,
+	})
 }
 
-func runSetupFlow(ctx context.Context, in io.Reader, out io.Writer, service setupFlowService, opts setupFlowOptions) error {
+func runSetupFlowWithDeps(
+	ctx context.Context,
+	in io.Reader,
+	out io.Writer,
+	service setupFlowService,
+	opts setupFlowOptions,
+	deps setupFlowDeps,
+) error {
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		return err
@@ -127,9 +161,31 @@ func runSetupFlow(ctx context.Context, in io.Reader, out io.Writer, service setu
 	}
 
 	printCLIDiagnostics(out, bootstrap.CLI)
-	printSetupSummary(out, bootstrap, prepared)
+	auth, err := promptAuthConfig(prompter, bootstrap)
+	if err != nil {
+		if errors.Is(err, errSetupAborted) {
+			_, _ = fmt.Fprintln(out, "\nSetup cancelled.")
+			return nil
+		}
+		return err
+	}
 
-	confirmed, err := prompter.confirm("Write ~/.openase/config.yaml and ~/.openase/.env now?", true)
+	runtimeMode, err := promptRuntimeMode(ctx, prompter, deps)
+	if err != nil {
+		if errors.Is(err, errSetupAborted) {
+			_, _ = fmt.Fprintln(out, "\nSetup cancelled.")
+			return nil
+		}
+		return err
+	}
+
+	printSetupSummary(out, bootstrap, prepared, auth, runtimeMode)
+
+	confirmationLabel := "Write ~/.openase/config.yaml and ~/.openase/.env now?"
+	if runtimeMode == setupRuntimeModeSystemdUserService {
+		confirmationLabel = "Write ~/.openase/config.yaml and ~/.openase/.env, then install the current-user systemd service now?"
+	}
+	confirmed, err := prompter.confirm(confirmationLabel, true)
 	if err != nil {
 		return err
 	}
@@ -147,13 +203,22 @@ func runSetupFlow(ctx context.Context, in io.Reader, out io.Writer, service setu
 
 	result, err := service.Complete(ctx, setup.RawCompleteRequest{
 		Database:       prepared.Config.Raw(),
+		Auth:           auth.Raw(),
 		AllowOverwrite: allowOverwrite,
 	})
 	if err != nil {
 		return err
 	}
 
-	printSetupSuccess(out, result, prepared)
+	var installedService *installedSetupService
+	if runtimeMode == setupRuntimeModeSystemdUserService {
+		installedService, err = installSetupManagedService(ctx, deps, result.ConfigPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	printSetupSuccess(out, result, prepared, auth, installedService)
 	return nil
 }
 
@@ -302,8 +367,10 @@ func printSetupIntro(out io.Writer, bootstrap setup.Bootstrap) {
 	_, _ = fmt.Fprintln(out, "This flow will:")
 	_, _ = fmt.Fprintln(out, "  1. Prepare and validate PostgreSQL")
 	_, _ = fmt.Fprintln(out, "  2. Check key local CLIs such as git, codex, and claude")
-	_, _ = fmt.Fprintln(out, "  3. Write ~/.openase/config.yaml and ~/.openase/.env")
-	_, _ = fmt.Fprintln(out, "  4. Initialize the default local workspace metadata")
+	_, _ = fmt.Fprintln(out, "  3. Configure auth mode and optional OIDC browser login")
+	_, _ = fmt.Fprintln(out, "  4. Choose config-only mode or current-user systemd service mode")
+	_, _ = fmt.Fprintln(out, "  5. Write ~/.openase/config.yaml and ~/.openase/.env")
+	_, _ = fmt.Fprintln(out, "  6. Initialize the default local workspace metadata")
 	if bootstrap.ConfigExists {
 		_, _ = fmt.Fprintf(out, "\nExisting config detected: %s\n", bootstrap.ConfigPath)
 	}
@@ -342,7 +409,13 @@ func printCLIDiagnostics(out io.Writer, diagnostics []setup.CLIDiagnostic) {
 	}
 }
 
-func printSetupSummary(out io.Writer, bootstrap setup.Bootstrap, prepared setup.PreparedDatabase) {
+func printSetupSummary(
+	out io.Writer,
+	bootstrap setup.Bootstrap,
+	prepared setup.PreparedDatabase,
+	auth setup.AuthConfig,
+	runtimeMode setupRuntimeMode,
+) {
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintln(out, "Setup summary:")
 	_, _ = fmt.Fprintf(
@@ -359,10 +432,18 @@ func printSetupSummary(out io.Writer, bootstrap setup.Bootstrap, prepared setup.
 		_, _ = fmt.Fprintf(out, "  Docker container: %s\n", prepared.Docker.ContainerName)
 		_, _ = fmt.Fprintf(out, "  Docker volume:    %s\n", prepared.Docker.VolumeName)
 	}
+	_, _ = fmt.Fprintf(out, "  Auth mode: %s\n", describeSetupAuthMode(auth))
+	_, _ = fmt.Fprintf(out, "  Runtime:   %s\n", describeSetupRuntimeMode(runtimeMode))
 	_, _ = fmt.Fprintf(out, "  Config path: %s\n", bootstrap.ConfigPath)
 }
 
-func printSetupSuccess(out io.Writer, result setup.CompleteResult, prepared setup.PreparedDatabase) {
+func printSetupSuccess(
+	out io.Writer,
+	result setup.CompleteResult,
+	prepared setup.PreparedDatabase,
+	auth setup.AuthConfig,
+	installedService *installedSetupService,
+) {
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintln(out, "OpenASE setup completed.")
 	_, _ = fmt.Fprintf(out, "Config: %s\n", result.ConfigPath)
@@ -378,15 +459,29 @@ func printSetupSuccess(out io.Writer, result setup.CompleteResult, prepared setu
 		prepared.Config.Name,
 		prepared.Config.User,
 	)
+	_, _ = fmt.Fprintf(out, "Auth mode: %s\n", describeSetupAuthMode(auth))
 	if prepared.Docker != nil {
 		_, _ = fmt.Fprintf(out, "Docker container: %s\n", prepared.Docker.ContainerName)
 		_, _ = fmt.Fprintf(out, "Docker volume:    %s\n", prepared.Docker.VolumeName)
 		_, _ = fmt.Fprintf(out, "Stop container:   docker stop %s\n", prepared.Docker.ContainerName)
 		_, _ = fmt.Fprintf(out, "Remove container: docker rm -f %s\n", prepared.Docker.ContainerName)
 	}
+	if installedService != nil {
+		_, _ = fmt.Fprintf(out, "Service:  %s via %s\n", installedService.Name, installedService.Platform)
+	}
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintf(out, "Next: openase doctor --config %s\n", result.ConfigPath)
-	_, _ = fmt.Fprintf(out, "Next: openase all-in-one --config %s\n", result.ConfigPath)
+	if installedService != nil {
+		_, _ = fmt.Fprintf(out, "Next: systemctl --user status %s\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Logs: journalctl --user -u %s -n 200 -f\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Restart: systemctl --user restart %s\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Stop: systemctl --user stop %s\n", installedService.Name)
+	} else {
+		_, _ = fmt.Fprintf(out, "Next: openase all-in-one --config %s\n", result.ConfigPath)
+	}
+	if auth.Mode == setup.AuthModeOIDC {
+		_, _ = fmt.Fprintf(out, "OIDC guide: %s\n", oidcGuideURL)
+	}
 }
 
 func newSetupPrompter(in io.Reader, out io.Writer) *setupPrompter {
@@ -501,6 +596,10 @@ func (p *setupPrompter) selectValue(label string, values []string, defaultValue 
 	return values[index], nil
 }
 
+func (p *setupPrompter) csvValue(label string, defaultValue string) (string, error) {
+	return p.lineWithDefault(label, defaultValue)
+}
+
 func (p *setupPrompter) confirm(label string, defaultValue bool) (bool, error) {
 	suffix := "y/N"
 	if defaultValue {
@@ -557,6 +656,244 @@ func terminalFileDescriptor(file *os.File) (int, bool) {
 	}
 
 	return int(fd), true
+}
+
+func promptAuthConfig(prompter *setupPrompter, bootstrap setup.Bootstrap) (setup.AuthConfig, error) {
+	modes := bootstrap.AuthModes
+	if len(modes) == 0 {
+		modes = []setup.AuthModeOption{
+			{
+				ID:          setup.AuthModeDisabled,
+				Name:        "Disable Browser Login",
+				Description: "Use local token auth only and skip OIDC configuration during setup.",
+			},
+			{
+				ID:          setup.AuthModeOIDC,
+				Name:        "Configure OIDC Browser Login",
+				Description: "Set up browser login with an OIDC provider such as Auth0 or Azure Entra ID.",
+			},
+		}
+	}
+
+	defaults := bootstrap.Defaults.Auth
+	if defaults.OIDC == nil {
+		defaults = setup.RawAuthInput{
+			Mode: string(setup.AuthModeDisabled),
+			OIDC: &setup.RawOIDCInput{
+				ClientID:       "openase",
+				RedirectURL:    setup.DefaultOIDCRedirectURL,
+				Scopes:         setup.DefaultOIDCScopes,
+				SessionTTL:     setup.DefaultOIDCSessionTTL,
+				SessionIdleTTL: setup.DefaultOIDCIdleTTL,
+			},
+		}
+	}
+
+	options := make([]string, 0, len(modes))
+	defaultIndex := 0
+	for index, mode := range modes {
+		options = append(options, fmt.Sprintf("%s: %s", mode.Name, mode.Description))
+		if mode.ID == setup.AuthModeDisabled {
+			defaultIndex = index
+		}
+	}
+
+	index, err := prompter.choose("Choose a browser auth mode", options, defaultIndex)
+	if err != nil {
+		return setup.AuthConfig{}, err
+	}
+	if modes[index].ID == setup.AuthModeDisabled {
+		return setup.ParseAuthInput(setup.RawAuthInput{Mode: string(setup.AuthModeDisabled)})
+	}
+
+	current := defaults
+	current.Mode = string(setup.AuthModeOIDC)
+	if current.OIDC == nil {
+		current.OIDC = &setup.RawOIDCInput{}
+	}
+
+	_, _ = fmt.Fprintln(prompter.out)
+	_, _ = fmt.Fprintln(prompter.out, "OIDC setup notes:")
+	_, _ = fmt.Fprintln(prompter.out, "  - Recommended providers: Auth0 or Azure Entra ID")
+	_, _ = fmt.Fprintf(prompter.out, "  - Guide: %s\n", oidcGuideURL)
+
+	for {
+		var promptErr error
+		current.OIDC.IssuerURL, promptErr = prompter.stringValue("OIDC issuer URL", current.OIDC.IssuerURL)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.ClientID, promptErr = prompter.stringValue("OIDC client ID", current.OIDC.ClientID)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.ClientSecret, promptErr = prompter.secretValue("OIDC client secret", current.OIDC.ClientSecret)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.RedirectURL, promptErr = prompter.stringValue("OIDC redirect URL", current.OIDC.RedirectURL)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.Scopes, promptErr = prompter.csvValue("OIDC scopes (comma-separated)", current.OIDC.Scopes)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.BootstrapAdminEmails, promptErr = prompter.csvValue(
+			"Bootstrap admin emails (comma-separated, optional)",
+			current.OIDC.BootstrapAdminEmails,
+		)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+		current.OIDC.AllowedEmailDomains, promptErr = prompter.csvValue(
+			"Allowed email domains (comma-separated, optional)",
+			current.OIDC.AllowedEmailDomains,
+		)
+		if promptErr != nil {
+			return setup.AuthConfig{}, promptErr
+		}
+
+		auth, parseErr := setup.ParseAuthInput(current)
+		if parseErr == nil {
+			return auth, nil
+		}
+
+		_, _ = fmt.Fprintf(prompter.out, "\nOIDC configuration is invalid: %v\n", parseErr)
+		retry, confirmErr := prompter.confirm("Edit the OIDC settings and try again?", true)
+		if confirmErr != nil {
+			return setup.AuthConfig{}, confirmErr
+		}
+		if !retry {
+			return setup.AuthConfig{}, errSetupAborted
+		}
+	}
+}
+
+func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupFlowDeps) (setupRuntimeMode, error) {
+	options := []string{
+		"Only Write Config: setup writes ~/.openase files and you start openase manually later.",
+		"Install Current-User systemd Service: setup also installs the managed OpenASE service for this Linux user.",
+	}
+	index, err := prompter.choose("Choose how OpenASE should run after setup", options, 0)
+	if err != nil {
+		return "", err
+	}
+	if index == 0 {
+		return setupRuntimeModeConfigOnly, nil
+	}
+
+	if err := deps.checkSystemdUserServiceSupport(ctx); err != nil {
+		_, _ = fmt.Fprintf(prompter.out, "\nCurrent machine cannot use current-user systemd services: %v\n", err)
+		fallback, confirmErr := prompter.confirm("Continue with config-only setup instead?", true)
+		if confirmErr != nil {
+			return "", confirmErr
+		}
+		if fallback {
+			return setupRuntimeModeConfigOnly, nil
+		}
+		return "", errSetupAborted
+	}
+
+	return setupRuntimeModeSystemdUserService, nil
+}
+
+func installSetupManagedService(
+	ctx context.Context,
+	deps setupFlowDeps,
+	configPath string,
+) (*installedSetupService, error) {
+	manager, err := deps.buildUserServiceManager()
+	if err != nil {
+		return nil, fmt.Errorf("setup wrote config files, but failed to build the managed service installer: %w", err)
+	}
+	if manager.Platform() != "systemd --user" {
+		return nil, fmt.Errorf("setup wrote config files, but this machine exposes %s instead of systemd --user; rerun setup in config-only mode", manager.Platform())
+	}
+
+	spec, err := deps.buildManagedServiceInstallSpec(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("setup wrote config files, but failed to build the systemd service definition: %w", err)
+	}
+	if err := manager.Apply(ctx, spec); err != nil {
+		return nil, fmt.Errorf("setup wrote config files, but failed to install current-user systemd service %q: %w", spec.Name, err)
+	}
+	if err := deps.verifySystemdUserService(ctx, spec.Name); err != nil {
+		return nil, fmt.Errorf("setup wrote config files, but systemd could not verify service %q: %w", spec.Name, err)
+	}
+
+	return &installedSetupService{
+		Name:     spec.Name,
+		Platform: manager.Platform(),
+	}, nil
+}
+
+func describeSetupAuthMode(auth setup.AuthConfig) string {
+	switch auth.Mode {
+	case setup.AuthModeOIDC:
+		return "oidc"
+	default:
+		return "disabled"
+	}
+}
+
+func describeSetupRuntimeMode(mode setupRuntimeMode) string {
+	switch mode {
+	case setupRuntimeModeSystemdUserService:
+		return "current-user systemd service"
+	default:
+		return "config-only"
+	}
+}
+
+func checkSystemdUserServiceSupport(ctx context.Context) error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("systemd user services are only supported on Linux")
+	}
+	if err := runSystemctlUser(ctx, "show-environment"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func verifySystemdUserService(ctx context.Context, name provider.ServiceName) error {
+	if err := runSystemctlUser(ctx, "is-enabled", name.String()); err != nil {
+		return err
+	}
+	if err := runSystemctlUser(ctx, "is-active", name.String()); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runSystemctlUser(ctx context.Context, args ...string) error {
+	path, err := exec.LookPath("systemctl")
+	if err != nil {
+		return fmt.Errorf("systemctl is not installed")
+	}
+
+	//nolint:gosec // setup intentionally shells out to the local systemd CLI for capability checks
+	command := exec.CommandContext(ctx, path, append([]string{"--user"}, args...)...)
+	output, err := command.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(string(output)))
+	if normalized == "" {
+		normalized = strings.ToLower(err.Error())
+	}
+	switch {
+	case strings.Contains(normalized, "failed to connect to bus"),
+		strings.Contains(normalized, "no medium found"),
+		strings.Contains(normalized, "operation not permitted"),
+		strings.Contains(normalized, "access denied"):
+		return fmt.Errorf("systemd --user is not available for this login session; choose config-only or start a user systemd session")
+	case strings.Contains(normalized, "not found"):
+		return fmt.Errorf("systemd --user could not find the managed OpenASE service")
+	default:
+		return fmt.Errorf("systemctl --user %s failed: %s", strings.Join(args, " "), strings.TrimSpace(string(output)))
+	}
 }
 
 func runSetupWebWizard(ctx context.Context, out io.Writer, host string, port int) error {

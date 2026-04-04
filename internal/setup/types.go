@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
 type DatabaseSourceType string
+type AuthModeType string
 
 const (
 	DatabaseSourceManual DatabaseSourceType = "manual"
@@ -16,10 +18,19 @@ const (
 )
 
 const (
+	AuthModeDisabled AuthModeType = "disabled"
+	AuthModeOIDC     AuthModeType = "oidc"
+)
+
+const (
 	DefaultOrganizationName = "Local Workspace"
 	DefaultOrganizationSlug = "local-workspace"
 	DefaultProjectName      = "OpenASE Workspace"
 	DefaultProjectSlug      = "openase-workspace"
+	DefaultOIDCRedirectURL  = "http://127.0.0.1:19836/api/v1" + "/auth/oidc/callback"
+	DefaultOIDCScopes       = "openid,profile,email,groups"
+	DefaultOIDCSessionTTL   = "8h"
+	DefaultOIDCIdleTTL      = "30m"
 )
 
 type DatabaseSourceOption struct {
@@ -38,6 +49,12 @@ type CLIDiagnostic struct {
 	Message string `json:"message,omitempty"`
 }
 
+type AuthModeOption struct {
+	ID          AuthModeType `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+}
+
 type AgentOption struct {
 	ID          string                                 `json:"id"`
 	Name        string                                 `json:"name"`
@@ -53,6 +70,7 @@ type Bootstrap struct {
 	ConfigExists bool                   `json:"config_exists"`
 	ConfigPath   string                 `json:"config_path"`
 	Sources      []DatabaseSourceOption `json:"sources"`
+	AuthModes    []AuthModeOption       `json:"auth_modes"`
 	Agents       []AgentOption          `json:"agents"`
 	CLI          []CLIDiagnostic        `json:"cli"`
 	Defaults     Defaults               `json:"defaults"`
@@ -61,6 +79,7 @@ type Bootstrap struct {
 type Defaults struct {
 	ManualDatabase RawDatabaseInput       `json:"manual_database"`
 	DockerDatabase RawDockerDatabaseInput `json:"docker_database"`
+	Auth           RawAuthInput           `json:"auth"`
 }
 
 type RawDatabaseInput struct {
@@ -87,8 +106,26 @@ type RawDatabaseSourceInput struct {
 	Docker *RawDockerDatabaseInput `json:"docker,omitempty"`
 }
 
+type RawOIDCInput struct {
+	IssuerURL            string `json:"issuer_url"`
+	ClientID             string `json:"client_id"`
+	ClientSecret         string `json:"client_secret"`
+	RedirectURL          string `json:"redirect_url"`
+	Scopes               string `json:"scopes"`
+	AllowedEmailDomains  string `json:"allowed_email_domains,omitempty"`
+	BootstrapAdminEmails string `json:"bootstrap_admin_emails,omitempty"`
+	SessionTTL           string `json:"session_ttl,omitempty"`
+	SessionIdleTTL       string `json:"session_idle_ttl,omitempty"`
+}
+
+type RawAuthInput struct {
+	Mode string        `json:"mode"`
+	OIDC *RawOIDCInput `json:"oidc,omitempty"`
+}
+
 type RawCompleteRequest struct {
 	Database       RawDatabaseInput `json:"database"`
+	Auth           RawAuthInput     `json:"auth"`
 	AllowOverwrite bool             `json:"allow_overwrite,omitempty"`
 }
 
@@ -118,6 +155,7 @@ type DatabaseSourceConfig struct {
 
 type CompleteRequest struct {
 	Database       DatabaseConfig
+	Auth           AuthConfig
 	AllowOverwrite bool
 }
 
@@ -138,6 +176,27 @@ type DockerDatabaseRuntime struct {
 	Port          int    `json:"port"`
 	VolumeName    string `json:"volume_name"`
 	Image         string `json:"image"`
+}
+
+type OIDCConfig struct {
+	IssuerURL            string
+	ClientID             string
+	ClientSecret         string
+	RedirectURL          string
+	Scopes               []string
+	AllowedEmailDomains  []string
+	BootstrapAdminEmails []string
+	SessionTTL           string
+	SessionIdleTTL       string
+}
+
+type AuthConfig struct {
+	Mode AuthModeType
+	OIDC *OIDCConfig
+}
+
+func ParseAuthInput(raw RawAuthInput) (AuthConfig, error) {
+	return parseAuthInput(raw)
 }
 
 type CompleteResult struct {
@@ -170,6 +229,19 @@ func defaultRawDockerDatabaseInput() RawDockerDatabaseInput {
 	}
 }
 
+func defaultRawAuthInput() RawAuthInput {
+	return RawAuthInput{
+		Mode: string(AuthModeDisabled),
+		OIDC: &RawOIDCInput{
+			ClientID:       "openase",
+			RedirectURL:    DefaultOIDCRedirectURL,
+			Scopes:         DefaultOIDCScopes,
+			SessionTTL:     DefaultOIDCSessionTTL,
+			SessionIdleTTL: DefaultOIDCIdleTTL,
+		},
+	}
+}
+
 func parseDatabaseSourceType(raw string) (DatabaseSourceType, error) {
 	sourceType := DatabaseSourceType(strings.TrimSpace(strings.ToLower(raw)))
 	switch sourceType {
@@ -177,6 +249,19 @@ func parseDatabaseSourceType(raw string) (DatabaseSourceType, error) {
 		return sourceType, nil
 	default:
 		return "", fmt.Errorf("database.type must be one of manual, docker")
+	}
+}
+
+func parseAuthModeType(raw string) (AuthModeType, error) {
+	mode := AuthModeType(strings.TrimSpace(strings.ToLower(raw)))
+	if mode == "" {
+		mode = AuthModeDisabled
+	}
+	switch mode {
+	case AuthModeDisabled, AuthModeOIDC:
+		return mode, nil
+	default:
+		return "", fmt.Errorf("auth.mode must be one of disabled, oidc")
 	}
 }
 
@@ -236,6 +321,26 @@ func (c DatabaseConfig) DSN() string {
 
 func (c DatabaseConfig) Raw() RawDatabaseInput {
 	return RawDatabaseInput(c)
+}
+
+func (c AuthConfig) Raw() RawAuthInput {
+	raw := RawAuthInput{Mode: string(c.Mode)}
+	if c.OIDC == nil {
+		return raw
+	}
+
+	raw.OIDC = &RawOIDCInput{
+		IssuerURL:            c.OIDC.IssuerURL,
+		ClientID:             c.OIDC.ClientID,
+		ClientSecret:         c.OIDC.ClientSecret,
+		RedirectURL:          c.OIDC.RedirectURL,
+		Scopes:               strings.Join(c.OIDC.Scopes, ","),
+		AllowedEmailDomains:  strings.Join(c.OIDC.AllowedEmailDomains, ","),
+		BootstrapAdminEmails: strings.Join(c.OIDC.BootstrapAdminEmails, ","),
+		SessionTTL:           c.OIDC.SessionTTL,
+		SessionIdleTTL:       c.OIDC.SessionIdleTTL,
+	}
+	return raw
 }
 
 func parseDockerDatabaseInput(raw RawDockerDatabaseInput) (DockerDatabaseConfig, error) {
@@ -327,9 +432,139 @@ func parseCompleteRequest(raw RawCompleteRequest) (CompleteRequest, error) {
 	if err != nil {
 		return CompleteRequest{}, err
 	}
+	auth, err := parseAuthInput(raw.Auth)
+	if err != nil {
+		return CompleteRequest{}, err
+	}
 
 	return CompleteRequest{
 		Database:       database,
+		Auth:           auth,
 		AllowOverwrite: raw.AllowOverwrite,
 	}, nil
+}
+
+func parseAuthInput(raw RawAuthInput) (AuthConfig, error) {
+	mode, err := parseAuthModeType(raw.Mode)
+	if err != nil {
+		return AuthConfig{}, err
+	}
+	if mode == AuthModeDisabled {
+		return AuthConfig{Mode: AuthModeDisabled}, nil
+	}
+
+	oidcRaw := defaultRawAuthInput().OIDC
+	if raw.OIDC != nil {
+		oidcRaw = raw.OIDC
+	}
+	if oidcRaw == nil {
+		return AuthConfig{}, fmt.Errorf("auth.oidc must be provided when auth.mode=oidc")
+	}
+
+	oidc, err := parseOIDCInput(*oidcRaw)
+	if err != nil {
+		return AuthConfig{}, err
+	}
+
+	return AuthConfig{
+		Mode: AuthModeOIDC,
+		OIDC: &oidc,
+	}, nil
+}
+
+func parseOIDCInput(raw RawOIDCInput) (OIDCConfig, error) {
+	defaults := defaultRawAuthInput().OIDC
+	if defaults == nil {
+		return OIDCConfig{}, fmt.Errorf("oidc defaults are unavailable")
+	}
+
+	issuerURL := strings.TrimSpace(raw.IssuerURL)
+	if issuerURL == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.issuer_url must not be empty when auth.mode=oidc")
+	}
+
+	clientID := strings.TrimSpace(raw.ClientID)
+	if clientID == "" {
+		clientID = defaults.ClientID
+	}
+	if clientID == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.client_id must not be empty when auth.mode=oidc")
+	}
+
+	clientSecret := strings.TrimSpace(raw.ClientSecret)
+	if clientSecret == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.client_secret must not be empty when auth.mode=oidc")
+	}
+
+	redirectURL := strings.TrimSpace(raw.RedirectURL)
+	if redirectURL == "" {
+		redirectURL = defaults.RedirectURL
+	}
+	if redirectURL == "" {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.redirect_url must not be empty when auth.mode=oidc")
+	}
+
+	scopesInput := strings.TrimSpace(raw.Scopes)
+	if scopesInput == "" {
+		scopesInput = defaults.Scopes
+	}
+	scopes := normalizeCSV(scopesInput)
+	if len(scopes) == 0 {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.scopes must not be empty when auth.mode=oidc")
+	}
+
+	sessionTTL := strings.TrimSpace(raw.SessionTTL)
+	if sessionTTL == "" {
+		sessionTTL = defaults.SessionTTL
+	}
+	if _, err := time.ParseDuration(sessionTTL); err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_ttl must be a valid duration: %w", err)
+	}
+
+	sessionIdleTTL := strings.TrimSpace(raw.SessionIdleTTL)
+	if sessionIdleTTL == "" {
+		sessionIdleTTL = defaults.SessionIdleTTL
+	}
+	idleDuration, err := time.ParseDuration(sessionIdleTTL)
+	if err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_idle_ttl must be a valid duration: %w", err)
+	}
+
+	sessionDuration, err := time.ParseDuration(sessionTTL)
+	if err != nil {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_ttl must be a valid duration: %w", err)
+	}
+	if idleDuration > sessionDuration {
+		return OIDCConfig{}, fmt.Errorf("auth.oidc.session_idle_ttl must not exceed auth.oidc.session_ttl")
+	}
+
+	return OIDCConfig{
+		IssuerURL:            issuerURL,
+		ClientID:             clientID,
+		ClientSecret:         clientSecret,
+		RedirectURL:          redirectURL,
+		Scopes:               scopes,
+		AllowedEmailDomains:  normalizeCSV(raw.AllowedEmailDomains),
+		BootstrapAdminEmails: normalizeCSV(raw.BootstrapAdminEmails),
+		SessionTTL:           sessionTTL,
+		SessionIdleTTL:       sessionIdleTTL,
+	}, nil
+}
+
+func normalizeCSV(raw string) []string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(trimmed, ",")
+	items := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			continue
+		}
+		items = append(items, value)
+	}
+	return items
 }

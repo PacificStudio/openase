@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/BetterAndBetterII/openase/internal/config"
 )
 
 type stubResolver struct {
@@ -118,6 +120,9 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	if !strings.Contains(configText, "project_name: "+DefaultProjectName) {
 		t.Fatalf("expected config to contain project name, got %q", configText)
 	}
+	if !strings.Contains(configText, "mode: disabled") {
+		t.Fatalf("expected config to contain disabled auth mode, got %q", configText)
+	}
 	if strings.Contains(configText, "repo_path:") || strings.Contains(configText, "mode: personal") {
 		t.Fatalf("config should not contain legacy repo/mode setup fields, got %q", configText)
 	}
@@ -139,6 +144,63 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 		if err != nil || !info.IsDir() {
 			t.Fatalf("expected directory %s to exist, err=%v", dir, err)
 		}
+	}
+}
+
+func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
+	homeDir := t.TempDir()
+	service, err := NewService(Options{
+		HomeDir:    homeDir,
+		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git"}},
+		RunCommand: stubVersionRunner,
+		Connector:  &stubConnector{},
+		Installer:  &stubInstaller{},
+	})
+	if err != nil {
+		t.Fatalf("NewService returned error: %v", err)
+	}
+
+	_, err = service.Complete(context.Background(), RawCompleteRequest{
+		Database: RawDatabaseInput{
+			Host:     "127.0.0.1",
+			Port:     5432,
+			Name:     "openase",
+			User:     "openase",
+			Password: "secret",
+			SSLMode:  "disable",
+		},
+		Auth: RawAuthInput{
+			Mode: string(AuthModeOIDC),
+			OIDC: &RawOIDCInput{
+				IssuerURL:            "https://example.auth0.com/",
+				ClientID:             "openase",
+				ClientSecret:         "super-secret",
+				RedirectURL:          DefaultOIDCRedirectURL,
+				Scopes:               DefaultOIDCScopes,
+				BootstrapAdminEmails: "admin@example.com",
+				SessionTTL:           DefaultOIDCSessionTTL,
+				SessionIdleTTL:       DefaultOIDCIdleTTL,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Complete returned error: %v", err)
+	}
+
+	cfg, err := config.Load(config.LoadOptions{
+		ConfigFile: filepath.Join(homeDir, ".openase", "config.yaml"),
+	})
+	if err != nil {
+		t.Fatalf("config.Load() error = %v", err)
+	}
+	if cfg.Auth.Mode != config.AuthModeOIDC {
+		t.Fatalf("auth mode = %q", cfg.Auth.Mode)
+	}
+	if cfg.Auth.OIDC.ClientSecret != "super-secret" {
+		t.Fatalf("client secret = %q", cfg.Auth.OIDC.ClientSecret)
+	}
+	if len(cfg.Auth.OIDC.BootstrapAdminEmails) != 1 || cfg.Auth.OIDC.BootstrapAdminEmails[0] != "admin@example.com" {
+		t.Fatalf("bootstrap admin emails = %v", cfg.Auth.OIDC.BootstrapAdminEmails)
 	}
 }
 
