@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
@@ -20,6 +21,7 @@ import (
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -1239,6 +1241,132 @@ func TestProjectConversationRespondInterruptRestoresCodexSessionOverSSHWhenRunti
 	}
 	if !strings.Contains(prepareSession.command, remoteWorkspace) {
 		t.Fatalf("prepare command = %q, want workspace %q", prepareSession.command, remoteWorkspace)
+	}
+}
+
+func TestProjectConversationStartTurnUsesWebsocketListenerRuntimeManager(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	defer server.Close()
+
+	workspaceRoot := t.TempDir()
+	fakeOpenASEBinDir := t.TempDir()
+	writeProjectConversationFakeOpenASEBinary(t, fakeOpenASEBinDir)
+	fakeCodex := &fakeProjectConversationCodexRuntime{}
+	var capturedManager provider.AgentCLIProcessManager
+
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:                 machineID,
+				Name:               "listener-01",
+				Host:               "listener.internal",
+				WorkspaceRoot:      stringPointer(workspaceRoot),
+				ConnectionMode:     catalogdomain.MachineConnectionModeWSListener,
+				AdvertisedEndpoint: stringPointer(projectConversationWebsocketURL(server.URL)),
+				AgentCLIPath:       stringPointer("/bin/sh"),
+				EnvVars: []string{
+					"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+					"OPENASE_REAL_BIN=" + filepath.Join(fakeOpenASEBinDir, "openase"),
+				},
+			},
+		},
+		fakeTicketReader{},
+		fakeProjectConversationWorkflowSync{},
+		nil,
+		nil,
+	)
+	service.newCodexRuntime = func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		capturedManager = manager
+		return fakeCodex, nil
+	}
+
+	turn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect websocket runtime", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if turn.ID == uuid.Nil {
+		t.Fatal("expected persisted turn id")
+	}
+	if capturedManager == nil {
+		t.Fatal("expected websocket runtime to resolve a process manager")
+	}
+
+	workspacePath := filepath.Join(
+		workspaceRoot,
+		org.ID.String(),
+		"openase",
+		projectConversationWorkspaceName(conversation.ID),
+	)
+	skillTarget, err := workflowservice.ResolveSkillTargetForRuntime(
+		workspacePath,
+		string(catalogdomain.AgentProviderAdapterTypeCodexAppServer),
+	)
+	if err != nil {
+		t.Fatalf("resolve skill target: %v", err)
+	}
+	assertConversationFileExists(t, filepath.Join(workspacePath, ".openase", "bin", "openase"))
+	assertConversationFileExists(t, filepath.Join(skillTarget.SkillsDir, "openase-platform", "SKILL.md"))
+
+	spec, err := provider.NewAgentCLIProcessSpec(
+		provider.MustParseAgentCLICommand("/bin/sh"),
+		[]string{"-lc", "printf ws-conversation"},
+		nil,
+		[]string{"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH")},
+	)
+	if err != nil {
+		t.Fatalf("NewAgentCLIProcessSpec() error = %v", err)
+	}
+	process, err := capturedManager.Start(ctx, spec)
+	if err != nil {
+		t.Fatalf("capturedManager.Start() error = %v", err)
+	}
+	output, err := io.ReadAll(process.Stdout())
+	if err != nil {
+		t.Fatalf("ReadAll(process.Stdout()) error = %v", err)
+	}
+	if err := process.Wait(); err != nil {
+		t.Fatalf("process.Wait() error = %v", err)
+	}
+	if strings.TrimSpace(string(output)) != "ws-conversation" {
+		t.Fatalf("process stdout = %q, want ws-conversation", string(output))
 	}
 }
 
@@ -4000,6 +4128,10 @@ func (fakeProjectConversationWorkflowSync) RefreshSkills(
 	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\n"), 0o600); err != nil {
 		return workflowservice.RefreshSkillsResult{}, err
 	}
+	// #nosec G302 -- test wrapper must be executable in the temp workspace.
+	if err := os.Chmod(wrapperPath, 0o700); err != nil {
+		return workflowservice.RefreshSkillsResult{}, err
+	}
 	return workflowservice.RefreshSkillsResult{
 		SkillsDir:      target.SkillsDir,
 		InjectedSkills: []string{"openase-platform"},
@@ -4362,6 +4494,39 @@ func writeConversationWorkspaceFile(t *testing.T, path string, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func projectConversationWebsocketURL(raw string) string {
+	switch {
+	case strings.HasPrefix(raw, "https://"):
+		return "wss://" + strings.TrimPrefix(raw, "https://")
+	case strings.HasPrefix(raw, "http://"):
+		return "ws://" + strings.TrimPrefix(raw, "http://")
+	default:
+		return raw
+	}
+}
+
+func writeProjectConversationFakeOpenASEBinary(t *testing.T, binDir string) {
+	t.Helper()
+
+	fakeBinaryPath := filepath.Join(binDir, "openase")
+	content := `#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "version" ]; then
+  exit 0
+fi
+
+exit 0
+`
+	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fake openase binary: %v", err)
+	}
+	// #nosec G302 -- test binary must be executable in the temp workspace.
+	if err := os.Chmod(fakeBinaryPath, 0o700); err != nil {
+		t.Fatalf("write fake openase binary: %v", err)
 	}
 }
 

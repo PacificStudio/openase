@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -149,7 +150,7 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 	}
 
 	switch transport.Mode() {
-	case domain.MachineConnectionModeWSReverse, domain.MachineConnectionModeWSListener:
+	case domain.MachineConnectionModeWSReverse:
 		checkedAt := c.currentTime()
 		heartbeat, hbErr := transport.Heartbeat(ctx, machine)
 		reachable := heartbeat.Registered && heartbeat.SessionState == domain.MachineTransportSessionStateConnected
@@ -166,6 +167,18 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 			Reachable:    reachable,
 			FailureCause: failureCause,
 		}, hbErr
+	case domain.MachineConnectionModeWSListener:
+		probe, probeErr := transport.Probe(ctx, machine)
+		failureCause := ""
+		if probeErr != nil {
+			failureCause = probeErr.Error()
+		}
+		return domain.MachineReachability{
+			CheckedAt:    probe.CheckedAt,
+			Transport:    transport.Mode().String(),
+			Reachable:    probeErr == nil,
+			FailureCause: failureCause,
+		}, probeErr
 	default:
 		if c.sshCollector == nil {
 			checkedAt := c.currentTime()
@@ -299,13 +312,25 @@ func (t sshTransport) Probe(ctx context.Context, machine domain.Machine) (domain
 
 func (t sshTransport) PrepareWorkspace(ctx context.Context, machine domain.Machine, request workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error) {
 	if t.pool == nil {
-		return workspaceinfra.Workspace{}, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name)
+		return workspaceinfra.Workspace{}, workspaceinfra.WrapPrepareTransportError(machine.Name, fmt.Errorf("ssh pool unavailable for remote machine %s", machine.Name))
 	}
 	return workspaceinfra.NewRemoteManager(t.pool).Prepare(ctx, machine, request)
 }
 
 func (t sshTransport) SyncArtifacts(ctx context.Context, machine domain.Machine, request SyncArtifactsRequest) error {
-	return syncRemoteArtifacts(ctx, t.pool, machine, request)
+	if t.pool == nil {
+		return fmt.Errorf("ssh pool unavailable for machine %s", machine.Name)
+	}
+	client, err := t.pool.Get(ctx, machine)
+	if err != nil {
+		return fmt.Errorf("get ssh client for machine %s: %w", machine.Name, err)
+	}
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("open ssh session for machine %s: %w", machine.Name, err)
+	}
+	defer func() { _ = session.Close() }()
+	return syncArtifactsWithSession(session, request)
 }
 
 func (t sshTransport) StartProcess(ctx context.Context, machine domain.Machine, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
@@ -360,24 +385,69 @@ func (t websocketTransport) Capabilities(machine domain.Machine) []domain.Machin
 	return copyCapabilities(machine.TransportCapabilities, t.mode)
 }
 
-func (t websocketTransport) Probe(context.Context, domain.Machine) (domain.MachineProbe, error) {
-	return domain.MachineProbe{Transport: t.mode.String()}, fmt.Errorf("%w: %s transport is not implemented yet", ErrTransportUnavailable, t.mode)
+func (t websocketTransport) Probe(ctx context.Context, machine domain.Machine) (domain.MachineProbe, error) {
+	if t.mode != domain.MachineConnectionModeWSListener {
+		return domain.MachineProbe{Transport: t.mode.String()}, fmt.Errorf("%w: %s transport is not implemented yet", ErrTransportUnavailable, t.mode)
+	}
+
+	checkedAt := time.Now().UTC()
+	session, err := t.OpenCommandSession(ctx, machine)
+	if err != nil {
+		return domain.MachineProbe{CheckedAt: checkedAt, Transport: t.mode.String()}, err
+	}
+	defer func() { _ = session.Close() }()
+
+	output, err := session.CombinedOutput(`sh -lc 'whoami && hostname && uname -srm'`)
+	probe := domain.MachineProbe{
+		CheckedAt: checkedAt,
+		Transport: t.mode.String(),
+		Output:    strings.TrimSpace(string(output)),
+		Resources: buildListenerProbeResources(machine, checkedAt, string(output)),
+	}
+	if err != nil {
+		return probe, fmt.Errorf("run listener websocket probe: %w", err)
+	}
+	return probe, nil
 }
 
-func (t websocketTransport) PrepareWorkspace(context.Context, domain.Machine, workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error) {
-	return workspaceinfra.Workspace{}, fmt.Errorf("%w: %s workspace preparation is not implemented yet", ErrTransportUnavailable, t.mode)
+func (t websocketTransport) PrepareWorkspace(ctx context.Context, machine domain.Machine, request workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error) {
+	if t.mode != domain.MachineConnectionModeWSListener {
+		return workspaceinfra.Workspace{}, fmt.Errorf("%w: %s workspace preparation is not implemented yet", ErrTransportUnavailable, t.mode)
+	}
+
+	session, err := t.OpenCommandSession(ctx, machine)
+	if err != nil {
+		return workspaceinfra.Workspace{}, workspaceinfra.WrapPrepareTransportError(machine.Name, err)
+	}
+	defer func() { _ = session.Close() }()
+	return workspaceinfra.PrepareWithCommandRunner(session, request)
 }
 
-func (t websocketTransport) SyncArtifacts(context.Context, domain.Machine, SyncArtifactsRequest) error {
-	return fmt.Errorf("%w: %s artifact sync is not implemented yet", ErrTransportUnavailable, t.mode)
+func (t websocketTransport) SyncArtifacts(ctx context.Context, machine domain.Machine, request SyncArtifactsRequest) error {
+	if t.mode != domain.MachineConnectionModeWSListener {
+		return fmt.Errorf("%w: %s artifact sync is not implemented yet", ErrTransportUnavailable, t.mode)
+	}
+
+	session, err := t.OpenCommandSession(ctx, machine)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = session.Close() }()
+	return syncArtifactsWithSession(session, request)
 }
 
-func (t websocketTransport) StartProcess(context.Context, domain.Machine, provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
-	return nil, fmt.Errorf("%w: %s process streaming is not implemented yet", ErrTransportUnavailable, t.mode)
+func (t websocketTransport) StartProcess(ctx context.Context, machine domain.Machine, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error) {
+	if t.mode != domain.MachineConnectionModeWSListener {
+		return nil, fmt.Errorf("%w: %s process streaming is not implemented yet", ErrTransportUnavailable, t.mode)
+	}
+	return startWebsocketProcess(ctx, machine, spec)
 }
 
-func (t websocketTransport) OpenCommandSession(context.Context, domain.Machine) (CommandSession, error) {
-	return nil, fmt.Errorf("%w: %s command sessions are not implemented yet", ErrTransportUnavailable, t.mode)
+func (t websocketTransport) OpenCommandSession(ctx context.Context, machine domain.Machine) (CommandSession, error) {
+	if t.mode != domain.MachineConnectionModeWSListener {
+		return nil, fmt.Errorf("%w: %s command sessions are not implemented yet", ErrTransportUnavailable, t.mode)
+	}
+	return dialWebsocketCommandSession(ctx, machine)
 }
 
 func (t websocketTransport) SessionState(ctx context.Context, machine domain.Machine) (domain.MachineTransportSessionState, error) {
@@ -386,6 +456,26 @@ func (t websocketTransport) SessionState(ctx context.Context, machine domain.Mac
 }
 
 func (t websocketTransport) Heartbeat(ctx context.Context, machine domain.Machine) (domain.MachineDaemonStatus, error) {
+	if t.mode == domain.MachineConnectionModeWSListener {
+		session, err := t.OpenCommandSession(ctx, machine)
+		if err != nil {
+			return domain.MachineDaemonStatus{
+				Registered:       false,
+				LastRegisteredAt: cloneTime(machine.DaemonStatus.LastRegisteredAt),
+				CurrentSessionID: cloneString(machine.DaemonStatus.CurrentSessionID),
+				SessionState:     domain.MachineTransportSessionStateUnavailable,
+			}, err
+		}
+		_ = session.Close()
+		checkedAt := time.Now().UTC()
+		return domain.MachineDaemonStatus{
+			Registered:       true,
+			LastRegisteredAt: &checkedAt,
+			CurrentSessionID: cloneString(machine.DaemonStatus.CurrentSessionID),
+			SessionState:     domain.MachineTransportSessionStateConnected,
+		}, nil
+	}
+
 	status := domain.MachineDaemonStatus{
 		Registered:       machine.DaemonStatus.Registered,
 		LastRegisteredAt: cloneTime(machine.DaemonStatus.LastRegisteredAt),
@@ -464,4 +554,175 @@ func removeLocalPath(target string) error {
 		return fmt.Errorf("remove local path %s: %w", target, err)
 	}
 	return nil
+}
+
+func buildListenerProbeResources(machine domain.Machine, checkedAt time.Time, output string) map[string]any {
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	resources := map[string]any{
+		"transport":             domain.MachineConnectionModeWSListener.String(),
+		"advertised_endpoint":   strings.TrimSpace(pointerString(machine.AdvertisedEndpoint)),
+		"checked_at":            checkedAt.Format(time.RFC3339),
+		"last_success":          true,
+		"listener_session_mode": "direct_dial",
+	}
+	if len(lines) > 0 && strings.TrimSpace(lines[0]) != "" {
+		resources["remote_user"] = strings.TrimSpace(lines[0])
+	}
+	if len(lines) > 1 && strings.TrimSpace(lines[1]) != "" {
+		resources["remote_host"] = strings.TrimSpace(lines[1])
+	}
+	if len(lines) > 2 && strings.TrimSpace(lines[2]) != "" {
+		resources["kernel"] = strings.TrimSpace(lines[2])
+	}
+	return resources
+}
+
+func startWebsocketProcess(
+	ctx context.Context,
+	machine domain.Machine,
+	spec provider.AgentCLIProcessSpec,
+) (provider.AgentCLIProcess, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("context must not be nil")
+	}
+	if spec.Command == "" {
+		return nil, fmt.Errorf("agent cli command must not be empty")
+	}
+
+	session, err := dialWebsocketCommandSession(ctx, machine)
+	if err != nil {
+		return nil, err
+	}
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		_ = session.Close()
+		return nil, fmt.Errorf("open listener websocket stdin: %w", err)
+	}
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		return nil, fmt.Errorf("open listener websocket stdout: %w", err)
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		return nil, fmt.Errorf("open listener websocket stderr: %w", err)
+	}
+
+	command := buildRemoteCommandSessionShellCommand(spec)
+	if err := session.Start(command); err != nil {
+		_ = stdin.Close()
+		_ = session.Close()
+		return nil, fmt.Errorf("start listener websocket process: %w", err)
+	}
+
+	process := &commandSessionProcess{
+		session: session,
+		stdin:   stdin,
+		stdout:  stdout,
+		stderr:  stderr,
+		done:    make(chan struct{}),
+	}
+	go process.waitLoop()
+	return process, nil
+}
+
+type commandSessionProcess struct {
+	session CommandSession
+	stdin   io.WriteCloser
+	stdout  io.Reader
+	stderr  io.Reader
+	done    chan struct{}
+
+	waitErr  error
+	waitOnce sync.Once
+}
+
+func (p *commandSessionProcess) PID() int { return 0 }
+
+func (p *commandSessionProcess) Stdin() io.WriteCloser { return p.stdin }
+
+func (p *commandSessionProcess) Stdout() io.ReadCloser { return io.NopCloser(p.stdout) }
+
+func (p *commandSessionProcess) Stderr() io.ReadCloser { return io.NopCloser(p.stderr) }
+
+func (p *commandSessionProcess) Wait() error {
+	if p == nil {
+		return fmt.Errorf("process must not be nil")
+	}
+	p.awaitExit()
+	return p.waitErr
+}
+
+func (p *commandSessionProcess) Stop(ctx context.Context) error {
+	if p == nil {
+		return fmt.Errorf("process must not be nil")
+	}
+	if ctx == nil {
+		return fmt.Errorf("context must not be nil")
+	}
+
+	select {
+	case <-p.done:
+		p.awaitExit()
+		return p.waitErr
+	default:
+	}
+
+	_ = p.stdin.Close()
+	if err := p.session.Signal("INT"); err != nil {
+		_ = p.session.Close()
+	}
+
+	select {
+	case <-p.done:
+		p.awaitExit()
+		return p.waitErr
+	case <-ctx.Done():
+		closeErr := p.session.Close()
+		p.awaitExit()
+		if p.waitErr != nil {
+			return p.waitErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+		return p.waitErr
+	}
+}
+
+func (p *commandSessionProcess) waitLoop() {
+	p.waitErr = p.session.Wait()
+	_ = p.session.Close()
+	close(p.done)
+}
+
+func (p *commandSessionProcess) awaitExit() {
+	p.waitOnce.Do(func() {
+		<-p.done
+	})
+}
+
+func buildRemoteCommandSessionShellCommand(spec provider.AgentCLIProcessSpec) string {
+	commandParts := make([]string, 0, 1+len(spec.Args))
+	commandParts = append(commandParts, sshinfra.ShellQuote(spec.Command.String()))
+	for _, arg := range spec.Args {
+		commandParts = append(commandParts, sshinfra.ShellQuote(arg))
+	}
+
+	command := strings.Join(commandParts, " ")
+	if len(spec.Environment) > 0 {
+		envParts := make([]string, 0, len(spec.Environment))
+		for _, entry := range spec.Environment {
+			envParts = append(envParts, sshinfra.ShellQuote(entry))
+		}
+		command = "env " + strings.Join(envParts, " ") + " " + command
+	}
+	if spec.WorkingDirectory != nil {
+		command = "cd " + sshinfra.ShellQuote(spec.WorkingDirectory.String()) + " && " + command
+	}
+	return command
 }

@@ -851,6 +851,9 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 			}
 		}
 	}
+	if err := l.runRemoteRuntimePreflight(ctx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
+		return nil, err
+	}
 	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
 	if err != nil {
 		return nil, fmt.Errorf("parse agent workspace path: %w", err)
@@ -989,6 +992,33 @@ func buildLocalOpenASEEnvironment() ([]string, error) {
 	}
 
 	return []string{"OPENASE_REAL_BIN=" + executable}, nil
+}
+
+func (l *RuntimeLauncher) runRemoteRuntimePreflight(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	remote bool,
+	workingDirectory string,
+	command string,
+	environment []string,
+) error {
+	if !remote || l == nil || l.transports == nil {
+		return nil
+	}
+
+	transport, err := l.transports.Resolve(machine)
+	if err != nil {
+		return err
+	}
+	if transport.Mode() != catalogdomain.MachineConnectionModeWSListener {
+		return nil
+	}
+
+	return machinetransport.RunRemoteRuntimePreflight(ctx, transport, machine, machinetransport.RuntimePreflightSpec{
+		WorkingDirectory: workingDirectory,
+		AgentCommand:     command,
+		Environment:      environment,
+	})
 }
 
 func (l *RuntimeLauncher) buildGitHubOutboundEnvironment(
@@ -1529,21 +1559,48 @@ func projectRepoWorkspaceDirname(repo *ent.ProjectRepo) string {
 
 func mapRuntimeMachine(item *ent.Machine) catalogdomain.Machine {
 	return catalogdomain.Machine{
-		ID:             item.ID,
-		OrganizationID: item.OrganizationID,
-		Name:           item.Name,
-		Host:           item.Host,
-		Port:           item.Port,
-		SSHUser:        optionalRuntimeString(item.SSHUser),
-		SSHKeyPath:     optionalRuntimeString(item.SSHKeyPath),
-		Description:    item.Description,
-		Labels:         append([]string(nil), item.Labels...),
-		Status:         catalogdomain.MachineStatus(item.Status),
-		WorkspaceRoot:  optionalRuntimeString(item.WorkspaceRoot),
-		AgentCLIPath:   optionalRuntimeString(item.AgentCliPath),
-		EnvVars:        append([]string(nil), item.EnvVars...),
-		Resources:      cloneResourceMap(item.Resources),
+		ID:                 item.ID,
+		OrganizationID:     item.OrganizationID,
+		Name:               item.Name,
+		Host:               item.Host,
+		Port:               item.Port,
+		SSHUser:            optionalRuntimeString(item.SSHUser),
+		SSHKeyPath:         optionalRuntimeString(item.SSHKeyPath),
+		Description:        item.Description,
+		Labels:             append([]string(nil), item.Labels...),
+		Status:             catalogdomain.MachineStatus(item.Status),
+		ConnectionMode:     mapStoredRuntimeConnectionMode(item),
+		AdvertisedEndpoint: optionalRuntimeString(item.AdvertisedEndpoint),
+		WorkspaceRoot:      optionalRuntimeString(item.WorkspaceRoot),
+		AgentCLIPath:       optionalRuntimeString(item.AgentCliPath),
+		EnvVars:            append([]string(nil), item.EnvVars...),
+		Resources:          cloneResourceMap(item.Resources),
+		DaemonStatus: catalogdomain.MachineDaemonStatus{
+			Registered:       item.DaemonRegistered,
+			LastRegisteredAt: cloneRuntimeTime(item.DaemonLastRegisteredAt),
+			CurrentSessionID: optionalRuntimeString(item.DaemonSessionID),
+			SessionState:     catalogdomain.MachineTransportSessionState(item.DaemonSessionState),
+		},
+		ChannelCredential: catalogdomain.MachineChannelCredential{
+			Kind:          catalogdomain.MachineChannelCredentialKind(item.ChannelCredentialKind),
+			TokenID:       optionalRuntimeString(item.ChannelTokenID),
+			CertificateID: optionalRuntimeString(item.ChannelCertificateID),
+		},
 	}
+}
+
+func mapStoredRuntimeConnectionMode(item *ent.Machine) catalogdomain.MachineConnectionMode {
+	if item == nil {
+		return ""
+	}
+	if item.Host == catalogdomain.LocalMachineHost || item.Name == catalogdomain.LocalMachineName {
+		return catalogdomain.MachineConnectionModeLocal
+	}
+	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	if err != nil {
+		return catalogdomain.MachineConnectionModeSSH
+	}
+	return mode
 }
 
 func optionalRuntimeString(raw string) *string {
@@ -1553,6 +1610,14 @@ func optionalRuntimeString(raw string) *string {
 
 	value := raw
 	return &value
+}
+
+func cloneRuntimeTime(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := value.UTC()
+	return &cloned
 }
 
 func machineCodexReady(resources map[string]any) (bool, string, bool) {

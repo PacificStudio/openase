@@ -2,19 +2,11 @@ package setup
 
 import (
 	"context"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	"github.com/BetterAndBetterII/openase/internal/testutil/pgtest"
-	git "github.com/go-git/go-git/v5"
-	gitconfig "github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
@@ -32,48 +24,8 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 		t.Fatalf("Migrate() error = %v", err)
 	}
 
-	repoRoot := filepath.Join(t.TempDir(), "repo")
-	if err := os.MkdirAll(repoRoot, 0o750); err != nil {
-		t.Fatalf("MkdirAll(repoRoot) error = %v", err)
-	}
-	repository, err := git.PlainInit(repoRoot, false)
-	if err != nil {
-		t.Fatalf("PlainInit() error = %v", err)
-	}
-	if err := repository.Storer.SetReference(
-		plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main")),
-	); err != nil {
-		t.Fatalf("set HEAD to main: %v", err)
-	}
-	if _, err := repository.CreateRemote(&gitconfig.RemoteConfig{
-		Name: "origin",
-		URLs: []string{"https://github.com/PacificStudio/openase.git"},
-	}); err != nil {
-		t.Fatalf("CreateRemote(origin) error = %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("setup integration\n"), 0o600); err != nil {
-		t.Fatalf("WriteFile(README.md) error = %v", err)
-	}
-	worktree, err := repository.Worktree()
-	if err != nil {
-		t.Fatalf("Worktree() error = %v", err)
-	}
-	if _, err := worktree.Add("README.md"); err != nil {
-		t.Fatalf("Add(README.md) error = %v", err)
-	}
-	if _, err := worktree.Commit("initial commit", &git.CommitOptions{
-		Author: &object.Signature{
-			Name:  "Codex",
-			Email: "codex@openai.com",
-			When:  time.Date(2026, 3, 29, 15, 0, 0, 0, time.UTC),
-		},
-	}); err != nil {
-		t.Fatalf("Commit() error = %v", err)
-	}
-
 	templates := catalog.BuiltinAgentProviderTemplates()
 	input := InstallInput{
-		Mode: ModeTeam,
 		Database: DatabaseConfig{
 			Host:     "127.0.0.1",
 			Port:     int(databaseInfo.Port),
@@ -88,12 +40,15 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 			Command:     templates[1].Command,
 			AdapterType: templates[1].AdapterType,
 			ModelName:   templates[1].ModelName,
+			Available:   true,
 		}},
+		Organization: OrganizationConfig{
+			Name: DefaultOrganizationName,
+			Slug: DefaultOrganizationSlug,
+		},
 		Project: ProjectConfig{
-			Name:          "Setup Coverage Repo",
-			RepoPath:      repoRoot,
-			RepoURL:       "https://github.com/PacificStudio/openase.git",
-			DefaultBranch: "main",
+			Name: DefaultProjectName,
+			Slug: DefaultProjectSlug,
 		},
 	}
 
@@ -118,7 +73,7 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if len(orgs) != 1 {
 		t.Fatalf("organization count = %d, want 1", len(orgs))
 	}
-	if orgs[0].Slug != "team-setup-coverage-repo" {
+	if orgs[0].Slug != DefaultOrganizationSlug {
 		t.Fatalf("organization slug = %q", orgs[0].Slug)
 	}
 	if orgs[0].DefaultAgentProviderID == nil {
@@ -132,6 +87,9 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if len(projects) != 1 {
 		t.Fatalf("project count = %d, want 1", len(projects))
 	}
+	if projects[0].Slug != DefaultProjectSlug {
+		t.Fatalf("project slug = %q", projects[0].Slug)
+	}
 	if projects[0].DefaultAgentProviderID == nil {
 		t.Fatalf("project default agent provider = nil")
 	}
@@ -140,11 +98,8 @@ func TestRuntimeDatabaseConnectorAndDefaultInstallerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ProjectRepo.Query().All() error = %v", err)
 	}
-	if len(repos) != 1 {
-		t.Fatalf("project repo count = %d, want 1", len(repos))
-	}
-	if !strings.EqualFold(repos[0].RepositoryURL, "https://github.com/PacificStudio/openase.git") {
-		t.Fatalf("repository URL = %q", repos[0].RepositoryURL)
+	if len(repos) != 0 {
+		t.Fatalf("project repo count = %d, want 0", len(repos))
 	}
 
 	statuses, err := client.TicketStatus.Query().All(ctx)

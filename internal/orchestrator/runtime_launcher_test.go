@@ -38,6 +38,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -3323,6 +3324,170 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 }
 
+func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	hookLogPath := filepath.Join(t.TempDir(), "hook.log")
+	workspaceRoot := t.TempDir()
+	fakeOpenASEBinDir := t.TempDir()
+	writeRuntimeLauncherFakeOpenASEBinary(t, fakeOpenASEBinDir)
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	defer server.Close()
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Websocket Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_claim": []any{
+					map[string]any{"cmd": fmt.Sprintf("printf 'claim\\n' >> %q", hookLogPath)},
+				},
+				"on_start": []any{
+					map[string]any{"cmd": fmt.Sprintf("printf 'start\\n' >> %q", hookLogPath)},
+				},
+			},
+		}).
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nUse websocket listener runtime.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-411").
+		SetTitle("Launch websocket listener runtime").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("listener-01").
+		SetHost("listener.internal").
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath("/bin/sh").
+		SetConnectionMode(entmachine.ConnectionModeWsListener).
+		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
+		SetStatus(entmachine.StatusOnline).
+		SetEnvVars([]string{
+			"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+			"OPENASE_REAL_BIN=" + filepath.Join(fakeOpenASEBinDir, "openase"),
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("create listener machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("listener-01"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load listener machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		SetCliArgs([]string{"-lc", "printf websocket-runtime"}).
+		Save(ctx); err != nil {
+		t.Fatalf("bind listener provider: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-ws-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	adapter := &runtimeWebsocketLaunchAdapter{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, workflowSvc)
+	launcher.adapters.adapters[entagentprovider.AdapterTypeCodexAppServer] = adapter
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if err := launcher.launchAgent(ctx, assignment); err != nil {
+		t.Fatalf("launchAgent() error = %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
+	}
+	if runAfter.SessionID != "ws-listener-thread" {
+		t.Fatalf("expected websocket session id, got %q", runAfter.SessionID)
+	}
+	if adapter.stdout != "websocket-runtime" {
+		t.Fatalf("adapter stdout = %q, want websocket-runtime", adapter.stdout)
+	}
+
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	repoWorkspacePath := filepath.Join(
+		workspacePath,
+		"repo-"+strings.ReplaceAll(fixture.projectID.String(), "-", "")[:8],
+	)
+	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
+		t.Fatalf("expected synced openase wrapper in websocket workspace: %v", err)
+	}
+
+	// #nosec G304 -- test reads a temp file path created inside this test.
+	rawHooks, err := os.ReadFile(hookLogPath)
+	if err != nil {
+		t.Fatalf("read websocket hook log: %v", err)
+	}
+	if string(rawHooks) != "claim\nstart\n" {
+		t.Fatalf("unexpected websocket hook log %q", string(rawHooks))
+	}
+}
+
 func TestBuildWorkspaceRepoPlansUsesGeneratedTicketBranchWhenScopeOverrideBlank(t *testing.T) {
 	repoID := uuid.New()
 	plans, err := buildWorkspaceRepoPlans(
@@ -4196,6 +4361,39 @@ func runRuntimeLauncherGit(t *testing.T, repoRoot string, args ...string) {
 	}
 }
 
+func runtimeLauncherWebsocketURL(raw string) string {
+	switch {
+	case strings.HasPrefix(raw, "https://"):
+		return "wss://" + strings.TrimPrefix(raw, "https://")
+	case strings.HasPrefix(raw, "http://"):
+		return "ws://" + strings.TrimPrefix(raw, "http://")
+	default:
+		return raw
+	}
+}
+
+func writeRuntimeLauncherFakeOpenASEBinary(t *testing.T, binDir string) {
+	t.Helper()
+
+	fakeBinaryPath := filepath.Join(binDir, "openase")
+	content := `#!/bin/sh
+set -eu
+
+if [ "${1:-}" = "version" ]; then
+  exit 0
+fi
+
+exit 0
+`
+	if err := os.WriteFile(fakeBinaryPath, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fake openase binary: %v", err)
+	}
+	// #nosec G302 -- test binary must be executable in the temp workspace.
+	if err := os.Chmod(fakeBinaryPath, 0o700); err != nil {
+		t.Fatalf("write fake openase binary: %v", err)
+	}
+}
+
 func TestRuntimeLauncherApplyGitHubWorkspaceAuthInjectsHTTPSCredentials(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
@@ -4270,6 +4468,79 @@ type runtimeFakeProcessManager struct {
 	executionDone      chan struct{}
 	closeTurnSession   bool
 	sessionExitErr     error
+}
+
+type runtimeWebsocketLaunchAdapter struct {
+	mu     sync.Mutex
+	stdout string
+	stderr string
+}
+
+func (a *runtimeWebsocketLaunchAdapter) Start(ctx context.Context, spec agentSessionStartSpec) (agentSession, error) {
+	process, err := spec.ProcessManager.Start(ctx, spec.Process)
+	if err != nil {
+		return nil, err
+	}
+
+	stdoutReader := process.Stdout()
+	stderrReader := process.Stderr()
+	stdoutDone := make(chan string, 1)
+	stderrDone := make(chan string, 1)
+	go func() {
+		data, _ := io.ReadAll(stdoutReader)
+		stdoutDone <- string(data)
+	}()
+	go func() {
+		data, _ := io.ReadAll(stderrReader)
+		stderrDone <- string(data)
+	}()
+
+	waitErr := process.Wait()
+	stdout := <-stdoutDone
+	stderr := <-stderrDone
+	if waitErr != nil {
+		return nil, waitErr
+	}
+
+	a.mu.Lock()
+	a.stdout = strings.TrimSpace(stdout)
+	a.stderr = strings.TrimSpace(stderr)
+	a.mu.Unlock()
+
+	return runtimeStaticAgentSession{sessionID: "ws-listener-thread"}, nil
+}
+
+func (a *runtimeWebsocketLaunchAdapter) Resume(context.Context, agentSessionResumeSpec) (agentSession, error) {
+	return nil, fmt.Errorf("resume is not implemented for websocket launch adapter")
+}
+
+type runtimeStaticAgentSession struct {
+	sessionID string
+}
+
+func (s runtimeStaticAgentSession) SessionID() (string, bool) {
+	if strings.TrimSpace(s.sessionID) == "" {
+		return "", false
+	}
+	return s.sessionID, true
+}
+
+func (s runtimeStaticAgentSession) Events() <-chan agentEvent {
+	stream := make(chan agentEvent)
+	close(stream)
+	return stream
+}
+
+func (s runtimeStaticAgentSession) SendPrompt(context.Context, string) (agentTurnStartResult, error) {
+	return agentTurnStartResult{}, nil
+}
+
+func (s runtimeStaticAgentSession) Stop(context.Context) error { return nil }
+
+func (s runtimeStaticAgentSession) Err() error { return nil }
+
+func (s runtimeStaticAgentSession) Diagnostic() agentSessionDiagnostic {
+	return agentSessionDiagnostic{SessionID: s.sessionID}
 }
 
 type runtimeBlockingEventProvider struct {

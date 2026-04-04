@@ -1891,19 +1891,46 @@ func mapTicketHookMachine(item *ent.Machine) catalogdomain.Machine {
 	}
 
 	return catalogdomain.Machine{
-		ID:             item.ID,
-		OrganizationID: item.OrganizationID,
-		Name:           item.Name,
-		Host:           item.Host,
-		Port:           item.Port,
-		SSHUser:        cloneOptionalText(item.SSHUser),
-		SSHKeyPath:     cloneOptionalText(item.SSHKeyPath),
-		Status:         catalogdomain.MachineStatus(item.Status),
-		WorkspaceRoot:  cloneOptionalText(item.WorkspaceRoot),
-		AgentCLIPath:   cloneOptionalText(item.AgentCliPath),
-		EnvVars:        slices.Clone(item.EnvVars),
-		Resources:      cloneMap(item.Resources),
+		ID:                 item.ID,
+		OrganizationID:     item.OrganizationID,
+		Name:               item.Name,
+		Host:               item.Host,
+		Port:               item.Port,
+		SSHUser:            cloneOptionalText(item.SSHUser),
+		SSHKeyPath:         cloneOptionalText(item.SSHKeyPath),
+		Status:             catalogdomain.MachineStatus(item.Status),
+		ConnectionMode:     mapStoredTicketMachineConnectionMode(item),
+		AdvertisedEndpoint: cloneOptionalText(item.AdvertisedEndpoint),
+		WorkspaceRoot:      cloneOptionalText(item.WorkspaceRoot),
+		AgentCLIPath:       cloneOptionalText(item.AgentCliPath),
+		EnvVars:            slices.Clone(item.EnvVars),
+		Resources:          cloneMap(item.Resources),
+		DaemonStatus: catalogdomain.MachineDaemonStatus{
+			Registered:       item.DaemonRegistered,
+			LastRegisteredAt: cloneOptionalTime(item.DaemonLastRegisteredAt),
+			CurrentSessionID: cloneOptionalText(item.DaemonSessionID),
+			SessionState:     catalogdomain.MachineTransportSessionState(item.DaemonSessionState),
+		},
+		ChannelCredential: catalogdomain.MachineChannelCredential{
+			Kind:          catalogdomain.MachineChannelCredentialKind(item.ChannelCredentialKind),
+			TokenID:       cloneOptionalText(item.ChannelTokenID),
+			CertificateID: cloneOptionalText(item.ChannelCertificateID),
+		},
 	}
+}
+
+func mapStoredTicketMachineConnectionMode(item *ent.Machine) catalogdomain.MachineConnectionMode {
+	if item == nil {
+		return ""
+	}
+	if item.Host == catalogdomain.LocalMachineHost || item.Name == catalogdomain.LocalMachineName {
+		return catalogdomain.MachineConnectionModeLocal
+	}
+	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
+	if err != nil {
+		return catalogdomain.MachineConnectionModeSSH
+	}
+	return mode
 }
 
 func (r *EntRepository) RecordUsage(
@@ -2832,6 +2859,14 @@ func cloneOptionalText(value string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func cloneOptionalTime(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := value.UTC()
+	return &cloned
 }
 
 func cloneMap(source map[string]any) map[string]any {

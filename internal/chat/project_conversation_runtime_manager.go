@@ -141,6 +141,9 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 	if err != nil {
 		return nil, false, err
 	}
+	if err := m.runRemoteRuntimePreflight(ctx, machine, providerItem, workspacePath.String()); err != nil {
+		return nil, false, err
+	}
 	manager, err := m.resolveProcessManager(machine)
 	if err != nil {
 		return nil, false, err
@@ -351,4 +354,33 @@ func (m *projectConversationRuntimeManager) resolveTransport(machine catalogdoma
 		return nil, fmt.Errorf("chat machine transport resolver unavailable for machine %s", machine.Name)
 	}
 	return m.transports.Resolve(machine)
+}
+
+func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	providerItem catalogdomain.AgentProvider,
+	workspacePath string,
+) error {
+	if machine.Host == catalogdomain.LocalMachineHost {
+		return nil
+	}
+
+	transport, err := m.resolveTransport(machine)
+	if err != nil {
+		return err
+	}
+	if transport.Mode() != catalogdomain.MachineConnectionModeWSListener {
+		return nil
+	}
+
+	command := strings.TrimSpace(providerItem.CliCommand)
+	if machine.AgentCLIPath != nil && strings.TrimSpace(*machine.AgentCLIPath) != "" {
+		command = strings.TrimSpace(*machine.AgentCLIPath)
+	}
+	return machinetransport.RunRemoteRuntimePreflight(ctx, transport, machine, machinetransport.RuntimePreflightSpec{
+		WorkingDirectory: workspacePath,
+		AgentCommand:     command,
+		Environment:      append([]string(nil), machine.EnvVars...),
+	})
 }

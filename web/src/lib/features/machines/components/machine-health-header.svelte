@@ -53,6 +53,14 @@
       <p class="text-muted-foreground max-w-2xl text-xs">
         {machineDetectionMessage(machine)}
       </p>
+      <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
+        {#if machine.connection_mode === 'ws_listener' && machine.advertised_endpoint}
+          <span class="truncate font-mono">{machine.advertised_endpoint}</span>
+        {/if}
+        {#if machine.connection_mode !== 'local'}
+          <span>session {machine.daemon_status?.session_state ?? 'unknown'}</span>
+        {/if}
+      </div>
     {/if}
   </div>
   <div class="flex items-center gap-2">
