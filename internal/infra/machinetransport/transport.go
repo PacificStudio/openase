@@ -12,8 +12,11 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("machine-transport")
 
 var ErrTransportUnavailable = errors.New("machine transport unavailable")
 
@@ -441,10 +444,6 @@ func cloneString(value *string) *string {
 	}
 	copied := strings.TrimSpace(*value)
 	return &copied
-}
-
-func isLocalMachine(machine domain.Machine) bool {
-	return effectiveConnectionMode(machine) == domain.MachineConnectionModeLocal
 }
 
 func effectiveConnectionMode(machine domain.Machine) domain.MachineConnectionMode {

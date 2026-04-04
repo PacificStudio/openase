@@ -13,7 +13,10 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("machine-transport-sync")
 
 func syncLocalArtifacts(request SyncArtifactsRequest) error {
 	localRoot := filepath.Clean(strings.TrimSpace(request.LocalRoot))
@@ -82,6 +85,7 @@ func copyLocalFile(sourcePath string, targetPath string) error {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o750); err != nil {
 		return fmt.Errorf("create artifact parent %s: %w", filepath.Dir(targetPath), err)
 	}
+	// #nosec G304 -- artifact paths are derived from orchestrator-managed sync inputs.
 	source, err := os.Open(sourcePath)
 	if err != nil {
 		return fmt.Errorf("open artifact source %s: %w", sourcePath, err)
@@ -92,6 +96,7 @@ func copyLocalFile(sourcePath string, targetPath string) error {
 	if err != nil {
 		return fmt.Errorf("stat artifact source %s: %w", sourcePath, err)
 	}
+	// #nosec G304 -- artifact paths are derived from orchestrator-managed sync inputs.
 	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, info.Mode().Perm())
 	if err != nil {
 		return fmt.Errorf("open artifact target %s: %w", targetPath, err)
@@ -245,6 +250,7 @@ func writeArtifactHeader(writer *tar.Writer, sourcePath string, archivePath stri
 	if err := writer.WriteHeader(header); err != nil {
 		return err
 	}
+	// #nosec G304 -- archived file paths are derived from validated sync inputs.
 	file, err := os.Open(sourcePath)
 	if err != nil {
 		return err
