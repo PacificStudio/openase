@@ -485,11 +485,12 @@ func (s *websocketListenerSession) waitForExit() {
 	exitCode := 0
 	if err := s.command.Wait(); err != nil {
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
+		switch {
+		case errors.As(err, &exitErr):
 			exitCode = exitErr.ExitCode()
-		} else if errors.Is(err, context.Canceled) {
+		case errors.Is(err, context.Canceled):
 			exitCode = 130
-		} else {
+		default:
 			_ = s.writeFrame(websocketFrame{Type: "error", Error: fmt.Sprintf("wait remote command: %v", err)})
 			exitCode = 1
 		}
