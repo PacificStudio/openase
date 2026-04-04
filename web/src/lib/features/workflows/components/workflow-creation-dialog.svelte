@@ -1,12 +1,10 @@
 <script lang="ts">
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
-  import * as Collapsible from '$ui/collapsible'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
-  import { ChevronRight } from '@lucide/svelte'
   import { createWorkflowWithBinding } from '../data'
   import { resolveTemplateStatusSelection } from '../model'
   import {
@@ -30,7 +28,7 @@
     WorkflowSummary,
     WorkflowTemplateDraft,
   } from '../types'
-  import WorkflowHooksEditor from './workflow-hooks-editor.svelte'
+  import WorkflowCreationAdvancedSection from './workflow-creation-advanced-section.svelte'
   import WorkflowStatusChipGroup from './workflow-status-chip-group.svelte'
 
   let {
@@ -70,7 +68,6 @@
   const selectedAgentLabel = $derived(
     agentOptions.find((option) => option.id === agentId)?.label ?? 'Select bound agent',
   )
-  const selectableStatuses = $derived(statuses)
   const pickupBlockedReasonMap = $derived(
     mergeStatusBlockedReasonMaps(
       buildPickupStatusBlockedReasonMap(workflows),
@@ -99,10 +96,9 @@
       hookError = ''
 
       const blockedNow = buildPickupStatusBlockedReasonMap(workflows)
-      const defaultPickupStatusId =
-        selectableStatuses.find((status) => !blockedNow[status.id])?.id ?? ''
+      const defaultPickupStatusId = statuses.find((status) => !blockedNow[status.id])?.id ?? ''
       const defaultFinishStatusId =
-        selectableStatuses.find((status) => status.id !== defaultPickupStatusId)?.id ?? ''
+        statuses.find((status) => status.id !== defaultPickupStatusId)?.id ?? ''
       pickupStatusIds = defaultPickupStatusId ? [defaultPickupStatusId] : []
       finishStatusIds = defaultFinishStatusId ? [defaultFinishStatusId] : []
 
@@ -110,18 +106,14 @@
         const templateSelection = resolveTemplateStatusSelection(
           templateDraft.pickupStatusNames ?? [],
           templateDraft.roleSlug === 'dispatcher' ? [] : (templateDraft.finishStatusNames ?? []),
-          selectableStatuses,
+          statuses,
         )
         templateStatusError = templateSelection.error
         if (templateSelection.pickupStatusIds.length > 0 || templateSelection.error) {
           pickupStatusIds = templateSelection.pickupStatusIds.filter((id) => !blockedNow[id])
         }
         if (templateDraft.roleSlug === 'dispatcher') {
-          finishStatusIds = buildDispatcherFinishStatusIds(
-            selectableStatuses,
-            workflows,
-            pickupStatusIds,
-          )
+          finishStatusIds = buildDispatcherFinishStatusIds(statuses, workflows, pickupStatusIds)
         } else if (templateSelection.finishStatusIds.length > 0 || templateSelection.error) {
           finishStatusIds = templateSelection.finishStatusIds
         }
@@ -251,7 +243,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <WorkflowStatusChipGroup
           label="Pickup Statuses"
-          statuses={selectableStatuses}
+          {statuses}
           selectedIds={pickupStatusIds}
           disabled={saving}
           disabledReasonById={pickupBlockedReasonMap}
@@ -265,7 +257,7 @@
 
         <WorkflowStatusChipGroup
           label="Finish Statuses"
-          statuses={selectableStatuses}
+          {statuses}
           selectedIds={finishStatusIds}
           disabled={saving}
           disabledReasonById={finishBlockedReasonMap}
@@ -281,44 +273,17 @@
       {#if templateStatusError}
         <p class="text-destructive text-xs">{templateStatusError}</p>
       {/if}
-      <Collapsible.Root bind:open={advancedOpen}>
-        <Collapsible.Trigger>
-          {#snippet child({ props })}
-            <button
-              {...props}
-              type="button"
-              class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
-            >
-              <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
-              Advanced
-            </button>
-          {/snippet}
-        </Collapsible.Trigger>
-        <Collapsible.Content>
-          <div class="mt-3 space-y-4">
-            <div class="space-y-1">
-              <div class="text-sm font-medium">Hooks</div>
-              <p class="text-muted-foreground text-xs">
-                Configure optional workflow and ticket lifecycle hooks.
-              </p>
-            </div>
-
-            <WorkflowHooksEditor
-              draft={hookDraft}
-              validation={hookValidation}
-              disabled={saving}
-              onChange={(nextDraft) => {
-                hookDraft = nextDraft
-                hookError = ''
-              }}
-            />
-
-            {#if hookError}
-              <p class="text-destructive text-xs">{hookError}</p>
-            {/if}
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+      <WorkflowCreationAdvancedSection
+        bind:open={advancedOpen}
+        draft={hookDraft}
+        validation={hookValidation}
+        disabled={saving}
+        error={hookError}
+        onChange={(nextDraft) => {
+          hookDraft = nextDraft
+          hookError = ''
+        }}
+      />
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>
