@@ -212,6 +212,35 @@ func TestProjectCurrentHelpMentionsProjectContextBridge(t *testing.T) {
 	}
 }
 
+func TestProjectUpdatesHelpMentionsRuntimeDefaults(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"project", "updates", "list"})
+	if err != nil {
+		t.Fatalf("Find(project updates list) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected project updates list command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"OPENASE_PROJECT_ID",
+		"openase project updates list",
+		"List project update threads",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestMachineListHelpMentionsProjectAwareBridge(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"machine", "list"})

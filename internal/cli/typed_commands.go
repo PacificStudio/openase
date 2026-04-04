@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	"github.com/getkin/kin-openapi/openapi3"
@@ -504,11 +505,85 @@ func newProjectCommand() *cobra.Command {
 		Short: "Operate on projects through the OpenASE API.",
 	}
 	command.AddCommand(newProjectCurrentCommand())
+	command.AddCommand(newProjectUpdatesCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List projects.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [projectId]", Short: "Get a project.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
+	return command
+}
+
+func newProjectUpdatesCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "updates",
+		Short: "Operate on project update threads.",
+		Long: strings.TrimSpace(`
+Operate on project update threads.
+
+These first-class commands expose the curated project updates surface without
+falling back to raw ` + "`openase api`" + ` calls.
+
+Project scope defaults to [projectId], then --project-id, then OPENASE_PROJECT_ID.
+When a command also needs [threadId], you can pass --thread-id while letting
+project scope fall back to OPENASE_PROJECT_ID.
+`),
+	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "list [projectId]",
+		Short:            "List project update threads.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/updates",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"If [projectId] is omitted, the command falls back to --project-id and then OPENASE_PROJECT_ID.",
+		},
+		Example: "openase project updates list\nopenase project updates list $OPENASE_PROJECT_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "create [projectId]",
+		Short:            "Create a project update thread.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/projects/{projectId}/updates",
+		PositionalParams: []string{"projectId"},
+		HelpNotes: []string{
+			"If [projectId] is omitted, the command falls back to --project-id and then OPENASE_PROJECT_ID.",
+		},
+		Example: "openase project updates create --status on_track --title \"CLI parity\" --body \"Implemented runtime-safe project and machine commands.\"",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "update [projectId] [threadId]",
+		Short:            "Update a project update thread.",
+		Method:           http.MethodPatch,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates update --thread-id $OPENASE_THREAD_ID --status at_risk --title \"CLI parity\" --body \"Waiting on review.\"",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [threadId]",
+		Short:            "Delete a project update thread.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates delete --thread-id $OPENASE_THREAD_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "revisions [projectId] [threadId]",
+		Short:            "List project update thread revisions.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/updates/{threadId}/revisions",
+		PositionalParams: []string{"projectId", "threadId"},
+		HelpNotes: []string{
+			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
+		},
+		Example: "openase project updates revisions --thread-id $OPENASE_THREAD_ID",
+	}))
 	return command
 }
 
@@ -1338,19 +1413,27 @@ func registerOpenAPIStreamFlags(flags *pflag.FlagSet, contract openAPICommandCon
 }
 
 func registerFieldFlag(flags *pflag.FlagSet, field openAPIInputField) {
+	registerFieldFlagName(flags, field, field.Name)
+	for _, alias := range fieldFlagAliases(field.Name) {
+		registerFieldFlagName(flags, field, alias)
+		_ = flags.MarkHidden(alias)
+	}
+}
+
+func registerFieldFlagName(flags *pflag.FlagSet, field openAPIInputField, name string) {
 	switch field.Kind {
 	case flagValueString:
-		flags.String(field.Name, "", field.Description)
+		flags.String(name, "", field.Description)
 	case flagValueStringSlice:
-		flags.StringSlice(field.Name, nil, field.Description)
+		flags.StringSlice(name, nil, field.Description)
 	case flagValueInt64:
-		flags.Int64(field.Name, 0, field.Description)
+		flags.Int64(name, 0, field.Description)
 	case flagValueFloat64:
-		flags.Float64(field.Name, 0, field.Description)
+		flags.Float64(name, 0, field.Description)
 	case flagValueBool:
-		flags.Bool(field.Name, false, field.Description)
+		flags.Bool(name, false, field.Description)
 	default:
-		flags.String(field.Name, "", field.Description)
+		flags.String(name, "", field.Description)
 	}
 }
 
@@ -1462,47 +1545,66 @@ func resolveCommandPathValue(cmd *cobra.Command, name string, args []string, ind
 
 func resolveCommandFlagValue(cmd *cobra.Command, field openAPIInputField) (string, error) {
 	flags := cmd.Flags()
+	names := append([]string{field.Name}, fieldFlagAliases(field.Name)...)
 	switch field.Kind {
 	case flagValueInt64:
-		value, err := flags.GetInt64(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetInt64(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return fmt.Sprintf("%d", value), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return fmt.Sprintf("%d", value), nil
+		return "", nil
 	case flagValueFloat64:
-		value, err := flags.GetFloat64(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetFloat64(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.TrimSpace(strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", value), "0"), ".")), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return strings.TrimSpace(strings.TrimRight(strings.TrimRight(fmt.Sprintf("%f", value), "0"), ".")), nil
+		return "", nil
 	case flagValueBool:
-		value, err := flags.GetBool(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			value, err := flags.GetBool(name)
+			if err != nil {
+				return "", err
+			}
+			if !flags.Changed(name) {
+				continue
+			}
+			if value {
+				return "true", nil
+			}
+			return "false", nil
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		if value {
-			return "true", nil
-		}
-		return "false", nil
+		return "", nil
 	case flagValueStringSlice:
-		values, err := flags.GetStringSlice(field.Name)
-		if err != nil {
-			return "", err
+		for _, name := range names {
+			values, err := flags.GetStringSlice(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.Join(trimNonEmpty(values), ","), nil
+			}
 		}
-		if !flags.Changed(field.Name) {
-			return "", nil
-		}
-		return strings.Join(trimNonEmpty(values), ","), nil
+		return "", nil
 	default:
+		for _, name := range names {
+			value, err := flags.GetString(name)
+			if err != nil {
+				return "", err
+			}
+			if flags.Changed(name) {
+				return strings.TrimSpace(value), nil
+			}
+		}
 		value, err := flags.GetString(field.Name)
 		if err != nil {
 			return "", err
@@ -1523,30 +1625,96 @@ func resolveCommandQueryValue(cmd *cobra.Command, field openAPIInputField) (stri
 }
 
 func isFieldSet(flags *pflag.FlagSet, field openAPIInputField) bool {
-	return flags.Changed(field.Name)
+	for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+		if flags.Changed(name) {
+			return true
+		}
+	}
+	return false
 }
 
 func readFieldValue(flags *pflag.FlagSet, field openAPIInputField) (any, error) {
 	switch field.Kind {
 	case flagValueInt64:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetInt64(name)
+			}
+		}
 		return flags.GetInt64(field.Name)
 	case flagValueFloat64:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetFloat64(name)
+			}
+		}
 		return flags.GetFloat64(field.Name)
 	case flagValueBool:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if flags.Changed(name) {
+				return flags.GetBool(name)
+			}
+		}
 		return flags.GetBool(field.Name)
 	case flagValueStringSlice:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if !flags.Changed(name) {
+				continue
+			}
+			values, err := flags.GetStringSlice(name)
+			if err != nil {
+				return nil, err
+			}
+			return trimNonEmpty(values), nil
+		}
 		values, err := flags.GetStringSlice(field.Name)
 		if err != nil {
 			return nil, err
 		}
 		return trimNonEmpty(values), nil
 	default:
+		for _, name := range append([]string{field.Name}, fieldFlagAliases(field.Name)...) {
+			if !flags.Changed(name) {
+				continue
+			}
+			value, err := flags.GetString(name)
+			if err != nil {
+				return nil, err
+			}
+			return strings.TrimSpace(value), nil
+		}
 		value, err := flags.GetString(field.Name)
 		if err != nil {
 			return nil, err
 		}
 		return strings.TrimSpace(value), nil
 	}
+}
+
+func fieldFlagAliases(name string) []string {
+	snake := snakeCaseParameterName(name)
+	if snake == "" || snake == name {
+		return nil
+	}
+	return []string{snake}
+}
+
+func snakeCaseParameterName(name string) string {
+	var builder strings.Builder
+	for index, r := range strings.TrimSpace(name) {
+		switch {
+		case r == '-' || r == '_':
+			builder.WriteByte('_')
+		case unicode.IsUpper(r):
+			if index > 0 {
+				builder.WriteByte('_')
+			}
+			builder.WriteRune(unicode.ToLower(r))
+		default:
+			builder.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return builder.String()
 }
 
 func parseHeaderPairs(values []string) (http.Header, error) {
@@ -1847,6 +2015,11 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}},
 		{Use: "update [projectId]", Short: "Update a project.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
 		{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}},
+		{Use: "list [projectId]", Short: "List project update threads.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
+		{Use: "create [projectId]", Short: "Create a project update thread.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/updates", PositionalParams: []string{"projectId"}},
+		{Use: "update [projectId] [threadId]", Short: "Update a project update thread.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/updates/{threadId}", PositionalParams: []string{"projectId", "threadId"}},
+		{Use: "delete [projectId] [threadId]", Short: "Delete a project update thread.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/updates/{threadId}", PositionalParams: []string{"projectId", "threadId"}},
+		{Use: "revisions [projectId] [threadId]", Short: "List project update thread revisions.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/updates/{threadId}/revisions", PositionalParams: []string{"projectId", "threadId"}},
 		{Use: "list [projectId]", Short: "List project repositories.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a project repository.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/repos", PositionalParams: []string{"projectId"}},
 		{Use: "update [projectId] [repoId]", Short: "Update a project repository.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/repos/{repoId}", PositionalParams: []string{"projectId", "repoId"}},

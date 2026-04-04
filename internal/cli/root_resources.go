@@ -48,10 +48,11 @@ func newRootProjectCommand() *cobra.Command {
 	command := newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: http.DefaultClient})
 	command.Short = "Operate on projects through OpenASE."
 	command.Long = strings.TrimSpace(command.Long +
-		"\n\nShared project mutations (`update` and `add-repo`) use the agent-platform wrapper semantics in agent workspaces. The remaining subcommands (`current`, `list`, `get`, `create`, `delete`) remain direct OpenAPI operations." +
-		"\n\nUse `openase project current` to inspect the active project from `OPENASE_PROJECT_ID`, or `openase machine list --project-id $OPENASE_PROJECT_ID` to move from project context into machine inspection without raw API fallback.")
+		"\n\nShared project mutations (`update` and `add-repo`) use the agent-platform wrapper semantics in agent workspaces. The remaining subcommands (`current`, `updates`, `list`, `get`, `create`, `delete`) remain direct OpenAPI operations." +
+		"\n\nUse `openase project current` to inspect the active project from `OPENASE_PROJECT_ID`, `openase project updates ...` for curated project updates, or `openase machine list --project-id $OPENASE_PROJECT_ID` to move from project context into machine inspection without raw API fallback.")
 
 	command.AddCommand(newProjectCurrentCommand())
+	command.AddCommand(newProjectUpdatesCommand())
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [orgId]", Short: "List projects.", Method: http.MethodGet, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [projectId]", Short: "Get a project.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [orgId]", Short: "Create a project.", Method: http.MethodPost, Path: "/api/v1/orgs/{orgId}/projects", PositionalParams: []string{"orgId"}}))
