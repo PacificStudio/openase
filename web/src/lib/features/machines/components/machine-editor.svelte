@@ -1,9 +1,23 @@
 <script lang="ts">
+  import { Badge } from '$ui/badge'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
-  import { isLocalMachine } from '../model'
-  import type { MachineDraft, MachineDraftField, MachineEditorMode, MachineItem } from '../types'
+  import MachineEditorGuidance from './machine-editor-guidance.svelte'
+  import {
+    getWorkspaceRootRecommendation,
+    getWorkspaceRootState,
+    isLocalMachine,
+    normalizeConnectionMode,
+  } from '../model'
+  import type {
+    MachineConnectionMode,
+    MachineDraft,
+    MachineDraftField,
+    MachineEditorMode,
+    MachineItem,
+    WorkspaceRootState,
+  } from '../types'
 
   let {
     mode,
@@ -18,10 +32,24 @@
   } = $props()
 
   const localMachine = $derived(isLocalMachine(machine, draft))
+  const connectionMode = $derived(normalizeConnectionMode(draft.connectionMode, draft.host))
+  const workspaceRootRecommendation = $derived(getWorkspaceRootRecommendation({ draft, machine }))
+  const workspaceRootState = $derived(getWorkspaceRootState({ draft, machine }))
+
+  const workspaceStateTone: Record<WorkspaceRootState['kind'], string> = {
+    recommended: 'border-emerald-500/30 bg-emerald-500/12 text-emerald-700',
+    saved: 'border-sky-500/30 bg-sky-500/12 text-sky-700',
+    manual: 'border-amber-500/30 bg-amber-500/12 text-amber-700',
+    empty: 'border-slate-500/20 bg-slate-500/10 text-slate-700',
+  }
 
   function updateField(field: MachineDraftField, event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
     onDraftChange?.(field, target.value)
+  }
+
+  function updateMode(mode: MachineConnectionMode) {
+    onDraftChange?.('connectionMode', mode)
   }
 </script>
 
@@ -31,6 +59,8 @@
       The local machine keeps its reserved identity. Name, host, and SSH settings stay fixed.
     </div>
   {/if}
+
+  <MachineEditorGuidance {machine} {draft} onSelectMode={updateMode} />
 
   <section class="space-y-4">
     <div>
@@ -72,37 +102,65 @@
         />
       </div>
     </div>
+
+    {#if connectionMode === 'ws_listener'}
+      <div class="space-y-2">
+        <Label for="machine-advertised-endpoint">Advertised listener endpoint</Label>
+        <Input
+          id="machine-advertised-endpoint"
+          value={draft.advertisedEndpoint}
+          placeholder="wss://builder.example.com/openase"
+          oninput={(event) => updateField('advertisedEndpoint', event)}
+        />
+        <p class="text-muted-foreground text-xs">
+          OpenASE connects to this machine-advertised websocket endpoint when running listener mode
+          checks.
+        </p>
+      </div>
+    {/if}
   </section>
 
   <section class="border-border space-y-4 border-t pt-6">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">SSH access</h3>
+      <h3 class="text-foreground text-sm font-semibold">Transport credentials</h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Credentials used for remote execution and health probes.
+        Only the fields required by the selected connection mode stay editable here.
       </p>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <div class="space-y-2">
-        <Label for="machine-ssh-user">SSH user</Label>
-        <Input
-          id="machine-ssh-user"
-          value={draft.sshUser}
-          disabled={localMachine}
-          oninput={(event) => updateField('sshUser', event)}
-        />
-      </div>
+    {#if connectionMode === 'ssh'}
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-2">
+          <Label for="machine-ssh-user">SSH user</Label>
+          <Input
+            id="machine-ssh-user"
+            value={draft.sshUser}
+            disabled={localMachine}
+            oninput={(event) => updateField('sshUser', event)}
+          />
+        </div>
 
-      <div class="space-y-2">
-        <Label for="machine-ssh-key">SSH key path</Label>
-        <Input
-          id="machine-ssh-key"
-          value={draft.sshKeyPath}
-          disabled={localMachine}
-          oninput={(event) => updateField('sshKeyPath', event)}
-        />
+        <div class="space-y-2">
+          <Label for="machine-ssh-key">SSH key path</Label>
+          <Input
+            id="machine-ssh-key"
+            value={draft.sshKeyPath}
+            disabled={localMachine}
+            oninput={(event) => updateField('sshKeyPath', event)}
+          />
+        </div>
       </div>
-    </div>
+    {:else}
+      <div class="border-border bg-card text-muted-foreground rounded-xl border px-4 py-3 text-sm">
+        {#if connectionMode === 'local'}
+          Local machines do not use SSH credentials.
+        {:else if connectionMode === 'ws_reverse'}
+          Reverse websocket machines rely on daemon registration instead of SSH credentials.
+        {:else}
+          Listener websocket machines use the advertised endpoint instead of SSH credentials.
+        {/if}
+      </div>
+    {/if}
   </section>
 
   <section class="border-border space-y-4 border-t pt-6">
@@ -113,12 +171,32 @@
       </p>
     </div>
 
+    <div class="border-border bg-card space-y-3 rounded-xl border px-4 py-4">
+      <div class="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">Recommended root</Badge>
+        <code class="bg-muted text-foreground rounded px-2 py-1 text-xs">
+          {workspaceRootRecommendation.value}
+        </code>
+        <Badge variant="outline" class={workspaceStateTone[workspaceRootState.kind]}>
+          {workspaceRootState.label}
+        </Badge>
+      </div>
+      <p class="text-muted-foreground text-xs">{workspaceRootRecommendation.reason}</p>
+      {#if localMachine}
+        <p class="text-muted-foreground text-xs">
+          The local `~/.openase/workspace` shortcut stays readable in the UI and is expanded to an
+          absolute path when saved.
+        </p>
+      {/if}
+    </div>
+
     <div class="grid gap-4 md:grid-cols-2">
       <div class="space-y-2">
         <Label for="machine-workspace-root">Workspace root</Label>
         <Input
           id="machine-workspace-root"
           value={draft.workspaceRoot}
+          placeholder={workspaceRootRecommendation.value}
           oninput={(event) => updateField('workspaceRoot', event)}
         />
       </div>

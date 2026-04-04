@@ -106,7 +106,9 @@ import type {
 } from './contracts'
 
 type MachineMutationBody = {
+  advertised_endpoint?: string
   agent_cli_path?: string
+  connection_mode?: string
   description?: string
   env_vars?: string[]
   host?: string
