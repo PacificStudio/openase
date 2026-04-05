@@ -148,6 +148,28 @@ func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 	}
 }
 
+func TestLaunchdApplyRefreshesLoadedServiceBeforeBootstrap(t *testing.T) {
+	homeDir := t.TempDir()
+	runner := &recordingRunner{}
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
+	spec := testInstallSpec(t, homeDir)
+
+	if err := manager.Apply(context.Background(), spec); err != nil {
+		t.Fatalf("Apply returned error: %v", err)
+	}
+
+	expected := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"bootout", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"bootstrap", "gui/501", filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist")}},
+		{name: "launchctl", args: []string{"enable", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/com.openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expected) {
+		t.Fatalf("unexpected commands: %+v", runner.calls)
+	}
+}
+
 func TestLaunchdRestartBootstrapsWhenServiceIsNotLoaded(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{
@@ -247,6 +269,90 @@ func TestLaunchdFallsBackToUserDomainWhenGUISessionIsUnavailable(t *testing.T) {
 	}
 }
 
+func TestLaunchdSupportAndServiceResolutionSelectExpectedDomain(t *testing.T) {
+	lookPath := func(string) (string, error) {
+		return "/usr/bin/launchctl", nil
+	}
+	serviceName := provider.MustParseServiceName("openase")
+
+	supportTests := []struct {
+		name    string
+		results []error
+		want    string
+	}{
+		{
+			name:    "prefers gui domain",
+			results: []error{nil},
+			want:    "gui/501",
+		},
+		{
+			name:    "falls back to user domain",
+			results: []error{&exec.ExitError{}, nil},
+			want:    "user/501",
+		},
+	}
+	for _, tt := range supportTests {
+		t.Run("support/"+tt.name, func(t *testing.T) {
+			support, err := checkLaunchdSupportWithRunner(context.Background(), t.TempDir(), 501, &recordingRunner{
+				results: append([]error(nil), tt.results...),
+			}, lookPath)
+			if err != nil {
+				t.Fatalf("checkLaunchdSupportWithRunner() error = %v", err)
+			}
+			if support.Domain != tt.want {
+				t.Fatalf("support domain = %q, want %q", support.Domain, tt.want)
+			}
+		})
+	}
+
+	serviceTests := []struct {
+		name    string
+		results []error
+		want    LaunchdServiceReference
+	}{
+		{
+			name:    "prefers loaded gui service",
+			results: []error{nil},
+			want: LaunchdServiceReference{
+				Domain: "gui/501",
+				Target: "gui/501/com.openase",
+				Loaded: true,
+			},
+		},
+		{
+			name:    "falls back to loaded user service",
+			results: []error{&exec.ExitError{}, nil},
+			want: LaunchdServiceReference{
+				Domain: "user/501",
+				Target: "user/501/com.openase",
+				Loaded: true,
+			},
+		},
+		{
+			name:    "uses available user domain when service is not loaded",
+			results: []error{&exec.ExitError{}, &exec.ExitError{}, &exec.ExitError{}, nil},
+			want: LaunchdServiceReference{
+				Domain: "user/501",
+				Target: "user/501/com.openase",
+				Loaded: false,
+			},
+		},
+	}
+	for _, tt := range serviceTests {
+		t.Run("service/"+tt.name, func(t *testing.T) {
+			ref, err := resolveLaunchdServiceWithRunner(context.Background(), 501, serviceName, &recordingRunner{
+				results: append([]error(nil), tt.results...),
+			})
+			if err != nil {
+				t.Fatalf("resolveLaunchdServiceWithRunner() error = %v", err)
+			}
+			if ref != tt.want {
+				t.Fatalf("service reference = %+v, want %+v", ref, tt.want)
+			}
+		})
+	}
+}
+
 func TestLaunchdPrefersLoadedUserDomainOverGUIFallback(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{results: []error{&exec.ExitError{}, nil}}
@@ -317,6 +423,55 @@ func TestLaunchdHelperErrorPathsAndExecRunner(t *testing.T) {
 	}
 	if stdout.String() != "out" || stderr.String() != "err" {
 		t.Fatalf("execCommandRunner output = %q / %q", stdout.String(), stderr.String())
+	}
+}
+
+func TestLaunchdApplyWrapsLifecycleFailures(t *testing.T) {
+	homeDir := t.TempDir()
+	spec := testInstallSpec(t, homeDir)
+
+	tests := []struct {
+		name       string
+		results    []error
+		wantErr    string
+		wantDetail string
+	}{
+		{
+			name:       "refresh bootout failure",
+			results:    []error{nil, errors.New("boom")},
+			wantErr:    `refresh launchd service "openase" via gui/501`,
+			wantDetail: "launchctl bootout gui/501/com.openase: boom",
+		},
+		{
+			name:       "bootstrap failure",
+			results:    []error{&exec.ExitError{}, &exec.ExitError{}, nil, errors.New("boom")},
+			wantErr:    `install launchd service "openase" via gui/501`,
+			wantDetail: "launchctl bootstrap gui/501",
+		},
+		{
+			name:       "enable failure",
+			results:    []error{&exec.ExitError{}, &exec.ExitError{}, nil, nil, errors.New("boom")},
+			wantErr:    `enable launchd service "openase" via gui/501`,
+			wantDetail: "launchctl enable gui/501/com.openase: boom",
+		},
+		{
+			name:       "kickstart failure",
+			results:    []error{&exec.ExitError{}, &exec.ExitError{}, nil, nil, nil, errors.New("boom")},
+			wantErr:    `start launchd service "openase" via gui/501`,
+			wantDetail: "launchctl kickstart -k gui/501/com.openase: boom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := newLaunchdUserManagerForTest(homeDir, &recordingRunner{
+				results: append([]error(nil), tt.results...),
+			})
+			err := manager.Apply(context.Background(), spec)
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) || !strings.Contains(err.Error(), tt.wantDetail) {
+				t.Fatalf("Apply() error = %v", err)
+			}
+		})
 	}
 }
 
