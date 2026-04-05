@@ -28,8 +28,6 @@ var (
 	ticketRunSummaryStreamType   = provider.MustParseEventType("ticket.run.summary")
 )
 
-const ticketRunTranscriptLimit = 500
-
 type ticketRunResponse struct {
 	ID                 string                              `json:"id"`
 	TicketID           string                              `json:"ticket_id"`
@@ -93,6 +91,23 @@ type ticketRunStepEntryResponse struct {
 	Summary            string  `json:"summary"`
 	SourceTraceEventID *string `json:"source_trace_event_id,omitempty"`
 	CreatedAt          string  `json:"created_at"`
+}
+
+type ticketRunTranscriptPageResponse struct {
+	Items            []ticketRunTranscriptItemResponse `json:"items"`
+	HasOlder         bool                              `json:"has_older"`
+	HiddenOlderCount int                               `json:"hidden_older_count"`
+	HasNewer         bool                              `json:"has_newer"`
+	HiddenNewerCount int                               `json:"hidden_newer_count"`
+	OldestCursor     string                            `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                            `json:"newest_cursor,omitempty"`
+}
+
+type ticketRunTranscriptItemResponse struct {
+	Kind       string                       `json:"kind"`
+	Cursor     string                       `json:"cursor"`
+	TraceEntry *ticketRunTraceEntryResponse `json:"trace_entry,omitempty"`
+	StepEntry  *ticketRunStepEntryResponse  `json:"step_entry,omitempty"`
 }
 
 type ticketRunLifecycleEventResponse struct {
@@ -204,27 +219,26 @@ func (s *Server) handleGetTicketRun(c echo.Context) error {
 		return writeCatalogError(c, catalogservice.ErrNotFound)
 	}
 
-	traceEntries, err := s.catalog.ListAgentRunTraceEntries(c.Request().Context(), domain.ListAgentRunTraceEntries{
-		ProjectID:  projectID,
-		AgentRunID: runID,
-		Limit:      ticketRunTranscriptLimit,
+	pageInput, err := domain.ParseListAgentRunTranscriptPage(projectID, runID, domain.AgentRunTranscriptPageInput{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+		After:  c.QueryParam("after"),
 	})
 	if err != nil {
-		return writeCatalogError(c, err)
-	}
-	stepEntries, err := s.catalog.ListAgentRunStepEntries(c.Request().Context(), domain.ListAgentRunStepEntries{
-		ProjectID:  projectID,
-		AgentRunID: runID,
-		Limit:      ticketRunTranscriptLimit,
-	})
-	if err != nil {
-		return writeCatalogError(c, err)
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TRANSCRIPT_PAGE", err.Error())
 	}
 
+	transcriptPage, err := s.catalog.GetAgentRunTranscriptPage(c.Request().Context(), pageInput)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	traceEntries, stepEntries := splitTicketRunTranscriptPage(transcriptPage)
+
 	return c.JSON(http.StatusOK, map[string]any{
-		"run":           mapTicketRunResponse(runItem, catalog),
-		"trace_entries": mapTicketRunTraceEntryResponses(traceEntries),
-		"step_entries":  mapTicketRunStepEntryResponses(stepEntries),
+		"run":             mapTicketRunResponse(runItem, catalog),
+		"transcript_page": mapTicketRunTranscriptPageResponse(transcriptPage),
+		"trace_entries":   mapTicketRunTraceEntryResponses(traceEntries),
+		"step_entries":    mapTicketRunStepEntryResponses(stepEntries),
 	})
 }
 
@@ -633,6 +647,59 @@ func mapTicketRunStepEntryResponses(items []domain.AgentStepEntry) []ticketRunSt
 		})
 	}
 	return response
+}
+
+func mapTicketRunTranscriptPageResponse(
+	page domain.AgentRunTranscriptPage,
+) ticketRunTranscriptPageResponse {
+	items := make([]ticketRunTranscriptItemResponse, 0, len(page.Items))
+	for _, item := range page.Items {
+		items = append(items, mapTicketRunTranscriptItemResponse(item))
+	}
+
+	return ticketRunTranscriptPageResponse{
+		Items:            items,
+		HasOlder:         page.HasOlder,
+		HiddenOlderCount: page.HiddenOlderCount,
+		HasNewer:         page.HasNewer,
+		HiddenNewerCount: page.HiddenNewerCount,
+		OldestCursor:     page.OldestCursor,
+		NewestCursor:     page.NewestCursor,
+	}
+}
+
+func mapTicketRunTranscriptItemResponse(
+	item domain.AgentRunTranscriptItem,
+) ticketRunTranscriptItemResponse {
+	response := ticketRunTranscriptItemResponse{
+		Kind:   item.Kind,
+		Cursor: item.Cursor,
+	}
+	if item.TraceEntry != nil {
+		traceEntries := mapTicketRunTraceEntryResponses([]domain.AgentTraceEntry{*item.TraceEntry})
+		response.TraceEntry = &traceEntries[0]
+	}
+	if item.StepEntry != nil {
+		stepEntries := mapTicketRunStepEntryResponses([]domain.AgentStepEntry{*item.StepEntry})
+		response.StepEntry = &stepEntries[0]
+	}
+	return response
+}
+
+func splitTicketRunTranscriptPage(
+	page domain.AgentRunTranscriptPage,
+) (traceEntries []domain.AgentTraceEntry, stepEntries []domain.AgentStepEntry) {
+	traceEntries = make([]domain.AgentTraceEntry, 0, len(page.Items))
+	stepEntries = make([]domain.AgentStepEntry, 0, len(page.Items))
+	for _, item := range page.Items {
+		if item.TraceEntry != nil {
+			traceEntries = append(traceEntries, *item.TraceEntry)
+		}
+		if item.StepEntry != nil {
+			stepEntries = append(stepEntries, *item.StepEntry)
+		}
+	}
+	return traceEntries, stepEntries
 }
 
 func optionalTrimmedString(value string) *string {

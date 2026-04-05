@@ -33,6 +33,9 @@
     live = false,
     blocks = [],
     loading = false,
+    hasOlderHistory = false,
+    hiddenOlderCount = 0,
+    loadingOlderHistory = false,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     liveSelected = false,
@@ -42,6 +45,7 @@
     resumingRetry = false,
     showJumpToLive = false,
     onSelectRun,
+    onLoadOlderHistory,
     onToggleOutput,
     onToggleNoiseGroup,
     onResumeRetry,
@@ -53,6 +57,9 @@
     live?: boolean
     blocks?: TicketRunTranscriptBlock[]
     loading?: boolean
+    hasOlderHistory?: boolean
+    hiddenOlderCount?: number
+    loadingOlderHistory?: boolean
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     liveSelected?: boolean
@@ -62,6 +69,7 @@
     resumingRetry?: boolean
     showJumpToLive?: boolean
     onSelectRun?: (runId: string) => void
+    onLoadOlderHistory?: (runId: string) => void | Promise<void>
     onToggleOutput?: (blockId: string) => void | Promise<void>
     onToggleNoiseGroup?: (groupId: string) => void
     onResumeRetry?: () => void | Promise<void>
@@ -117,13 +125,26 @@
 </button>
 
 {#if selected}
-  <div class="px-4 py-3">
+  <div class="px-4 py-3" data-run-content={run.id}>
     {#if loading}
       <p class="text-muted-foreground text-xs">Loading transcript…</p>
     {:else}
       <div class="space-y-3">
         {#if run.completionSummary}
           <TicketRunHistorySummaryCard {run} />
+        {/if}
+
+        {#if hasOlderHistory}
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground w-full rounded-md border border-dashed px-3 py-2 text-left text-[11px] transition"
+            disabled={loadingOlderHistory}
+            onclick={() => void onLoadOlderHistory?.(run.id)}
+          >
+            {loadingOlderHistory
+              ? 'Loading earlier events…'
+              : `${hiddenOlderCount} earlier events hidden`}
+          </button>
         {/if}
 
         {#if displayItems.length === 0}

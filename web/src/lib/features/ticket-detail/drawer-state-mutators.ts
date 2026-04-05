@@ -32,7 +32,12 @@ export type TicketDrawerMutableState = {
   currentRun: TicketRun | null
   runBlocks: TicketRunTranscriptBlock[]
   runBlockCache: Record<string, TicketRunTranscriptBlock[]>
+  runStepEntriesByRun: TicketDrawerRunTranscriptState['stepEntriesByRun']
+  runTraceEntriesByRun: TicketDrawerRunTranscriptState['traceEntriesByRun']
+  runLifecycleBlocksByRun: TicketDrawerRunTranscriptState['lifecycleBlocksByRun']
+  runPageInfoByRun: TicketDrawerRunTranscriptState['pageInfoByRun']
   loadingRunId: string | null
+  loadingOlderRunId: string | null
   runStreamState: StreamConnectionState
   recoveringRunTranscript: boolean
   savingFields: boolean
@@ -79,6 +84,10 @@ export function applyTicketDrawerRunTranscriptState(
   state.currentRun = nextState.currentRun
   state.runBlocks = nextState.blocks
   state.runBlockCache = nextState.blockCache
+  state.runStepEntriesByRun = nextState.stepEntriesByRun
+  state.runTraceEntriesByRun = nextState.traceEntriesByRun
+  state.runLifecycleBlocksByRun = nextState.lifecycleBlocksByRun
+  state.runPageInfoByRun = nextState.pageInfoByRun
 }
 
 export function readTicketDrawerRunTranscriptState(
@@ -91,6 +100,10 @@ export function readTicketDrawerRunTranscriptState(
     currentRun: state.currentRun,
     blocks: state.runBlocks,
     blockCache: state.runBlockCache,
+    stepEntriesByRun: state.runStepEntriesByRun,
+    traceEntriesByRun: state.runTraceEntriesByRun,
+    lifecycleBlocksByRun: state.runLifecycleBlocksByRun,
+    pageInfoByRun: state.runPageInfoByRun,
   }
 }
 
@@ -108,6 +121,7 @@ export function resetTicketDrawerState(state: TicketDrawerMutableState) {
   state.runsError = ''
   applyTicketDrawerRunTranscriptState(state, createEmptyTicketRunTranscriptState())
   state.loadingRunId = null
+  state.loadingOlderRunId = null
   state.runStreamState = 'idle'
   state.recoveringRunTranscript = false
   state.savingFields = false

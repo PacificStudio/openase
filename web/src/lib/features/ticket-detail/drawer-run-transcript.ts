@@ -82,16 +82,47 @@ export async function recoverTicketDrawerRunTranscript(
   if (!nextState.currentRun) {
     return
   }
+  const currentRunId = nextState.currentRun.id
+  let afterCursor = nextState.pageInfoByRun[currentRunId]?.newestCursor
+  while (afterCursor) {
+    const backfillDetail = mapTicketRunDetail(
+      await (deps.fetchRun === getTicketRun
+        ? getTicketRun(projectId, ticketId, currentRunId, { after: afterCursor })
+        : deps.fetchRun(projectId, ticketId, currentRunId, { after: afterCursor })),
+    )
+    if (!isCurrentRequest(requestId)) {
+      return
+    }
+    if (backfillDetail.transcriptPage.items.length === 0) {
+      break
+    }
 
+    nextState = hydrateTicketRunDetail(io.getState(), backfillDetail, { select: false })
+    io.setState(nextState)
+
+    if (!backfillDetail.transcriptPage.hasNewer) {
+      break
+    }
+    afterCursor = backfillDetail.transcriptPage.newestCursor
+  }
+}
+
+export async function loadOlderTicketDrawerRunTranscript(
+  deps: TicketDrawerRunTranscriptDeps,
+  io: TicketDrawerRunTranscriptIO,
+  projectId: string,
+  ticketId: string,
+  runId: string,
+  oldestCursor: string,
+) {
   const detail = mapTicketRunDetail(
     await (deps.fetchRun === getTicketRun
-      ? getTicketRun(projectId, ticketId, nextState.currentRun.id)
-      : deps.fetchRun(projectId, ticketId, nextState.currentRun.id)),
+      ? getTicketRun(projectId, ticketId, runId, { before: oldestCursor })
+      : deps.fetchRun(projectId, ticketId, runId, { before: oldestCursor })),
   )
-  if (!isCurrentRequest(requestId)) {
+  if (detail.transcriptPage.items.length === 0) {
     return
   }
 
-  nextState = hydrateTicketRunDetail(io.getState(), detail, { select: false })
-  io.setState(nextState)
+  io.setState(hydrateTicketRunDetail(io.getState(), detail, { select: false }))
 }

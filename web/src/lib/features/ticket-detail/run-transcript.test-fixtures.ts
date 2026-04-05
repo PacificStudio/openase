@@ -1,3 +1,4 @@
+import { buildRunTimeline } from './run-transcript-blocks'
 import type { TicketRun, TicketRunDetail } from './types'
 
 export const latestRun: TicketRun = {
@@ -51,85 +52,101 @@ export const olderRun: TicketRun = {
 }
 
 export function buildHydratedRunDetail(): TicketRunDetail {
+  const stepEntry = {
+    id: 'step-1',
+    agentRunId: latestRun.id,
+    stepStatus: 'planning',
+    summary: 'Inspecting ticket detail wiring.',
+    sourceTraceEventId: undefined,
+    createdAt: '2026-04-01T10:05:35Z',
+  }
+  const traceEntries = [
+    {
+      id: 'trace-1',
+      agentRunId: latestRun.id,
+      sequence: 1,
+      provider: 'codex',
+      kind: 'assistant_delta',
+      stream: 'assistant',
+      output: 'Inspecting the ticket detail panel.',
+      payload: { item_id: 'assistant-1' },
+      createdAt: '2026-04-01T10:05:36Z',
+    },
+    {
+      id: 'trace-2',
+      agentRunId: latestRun.id,
+      sequence: 2,
+      provider: 'codex',
+      kind: 'tool_call_started',
+      stream: 'tool',
+      output: 'functions.exec_command',
+      payload: { tool: 'functions.exec_command', arguments: { cmd: 'pnpm vitest run' } },
+      createdAt: '2026-04-01T10:05:37Z',
+    },
+    {
+      id: 'trace-3',
+      agentRunId: latestRun.id,
+      sequence: 3,
+      provider: 'codex',
+      kind: 'command_output_delta',
+      stream: 'command',
+      output: 'ok   ./internal/httpapi\n',
+      payload: { item_id: 'command-1', command: 'pnpm vitest run' },
+      createdAt: '2026-04-01T10:05:38Z',
+    },
+    {
+      id: 'trace-4',
+      agentRunId: latestRun.id,
+      sequence: 4,
+      provider: 'codex',
+      kind: 'thread_status',
+      stream: 'system',
+      output: 'active · waitingOnUserInput',
+      payload: { status: 'active', active_flags: ['waitingOnUserInput'] },
+      createdAt: '2026-04-01T10:05:39Z',
+    },
+    {
+      id: 'trace-5',
+      agentRunId: latestRun.id,
+      sequence: 5,
+      provider: 'codex',
+      kind: 'reasoning_updated',
+      stream: 'reasoning',
+      output: 'Inspecting the reducer.',
+      payload: { kind: 'text_delta', content_index: 0 },
+      createdAt: '2026-04-01T10:05:40Z',
+    },
+    {
+      id: 'trace-6',
+      agentRunId: latestRun.id,
+      sequence: 6,
+      provider: 'codex',
+      kind: 'turn_diff_updated',
+      stream: 'diff',
+      output: ['diff --git a/app.ts b/app.ts', '@@ -1 +1 @@', '-old', '+new'].join('\n'),
+      payload: {},
+      createdAt: '2026-04-01T10:05:41Z',
+    },
+  ]
+
   return {
     run: latestRun,
-    stepEntries: [
-      {
-        id: 'step-1',
-        agentRunId: latestRun.id,
-        stepStatus: 'planning',
-        summary: 'Inspecting ticket detail wiring.',
-        createdAt: '2026-04-01T10:05:35Z',
-      },
-    ],
-    traceEntries: [
-      {
-        id: 'trace-1',
-        agentRunId: latestRun.id,
-        sequence: 1,
-        provider: 'codex',
-        kind: 'assistant_delta',
-        stream: 'assistant',
-        output: 'Inspecting the ticket detail panel.',
-        payload: { item_id: 'assistant-1' },
-        createdAt: '2026-04-01T10:05:36Z',
-      },
-      {
-        id: 'trace-2',
-        agentRunId: latestRun.id,
-        sequence: 2,
-        provider: 'codex',
-        kind: 'tool_call_started',
-        stream: 'tool',
-        output: 'functions.exec_command',
-        payload: { tool: 'functions.exec_command', arguments: { cmd: 'pnpm vitest run' } },
-        createdAt: '2026-04-01T10:05:37Z',
-      },
-      {
-        id: 'trace-3',
-        agentRunId: latestRun.id,
-        sequence: 3,
-        provider: 'codex',
-        kind: 'command_output_delta',
-        stream: 'command',
-        output: 'ok   ./internal/httpapi\n',
-        payload: { item_id: 'command-1', command: 'pnpm vitest run' },
-        createdAt: '2026-04-01T10:05:38Z',
-      },
-      {
-        id: 'trace-4',
-        agentRunId: latestRun.id,
-        sequence: 4,
-        provider: 'codex',
-        kind: 'thread_status',
-        stream: 'system',
-        output: 'active · waitingOnUserInput',
-        payload: { status: 'active', active_flags: ['waitingOnUserInput'] },
-        createdAt: '2026-04-01T10:05:39Z',
-      },
-      {
-        id: 'trace-5',
-        agentRunId: latestRun.id,
-        sequence: 5,
-        provider: 'codex',
-        kind: 'reasoning_updated',
-        stream: 'reasoning',
-        output: 'Inspecting the reducer.',
-        payload: { kind: 'text_delta', content_index: 0 },
-        createdAt: '2026-04-01T10:05:40Z',
-      },
-      {
-        id: 'trace-6',
-        agentRunId: latestRun.id,
-        sequence: 6,
-        provider: 'codex',
-        kind: 'turn_diff_updated',
-        stream: 'diff',
-        output: ['diff --git a/app.ts b/app.ts', '@@ -1 +1 @@', '-old', '+new'].join('\n'),
-        payload: {},
-        createdAt: '2026-04-01T10:05:41Z',
-      },
-    ],
+    transcriptPage: {
+      items: [
+        { kind: 'step', cursor: '2026-04-01T10:05:35Z|step|0|step-1', stepEntry },
+        ...traceEntries.map((traceEntry) => ({
+          kind: 'trace' as const,
+          cursor: `${traceEntry.createdAt}|trace|${traceEntry.sequence}|${traceEntry.id}`,
+          traceEntry,
+        })),
+      ],
+      hasOlder: false,
+      hiddenOlderCount: 0,
+      hasNewer: false,
+      hiddenNewerCount: 0,
+      oldestCursor: '2026-04-01T10:05:35Z|step|0|step-1',
+      newestCursor: '2026-04-01T10:05:41Z|trace|6|trace-6',
+    },
   }
 }
 
@@ -145,4 +162,50 @@ export function buildNewerRun(overrides: Partial<TicketRun> = {}): TicketRun {
     currentStepSummary: undefined,
     ...overrides,
   }
+}
+
+export function toRunRecord(run: TicketRun) {
+  return {
+    id: run.id,
+    ticket_id: 'ticket-1',
+    attempt_number: run.attemptNumber,
+    agent_id: run.agentId,
+    agent_name: run.agentName,
+    provider: run.provider,
+    status: run.status,
+    current_step_status: run.currentStepStatus ?? null,
+    current_step_summary: run.currentStepSummary ?? null,
+    created_at: run.createdAt,
+    runtime_started_at: run.runtimeStartedAt ?? null,
+    last_heartbeat_at: run.lastHeartbeatAt ?? null,
+    completed_at: run.completedAt ?? null,
+    terminal_at: run.terminalAt ?? run.completedAt ?? null,
+    last_error: run.lastError ?? null,
+    completion_summary: run.completionSummary
+      ? {
+          status: run.completionSummary.status,
+          markdown: run.completionSummary.markdown ?? null,
+          json: run.completionSummary.json ?? null,
+          generated_at: run.completionSummary.generatedAt ?? null,
+          error: run.completionSummary.error ?? null,
+        }
+      : null,
+  }
+}
+
+export function toTranscriptTimeline(detail: TicketRunDetail) {
+  return buildRunTimeline(
+    detail.transcriptPage.items
+      .filter(
+        (item): item is Extract<(typeof detail.transcriptPage.items)[number], { kind: 'step' }> =>
+          item.kind === 'step',
+      )
+      .map((item) => item.stepEntry),
+    detail.transcriptPage.items
+      .filter(
+        (item): item is Extract<(typeof detail.transcriptPage.items)[number], { kind: 'trace' }> =>
+          item.kind === 'trace',
+      )
+      .map((item) => item.traceEntry),
+  )
 }

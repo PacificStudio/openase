@@ -141,6 +141,7 @@ describe('createTicketDrawerState recovery', () => {
     })
 
     await state.load('project-1', 'ticket-1')
+    await state.ensureRunsLoaded('project-1', 'ticket-1')
     state.applyRunStreamFrame({
       event: 'ticket.run.trace',
       data: JSON.stringify({

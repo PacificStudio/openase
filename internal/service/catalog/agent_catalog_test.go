@@ -799,6 +799,8 @@ type stubRepository struct {
 	createdOrganization    domain.Organization
 	createdProject         domain.Project
 	listedProviders        []domain.AgentProvider
+	traceEntries           []domain.AgentTraceEntry
+	stepEntries            []domain.AgentStepEntry
 	provider               domain.AgentProvider
 	agent                  domain.Agent
 	machine                domain.Machine
@@ -950,11 +952,11 @@ func (r *stubRepository) ListAgentSteps(context.Context, domain.ListAgentSteps) 
 }
 
 func (r *stubRepository) ListAgentRunTraceEntries(context.Context, domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error) {
-	return nil, nil
+	return append([]domain.AgentTraceEntry(nil), r.traceEntries...), nil
 }
 
 func (r *stubRepository) ListAgentRunStepEntries(context.Context, domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error) {
-	return nil, nil
+	return append([]domain.AgentStepEntry(nil), r.stepEntries...), nil
 }
 
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {

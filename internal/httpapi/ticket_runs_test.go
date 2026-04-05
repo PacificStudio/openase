@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"strings"
 	"testing"
@@ -320,9 +321,10 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		t.Fatalf("expected ticket run detail 200, got %d: %s", detailRec.Code, detailRec.Body.String())
 	}
 	var detailPayload struct {
-		Run          ticketRunResponse             `json:"run"`
-		TraceEntries []ticketRunTraceEntryResponse `json:"trace_entries"`
-		StepEntries  []ticketRunStepEntryResponse  `json:"step_entries"`
+		Run            ticketRunResponse               `json:"run"`
+		TranscriptPage ticketRunTranscriptPageResponse `json:"transcript_page"`
+		TraceEntries   []ticketRunTraceEntryResponse   `json:"trace_entries"`
+		StepEntries    []ticketRunStepEntryResponse    `json:"step_entries"`
 	}
 	decodeResponse(t, detailRec, &detailPayload)
 	if detailPayload.Run.AttemptNumber != 2 || detailPayload.Run.CurrentStepStatus == nil || *detailPayload.Run.CurrentStepStatus != "running_tests" {
@@ -344,6 +346,22 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	if len(detailPayload.TraceEntries) != 6 || detailPayload.TraceEntries[1].Kind != domain.AgentTraceKindToolCallStarted {
 		t.Fatalf("expected ordered raw trace entries, got %+v", detailPayload.TraceEntries)
 	}
+	if len(detailPayload.TranscriptPage.Items) != 8 {
+		t.Fatalf("expected unified transcript page to include all step/trace items, got %+v", detailPayload.TranscriptPage)
+	}
+	if detailPayload.TranscriptPage.HasOlder || detailPayload.TranscriptPage.HiddenOlderCount != 0 {
+		t.Fatalf("expected no older transcript gap on fully loaded page, got %+v", detailPayload.TranscriptPage)
+	}
+	if detailPayload.TranscriptPage.Items[0].Kind != domain.AgentRunTranscriptKindStep ||
+		detailPayload.TranscriptPage.Items[0].StepEntry == nil ||
+		detailPayload.TranscriptPage.Items[0].StepEntry.StepStatus != "planning" {
+		t.Fatalf("expected first unified transcript item to be the initial step, got %+v", detailPayload.TranscriptPage.Items[0])
+	}
+	if detailPayload.TranscriptPage.Items[1].Kind != domain.AgentRunTranscriptKindTrace ||
+		detailPayload.TranscriptPage.Items[1].TraceEntry == nil ||
+		detailPayload.TranscriptPage.Items[1].TraceEntry.Kind != domain.AgentTraceKindAssistantDelta {
+		t.Fatalf("expected second unified transcript item to be the first trace, got %+v", detailPayload.TranscriptPage.Items[1])
+	}
 	if tool := detailPayload.TraceEntries[1].Payload["tool"]; tool != "functions.exec_command" {
 		t.Fatalf("expected tool_call payload to round-trip, got %+v", detailPayload.TraceEntries[1])
 	}
@@ -360,6 +378,201 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	}
 	if len(detailPayload.StepEntries) != 2 || detailPayload.StepEntries[1].StepStatus != "running_tests" {
 		t.Fatalf("expected run-scoped step entries, got %+v", detailPayload.StepEntries)
+	}
+}
+
+func TestTicketRunRoutePaginatesUnifiedTranscriptPages(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Acme").
+		SetSlug("acme").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	backlogID := findStatusIDByName(t, statuses, "Backlog")
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetStatusID(backlogID).
+		SetIdentifier("ASE-434").
+		SetTitle("Paginate transcript").
+		SetDescription("Page run transcript data").
+		SetPriority("high").
+		SetType("feature").
+		SetCreatedBy("user:api").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	catalog := newFakeCatalogService()
+	catalog.organizations[org.ID] = domain.Organization{ID: org.ID, Name: org.Name, Slug: org.Slug}
+	catalog.projects[project.ID] = domain.Project{ID: project.ID, OrganizationID: org.ID, Name: project.Name, Slug: project.Slug}
+	catalog.tickets[ticketItem.ID] = fakeCatalogTicket{ID: ticketItem.ID, ProjectID: project.ID}
+
+	providerID := uuid.New()
+	agentID := uuid.New()
+	runID := uuid.New()
+	catalog.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: org.ID, Name: "Codex"}
+	catalog.agents[agentID] = domain.Agent{ID: agentID, ProjectID: project.ID, ProviderID: providerID, Name: "Ticket Runner"}
+	catalog.agentRuns[runID] = domain.AgentRun{
+		ID:         runID,
+		AgentID:    agentID,
+		TicketID:   ticketItem.ID,
+		ProviderID: providerID,
+		WorkflowID: uuid.New(),
+		Status:     domain.AgentRunStatusExecuting,
+		CreatedAt:  time.Date(2026, 4, 1, 9, 59, 0, 0, time.UTC),
+	}
+
+	traceOlderID := uuid.New()
+	stepMiddleID := uuid.New()
+	traceNewerID := uuid.New()
+	sharedAt := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
+	catalog.traceEvents = []domain.AgentTraceEntry{
+		{
+			ID:         traceOlderID,
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: runID,
+			Sequence:   1,
+			Provider:   "codex",
+			Kind:       domain.AgentTraceKindAssistantDelta,
+			Stream:     "assistant",
+			Output:     "older",
+			Payload:    map[string]any{"item_id": "assistant-1"},
+			CreatedAt:  sharedAt,
+		},
+		{
+			ID:         traceNewerID,
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: runID,
+			Sequence:   2,
+			Provider:   "codex",
+			Kind:       domain.AgentTraceKindAssistantDelta,
+			Stream:     "assistant",
+			Output:     "newer",
+			Payload:    map[string]any{"item_id": "assistant-2"},
+			CreatedAt:  sharedAt.Add(2 * time.Second),
+		},
+	}
+	catalog.stepEvents = []domain.AgentStepEntry{
+		{
+			ID:         stepMiddleID,
+			ProjectID:  project.ID,
+			TicketID:   &ticketItem.ID,
+			AgentID:    agentID,
+			AgentRunID: runID,
+			StepStatus: "planning",
+			Summary:    "middle",
+			CreatedAt:  sharedAt.Add(1 * time.Second),
+		},
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		catalog,
+		nil,
+	)
+
+	var latestPayload struct {
+		TranscriptPage ticketRunTranscriptPageResponse `json:"transcript_page"`
+	}
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticketItem.ID.String()+"/runs/"+runID.String()+"?limit=2",
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected latest transcript page 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	decodeResponse(t, rec, &latestPayload)
+	if !latestPayload.TranscriptPage.HasOlder || latestPayload.TranscriptPage.HiddenOlderCount != 1 {
+		t.Fatalf("expected one earlier event hidden in latest page, got %+v", latestPayload.TranscriptPage)
+	}
+	if len(latestPayload.TranscriptPage.Items) != 2 {
+		t.Fatalf("expected latest page item count 2, got %+v", latestPayload.TranscriptPage.Items)
+	}
+	if latestPayload.TranscriptPage.Items[0].Kind != domain.AgentRunTranscriptKindStep ||
+		latestPayload.TranscriptPage.Items[0].StepEntry == nil ||
+		latestPayload.TranscriptPage.Items[0].StepEntry.ID != stepMiddleID.String() {
+		t.Fatalf("expected latest page to start at the middle step, got %+v", latestPayload.TranscriptPage.Items[0])
+	}
+	if latestPayload.TranscriptPage.Items[1].Kind != domain.AgentRunTranscriptKindTrace ||
+		latestPayload.TranscriptPage.Items[1].TraceEntry == nil ||
+		latestPayload.TranscriptPage.Items[1].TraceEntry.ID != traceNewerID.String() {
+		t.Fatalf("expected latest page to end at the newest trace, got %+v", latestPayload.TranscriptPage.Items[1])
+	}
+
+	var olderPayload struct {
+		TranscriptPage ticketRunTranscriptPageResponse `json:"transcript_page"`
+	}
+	olderRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticketItem.ID.String()+"/runs/"+runID.String()+"?limit=2&before="+url.QueryEscape(latestPayload.TranscriptPage.OldestCursor),
+		"",
+	)
+	if olderRec.Code != http.StatusOK {
+		t.Fatalf("expected older transcript page 200, got %d: %s", olderRec.Code, olderRec.Body.String())
+	}
+	decodeResponse(t, olderRec, &olderPayload)
+	if olderPayload.TranscriptPage.HasOlder || olderPayload.TranscriptPage.HiddenOlderCount != 0 {
+		t.Fatalf("expected older page to exhaust history, got %+v", olderPayload.TranscriptPage)
+	}
+	if len(olderPayload.TranscriptPage.Items) != 1 ||
+		olderPayload.TranscriptPage.Items[0].TraceEntry == nil ||
+		olderPayload.TranscriptPage.Items[0].TraceEntry.ID != traceOlderID.String() {
+		t.Fatalf("expected only the earliest trace in older page, got %+v", olderPayload.TranscriptPage.Items)
+	}
+
+	var newerPayload struct {
+		TranscriptPage ticketRunTranscriptPageResponse `json:"transcript_page"`
+	}
+	newerRec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticketItem.ID.String()+"/runs/"+runID.String()+"?limit=2&after="+url.QueryEscape(olderPayload.TranscriptPage.NewestCursor),
+		"",
+	)
+	if newerRec.Code != http.StatusOK {
+		t.Fatalf("expected newer transcript page 200, got %d: %s", newerRec.Code, newerRec.Body.String())
+	}
+	decodeResponse(t, newerRec, &newerPayload)
+	if !newerPayload.TranscriptPage.HasOlder || newerPayload.TranscriptPage.HiddenOlderCount != 1 {
+		t.Fatalf("expected newer page to report older history already behind the cursor, got %+v", newerPayload.TranscriptPage)
+	}
+	if len(newerPayload.TranscriptPage.Items) != 2 {
+		t.Fatalf("expected newer page to return the remaining tail, got %+v", newerPayload.TranscriptPage.Items)
 	}
 }
 

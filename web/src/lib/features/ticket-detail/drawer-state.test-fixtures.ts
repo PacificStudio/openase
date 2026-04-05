@@ -76,6 +76,26 @@ export function createDeferred<T>() {
 export function createRunDeps() {
   return {
     fetchRuns: vi.fn().mockResolvedValue({ runs: [] }),
-    fetchRun: vi.fn().mockResolvedValue({ run: null, trace_entries: [], step_entries: [] }),
+    fetchRun: vi.fn().mockResolvedValue({
+      run: {
+        id: 'run-1',
+        ticket_id: 'ticket-1',
+        attempt_number: 1,
+        agent_id: 'agent-1',
+        agent_name: 'Runner',
+        provider: 'Codex',
+        status: 'ready',
+        created_at: '2026-04-01T10:00:00Z',
+      },
+      transcript_page: {
+        items: [],
+        has_older: false,
+        hidden_older_count: 0,
+        has_newer: false,
+        hidden_newer_count: 0,
+      },
+      trace_entries: [],
+      step_entries: [],
+    }),
   }
 }

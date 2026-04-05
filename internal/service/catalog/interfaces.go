@@ -81,6 +81,7 @@ type AgentRunQueryService interface {
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
 	ListAgentRunTraceEntries(ctx context.Context, input domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error)
 	ListAgentRunStepEntries(ctx context.Context, input domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error)
+	GetAgentRunTranscriptPage(ctx context.Context, input domain.ListAgentRunTranscriptPage) (domain.AgentRunTranscriptPage, error)
 }
 
 type ActivityQueryService interface {

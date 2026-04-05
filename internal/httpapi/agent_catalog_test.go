@@ -1359,6 +1359,102 @@ func (f *fakeCatalogService) ListAgentRunStepEntries(_ context.Context, input do
 	return items, nil
 }
 
+func (f *fakeCatalogService) GetAgentRunTranscriptPage(
+	_ context.Context,
+	input domain.ListAgentRunTranscriptPage,
+) (domain.AgentRunTranscriptPage, error) {
+	traceEntries, err := f.ListAgentRunTraceEntries(context.Background(), domain.ListAgentRunTraceEntries{
+		ProjectID:  input.ProjectID,
+		AgentRunID: input.AgentRunID,
+	})
+	if err != nil {
+		return domain.AgentRunTranscriptPage{}, err
+	}
+	stepEntries, err := f.ListAgentRunStepEntries(context.Background(), domain.ListAgentRunStepEntries{
+		ProjectID:  input.ProjectID,
+		AgentRunID: input.AgentRunID,
+	})
+	if err != nil {
+		return domain.AgentRunTranscriptPage{}, err
+	}
+
+	type pageItem struct {
+		item   domain.AgentRunTranscriptItem
+		cursor domain.AgentRunTranscriptCursor
+	}
+
+	items := make([]pageItem, 0, len(traceEntries)+len(stepEntries))
+	for _, entry := range stepEntries {
+		cursor := domain.AgentRunTranscriptCursorForStep(entry)
+		entryCopy := entry
+		items = append(items, pageItem{
+			item: domain.AgentRunTranscriptItem{
+				Kind:      domain.AgentRunTranscriptKindStep,
+				Cursor:    cursor.String(),
+				StepEntry: &entryCopy,
+			},
+			cursor: cursor,
+		})
+	}
+	for _, entry := range traceEntries {
+		cursor := domain.AgentRunTranscriptCursorForTrace(entry)
+		entryCopy := entry
+		items = append(items, pageItem{
+			item: domain.AgentRunTranscriptItem{
+				Kind:       domain.AgentRunTranscriptKindTrace,
+				Cursor:     cursor.String(),
+				TraceEntry: &entryCopy,
+			},
+			cursor: cursor,
+		})
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return domain.CompareAgentRunTranscriptCursor(items[i].cursor, items[j].cursor) < 0
+	})
+
+	start, end := 0, len(items)
+	switch {
+	case input.After != nil:
+		start = len(items)
+		for index, item := range items {
+			if domain.CompareAgentRunTranscriptCursor(item.cursor, *input.After) > 0 {
+				start = index
+				break
+			}
+		}
+		end = min(start+input.Limit, len(items))
+	case input.Before != nil:
+		end = 0
+		for index, item := range items {
+			if domain.CompareAgentRunTranscriptCursor(item.cursor, *input.Before) >= 0 {
+				end = index
+				break
+			}
+			end = index + 1
+		}
+		start = max(0, end-input.Limit)
+	default:
+		start = max(0, end-input.Limit)
+	}
+
+	page := domain.AgentRunTranscriptPage{
+		Items:            make([]domain.AgentRunTranscriptItem, 0, end-start),
+		HasOlder:         start > 0,
+		HiddenOlderCount: start,
+		HasNewer:         end < len(items),
+		HiddenNewerCount: len(items) - end,
+	}
+	for _, item := range items[start:end] {
+		page.Items = append(page.Items, item.item)
+	}
+	if len(page.Items) > 0 {
+		page.OldestCursor = page.Items[0].Cursor
+		page.NewestCursor = page.Items[len(page.Items)-1].Cursor
+	}
+
+	return page, nil
+}
+
 func (f *fakeCatalogService) CreateAgent(_ context.Context, input domain.CreateAgent) (domain.Agent, error) {
 	project, ok := f.projects[input.ProjectID]
 	if !ok {

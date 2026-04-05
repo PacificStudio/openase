@@ -7,10 +7,14 @@ import {
   selectTicketRun,
   setTicketRunList,
 } from './run-transcript'
-import { buildRunTimeline } from './run-transcript-blocks'
+import {
+  buildHydratedRunDetail,
+  buildNewerRun,
+  latestRun,
+  olderRun,
+  toTranscriptTimeline,
+} from './run-transcript.test-fixtures'
 import { toRunRecord } from './run-transcript-test-helpers'
-import { buildNewerRun, latestRun, olderRun } from './run-transcript.test-fixtures'
-import { buildHydratedRunDetail } from './run-transcript.test-fixtures'
 import type { TicketRun, TicketRunTranscriptBlock } from './types'
 
 describe('ticket run transcript live updates', () => {
@@ -21,7 +25,7 @@ describe('ticket run transcript live updates', () => {
     const hydrated = hydrateTicketRunDetail(initial, detail)
 
     let replayed = initial
-    for (const item of buildRunTimeline(detail.stepEntries, detail.traceEntries)) {
+    for (const item of toTranscriptTimeline(detail)) {
       replayed = applyTicketRunStreamFrame(replayed, {
         event: item.kind === 'step' ? 'ticket.run.step' : 'ticket.run.trace',
         data: JSON.stringify({
@@ -163,8 +167,13 @@ describe('ticket run transcript live updates', () => {
     let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [terminalRun, olderRun])
     state = hydrateTicketRunDetail(state, {
       run: terminalRun,
-      stepEntries: [],
-      traceEntries: [],
+      transcriptPage: {
+        items: [],
+        hasOlder: false,
+        hiddenOlderCount: 0,
+        hasNewer: false,
+        hiddenNewerCount: 0,
+      },
     })
 
     state = applyTicketRunStreamFrame(state, {

@@ -140,7 +140,9 @@
         runsError={drawerState.runsError}
         currentRun={drawerState.currentRun}
         runBlocks={drawerState.runBlocks}
+        runPageInfoByRun={drawerState.runPageInfoByRun}
         loadingRunId={drawerState.loadingRunId}
+        loadingOlderRunId={drawerState.loadingOlderRunId}
         runStreamState={drawerState.runStreamState}
         recoveringRunTranscript={drawerState.recoveringRunTranscript}
         statuses={drawerState.statuses}
@@ -168,6 +170,10 @@
         onArchive={drawerActions.handleArchive}
         onSelectRun={(runId) =>
           projectId && ticketId ? drawerState.selectRun(projectId, ticketId, runId) : undefined}
+        onLoadOlderRunTranscript={(runId) =>
+          projectId && ticketId
+            ? drawerState.loadOlderRunTranscript(projectId, ticketId, runId)
+            : undefined}
         onResumeRetry={drawerActions.handleResumeRetry}
         onResetWorkspace={drawerActions.handleResetWorkspace}
         onAddDependency={drawerActions.handleAddDependency}
