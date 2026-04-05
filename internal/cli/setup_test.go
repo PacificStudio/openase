@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -151,12 +152,12 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 			t.Fatal("buildManagedServiceInstallSpec should not be called in config-only mode")
 			return provider.UserServiceInstallSpec{}, nil
 		},
-		checkSystemdUserServiceSupport: func(context.Context) error {
-			t.Fatal("checkSystemdUserServiceSupport should not be called in config-only mode")
+		checkManagedUserServiceSupport: func(context.Context) error {
+			t.Fatal("checkManagedUserServiceSupport should not be called in config-only mode")
 			return nil
 		},
-		verifySystemdUserService: func(context.Context, provider.ServiceName) error {
-			t.Fatal("verifySystemdUserService should not be called in config-only mode")
+		verifyManagedUserService: func(context.Context, provider.ServiceName) error {
+			t.Fatal("verifyManagedUserService should not be called in config-only mode")
 			return nil
 		},
 	}); err != nil {
@@ -183,7 +184,7 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 	}
 }
 
-func TestRunSetupFlowOIDCAndSystemdService(t *testing.T) {
+func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 	manager := &stubSetupManager{platform: "systemd --user"}
 	service := &stubSetupFlowService{
 		bootstrap: setup.Bootstrap{
@@ -256,12 +257,16 @@ func TestRunSetupFlowOIDCAndSystemdService(t *testing.T) {
 			return manager, nil
 		},
 		buildManagedServiceInstallSpec: func(configPath string) (provider.UserServiceInstallSpec, error) {
-			return provider.UserServiceInstallSpec{Name: managedServiceName}, nil
+			return provider.UserServiceInstallSpec{
+				Name:       managedServiceName,
+				StdoutPath: provider.MustParseAbsolutePath("/tmp/.openase/logs/openase.stdout.log"),
+				StderrPath: provider.MustParseAbsolutePath("/tmp/.openase/logs/openase.stderr.log"),
+			}, nil
 		},
-		checkSystemdUserServiceSupport: func(context.Context) error {
+		checkManagedUserServiceSupport: func(context.Context) error {
 			return nil
 		},
-		verifySystemdUserService: func(context.Context, provider.ServiceName) error {
+		verifyManagedUserService: func(context.Context, provider.ServiceName) error {
 			return nil
 		},
 	}); err != nil {
@@ -336,11 +341,11 @@ func TestRunSetupFlowFallsBackWhenSystemdUnavailable(t *testing.T) {
 			t.Fatal("buildManagedServiceInstallSpec should not run after fallback")
 			return provider.UserServiceInstallSpec{}, nil
 		},
-		checkSystemdUserServiceSupport: func(context.Context) error {
+		checkManagedUserServiceSupport: func(context.Context) error {
 			return errors.New("systemd --user is unavailable")
 		},
-		verifySystemdUserService: func(context.Context, provider.ServiceName) error {
-			t.Fatal("verifySystemdUserService should not run after fallback")
+		verifyManagedUserService: func(context.Context, provider.ServiceName) error {
+			t.Fatal("verifyManagedUserService should not run after fallback")
 			return nil
 		},
 	}); err != nil {
@@ -386,5 +391,64 @@ func TestPrintSetupFailureShowsDoctorHint(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "openase doctor --config ~/.openase/config.yaml") {
 		t.Fatalf("output = %q", output.String())
+	}
+}
+
+func TestSetupManagedUserServicePrompt(t *testing.T) {
+	tests := []struct {
+		goos string
+		want string
+	}{
+		{goos: "linux", want: "systemd --user"},
+		{goos: "darwin", want: "launchd"},
+		{goos: "freebsd", want: "Install Managed User Service:"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.goos, func(t *testing.T) {
+			if got := setupManagedUserServicePrompt(tt.goos); !strings.Contains(got, tt.want) {
+				t.Fatalf("setupManagedUserServicePrompt(%q) = %q, want substring %q", tt.goos, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPrintSetupSuccessLaunchdHints(t *testing.T) {
+	var output bytes.Buffer
+	homeDir := "/Users/tester"
+	printSetupSuccess(&output, setup.CompleteResult{
+		ConfigPath: "/tmp/.openase/config.yaml",
+		EnvPath:    "/tmp/.openase/.env",
+	}, setup.PreparedDatabase{
+		Source: setup.DatabaseSourceManual,
+		Config: setup.DatabaseConfig{
+			Host: "127.0.0.1",
+			Port: 5432,
+			Name: "openase",
+			User: "openase",
+		},
+	}, setup.AuthConfig{Mode: setup.AuthModeDisabled}, &installedSetupService{
+		Name:     managedServiceName,
+		Platform: "launchd",
+		InstallSpec: provider.UserServiceInstallSpec{
+			Name:       managedServiceName,
+			StdoutPath: provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", "logs", "openase.stdout.log")),
+			StderrPath: provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", "logs", "openase.stderr.log")),
+		},
+		LaunchdTarget: launchdServiceTarget(501, managedServiceName),
+		LaunchdPlist:  launchdPlistPath(homeDir, managedServiceName),
+	})
+
+	text := output.String()
+	for _, want := range []string{
+		"Service:  openase via launchd",
+		"launchctl print gui/501/com.openase",
+		filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist"),
+		filepath.Join(homeDir, ".openase", "logs", "openase.stdout.log"),
+		filepath.Join(homeDir, ".openase", "logs", "openase.stderr.log"),
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("printSetupSuccess() output = %q, want substring %q", text, want)
+		}
 	}
 }
