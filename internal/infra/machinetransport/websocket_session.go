@@ -139,9 +139,6 @@ func (s *websocketCommandSession) CombinedOutput(cmd string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.Start(cmd); err != nil {
-		return nil, err
-	}
 
 	var combinedMu sync.Mutex
 	combined := make([]byte, 0, 1024)
@@ -165,6 +162,12 @@ func (s *websocketCommandSession) CombinedOutput(cmd string) ([]byte, error) {
 	stderrDone := make(chan struct{})
 	go readInto(stdout, stdoutDone)
 	go readInto(stderr, stderrDone)
+
+	if err := s.Start(cmd); err != nil {
+		<-stdoutDone
+		<-stderrDone
+		return nil, err
+	}
 
 	waitErr := s.Wait()
 	<-stdoutDone
@@ -492,6 +495,7 @@ func (s *websocketListenerSession) startCommand(command string) error {
 
 func (s *websocketListenerSession) waitForExit() {
 	exitCode := 0
+	s.streams.Wait()
 	if err := s.command.Wait(); err != nil {
 		var exitErr *exec.ExitError
 		switch {
@@ -504,7 +508,6 @@ func (s *websocketListenerSession) waitForExit() {
 			exitCode = 1
 		}
 	}
-	s.streams.Wait()
 	_ = s.writeFrame(websocketFrame{Type: "exit", ExitCode: exitCode})
 	s.stopProcess()
 }
