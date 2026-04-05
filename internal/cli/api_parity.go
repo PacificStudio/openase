@@ -56,16 +56,15 @@ func markCLICommandRawBodyProxy(command *cobra.Command) *cobra.Command {
 	return command
 }
 
-func annotateCLICommandBodyFlag(command *cobra.Command, flagName string, bodyFields ...string) *cobra.Command {
+func annotateCLICommandBodyFlag(command *cobra.Command, flagName string, bodyFields ...string) {
 	if command == nil {
-		return nil
+		return
 	}
 	flag := command.Flags().Lookup(flagName)
 	if flag == nil {
 		panic(fmt.Errorf("missing flag %q while annotating CLI body contract", flagName))
 	}
 	annotateCLIFlagBodyFields(flag, bodyFields...)
-	return command
 }
 
 func cliCommandAPICoverageKey(command *cobra.Command) (string, bool) {
