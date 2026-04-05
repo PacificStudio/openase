@@ -2,6 +2,7 @@
   import { ticketStatusStageOptions, type TicketStatusStage } from '$lib/features/statuses/public'
   import { Button } from '$ui/button'
   import { Checkbox } from '$ui/checkbox'
+  import { ColorPicker } from '$ui/color-picker'
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import Plus from '@lucide/svelte/icons/plus'
@@ -48,11 +49,7 @@
 
   <div class="space-y-3">
     <div class="flex items-center gap-2">
-      <input
-        type="color"
-        bind:value={color}
-        class="size-9 shrink-0 rounded border-0 bg-transparent p-0"
-      />
+      <ColorPicker bind:value={color} />
       <Input bind:value={name} class="h-9 flex-1 text-sm" placeholder="New status name" />
       <Select.Root
         type="single"
