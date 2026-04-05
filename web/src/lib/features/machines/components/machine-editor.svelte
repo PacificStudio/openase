@@ -14,18 +14,15 @@
     MachineConnectionMode,
     MachineDraft,
     MachineDraftField,
-    MachineEditorMode,
     MachineItem,
     WorkspaceRootState,
   } from '../types'
 
   let {
-    mode,
     machine,
     draft,
     onDraftChange,
   }: {
-    mode: MachineEditorMode
     machine: MachineItem | null
     draft: MachineDraft
     onDraftChange?: (field: MachineDraftField, value: string) => void
