@@ -101,7 +101,7 @@
   {:else if state === 'loading' || loading}
     <div class="space-y-3">
       {#each { length: 3 } as _}
-        <div class="border-border bg-card rounded-2xl border p-4">
+        <div class="border-border bg-card rounded-lg border p-4">
           <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-start">
             <div class="space-y-3">
               <div class="space-y-1.5">
