@@ -135,13 +135,14 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte("server:\n  mode: all-in-one\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", configPath, err)
 	}
+	canonicalConfigPath := canonicalManagedServiceConfigPathForTest(t, configPath)
 
 	resolvedConfig, err := resolveManagedServiceConfigPath("")
 	if err != nil {
 		t.Fatalf("resolveManagedServiceConfigPath() cwd error = %v", err)
 	}
-	if resolvedConfig.String() != configPath {
-		t.Fatalf("resolveManagedServiceConfigPath() = %q, want %q", resolvedConfig, configPath)
+	if resolvedConfig.String() != canonicalConfigPath {
+		t.Fatalf("resolveManagedServiceConfigPath() = %q, want %q", resolvedConfig, canonicalConfigPath)
 	}
 
 	spec, err := buildManagedServiceInstallSpec(configPath)
@@ -151,7 +152,7 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 	if spec.Name != managedServiceName || spec.Description != managedServiceDescription {
 		t.Fatalf("buildManagedServiceInstallSpec() = %+v", spec)
 	}
-	if strings.Join(spec.Arguments, " ") != "all-in-one --config "+configPath {
+	if strings.Join(spec.Arguments, " ") != "all-in-one --config "+canonicalConfigPath {
 		t.Fatalf("install spec args = %v", spec.Arguments)
 	}
 	if spec.WorkingDirectory.String() != filepath.Join(homeDir, ".openase") {
@@ -179,13 +180,108 @@ func TestCLIManagedServiceHelpers(t *testing.T) {
 	if err := os.WriteFile(homeConfigPath, []byte("server = {}\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", homeConfigPath, err)
 	}
+	canonicalHomeConfigPath := canonicalManagedServiceConfigPathForTest(t, homeConfigPath)
 	resolvedHomeConfig, err := resolveManagedServiceConfigPath("")
 	if err != nil {
 		t.Fatalf("resolveManagedServiceConfigPath() home error = %v", err)
 	}
-	if resolvedHomeConfig.String() != homeConfigPath {
-		t.Fatalf("resolveManagedServiceConfigPath() home = %q, want %q", resolvedHomeConfig, homeConfigPath)
+	if resolvedHomeConfig.String() != canonicalHomeConfigPath {
+		t.Fatalf("resolveManagedServiceConfigPath() home = %q, want %q", resolvedHomeConfig, canonicalHomeConfigPath)
 	}
+}
+
+func TestResolveManagedServiceConfigPathCanonicalizesSymlinkAliases(t *testing.T) {
+	homeRoot := filepath.Join(t.TempDir(), "real-home")
+	if err := os.MkdirAll(filepath.Join(homeRoot, ".openase"), 0o750); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", homeRoot, err)
+	}
+
+	homeAliasParent := t.TempDir()
+	homeAlias := filepath.Join(homeAliasParent, "home-alias")
+	if err := os.Symlink(homeRoot, homeAlias); err != nil {
+		t.Fatalf("Symlink(%q, %q) error = %v", homeRoot, homeAlias, err)
+	}
+	t.Setenv("HOME", homeAlias)
+
+	workspaceRoot := filepath.Join(t.TempDir(), "real-workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o750); err != nil {
+		t.Fatalf("MkdirAll(%q) error = %v", workspaceRoot, err)
+	}
+	workspaceAliasParent := t.TempDir()
+	workspaceAlias := filepath.Join(workspaceAliasParent, "workspace-alias")
+	if err := os.Symlink(workspaceRoot, workspaceAlias); err != nil {
+		t.Fatalf("Symlink(%q, %q) error = %v", workspaceRoot, workspaceAlias, err)
+	}
+
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+	if err := os.Chdir(workspaceAlias); err != nil {
+		t.Fatalf("Chdir(%q) error = %v", workspaceAlias, err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	workspaceConfigPath := filepath.Join(workspaceAlias, "config.yaml")
+	if err := os.WriteFile(workspaceConfigPath, []byte("server:\n  mode: all-in-one\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", workspaceConfigPath, err)
+	}
+
+	canonicalWorkspaceConfigPath := canonicalManagedServiceConfigPathForTest(t, workspaceConfigPath)
+	resolvedWorkspaceConfig, err := resolveManagedServiceConfigPath("")
+	if err != nil {
+		t.Fatalf("resolveManagedServiceConfigPath() cwd alias error = %v", err)
+	}
+	if resolvedWorkspaceConfig.String() != canonicalWorkspaceConfigPath {
+		t.Fatalf("resolveManagedServiceConfigPath() cwd alias = %q, want %q", resolvedWorkspaceConfig, canonicalWorkspaceConfigPath)
+	}
+
+	if err := os.Remove(workspaceConfigPath); err != nil {
+		t.Fatalf("Remove(%q) error = %v", workspaceConfigPath, err)
+	}
+
+	homeAliasConfigPath := filepath.Join(homeAlias, ".openase", "config.yaml")
+	if err := os.WriteFile(homeAliasConfigPath, []byte("server:\n  mode: all-in-one\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", homeAliasConfigPath, err)
+	}
+
+	canonicalHomeConfigPath := canonicalManagedServiceConfigPathForTest(t, homeAliasConfigPath)
+	resolvedHomeConfig, err := resolveManagedServiceConfigPath("")
+	if err != nil {
+		t.Fatalf("resolveManagedServiceConfigPath() home alias error = %v", err)
+	}
+	if resolvedHomeConfig.String() != canonicalHomeConfigPath {
+		t.Fatalf("resolveManagedServiceConfigPath() home alias = %q, want %q", resolvedHomeConfig, canonicalHomeConfigPath)
+	}
+
+	resolvedExplicitConfig, err := resolveManagedServiceConfigPath(homeAliasConfigPath)
+	if err != nil {
+		t.Fatalf("resolveManagedServiceConfigPath(%q) error = %v", homeAliasConfigPath, err)
+	}
+	if resolvedExplicitConfig.String() != canonicalHomeConfigPath {
+		t.Fatalf("resolveManagedServiceConfigPath(%q) = %q, want %q", homeAliasConfigPath, resolvedExplicitConfig, canonicalHomeConfigPath)
+	}
+
+	spec, err := buildManagedServiceInstallSpec(homeAliasConfigPath)
+	if err != nil {
+		t.Fatalf("buildManagedServiceInstallSpec(%q) error = %v", homeAliasConfigPath, err)
+	}
+	if strings.Join(spec.Arguments, " ") != "all-in-one --config "+canonicalHomeConfigPath {
+		t.Fatalf("install spec args = %v", spec.Arguments)
+	}
+}
+
+func canonicalManagedServiceConfigPathForTest(t *testing.T, path string) string {
+	t.Helper()
+
+	canonicalPath, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q) error = %v", path, err)
+	}
+
+	return filepath.Clean(canonicalPath)
 }
 
 func TestCLIOpenAPIGenerateCommandWritesJSON(t *testing.T) {

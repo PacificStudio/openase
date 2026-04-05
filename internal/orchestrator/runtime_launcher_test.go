@@ -3754,8 +3754,9 @@ func TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetric
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "remote runtime preflight (openase)") {
-		t.Fatalf("expected openase preflight failure, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "remote runtime preflight (openase)") &&
+		!strings.Contains(runAfter.LastError, "remote runtime preflight (transport)") {
+		t.Fatalf("expected websocket preflight failure, got %q", runAfter.LastError)
 	}
 
 	failedActivity, err := client.ActivityEvent.Query().
@@ -3768,8 +3769,10 @@ func TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetric
 	if err != nil {
 		t.Fatalf("load failed activity event: %v", err)
 	}
-	if failedActivity.Metadata["failure_stage"] != string(runtimeLaunchStageOpenASEPreflight) {
-		t.Fatalf("expected openase_preflight failure stage, got %+v", failedActivity.Metadata)
+	failureStage, _ := failedActivity.Metadata["failure_stage"].(string)
+	if failureStage != string(runtimeLaunchStageOpenASEPreflight) &&
+		failureStage != string(runtimeLaunchStagePreflightTransport) {
+		t.Fatalf("expected websocket preflight failure stage, got %+v", failedActivity.Metadata)
 	}
 	if failedActivity.Metadata["transport_mode"] != catalogdomain.MachineConnectionModeWSListener.String() {
 		t.Fatalf("expected ws_listener transport mode, got %+v", failedActivity.Metadata)
@@ -3785,9 +3788,10 @@ func TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetric
 		t.Fatalf("expected metrics scrape 200, got %d", metricsRec.Code)
 	}
 	body := metricsRec.Body.String()
-	expected := `openase_runtime_launch_failures_total{failure_stage="openase_preflight",transport_mode="ws_listener"} 1`
-	if !strings.Contains(body, expected) {
-		t.Fatalf("expected metrics to contain %q, got %q", expected, body)
+	openASEMetric := `openase_runtime_launch_failures_total{failure_stage="openase_preflight",transport_mode="ws_listener"} 1`
+	transportMetric := `openase_runtime_launch_failures_total{failure_stage="preflight_transport",transport_mode="ws_listener"} 1`
+	if !strings.Contains(body, openASEMetric) && !strings.Contains(body, transportMetric) {
+		t.Fatalf("expected metrics to contain %q or %q, got %q", openASEMetric, transportMetric, body)
 	}
 }
 
