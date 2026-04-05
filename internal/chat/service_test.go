@@ -471,9 +471,9 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	tickets := fakeTicketReader{
 		items: []ticketservice.Ticket{
-			{StatusName: "In Progress"},
-			{StatusName: "Done"},
-			{StatusName: "Todo", RetryPaused: true},
+			{Identifier: "ASE-1", StatusName: "In Progress"},
+			{Identifier: "ASE-2", StatusName: "Done"},
+			{Identifier: "ASE-3", StatusName: "Todo", RetryPaused: true},
 		},
 	}
 	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, fakeStatusReader{
@@ -541,7 +541,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		"- current_project_name: OpenASE",
 		"- statuses:",
 		"Todo => 990e8400-e29b-41d4-a716-446655440000",
-		"Do not output `action_proposal` or `platform_command_proposal`",
+		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`",
 		"Updated issue status",
 	) {
 		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)
@@ -627,7 +627,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage",
 		"### Hook History",
 		"go test ./... failed in auth package",
-		"Do not output `action_proposal` or `platform_command_proposal`",
+		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`",
 	) {
 		t.Fatalf("ticket detail prompt = %q", prompt)
 	}

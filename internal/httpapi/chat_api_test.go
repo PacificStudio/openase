@@ -454,7 +454,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "go test ./... failed in auth package") {
 		t.Fatalf("expected hook history in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
-	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not output `action_proposal` or `platform_command_proposal`") {
+	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`") {
 		t.Fatalf("expected direct-execution instructions in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
 	if !slicesContain(adapter.lastSpec.Environment, "ANTHROPIC_API_KEY=test-key") {
