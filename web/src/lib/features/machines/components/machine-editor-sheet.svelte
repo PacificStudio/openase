@@ -67,7 +67,7 @@
           </div>
           <SheetDescription class="text-xs">
             {#if mode === 'create'}
-              Define identity, transport, and workspace for a new machine.
+              Define identity, topology, helper access, and workspace for a new machine.
             {:else}
               {machineStatusDescription(machine?.status ?? '')}
             {/if}
@@ -84,7 +84,7 @@
           <Tabs.Root bind:value={activeTab}>
             <Tabs.List variant="line">
               <Tabs.Trigger value="configuration">Configuration</Tabs.Trigger>
-              <Tabs.Trigger value="health">Health & Status</Tabs.Trigger>
+              <Tabs.Trigger value="health">Health, Setup & Status</Tabs.Trigger>
             </Tabs.List>
           </Tabs.Root>
         </div>

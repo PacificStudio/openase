@@ -212,17 +212,20 @@ describe('MachinesPage cache behavior', () => {
     })
   })
 
-  it('shows connection mode, detection status, and workspace guidance in the machine editor', async () => {
+  it('shows topology-driven setup guidance and workspace guidance in the machine editor', async () => {
     const view = render(MachinesPage)
 
     expect(await view.findByText('Linux / amd64')).toBeTruthy()
     expect(view.getByText('Direct Connect')).toBeTruthy()
-    expect(view.getByText('SSH Compat')).toBeTruthy()
+    expect(view.getByText('Legacy SSH runtime')).toBeTruthy()
     expect(view.getByText('Detected')).toBeTruthy()
 
     await openMachineDetails('machine-1')
 
-    expect(await view.findByText('Reachability mode')).toBeTruthy()
+    expect(await view.findByText('Connection topology')).toBeTruthy()
+    expect(view.getByText('Next step guidance')).toBeTruthy()
+    expect(view.getByText('SSH quick setup')).toBeTruthy()
+    expect(view.getByText('Migration needed')).toBeTruthy()
     expect(view.getAllByText('Detected amd64 on Linux.').length).toBeGreaterThan(0)
     expect(view.getByText('/home/ubuntu/.openase/workspace')).toBeTruthy()
     expect(view.getByText('Keeping the saved workspace root override.')).toBeTruthy()
@@ -235,13 +238,14 @@ describe('MachinesPage cache behavior', () => {
     await openMachineDetails('machine-1')
 
     expect(await view.findByText('Configuration')).toBeTruthy()
-    expect(view.getByText('Health & Status')).toBeTruthy()
+    expect(view.getByText('Health, Setup & Status')).toBeTruthy()
 
-    expect(view.getByText('Reachability mode')).toBeTruthy()
+    expect(view.getByText('Connection topology')).toBeTruthy()
 
-    await fireEvent.click(view.getByText('Health & Status'))
+    await fireEvent.click(view.getByText('Health, Setup & Status'))
 
     expect(await view.findByText('Health snapshot')).toBeTruthy()
+    expect(view.getByText('Setup guidance')).toBeTruthy()
   })
 })
 

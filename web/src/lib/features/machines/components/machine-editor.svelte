@@ -14,7 +14,6 @@
   import type {
     MachineDraft,
     MachineDraftField,
-    MachineExecutionMode,
     MachineItem,
     MachineReachabilityMode,
     WorkspaceRootState,
@@ -55,10 +54,6 @@
   function updateReachability(mode: MachineReachabilityMode) {
     onDraftChange?.('reachabilityMode', mode)
   }
-
-  function updateExecution(mode: MachineExecutionMode) {
-    onDraftChange?.('executionMode', mode)
-  }
 </script>
 
 <div class="space-y-5">
@@ -68,15 +63,10 @@
     </div>
   {/if}
 
-  <MachineEditorGuidance
-    {machine}
-    {draft}
-    onSelectReachability={updateReachability}
-    onSelectExecution={updateExecution}
-  />
+  <MachineEditorGuidance {machine} {draft} onSelectReachability={updateReachability} />
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Identity & reachability</h3>
+    <h3 class="text-foreground text-sm font-semibold">Identity & connection</h3>
 
     <div class="grid gap-3 md:grid-cols-3">
       <div class="space-y-1.5">
@@ -111,7 +101,9 @@
 
     {#if reachabilityMode === 'direct_connect' && executionMode === 'websocket'}
       <div class="space-y-1.5">
-        <Label for="machine-advertised-endpoint" class="text-xs">Listener endpoint</Label>
+        <Label for="machine-advertised-endpoint" class="text-xs"
+          >Direct-connect listener endpoint</Label
+        >
         <Input
           id="machine-advertised-endpoint"
           value={draft.advertisedEndpoint}
@@ -119,14 +111,15 @@
           oninput={(event) => updateField('advertisedEndpoint', event)}
         />
         <p class="text-muted-foreground text-[11px]">
-          WebSocket endpoint OpenASE connects to for direct-connect execution.
+          OpenASE dials this websocket listener when the control plane can reach the machine
+          directly.
         </p>
       </div>
     {/if}
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">SSH helper</h3>
+    <h3 class="text-foreground text-sm font-semibold">SSH helper lane</h3>
 
     {#if localMachine}
       <p class="text-muted-foreground text-xs">Local execution does not use SSH helper access.</p>
@@ -154,14 +147,14 @@
       </div>
       <p class="text-muted-foreground text-xs">
         {#if executionMode === 'ssh_compat'}
-          Legacy record detected. Resave this machine as websocket execution, then keep SSH only for
-          bootstrap or diagnostics.
+          Legacy record detected. Add the listener endpoint, then resave this machine so SSH drops
+          back to a helper-only lane.
         {:else if reachabilityMode === 'reverse_connect'}
-          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
-          execution stays on the reverse websocket daemon.
+          Optional helper access for assisted daemon bootstrap, diagnostics, or emergency repair.
+          Runtime execution stays on the reverse-connect daemon.
         {:else}
-          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
-          execution stays on the websocket listener above.
+          Optional helper access for quick bootstrap, diagnostics, or emergency repair. Runtime
+          execution stays on the direct-connect listener above.
         {/if}
       </p>
     {/if}

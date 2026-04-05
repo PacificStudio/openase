@@ -3,6 +3,7 @@
   import { formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import type { MachineItem, MachineProbeResult, MachineSnapshot } from '../types'
+  import { buildMachineSetupGuide } from '../machine-setup'
   import type { TruthyState } from './machine-health-panel-view'
   import {
     buildAuditRows,
@@ -55,6 +56,7 @@
   const statCards = $derived(snapshot ? buildStatCards(snapshot) : [])
   const runtimeRows = $derived(snapshot?.agentEnvironment ?? [])
   const auditRows = $derived(snapshot ? buildAuditRows(snapshot) : [])
+  const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
 </script>
 
 <div class="space-y-4">
@@ -67,6 +69,53 @@
       No monitor snapshot is available for this machine yet.
     </div>
   {:else}
+    <div class="border-border bg-card rounded-xl border">
+      <div class="border-border flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <h4 class="text-foreground text-sm font-semibold">Setup guidance</h4>
+          <p class="text-muted-foreground mt-1 text-xs">{setupGuide.topologySummary}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{setupGuide.topologyLabel}</Badge>
+          <Badge variant="outline">{setupGuide.stateLabel}</Badge>
+        </div>
+      </div>
+
+      <div class="grid gap-3 px-4 py-4 lg:grid-cols-3">
+        <div class="space-y-1.5">
+          <p class="text-foreground text-sm font-medium">{setupGuide.runtimeLabel}</p>
+          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.runtimeSummary}</p>
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-foreground text-sm font-medium">{setupGuide.helperLabel}</p>
+          <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.helperSummary}</p>
+        </div>
+        <div class="space-y-1.5">
+          <p class="text-foreground text-sm font-medium">Next steps</p>
+          <ul class="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
+            {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
+              <li>{step}</li>
+            {/each}
+          </ul>
+        </div>
+      </div>
+
+      {#if setupGuide.commands.length > 0}
+        <div class="border-border grid gap-3 border-t px-4 py-4">
+          {#each setupGuide.commands as command (command.title)}
+            <div class="rounded-lg border border-dashed px-3.5 py-3">
+              <p class="text-foreground text-sm font-medium">{command.title}</p>
+              <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                {command.description}
+              </p>
+              <pre
+                class="bg-muted/60 text-foreground mt-3 overflow-x-auto rounded-md px-3 py-2 text-xs whitespace-pre-wrap">{command.command}</pre>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
     <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       {#each statCards as card (card.label)}
         <div class="border-border bg-card rounded-xl border px-4 py-3">

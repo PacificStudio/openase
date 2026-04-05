@@ -7,11 +7,10 @@
     machineDetectedArchLabel,
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
-    machineDetectionMessage,
     machineDetectionStatusLabel,
-    machineExecutionModeLabel,
     machineReachabilityLabel,
   } from '../model'
+  import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem, MachineSnapshot } from '../types'
 
   let {
@@ -27,6 +26,8 @@
     refreshing?: boolean
     onRefresh?: () => void
   } = $props()
+
+  const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
 </script>
 
 <div class="flex items-start justify-between gap-3">
@@ -45,7 +46,8 @@
     {#if machine}
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{machineReachabilityLabel(machine.reachability_mode)}</Badge>
-        <Badge variant="outline">{machineExecutionModeLabel(machine.execution_mode)}</Badge>
+        <Badge variant="outline">{setupGuide.runtimeLabel}</Badge>
+        <Badge variant="outline">{setupGuide.helperLabel}</Badge>
         <Badge variant="secondary">{machineDetectedOSLabel(machine.detected_os)}</Badge>
         <Badge variant="secondary">{machineDetectedArchLabel(machine.detected_arch)}</Badge>
         <Badge variant="outline" class={machineDetectionBadgeClass(machine.detection_status)}>
@@ -53,14 +55,14 @@
         </Badge>
       </div>
       <p class="text-muted-foreground max-w-2xl text-xs">
-        {machineDetectionMessage(machine)}
+        {setupGuide.stateSummary}
       </p>
       <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
-        {#if machine.execution_mode === 'websocket' && machine.reachability_mode === 'direct_connect' && machine.advertised_endpoint}
+        {#if machine.reachability_mode === 'direct_connect' && machine.advertised_endpoint}
           <span class="truncate font-mono">{machine.advertised_endpoint}</span>
         {/if}
-        {#if machine.reachability_mode !== 'local'}
-          <span>session {machine.daemon_status?.session_state ?? 'unknown'}</span>
+        {#if machine.reachability_mode === 'reverse_connect'}
+          <span>{setupGuide.stateLabel}</span>
         {/if}
       </div>
     {/if}

@@ -11,10 +11,10 @@
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
     machineDetectionStatusLabel,
-    machineExecutionModeLabel,
     machineReachabilityLabel,
     parseMachineSnapshot,
   } from '../model'
+  import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem } from '../types'
 
   const dotColorClass: Record<StatusDot['color'], string> = {
@@ -49,12 +49,12 @@
   const snapshot = $derived(parseMachineSnapshot(machine.resources))
   const localMachine = $derived(isLocalMachine(machine))
   const reachabilityLabel = $derived(machineReachabilityLabel(machine.reachability_mode))
-  const executionLabel = $derived(machineExecutionModeLabel(machine.execution_mode))
   const platformLabel = $derived(
     `${machineDetectedOSLabel(machine.detected_os)} / ${machineDetectedArchLabel(machine.detected_arch)}`,
   )
   const detectionLabel = $derived(machineDetectionStatusLabel(machine.detection_status))
   const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine.detection_status))
+  const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
 
   const statusDots = $derived.by((): StatusDot[] => buildStatusDots(machine, snapshot))
   const resourceBars = $derived.by(() => buildResourceBars(snapshot))
@@ -81,7 +81,8 @@
         </p>
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
           <Badge variant="outline" class="text-[10px]">{reachabilityLabel}</Badge>
-          <Badge variant="outline" class="text-[10px]">{executionLabel}</Badge>
+          <Badge variant="outline" class="text-[10px]">{setupGuide.runtimeLabel}</Badge>
+          <Badge variant="outline" class="text-[10px]">{setupGuide.stateLabel}</Badge>
           <Badge variant="secondary" class="text-[10px]">{platformLabel}</Badge>
           <Badge variant="outline" class={cn('text-[10px]', detectionBadgeClass)}>
             {detectionLabel}

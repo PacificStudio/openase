@@ -89,7 +89,7 @@
 
 <PageScaffold
   title="Machines"
-  description="Machine access, transport configuration, and runtime health."
+  description="Machine topology, helper setup flows, and runtime health."
   variant="workspace"
   {actions}
 >

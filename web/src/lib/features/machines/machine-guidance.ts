@@ -40,7 +40,7 @@ const machineModeGuides: Record<MachineReachabilityMode, MachineModeGuide> = {
   },
   reverse_connect: {
     mode: 'reverse_connect',
-    label: 'Reverse Connect',
+    label: 'Machine Dials Out',
     summary: 'The machine daemon dials out and carries native websocket runtime execution.',
     requiredFields:
       'Machine identity, daemon registration, and a workspace root the daemon can access.',

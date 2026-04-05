@@ -7,6 +7,7 @@
     machineDetectionBadgeClass,
     machineDetectionStatusLabel,
   } from '../model'
+  import { friendlyTransportLabel } from '../machine-setup'
   import type { MachineProbeResult } from '../types'
 
   let { probe }: { probe: MachineProbeResult } = $props()
@@ -20,7 +21,7 @@
         {formatRelativeTime(probe.checked_at)}
       </p>
       <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{probe.transport}</Badge>
+        <Badge variant="outline">{friendlyTransportLabel(probe.transport)}</Badge>
         <Badge variant="secondary">{machineDetectedOSLabel(probe.detected_os)}</Badge>
         <Badge variant="secondary">{machineDetectedArchLabel(probe.detected_arch)}</Badge>
         <Badge variant="outline" class={machineDetectionBadgeClass(probe.detection_status)}>

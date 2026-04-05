@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Badge } from '$ui/badge'
   import { cn, formatRelativeTime } from '$lib/utils'
+  import { buildMachineSetupGuide } from '../machine-setup'
   import type { MachineItem } from '../types'
 
   let {
@@ -26,9 +27,8 @@
     return statusColors[status] ?? 'bg-slate-500'
   }
 
-  function transportOf(machine: MachineItem) {
-    const transport = machine.resources.transport
-    return typeof transport === 'string' && transport.trim() ? transport : null
+  function runtimeState(machine: MachineItem) {
+    return buildMachineSetupGuide({ machine }).stateLabel
   }
 </script>
 
@@ -76,7 +76,7 @@
         </div>
 
         <div class="text-muted-foreground mt-3 flex items-center justify-between text-xs">
-          <span>{transportOf(machine) ?? 'No transport yet'}</span>
+          <span>{runtimeState(machine)}</span>
           <span>
             {#if machine.last_heartbeat_at}
               {formatRelativeTime(machine.last_heartbeat_at)}

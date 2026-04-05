@@ -1,4 +1,5 @@
 import { formatRelativeTime } from '$lib/utils'
+import { friendlyTransportLabel } from '../machine-setup'
 import type { MachineCLIStatus, MachineSnapshot } from '../types'
 
 export type HealthStatCard = {
@@ -54,7 +55,7 @@ export function buildStatCards(snapshot: MachineSnapshot): HealthStatCard[] {
             : 'Unavailable',
       meta: snapshot.monitor.l1?.latencyMs
         ? `${snapshot.monitor.l1.latencyMs.toFixed(0)} ms`
-        : (snapshot.transport ?? 'No transport'),
+        : friendlyTransportLabel(snapshot.transport),
     },
     {
       label: 'CPU',
