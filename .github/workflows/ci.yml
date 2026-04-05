@@ -204,19 +204,16 @@ jobs:
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
 
-      - name: Allocate Playwright Port
+      - name: Select Playwright Port
         shell: bash
         run: |
           set -euo pipefail
 
-          playwright_port="$(
-            python3 -c 'import socket; sock = socket.socket(); sock.bind(("127.0.0.1", 0)); print(sock.getsockname()[1]); sock.close()'
-          )"
-
-          echo "OPENASE_PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
-          echo "OPENASE_PLAYWRIGHT_PORT=${playwright_port}" >> "${GITHUB_ENV}"
-          echo "OPENASE_PLAYWRIGHT_BASE_URL=http://127.0.0.1:${playwright_port}" >> "${GITHUB_ENV}"
-          echo "OPENASE_PLAYWRIGHT_SERVER_MODE=preview" >> "${GITHUB_ENV}"
+          port=$((30000 + (GITHUB_RUN_ID % 10000)))
+          echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_SERVER_MODE=preview" >> "${GITHUB_ENV}"
 
       - name: Run Web CI
         shell: bash

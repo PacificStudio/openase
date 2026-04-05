@@ -67,6 +67,35 @@ func TestRunRemoteRuntimePreflightReportsOpenASEFailure(t *testing.T) {
 	}
 }
 
+func TestRunRemoteRuntimePreflightReportsOpenASEFailureForFastExits(t *testing.T) {
+	server := httptest.NewServer(NewWebsocketListenerHandler(ListenerHandlerOptions{}))
+	defer server.Close()
+
+	transport := websocketTransport{mode: domain.MachineConnectionModeWSListener}
+	machine := runtimePreflightTestMachine(websocketURL(server.URL))
+
+	for i := 0; i < 50; i++ {
+		workspaceRoot := t.TempDir()
+		writeRuntimePreflightWrapper(t, workspaceRoot)
+
+		err := RunRemoteRuntimePreflight(context.Background(), transport, machine, RuntimePreflightSpec{
+			WorkingDirectory: workspaceRoot,
+			AgentCommand:     "/bin/sh",
+			Environment:      []string{"PATH=/nonexistent", "OPENASE_REAL_BIN="},
+		})
+		if err == nil {
+			t.Fatalf("iteration %d: RunRemoteRuntimePreflight() error = nil, want openase failure", i)
+		}
+		var preflightErr *RuntimePreflightError
+		if !errors.As(err, &preflightErr) {
+			t.Fatalf("iteration %d: RunRemoteRuntimePreflight() error = %T, want *RuntimePreflightError", i, err)
+		}
+		if preflightErr.Stage != RuntimePreflightStageOpenASE {
+			t.Fatalf("iteration %d: RunRemoteRuntimePreflight() stage = %q, want %q", i, preflightErr.Stage, RuntimePreflightStageOpenASE)
+		}
+	}
+}
+
 func runtimePreflightTestMachine(endpoint string) domain.Machine {
 	return domain.Machine{
 		ID:                 uuid.New(),
