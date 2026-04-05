@@ -42,6 +42,7 @@ export function resolveLegacyConnectionMode(
 export function coerceExecutionMode(
   reachabilityMode: MachineReachabilityMode,
   executionMode: MachineExecutionMode,
+  advertisedEndpoint = '',
 ): MachineExecutionMode {
   if (reachabilityMode === 'local') {
     return 'local_process'
@@ -49,7 +50,10 @@ export function coerceExecutionMode(
   if (reachabilityMode === 'reverse_connect') {
     return 'websocket'
   }
-  if (executionMode === 'local_process' || executionMode === 'ssh_compat') {
+  if (executionMode === 'local_process') {
+    return 'websocket'
+  }
+  if (executionMode === 'ssh_compat' && advertisedEndpoint.trim()) {
     return 'websocket'
   }
   return executionMode

@@ -67,7 +67,8 @@ const machineExecutionGuides: Record<MachineExecutionMode, MachineExecutionGuide
   ssh_compat: {
     mode: 'ssh_compat',
     label: 'SSH Compat',
-    summary: 'Legacy record only. Migrate this machine to websocket execution and keep SSH only as a helper channel.',
+    summary:
+      'Legacy record only. Migrate this machine to websocket execution and keep SSH only as a helper channel.',
   },
 }
 

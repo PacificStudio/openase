@@ -76,13 +76,13 @@ type machineSSHBootstrapResult struct {
 }
 
 type machineSSHDiagnosticResult struct {
-	MachineID      string                     `json:"machine_id"`
-	MachineName    string                     `json:"machine_name"`
-	ServiceManager string                     `json:"service_manager"`
-	RemoteHome     string                     `json:"remote_home"`
+	MachineID      string                      `json:"machine_id"`
+	MachineName    string                      `json:"machine_name"`
+	ServiceManager string                      `json:"service_manager"`
+	RemoteHome     string                      `json:"remote_home"`
 	Checks         []machineSSHDiagnosticCheck `json:"checks"`
 	Issues         []machineSSHDiagnosticIssue `json:"issues"`
-	Summary        string                     `json:"summary"`
+	Summary        string                      `json:"summary"`
 }
 
 type machineSSHDiagnosticCheck struct {
@@ -131,6 +131,7 @@ func newMachineSSHBootstrapCommand(options *rootOptions) *cobra.Command {
 Use SSH helper access to install or refresh the reverse websocket machine-agent.
 
 This command is the supported SSH bootstrap helper for websocket runtime rollout.
+The [machineId] argument must be a machine UUID.
 It fetches the machine record from the OpenASE API, optionally issues a fresh
 machine channel token, uploads the current OpenASE binary to the remote host,
 writes the daemon environment file, installs a user service, and starts it.
@@ -214,7 +215,8 @@ Run SSH helper diagnostics for machine bootstrap and daemon health.
 
 This command keeps SSH in the helper lane: it validates SSH access, workspace
 permissions, machine-agent binary presence, service health, daemon registration,
-and recent logs, then returns actionable issues for common misconfiguration classes.
+and recent logs, then returns actionable issues for common misconfiguration
+classes. The [machineId] argument must be a machine UUID.
 `),
 		Example: strings.TrimSpace(`
   openase machine ssh-diagnostics $OPENASE_MACHINE_ID
@@ -338,13 +340,13 @@ func runMachineSSHBootstrap(
 		UID:               platform.UID,
 	})
 
-	if err := uploadRemoteFile(ctx, client, layout.RemoteBinaryPath, binaryBytes, 0o755); err != nil {
+	if err := uploadRemoteFile(client, layout.RemoteBinaryPath, binaryBytes, 0o755); err != nil {
 		return machineSSHBootstrapResult{}, err
 	}
-	if err := uploadRemoteFile(ctx, client, layout.EnvironmentFile, []byte(buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval)), 0o600); err != nil {
+	if err := uploadRemoteFile(client, layout.EnvironmentFile, []byte(buildMachineSSHEnvironmentFile(tokenResp, input.HeartbeatInterval)), 0o600); err != nil {
 		return machineSSHBootstrapResult{}, err
 	}
-	if err := uploadRemoteFile(ctx, client, serviceFilePath, []byte(serviceFile), 0o644); err != nil {
+	if err := uploadRemoteFile(client, serviceFilePath, []byte(serviceFile), 0o644); err != nil {
 		return machineSSHBootstrapResult{}, err
 	}
 
@@ -753,7 +755,8 @@ func buildMachineAgentSystemdUnit(input machineSSHServiceInstallInput, args []st
 }
 
 func buildMachineAgentLaunchdPlist(label string, input machineSSHServiceInstallInput, args []string) string {
-	commandParts := []string{". " + sshinfra.ShellQuote(input.EnvironmentFile) + " 2>/dev/null || true;", "exec", sshinfra.ShellQuote(input.BinaryPath)}
+	commandParts := make([]string, 0, 3+len(args))
+	commandParts = append(commandParts, ". "+sshinfra.ShellQuote(input.EnvironmentFile)+" 2>/dev/null || true;", "exec", sshinfra.ShellQuote(input.BinaryPath))
 	for _, arg := range args {
 		commandParts = append(commandParts, sshinfra.ShellQuote(arg))
 	}
@@ -801,7 +804,7 @@ func buildLaunchdBootstrapTarget(uid string) string {
 	return "gui/" + trimmedUID
 }
 
-func uploadRemoteFile(ctx context.Context, client sshinfra.Client, remotePath string, content []byte, mode os.FileMode) error {
+func uploadRemoteFile(client sshinfra.Client, remotePath string, content []byte, mode os.FileMode) error {
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("open ssh session for upload %s: %w", remotePath, err)
@@ -817,7 +820,7 @@ func uploadRemoteFile(ctx context.Context, client sshinfra.Client, remotePath st
 
 	tmpPath := remotePath + ".tmp"
 	command := "sh -lc " + sshinfra.ShellQuote(
-		"set -eu\nmkdir -p " + sshinfra.ShellQuote(filepath.Dir(remotePath)) + "\ncat > " + sshinfra.ShellQuote(tmpPath) + "\nchmod " + fmt.Sprintf("%#o", mode) + " " + sshinfra.ShellQuote(tmpPath) + "\nmv " + sshinfra.ShellQuote(tmpPath) + " " + sshinfra.ShellQuote(remotePath),
+		"set -eu\nmkdir -p "+sshinfra.ShellQuote(filepath.Dir(remotePath))+"\ncat > "+sshinfra.ShellQuote(tmpPath)+"\nchmod "+fmt.Sprintf("%#o", mode)+" "+sshinfra.ShellQuote(tmpPath)+"\nmv "+sshinfra.ShellQuote(tmpPath)+" "+sshinfra.ShellQuote(remotePath),
 	)
 	if err := session.Start(command); err != nil {
 		_ = stdin.Close()

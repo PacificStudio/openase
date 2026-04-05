@@ -135,7 +135,8 @@
           Execution path
         </h4>
         <p class="text-muted-foreground mt-0.5 text-xs">
-          Websocket is the runtime model. SSH remains available only as a bootstrap and diagnostics helper.
+          Websocket is the runtime model. SSH remains available only as a bootstrap and diagnostics
+          helper.
         </p>
       </div>
       <div class="grid gap-2 sm:grid-cols-2">

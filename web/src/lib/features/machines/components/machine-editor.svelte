@@ -154,11 +154,14 @@
       </div>
       <p class="text-muted-foreground text-xs">
         {#if executionMode === 'ssh_compat'}
-          Legacy record detected. Resave this machine as websocket execution, then keep SSH only for bootstrap or diagnostics.
+          Legacy record detected. Resave this machine as websocket execution, then keep SSH only for
+          bootstrap or diagnostics.
         {:else if reachabilityMode === 'reverse_connect'}
-          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime execution stays on the reverse websocket daemon.
+          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
+          execution stays on the reverse websocket daemon.
         {:else}
-          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime execution stays on the websocket listener above.
+          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
+          execution stays on the websocket listener above.
         {/if}
       </p>
     {/if}
