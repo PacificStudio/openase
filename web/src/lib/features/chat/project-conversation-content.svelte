@@ -12,6 +12,7 @@
     tabs = [],
     activeTabId = '',
     conversations = [],
+    currentProjectId = '',
     conversationId = '',
     workspaceDiff = null,
     workspaceDiffLoading = false,
@@ -25,6 +26,7 @@
     tabs?: ProjectConversationTabView[]
     activeTabId?: string
     conversations?: ProjectConversation[]
+    currentProjectId?: string
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     workspaceDiffLoading?: boolean
@@ -41,7 +43,14 @@
   } = $props()
 </script>
 
-<ProjectConversationTabStrip {tabs} {activeTabId} {conversations} {onSelectTab} {onCloseTab} />
+<ProjectConversationTabStrip
+  {tabs}
+  {activeTabId}
+  {conversations}
+  {currentProjectId}
+  {onSelectTab}
+  {onCloseTab}
+/>
 
 <ProjectConversationWorkspaceSummary
   {conversationId}

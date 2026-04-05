@@ -54,9 +54,21 @@ export function createProjectConversationController(
     })
   }
 
-  function newTabState(providerId = '', restored = false): ProjectConversationTabState {
+  function newTabState(
+    providerId = '',
+    restored = false,
+    projectId = '',
+    projectName = '',
+  ): ProjectConversationTabState {
     nextTabID += 1
-    return createProjectConversationTabState(nextTabID, providerId, restored)
+    const ctx = input.getProjectContext()
+    return createProjectConversationTabState(
+      nextTabID,
+      providerId,
+      restored,
+      projectId || ctx.projectId,
+      projectName || ctx.projectName,
+    )
   }
 
   function getActiveTab() {
@@ -72,10 +84,7 @@ export function createProjectConversationController(
   }
 
   function canQueueOnTab(tab: ProjectConversationTabState | null) {
-    return canQueueProjectConversationTurn({
-      projectId: input.getProjectId(),
-      tab,
-    })
+    return canQueueProjectConversationTurn({ tab })
   }
 
   function snapshot() {
@@ -129,7 +138,6 @@ export function createProjectConversationController(
     ensureTabSelection,
     persistTabs: () =>
       persistProjectConversationTabs({
-        projectId: input.getProjectId(),
         tabs,
         activeTabId,
       }),
@@ -224,7 +232,7 @@ export function createProjectConversationController(
       void revision
       const activeTab = getActiveTab()
       return (
-        !input.getProjectId() ||
+        !activeTab?.projectId ||
         !activeTab?.providerId ||
         activeTab == null ||
         projectConversationHasPendingInterrupt(activeTab.entries)
@@ -234,7 +242,7 @@ export function createProjectConversationController(
       void revision
       const activeTab = getActiveTab()
       return (
-        !input.getProjectId() ||
+        !activeTab?.projectId ||
         !activeTab?.providerId ||
         activeTab == null ||
         activeTab.phase !== 'idle' ||
