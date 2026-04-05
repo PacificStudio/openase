@@ -275,6 +275,14 @@ func normalizeCreateMachineDefaults(input domain.CreateMachine) (domain.CreateMa
 	if err != nil {
 		return domain.CreateMachine{}, err
 	}
+	reachabilityMode, err := domain.ParseStoredMachineReachabilityMode(input.ReachabilityMode.String(), input.Host)
+	if err != nil {
+		reachabilityMode = mode.ReachabilityMode()
+	}
+	executionMode, err := domain.ParseStoredMachineExecutionMode(input.ExecutionMode.String(), input.Host)
+	if err != nil {
+		executionMode = mode.ExecutionMode()
+	}
 	capabilities, err := domain.ParseStoredMachineTransportCapabilities(domainTransportCapabilityStrings(input.TransportCapabilities), mode)
 	if err != nil {
 		return domain.CreateMachine{}, err
@@ -301,6 +309,8 @@ func normalizeCreateMachineDefaults(input domain.CreateMachine) (domain.CreateMa
 	}
 
 	input.ConnectionMode = mode
+	input.ReachabilityMode = reachabilityMode
+	input.ExecutionMode = executionMode
 	input.TransportCapabilities = capabilities
 	input.DetectedOS = detectedOS
 	input.DetectedArch = detectedArch
@@ -316,6 +326,8 @@ func normalizeUpdateMachineDefaults(input domain.UpdateMachine) (domain.UpdateMa
 		Name:                  input.Name,
 		Host:                  input.Host,
 		Port:                  input.Port,
+		ReachabilityMode:      input.ReachabilityMode,
+		ExecutionMode:         input.ExecutionMode,
 		ConnectionMode:        input.ConnectionMode,
 		TransportCapabilities: input.TransportCapabilities,
 		SSHUser:               input.SSHUser,
@@ -379,6 +391,8 @@ func mapMachine(item *ent.Machine) domain.Machine {
 		Name:                  item.Name,
 		Host:                  item.Host,
 		Port:                  item.Port,
+		ReachabilityMode:      connectionMode.ReachabilityMode(),
+		ExecutionMode:         connectionMode.ExecutionMode(),
 		ConnectionMode:        connectionMode,
 		TransportCapabilities: transportCapabilities,
 		SSHUser:               optionalString(item.SSHUser),
@@ -427,12 +441,31 @@ func parseStoredMachineTransportCapabilities(
 	raw []string,
 	mode domain.MachineConnectionMode,
 ) []domain.MachineTransportCapability {
-	items, err := domain.ParseStoredMachineTransportCapabilities(raw, mode)
-	if err != nil {
-		fallback, _ := domain.ParseStoredMachineTransportCapabilities(nil, mode)
-		return fallback
+	supported := domain.SupportedMachineTransportCapabilities(mode)
+	if len(raw) == 0 {
+		return supported
 	}
-	return items
+	normalized := make([]domain.MachineTransportCapability, 0, len(raw))
+	seen := make(map[domain.MachineTransportCapability]struct{}, len(raw))
+	supportedSet := make(map[domain.MachineTransportCapability]struct{}, len(supported))
+	for _, item := range supported {
+		supportedSet[item] = struct{}{}
+	}
+	for _, rawItem := range raw {
+		capability := domain.MachineTransportCapability(strings.ToLower(strings.TrimSpace(rawItem)))
+		if !capability.IsValid() {
+			continue
+		}
+		if _, ok := supportedSet[capability]; !ok {
+			continue
+		}
+		if _, ok := seen[capability]; ok {
+			continue
+		}
+		seen[capability] = struct{}{}
+		normalized = append(normalized, capability)
+	}
+	return normalized
 }
 
 func defaultLocalTransportCapabilities() []domain.MachineTransportCapability {
