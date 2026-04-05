@@ -1021,27 +1021,6 @@ func runSystemctlUser(ctx context.Context, args ...string) error {
 	}
 }
 
-func runLaunchctl(ctx context.Context, args ...string) error {
-	path, err := exec.LookPath("launchctl")
-	if err != nil {
-		return fmt.Errorf("launchctl is not installed")
-	}
-
-	//nolint:gosec // setup intentionally shells out to the local launchd CLI for capability checks
-	command := exec.CommandContext(ctx, path, args...)
-	output, err := command.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-
-	trimmedOutput := strings.TrimSpace(string(output))
-	if trimmedOutput == "" {
-		trimmedOutput = err.Error()
-	}
-
-	return fmt.Errorf("launchctl %s failed: %s", strings.Join(args, " "), trimmedOutput)
-}
-
 func runSetupWebWizard(ctx context.Context, out io.Writer, host string, port int) error {
 	service, err := setup.NewService(setup.Options{})
 	if err != nil {

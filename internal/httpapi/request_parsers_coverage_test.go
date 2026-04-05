@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
@@ -105,6 +106,61 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	}
 	if _, err := parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{BudgetUSD: &negativeBudget}); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
 		t.Fatalf("parseUpdateTicketRequest(negative budget) error = %v", err)
+	}
+
+	agentUpdateInput, err := parseAgentUpdateTicketRequest(
+		context.Background(),
+		projectID,
+		ticketID,
+		"agent:codex",
+		rawAgentUpdateTicketRequest{
+			Description:    &description,
+			StatusName:     strPtr(" Done "),
+			Archived:       boolPtr(true),
+			Priority:       &priority,
+			Type:           &ticketType,
+			WorkflowID:     strPtr(" "),
+			ParentTicketID: &parentID,
+			ExternalRef:    &externalRef,
+			BudgetUSD:      &budget,
+		},
+		func(_ context.Context, gotProjectID uuid.UUID, statusName string) (uuid.UUID, error) {
+			if gotProjectID != projectID || strings.TrimSpace(statusName) != "Done" {
+				t.Fatalf("resolveStatusID() = (%v, %q)", gotProjectID, statusName)
+			}
+			return uuid.MustParse(statusID), nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseAgentUpdateTicketRequest() error = %v", err)
+	}
+	if !agentUpdateInput.Priority.Set || agentUpdateInput.Priority.Value == nil || *agentUpdateInput.Priority.Value != ticketservice.PriorityHigh {
+		t.Fatalf("parseAgentUpdateTicketRequest().Priority = %+v", agentUpdateInput.Priority)
+	}
+	if !agentUpdateInput.Type.Set || agentUpdateInput.Type.Value != ticketservice.TypeBugfix {
+		t.Fatalf("parseAgentUpdateTicketRequest().Type = %+v", agentUpdateInput.Type)
+	}
+	if !agentUpdateInput.WorkflowID.Set || agentUpdateInput.WorkflowID.Value != nil {
+		t.Fatalf("parseAgentUpdateTicketRequest().WorkflowID = %+v", agentUpdateInput.WorkflowID)
+	}
+	if !agentUpdateInput.ParentTicketID.Set || agentUpdateInput.ParentTicketID.Value == nil || agentUpdateInput.ParentTicketID.Value.String() != parentID {
+		t.Fatalf("parseAgentUpdateTicketRequest().ParentTicketID = %+v", agentUpdateInput.ParentTicketID)
+	}
+	if !agentUpdateInput.BudgetUSD.Set || agentUpdateInput.BudgetUSD.Value != budget {
+		t.Fatalf("parseAgentUpdateTicketRequest().BudgetUSD = %+v", agentUpdateInput.BudgetUSD)
+	}
+	if !agentUpdateInput.CreatedBy.Set || agentUpdateInput.CreatedBy.Value != "agent:codex" {
+		t.Fatalf("parseAgentUpdateTicketRequest().CreatedBy = %+v", agentUpdateInput.CreatedBy)
+	}
+	if _, err := parseAgentUpdateTicketRequest(
+		context.Background(),
+		projectID,
+		ticketID,
+		"agent:codex",
+		rawAgentUpdateTicketRequest{BudgetUSD: &negativeBudget},
+		func(context.Context, uuid.UUID, string) (uuid.UUID, error) { return uuid.Nil, nil },
+	); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
+		t.Fatalf("parseAgentUpdateTicketRequest(negative budget) error = %v", err)
 	}
 
 	dependencyInput, err := parseAddDependencyRequest(ticketID, rawAddDependencyRequest{
@@ -410,5 +466,9 @@ func strPtr(value string) *string {
 }
 
 func intPtr(value int) *int {
+	return &value
+}
+
+func boolPtr(value bool) *bool {
 	return &value
 }

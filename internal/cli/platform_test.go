@@ -64,7 +64,19 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)
-	command.SetArgs([]string{"create", "--title", "Follow-up", "--description", "split out tests", "--priority", "high"})
+	command.SetArgs([]string{
+		"create",
+		"--title", "Follow-up",
+		"--description", "split out tests",
+		"--status-id", "550e8400-e29b-41d4-a716-446655440000",
+		"--priority", "high",
+		"--type", "bugfix",
+		"--workflow-id", "550e8400-e29b-41d4-a716-446655440001",
+		"--parent-ticket-id", "550e8400-e29b-41d4-a716-446655440002",
+		"--external-ref", "GH-42",
+		"--budget-usd", "12.5",
+		"--archived=true",
+	})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("ExecuteContext returned error: %v", err)
@@ -79,8 +91,21 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	if path != "/projects/project-123/tickets" {
 		t.Fatalf("expected ticket create path, got %q", path)
 	}
-	if payload["title"] != "Follow-up" || payload["description"] != "split out tests" || payload["priority"] != "high" {
-		t.Fatalf("unexpected request payload: %+v", payload)
+	for key, want := range map[string]any{
+		"title":            "Follow-up",
+		"description":      "split out tests",
+		"status_id":        "550e8400-e29b-41d4-a716-446655440000",
+		"priority":         "high",
+		"type":             "bugfix",
+		"workflow_id":      "550e8400-e29b-41d4-a716-446655440001",
+		"parent_ticket_id": "550e8400-e29b-41d4-a716-446655440002",
+		"external_ref":     "GH-42",
+		"budget_usd":       12.5,
+		"archived":         true,
+	} {
+		if payload[key] != want {
+			t.Fatalf("expected payload[%q] = %#v, got %#v in %+v", key, want, payload[key], payload)
+		}
 	}
 	if !strings.Contains(stdout.String(), `"title": "Follow-up"`) {
 		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
@@ -241,6 +266,56 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 	}
 }
 
+func TestTicketUpdateCommandSupportsExpandedPatchSurface(t *testing.T) {
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-9","priority":"high"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{
+		"update",
+		"--priority", "high",
+		"--type", "chore",
+		"--workflow-id", "550e8400-e29b-41d4-a716-446655440000",
+		"--parent-ticket-id", "550e8400-e29b-41d4-a716-446655440001",
+		"--budget-usd", "42.5",
+		"--archived=true",
+	})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected env-backed ticket path, got %q", path)
+	}
+	for key, want := range map[string]any{
+		"priority":         "high",
+		"type":             "chore",
+		"workflow_id":      "550e8400-e29b-41d4-a716-446655440000",
+		"parent_ticket_id": "550e8400-e29b-41d4-a716-446655440001",
+		"budget_usd":       42.5,
+		"archived":         true,
+	} {
+		if payload[key] != want {
+			t.Fatalf("expected payload[%q] = %#v, got %#v in %+v", key, want, payload[key], payload)
+		}
+	}
+}
+
 func TestTicketCommentUpdateCommandPatchesCurrentTicketComment(t *testing.T) {
 	var patchPayload map[string]any
 
@@ -366,7 +441,7 @@ func TestProjectAddRepoCommandPostsRepoPayload(t *testing.T) {
 	t.Setenv("OPENASE_PROJECT_ID", "project-123")
 
 	command := newAgentPlatformProjectCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
-	command.SetArgs([]string{"add-repo", "--name", "worker-tools", "--url", "https://github.com/acme/worker-tools.git", "--label", "go", "--label", "backend"})
+	command.SetArgs([]string{"add-repo", "--name", "worker-tools", "--url", "https://github.com/acme/worker-tools.git", "--workspace-dirname", "services/worker-tools", "--label", "go", "--label", "backend"})
 
 	if err := command.ExecuteContext(context.Background()); err != nil {
 		t.Fatalf("ExecuteContext returned error: %v", err)
@@ -380,6 +455,9 @@ func TestProjectAddRepoCommandPostsRepoPayload(t *testing.T) {
 	}
 	if payload["name"] != "worker-tools" || payload["repository_url"] != "https://github.com/acme/worker-tools.git" {
 		t.Fatalf("unexpected repo payload: %+v", payload)
+	}
+	if payload["workspace_dirname"] != "services/worker-tools" {
+		t.Fatalf("unexpected workspace dirname payload: %+v", payload)
 	}
 	labels, ok := payload["labels"].([]any)
 	if !ok || len(labels) != 2 {
