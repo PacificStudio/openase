@@ -101,13 +101,11 @@
   <div class="flex items-center justify-between">
     <div>
       <h3 class="text-foreground text-sm font-semibold">Connection mode</h3>
-      <p class="text-muted-foreground mt-0.5 text-xs">
-        How OpenASE reaches this machine.
-      </p>
+      <p class="text-muted-foreground mt-0.5 text-xs">How OpenASE reaches this machine.</p>
     </div>
     <button
       type="button"
-      class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 hover:underline transition-colors"
+      class="text-muted-foreground hover:text-foreground text-xs underline-offset-2 transition-colors hover:underline"
       onclick={() => (showComparison = !showComparison)}
     >
       {showComparison ? 'Hide comparison' : 'Compare modes'}
@@ -128,10 +126,12 @@
         onclick={() => onSelectMode?.(option.mode)}
       >
         <div class="flex items-start gap-3">
-          <div class={cn(
-            'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md',
-            selected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-          )}>
+          <div
+            class={cn(
+              'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md',
+              selected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+            )}
+          >
             <Icon class="size-4" />
           </div>
           <div class="min-w-0 flex-1">
@@ -144,7 +144,9 @@
               {/if}
             </div>
             <p class="text-muted-foreground mt-0.5 text-xs leading-relaxed">{option.shortDesc}</p>
-            <span class="text-muted-foreground mt-1 inline-block text-[10px] font-medium uppercase tracking-wider">
+            <span
+              class="text-muted-foreground mt-1 inline-block text-[10px] font-medium tracking-wider uppercase"
+            >
               {option.keyTrait}
             </span>
           </div>
@@ -160,10 +162,12 @@
           <tr class="border-border border-b">
             <th class="text-muted-foreground px-3 py-2 text-left font-medium"></th>
             {#each connectionModeOptions as option (option.mode)}
-              <th class={cn(
-                'px-3 py-2 text-center font-medium',
-                connectionMode === option.mode ? 'text-primary' : 'text-muted-foreground',
-              )}>
+              <th
+                class={cn(
+                  'px-3 py-2 text-center font-medium',
+                  connectionMode === option.mode ? 'text-primary' : 'text-muted-foreground',
+                )}
+              >
                 {machineConnectionModeLabel(option.mode)}
               </th>
             {/each}
@@ -174,10 +178,14 @@
             <tr class="border-border/60 border-b last:border-0">
               <td class="text-muted-foreground px-3 py-2 font-medium">{row.label}</td>
               {#each connectionModeOptions as option (option.mode)}
-                <td class={cn(
-                  'px-3 py-2 text-center',
-                  connectionMode === option.mode ? 'text-foreground font-medium' : 'text-muted-foreground',
-                )}>
+                <td
+                  class={cn(
+                    'px-3 py-2 text-center',
+                    connectionMode === option.mode
+                      ? 'text-foreground font-medium'
+                      : 'text-muted-foreground',
+                  )}
+                >
                   {row.values[option.mode]}
                 </td>
               {/each}
