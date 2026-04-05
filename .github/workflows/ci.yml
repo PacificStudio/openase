@@ -283,7 +283,7 @@ jobs:
         timeout-minutes: 45
         shell: bash
         env:
-          OPENASE_GO_TEST_PROGRESS_MODE: plain
+          OPENASE_GO_TEST_PROGRESS_MODE: json
         run: |
           set -euo pipefail
 
