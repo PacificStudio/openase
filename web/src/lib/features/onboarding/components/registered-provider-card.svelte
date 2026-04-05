@@ -39,60 +39,57 @@
 
 <div
   class={cn(
-    'border-border bg-card rounded-xl border p-4 transition-all',
+    'border-border bg-card rounded-lg border p-4 transition-colors',
     isSelected ? 'border-primary bg-primary/5 ring-primary/20 ring-1' : '',
   )}
 >
   <div class="mb-3 flex items-start gap-3">
-    <div class="bg-muted flex size-10 shrink-0 items-center justify-center rounded-xl">
+    <div class="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
       {#if iconPath}
-        <img src={iconPath} alt="" class="size-6" />
+        <img src={iconPath} alt="" class="size-5" />
       {:else}
-        <Zap class="text-foreground size-5" />
+        <Zap class="text-foreground size-4" />
       {/if}
     </div>
 
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <p class="text-foreground truncate text-sm font-semibold">{provider.name}</p>
-        <span class={cn('text-xs', status.className)}>{status.text}</span>
+        <p class="text-foreground truncate text-sm font-semibold leading-tight">{provider.name}</p>
+        <span class={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none', status.className)}>
+          {status.text}
+        </span>
+        {#if isSelected}
+          <CheckCircle2 class="text-primary ml-auto size-4 shrink-0" />
+        {/if}
       </div>
-      <p class="text-muted-foreground mt-1 text-xs">
+      <p class="text-muted-foreground mt-0.5 text-xs">
         {adapterDisplayName(provider.adapter_type)} · {provider.model_name || 'Model not set'}
       </p>
     </div>
-
-    {#if isSelected}
-      <div
-        class="bg-primary text-primary-foreground flex size-5 items-center justify-center rounded-full"
-      >
-        <CheckCircle2 class="size-3.5" />
-      </div>
-    {/if}
   </div>
 
-  <div class="mb-3 space-y-1 text-xs">
+  <div class="mb-3 space-y-1.5 text-xs">
     <div class="flex items-center justify-between gap-3">
       <span class="text-muted-foreground">Machine</span>
-      <span class="text-foreground text-right">{provider.machine_name || '—'}</span>
+      <span class="text-foreground truncate text-right font-medium">{provider.machine_name || '—'}</span>
     </div>
     <div class="flex items-center justify-between gap-3">
       <span class="text-muted-foreground">CLI</span>
-      <span class="text-foreground text-right">{provider.cli_command || '—'}</span>
+      <span class="text-foreground truncate text-right font-mono text-[11px]">{provider.cli_command || '—'}</span>
     </div>
     {#if checkedAt}
       <div class="flex items-center justify-between gap-3">
-        <span class="text-muted-foreground">Last checked</span>
-        <span class="text-foreground text-right">{checkedAt}</span>
+        <span class="text-muted-foreground">Checked</span>
+        <span class="text-muted-foreground text-right">{checkedAt}</span>
       </div>
     {/if}
   </div>
 
-  <div class="border-border bg-muted/30 mb-3 rounded-lg border px-3 py-2 text-xs">
-    <p class="text-foreground font-medium">
+  <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
+    <p class="text-foreground font-medium leading-snug">
       {providerAvailabilityHeadline(provider.availability_state, provider.availability_reason)}
     </p>
-    <p class="text-muted-foreground mt-1">
+    <p class="text-muted-foreground mt-0.5 leading-snug">
       {providerAvailabilityDescription(provider.availability_state, provider.availability_reason)}
     </p>
   </div>
@@ -107,7 +104,7 @@
       >
         {#if selecting && isSelected}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Setting...
+          Setting…
         {:else if isSelected}
           Default
         {:else}
@@ -117,7 +114,7 @@
     {:else}
       {#if guide}
         <Button size="sm" variant="outline" onclick={() => onOpenGuide(provider.id)}>
-          View {guide.title} guide
+          {guide.title} guide
         </Button>
       {/if}
       <Button
@@ -128,7 +125,7 @@
       >
         {#if refreshing}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Checking...
+          Checking…
         {:else}
           <RefreshCcw class="mr-1.5 size-3.5" />
           Recheck
