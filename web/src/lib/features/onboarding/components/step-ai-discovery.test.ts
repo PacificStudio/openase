@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import StepAiDiscovery from './step-ai-discovery.svelte'
 
 describe('StepAiDiscovery', () => {
-  beforeEach(() => {
-  })
+  beforeEach(() => {})
 
   afterEach(() => {
     cleanup()

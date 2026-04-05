@@ -3842,6 +3842,7 @@ func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(
 		t.Fatalf("expected synced openase wrapper in reverse websocket workspace: %v", err)
 	}
 
+	// #nosec G304 -- test reads a temp file path created inside this test.
 	rawHooks, err := os.ReadFile(hookLogPath)
 	if err != nil {
 		t.Fatalf("read reverse websocket hook log: %v", err)
