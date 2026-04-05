@@ -18,9 +18,12 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
+
+var _ = logging.DeclareComponent("machine-transport-runtime-protocol")
 
 type runtimeEnvelopeSender func(context.Context, runtimecontract.Envelope) error
 
@@ -925,7 +928,7 @@ func (w runtimeProcessStreamWriter) Write(p []byte) (int, error) {
 
 func runRuntimeShellCommand(ctx context.Context, command string, environment []string, workingDirectory string) (string, error) {
 	shell, args := listenerShellCommand(command)
-	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204 -- runtime probe/preflight intentionally executes contract commands.
+	cmd := exec.CommandContext(ctx, shell, args...) // #nosec G204,G702 -- runtime probe/preflight intentionally executes contract commands.
 	cmd.SysProcAttr = runtimeProcessSysProcAttr()
 	if len(environment) > 0 {
 		cmd.Env = append(os.Environ(), environment...)

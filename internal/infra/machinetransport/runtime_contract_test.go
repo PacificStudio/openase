@@ -118,7 +118,7 @@ func TestUnifiedWebsocketRuntimeContractSuite(t *testing.T) {
 			},
 		}
 		runRuntimeContractSuite(t, machine, func(ctx context.Context) (*runtimeProtocolClient, func(error), error) {
-			client, err := sessionRegistry.Client(machineID)
+			client, err := sessionRegistry.client(machineID)
 			return client, func(error) {}, err
 		})
 
@@ -227,6 +227,7 @@ func runRuntimeContractSuite(
 	}); err != nil {
 		t.Fatalf("artifact sync request error = %v", err)
 	}
+	// #nosec G304 -- synced artifact path is derived from test-controlled temp directories.
 	content, err := os.ReadFile(filepath.Join(targetRoot, "subdir", "hello.txt"))
 	if err != nil {
 		t.Fatalf("read synced artifact: %v", err)
@@ -269,9 +270,11 @@ func runRuntimeContractSuite(
 	if string(buffer) != "process-ready" {
 		t.Fatalf("process stdout = %q, want process-ready", string(buffer))
 	}
-	statusEnvelope, err := client.request(ctx, runtimecontract.OperationProcessStatus, runtimecontract.ProcessStatusRequest{
-		SessionID: processResponse.SessionID,
-	})
+	statusEnvelope, err := client.request(
+		ctx,
+		runtimecontract.OperationProcessStatus,
+		runtimecontract.ProcessStatusRequest(processResponse),
+	)
 	if err != nil {
 		t.Fatalf("process status request error = %v", err)
 	}
@@ -295,7 +298,7 @@ func waitForReverseRuntimeRegistration(t *testing.T, registry *ReverseRuntimeRel
 
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		if _, err := registry.Client(machineID); err == nil {
+		if _, err := registry.client(machineID); err == nil {
 			return
 		}
 		time.Sleep(25 * time.Millisecond)
@@ -305,9 +308,12 @@ func waitForReverseRuntimeRegistration(t *testing.T, registry *ReverseRuntimeRel
 
 func runReverseRuntimeParticipant(ctx context.Context, serverURL string, machineID uuid.UUID) error {
 	wsURL := "ws" + strings.TrimPrefix(serverURL, "http")
-	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	conn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		return err
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
 	}
 	defer func() { _ = conn.Close() }()
 	go func() {

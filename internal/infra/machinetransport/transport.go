@@ -713,7 +713,7 @@ func (t websocketTransport) openRuntimeClient(
 		if t.reverseRelay == nil {
 			return nil, nil, fmt.Errorf("%w: reverse websocket runtime relay is unavailable", ErrTransportUnavailable)
 		}
-		client, err := t.reverseRelay.Client(machine.ID)
+		client, err := t.reverseRelay.client(machine.ID)
 		if err != nil {
 			return nil, nil, err
 		}

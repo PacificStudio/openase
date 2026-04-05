@@ -9,7 +9,10 @@ import (
 	"strings"
 
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("machine-transport-runtime-artifacts")
 
 func buildArtifactSyncEntries(request SyncArtifactsRequest) ([]runtimecontract.ArtifactEntry, error) {
 	root := filepath.Clean(strings.TrimSpace(request.LocalRoot))
@@ -102,9 +105,9 @@ func materializeArtifactEntries(targetRoot string, removePaths []string, entries
 		targetPath := filepath.Join(root, filepath.FromSlash(trimmed))
 		switch entry.Kind {
 		case runtimecontract.ArtifactEntryKindDir:
-			mode := fs.FileMode(entry.Mode)
-			if mode == 0 {
-				mode = 0o750
+			mode, err := parseArtifactFileMode(entry.Mode, 0o750)
+			if err != nil {
+				return fmt.Errorf("parse artifact directory mode for %s: %w", trimmed, err)
 			}
 			if err := os.MkdirAll(targetPath, mode); err != nil {
 				return fmt.Errorf("create artifact directory %s: %w", targetPath, err)
@@ -117,9 +120,9 @@ func materializeArtifactEntries(targetRoot string, removePaths []string, entries
 			if err != nil {
 				return fmt.Errorf("decode artifact %s: %w", trimmed, err)
 			}
-			mode := fs.FileMode(entry.Mode)
-			if mode == 0 {
-				mode = 0o600
+			mode, err := parseArtifactFileMode(entry.Mode, 0o600)
+			if err != nil {
+				return fmt.Errorf("parse artifact file mode for %s: %w", trimmed, err)
 			}
 			if err := os.WriteFile(targetPath, content, mode); err != nil {
 				return fmt.Errorf("write artifact %s: %w", targetPath, err)
@@ -129,4 +132,14 @@ func materializeArtifactEntries(targetRoot string, removePaths []string, entries
 		}
 	}
 	return nil
+}
+
+func parseArtifactFileMode(raw int64, fallback fs.FileMode) (fs.FileMode, error) {
+	if raw == 0 {
+		return fallback, nil
+	}
+	if raw < 0 || raw > 0o777 {
+		return 0, fmt.Errorf("artifact mode %d is out of range", raw)
+	}
+	return fs.FileMode(raw), nil
 }

@@ -98,25 +98,25 @@ func (c ErrorClass) IsValid() bool {
 type ErrorCode string
 
 const (
-	ErrorCodeInvalidRequest     ErrorCode = "invalid_request"
-	ErrorCodeProtocolVersion    ErrorCode = "protocol_version"
-	ErrorCodeWorkspace          ErrorCode = "workspace"
-	ErrorCodeArtifactSync       ErrorCode = "artifact_sync"
-	ErrorCodePreflight          ErrorCode = "preflight"
-	ErrorCodeSessionNotFound    ErrorCode = "session_not_found"
-	ErrorCodeProcessStart       ErrorCode = "process_start"
-	ErrorCodeProcessSignal      ErrorCode = "process_signal"
+	ErrorCodeInvalidRequest       ErrorCode = "invalid_request"
+	ErrorCodeProtocolVersion      ErrorCode = "protocol_version"
+	ErrorCodeWorkspace            ErrorCode = "workspace"
+	ErrorCodeArtifactSync         ErrorCode = "artifact_sync"
+	ErrorCodePreflight            ErrorCode = "preflight"
+	ErrorCodeSessionNotFound      ErrorCode = "session_not_found"
+	ErrorCodeProcessStart         ErrorCode = "process_start"
+	ErrorCodeProcessSignal        ErrorCode = "process_signal"
 	ErrorCodeTransportUnavailable ErrorCode = "transport_unavailable"
-	ErrorCodeUnauthorized       ErrorCode = "unauthorized"
-	ErrorCodeUnsupported        ErrorCode = "unsupported"
-	ErrorCodeInternal           ErrorCode = "internal"
+	ErrorCodeUnauthorized         ErrorCode = "unauthorized"
+	ErrorCodeUnsupported          ErrorCode = "unsupported"
+	ErrorCodeInternal             ErrorCode = "internal"
 )
 
 type ErrorPayload struct {
-	Code      ErrorCode   `json:"code"`
-	Class     ErrorClass  `json:"class"`
-	Message   string      `json:"message"`
-	Retryable bool        `json:"retryable"`
+	Code      ErrorCode      `json:"code"`
+	Class     ErrorClass     `json:"class"`
+	Message   string         `json:"message"`
+	Retryable bool           `json:"retryable"`
 	Details   map[string]any `json:"details,omitempty"`
 }
 
@@ -166,7 +166,7 @@ func DecodePayload[T any](envelope Envelope) (T, error) {
 }
 
 type Hello struct {
-	SupportedVersions []int      `json:"supported_versions,omitempty"`
+	SupportedVersions []int       `json:"supported_versions,omitempty"`
 	Capabilities      []Operation `json:"capabilities,omitempty"`
 }
 
@@ -193,20 +193,20 @@ type WorkspaceRepoAuth struct {
 }
 
 type WorkspaceRepo struct {
-	Name             string            `json:"name"`
-	RepositoryURL    string            `json:"repository_url"`
-	DefaultBranch    string            `json:"default_branch,omitempty"`
-	WorkspaceDirname *string           `json:"workspace_dirname,omitempty"`
-	BranchName       *string           `json:"branch_name,omitempty"`
+	Name             string             `json:"name"`
+	RepositoryURL    string             `json:"repository_url"`
+	DefaultBranch    string             `json:"default_branch,omitempty"`
+	WorkspaceDirname *string            `json:"workspace_dirname,omitempty"`
+	BranchName       *string            `json:"branch_name,omitempty"`
 	HTTPBasicAuth    *WorkspaceRepoAuth `json:"http_basic_auth,omitempty"`
 }
 
 type WorkspacePrepareRequest struct {
-	WorkspaceRoot    string         `json:"workspace_root"`
-	OrganizationSlug string         `json:"organization_slug"`
-	ProjectSlug      string         `json:"project_slug"`
-	AgentName        string         `json:"agent_name,omitempty"`
-	TicketIdentifier string         `json:"ticket_identifier"`
+	WorkspaceRoot    string          `json:"workspace_root"`
+	OrganizationSlug string          `json:"organization_slug"`
+	ProjectSlug      string          `json:"project_slug"`
+	AgentName        string          `json:"agent_name,omitempty"`
+	TicketIdentifier string          `json:"ticket_identifier"`
 	Repos            []WorkspaceRepo `json:"repos,omitempty"`
 }
 
@@ -238,15 +238,15 @@ const (
 )
 
 type ArtifactEntry struct {
-	Path        string            `json:"path"`
-	Kind        ArtifactEntryKind `json:"kind"`
-	Mode        int64             `json:"mode,omitempty"`
-	ContentBase64 string          `json:"content_base64,omitempty"`
+	Path          string            `json:"path"`
+	Kind          ArtifactEntryKind `json:"kind"`
+	Mode          int64             `json:"mode,omitempty"`
+	ContentBase64 string            `json:"content_base64,omitempty"`
 }
 
 type ArtifactSyncRequest struct {
-	TargetRoot  string         `json:"target_root"`
-	RemovePaths []string       `json:"remove_paths,omitempty"`
+	TargetRoot  string          `json:"target_root"`
+	RemovePaths []string        `json:"remove_paths,omitempty"`
 	Entries     []ArtifactEntry `json:"entries,omitempty"`
 }
 
@@ -266,9 +266,9 @@ type SessionResponse struct {
 }
 
 type SessionInputRequest struct {
-	SessionID   string `json:"session_id"`
-	DataBase64  string `json:"data_base64,omitempty"`
-	CloseStdin  bool   `json:"close_stdin,omitempty"`
+	SessionID  string `json:"session_id"`
+	DataBase64 string `json:"data_base64,omitempty"`
+	CloseStdin bool   `json:"close_stdin,omitempty"`
 }
 
 type SessionSignalRequest struct {

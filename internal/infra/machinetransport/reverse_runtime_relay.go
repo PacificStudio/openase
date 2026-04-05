@@ -7,8 +7,11 @@ import (
 	"sync"
 
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/google/uuid"
 )
+
+var _ = logging.DeclareComponent("machine-transport-reverse-runtime-relay")
 
 type ReverseRuntimeRelayRegistry struct {
 	mu       sync.Mutex
@@ -27,9 +30,9 @@ func (r *ReverseRuntimeRelayRegistry) Register(
 	machineID uuid.UUID,
 	sessionID string,
 	send runtimeEnvelopeSender,
-) *runtimeProtocolClient {
+) {
 	if r == nil {
-		return nil
+		return
 	}
 	client := newRuntimeProtocolClient(send)
 	trimmedSessionID := strings.TrimSpace(sessionID)
@@ -44,7 +47,6 @@ func (r *ReverseRuntimeRelayRegistry) Register(
 	r.machines[machineID] = trimmedSessionID
 	r.sessions[trimmedSessionID] = client
 	r.mu.Unlock()
-	return client
 }
 
 func (r *ReverseRuntimeRelayRegistry) Remove(sessionID string) {
@@ -79,7 +81,7 @@ func (r *ReverseRuntimeRelayRegistry) Deliver(sessionID string, envelope runtime
 	return client.HandleEnvelope(envelope)
 }
 
-func (r *ReverseRuntimeRelayRegistry) Client(machineID uuid.UUID) (*runtimeProtocolClient, error) {
+func (r *ReverseRuntimeRelayRegistry) client(machineID uuid.UUID) (*runtimeProtocolClient, error) {
 	if r == nil {
 		return nil, fmt.Errorf("reverse runtime relay registry unavailable")
 	}

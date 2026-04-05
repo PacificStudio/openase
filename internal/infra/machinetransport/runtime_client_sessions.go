@@ -9,8 +9,11 @@ import (
 	"sync"
 
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("machine-transport-runtime-client-sessions")
 
 type runtimeManagedClientSession struct {
 	ctx            context.Context
@@ -288,7 +291,7 @@ func (s *runtimeCommandSession) Start(cmd string) error {
 
 func (s *runtimeCommandSession) Signal(signal string) error { return s.remote.Signal(signal) }
 func (s *runtimeCommandSession) Wait() error                { return s.remote.Wait() }
-func (s *runtimeCommandSession) Close() error              { return s.remote.Close() }
+func (s *runtimeCommandSession) Close() error               { return s.remote.Close() }
 
 func startRuntimeRemoteProcess(
 	ctx context.Context,
@@ -337,11 +340,11 @@ type runtimeManagedProcess struct {
 	stderr  io.Reader
 }
 
-func (p *runtimeManagedProcess) PID() int { return 0 }
+func (p *runtimeManagedProcess) PID() int              { return 0 }
 func (p *runtimeManagedProcess) Stdin() io.WriteCloser { return p.stdin }
 func (p *runtimeManagedProcess) Stdout() io.ReadCloser { return io.NopCloser(p.stdout) }
 func (p *runtimeManagedProcess) Stderr() io.ReadCloser { return io.NopCloser(p.stderr) }
-func (p *runtimeManagedProcess) Wait() error { return p.session.Wait() }
+func (p *runtimeManagedProcess) Wait() error           { return p.session.Wait() }
 
 func (p *runtimeManagedProcess) Stop(ctx context.Context) error {
 	if p == nil || p.session == nil {
