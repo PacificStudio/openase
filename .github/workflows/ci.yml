@@ -204,6 +204,16 @@ jobs:
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
 
+      - name: Select Playwright Port
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          port=$((30000 + (GITHUB_RUN_ID % 10000)))
+          echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port}" >> "${GITHUB_ENV}"
+
       - name: Run Web CI
         shell: bash
         run: |
