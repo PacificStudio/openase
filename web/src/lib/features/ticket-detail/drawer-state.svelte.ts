@@ -5,11 +5,13 @@ import { fetchTicketDetailLiveContext, fetchTicketDetailProjectReferenceData } f
 import {
   recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
+  loadOlderTicketDrawerRunTranscript,
   loadTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
 } from './drawer-run-transcript'
 import {
   applyTicketRunStreamFrame,
+  createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
   selectTicketRun,
 } from './run-transcript'
@@ -63,7 +65,14 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     currentRun: null as TicketRun | null,
     runBlocks: [] as TicketRunTranscriptBlock[],
     runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
+    runStepEntriesByRun: {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['stepEntriesByRun'],
+    runTraceEntriesByRun:
+      {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['traceEntriesByRun'],
+    runLifecycleBlocksByRun:
+      {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['lifecycleBlocksByRun'],
+    runPageInfoByRun: {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['pageInfoByRun'],
     loadingRunId: null as string | null,
+    loadingOlderRunId: null as string | null,
     runStreamState: 'idle' as StreamConnectionState,
     recoveringRunTranscript: false,
     savingFields: false,
@@ -248,6 +257,35 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         }
       }
     },
+    async loadOlderRunTranscript(projectId: string, ticketId: string, runId: string) {
+      const pageInfo = state.runPageInfoByRun[runId]
+      if (!pageInfo?.hasOlder || !pageInfo.oldestCursor) {
+        return
+      }
+
+      state.loadingOlderRunId = runId
+      try {
+        await loadOlderTicketDrawerRunTranscript(
+          resolvedDeps,
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
+          projectId,
+          ticketId,
+          runId,
+          pageInfo.oldestCursor,
+        )
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to load older ticket run transcript history.'
+        toastStore.error(message)
+      } finally {
+        state.loadingOlderRunId = null
+      }
+    },
     reset() {
       loadRequestId += 1
       runDetailRequestId += 1
@@ -266,7 +304,12 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       state.currentRun = null
       state.runBlocks = []
       state.runBlockCache = {}
+      state.runStepEntriesByRun = {}
+      state.runTraceEntriesByRun = {}
+      state.runLifecycleBlocksByRun = {}
+      state.runPageInfoByRun = {}
       state.loadingRunId = null
+      state.loadingOlderRunId = null
       state.runStreamState = 'idle'
       state.recoveringRunTranscript = false
       state.savingFields = false

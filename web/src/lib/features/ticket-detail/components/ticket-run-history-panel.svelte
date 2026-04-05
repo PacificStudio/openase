@@ -12,22 +12,31 @@
     runs = [],
     currentRun = null,
     blocks = [],
+    runPageInfoByRun = {},
     loadingRunId = null,
+    loadingOlderRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     resumingRetry = false,
     onSelectRun,
+    onLoadOlderRunTranscript,
     onResumeRetry,
   }: {
     ticket: TicketDetail
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     blocks?: TicketRunTranscriptBlock[]
+    runPageInfoByRun?: Record<
+      string,
+      { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
+    >
     loadingRunId?: string | null
+    loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     resumingRetry?: boolean
     onSelectRun?: (runId: string) => Promise<void> | void
+    onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
   } = $props()
 
@@ -106,6 +115,29 @@
     void onSelectRun?.(runId)
   }
 
+  async function loadOlderRunTranscript(runId: string) {
+    const viewport = getScrollViewport()
+    const beforeScrollHeight = viewport?.scrollHeight ?? 0
+    const beforeAnchorTop = sectionEl
+      ?.querySelector<HTMLElement>(`[data-run-content="${runId}"]`)
+      ?.getBoundingClientRect().top
+
+    await onLoadOlderRunTranscript?.(runId)
+    await tick()
+
+    if (!viewport) {
+      return
+    }
+
+    const anchor = sectionEl?.querySelector<HTMLElement>(`[data-run-content="${runId}"]`)
+    if (beforeAnchorTop != null && anchor) {
+      viewport.scrollTop += anchor.getBoundingClientRect().top - beforeAnchorTop
+      return
+    }
+
+    viewport.scrollTop += viewport.scrollHeight - beforeScrollHeight
+  }
+
   function jumpToBottom() {
     const viewport = getScrollViewport()
     if (!viewport) return
@@ -179,12 +211,16 @@
       {@const selected = currentRun?.id === run.id}
       {@const live = latestRun?.id === run.id && !FINISHED_RUN_STATUSES.has(run.status)}
       {@const loading = loadingRunId === run.id}
+      {@const pageInfo = runPageInfoByRun[run.id]}
       <TicketRunHistoryAttempt
         {ticket}
         {run}
         {selected}
         {live}
         {loading}
+        hasOlderHistory={pageInfo?.hasOlder ?? false}
+        hiddenOlderCount={pageInfo?.hiddenOlderCount ?? 0}
+        loadingOlderHistory={loadingOlderRunId === run.id}
         blocks={selected ? blocks : []}
         {runStreamState}
         {recoveringRunTranscript}
@@ -195,6 +231,7 @@
         {resumingRetry}
         {showJumpToLive}
         onSelectRun={selectRun}
+        onLoadOlderHistory={loadOlderRunTranscript}
         onToggleOutput={toggleOutputExpansion}
         onToggleNoiseGroup={toggleNoiseGroup}
         {onResumeRetry}

@@ -12201,7 +12201,14 @@ export interface operations {
   }
   getTicketRun: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Transcript page size. Defaults to the latest page size. */
+        limit?: number
+        /** @description Load transcript items older than this cursor. */
+        before?: string
+        /** @description Load transcript items newer than this cursor. */
+        after?: string
+      }
       header?: never
       path: {
         /** @description Project ID. */
@@ -12269,6 +12276,40 @@ export interface operations {
               sequence?: number
               stream?: string
             }[]
+            transcript_page?: {
+              has_newer?: boolean
+              has_older?: boolean
+              hidden_newer_count?: number
+              hidden_older_count?: number
+              items?: {
+                cursor?: string
+                kind?: string
+                step_entry?: {
+                  agent_run_id?: string
+                  created_at?: string
+                  id?: string
+                  source_trace_event_id?: string | null
+                  step_status?: string
+                  summary?: string
+                } | null
+                trace_entry?: {
+                  agent_run_id?: string
+                  created_at?: string
+                  id?: string
+                  kind?: string
+                  output?: string
+                  payload?: {
+                    [key: string]: unknown
+                  }
+                  provider?: string
+                  /** Format: int64 */
+                  sequence?: number
+                  stream?: string
+                } | null
+              }[]
+              newest_cursor?: string
+              oldest_cursor?: string
+            }
           }
         }
       }

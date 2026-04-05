@@ -17,7 +17,9 @@
     runs = [],
     currentRun = null,
     runBlocks = [],
+    runPageInfoByRun = {},
     loadingRunId = null,
+    loadingOlderRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     savingFields = false,
@@ -28,6 +30,7 @@
     onViewChange,
     onSaveFields,
     onSelectRun,
+    onLoadOlderRunTranscript,
     onResumeRetry,
     onCreateComment,
     onUpdateComment,
@@ -39,7 +42,12 @@
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    runPageInfoByRun?: Record<
+      string,
+      { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
+    >
     loadingRunId?: string | null
+    loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     savingFields?: boolean
@@ -50,6 +58,7 @@
     onViewChange?: (view: 'comments' | 'runs') => void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onSelectRun?: (runId: string) => Promise<void> | void
+    onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onCreateComment?: (body: string) => Promise<boolean> | boolean
     onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
@@ -92,11 +101,14 @@
       {runs}
       {currentRun}
       blocks={runBlocks}
+      {runPageInfoByRun}
       {loadingRunId}
+      {loadingOlderRunId}
       {runStreamState}
       {recoveringRunTranscript}
       {resumingRetry}
       {onSelectRun}
+      {onLoadOlderRunTranscript}
       {onResumeRetry}
     />
   </Tabs.Content>

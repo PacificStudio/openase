@@ -19532,6 +19532,30 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Transcript page size. Defaults to the latest page size.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Load transcript items older than this cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Load transcript items newer than this cursor.",
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -19682,6 +19706,103 @@
                         "type": "object"
                       },
                       "type": "array"
+                    },
+                    "transcript_page": {
+                      "properties": {
+                        "has_newer": {
+                          "type": "boolean"
+                        },
+                        "has_older": {
+                          "type": "boolean"
+                        },
+                        "hidden_newer_count": {
+                          "type": "integer"
+                        },
+                        "hidden_older_count": {
+                          "type": "integer"
+                        },
+                        "items": {
+                          "items": {
+                            "properties": {
+                              "cursor": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "step_entry": {
+                                "nullable": true,
+                                "properties": {
+                                  "agent_run_id": {
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "type": "string"
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "source_trace_event_id": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "step_status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "trace_entry": {
+                                "nullable": true,
+                                "properties": {
+                                  "agent_run_id": {
+                                    "type": "string"
+                                  },
+                                  "created_at": {
+                                    "type": "string"
+                                  },
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "kind": {
+                                    "type": "string"
+                                  },
+                                  "output": {
+                                    "type": "string"
+                                  },
+                                  "payload": {
+                                    "additionalProperties": {},
+                                    "type": "object"
+                                  },
+                                  "provider": {
+                                    "type": "string"
+                                  },
+                                  "sequence": {
+                                    "format": "int64",
+                                    "type": "integer"
+                                  },
+                                  "stream": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "newest_cursor": {
+                          "type": "string"
+                        },
+                        "oldest_cursor": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
                     }
                   },
                   "type": "object"

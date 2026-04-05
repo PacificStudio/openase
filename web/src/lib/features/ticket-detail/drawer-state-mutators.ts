@@ -26,6 +26,10 @@ type TicketDrawerMutableState = {
   currentRun: TicketRun | null
   runBlocks: TicketRunTranscriptBlock[]
   runBlockCache: Record<string, TicketRunTranscriptBlock[]>
+  runStepEntriesByRun: TicketDrawerRunTranscriptState['stepEntriesByRun']
+  runTraceEntriesByRun: TicketDrawerRunTranscriptState['traceEntriesByRun']
+  runLifecycleBlocksByRun: TicketDrawerRunTranscriptState['lifecycleBlocksByRun']
+  runPageInfoByRun: TicketDrawerRunTranscriptState['pageInfoByRun']
 }
 
 export function applyTicketDrawerContext(
@@ -56,6 +60,10 @@ export function applyTicketDrawerRunTranscriptState(
   state.currentRun = nextState.currentRun
   state.runBlocks = nextState.blocks
   state.runBlockCache = nextState.blockCache
+  state.runStepEntriesByRun = nextState.stepEntriesByRun
+  state.runTraceEntriesByRun = nextState.traceEntriesByRun
+  state.runLifecycleBlocksByRun = nextState.lifecycleBlocksByRun
+  state.runPageInfoByRun = nextState.pageInfoByRun
 }
 
 export function readTicketDrawerRunTranscriptState(
@@ -68,5 +76,9 @@ export function readTicketDrawerRunTranscriptState(
     currentRun: state.currentRun,
     blocks: state.runBlocks,
     blockCache: state.runBlockCache,
+    stepEntriesByRun: state.runStepEntriesByRun,
+    traceEntriesByRun: state.runTraceEntriesByRun,
+    lifecycleBlocksByRun: state.runLifecycleBlocksByRun,
+    pageInfoByRun: state.runPageInfoByRun,
   }
 }

@@ -229,10 +229,31 @@ export type TicketRunStepEntry = {
   createdAt: string
 }
 
+export type TicketRunTranscriptItem =
+  | {
+      kind: 'trace'
+      cursor: string
+      traceEntry: TicketRunTraceEntry
+    }
+  | {
+      kind: 'step'
+      cursor: string
+      stepEntry: TicketRunStepEntry
+    }
+
+export type TicketRunTranscriptPage = {
+  items: TicketRunTranscriptItem[]
+  hasOlder: boolean
+  hiddenOlderCount: number
+  hasNewer: boolean
+  hiddenNewerCount: number
+  oldestCursor?: string
+  newestCursor?: string
+}
+
 export type TicketRunDetail = {
   run: TicketRun
-  traceEntries: TicketRunTraceEntry[]
-  stepEntries: TicketRunStepEntry[]
+  transcriptPage: TicketRunTranscriptPage
 }
 
 export type TicketRunLifecycleEvent = {

@@ -5,6 +5,8 @@ import type {
   TicketRunLifecycleEvent,
   TicketRunStepEntry,
   TicketRunTraceEntry,
+  TicketRunTranscriptBlock,
+  TicketRunTranscriptPage,
   TicketRunTranscriptState,
 } from './types'
 import {
@@ -25,7 +27,6 @@ export {
 import {
   insertBlockChronologically,
   mergeDefinedRunFields,
-  mergeHydratedRunBlocks,
   mergeHydratedRunSnapshot,
   mergeRunStepSnapshot,
   mergeStreamingRunSnapshot,
@@ -37,7 +38,13 @@ import {
   mapTicketRunStreamLifecycleEvent,
   mapTicketRunTraceEntry,
 } from './run-transcript-data'
+import {
+  buildTicketRunStepCursor,
+  buildTicketRunTraceCursor,
+  maxTicketRunTranscriptCursor,
+} from './run-transcript-cursor'
 import type { TicketRunRecord, TicketRunStepRecord, TicketRunTraceRecord } from '$lib/api/contracts'
+import { createEmptyTicketRunTranscriptState } from './run-transcript-state'
 
 export function hydrateTicketRunDetail(
   state: TicketRunTranscriptState,
@@ -46,56 +53,31 @@ export function hydrateTicketRunDetail(
 ): TicketRunTranscriptState {
   const existingRun = state.runs.find((item) => item.id === detail.run.id)
   const hydratedRun = mergeHydratedRunSnapshot(existingRun, detail.run)
-  const runs = mergeRun(state.runs, hydratedRun)
-  const cachedBlocks =
-    state.currentRun?.id === detail.run.id ? state.blocks : (state.blockCache[detail.run.id] ?? [])
-  let nextState: TicketRunTranscriptState = {
-    ...state,
-    runs,
-    currentRun: hydratedRun,
-    blocks: mergeHydratedRunBlocks(cachedBlocks, hydratedRun),
-  }
 
-  const timeline = buildRunTimeline(detail.stepEntries, detail.traceEntries)
-  for (const item of timeline) {
-    nextState =
-      item.kind === 'step'
-        ? applyTicketRunStepEntry(nextState, item.entry)
-        : applyTicketRunTraceEntry(nextState, item.entry)
-  }
-
-  const finalized = finalizeTerminalRunBlocks(nextState)
-  const finalizedCurrentRun =
-    finalized.currentRun?.id === hydratedRun.id
-      ? mergeDefinedRunFields(finalized.currentRun, hydratedRun)
-      : finalized.currentRun
-  const finalizedRuns = mergeRun(
-    finalized.runs,
-    mergeDefinedRunFields(
-      finalized.runs.find((run) => run.id === hydratedRun.id) ?? hydratedRun,
-      hydratedRun,
-    ),
+  let nextState = mergeTranscriptPageIntoState(
+    {
+      ...state,
+      runs: mergeRun(state.runs, hydratedRun),
+    },
+    detail.run.id,
+    detail.transcriptPage,
   )
-  const nextSelection =
+  nextState = rebuildRunTranscriptState(nextState, detail.run.id, hydratedRun)
+
+  const selection =
     options.select === false
       ? {
-          selectedRunId: state.selectedRunId,
-          followLatest: state.followLatest,
+          selectedRunId: nextState.selectedRunId,
+          followLatest: nextState.followLatest,
         }
       : {
           selectedRunId: hydratedRun.id,
-          followLatest: runs[0]?.id === hydratedRun.id,
+          followLatest: nextState.runs[0]?.id === hydratedRun.id,
         }
 
   return syncSelectedRun({
-    ...finalized,
-    runs: finalizedRuns,
-    currentRun: finalizedCurrentRun,
-    ...nextSelection,
-    blockCache: {
-      ...state.blockCache,
-      [detail.run.id]: finalized.blocks,
-    },
+    ...nextState,
+    ...selection,
   })
 }
 
@@ -163,39 +145,213 @@ export function applyTicketRunLifecycleEvent(
   run: TicketRun,
   lifecycle: TicketRunLifecycleEvent,
 ): TicketRunTranscriptState {
-  const currentRunForUpdate = state.runs.find((item) => item.id === run.id)
-  const nextRun = mergeStreamingRunSnapshot(currentRunForUpdate, run)
-  const runs = mergeRun(state.runs, nextRun)
-  const baseBlocks =
-    state.selectedRunId === run.id
-      ? state.blocks
-      : (state.blockCache[run.id] ?? seedRunBlocks(nextRun))
-
+  const currentRunForUpdate = getRunForUpdate(state, run.id)
+  const nextRun = mergeStreamingRunSnapshot(currentRunForUpdate ?? undefined, run)
   const nextBlock = buildLifecycleBlock(lifecycle)
-  const runBlocks =
-    !nextBlock || hasBlock(baseBlocks, nextBlock.id)
-      ? finalizeTerminalRunBlocks({
-          ...state,
-          currentRun: nextRun,
-          blocks: baseBlocks,
-        }).blocks
-      : finalizeTerminalRunBlocks({
-          ...state,
-          currentRun: nextRun,
-          blocks: insertBlockChronologically(baseBlocks, nextBlock),
-        }).blocks
+  const lifecycleBlocks = state.lifecycleBlocksByRun[run.id] ?? []
+  const nextLifecycleBlocks =
+    !nextBlock || hasBlock(lifecycleBlocks, nextBlock.id)
+      ? lifecycleBlocks
+      : insertBlockChronologically(lifecycleBlocks, nextBlock)
+
+  return rebuildRunTranscriptState(
+    {
+      ...state,
+      runs: mergeRun(state.runs, nextRun),
+      lifecycleBlocksByRun: {
+        ...state.lifecycleBlocksByRun,
+        [run.id]: nextLifecycleBlocks,
+      },
+    },
+    run.id,
+    nextRun,
+  )
+}
+
+export function applyTicketRunStepEntry(
+  state: TicketRunTranscriptState,
+  entry: TicketRunStepEntry,
+): TicketRunTranscriptState {
+  const baseRun = getRunForUpdate(state, entry.agentRunId)
+  if (!baseRun) {
+    return state
+  }
+
+  const stepEntries = state.stepEntriesByRun[entry.agentRunId] ?? []
+  if (!stepEntries.some((item) => isEquivalentStepEntry(item, entry))) {
+    state = {
+      ...state,
+      stepEntriesByRun: {
+        ...state.stepEntriesByRun,
+        [entry.agentRunId]: sortStepEntries([...stepEntries, entry]),
+      },
+    }
+  }
+
+  return rebuildRunTranscriptState(state, entry.agentRunId, baseRun, buildTicketRunStepCursor(entry))
+}
+
+export function applyTicketRunTraceEntry(
+  state: TicketRunTranscriptState,
+  entry: TicketRunTraceEntry,
+): TicketRunTranscriptState {
+  const baseRun = getRunForUpdate(state, entry.agentRunId)
+  if (!baseRun) {
+    return state
+  }
+
+  const traceEntries = state.traceEntriesByRun[entry.agentRunId] ?? []
+  if (!traceEntries.some((item) => isEquivalentTraceEntry(item, entry))) {
+    state = {
+      ...state,
+      traceEntriesByRun: {
+        ...state.traceEntriesByRun,
+        [entry.agentRunId]: sortTraceEntries([...traceEntries, entry]),
+      },
+    }
+  }
+
+  return rebuildRunTranscriptState(state, entry.agentRunId, baseRun, buildTicketRunTraceCursor(entry))
+}
+
+export function applyTicketRunSummaryEvent(
+  state: TicketRunTranscriptState,
+  runID: string,
+  run: TicketRun | undefined,
+  completionSummary: TicketRun['completionSummary'],
+): TicketRunTranscriptState {
+  if (!runID || (!completionSummary && !run)) {
+    return state
+  }
+
+  const existingRun = getRunForUpdate(state, runID)
+  if (!existingRun) {
+    return state
+  }
+
+  const nextRun = mergeDefinedRunFields(existingRun, run)
+  nextRun.completionSummary =
+    completionSummary ?? run?.completionSummary ?? existingRun.completionSummary
+
+  return rebuildRunTranscriptState(
+    {
+      ...state,
+      runs: mergeRun(state.runs, nextRun),
+    },
+    runID,
+    nextRun,
+  )
+}
+
+function mergeTranscriptPageIntoState(
+  state: TicketRunTranscriptState,
+  runId: string,
+  page: TicketRunTranscriptPage,
+): TicketRunTranscriptState {
+  const stepEntries = state.stepEntriesByRun[runId] ?? []
+  const traceEntries = state.traceEntriesByRun[runId] ?? []
+  let nextStepEntries = stepEntries
+  let nextTraceEntries = traceEntries
+
+  for (const item of page.items) {
+    if (item.kind === 'step') {
+      if (!nextStepEntries.some((entry) => isEquivalentStepEntry(entry, item.stepEntry))) {
+        nextStepEntries = sortStepEntries([...nextStepEntries, item.stepEntry])
+      }
+      continue
+    }
+    if (!nextTraceEntries.some((entry) => isEquivalentTraceEntry(entry, item.traceEntry))) {
+      nextTraceEntries = sortTraceEntries([...nextTraceEntries, item.traceEntry])
+    }
+  }
+
+  return {
+    ...state,
+    stepEntriesByRun: {
+      ...state.stepEntriesByRun,
+      [runId]: nextStepEntries,
+    },
+    traceEntriesByRun: {
+      ...state.traceEntriesByRun,
+      [runId]: nextTraceEntries,
+    },
+    pageInfoByRun: {
+      ...state.pageInfoByRun,
+      [runId]: {
+        hasOlder: page.hasOlder,
+        hiddenOlderCount: page.hiddenOlderCount,
+        oldestCursor: page.oldestCursor ?? state.pageInfoByRun[runId]?.oldestCursor,
+        newestCursor: maxTicketRunTranscriptCursor(
+          state.pageInfoByRun[runId]?.newestCursor,
+          page.newestCursor,
+        ),
+      },
+    },
+  }
+}
+
+function rebuildRunTranscriptState(
+  state: TicketRunTranscriptState,
+  runId: string,
+  baseRun: TicketRun,
+  newestCursor?: string,
+): TicketRunTranscriptState {
+  const traceEntries = state.traceEntriesByRun[runId] ?? []
+  const stepEntries = state.stepEntriesByRun[runId] ?? []
+  const lifecycleBlocks = state.lifecycleBlocksByRun[runId] ?? []
+  const timeline = buildRunTimeline(stepEntries, traceEntries)
+  const replayBaseRun: TicketRun = {
+    ...baseRun,
+    currentStepStatus: undefined,
+    currentStepSummary: undefined,
+    lastHeartbeatAt: undefined,
+  }
+
+  let replayState: TicketRunTranscriptState = {
+    ...createEmptyTicketRunTranscriptState(),
+    runs: [replayBaseRun],
+    selectedRunId: runId,
+    followLatest: true,
+    currentRun: replayBaseRun,
+    blocks: mergeSeedAndLifecycleBlocks(replayBaseRun, lifecycleBlocks),
+  }
+
+  for (const item of timeline) {
+    replayState =
+      item.kind === 'step'
+        ? reduceTicketRunStepEntryForCurrentRun(replayState, item.entry)
+        : reduceTicketRunTraceEntry(replayState, item.entry)
+  }
+  replayState = finalizeTerminalRunBlocks(replayState)
+  const oldestCursor =
+    state.pageInfoByRun[runId]?.oldestCursor ??
+    readTimelineCursor(timeline[0])
+  const latestTimelineCursor = readTimelineCursor(timeline.at(-1))
+  const rebuiltRun = mergeDefinedRunFields(baseRun, replayState.currentRun ?? undefined)
 
   return syncSelectedRun({
     ...state,
-    runs,
+    runs: mergeRun(state.runs, rebuiltRun),
     blockCache: {
       ...syncSelectedBlocks(state),
-      [run.id]: runBlocks,
+      [runId]: replayState.blocks,
+    },
+    pageInfoByRun: {
+      ...state.pageInfoByRun,
+      [runId]: {
+        hasOlder: state.pageInfoByRun[runId]?.hasOlder ?? false,
+        hiddenOlderCount: state.pageInfoByRun[runId]?.hiddenOlderCount ?? 0,
+        oldestCursor,
+        newestCursor: maxTicketRunTranscriptCursor(
+          maxTicketRunTranscriptCursor(state.pageInfoByRun[runId]?.newestCursor, latestTimelineCursor),
+          newestCursor,
+        ),
+      },
     },
   })
 }
 
-export function applyTicketRunStepEntry(
+function reduceTicketRunStepEntryForCurrentRun(
   state: TicketRunTranscriptState,
   entry: TicketRunStepEntry,
 ): TicketRunTranscriptState {
@@ -210,70 +366,99 @@ export function applyTicketRunStepEntry(
       runs,
     }
   }
+
+  const nextCurrentRun = mergeRunStepSnapshot(currentRun, entry)
   if (entry.sourceTraceEventId || hasBlock(state.blocks, `step:${entry.id}`)) {
-    return syncSelectedRun({
+    return {
       ...state,
       runs,
-      blockCache: syncSelectedBlocks(state),
-    })
+      currentRun: nextCurrentRun,
+    }
   }
 
-  const blocks = [
-    ...state.blocks,
-    {
-      kind: 'step' as const,
-      id: `step:${entry.id}`,
-      stepStatus: entry.stepStatus,
-      summary: entry.summary,
-      at: entry.createdAt,
-    },
-  ]
-
-  return syncSelectedRun({
+  return {
     ...state,
     runs,
-    currentRun: mergeRunStepSnapshot(currentRun, entry),
-    blocks,
-    blockCache: {
-      ...syncSelectedBlocks(state),
-      [entry.agentRunId]: blocks,
-    },
-  })
+    currentRun: nextCurrentRun,
+    blocks: [
+      ...state.blocks,
+      {
+        kind: 'step' as const,
+        id: `step:${entry.id}`,
+        stepStatus: entry.stepStatus,
+        summary: entry.summary,
+        at: entry.createdAt,
+      },
+    ],
+  }
 }
 
-export function applyTicketRunTraceEntry(
-  state: TicketRunTranscriptState,
-  entry: TicketRunTraceEntry,
-): TicketRunTranscriptState {
-  return reduceTicketRunTraceEntry(state, entry)
+function mergeSeedAndLifecycleBlocks(
+  run: TicketRun,
+  lifecycleBlocks: TicketRunTranscriptBlock[],
+): TicketRunTranscriptBlock[] {
+  let blocks = seedRunBlocks(run)
+  for (const block of lifecycleBlocks) {
+    if (!hasBlock(blocks, block.id)) {
+      blocks = insertBlockChronologically(blocks, block)
+    }
+  }
+  return blocks
 }
 
-export function applyTicketRunSummaryEvent(
-  state: TicketRunTranscriptState,
-  runID: string,
-  run: TicketRun | undefined,
-  completionSummary: TicketRun['completionSummary'],
-): TicketRunTranscriptState {
-  if (!runID || (!completionSummary && !run)) {
-    return state
+function sortTraceEntries(entries: TicketRunTraceEntry[]): TicketRunTraceEntry[] {
+  return entries.slice().sort((left, right) =>
+    left.sequence !== right.sequence
+      ? left.sequence - right.sequence
+      : left.id.localeCompare(right.id),
+  )
+}
+
+function sortStepEntries(entries: TicketRunStepEntry[]): TicketRunStepEntry[] {
+  return entries
+    .slice()
+    .sort((left, right) =>
+      Date.parse(left.createdAt) !== Date.parse(right.createdAt)
+        ? Date.parse(left.createdAt) - Date.parse(right.createdAt)
+        : left.id.localeCompare(right.id),
+    )
+}
+
+function getRunForUpdate(state: TicketRunTranscriptState, runId: string): TicketRun | null {
+  return state.runs.find((item) => item.id === runId) ?? (state.currentRun?.id === runId ? state.currentRun : null)
+}
+
+function readTimelineCursor(
+  item: ReturnType<typeof buildRunTimeline>[number] | undefined,
+): string | undefined {
+  if (!item) {
+    return undefined
   }
+  return item.kind === 'step'
+    ? buildTicketRunStepCursor(item.entry)
+    : buildTicketRunTraceCursor(item.entry)
+}
 
-  const existingRun = state.runs.find((item) => item.id === runID) ?? state.currentRun
-  if (!existingRun || existingRun.id !== runID) {
-    return state
-  }
+function isEquivalentStepEntry(left: TicketRunStepEntry, right: TicketRunStepEntry): boolean {
+  return (
+    left.id === right.id ||
+    (left.agentRunId === right.agentRunId &&
+      left.createdAt === right.createdAt &&
+      left.stepStatus === right.stepStatus &&
+      left.summary === right.summary &&
+      left.sourceTraceEventId === right.sourceTraceEventId)
+  )
+}
 
-  const nextRun = mergeDefinedRunFields(existingRun, run)
-  nextRun.completionSummary =
-    completionSummary ?? run?.completionSummary ?? existingRun.completionSummary
-  const runs = mergeRun(state.runs, nextRun)
-
-  return syncSelectedRun(
-    finalizeTerminalRunBlocks({
-      ...state,
-      runs,
-      currentRun: state.currentRun?.id === runID ? nextRun : state.currentRun,
-      blockCache: syncSelectedBlocks(state),
-    }),
+function isEquivalentTraceEntry(left: TicketRunTraceEntry, right: TicketRunTraceEntry): boolean {
+  return (
+    left.id === right.id ||
+    (left.agentRunId === right.agentRunId &&
+      left.sequence === right.sequence &&
+      left.kind === right.kind &&
+      left.stream === right.stream &&
+      left.createdAt === right.createdAt &&
+      left.output === right.output &&
+      JSON.stringify(left.payload) === JSON.stringify(right.payload))
   )
 }

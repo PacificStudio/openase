@@ -26,7 +26,9 @@
     runs = [],
     currentRun = null,
     runBlocks = [],
+    runPageInfoByRun = {},
     loadingRunId = null,
+    loadingOlderRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     statuses,
@@ -51,6 +53,7 @@
     onPriorityChange,
     onArchive,
     onSelectRun,
+    onLoadOlderRunTranscript,
     onResumeRetry,
     onResetWorkspace,
     onAddDependency,
@@ -72,7 +75,12 @@
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    runPageInfoByRun?: Record<
+      string,
+      { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
+    >
     loadingRunId?: string | null
+    loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     statuses: TicketStatusOption[]
@@ -97,6 +105,7 @@
     onPriorityChange?: (priority: TicketDetail['priority']) => void
     onArchive?: () => void
     onSelectRun?: (runId: string) => Promise<void> | void
+    onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onResetWorkspace?: () => Promise<void> | void
     onAddDependency?: (draft: DependencyDraft) => Promise<boolean> | boolean
@@ -185,7 +194,9 @@
       {runs}
       {currentRun}
       {runBlocks}
+      {runPageInfoByRun}
       {loadingRunId}
+      {loadingOlderRunId}
       {runStreamState}
       {recoveringRunTranscript}
       {savingFields}
@@ -195,6 +206,7 @@
       {resumingRetry}
       {onSaveFields}
       {onSelectRun}
+      {onLoadOlderRunTranscript}
       {onResumeRetry}
       {onCreateComment}
       {onUpdateComment}

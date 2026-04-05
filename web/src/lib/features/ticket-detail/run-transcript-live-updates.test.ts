@@ -10,7 +10,7 @@ import {
 import { buildRunTimeline } from './run-transcript-blocks'
 import { buildNewerRun, latestRun, olderRun } from './run-transcript.test-fixtures'
 import { buildHydratedRunDetail } from './run-transcript.test-fixtures'
-import type { TicketRun, TicketRunTranscriptBlock } from './types'
+import type { TicketRun, TicketRunDetail, TicketRunTranscriptBlock } from './types'
 
 function toRunRecord(run: TicketRun) {
   return {
@@ -41,6 +41,22 @@ function toRunRecord(run: TicketRun) {
   }
 }
 
+function toTranscriptTimeline(detail: TicketRunDetail) {
+  return buildRunTimeline(
+    detail.transcriptPage.items
+      .filter((item): item is Extract<typeof detail.transcriptPage.items[number], { kind: 'step' }> =>
+        item.kind === 'step',
+      )
+      .map((item) => item.stepEntry),
+    detail.transcriptPage.items
+      .filter(
+        (item): item is Extract<typeof detail.transcriptPage.items[number], { kind: 'trace' }> =>
+          item.kind === 'trace',
+      )
+      .map((item) => item.traceEntry),
+  )
+}
+
 describe('ticket run transcript live updates', () => {
   it('reaches the same transcript state when replaying streamed step/trace events as when hydrating the same run detail', () => {
     const detail = buildHydratedRunDetail()
@@ -49,7 +65,7 @@ describe('ticket run transcript live updates', () => {
     const hydrated = hydrateTicketRunDetail(initial, detail)
 
     let replayed = initial
-    for (const item of buildRunTimeline(detail.stepEntries, detail.traceEntries)) {
+    for (const item of toTranscriptTimeline(detail)) {
       replayed = applyTicketRunStreamFrame(replayed, {
         event: item.kind === 'step' ? 'ticket.run.step' : 'ticket.run.trace',
         data: JSON.stringify({
@@ -191,8 +207,13 @@ describe('ticket run transcript live updates', () => {
     let state = setTicketRunList(createEmptyTicketRunTranscriptState(), [terminalRun, olderRun])
     state = hydrateTicketRunDetail(state, {
       run: terminalRun,
-      stepEntries: [],
-      traceEntries: [],
+      transcriptPage: {
+        items: [],
+        hasOlder: false,
+        hiddenOlderCount: 0,
+        hasNewer: false,
+        hiddenNewerCount: 0,
+      },
     })
 
     state = applyTicketRunStreamFrame(state, {

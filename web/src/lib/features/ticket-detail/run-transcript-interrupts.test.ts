@@ -24,27 +24,31 @@ const liveRun: TicketRun = {
 
 describe('ticket run interrupt blocks', () => {
   it('builds first-class interrupt blocks from persisted trace events', () => {
+    const traceEntry = {
+      id: 'trace-interrupt',
+      agentRunId: liveRun.id,
+      sequence: 1,
+      provider: 'codex',
+      kind: 'approval_requested',
+      stream: 'interrupt',
+      output: 'Waiting for command approval to run "make check"',
+      payload: {
+        request_id: 'approval-1',
+        kind: 'command_execution',
+        command: 'make check',
+        options: [{ id: 'approve_once', label: 'Approve once' }],
+      },
+      createdAt: '2026-04-01T10:05:36Z',
+    }
     const detail: TicketRunDetail = {
       run: liveRun,
-      stepEntries: [],
-      traceEntries: [
-        {
-          id: 'trace-interrupt',
-          agentRunId: liveRun.id,
-          sequence: 1,
-          provider: 'codex',
-          kind: 'approval_requested',
-          stream: 'interrupt',
-          output: 'Waiting for command approval to run "make check"',
-          payload: {
-            request_id: 'approval-1',
-            kind: 'command_execution',
-            command: 'make check',
-            options: [{ id: 'approve_once', label: 'Approve once' }],
-          },
-          createdAt: '2026-04-01T10:05:36Z',
-        },
-      ],
+      transcriptPage: {
+        items: [{ kind: 'trace', cursor: '2026-04-01T10:05:36Z|trace|1|trace-interrupt', traceEntry }],
+        hasOlder: false,
+        hiddenOlderCount: 0,
+        hasNewer: false,
+        hiddenNewerCount: 0,
+      },
     }
 
     const hydrated = hydrateTicketRunDetail(
@@ -59,7 +63,7 @@ describe('ticket run interrupt blocks', () => {
       title: 'Command approval required',
       summary: 'Waiting for command approval to run "make check"',
       at: '2026-04-01T10:05:36Z',
-      payload: detail.traceEntries[0]!.payload,
+      payload: traceEntry.payload,
       options: [{ id: 'approve_once', label: 'Approve once', rawDecision: undefined }],
     })
   })
