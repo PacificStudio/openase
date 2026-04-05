@@ -515,6 +515,7 @@ func requireDockerRuntime(t *testing.T) string {
 	}
 	checkCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// #nosec G204 -- test probes the local docker daemon through a controlled CLI path.
 	if output, err := exec.CommandContext(checkCtx, dockerPath, "info", "--format", "{{.ServerVersion}}").CombinedOutput(); err != nil {
 		t.Skipf("docker daemon is unavailable: %v (%s)", err, strings.TrimSpace(string(output)))
 	}
@@ -526,12 +527,14 @@ func ensureDockerImage(t *testing.T, dockerPath string, image string) {
 
 	checkCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// #nosec G204 -- test inspects a fixed docker image name through the local docker CLI.
 	if err := exec.CommandContext(checkCtx, dockerPath, "image", "inspect", image).Run(); err == nil {
 		return
 	}
 
 	pullCtx, pullCancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer pullCancel()
+	// #nosec G204 -- test pulls a fixed docker image through the local docker CLI when absent.
 	output, err := exec.CommandContext(pullCtx, dockerPath, "pull", image).CombinedOutput()
 	if err != nil {
 		t.Fatalf("pull docker image %s: %v\n%s", image, err, strings.TrimSpace(string(output)))
