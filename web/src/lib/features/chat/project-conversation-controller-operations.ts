@@ -4,7 +4,10 @@ import {
   type ProjectConversation,
 } from '$lib/api/chat'
 import { invalidateProjectConversationStream } from './project-conversation-controller-helpers'
-import { readProjectConversationTabs } from './project-conversation-storage'
+import {
+  readProjectConversationTabs,
+  migrateLegacyProjectConversationTabs,
+} from './project-conversation-storage'
 import { createProjectConversationControllerRuntime } from './project-conversation-controller-runtime'
 import {
   disposeProjectConversationTabs,
@@ -23,7 +26,12 @@ type ProjectConversationControllerOperationsInput = {
   setTabs: (value: ProjectConversationTabState[]) => void
   getActiveTabId: () => string
   setActiveTabId: (value: string) => void
-  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
+  newTabState: (
+    providerId?: string,
+    restored?: boolean,
+    projectId?: string,
+    projectName?: string,
+  ) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   ensureTabSelection: (preferredTabId?: string) => void
@@ -49,7 +57,7 @@ export function createProjectConversationControllerOperations(
   }
 
   async function restore() {
-    const projectId = input.controllerInput.getProjectId()
+    const { projectId } = input.controllerInput.getProjectContext()
     if (!projectId) {
       input.ensureTabExists()
       return
@@ -60,25 +68,58 @@ export function createProjectConversationControllerOperations(
     disposeProjectConversationTabs(input.getTabs())
 
     try {
-      const listPayload = await listProjectConversations({ projectId })
+      migrateLegacyProjectConversationTabs(projectId)
+      const persisted = readProjectConversationTabs()
+
+      const projectIdsToFetch = new Set<string>([projectId])
+      for (const tab of persisted.tabs) {
+        if (tab.projectId) projectIdsToFetch.add(tab.projectId)
+      }
+
+      const allConversations: ProjectConversation[] = []
+      const currentProjectConversationIds = new Set<string>()
+      const orderedProjectIds = [...projectIdsToFetch]
+      const fetchResults = await Promise.all(
+        orderedProjectIds.map(async (pid) => {
+          try {
+            const payload = await listProjectConversations({ projectId: pid })
+            return { pid, conversations: payload.conversations }
+          } catch {
+            return { pid, conversations: [] as ProjectConversation[] }
+          }
+        }),
+      )
+      for (const result of fetchResults) {
+        for (const conversation of result.conversations) {
+          allConversations.push(conversation)
+          if (result.pid === projectId) {
+            currentProjectConversationIds.add(conversation.id)
+          }
+        }
+      }
       if (currentRestoreID !== restoreOperationID) return
 
-      input.setConversations(runtime.sortProjectConversations(listPayload.conversations))
+      input.setConversations(runtime.sortProjectConversations(allConversations))
       if (hasLocalTabActivity(input.getTabs())) {
         input.persistTabs()
         return
       }
+
       const conversationsByID = new Map(
-        listPayload.conversations.map((conversation) => [conversation.id, conversation]),
+        allConversations.map((conversation) => [conversation.id, conversation]),
       )
-      const persisted = readProjectConversationTabs(projectId)
       const restoredTabs = persisted.tabs
         .map((persistedTab) => {
           const conversation = persistedTab.conversationId
             ? conversationsByID.get(persistedTab.conversationId)
             : null
           if (conversation != null) {
-            const tab = input.newTabState(conversation.providerId, true)
+            const tab = input.newTabState(
+              conversation.providerId,
+              true,
+              conversation.projectId || persistedTab.projectId,
+              persistedTab.projectName,
+            )
             tab.draft = persistedTab.draft
             return { tab, conversationId: conversation.id, restored: true }
           }
@@ -88,6 +129,8 @@ export function createProjectConversationControllerOperations(
           const tab = input.newTabState(
             persistedTab.providerId || input.getPreferredProviderId(),
             false,
+            persistedTab.projectId,
+            persistedTab.projectName,
           )
           tab.draft = persistedTab.draft
           return { tab, conversationId: '', restored: false }
@@ -103,9 +146,18 @@ export function createProjectConversationControllerOperations(
         )
 
       if (restoredTabs.length === 0) {
-        const latestConversation = input.getConversations()[0] ?? null
+        const currentProjectConversations = allConversations.filter((c) =>
+          currentProjectConversationIds.has(c.id),
+        )
+        const latestConversation =
+          runtime.sortProjectConversations(currentProjectConversations)[0] ?? null
         if (latestConversation) {
-          const restoredTab = input.newTabState(latestConversation.providerId, true)
+          const restoredTab = input.newTabState(
+            latestConversation.providerId,
+            true,
+            latestConversation.projectId,
+            '',
+          )
           input.setTabs([restoredTab])
           input.setActiveTabId(restoredTab.id)
 
@@ -212,6 +264,7 @@ export function createProjectConversationControllerOperations(
   }
 
   function createTab() {
+    const currentProjectId = input.controllerInput.getProjectId()
     const existingBlank = input
       .getTabs()
       .find(
@@ -219,7 +272,8 @@ export function createProjectConversationControllerOperations(
           !tab.conversationId &&
           tab.entries.length === 0 &&
           tab.phase === 'idle' &&
-          tab.draft.trim().length === 0,
+          tab.draft.trim().length === 0 &&
+          tab.projectId === currentProjectId,
       )
     if (existingBlank) {
       input.setActiveTabId(existingBlank.id)

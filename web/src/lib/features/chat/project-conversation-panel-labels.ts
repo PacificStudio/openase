@@ -7,6 +7,8 @@ import type {
 
 export type ProjectConversationTabView = {
   id: string
+  projectId: string
+  projectName: string
   conversationId: string
   entries: ProjectConversationTranscriptEntry[]
   pending: boolean
