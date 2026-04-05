@@ -14,7 +14,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Linux-supported-success?logo=linux&logoColor=white" alt="Linux">
-  <img src="https://img.shields.io/badge/macOS-untested-lightgrey?logo=apple&logoColor=white" alt="macOS">
+  <img src="https://img.shields.io/badge/macOS-supported-success?logo=apple&logoColor=white" alt="macOS">
   <img src="https://img.shields.io/badge/Windows-untested-lightgrey?logo=windows&logoColor=white" alt="Windows">
   <img src="https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/SvelteKit-Frontend-FF3E00?logo=svelte&logoColor=white" alt="SvelteKit">
@@ -187,7 +187,7 @@ You create a ticket  →  Orchestrator detects pickup status
 | **Scheduled Jobs** | ✅ Stable | Cron-based ticket creation, manual trigger, enable/disable |
 | **Machines (Local)** | ✅ Stable | Local machine registration, health probes, resource metrics |
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
-| **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, systemd service |
+| **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, managed user service (`systemd --user` on Linux, `launchd` on macOS) |
 | **Machines (Remote)** | 🚧 WIP | Remote runtime is converging on websocket execution with direct-connect and reverse-connect reachability; SSH remains a helper and rollout compatibility path |
 | **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
 
@@ -196,7 +196,7 @@ You create a ticket  →  Orchestrator detects pickup status
 | Priority | Item | Description |
 |----------|------|-------------|
 | 🔴 High | **Remote Machine Execution** | Complete websocket execution for direct-connect and reverse-connect machines, then remove legacy SSH compatibility from the runtime path |
-| 🟡 Medium | **macOS / Windows Support** | Testing and adaptation for non-Linux platforms |
+| 🟡 Medium | **Windows Support** | Native service management and shell-script support outside WSL2 |
 | 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
 | 🟢 Future | **Multi-org Collaboration** | Cross-organization project sharing and permissions |
 | 🟢 Future | **Plugin Ecosystem** | Third-party plugin support for custom tools and integrations |
@@ -213,8 +213,8 @@ This section walks through everything you need on a **fresh machine** — from i
 | Platform | Status | Notes |
 |----------|--------|-------|
 | **Linux** (x86_64, arm64) | ✅ Fully supported | Primary development and deployment platform |
-| **macOS** (Apple Silicon, Intel) | ⚠️ Untested | The Go binary should compile, but setup flow and shell scripts have not been validated |
-| **Windows** | ⚠️ Untested | Setup flow, systemd service management, and shell scripts have not been validated. WSL2 is recommended as a workaround |
+| **macOS** (Apple Silicon, Intel) | ✅ Supported | `setup`, `up/down/restart/logs`, and the managed user service use `launchd` with `~/Library/LaunchAgents/com.openase.plist` |
+| **Windows** | ⚠️ Untested | Native service management and shell scripts have not been validated. WSL2 is recommended as a workaround |
 
 ### Step 0: System Prerequisites
 
@@ -290,7 +290,20 @@ newgrp docker   # or re-login
 # OpenASE setup will create the container for you automatically
 ```
 
-**Option B: System PostgreSQL**
+**Option B: Bring Your Own PostgreSQL**
+
+For macOS local development, prefer a native PostgreSQL install managed by Homebrew or Postgres.app if you do not want Docker to own the database lifecycle.
+
+```bash
+# macOS via Homebrew
+brew install postgresql@16
+brew services start postgresql@16
+
+# Verify a DSN that setup can reuse
+psql postgres://localhost:5432/postgres?sslmode=disable -c "SELECT 1;"
+```
+
+On Linux, a distro package install is the straightforward equivalent:
 
 ```bash
 # Ubuntu/Debian
@@ -372,7 +385,7 @@ The interactive terminal setup will walk you through:
 1. **Database** — start a Docker PostgreSQL automatically, or enter an existing PostgreSQL connection (`host`, `port`, `database`, `user`, `password`, `sslmode`)
 2. **CLI detection** — checks for `git`, `claude`, `codex`, `gemini` on PATH
 3. **Auth mode** — `disabled` (local dev) or `oidc` (browser login)
-4. **Service mode** — config-only, or install a `systemd --user` service
+4. **Service mode** — config-only, or install the managed user service (`systemd --user` on Linux, `launchd` on macOS)
 5. **Seed data** — creates org, project, ticket statuses, and detected providers
 
 Setup creates the following under `~/.openase/`:
@@ -430,7 +443,7 @@ Now that the platform is running, follow the User Guide — Quick Start ([EN](do
 
 ### Managed User Service
 
-Setup can install a `systemd --user` service automatically. You can also manage it manually:
+Setup can install the managed user service automatically. You can also manage it manually:
 
 ```bash
 ./bin/openase up      --config ~/.openase/config.yaml   # Install & start
@@ -439,9 +452,16 @@ Setup can install a `systemd --user` service automatically. You can also manage 
 ./bin/openase down                                       # Stop
 ```
 
-The managed service only runs OpenASE itself (`openase all-in-one --config ...`). It does not manage PostgreSQL for you. If you pointed OpenASE at an existing PostgreSQL instance, keep that database running separately. If setup created a Docker PostgreSQL container, that container is still a separate service boundary from `openase.service`.
+The managed service only runs OpenASE itself (`openase all-in-one --config ...`). It does not manage PostgreSQL for you. If you pointed OpenASE at an existing PostgreSQL instance, keep that database running separately. If setup created a Docker PostgreSQL container, that container is still a separate service boundary from OpenASE.
 
-For long-running server use, `systemd --user` may also need lingering enabled so the user service survives logout and can start as expected after reboot:
+| Platform | Manager | Service definition | Inspect | Restart | Stop | Logs |
+|----------|---------|--------------------|---------|---------|------|------|
+| Linux | `systemd --user` | `~/.config/systemd/user/openase.service` | `systemctl --user status openase` | `systemctl --user restart openase` | `systemctl --user stop openase` | `journalctl --user -u openase -n 200 -f` |
+| macOS | `launchd` | `~/Library/LaunchAgents/com.openase.plist` | `launchctl print gui/$(id -u)/com.openase \|\| launchctl print user/$(id -u)/com.openase` | `launchctl kickstart -k <target>` | `launchctl bootout <target>` | `tail -n 200 -f ~/.openase/logs/openase.stdout.log ~/.openase/logs/openase.stderr.log` |
+
+On macOS, setup prefers the `gui/<uid>/com.openase` target and falls back to `user/<uid>/com.openase` when the login session is attached to that domain instead. Use whichever target `launchctl print` resolves on your machine for `kickstart` and `bootout`.
+
+For long-running Linux server use, `systemd --user` may also need lingering enabled so the user service survives logout and can start as expected after reboot:
 
 ```bash
 loginctl enable-linger "$USER"
