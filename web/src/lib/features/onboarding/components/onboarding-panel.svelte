@@ -79,7 +79,8 @@
         data = payload
       } catch (caughtError) {
         if (cancelled) return
-        error = caughtError instanceof ApiError ? caughtError.detail : 'Failed to load onboarding data.'
+        error =
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load onboarding data.'
       } finally {
         if (!cancelled) loading = false
       }

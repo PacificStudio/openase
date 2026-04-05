@@ -1354,10 +1354,7 @@ func shouldFlushAggregatedOutput(output *agentOutputEvent) bool {
 	}
 	switch strings.TrimSpace(output.Stream) {
 	case "assistant":
-		trimmed := strings.TrimSpace(text)
-		return len(text) >= 192 ||
-			strings.ContainsAny(text, "。！？!?") ||
-			strings.HasSuffix(trimmed, ".")
+		return len(text) >= 192 || strings.ContainsAny(text, ".。！？!?")
 	case "command":
 		return len(text) >= 256
 	default:

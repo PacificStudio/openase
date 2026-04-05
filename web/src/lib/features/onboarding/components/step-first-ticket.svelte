@@ -71,7 +71,9 @@
       return
     }
     if (!pickupStatus) {
-      toastStore.error('Could not find the recommended pickup status. Check the project status configuration first.')
+      toastStore.error(
+        'Could not find the recommended pickup status. Check the project status configuration first.',
+      )
       return
     }
     creating = true
@@ -89,7 +91,9 @@
       // Navigate to ticket detail by opening right panel
       appStore.openRightPanel({ type: 'ticket', id: payload.ticket.id })
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the ticket.')
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the ticket.',
+      )
     } finally {
       creating = false
     }
@@ -104,7 +108,9 @@
       <CheckCircle2 class="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
       <Ticket class="text-muted-foreground size-4 shrink-0" />
       <div>
-        <p class="text-foreground text-sm font-medium">{ticketCount} ticket{ticketCount === 1 ? "" : "s"} created</p>
+        <p class="text-foreground text-sm font-medium">
+          {ticketCount} ticket{ticketCount === 1 ? '' : 's'} created
+        </p>
         <p class="text-muted-foreground text-xs">Open the Tickets page to view details</p>
       </div>
       <Button
@@ -130,7 +136,12 @@
 
       <div>
         <p class="text-foreground mb-1 text-xs font-medium">Description (optional)</p>
-        <Textarea bind:value={description} placeholder="Describe the task..." rows={2} class="text-sm" />
+        <Textarea
+          bind:value={description}
+          placeholder="Describe the task..."
+          rows={2}
+          class="text-sm"
+        />
       </div>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -161,8 +172,14 @@
       <div class="bg-muted/50 flex items-start gap-2 rounded-md p-3">
         <Info class="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
         <div class="text-muted-foreground space-y-1 text-xs">
-          <p>The ticket will {pickupStatusLabel}, and the orchestrator will automatically pick it up and assign it to an agent based on the status pickup rules.</p>
-          <p>The agent's progress will appear in real time on the timeline in the ticket details view.</p>
+          <p>
+            The ticket will {pickupStatusLabel}, and the orchestrator will automatically pick it up
+            and assign it to an agent based on the status pickup rules.
+          </p>
+          <p>
+            The agent's progress will appear in real time on the timeline in the ticket details
+            view.
+          </p>
         </div>
       </div>
 

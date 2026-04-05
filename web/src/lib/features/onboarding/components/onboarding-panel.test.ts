@@ -42,7 +42,9 @@ describe('OnboardingPanel', () => {
     })
 
     expect(await findByText('Skip tour')).toBeTruthy()
-    expect(getByText('If you do not want to continue setup, you can skip the tour and finish now.')).toBeTruthy()
+    expect(
+      getByText('If you do not want to continue setup, you can skip the tour and finish now.'),
+    ).toBeTruthy()
 
     await fireEvent.click(getByText('Skip tour'))
 

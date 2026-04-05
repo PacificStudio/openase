@@ -195,9 +195,13 @@
         />
       {/each}
     {:else if deferredRecommendations.length > 0}
-      <p class="text-muted-foreground py-4 text-center text-xs">All recommendations are deferred. Expand below to review them.</p>
+      <p class="text-muted-foreground py-4 text-center text-xs">
+        All recommendations are deferred. Expand below to review them.
+      </p>
     {:else}
-      <p class="text-muted-foreground py-4 text-center text-xs">No staffing recommendations right now.</p>
+      <p class="text-muted-foreground py-4 text-center text-xs">
+        No staffing recommendations right now.
+      </p>
     {/if}
 
     {#if deferredRecommendations.length > 0}
