@@ -23,6 +23,7 @@ The matrix currently covers:
 | --- | --- |
 | Unified websocket runtime contract across listener and reverse topologies | `TestUnifiedWebsocketRuntimeContractSuite` |
 | SSH bootstrap + reverse websocket machine session | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
+| Reverse websocket runtime happy path with hooks and artifact sync | `TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync` |
 | SSH bootstrap helper behavior | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
 | SSH diagnostics helper behavior | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH bootstrap + listener websocket runtime | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
@@ -258,6 +259,7 @@ Use `openase machine ssh-diagnostics <machine-uuid>` when you need a quick helpe
 
 - enable `ws_reverse` on a small machine subset
 - keep SSH credentials only where operators want helper bootstrap or diagnostics
+- run at least one reverse websocket happy-path runtime per rollout batch
 - verify `machine.connected` and reconnect behavior under a daemon restart
 - confirm a forced websocket transport failure stays classified as a websocket-side launch error
 

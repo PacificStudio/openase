@@ -42,6 +42,11 @@ run_case \
   'TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync$'
 
 run_case \
+  "Reverse websocket runtime happy path" \
+  "./internal/orchestrator" \
+  'TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync$'
+
+run_case \
   "Listener websocket preflight failure classification" \
   "./internal/orchestrator" \
   'TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics$'
