@@ -271,6 +271,7 @@ func TestSupportedAgentScopes(t *testing.T) {
 		string(ScopeTicketRepoScopesUpdate),
 		string(ScopeTicketsCreate),
 		string(ScopeTicketsList),
+		string(ScopeTicketsUpdate),
 		string(ScopeTicketsReportUsage),
 		string(ScopeTicketsUpdateSelf),
 		string(ScopeWorkflowsCreate),

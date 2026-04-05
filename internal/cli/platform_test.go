@@ -502,6 +502,85 @@ func TestTicketListCommandBuildsQueryFromFilters(t *testing.T) {
 	}
 }
 
+func TestTicketUpdateCommandUsesCurrentTicketRouteWithoutProjectScope(t *testing.T) {
+	var method string
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-123","status_name":"In Progress"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_TICKET_ID", "ticket-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.create,tickets.list,tickets.update.self")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"update", "--status-name", "In Progress"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodPatch {
+		t.Fatalf("expected PATCH, got %s", method)
+	}
+	if path != "/tickets/ticket-123" {
+		t.Fatalf("expected current-ticket update path, got %q", path)
+	}
+	if payload["status_name"] != "In Progress" {
+		t.Fatalf("unexpected ticket update payload: %+v", payload)
+	}
+}
+
+func TestTicketUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(t *testing.T) {
+	var method string
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-456","status_name":"Done"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.create,tickets.list,tickets.update")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"update", "ticket-456", "--status-name", "Done"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodPatch {
+		t.Fatalf("expected PATCH, got %s", method)
+	}
+	if path != "/projects/project-123/tickets/ticket-456" {
+		t.Fatalf("expected project-scoped update path, got %q", path)
+	}
+	if payload["status_name"] != "Done" {
+		t.Fatalf("unexpected ticket update payload: %+v", payload)
+	}
+}
+
 func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 	var method string
 	var path string

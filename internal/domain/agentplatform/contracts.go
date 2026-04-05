@@ -29,6 +29,7 @@ type Scope string
 const (
 	ScopeTicketsCreate                 Scope = "tickets.create"
 	ScopeTicketsList                   Scope = "tickets.list"
+	ScopeTicketsUpdate                 Scope = "tickets.update"
 	ScopeTicketsReportUsage            Scope = "tickets.report_usage"
 	ScopeTicketsUpdateSelf             Scope = "tickets.update.self"
 	ScopeProjectsUpdate                Scope = "projects.update"
@@ -139,6 +140,7 @@ func SupportedAgentScopes() []string {
 		string(ScopeTicketRepoScopesUpdate),
 		string(ScopeTicketsCreate),
 		string(ScopeTicketsList),
+		string(ScopeTicketsUpdate),
 		string(ScopeTicketsReportUsage),
 		string(ScopeTicketsUpdateSelf),
 		string(ScopeWorkflowsCreate),
@@ -371,6 +373,7 @@ func BuildCapabilityContract(input RuntimeContractInput) string {
 	switch input.PrincipalKind {
 	case PrincipalKindProjectConversation:
 		builder.WriteString("- Treat this as a project-scoped conversation runtime, not a ticket runtime.\n")
+		builder.WriteString("- Use project-scoped ticket mutation routes when `tickets.update` is granted.\n")
 		builder.WriteString("- Do not assume current-ticket comment/update/report-usage endpoints are available.\n")
 		builder.WriteString("- Ticket-runtime-only routes can reject this principal kind even when `OPENASE_TICKET_ID` is present.\n")
 	default:
