@@ -752,13 +752,15 @@ export function getTicketRun(
     after?: string
   } = {},
 ) {
-  const params = new URLSearchParams()
-  if (query.limit) params.set('limit', String(query.limit))
-  if (query.before) params.set('before', query.before)
-  if (query.after) params.set('after', query.after)
-  const suffix = params.size > 0 ? `?${params.toString()}` : ''
   return api.get<TicketRunDetailPayload>(
-    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}${suffix}`,
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}`,
+    {
+      params: {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      },
+    },
   )
 }
 

@@ -97,7 +97,11 @@ describe('ticket run transcript real sample replay', () => {
       })
     }
 
-    const fullHydrationThenSupplement = replayFrames(fixture.supplement_frames, fixture.detail, true)
+    const fullHydrationThenSupplement = replayFrames(
+      fixture.supplement_frames,
+      fixture.detail,
+      true,
+    )
     expect(pagedState).toEqual(fullHydrationThenSupplement)
   })
 })

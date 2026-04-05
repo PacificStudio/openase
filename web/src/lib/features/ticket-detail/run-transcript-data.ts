@@ -131,7 +131,9 @@ export function mapTicketRunStepEntry(item: TicketRunStepRecord): TicketRunStepE
   }
 }
 
-export function mapTicketRunTranscriptPage(payload: TicketRunDetailPayload): TicketRunTranscriptPage {
+export function mapTicketRunTranscriptPage(
+  payload: TicketRunDetailPayload,
+): TicketRunTranscriptPage {
   if (payload.transcript_page) {
     return mapTranscriptPageRecord(payload.transcript_page)
   }

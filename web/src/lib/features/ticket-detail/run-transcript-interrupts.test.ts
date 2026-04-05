@@ -43,7 +43,9 @@ describe('ticket run interrupt blocks', () => {
     const detail: TicketRunDetail = {
       run: liveRun,
       transcriptPage: {
-        items: [{ kind: 'trace', cursor: '2026-04-01T10:05:36Z|trace|1|trace-interrupt', traceEntry }],
+        items: [
+          { kind: 'trace', cursor: '2026-04-01T10:05:36Z|trace|1|trace-interrupt', traceEntry },
+        ],
         hasOlder: false,
         hiddenOlderCount: 0,
         hasNewer: false,

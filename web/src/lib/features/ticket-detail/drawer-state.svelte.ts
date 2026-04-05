@@ -11,7 +11,6 @@ import {
 } from './drawer-run-transcript'
 import {
   applyTicketRunStreamFrame,
-  createEmptyTicketRunTranscriptState,
   hydrateTicketRunDetail,
   selectTicketRun,
 } from './run-transcript'
@@ -23,16 +22,10 @@ import {
   readTicketDrawerRunTranscriptState,
 } from './drawer-state-mutators'
 import { createTicketDrawerReferenceController } from './drawer-state-reference'
-import type {
-  HookExecution,
-  TicketDetail,
-  TicketReferenceOption,
-  TicketRepoOption,
-  TicketRun,
-  TicketRunTranscriptBlock,
-  TicketStatusOption,
-  TicketTimelineItem,
-} from './types'
+import {
+  createTicketDrawerMutableState,
+  resetTicketDrawerMutableState,
+} from './drawer-state-store.svelte'
 
 type LoadOptions = { background?: boolean; preserveMessages?: boolean }
 
@@ -50,46 +43,7 @@ const defaultDeps: TicketDrawerStateDeps = {
 export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
   const resolvedDeps = { ...defaultDeps, ...deps }
 
-  const state = $state({
-    loading: false,
-    error: '',
-    ticket: null as TicketDetail | null,
-    timeline: [] as TicketTimelineItem[],
-    hooks: [] as HookExecution[],
-    statuses: [] as TicketStatusOption[],
-    dependencyCandidates: [] as TicketReferenceOption[],
-    repoOptions: [] as TicketRepoOption[],
-    runs: [] as TicketRun[],
-    selectedRunId: null as string | null,
-    followLatest: true,
-    currentRun: null as TicketRun | null,
-    runBlocks: [] as TicketRunTranscriptBlock[],
-    runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
-    runStepEntriesByRun: {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['stepEntriesByRun'],
-    runTraceEntriesByRun:
-      {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['traceEntriesByRun'],
-    runLifecycleBlocksByRun:
-      {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['lifecycleBlocksByRun'],
-    runPageInfoByRun: {} as ReturnType<typeof createEmptyTicketRunTranscriptState>['pageInfoByRun'],
-    loadingRunId: null as string | null,
-    loadingOlderRunId: null as string | null,
-    runStreamState: 'idle' as StreamConnectionState,
-    recoveringRunTranscript: false,
-    savingFields: false,
-    creatingDependency: false,
-    deletingDependencyId: null as string | null,
-    creatingExternalLink: false,
-    deletingExternalLinkId: null as string | null,
-    creatingRepoScope: false,
-    updatingRepoScopeId: null as string | null,
-    deletingRepoScopeId: null as string | null,
-    creatingComment: false,
-    updatingCommentId: null as string | null,
-    deletingCommentId: null as string | null,
-    resumingRetry: false,
-    resettingWorkspace: false,
-    archiving: false,
-  })
+  const state = $state(createTicketDrawerMutableState())
   let loadRequestId = 0
   let runDetailRequestId = 0
   let runRecoveryRequestId = 0
@@ -290,42 +244,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       loadRequestId += 1
       runDetailRequestId += 1
       referenceController.resetQueues()
-      state.loading = false
-      state.error = ''
-      state.ticket = null
-      state.timeline = []
-      state.hooks = []
-      state.statuses = []
-      state.dependencyCandidates = []
-      state.repoOptions = []
-      state.runs = []
-      state.selectedRunId = null
-      state.followLatest = true
-      state.currentRun = null
-      state.runBlocks = []
-      state.runBlockCache = {}
-      state.runStepEntriesByRun = {}
-      state.runTraceEntriesByRun = {}
-      state.runLifecycleBlocksByRun = {}
-      state.runPageInfoByRun = {}
-      state.loadingRunId = null
-      state.loadingOlderRunId = null
-      state.runStreamState = 'idle'
-      state.recoveringRunTranscript = false
-      state.savingFields = false
-      state.creatingDependency = false
-      state.deletingDependencyId = null
-      state.creatingExternalLink = false
-      state.deletingExternalLinkId = null
-      state.creatingRepoScope = false
-      state.updatingRepoScopeId = null
-      state.deletingRepoScopeId = null
-      state.creatingComment = false
-      state.updatingCommentId = null
-      state.deletingCommentId = null
-      state.resumingRetry = false
-      state.resettingWorkspace = false
-      state.archiving = false
+      resetTicketDrawerMutableState(state)
     },
     invalidateReferences(projectId?: string) {
       referenceController.invalidateReferences(projectId)

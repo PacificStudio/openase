@@ -5,20 +5,10 @@ import type {
   TicketRunLifecycleEvent,
   TicketRunStepEntry,
   TicketRunTraceEntry,
-  TicketRunTranscriptBlock,
-  TicketRunTranscriptPage,
   TicketRunTranscriptState,
 } from './types'
-import {
-  buildLifecycleBlock,
-  buildRunTimeline,
-  finalizeTerminalRunBlocks,
-  hasBlock,
-  mergeRun,
-  seedRunBlocks,
-} from './run-transcript-blocks'
-import { applyTicketRunTraceEntry as reduceTicketRunTraceEntry } from './run-transcript-trace'
-import { syncSelectedBlocks, syncSelectedRun } from './run-transcript-selection'
+import { buildLifecycleBlock, hasBlock, mergeRun } from './run-transcript-blocks'
+import { syncSelectedRun } from './run-transcript-selection'
 export {
   createEmptyTicketRunTranscriptState,
   selectTicketRun,
@@ -28,7 +18,6 @@ import {
   insertBlockChronologically,
   mergeDefinedRunFields,
   mergeHydratedRunSnapshot,
-  mergeRunStepSnapshot,
   mergeStreamingRunSnapshot,
 } from './run-transcript-run-helpers'
 import {
@@ -38,13 +27,14 @@ import {
   mapTicketRunStreamLifecycleEvent,
   mapTicketRunTraceEntry,
 } from './run-transcript-data'
-import {
-  buildTicketRunStepCursor,
-  buildTicketRunTraceCursor,
-  maxTicketRunTranscriptCursor,
-} from './run-transcript-cursor'
+import { buildTicketRunStepCursor, buildTicketRunTraceCursor } from './run-transcript-cursor'
 import type { TicketRunRecord, TicketRunStepRecord, TicketRunTraceRecord } from '$lib/api/contracts'
-import { createEmptyTicketRunTranscriptState } from './run-transcript-state'
+import {
+  mergeStepEntryIntoState,
+  mergeTraceEntryIntoState,
+  mergeTranscriptPageIntoState,
+  rebuildRunTranscriptState,
+} from './run-transcript-reducer-helpers'
 
 export function hydrateTicketRunDetail(
   state: TicketRunTranscriptState,
@@ -177,18 +167,14 @@ export function applyTicketRunStepEntry(
     return state
   }
 
-  const stepEntries = state.stepEntriesByRun[entry.agentRunId] ?? []
-  if (!stepEntries.some((item) => isEquivalentStepEntry(item, entry))) {
-    state = {
-      ...state,
-      stepEntriesByRun: {
-        ...state.stepEntriesByRun,
-        [entry.agentRunId]: sortStepEntries([...stepEntries, entry]),
-      },
-    }
-  }
+  state = mergeStepEntryIntoState(state, entry)
 
-  return rebuildRunTranscriptState(state, entry.agentRunId, baseRun, buildTicketRunStepCursor(entry))
+  return rebuildRunTranscriptState(
+    state,
+    entry.agentRunId,
+    baseRun,
+    buildTicketRunStepCursor(entry),
+  )
 }
 
 export function applyTicketRunTraceEntry(
@@ -200,18 +186,14 @@ export function applyTicketRunTraceEntry(
     return state
   }
 
-  const traceEntries = state.traceEntriesByRun[entry.agentRunId] ?? []
-  if (!traceEntries.some((item) => isEquivalentTraceEntry(item, entry))) {
-    state = {
-      ...state,
-      traceEntriesByRun: {
-        ...state.traceEntriesByRun,
-        [entry.agentRunId]: sortTraceEntries([...traceEntries, entry]),
-      },
-    }
-  }
+  state = mergeTraceEntryIntoState(state, entry)
 
-  return rebuildRunTranscriptState(state, entry.agentRunId, baseRun, buildTicketRunTraceCursor(entry))
+  return rebuildRunTranscriptState(
+    state,
+    entry.agentRunId,
+    baseRun,
+    buildTicketRunTraceCursor(entry),
+  )
 }
 
 export function applyTicketRunSummaryEvent(
@@ -243,222 +225,9 @@ export function applyTicketRunSummaryEvent(
   )
 }
 
-function mergeTranscriptPageIntoState(
-  state: TicketRunTranscriptState,
-  runId: string,
-  page: TicketRunTranscriptPage,
-): TicketRunTranscriptState {
-  const stepEntries = state.stepEntriesByRun[runId] ?? []
-  const traceEntries = state.traceEntriesByRun[runId] ?? []
-  let nextStepEntries = stepEntries
-  let nextTraceEntries = traceEntries
-
-  for (const item of page.items) {
-    if (item.kind === 'step') {
-      if (!nextStepEntries.some((entry) => isEquivalentStepEntry(entry, item.stepEntry))) {
-        nextStepEntries = sortStepEntries([...nextStepEntries, item.stepEntry])
-      }
-      continue
-    }
-    if (!nextTraceEntries.some((entry) => isEquivalentTraceEntry(entry, item.traceEntry))) {
-      nextTraceEntries = sortTraceEntries([...nextTraceEntries, item.traceEntry])
-    }
-  }
-
-  return {
-    ...state,
-    stepEntriesByRun: {
-      ...state.stepEntriesByRun,
-      [runId]: nextStepEntries,
-    },
-    traceEntriesByRun: {
-      ...state.traceEntriesByRun,
-      [runId]: nextTraceEntries,
-    },
-    pageInfoByRun: {
-      ...state.pageInfoByRun,
-      [runId]: {
-        hasOlder: page.hasOlder,
-        hiddenOlderCount: page.hiddenOlderCount,
-        oldestCursor: page.oldestCursor ?? state.pageInfoByRun[runId]?.oldestCursor,
-        newestCursor: maxTicketRunTranscriptCursor(
-          state.pageInfoByRun[runId]?.newestCursor,
-          page.newestCursor,
-        ),
-      },
-    },
-  }
-}
-
-function rebuildRunTranscriptState(
-  state: TicketRunTranscriptState,
-  runId: string,
-  baseRun: TicketRun,
-  newestCursor?: string,
-): TicketRunTranscriptState {
-  const traceEntries = state.traceEntriesByRun[runId] ?? []
-  const stepEntries = state.stepEntriesByRun[runId] ?? []
-  const lifecycleBlocks = state.lifecycleBlocksByRun[runId] ?? []
-  const timeline = buildRunTimeline(stepEntries, traceEntries)
-  const replayBaseRun: TicketRun = {
-    ...baseRun,
-    currentStepStatus: undefined,
-    currentStepSummary: undefined,
-    lastHeartbeatAt: undefined,
-  }
-
-  let replayState: TicketRunTranscriptState = {
-    ...createEmptyTicketRunTranscriptState(),
-    runs: [replayBaseRun],
-    selectedRunId: runId,
-    followLatest: true,
-    currentRun: replayBaseRun,
-    blocks: mergeSeedAndLifecycleBlocks(replayBaseRun, lifecycleBlocks),
-  }
-
-  for (const item of timeline) {
-    replayState =
-      item.kind === 'step'
-        ? reduceTicketRunStepEntryForCurrentRun(replayState, item.entry)
-        : reduceTicketRunTraceEntry(replayState, item.entry)
-  }
-  replayState = finalizeTerminalRunBlocks(replayState)
-  const oldestCursor =
-    state.pageInfoByRun[runId]?.oldestCursor ??
-    readTimelineCursor(timeline[0])
-  const latestTimelineCursor = readTimelineCursor(timeline.at(-1))
-  const rebuiltRun = mergeDefinedRunFields(baseRun, replayState.currentRun ?? undefined)
-
-  return syncSelectedRun({
-    ...state,
-    runs: mergeRun(state.runs, rebuiltRun),
-    blockCache: {
-      ...syncSelectedBlocks(state),
-      [runId]: replayState.blocks,
-    },
-    pageInfoByRun: {
-      ...state.pageInfoByRun,
-      [runId]: {
-        hasOlder: state.pageInfoByRun[runId]?.hasOlder ?? false,
-        hiddenOlderCount: state.pageInfoByRun[runId]?.hiddenOlderCount ?? 0,
-        oldestCursor,
-        newestCursor: maxTicketRunTranscriptCursor(
-          maxTicketRunTranscriptCursor(state.pageInfoByRun[runId]?.newestCursor, latestTimelineCursor),
-          newestCursor,
-        ),
-      },
-    },
-  })
-}
-
-function reduceTicketRunStepEntryForCurrentRun(
-  state: TicketRunTranscriptState,
-  entry: TicketRunStepEntry,
-): TicketRunTranscriptState {
-  const runs = state.runs.map((run) =>
-    run.id === entry.agentRunId ? mergeRunStepSnapshot(run, entry) : run,
-  )
-
-  const currentRun = state.currentRun
-  if (!currentRun || currentRun.id !== entry.agentRunId) {
-    return {
-      ...state,
-      runs,
-    }
-  }
-
-  const nextCurrentRun = mergeRunStepSnapshot(currentRun, entry)
-  if (entry.sourceTraceEventId || hasBlock(state.blocks, `step:${entry.id}`)) {
-    return {
-      ...state,
-      runs,
-      currentRun: nextCurrentRun,
-    }
-  }
-
-  return {
-    ...state,
-    runs,
-    currentRun: nextCurrentRun,
-    blocks: [
-      ...state.blocks,
-      {
-        kind: 'step' as const,
-        id: `step:${entry.id}`,
-        stepStatus: entry.stepStatus,
-        summary: entry.summary,
-        at: entry.createdAt,
-      },
-    ],
-  }
-}
-
-function mergeSeedAndLifecycleBlocks(
-  run: TicketRun,
-  lifecycleBlocks: TicketRunTranscriptBlock[],
-): TicketRunTranscriptBlock[] {
-  let blocks = seedRunBlocks(run)
-  for (const block of lifecycleBlocks) {
-    if (!hasBlock(blocks, block.id)) {
-      blocks = insertBlockChronologically(blocks, block)
-    }
-  }
-  return blocks
-}
-
-function sortTraceEntries(entries: TicketRunTraceEntry[]): TicketRunTraceEntry[] {
-  return entries.slice().sort((left, right) =>
-    left.sequence !== right.sequence
-      ? left.sequence - right.sequence
-      : left.id.localeCompare(right.id),
-  )
-}
-
-function sortStepEntries(entries: TicketRunStepEntry[]): TicketRunStepEntry[] {
-  return entries
-    .slice()
-    .sort((left, right) =>
-      Date.parse(left.createdAt) !== Date.parse(right.createdAt)
-        ? Date.parse(left.createdAt) - Date.parse(right.createdAt)
-        : left.id.localeCompare(right.id),
-    )
-}
-
 function getRunForUpdate(state: TicketRunTranscriptState, runId: string): TicketRun | null {
-  return state.runs.find((item) => item.id === runId) ?? (state.currentRun?.id === runId ? state.currentRun : null)
-}
-
-function readTimelineCursor(
-  item: ReturnType<typeof buildRunTimeline>[number] | undefined,
-): string | undefined {
-  if (!item) {
-    return undefined
-  }
-  return item.kind === 'step'
-    ? buildTicketRunStepCursor(item.entry)
-    : buildTicketRunTraceCursor(item.entry)
-}
-
-function isEquivalentStepEntry(left: TicketRunStepEntry, right: TicketRunStepEntry): boolean {
   return (
-    left.id === right.id ||
-    (left.agentRunId === right.agentRunId &&
-      left.createdAt === right.createdAt &&
-      left.stepStatus === right.stepStatus &&
-      left.summary === right.summary &&
-      left.sourceTraceEventId === right.sourceTraceEventId)
-  )
-}
-
-function isEquivalentTraceEntry(left: TicketRunTraceEntry, right: TicketRunTraceEntry): boolean {
-  return (
-    left.id === right.id ||
-    (left.agentRunId === right.agentRunId &&
-      left.sequence === right.sequence &&
-      left.kind === right.kind &&
-      left.stream === right.stream &&
-      left.createdAt === right.createdAt &&
-      left.output === right.output &&
-      JSON.stringify(left.payload) === JSON.stringify(right.payload))
+    state.runs.find((item) => item.id === runId) ??
+    (state.currentRun?.id === runId ? state.currentRun : null)
   )
 }
