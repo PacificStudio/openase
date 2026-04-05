@@ -2,6 +2,13 @@
 
 本指南将远程 WebSocket 传输从仅代码实现转变为可运维的功能。涵盖验证矩阵、可观测性契约、部署前提、守护进程安装流程、升级与回滚步骤以及部署检查清单。
 
+本指南中的术语：
+
+- `direct_connect`：控制面可以主动拨到机器。
+- `reverse_connect`：机器守护进程可以反向拨回控制面。
+- `websocket`：目标远程执行路径。
+- `ssh_compat`：部署迁移期、引导和诊断期间使用的临时兼容路径或 helper。
+
 ## 自动化验证矩阵
 
 从仓库根目录运行聚焦的传输矩阵：
@@ -99,7 +106,7 @@ OpenASE 现在发出以下传输相关指标：
 - 监听 WebSocket 需要从控制面板到机器公布的 WebSocket 端点的入站可达性。
 - 如果 TLS 终止在 OpenASE 前面，确保公布的主机名与监听证书匹配，且 WebSocket 升级头能通过代理。
 
-### 传输模式前提
+### 可达性与兼容前提
 
 反向 WebSocket：
 
@@ -113,10 +120,11 @@ OpenASE 现在发出以下传输相关指标：
 - 需要机器公布的 WebSocket 端点
 - 部署期间仍应保持 SSH 凭证配置以保留运维回退
 
-纯 SSH：
+SSH 兼容路径：
 
-- 仍然是基线回退路径
+- 在 rollout 期间仍然是基线回退路径
 - 应保持验证和启用状态，直到 WebSocket 启动成功和重连恢复达到部署标准
+- 应视为 helper 或兼容基础设施，而不是长期远程执行模型
 
 ## 引导与守护进程安装
 
@@ -132,9 +140,11 @@ make build-web
 
 在启动守护进程之前，确保机器记录有：
 
-- 预期的连接模式（`ws_reverse` 或 `ws_listener`）
+- 预期的可达性与执行组合：
+  - `reverse_connect + websocket`
+  - `direct_connect + websocket`
 - 有效的 `workspace_root`
-- 部署期间保留 SSH 凭证以供回退
+- 只有在仍需 rollout 回退或诊断时才保留 SSH helper 凭证
 - 远程 CLI 无法从 `PATH` 发现时的 `agent_cli_path`
 
 ### 3. 签发专用机器通道令牌

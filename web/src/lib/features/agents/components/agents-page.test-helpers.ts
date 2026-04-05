@@ -117,6 +117,16 @@ export function makePageData(agent: AgentInstance): AgentsPageData {
         name: 'Localhost',
         host: '127.0.0.1',
         port: 22,
+        reachability_mode: 'direct_connect',
+        execution_mode: 'ssh_compat',
+        execution_capabilities: [
+          'probe',
+          'workspace_prepare',
+          'artifact_sync',
+          'process_streaming',
+        ],
+        ssh_helper_enabled: false,
+        ssh_helper_required: true,
         connection_mode: 'ssh',
         transport_capabilities: [
           'probe',

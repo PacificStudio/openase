@@ -212,7 +212,7 @@ func resolveManagedServiceConfigPath(configFile string) (provider.AbsolutePath, 
 			return "", fmt.Errorf("config path %q must be a file", absolutePath)
 		}
 
-		return provider.ParseAbsolutePath(absolutePath)
+		return canonicalManagedServiceConfigPath(absolutePath)
 	}
 
 	cwd, err := os.Getwd()
@@ -238,10 +238,24 @@ func resolveManagedServiceConfigPath(configFile string) (provider.AbsolutePath, 
 			continue
 		}
 
-		return provider.ParseAbsolutePath(candidate)
+		return canonicalManagedServiceConfigPath(candidate)
 	}
 
 	return "", nil
+}
+
+func canonicalManagedServiceConfigPath(path string) (provider.AbsolutePath, error) {
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve config path %q: %w", path, err)
+	}
+
+	canonicalPath, err := filepath.EvalSymlinks(absolutePath)
+	if err != nil {
+		return "", fmt.Errorf("canonicalize config path %q: %w", absolutePath, err)
+	}
+
+	return provider.ParseAbsolutePath(canonicalPath)
 }
 
 func managedServiceConfigCandidates(cwd string, homeDir string) []string {
