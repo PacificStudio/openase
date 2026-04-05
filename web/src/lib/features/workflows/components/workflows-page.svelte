@@ -32,7 +32,6 @@
     workflows={controller.workflows}
     selectedId={controller.selectedId}
     projectId={appStore.currentProject?.id ?? ''}
-    providers={controller.providers}
     selectedWorkflow={controller.selectedWorkflow}
     harness={controller.harness}
     draftHarness={controller.draftHarness}
@@ -52,7 +51,6 @@
     templateDraft={controller.templateDraft}
     onSelectedIdChange={controller.handleSelectWorkflow}
     onDraftChange={(raw) => (controller.draftHarness = raw)}
-    onApplyAssistantDraft={controller.handleApplyAssistantDraft}
     onSave={() => void controller.handleSave()}
     onValidate={() => void controller.handleValidate()}
     onToggleSkill={(skill) => void controller.handleToggleSkill(skill)}

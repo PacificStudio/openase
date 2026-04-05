@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, render } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
@@ -126,13 +126,6 @@ const providerFixture: AgentProvider = {
   pricing_config: {},
 }
 
-const updatedHarnessContent = [
-  '---',
-  'type: coding',
-  '---',
-  'You are a coding assistant with full coverage requirements.',
-].join('\n')
-
 const pageDataFixture = {
   workflows: [
     {
@@ -173,7 +166,7 @@ const pageDataFixture = {
   },
 }
 
-describe('WorkflowsPage AI apply integration', () => {
+describe('WorkflowsPage', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
     HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
@@ -192,77 +185,16 @@ describe('WorkflowsPage AI apply integration', () => {
     vi.clearAllMocks()
   })
 
-  it('applies an AI harness suggestion back into the editor draft', async () => {
+  it('does not render a standalone workflow AI entrypoint', async () => {
     appStore.currentOrg = orgFixture
     appStore.currentProject = projectFixture
     loadWorkflowPageData.mockResolvedValue(pageDataFixture)
-    closeChatSession.mockResolvedValue(undefined)
+    const { findByRole, queryByRole, container } = render(WorkflowsPage)
 
-    streamChatTurn.mockImplementation(async (_request, handlers) => {
-      handlers.onEvent({
-        kind: 'session',
-        payload: { sessionId: 'session-workflows-apply-1' },
-      })
-      handlers.onEvent({
-        kind: 'message',
-        payload: {
-          type: 'diff',
-          file: 'harness content',
-          hunks: [
-            {
-              oldStart: 4,
-              oldLines: 1,
-              newStart: 4,
-              newLines: 1,
-              lines: [
-                { op: 'remove', text: 'You are a coding assistant.' },
-                { op: 'add', text: 'You are a coding assistant with full coverage requirements.' },
-              ],
-            },
-          ],
-        },
-      })
-      handlers.onEvent({
-        kind: 'done',
-        payload: {
-          sessionId: 'session-workflows-apply-1',
-          turnsUsed: 1,
-          turnsRemaining: 9,
-        },
-      })
-    })
-
-    const { container, findByRole, findByText } = render(WorkflowsPage)
-
-    await findByText('Validate')
-    await fireEvent.click(await findByRole('button', { name: 'AI' }))
-
-    await waitFor(() => {
-      expect(
-        container.querySelector('textarea[placeholder="Ask AI to refine this harness…"]'),
-      ).toBeTruthy()
-    })
-
-    const chatPrompt = container.querySelector(
-      'textarea[placeholder="Ask AI to refine this harness…"]',
-    ) as HTMLTextAreaElement | null
-    if (!chatPrompt) {
-      throw new Error('chat prompt textarea not found')
-    }
-
-    await fireEvent.input(chatPrompt, {
-      target: { value: 'Tighten the coding harness.' },
-    })
-    await fireEvent.keyDown(chatPrompt, { key: 'Enter' })
-    await fireEvent.click(await findByRole('button', { name: 'Apply' }))
-
-    await waitFor(() => {
-      const editorTextarea = Array.from(container.querySelectorAll('textarea')).find(
-        (element) => element !== chatPrompt && element.value.includes('full coverage requirements'),
-      ) as HTMLTextAreaElement | undefined
-
-      expect(editorTextarea?.value).toBe(updatedHarnessContent)
-      expect(toastStore.info).toHaveBeenCalledWith('Applied AI suggestion to the harness draft.')
-    })
+    expect(await findByRole('heading', { name: 'Workflows' })).toBeTruthy()
+    expect(queryByRole('button', { name: 'AI' })).toBeNull()
+    expect(
+      container.querySelector('textarea[placeholder="Ask AI to refine this harness…"]'),
+    ).toBeNull()
   })
 })

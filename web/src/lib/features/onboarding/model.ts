@@ -33,8 +33,8 @@ const stepDefinitions: { id: OnboardingStepId; label: string; description: strin
   },
   {
     id: 'ai_discovery',
-    label: 'Try Project AI and Harness AI',
-    description: 'Use AI assistants to further refine the project setup',
+    label: 'Try Project AI',
+    description: 'Use Project AI to refine the next steps for the project',
   },
 ]
 

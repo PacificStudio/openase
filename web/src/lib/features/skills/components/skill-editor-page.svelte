@@ -1,9 +1,5 @@
 <script lang="ts">
-  import { appStore } from '$lib/stores/app.svelte'
   import { Skeleton } from '$ui/skeleton'
-  import { cn } from '$lib/utils'
-  import { GripVertical } from '@lucide/svelte'
-  import SkillAiSidebar from './skill-ai-sidebar.svelte'
   import { createSkillEditorPageController } from './skill-editor-page-controller.svelte'
   import SkillEditorHeader from './skill-editor-header.svelte'
   import SkillMetadataBar from './skill-metadata-bar.svelte'
@@ -102,13 +98,10 @@
       busy={controller.busy}
       hasDirtyChanges={controller.hasDirtyChanges}
       history={controller.history}
-      assistantOpen={controller.showAssistant}
-      assistantDisabled={!controller.selectedFileIsText && !controller.showAssistant}
       onNavigateBack={controller.navigateBack}
       onSave={() => void controller.handleSave()}
       onToggleEnabled={() => void controller.handleToggleEnabled()}
       onDelete={() => void controller.handleDelete()}
-      onToggleAssistant={() => (controller.showAssistant = !controller.showAssistant)}
     />
 
     <SkillMetadataBar
@@ -144,38 +137,6 @@
           onContentChange={controller.handleContentChange}
         />
       </div>
-
-      {#if controller.showAssistant}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          class={cn(
-            'hover:bg-border relative w-1 shrink-0 cursor-col-resize touch-none',
-            controller.dragging && 'bg-border',
-          )}
-          onpointerdown={controller.handleDragStart}
-          onpointermove={controller.handleDragMove}
-          onpointerup={controller.handleDragEnd}
-          onpointercancel={controller.handleDragEnd}
-        >
-          <div class="absolute inset-y-0 left-1/2 -translate-x-1/2">
-            <GripVertical class="text-muted-foreground/60 size-4" />
-          </div>
-        </div>
-
-        <aside
-          class="border-border shrink-0 border-l"
-          style:width={`${controller.assistantWidth}px`}
-        >
-          <SkillAiSidebar
-            projectId={appStore.currentProject?.id}
-            providers={controller.providers}
-            skillId={controller.skill!.id}
-            files={controller.draftFiles}
-            onApplySuggestion={controller.handleApplyAssistantSuggestion}
-          />
-        </aside>
-      {/if}
     </div>
 
     <SkillEditorStatusBar
