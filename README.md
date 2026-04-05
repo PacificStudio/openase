@@ -1,4 +1,8 @@
-<h1 align="center"><img src="docs/imgs/openase.svg" alt="" width="36" height="36" style="vertical-align: middle;" />&nbsp;OpenASE<br><sub>Ticket-Driven Automated Software Engineering</sub></h1>
+<p align="center">
+  <img src="docs/imgs/openase.svg" alt="OpenASE" width="80" height="80" />
+</p>
+
+<h1 align="center">OpenASE<br><sub>Ticket-Driven Automated Software Engineering</sub></h1>
 
 <p align="center">
   <strong>OpenASE</strong> is an all-in-one platform that turns tickets into working code — AI agents automatically pick up tickets, execute workflows on your machines, and deliver results with full traceability.
