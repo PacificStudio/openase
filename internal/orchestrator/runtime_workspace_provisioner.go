@@ -76,10 +76,11 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	if transportErr != nil {
 		err = transportErr
 	} else {
-		if resolved.Execution.Workspace == nil {
+		workspaceExecutor := resolved.WorkspaceExecutor()
+		if workspaceExecutor == nil {
 			err = fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
 		} else {
-			workspaceItem, err = resolved.Execution.Workspace.PrepareWorkspace(ctx, machine, request)
+			workspaceItem, err = workspaceExecutor.PrepareWorkspace(ctx, machine, request)
 		}
 	}
 	if err != nil {
@@ -400,10 +401,11 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 		return err
 	}
 
-	if resolved.Execution.CommandSession == nil {
+	commandSessionExecutor := resolved.CommandSessionExecutor()
+	if commandSessionExecutor == nil {
 		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
 	}
-	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
+	session, err := commandSessionExecutor.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}

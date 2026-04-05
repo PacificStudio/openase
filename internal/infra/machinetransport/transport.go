@@ -103,6 +103,7 @@ func (s capabilitySurface) SupportsAll(capabilities ...domain.MachineTransportCa
 
 type RemoteRuntimeSurface struct {
 	capabilities   capabilitySurface
+	Probe          ProbeExecution
 	Workspace      WorkspaceExecution
 	ArtifactSync   ArtifactSyncExecution
 	Process        ProcessExecution
@@ -163,6 +164,51 @@ func (s ExecutionSurface) SupportsAll(capabilities ...domain.MachineTransportCap
 type ResolvedTransport struct {
 	Channel   ChannelTransport
 	Execution ExecutionSurface
+}
+
+func (r ResolvedTransport) ProbeExecutor() ProbeExecution {
+	if r.Execution.Runtime != nil &&
+		r.Execution.Runtime.Supports(domain.MachineTransportCapabilityProbe) &&
+		r.Execution.Runtime.Probe != nil {
+		return r.Execution.Runtime.Probe
+	}
+	return r.Execution.Probe
+}
+
+func (r ResolvedTransport) WorkspaceExecutor() WorkspaceExecution {
+	if r.Execution.Runtime != nil &&
+		r.Execution.Runtime.Supports(domain.MachineTransportCapabilityWorkspacePrepare) &&
+		r.Execution.Runtime.Workspace != nil {
+		return r.Execution.Runtime.Workspace
+	}
+	return r.Execution.Workspace
+}
+
+func (r ResolvedTransport) ArtifactSyncExecutor() ArtifactSyncExecution {
+	if r.Execution.Runtime != nil &&
+		r.Execution.Runtime.Supports(domain.MachineTransportCapabilityArtifactSync) &&
+		r.Execution.Runtime.ArtifactSync != nil {
+		return r.Execution.Runtime.ArtifactSync
+	}
+	return r.Execution.ArtifactSync
+}
+
+func (r ResolvedTransport) ProcessExecutor() ProcessExecution {
+	if r.Execution.Runtime != nil &&
+		r.Execution.Runtime.Supports(domain.MachineTransportCapabilityProcessStreaming) &&
+		r.Execution.Runtime.Process != nil {
+		return r.Execution.Runtime.Process
+	}
+	return r.Execution.Process
+}
+
+func (r ResolvedTransport) CommandSessionExecutor() CommandSessionExecution {
+	if r.Execution.Runtime != nil &&
+		r.Execution.Runtime.Supports(domain.MachineTransportCapabilityProcessStreaming) &&
+		r.Execution.Runtime.CommandSession != nil {
+		return r.Execution.Runtime.CommandSession
+	}
+	return r.Execution.CommandSession
 }
 
 type Transport interface {
@@ -240,16 +286,9 @@ func (r *Resolver) ResolveRuntime(machine domain.Machine) (ResolvedTransport, er
 		resolved.Execution.ArtifactSync = transport
 		resolved.Execution.Process = transport
 		resolved.Execution.CommandSession = transport
-	case domain.MachineConnectionModeWSReverse:
-		resolved.Execution.Runtime = newRemoteRuntimeSurface(capabilities)
-	case domain.MachineConnectionModeWSListener:
-		resolved.Execution.Probe = transport
-		resolved.Execution.Workspace = transport
-		resolved.Execution.ArtifactSync = transport
-		resolved.Execution.Process = transport
-		resolved.Execution.CommandSession = transport
-
+	case domain.MachineConnectionModeWSReverse, domain.MachineConnectionModeWSListener:
 		runtime := newRemoteRuntimeSurface(capabilities)
+		runtime.Probe = transport
 		runtime.Workspace = transport
 		runtime.ArtifactSync = transport
 		runtime.Process = transport
@@ -351,7 +390,8 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 		if resolveErr != nil {
 			return domain.MachineReachability{}, resolveErr
 		}
-		if resolved.Execution.Probe == nil {
+		prober := resolved.ProbeExecutor()
+		if prober == nil {
 			err := fmt.Errorf("%w: probe unavailable for machine %s", ErrTransportUnavailable, machine.Name)
 			return domain.MachineReachability{
 				CheckedAt:    c.currentTime(),
@@ -359,7 +399,7 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 				FailureCause: err.Error(),
 			}, err
 		}
-		probe, probeErr := resolved.Execution.Probe.Probe(ctx, machine)
+		probe, probeErr := prober.Probe(ctx, machine)
 		failureCause := ""
 		if probeErr != nil {
 			failureCause = probeErr.Error()

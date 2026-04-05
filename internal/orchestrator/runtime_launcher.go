@@ -1101,11 +1101,11 @@ func (l *RuntimeLauncher) runRemoteRuntimePreflight(
 			catalogdomain.MachineTransportCapabilityArtifactSync,
 			catalogdomain.MachineTransportCapabilityProcessStreaming,
 		) ||
-		resolved.Execution.Runtime.CommandSession == nil {
+		resolved.CommandSessionExecutor() == nil {
 		return nil
 	}
 
-	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.Execution.Runtime.CommandSession, machine, machinetransport.RuntimePreflightSpec{
+	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workingDirectory,
 		AgentCommand:     command,
 		Environment:      environment,
@@ -1193,10 +1193,11 @@ func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
 	if err != nil {
 		return err
 	}
-	if resolved.Execution.CommandSession == nil {
+	commandSessionExecutor := resolved.CommandSessionExecutor()
+	if commandSessionExecutor == nil {
 		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
 	}
-	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
+	session, err := commandSessionExecutor.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}

@@ -249,10 +249,11 @@ func (m *projectConversationRuntimeManager) ensureConversationWorkspace(
 	if err != nil {
 		return "", err
 	}
-	if resolved.Execution.Workspace == nil {
+	workspaceExecutor := resolved.WorkspaceExecutor()
+	if workspaceExecutor == nil {
 		return "", fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
 	}
-	workspaceItem, err := resolved.Execution.Workspace.PrepareWorkspace(ctx, machine, request)
+	workspaceItem, err := workspaceExecutor.PrepareWorkspace(ctx, machine, request)
 	if err != nil {
 		if machine.Host == catalogdomain.LocalMachineHost {
 			return "", fmt.Errorf("prepare local chat workspace: %w", err)
@@ -336,10 +337,11 @@ func (m *projectConversationRuntimeManager) copyConversationWorkspaceArtifactsRe
 	if err != nil {
 		return err
 	}
-	if resolved.Execution.ArtifactSync == nil {
+	artifactSyncExecutor := resolved.ArtifactSyncExecutor()
+	if artifactSyncExecutor == nil {
 		return fmt.Errorf("%w: artifact sync unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
 	}
-	return resolved.Execution.ArtifactSync.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
+	return artifactSyncExecutor.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
 		LocalRoot:   localRoot,
 		TargetRoot:  remoteWorkspaceRoot,
 		Paths:       relativePaths,
@@ -389,7 +391,7 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 			catalogdomain.MachineTransportCapabilityArtifactSync,
 			catalogdomain.MachineTransportCapabilityProcessStreaming,
 		) ||
-		resolved.Execution.Runtime.CommandSession == nil {
+		resolved.CommandSessionExecutor() == nil {
 		return nil
 	}
 
@@ -397,7 +399,7 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 	if machine.AgentCLIPath != nil && strings.TrimSpace(*machine.AgentCLIPath) != "" {
 		command = strings.TrimSpace(*machine.AgentCLIPath)
 	}
-	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.Execution.Runtime.CommandSession, machine, machinetransport.RuntimePreflightSpec{
+	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.CommandSessionExecutor(), machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workspacePath,
 		AgentCommand:     command,
 		Environment:      append([]string(nil), machine.EnvVars...),
