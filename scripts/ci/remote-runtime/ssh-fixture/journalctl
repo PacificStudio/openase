@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+
+journal_file="${HOME}/.openase/fake-systemd/journal.log"
+if [ -f "${journal_file}" ]; then
+  cat "${journal_file}"
+fi

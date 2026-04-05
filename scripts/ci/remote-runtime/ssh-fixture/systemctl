@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+state_root="${HOME}/.openase/fake-systemd"
+journal_file="${state_root}/journal.log"
+stdout_file="${HOME}/.openase/logs/openase-machine-agent.stdout.log"
+stderr_file="${HOME}/.openase/logs/openase-machine-agent.stderr.log"
+state_file="${state_root}/openase-machine-agent.state"
+
+mkdir -p "${state_root}" "$(dirname "${stdout_file}")"
+
+command_name=""
+service_name="openase-machine-agent.service"
+for arg in "$@"; do
+  case "$arg" in
+    --user)
+      ;;
+    daemon-reload|enable|restart|is-active|show)
+      if [ -z "$command_name" ]; then
+        command_name="$arg"
+      fi
+      ;;
+    *.service)
+      service_name="$arg"
+      ;;
+  esac
+done
+
+service_file="${HOME}/.config/systemd/user/${service_name}"
+
+case "${command_name}" in
+  daemon-reload)
+    printf '%s daemon-reload\n' "$(date -u +%FT%TZ)" >> "${journal_file}"
+    exit 0
+    ;;
+  enable)
+    printf '%s enable %s\n' "$(date -u +%FT%TZ)" "${service_name}" >> "${journal_file}"
+    exit 0
+    ;;
+  restart)
+    if [ ! -f "${service_file}" ]; then
+      printf 'missing service file %s\n' "${service_file}" >&2
+      exit 1
+    fi
+    printf 'fake machine-agent restart\n' >> "${stdout_file}"
+    : > "${stderr_file}"
+    printf '%s restart %s\n' "$(date -u +%FT%TZ)" "${service_name}" >> "${journal_file}"
+    printf 'active\n' > "${state_file}"
+    exit 0
+    ;;
+  is-active)
+    if [ -f "${state_file}" ]; then
+      cat "${state_file}"
+      exit 0
+    fi
+    printf 'inactive\n'
+    exit 3
+    ;;
+  show)
+    if [ -f "${state_file}" ]; then
+      printf 'ActiveState=active\nSubState=running\n'
+    else
+      printf 'ActiveState=inactive\nSubState=dead\n'
+    fi
+    exit 0
+    ;;
+esac
+
+printf 'unsupported fake systemctl command: %s\n' "$*" >&2
+exit 1

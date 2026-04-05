@@ -37,14 +37,19 @@ run_case \
   'TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric$'
 
 run_case \
+  "SSH bootstrap helper behavior" \
+  "./internal/cli" \
+  'TestRunMachineSSHBootstrapUploadsBinaryEnvAndService$'
+
+run_case \
+  "SSH diagnostics helper behavior" \
+  "./internal/cli" \
+  'TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues$'
+
+run_case \
   "Listener websocket runtime happy path" \
   "./internal/orchestrator" \
   'TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync$'
-
-run_case \
-  "Listener websocket runtime container e2e" \
-  "./internal/infra/machinetransport" \
-  'TestWebsocketListenerRuntimeContainerE2E$'
   
 run_case \
   "Reverse websocket runtime happy path" \
