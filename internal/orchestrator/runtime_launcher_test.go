@@ -3061,7 +3061,7 @@ Exercise failing ticket hook lifecycle.
 	}
 }
 
-func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -3153,14 +3153,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
-	prepareSession := &runtimeSSHPrepareSession{}
-	processSession := newRuntimeSSHProcessSession()
-	sshPool := sshinfra.NewPool("/tmp/openase",
-		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
-		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
-	)
-
-	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, nil, nil)
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
@@ -3175,33 +3168,24 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH(t *test
 	if err != nil {
 		t.Fatalf("reload run: %v", err)
 	}
-	if runAfter.Status != entagentrun.StatusReady {
-		t.Fatalf("expected ready run, got %+v", runAfter)
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if runAfter.SessionID != "thread-runtime-1" {
-		t.Fatalf("expected thread-runtime-1 session id, got %q", runAfter.SessionID)
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected ssh runtime guidance in last error, got %q", runAfter.LastError)
 	}
-	if !strings.Contains(prepareSession.command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
-		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
-	}
-	if !strings.Contains(processSession.startedCommand, "cd '/srv/openase/workspaces/better-and-better/openase/ASE-401/backend'") {
-		t.Fatalf("expected remote process to cd into repo workspace, got %q", processSession.startedCommand)
-	}
-	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
-		t.Fatalf("expected machine agent cli path in remote command, got %q", processSession.startedCommand)
-	}
-	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
-		Only(ctx)
+		Count(ctx)
 	if err != nil {
-		t.Fatalf("load remote ticket repo workspace: %v", err)
+		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspace.State != entticketrepoworkspace.StateReady || repoWorkspace.HeadCommit != "" {
-		t.Fatalf("unexpected remote ticket repo workspace %+v", repoWorkspace)
+	if repoWorkspaceCount != 0 {
+		t.Fatalf("expected no repo workspace to be prepared for ssh runtime, got %d", repoWorkspaceCount)
 	}
 }
 
-func TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable(t *testing.T) {
+func TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -3306,37 +3290,43 @@ func TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable(t
 	if err != nil {
 		t.Fatalf("reload run: %v", err)
 	}
-	if runAfter.Status != entagentrun.StatusReady {
-		t.Fatalf("expected ready run after SSH fallback, got %+v", runAfter)
+	if runAfter.Status != entagentrun.StatusErrored {
+		t.Fatalf("expected errored run without SSH fallback, got %+v", runAfter)
 	}
-	if !strings.Contains(processSession.startedCommand, "'/usr/local/bin/codex'") {
-		t.Fatalf("expected SSH process command after fallback, got %q", processSession.startedCommand)
+	if processSession.startedCommand != "" {
+		t.Fatalf("expected no SSH process command after websocket launch failure, got %q", processSession.startedCommand)
 	}
-
-	fallbackActivity, err := client.ActivityEvent.Query().
+	if strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected reverse-connect launch to fail before any SSH runtime guidance path, got %q", runAfter.LastError)
+	}
+	if !strings.Contains(runAfter.LastError, "ws_reverse workspace preparation is not implemented yet") {
+		t.Fatalf("expected websocket transport failure without SSH fallback, got %q", runAfter.LastError)
+	}
+	fallbackCount, err := client.ActivityEvent.Query().
 		Where(
 			entactivityevent.ProjectIDEQ(fixture.projectID),
 			entactivityevent.EventTypeEQ(activityevent.TypeRuntimeFallbackToSSH.String()),
 		).
-		Only(ctx)
+		Count(ctx)
 	if err != nil {
-		t.Fatalf("load fallback activity event: %v", err)
+		t.Fatalf("count fallback activity events: %v", err)
 	}
-	if fallbackActivity.Metadata["from_transport_mode"] != catalogdomain.MachineConnectionModeWSReverse.String() {
-		t.Fatalf("expected reverse websocket source transport, got %+v", fallbackActivity.Metadata)
-	}
-	if fallbackActivity.Metadata["fallback_transport_mode"] != catalogdomain.MachineConnectionModeSSH.String() {
-		t.Fatalf("expected ssh fallback transport, got %+v", fallbackActivity.Metadata)
-	}
-	if fallbackActivity.Metadata["failure_stage"] != string(runtimeLaunchStageWorkspaceTransport) {
-		t.Fatalf("expected workspace transport failure stage, got %+v", fallbackActivity.Metadata)
+	if fallbackCount != 0 {
+		t.Fatalf("expected no runtime fallback activity, got %d", fallbackCount)
 	}
 }
 
 func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(t *testing.T) {
 	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
+	workspaceRoot := t.TempDir()
+	fakeOpenASEBinDir := t.TempDir()
+	writeRuntimeLauncherFakeOpenASEBinary(t, fakeOpenASEBinDir)
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	defer server.Close()
 
 	workflowItem, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -3350,6 +3340,29 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
 	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nPrepare remote workspace from repository URL over websocket listener.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
 
 	ticketItem, err := client.Ticket.Create().
 		SetProjectID(fixture.projectID).
@@ -3367,7 +3380,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	repoItem, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("backend").
-		SetRepositoryURL("git@github.com:acme/backend.git").
+		SetRepositoryURL(repoRoot).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
 		Save(ctx)
@@ -3384,27 +3397,26 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 		t.Fatalf("create ticket repo scope: %v", err)
 	}
 
-	sshUser := "openase"
-	sshKeyPath := "keys/gpu-01.pem"
-	workspaceRoot := "/srv/openase/workspaces"
-	agentCLIPath := "/usr/local/bin/codex"
 	if _, err := client.Machine.Create().
 		SetOrganizationID(fixture.orgID).
-		SetName("gpu-01").
-		SetHost("10.0.1.10").
-		SetPort(22).
-		SetSSHUser(sshUser).
-		SetSSHKeyPath(sshKeyPath).
+		SetName("listener-02").
+		SetHost("listener.example.internal").
 		SetWorkspaceRoot(workspaceRoot).
-		SetAgentCliPath(agentCLIPath).
+		SetAgentCliPath("/bin/sh").
+		SetConnectionMode(entmachine.ConnectionModeWsListener).
+		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
 		SetStatus(entmachine.StatusOnline).
+		SetEnvVars([]string{
+			"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+			"OPENASE_REAL_BIN=" + filepath.Join(fakeOpenASEBinDir, "openase"),
+		}).
 		Save(ctx); err != nil {
 		t.Fatalf("create machine: %v", err)
 	}
 	remoteMachine, err := client.Machine.Query().
 		Where(
 			entmachine.OrganizationIDEQ(fixture.orgID),
-			entmachine.NameEQ("gpu-01"),
+			entmachine.NameEQ("listener-02"),
 		).
 		Only(ctx)
 	if err != nil {
@@ -3412,6 +3424,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
 		SetMachineID(remoteMachine.ID).
+		SetCliArgs([]string{"-lc", "printf direct-repo-workspace"}).
 		Save(ctx); err != nil {
 		t.Fatalf("bind provider machine: %v", err)
 	}
@@ -3425,22 +3438,21 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
 
-	prepareSession := &runtimeSSHPrepareSession{}
-	processSession := newRuntimeSSHProcessSession()
-	sshPool := sshinfra.NewPool("/tmp/openase",
-		sshinfra.WithDialer(&runtimeSSHDialer{client: &runtimeSSHClient{sessions: []sshinfra.Session{prepareSession, processSession}}}),
-		sshinfra.WithReadFile(func(string) ([]byte, error) { return []byte("key"), nil }),
-	)
-
-	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, &runtimeFakeProcessManager{}, sshPool, nil)
+	adapter := &runtimeWebsocketLaunchAdapter{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, workflowSvc)
+	launcher.adapters.adapters[entagentprovider.AdapterTypeCodexAppServer] = adapter
 	t.Cleanup(func() {
 		if err := launcher.Close(context.Background()); err != nil {
 			t.Errorf("close launcher: %v", err)
 		}
 	})
 
-	if err := launcher.RunTick(ctx); err != nil {
-		t.Fatalf("run launcher tick: %v", err)
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if err := launcher.launchAgent(ctx, assignment); err != nil {
+		t.Fatalf("launchAgent() error = %v", err)
 	}
 
 	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
@@ -3450,11 +3462,27 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	if runAfter.Status != entagentrun.StatusReady {
 		t.Fatalf("expected ready run, got %+v", runAfter)
 	}
-	if !strings.Contains(prepareSession.command, "'git' 'clone' '--branch' 'main' '--single-branch' 'git@github.com:acme/backend.git' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend'") {
-		t.Fatalf("expected remote workspace clone command, got %q", prepareSession.command)
+	if runAfter.SessionID != "ws-listener-thread" {
+		t.Fatalf("expected websocket session id, got %q", runAfter.SessionID)
 	}
-	if !strings.Contains(prepareSession.command, "'git' '-C' '/srv/openase/workspaces/better-and-better/openase/ASE-401A/backend' 'fetch' 'origin'") {
-		t.Fatalf("expected remote workspace fetch command, got %q", prepareSession.command)
+	if adapter.stdout != "direct-repo-workspace" {
+		t.Fatalf("adapter stdout = %q, want direct-repo-workspace", adapter.stdout)
+	}
+
+	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load ticket repo workspace: %v", err)
+	}
+	if repoWorkspace.State != entticketrepoworkspace.StateReady {
+		t.Fatalf("expected ready ticket repo workspace, got %+v", repoWorkspace)
+	}
+	if repoWorkspace.PreparedAt == nil {
+		t.Fatalf("expected prepared ticket repo workspace metadata, got %+v", repoWorkspace)
+	}
+	if !strings.HasSuffix(repoWorkspace.RepoPath, filepath.Join("ASE-401A", "backend")) {
+		t.Fatalf("expected repo workspace path to target backend checkout, got %q", repoWorkspace.RepoPath)
 	}
 }
 
@@ -3825,7 +3853,7 @@ func TestBuildWorkspaceRepoPlansUsesGeneratedTicketBranchWhenScopeOverrideBlank(
 	}
 }
 
-func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -3925,8 +3953,8 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "codex cli is not logged in") {
-		t.Fatalf("expected codex auth failure in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
 	}
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -3940,7 +3968,7 @@ func TestRuntimeLauncherRunTickFailsWhenRemoteCodexEnvironmentIsNotReady(t *test
 	}
 }
 
-func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIsMissing(t *testing.T) {
+func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -4038,17 +4066,18 @@ func TestRuntimeLauncherRunTickMarksTicketRepoWorkspaceFailedWhenRemoteSSHPoolIs
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
 
-	repoWorkspace, err := client.TicketRepoWorkspace.Query().
+	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
+		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
+	}
+
+	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
-		Only(ctx)
+		Count(ctx)
 	if err != nil {
-		t.Fatalf("load ticket repo workspace: %v", err)
+		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspace.State != entticketrepoworkspace.StateFailed {
-		t.Fatalf("expected failed repo workspace, got %+v", repoWorkspace)
-	}
-	if !strings.Contains(repoWorkspace.LastError, "ssh pool unavailable for remote machine gpu-03") {
-		t.Fatalf("expected ssh pool failure in last_error, got %+v", repoWorkspace)
+	if repoWorkspaceCount != 0 {
+		t.Fatalf("expected no repo workspace for ssh runtime rejection, got %d", repoWorkspaceCount)
 	}
 }
 

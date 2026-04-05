@@ -4706,7 +4706,7 @@ export interface operations {
           detection_status?: string | null
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[] | null
-          /** @description Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility. */
+          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
           execution_mode?: string | null
           /** @description Hostname or address used to reach the machine. */
           host?: string | null
@@ -4718,9 +4718,9 @@ export interface operations {
           port?: number | null
           /** @description Reachability topology for the machine: local, direct_connect, or reverse_connect. */
           reachability_mode?: string | null
-          /** @description Path to the SSH private key used for SSH helper access or legacy ssh_compat execution. */
+          /** @description Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access. */
           ssh_key_path?: string | null
-          /** @description SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution. */
+          /** @description SSH helper username used for bootstrap, diagnostics, or emergency repair access. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string | null
@@ -6221,7 +6221,7 @@ export interface operations {
           detection_status?: string
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[]
-          /** @description Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility. */
+          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
           execution_mode?: string
           /** @description Hostname or address used to reach the machine. */
           host?: string
@@ -6233,9 +6233,9 @@ export interface operations {
           port?: number | null
           /** @description Reachability topology for the machine: local, direct_connect, or reverse_connect. */
           reachability_mode?: string
-          /** @description Path to the SSH private key used for SSH helper access or legacy ssh_compat execution. */
+          /** @description Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access. */
           ssh_key_path?: string | null
-          /** @description SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution. */
+          /** @description SSH helper username used for bootstrap, diagnostics, or emergency repair access. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string

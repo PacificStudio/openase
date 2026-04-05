@@ -827,6 +827,8 @@ values. Reverse websocket daemon runtime entrypoints live under
 `),
 	}))
 	command.AddCommand(newMachineStreamCommand())
+	command.AddCommand(newMachineSSHBootstrapCommand(options))
+	command.AddCommand(newMachineSSHDiagnosticsCommand())
 	command.AddCommand(newMachineIssueChannelTokenCommand(options))
 	command.AddCommand(newMachineRevokeChannelTokenCommand(options))
 	return command
