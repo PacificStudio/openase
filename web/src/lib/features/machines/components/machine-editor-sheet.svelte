@@ -93,7 +93,7 @@
 
     <div class="flex-1 overflow-y-auto px-6 py-5">
       {#if mode === 'create' || activeTab === 'configuration'}
-        <MachineEditor {mode} {machine} {draft} {onDraftChange} />
+        <MachineEditor {machine} {draft} {onDraftChange} />
       {:else if activeTab === 'health' && machine}
         <MachineHealthPanel
           {machine}
