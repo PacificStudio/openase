@@ -181,48 +181,50 @@
       </Dialog.Description>
     </Dialog.Header>
 
-    <form class="space-y-4" onsubmit={handleSubmit}>
-      <div class="space-y-2">
-        <Label for="new-ticket-title">Title</Label>
-        <Input
-          id="new-ticket-title"
-          value={draft.title}
-          placeholder="Describe the outcome to deliver"
-          disabled={loading || saving}
-          oninput={(event) =>
-            updateDraftField('title', (event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
+    <form class="flex min-h-0 flex-1 flex-col gap-6" onsubmit={handleSubmit}>
+      <Dialog.Body class="space-y-4">
+        <div class="space-y-2">
+          <Label for="new-ticket-title">Title</Label>
+          <Input
+            id="new-ticket-title"
+            value={draft.title}
+            placeholder="Describe the outcome to deliver"
+            disabled={loading || saving}
+            oninput={(event) =>
+              updateDraftField('title', (event.currentTarget as HTMLInputElement).value)}
+          />
+        </div>
 
-      <div class="space-y-2">
-        <Label for="new-ticket-description">Description</Label>
-        <Textarea
-          id="new-ticket-description"
-          value={draft.description}
-          rows={4}
-          placeholder="Add implementation context, acceptance criteria, or constraints."
-          disabled={loading || saving}
-          oninput={(event) =>
-            updateDraftField('description', (event.currentTarget as HTMLTextAreaElement).value)}
-        />
-      </div>
+        <div class="space-y-2">
+          <Label for="new-ticket-description">Description</Label>
+          <Textarea
+            id="new-ticket-description"
+            value={draft.description}
+            rows={4}
+            placeholder="Add implementation context, acceptance criteria, or constraints."
+            disabled={loading || saving}
+            oninput={(event) =>
+              updateDraftField('description', (event.currentTarget as HTMLTextAreaElement).value)}
+          />
+        </div>
 
-      <NewTicketDialogMetadata
-        {loading}
-        {saving}
-        {draft}
-        {statusOptions}
-        {repoOptions}
-        {priorityLabels}
-        bind:statusPopoverOpen
-        bind:priorityPopoverOpen
-        bind:repoPopoverOpen
-        bind:branchConfigOpen
-        onSelectStatus={selectStatus}
-        onSelectPriority={selectPriority}
-        onToggleRepoScope={toggleRepoScope}
-        onUpdateRepoBranchOverride={updateRepoBranchOverride}
-      />
+        <NewTicketDialogMetadata
+          {loading}
+          {saving}
+          {draft}
+          {statusOptions}
+          {repoOptions}
+          {priorityLabels}
+          bind:statusPopoverOpen
+          bind:priorityPopoverOpen
+          bind:repoPopoverOpen
+          bind:branchConfigOpen
+          onSelectStatus={selectStatus}
+          onSelectPriority={selectPriority}
+          onToggleRepoScope={toggleRepoScope}
+          onUpdateRepoBranchOverride={updateRepoBranchOverride}
+        />
+      </Dialog.Body>
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || loading || !appStore.currentProject?.id}>

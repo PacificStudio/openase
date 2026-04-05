@@ -30,11 +30,11 @@
   function getSideLayoutClass(currentSide: typeof side) {
     switch (currentSide) {
       case 'bottom':
-        return 'inset-x-0 bottom-0 h-auto border-t'
+        return 'inset-x-0 bottom-0 max-h-[85vh] border-t'
       case 'left':
         return 'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm'
       case 'top':
-        return 'inset-x-0 top-0 h-auto border-b'
+        return 'inset-x-0 top-0 max-h-[85vh] border-b'
       case 'right':
       default:
         return 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm'

@@ -202,88 +202,90 @@
       </Dialog.Description>
     </Dialog.Header>
 
-    <form class="space-y-4" onsubmit={handleSubmit}>
-      <div class="space-y-2">
-        <Label for="workflow-create-name">Name</Label>
-        <Input
-          id="workflow-create-name"
-          bind:value={name}
+    <form class="flex min-h-0 flex-1 flex-col gap-6" onsubmit={handleSubmit}>
+      <Dialog.Body class="space-y-4">
+        <div class="space-y-2">
+          <Label for="workflow-create-name">Name</Label>
+          <Input
+            id="workflow-create-name"
+            bind:value={name}
+            disabled={saving}
+            placeholder="Workflow name"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="workflow-create-type">Type Label</Label>
+          <Input
+            id="workflow-create-type"
+            bind:value={typeLabel}
+            disabled={saving}
+            placeholder="Fullstack Developer"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label>Bound Agent</Label>
+          <Select.Root
+            type="single"
+            value={agentId}
+            disabled={saving || agentOptions.length === 0}
+            onValueChange={(value) => (agentId = value || '')}
+          >
+            <Select.Trigger class="w-full">{selectedAgentLabel}</Select.Trigger>
+            <Select.Content>
+              {#each agentOptions as option (option.id)}
+                <Select.Item value={option.id}>{option.label}</Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <WorkflowStatusChipGroup
+            label="Pickup Statuses"
+            {statuses}
+            selectedIds={pickupStatusIds}
+            disabled={saving}
+            disabledReasonById={pickupBlockedReasonMap}
+            onToggle={(statusId) =>
+              (pickupStatusIds = toggleWorkflowStatusSelection(
+                pickupStatusIds,
+                statusId,
+                pickupBlockedReasonMap,
+              ))}
+          />
+
+          <WorkflowStatusChipGroup
+            label="Finish Statuses"
+            {statuses}
+            selectedIds={finishStatusIds}
+            disabled={saving}
+            disabledReasonById={finishBlockedReasonMap}
+            onToggle={(statusId) =>
+              (finishStatusIds = toggleWorkflowStatusSelection(
+                finishStatusIds,
+                statusId,
+                finishBlockedReasonMap,
+              ))}
+          />
+        </div>
+
+        {#if templateStatusError}
+          <p class="text-destructive text-xs">{templateStatusError}</p>
+        {/if}
+        <WorkflowCreationAdvancedSection
+          bind:open={advancedOpen}
+          draft={hookDraft}
+          validation={hookValidation}
           disabled={saving}
-          placeholder="Workflow name"
+          error={hookError}
+          onChange={(nextDraft) => {
+            hookDraft = nextDraft
+            hookError = ''
+          }}
         />
-      </div>
-
-      <div class="space-y-2">
-        <Label for="workflow-create-type">Type Label</Label>
-        <Input
-          id="workflow-create-type"
-          bind:value={typeLabel}
-          disabled={saving}
-          placeholder="Fullstack Developer"
-        />
-      </div>
-
-      <div class="space-y-2">
-        <Label>Bound Agent</Label>
-        <Select.Root
-          type="single"
-          value={agentId}
-          disabled={saving || agentOptions.length === 0}
-          onValueChange={(value) => (agentId = value || '')}
-        >
-          <Select.Trigger class="w-full">{selectedAgentLabel}</Select.Trigger>
-          <Select.Content>
-            {#each agentOptions as option (option.id)}
-              <Select.Item value={option.id}>{option.label}</Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
-        <WorkflowStatusChipGroup
-          label="Pickup Statuses"
-          {statuses}
-          selectedIds={pickupStatusIds}
-          disabled={saving}
-          disabledReasonById={pickupBlockedReasonMap}
-          onToggle={(statusId) =>
-            (pickupStatusIds = toggleWorkflowStatusSelection(
-              pickupStatusIds,
-              statusId,
-              pickupBlockedReasonMap,
-            ))}
-        />
-
-        <WorkflowStatusChipGroup
-          label="Finish Statuses"
-          {statuses}
-          selectedIds={finishStatusIds}
-          disabled={saving}
-          disabledReasonById={finishBlockedReasonMap}
-          onToggle={(statusId) =>
-            (finishStatusIds = toggleWorkflowStatusSelection(
-              finishStatusIds,
-              statusId,
-              finishBlockedReasonMap,
-            ))}
-        />
-      </div>
-
-      {#if templateStatusError}
-        <p class="text-destructive text-xs">{templateStatusError}</p>
-      {/if}
-      <WorkflowCreationAdvancedSection
-        bind:open={advancedOpen}
-        draft={hookDraft}
-        validation={hookValidation}
-        disabled={saving}
-        error={hookError}
-        onChange={(nextDraft) => {
-          hookDraft = nextDraft
-          hookError = ''
-        }}
-      />
+      </Dialog.Body>
 
       <Dialog.Footer showCloseButton>
         <Button type="submit" disabled={saving || !projectId || !!templateStatusError}>

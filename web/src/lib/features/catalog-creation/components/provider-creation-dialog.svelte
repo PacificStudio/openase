@@ -106,26 +106,28 @@
     </Dialog.Header>
 
     <form
-      class="space-y-4"
+      class="flex min-h-0 flex-1 flex-col gap-6"
       onsubmit={(event) => {
         event.preventDefault()
         void handleSubmit()
       }}
     >
-      <ProviderFormFields
-        {draft}
-        {modelCatalog}
-        {machines}
-        onFieldChange={(field, value) => {
-          draft = { ...draft, [field]: value }
-        }}
-      />
+      <Dialog.Body class="space-y-4">
+        <ProviderFormFields
+          {draft}
+          {modelCatalog}
+          {machines}
+          onFieldChange={(field, value) => {
+            draft = { ...draft, [field]: value }
+          }}
+        />
 
-      {#if !canSubmit}
-        <p class="text-muted-foreground text-sm">
-          Register an execution machine in this organization before creating a provider.
-        </p>
-      {/if}
+        {#if !canSubmit}
+          <p class="text-muted-foreground text-sm">
+            Register an execution machine in this organization before creating a provider.
+          </p>
+        {/if}
+      </Dialog.Body>
 
       <Dialog.Footer>
         <Dialog.Close>

@@ -65,16 +65,16 @@
 <Sheet.Root bind:open>
   <Sheet.Content side="right" class="w-full max-w-xl sm:max-w-xl">
     {#if activeGuide}
-      <div class="space-y-5">
-        <Sheet.Header>
-          <Sheet.Title>{activeGuide.title} setup guide</Sheet.Title>
-          <Sheet.Description>
-            Finish installation, sign-in, and verification first, then come back here and recheck.
-            Once the matching provider becomes available, you can set it as default directly in this
-            step.
-          </Sheet.Description>
-        </Sheet.Header>
+      <Sheet.Header>
+        <Sheet.Title>{activeGuide.title} setup guide</Sheet.Title>
+        <Sheet.Description>
+          Finish installation, sign-in, and verification first, then come back here and recheck.
+          Once the matching provider becomes available, you can set it as default directly in this
+          step.
+        </Sheet.Description>
+      </Sheet.Header>
 
+      <Sheet.Body class="space-y-5">
         <div class="border-border bg-muted/30 rounded-xl border p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="space-y-1">
@@ -211,30 +211,27 @@
             </div>
           </div>
         </div>
+      </Sheet.Body>
 
-        <div class="flex flex-wrap gap-2 pt-2">
-          <Button
-            variant="outline"
-            onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}
-          >
-            Open organization settings
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isRefreshing(refreshMachineIds)}
-            onclick={() => void onRefresh(refreshMachineIds)}
-          >
-            {#if isRefreshing(refreshMachineIds)}
-              <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              Checking...
-            {:else}
-              <RefreshCcw class="mr-1.5 size-3.5" />
-              Recheck after setup
-            {/if}
-          </Button>
-          <Button onclick={onClose}>Back to provider list</Button>
-        </div>
-      </div>
+      <Sheet.Footer class="flex-row flex-wrap">
+        <Button variant="outline" onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}>
+          Open organization settings
+        </Button>
+        <Button
+          variant="outline"
+          disabled={isRefreshing(refreshMachineIds)}
+          onclick={() => void onRefresh(refreshMachineIds)}
+        >
+          {#if isRefreshing(refreshMachineIds)}
+            <Loader2 class="mr-1.5 size-3.5 animate-spin" />
+            Checking...
+          {:else}
+            <RefreshCcw class="mr-1.5 size-3.5" />
+            Recheck after setup
+          {/if}
+        </Button>
+        <Button onclick={onClose}>Back to provider list</Button>
+      </Sheet.Footer>
     {/if}
   </Sheet.Content>
 </Sheet.Root>
