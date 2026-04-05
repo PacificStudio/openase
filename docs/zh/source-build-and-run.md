@@ -7,10 +7,12 @@
 ## 环境要求
 
 - Go `1.26.1`，已添加到 `PATH`
+- Node.js `22 LTS` 或 `24 LTS`，以及 `corepack pnpm`；如果你要运行 `make build-web` 或修改 `web/` 下的文件，这是必需的
 - PostgreSQL（可从运行 OpenASE 的机器访问），或安装 Docker 让 setup 自动启动本地 PostgreSQL
 - `git`
-- 可选：`pnpm`（通过 `corepack pnpm`），仅在修改 `web/` 下的文件时需要
 - 可选：`codex`、`claude` 或 `gemini` 已添加到 `PATH`，setup 会自动检测并注册 Agent Provider
+
+避免使用 `23.x` 这类奇数版本的非 LTS Node。当前前端依赖集合包含 `engines` 约束，可能导致 `pnpm` 直接拒绝 `v23.11.1` 这样的版本。为了稳定构建，优先使用 `22.x` 线上的 `22.12+`，或受支持的 `24.x` 版本。
 
 如果 `go` 不在 `PATH` 中，本项目通常使用以下路径之一：
 
@@ -19,6 +21,13 @@ export PATH=$PWD/.tooling/go/bin:$HOME/.local/go1.26.1/bin:$PATH
 ```
 
 ## 1. 克隆仓库
+
+```bash
+git clone https://github.com/PacificStudio/openase.git
+cd openase
+```
+
+如果这台机器已经配置好 GitHub SSH key，也可以使用等价的 SSH 克隆方式：
 
 ```bash
 git clone git@github.com:PacificStudio/openase.git
@@ -37,10 +46,11 @@ make build-web
 
 ```bash
 corepack pnpm --dir web install --frozen-lockfile
-corepack pnpm --dir web run api:generate
 corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
+
+`make build-web` 只负责重新构建前端资源，然后编译 Go 二进制文件。它**不会**执行 `make openapi-generate`，也不会自动刷新 `api/openapi.json` 和 `web/src/lib/api/generated/openapi.d.ts`。
 
 `make build` 仅基于 `internal/webui/static/` 中的当前内容编译 Go 二进制文件。在全新检出的仓库中，这意味着只有跟踪的占位文件，因此根 UI 会返回 503 构建提示，直到你重新生成 `web/`。
 
@@ -48,9 +58,14 @@ go build -o ./bin/openase ./cmd/openase
 
 ```bash
 corepack pnpm --dir web install --frozen-lockfile
-corepack pnpm --dir web run api:generate
 corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
+```
+
+如果你修改了后端 API 契约，或者希望在构建前刷新已提交的 OpenAPI 产物，请先单独运行：
+
+```bash
+make openapi-generate
 ```
 
 前端构建和 Go 构建是一个发布单元。`vite build` 会刷新 `internal/webui/static/` 下的文件，但已构建或正在运行的 `openase` 二进制文件会继续提供旧的嵌入包，直到你重新构建二进制文件。如果浏览器堆栈跟踪提到 `internal/webui/static/_app/immutable/` 下不存在的 chunk 名称，首先假定是旧二进制文件或缓存的不可变资源，重新构建 `./cmd/openase`，然后强制刷新页面。
@@ -91,6 +106,8 @@ CI 运行相同的 diff 检查，当 `api/openapi.json` 或 `web/src/lib/api/gen
 database:
   dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
 ```
+
+setup 不提供第三种“用户态本地数据库”方案。如果当前用户无法访问 Docker，而机器上也没有现成的 PostgreSQL，那么你需要先自行准备 PostgreSQL，再在 setup 里选择手动连接路径。
 
 如果你更喜欢手动管理配置而非使用 setup，从示例配置开始：
 
@@ -154,7 +171,7 @@ sg docker -c 'docker ps'
 
 - 选择数据库来源：
   - 自动启动一个本地 Docker PostgreSQL
-  - 手动输入已有的 PostgreSQL 连接
+  - 手动输入已有 PostgreSQL 的连接字段：`host`、`port`、数据库名、用户名、密码和 `sslmode`
 - 验证所选数据库连接
 - 检查本地 CLI 可用性和版本探测（`git`、`codex`、`claude` 及其他内置 Provider CLI）
 - 选择浏览器认证模式：
@@ -177,6 +194,8 @@ sg docker -c 'docker ps'
 - 主机端口：`127.0.0.1:15432`
 
 Setup 自动生成 PostgreSQL 密码，验证容器连接，并在成功后打印复用/停止/删除命令。
+
+如果当前用户没有 Docker 权限，setup 不会切换到别的本地数据库模式。这种情况下，请先准备好 PostgreSQL，再选择手动连接路径。
 
 如果你在设置期间选择 OIDC 模式，流程会指向 [`docs/en/human-auth-oidc-rbac.md`](../en/human-auth-oidc-rbac.md)，适用于 Auth0 或 Azure Entra ID 等标准 OIDC 提供商。
 
@@ -244,6 +263,17 @@ openase all-in-one --config <resolved-config-path>
 
 在支持的平台上，这使用仓库的用户服务抽象。服务读取 `~/.openase/.env` 并将日志写入 `~/.openase/logs/`。
 
+长期运行时还需要注意：
+
+- 托管的 `systemd --user` 单元只负责运行 OpenASE 本身，不负责托管 PostgreSQL。
+- 如果你连接的是现成 PostgreSQL，需要你自己保证数据库长期运行。
+- 如果 setup 创建了 Docker PostgreSQL 容器，它依然和 `openase.service` 是分离的服务边界。
+- 如果希望 OpenASE 在用户退出登录后仍持续运行，通常还需要为该用户启用 linger：
+
+```bash
+loginctl enable-linger "$USER"
+```
+
 ## 7. 验证安装
 
 构建后或文档驱动的启动变更后，推荐的验证序列：
@@ -267,10 +297,12 @@ curl -fsS http://127.0.0.1:19836/api/v1/healthz
 
 ## 8. 常见运维说明
 
-- `make build-web` 是安全的源码构建路径，因为它会在编译 Go 二进制文件之前重新生成嵌入式 UI。
+- `make build-web` 是刷新嵌入式 UI 后再编译 Go 二进制文件的安全源码构建路径，但它不会执行 `make openapi-generate`。
+- 当后端 API 契约有变更，或者你需要刷新已提交的 OpenAPI / TypeScript 产物时，请单独运行 `make openapi-generate`。
 - 如果你修改了 Svelte 应用，在编译前请重新构建 `web/`，否则二进制文件仍会嵌入旧的前端输出。
 - `make build` 仅基于 `internal/webui/static/` 的当前内容编译 Go 二进制文件；在仅有跟踪占位文件的情况下，根 UI 会返回 503 引导响应，直到你重新构建 `web/`。
 - 如果 Docker 设置失败，请检查 Docker 是否已安装、守护进程是否在运行、所选端口是否空闲、容器名是否未被占用。
+- 如果 Docker 未安装，或当前用户无法访问 Docker daemon，setup 不会提供另一种本地数据库兜底方案；请改用你自己准备好的 PostgreSQL。
 - `up` 应从你打算保留的已编译二进制文件路径运行，因为托管服务会保存安装时的可执行路径。
 - `serve`、`orchestrate` 和 `all-in-one` 都接受 `--config`，`serve` / `all-in-one` 还接受 host 和 port 覆盖。
 - 如果 `all-in-one` 报 `bind: address already in use` 错误，使用 `lsof -nP -iTCP:<port> -sTCP:LISTEN` 检查当前监听者。
