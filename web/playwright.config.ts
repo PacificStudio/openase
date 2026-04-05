@@ -4,12 +4,14 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
-const previewPort = process.env.PLAYWRIGHT_PORT ?? '4173'
+const host = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
+const port = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
 const builtIndexPath = fileURLToPath(
   new URL('../internal/webui/static/index.html', import.meta.url),
 )
 const buildCommand = `${nodePath} ./node_modules/vite/bin/vite.js build --logLevel warn`
-const previewCommand = `${nodePath} ./node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port ${previewPort}`
+const previewCommand = `${nodePath} ./node_modules/vite/bin/vite.js preview --host ${host} --port ${port}`
 const webServerCommand = existsSync(builtIndexPath)
   ? previewCommand
   : `${buildCommand} && ${previewCommand}`
@@ -26,7 +28,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: `http://127.0.0.1:${previewPort}`,
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -35,11 +37,12 @@ export default defineConfig({
   },
   webServer: {
     command: webServerCommand,
-    port: Number(previewPort),
+    port,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {
       ...process.env,
+      CHOKIDAR_USEPOLLING: '1',
       OPENASE_E2E_MOCK: '1',
     },
   },

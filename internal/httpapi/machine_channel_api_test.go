@@ -249,14 +249,20 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 	if err := writeMachineEnvelope(conn2, domain.MessageTypeGoodbye, "", domain.Goodbye{Reason: "test complete"}); err != nil {
 		t.Fatalf("write goodbye: %v", err)
 	}
-	time.Sleep(50 * time.Millisecond)
-
-	activities, err := client.ActivityEvent.Query().
-		Where(entactivityevent.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entactivityevent.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("list activity events: %v", err)
+	var activities []*ent.ActivityEvent
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		activities, err = client.ActivityEvent.Query().
+			Where(entactivityevent.ProjectIDEQ(projectID)).
+			Order(ent.Asc(entactivityevent.FieldCreatedAt)).
+			All(ctx)
+		if err != nil {
+			t.Fatalf("list activity events: %v", err)
+		}
+		if len(activities) >= 3 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 	if len(activities) != 3 {
 		t.Fatalf("expected three machine activity events, got %+v", activities)
