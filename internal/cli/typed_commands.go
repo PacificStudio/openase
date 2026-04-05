@@ -1292,7 +1292,7 @@ func newRawBodyOpenAPIOperationCommand(spec openAPICommandSpec) *cobra.Command {
 	bindAPIOutputFlags(command.Flags(), &apiOutputOptions{})
 	command.Flags().StringSliceVarP(&fields, "field", "f", nil, "Add a JSON body field as key=value. Repeat for multiple fields.")
 	command.Flags().StringVar(&inputPath, "input", "", "Read the raw request body from a file. Use - for stdin.")
-	return markCLICommandAPICoverageSpec(command, spec)
+	return markCLICommandAPICoverageSpec(markCLICommandRawBodyProxy(command), spec)
 }
 
 func buildOpenAPIOperationHelp(spec openAPICommandSpec, summary string) string {
@@ -1404,13 +1404,13 @@ func runOpenAPIStreamCommand(cmd *cobra.Command, deps apiCommandDeps, contract o
 
 func registerOpenAPICommandFlags(flags *pflag.FlagSet, contract openAPICommandContract) {
 	for _, field := range contract.pathParams {
-		registerFieldFlag(flags, field)
+		registerFieldFlag(flags, field, false)
 	}
 	for _, field := range contract.queryParams {
-		registerFieldFlag(flags, field)
+		registerFieldFlag(flags, field, false)
 	}
 	for _, field := range contract.bodyFields {
-		registerFieldFlag(flags, field)
+		registerFieldFlag(flags, field, true)
 	}
 
 	var apiOptions apiCommandOptions
@@ -1425,19 +1425,25 @@ func registerOpenAPICommandFlags(flags *pflag.FlagSet, contract openAPICommandCo
 
 func registerOpenAPIStreamFlags(flags *pflag.FlagSet, contract openAPICommandContract) {
 	for _, field := range contract.pathParams {
-		registerFieldFlag(flags, field)
+		registerFieldFlag(flags, field, false)
 	}
 	for _, field := range contract.queryParams {
-		registerFieldFlag(flags, field)
+		registerFieldFlag(flags, field, false)
 	}
 	var apiOptions apiCommandOptions
 	bindAPICommandFlags(flags, &apiOptions)
 }
 
-func registerFieldFlag(flags *pflag.FlagSet, field openAPIInputField) {
+func registerFieldFlag(flags *pflag.FlagSet, field openAPIInputField, bodyField bool) {
 	registerFieldFlagName(flags, field, field.Name)
+	if bodyField {
+		annotateCLIFlagBodyFields(flags.Lookup(field.Name), field.Name)
+	}
 	for _, alias := range fieldFlagAliases(field.Name) {
 		registerFieldFlagName(flags, field, alias)
+		if bodyField {
+			annotateCLIFlagBodyFields(flags.Lookup(alias), field.Name)
+		}
 		_ = flags.MarkHidden(alias)
 	}
 }

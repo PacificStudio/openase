@@ -328,7 +328,7 @@ func TestCLIPlatformParserAndHTTPErrorCoverage(t *testing.T) {
 	if updateInput.ticketID != "ticket-123" || updateInput.title != "tighten gate" || updateInput.externalRef != "PacificStudio/openase#278" {
 		t.Fatalf("parseTicketUpdateInput() = %+v", updateInput)
 	}
-	if _, err := platform.parseTicketUpdateInput(ticketUpdateInput{ticketID: "ticket-123"}); err == nil || !strings.Contains(err.Error(), "at least one of --title, --description, --external-ref, --status, --status-name, or --status-id must be set") {
+	if _, err := platform.parseTicketUpdateInput(ticketUpdateInput{ticketID: "ticket-123"}); err == nil || !strings.Contains(err.Error(), "at least one of --title, --description, --external-ref, --status, --status-name, --status-id, --priority, --type, --workflow-id, --parent-ticket-id, --budget-usd, or --archived must be set") {
 		t.Fatalf("parseTicketUpdateInput() missing fields error = %v", err)
 	}
 

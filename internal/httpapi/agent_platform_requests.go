@@ -25,12 +25,17 @@ type rawAgentCreateTicketRequest struct {
 }
 
 type rawAgentUpdateTicketRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	ExternalRef *string `json:"external_ref"`
-	StatusID    *string `json:"status_id"`
-	StatusName  *string `json:"status_name"`
-	Archived    *bool   `json:"archived"`
+	Title          *string  `json:"title"`
+	Description    *string  `json:"description"`
+	ExternalRef    *string  `json:"external_ref"`
+	StatusID       *string  `json:"status_id"`
+	StatusName     *string  `json:"status_name"`
+	Archived       *bool    `json:"archived"`
+	Priority       *string  `json:"priority"`
+	Type           *string  `json:"type"`
+	WorkflowID     *string  `json:"workflow_id"`
+	ParentTicketID *string  `json:"parent_ticket_id"`
+	BudgetUSD      *float64 `json:"budget_usd"`
 }
 
 type rawAgentReportUsageRequest struct {
@@ -141,6 +146,40 @@ func parseAgentUpdateTicketRequest(
 	}
 	if raw.Archived != nil {
 		input.Archived = ticketservice.Some(*raw.Archived)
+	}
+	if raw.Priority != nil {
+		priority, err := parseOptionalTicketPriority(*raw.Priority)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.Priority = ticketservice.Some(priority)
+	}
+	if raw.Type != nil {
+		ticketType, err := parseTicketType(*raw.Type)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.Type = ticketservice.Some(ticketType)
+	}
+	if raw.WorkflowID != nil {
+		workflowID, err := parseOptionalUUIDString("workflow_id", raw.WorkflowID)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.WorkflowID = ticketservice.Some(workflowID)
+	}
+	if raw.ParentTicketID != nil {
+		parentTicketID, err := parseOptionalUUIDString("parent_ticket_id", raw.ParentTicketID)
+		if err != nil {
+			return ticketservice.UpdateInput{}, err
+		}
+		input.ParentTicketID = ticketservice.Some(parentTicketID)
+	}
+	if raw.BudgetUSD != nil {
+		if *raw.BudgetUSD < 0 {
+			return ticketservice.UpdateInput{}, writeableError("budget_usd must be greater than or equal to zero")
+		}
+		input.BudgetUSD = ticketservice.Some(*raw.BudgetUSD)
 	}
 	input.CreatedBy = ticketservice.Some(createdBy)
 	return input, nil
