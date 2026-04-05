@@ -44,6 +44,8 @@ type setupFlowDeps struct {
 	buildManagedServiceInstallSpec func(string) (provider.UserServiceInstallSpec, error)
 	checkManagedUserServiceSupport func(context.Context) error
 	verifyManagedUserService       func(context.Context, provider.ServiceName) error
+	buildInstalledSetupService     func(context.Context, string, provider.UserServiceInstallSpec) *installedSetupService
+	goos                           string
 }
 
 type installedSetupService struct {
@@ -123,6 +125,8 @@ func runSetupFlowCommand(ctx context.Context, in io.Reader, out io.Writer, opts 
 		buildManagedServiceInstallSpec: buildManagedServiceInstallSpec,
 		checkManagedUserServiceSupport: checkManagedUserServiceSupport,
 		verifyManagedUserService:       verifyManagedUserService,
+		buildInstalledSetupService:     buildInstalledSetupService,
+		goos:                           runtime.GOOS,
 	})
 	if err != nil {
 		printSetupFailure(out, defaultSetupConfigPath)
@@ -191,13 +195,15 @@ func runSetupFlowWithDeps(
 		return err
 	}
 
-	printSetupSummary(out, bootstrap, prepared, auth, runtimeMode)
+	goos := deps.targetGOOS()
+
+	printSetupSummary(out, bootstrap, prepared, auth, runtimeMode, goos)
 
 	confirmationLabel := "Write ~/.openase/config.yaml and ~/.openase/.env now?"
 	if runtimeMode == setupRuntimeModeManagedUserService {
 		confirmationLabel = fmt.Sprintf(
 			"Write ~/.openase/config.yaml and ~/.openase/.env, then install the managed OpenASE user service via %s now?",
-			setupManagedUserServicePlatformName(runtime.GOOS),
+			setupManagedUserServicePlatformName(goos),
 		)
 	}
 	confirmed, err := prompter.confirm(confirmationLabel, true)
@@ -430,6 +436,7 @@ func printSetupSummary(
 	prepared setup.PreparedDatabase,
 	auth setup.AuthConfig,
 	runtimeMode setupRuntimeMode,
+	goos string,
 ) {
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintln(out, "Setup summary:")
@@ -448,7 +455,7 @@ func printSetupSummary(
 		_, _ = fmt.Fprintf(out, "  Docker volume:    %s\n", prepared.Docker.VolumeName)
 	}
 	_, _ = fmt.Fprintf(out, "  Auth mode: %s\n", describeSetupAuthMode(auth))
-	_, _ = fmt.Fprintf(out, "  Runtime:   %s\n", describeSetupRuntimeMode(runtimeMode))
+	_, _ = fmt.Fprintf(out, "  Runtime:   %s\n", describeSetupRuntimeMode(runtimeMode, goos))
 	_, _ = fmt.Fprintf(out, "  Config path: %s\n", bootstrap.ConfigPath)
 }
 
@@ -791,9 +798,10 @@ func promptAuthConfig(prompter *setupPrompter, bootstrap setup.Bootstrap) (setup
 }
 
 func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupFlowDeps) (setupRuntimeMode, error) {
+	goos := deps.targetGOOS()
 	options := []string{
 		"Only Write Config: setup writes ~/.openase files and you start openase manually later.",
-		setupManagedUserServicePrompt(runtime.GOOS),
+		setupManagedUserServicePrompt(goos),
 	}
 	index, err := prompter.choose("Choose how OpenASE should run after setup", options, 0)
 	if err != nil {
@@ -807,7 +815,7 @@ func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupF
 		_, _ = fmt.Fprintf(
 			prompter.out,
 			"\nCurrent machine cannot use the managed OpenASE user service via %s: %v\n",
-			setupManagedUserServicePlatformName(runtime.GOOS),
+			setupManagedUserServicePlatformName(goos),
 			err,
 		)
 		fallback, confirmErr := prompter.confirm("Continue with config-only setup instead?", true)
@@ -844,7 +852,7 @@ func installSetupManagedService(
 		return nil, fmt.Errorf("setup wrote config files, but %s could not verify service %q: %w", manager.Platform(), spec.Name, err)
 	}
 
-	return buildInstalledSetupService(ctx, manager.Platform(), spec), nil
+	return deps.installedSetupServiceBuilder()(ctx, manager.Platform(), spec), nil
 }
 
 func describeSetupAuthMode(auth setup.AuthConfig) string {
@@ -856,13 +864,29 @@ func describeSetupAuthMode(auth setup.AuthConfig) string {
 	}
 }
 
-func describeSetupRuntimeMode(mode setupRuntimeMode) string {
+func describeSetupRuntimeMode(mode setupRuntimeMode, goos string) string {
 	switch mode {
 	case setupRuntimeModeManagedUserService:
-		return fmt.Sprintf("managed user service via %s", setupManagedUserServicePlatformName(runtime.GOOS))
+		return fmt.Sprintf("managed user service via %s", setupManagedUserServicePlatformName(goos))
 	default:
 		return "config-only"
 	}
+}
+
+func (d setupFlowDeps) targetGOOS() string {
+	if strings.TrimSpace(d.goos) == "" {
+		return runtime.GOOS
+	}
+
+	return d.goos
+}
+
+func (d setupFlowDeps) installedSetupServiceBuilder() func(context.Context, string, provider.UserServiceInstallSpec) *installedSetupService {
+	if d.buildInstalledSetupService == nil {
+		return buildInstalledSetupService
+	}
+
+	return d.buildInstalledSetupService
 }
 
 func setupManagedUserServicePlatformName(goos string) string {
