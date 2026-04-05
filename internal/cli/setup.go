@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	userserviceinfra "github.com/BetterAndBetterII/openase/internal/infra/userservice"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/setup"
 	"github.com/spf13/cobra"
@@ -843,7 +844,7 @@ func installSetupManagedService(
 		return nil, fmt.Errorf("setup wrote config files, but %s could not verify service %q: %w", manager.Platform(), spec.Name, err)
 	}
 
-	return buildInstalledSetupService(manager.Platform(), spec), nil
+	return buildInstalledSetupService(ctx, manager.Platform(), spec), nil
 }
 
 func describeSetupAuthMode(auth setup.AuthConfig) string {
@@ -908,7 +909,7 @@ func verifyManagedUserService(ctx context.Context, name provider.ServiceName) er
 	}
 }
 
-func buildInstalledSetupService(platform string, spec provider.UserServiceInstallSpec) *installedSetupService {
+func buildInstalledSetupService(ctx context.Context, platform string, spec provider.UserServiceInstallSpec) *installedSetupService {
 	service := &installedSetupService{
 		Name:        spec.Name,
 		Platform:    platform,
@@ -916,8 +917,11 @@ func buildInstalledSetupService(platform string, spec provider.UserServiceInstal
 	}
 	if platform == "launchd" {
 		homeDir := filepath.Dir(spec.WorkingDirectory.String())
-		service.LaunchdTarget = launchdServiceTarget(os.Getuid(), spec.Name)
 		service.LaunchdPlist = launchdPlistPath(homeDir, spec.Name)
+		ref, err := userserviceinfra.ResolveLaunchdService(ctx, os.Getuid(), spec.Name)
+		if err == nil {
+			service.LaunchdTarget = ref.Target
+		}
 	}
 
 	return service
@@ -955,35 +959,32 @@ func verifySystemdUserService(ctx context.Context, name provider.ServiceName) er
 }
 
 func checkLaunchdUserServiceSupport(ctx context.Context) error {
-	if err := runLaunchctl(ctx, "print", launchdServiceDomain(os.Getuid())); err != nil {
-		return fmt.Errorf("launchd is not available for this login session: %w", err)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve user home directory for launchd LaunchAgents: %w", err)
 	}
+
+	if _, err := userserviceinfra.CheckLaunchdSupport(ctx, homeDir, os.Getuid()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func verifyLaunchdUserService(ctx context.Context, name provider.ServiceName) error {
-	if err := runLaunchctl(ctx, "print", launchdServiceTarget(os.Getuid(), name)); err != nil {
-		normalized := strings.ToLower(err.Error())
-		if strings.Contains(normalized, "could not find service") ||
-			strings.Contains(normalized, "service does not exist") ||
-			strings.Contains(normalized, "not found") {
-			return fmt.Errorf("launchd could not find the managed OpenASE service")
-		}
+	ref, err := userserviceinfra.ResolveLaunchdService(ctx, os.Getuid(), name)
+	if err != nil {
 		return err
 	}
+	if !ref.Loaded {
+		return fmt.Errorf("launchd could not find the managed OpenASE service in %s", ref.Domain)
+	}
+
 	return nil
 }
 
 func launchdServiceLabel(name provider.ServiceName) string {
 	return "com." + name.String()
-}
-
-func launchdServiceDomain(uid int) string {
-	return fmt.Sprintf("gui/%d", uid)
-}
-
-func launchdServiceTarget(uid int, name provider.ServiceName) string {
-	return launchdServiceDomain(uid) + "/" + launchdServiceLabel(name)
 }
 
 func launchdPlistPath(homeDir string, name provider.ServiceName) string {
