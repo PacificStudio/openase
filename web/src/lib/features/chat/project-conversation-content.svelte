@@ -43,7 +43,14 @@
   } = $props()
 </script>
 
-<ProjectConversationTabStrip {tabs} {activeTabId} {conversations} {currentProjectId} {onSelectTab} {onCloseTab} />
+<ProjectConversationTabStrip
+  {tabs}
+  {activeTabId}
+  {conversations}
+  {currentProjectId}
+  {onSelectTab}
+  {onCloseTab}
+/>
 
 <ProjectConversationWorkspaceSummary
   {conversationId}

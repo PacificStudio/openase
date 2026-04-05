@@ -64,7 +64,8 @@
       {@const label = formatProjectConversationLabel(tab, conversations)}
       {@const status = formatProjectConversationTabStatus(tab)}
       {@const isActive = tab.id === activeTabId}
-      {@const isCrossProject = !!tab.projectId && !!currentProjectId && tab.projectId !== currentProjectId}
+      {@const isCrossProject =
+        !!tab.projectId && !!currentProjectId && tab.projectId !== currentProjectId}
       {@const projectColor = isCrossProject ? getProjectColor(tab.projectId) : ''}
       {@const projectLabel = tab.projectName || 'Other project'}
 
@@ -107,9 +108,9 @@
         {/if}
         {#if isCrossProject && isActive}
           <span
-            class="shrink-0 rounded-sm px-1 py-px text-[9px] font-medium leading-tight text-white"
-            style="background-color: {projectColor}"
-          >{projectLabel}</span>
+            class="shrink-0 rounded-sm px-1 py-px text-[9px] leading-tight font-medium text-white"
+            style="background-color: {projectColor}">{projectLabel}</span
+          >
         {/if}
         <span class="max-w-[140px] truncate">{label}</span>
         {#if status && !tab.pending}

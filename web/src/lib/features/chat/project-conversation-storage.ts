@@ -104,14 +104,12 @@ function parsePersistedTabs(raw: string): PersistedProjectConversationTabs {
             draft?: unknown
           }
           return {
-            projectId:
-              typeof candidate.projectId === 'string' ? candidate.projectId.trim() : '',
+            projectId: typeof candidate.projectId === 'string' ? candidate.projectId.trim() : '',
             projectName:
               typeof candidate.projectName === 'string' ? candidate.projectName.trim() : '',
             conversationId:
               typeof candidate.conversationId === 'string' ? candidate.conversationId.trim() : '',
-            providerId:
-              typeof candidate.providerId === 'string' ? candidate.providerId.trim() : '',
+            providerId: typeof candidate.providerId === 'string' ? candidate.providerId.trim() : '',
             draft: typeof candidate.draft === 'string' ? candidate.draft : '',
           } satisfies PersistedProjectConversationTab
         })
