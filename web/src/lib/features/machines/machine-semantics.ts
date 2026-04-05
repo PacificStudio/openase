@@ -49,7 +49,10 @@ export function coerceExecutionMode(
   if (reachabilityMode === 'reverse_connect') {
     return 'websocket'
   }
-  return executionMode === 'local_process' ? 'websocket' : executionMode
+  if (executionMode === 'local_process' || executionMode === 'ssh_compat') {
+    return 'websocket'
+  }
+  return executionMode
 }
 
 export function parseMachinePort(rawPort: string): number | null {

@@ -7,7 +7,7 @@
 - `direct_connect`：控制面可以主动拨到机器。
 - `reverse_connect`：机器守护进程可以反向拨回控制面。
 - `websocket`：目标远程执行路径。
-- `ssh_compat`：部署迁移期、引导和诊断期间使用的临时兼容路径或 helper。
+- `ssh_compat`：需要迁移到 websocket 的遗留执行模式存储值。SSH 仅保留为引导、诊断和紧急修复 helper。
 
 ## 自动化验证矩阵
 
@@ -22,9 +22,11 @@ scripts/ci/remote_transport_matrix.sh
 | 场景 | 覆盖 |
 | --- | --- |
 | SSH 引导 + 反向 WebSocket 机器会话 | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
-| SSH 引导 + 反向 WebSocket 运行时回退 | `TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable` |
+| SSH 引导 helper 行为 | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
+| SSH 诊断 helper 行为 | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH 引导 + 监听 WebSocket 运行时 | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
-| 纯 SSH 回退运行时回归 | `TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH` |
+| 直接 SSH runtime 拒绝 | `TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution` |
+| 反向 WebSocket 启动不回退到 SSH | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
 | 远程二进制/预检失败 | `TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics` |
 | 守护进程认证失败 | `TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric` |
 
@@ -39,7 +41,7 @@ scripts/ci/remote_transport_matrix.sh
 当前已知差距：
 
 - 监听 WebSocket 已有端到端运行时正常路径。
-- 反向 WebSocket 当前保持机器通道覆盖，加上当 WebSocket 在进程启动前启动失败且配置了 SSH 凭证时的自动 SSH 回退运行时路径。
+- 反向 WebSocket runtime 仍需要比当前守护进程会话注册与 helper 流更完整的端到端启动覆盖。
 
 ## 可观测性契约
 
@@ -85,7 +87,6 @@ OpenASE 现在发出以下传输相关指标：
 - `machine.reconnected`
 - `machine.disconnected`
 - `machine.daemon_auth_failed`
-- `runtime.fallback_to_ssh`
 - `agent.failed`
   - 在启动期间失败时包含 `failure_stage`、`transport_mode`、`machine_id` 和 `workspace_root`
 
@@ -94,7 +95,6 @@ OpenASE 现在发出以下传输相关指标：
 - 哪台机器丢失或替换了 WebSocket 会话？
 - 守护进程是认证失败还是仅重连？
 - 运行时在传输设置、工作空间准备、二进制预检还是进程启动时失败？
-- OpenASE 是否为此工单回退到 SSH？
 
 ## 部署前提
 
@@ -112,19 +112,18 @@ OpenASE 现在发出以下传输相关指标：
 
 - 最适合机器可以向外拨号但无法暴露入站监听器的场景
 - 需要机器通道令牌
-- 部署期间应在机器记录上保留 SSH 凭证，以便 OpenASE 在需要时回退到 SSH
+- 仅当运维需要 helper 引导或诊断时才需要在机器记录上保留 SSH 凭证
 
 监听 WebSocket：
 
 - 最适合控制面板可以直接到达机器的场景
 - 需要机器公布的 WebSocket 端点
-- 部署期间仍应保持 SSH 凭证配置以保留运维回退
+- 如需直接修复入口，可保留 SSH 凭证用于 helper 引导或诊断
 
 SSH 兼容路径：
 
-- 在 rollout 期间仍然是基线回退路径
-- 应保持验证和启用状态，直到 WebSocket 启动成功和重连恢复达到部署标准
-- 应视为 helper 或兼容基础设施，而不是长期远程执行模型
+- 不再是受支持的 runtime 回退路径
+- 应被视为遗留记录状态加 helper 基础设施，而不是远程执行模型
 
 ## 引导与守护进程安装
 
@@ -144,7 +143,7 @@ make build-web
   - `reverse_connect + websocket`
   - `direct_connect + websocket`
 - 有效的 `workspace_root`
-- 只有在仍需 rollout 回退或诊断时才保留 SSH helper 凭证
+- 只有在仍需引导、诊断或紧急修复时才保留 SSH helper 凭证
 - 远程 CLI 无法从 `PATH` 发现时的 `agent_cli_path`
 
 ### 3. 签发专用机器通道令牌
@@ -165,6 +164,16 @@ make build-web
 - `OPENASE_MACHINE_CONTROL_PLANE_URL`
 
 ### 4. 启动反向 WebSocket 守护进程
+
+如果控制面已经可以通过 SSH 到达机器，可以直接使用 helper 流而不必手工拷贝文件：
+
+```bash
+./bin/openase machine ssh-bootstrap <machine-uuid>
+```
+
+它会上传当前 `openase` 二进制、写入 machine-agent 环境文件、安装用户级服务并重启。
+
+不使用 helper 的运维手工方式如下：
 
 在远程机器上：
 
@@ -217,7 +226,7 @@ WantedBy=default.target
 1. 停止守护进程服务。
 2. 恢复之前的二进制文件。
 3. 重启守护进程。
-4. 如果 WebSocket 启动仍不稳定，将机器或 Provider 切回 SSH，验证回退运行时路径后再扩大部署。
+4. 如果 WebSocket 启动仍不稳定，使用 `openase machine ssh-diagnostics <machine-uuid>` 和 `openase machine ssh-bootstrap <machine-uuid>` 修复守护进程配置，再决定是否继续扩大部署。
 
 ## 故障排查
 
@@ -231,20 +240,23 @@ WantedBy=default.target
 | Git 克隆失败 | `failure_stage=repo_auth` | 仓库凭证投射、`GH_TOKEN`、部署密钥或远程 git 传输策略 |
 | 工作空间根目录无效 | `failure_stage=workspace_root` | 保存的机器 `workspace_root`、权限、挂载的文件系统可用性 |
 
+当你需要快速确认工作空间权限、远程二进制是否存在、服务状态或最近日志时，使用 `openase machine ssh-diagnostics <machine-uuid>` 获取 helper-only 诊断输出。
+
 ## 部署检查清单
 
 ### 阶段 1：传输兼容性
 
 - 运行 `scripts/ci/remote_transport_matrix.sh`
-- 确认纯 SSH 回归仍然通过
+- 确认直接 SSH runtime 会被拒绝
+- 确认反向 WebSocket 启动失败不会回退到 SSH
 - 确认 WebSocket 预检失败被分类为 `failure_stage`
 
 ### 阶段 2：反向 WebSocket 金丝雀
 
 - 在小规模机器子集上启用 `ws_reverse`
-- 在每台机器上保留 SSH 凭证
+- 只在运维需要 helper 引导或诊断的机器上保留 SSH 凭证
 - 验证守护进程重启下的 `machine.connected` 和重连行为
-- 确认强制 WebSocket 传输失败在预期时回退到 SSH
+- 确认强制 WebSocket 传输失败仍被归类为 WebSocket 侧启动错误
 
 ### 阶段 3：监听扩展
 
@@ -252,9 +264,9 @@ WantedBy=default.target
 - 在每次监听部署前验证 DNS、TLS 和控制面板直接可达性
 - 每批部署运行至少一个监听运行时正常路径
 
-### 阶段 4：保持 SSH 热备的广泛部署
+### 阶段 4：保留可选 SSH Helper 的广泛部署
 
-- 在初始部署窗口期间不要移除 SSH 回退
+- 在部署窗口期间不要把 SSH 当作 runtime 执行计划的一部分
 - 保持以下仪表盘视图：
   - 按 `transport_mode` 的启动成功率
   - 重连恢复
