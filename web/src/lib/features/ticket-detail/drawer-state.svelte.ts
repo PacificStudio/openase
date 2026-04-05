@@ -5,6 +5,7 @@ import { fetchTicketDetailLiveContext, fetchTicketDetailProjectReferenceData } f
 import {
   recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
+  loadOlderTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
 } from './drawer-run-transcript'
 import { ensureTicketDrawerRunsLoaded } from './drawer-state-run-loading'
@@ -20,19 +21,12 @@ import {
   applyTicketDrawerRunTranscriptState,
   applyTicketDrawerTimelineRefresh,
   readTicketDrawerRunTranscriptState,
-  resetTicketDrawerState,
 } from './drawer-state-mutators'
 import { createTicketDrawerReferenceController } from './drawer-state-reference'
-import type {
-  HookExecution,
-  TicketDetail,
-  TicketReferenceOption,
-  TicketRepoOption,
-  TicketRun,
-  TicketRunTranscriptBlock,
-  TicketStatusOption,
-  TicketTimelineItem,
-} from './types'
+import {
+  createTicketDrawerMutableState,
+  resetTicketDrawerMutableState,
+} from './drawer-state-store.svelte'
 
 type LoadOptions = { background?: boolean; preserveMessages?: boolean }
 
@@ -50,42 +44,7 @@ const defaultDeps: TicketDrawerStateDeps = {
 export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {}) {
   const resolvedDeps = { ...defaultDeps, ...deps }
 
-  const state = $state({
-    loading: false,
-    error: '',
-    ticket: null as TicketDetail | null,
-    timeline: [] as TicketTimelineItem[],
-    hooks: [] as HookExecution[],
-    statuses: [] as TicketStatusOption[],
-    dependencyCandidates: [] as TicketReferenceOption[],
-    repoOptions: [] as TicketRepoOption[],
-    runs: [] as TicketRun[],
-    runsLoaded: false,
-    loadingRuns: false,
-    runsError: '',
-    selectedRunId: null as string | null,
-    followLatest: true,
-    currentRun: null as TicketRun | null,
-    runBlocks: [] as TicketRunTranscriptBlock[],
-    runBlockCache: {} as Record<string, TicketRunTranscriptBlock[]>,
-    loadingRunId: null as string | null,
-    runStreamState: 'idle' as StreamConnectionState,
-    recoveringRunTranscript: false,
-    savingFields: false,
-    creatingDependency: false,
-    deletingDependencyId: null as string | null,
-    creatingExternalLink: false,
-    deletingExternalLinkId: null as string | null,
-    creatingRepoScope: false,
-    updatingRepoScopeId: null as string | null,
-    deletingRepoScopeId: null as string | null,
-    creatingComment: false,
-    updatingCommentId: null as string | null,
-    deletingCommentId: null as string | null,
-    resumingRetry: false,
-    resettingWorkspace: false,
-    archiving: false,
-  })
+  const state = $state(createTicketDrawerMutableState())
   let loadRequestId = 0
   let runDetailRequestId = 0
   let runRecoveryRequestId = 0
@@ -120,6 +79,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
       runDetailRequestId += 1
       runTranscriptRequestId += 1
       state.loadingRunId = null
+      state.loadingOlderRunId = null
       if (!options.background || state.ticket?.id !== ticketId) {
         state.loadingRuns = false
         state.runsLoaded = false
@@ -268,12 +228,41 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         }
       }
     },
+    async loadOlderRunTranscript(projectId: string, ticketId: string, runId: string) {
+      const pageInfo = state.runPageInfoByRun[runId]
+      if (!pageInfo?.hasOlder || !pageInfo.oldestCursor) {
+        return
+      }
+
+      state.loadingOlderRunId = runId
+      try {
+        await loadOlderTicketDrawerRunTranscript(
+          resolvedDeps,
+          {
+            getState: () => readTicketDrawerRunTranscriptState(state),
+            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
+          },
+          projectId,
+          ticketId,
+          runId,
+          pageInfo.oldestCursor,
+        )
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to load older ticket run transcript history.'
+        toastStore.error(message)
+      } finally {
+        state.loadingOlderRunId = null
+      }
+    },
     reset() {
       loadRequestId += 1
       runDetailRequestId += 1
       runTranscriptRequestId += 1
       referenceController.resetQueues()
-      resetTicketDrawerState(state)
+      resetTicketDrawerMutableState(state)
     },
     invalidateReferences(projectId?: string) {
       referenceController.invalidateReferences(projectId)

@@ -7,14 +7,19 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
+func TestResolverResolveRuntimeSeparatesChannelAndExecutionSurfaces(t *testing.T) {
 	resolver := NewResolver(nil, nil)
 
 	tests := []struct {
-		name     string
-		machine  domain.Machine
-		wantMode domain.MachineConnectionMode
-		wantType any
+		name               string
+		machine            domain.Machine
+		wantMode           domain.MachineConnectionMode
+		wantProbe          bool
+		wantWorkspace      bool
+		wantArtifactSync   bool
+		wantProcess        bool
+		wantCommandSession bool
+		wantRuntime        bool
 	}{
 		{
 			name: "local mode",
@@ -24,8 +29,11 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Host:           domain.LocalMachineHost,
 				ConnectionMode: domain.MachineConnectionModeLocal,
 			},
-			wantMode: domain.MachineConnectionModeLocal,
-			wantType: localTransport{},
+			wantMode:         domain.MachineConnectionModeLocal,
+			wantProbe:        true,
+			wantWorkspace:    true,
+			wantArtifactSync: true,
+			wantProcess:      true,
 		},
 		{
 			name: "ssh mode",
@@ -35,8 +43,12 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Host:           "10.0.1.8",
 				ConnectionMode: domain.MachineConnectionModeSSH,
 			},
-			wantMode: domain.MachineConnectionModeSSH,
-			wantType: sshTransport{},
+			wantMode:           domain.MachineConnectionModeSSH,
+			wantProbe:          true,
+			wantWorkspace:      true,
+			wantArtifactSync:   true,
+			wantProcess:        true,
+			wantCommandSession: true,
 		},
 		{
 			name: "ws reverse mode",
@@ -46,8 +58,8 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Host:           "reverse.example.com",
 				ConnectionMode: domain.MachineConnectionModeWSReverse,
 			},
-			wantMode: domain.MachineConnectionModeWSReverse,
-			wantType: websocketTransport{},
+			wantMode:    domain.MachineConnectionModeWSReverse,
+			wantRuntime: true,
 		},
 		{
 			name: "ws listener mode",
@@ -57,8 +69,13 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Host:           "listener.example.com",
 				ConnectionMode: domain.MachineConnectionModeWSListener,
 			},
-			wantMode: domain.MachineConnectionModeWSListener,
-			wantType: websocketTransport{},
+			wantMode:           domain.MachineConnectionModeWSListener,
+			wantProbe:          true,
+			wantWorkspace:      true,
+			wantArtifactSync:   true,
+			wantProcess:        true,
+			wantCommandSession: true,
+			wantRuntime:        true,
 		},
 		{
 			name: "legacy local machine infers local mode",
@@ -67,8 +84,11 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Name: domain.LocalMachineName,
 				Host: domain.LocalMachineHost,
 			},
-			wantMode: domain.MachineConnectionModeLocal,
-			wantType: localTransport{},
+			wantMode:         domain.MachineConnectionModeLocal,
+			wantProbe:        true,
+			wantWorkspace:    true,
+			wantArtifactSync: true,
+			wantProcess:      true,
 		},
 		{
 			name: "legacy remote machine defaults to ssh mode",
@@ -77,35 +97,47 @@ func TestResolverResolveSelectsTransportByMachineMode(t *testing.T) {
 				Name: "builder-legacy",
 				Host: "10.0.9.9",
 			},
-			wantMode: domain.MachineConnectionModeSSH,
-			wantType: sshTransport{},
+			wantMode:           domain.MachineConnectionModeSSH,
+			wantProbe:          true,
+			wantWorkspace:      true,
+			wantArtifactSync:   true,
+			wantProcess:        true,
+			wantCommandSession: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			transport, err := resolver.Resolve(tt.machine)
+			resolved, err := resolver.ResolveRuntime(tt.machine)
 			if err != nil {
-				t.Fatalf("Resolve() error = %v", err)
+				t.Fatalf("ResolveRuntime() error = %v", err)
 			}
-			if transport.Mode() != tt.wantMode {
-				t.Fatalf("Resolve().Mode() = %q, want %q", transport.Mode(), tt.wantMode)
+			if resolved.Channel == nil {
+				t.Fatal("ResolveRuntime().Channel = nil")
 			}
-			switch tt.wantType.(type) {
-			case localTransport:
-				if _, ok := transport.(localTransport); !ok {
-					t.Fatalf("Resolve() type = %T, want localTransport", transport)
-				}
-			case sshTransport:
-				if _, ok := transport.(sshTransport); !ok {
-					t.Fatalf("Resolve() type = %T, want sshTransport", transport)
-				}
-			case websocketTransport:
-				if _, ok := transport.(websocketTransport); !ok {
-					t.Fatalf("Resolve() type = %T, want websocketTransport", transport)
-				}
-			default:
-				t.Fatalf("unexpected test transport type %T", tt.wantType)
+			if resolved.Channel.Mode() != tt.wantMode {
+				t.Fatalf("ResolveRuntime().Channel.Mode() = %q, want %q", resolved.Channel.Mode(), tt.wantMode)
+			}
+			if got := resolved.Execution.Probe != nil; got != tt.wantProbe {
+				t.Fatalf("ResolveRuntime().Execution.Probe != nil = %t, want %t", got, tt.wantProbe)
+			}
+			if got := resolved.Execution.Workspace != nil; got != tt.wantWorkspace {
+				t.Fatalf("ResolveRuntime().Execution.Workspace != nil = %t, want %t", got, tt.wantWorkspace)
+			}
+			if got := resolved.Execution.ArtifactSync != nil; got != tt.wantArtifactSync {
+				t.Fatalf("ResolveRuntime().Execution.ArtifactSync != nil = %t, want %t", got, tt.wantArtifactSync)
+			}
+			if got := resolved.Execution.Process != nil; got != tt.wantProcess {
+				t.Fatalf("ResolveRuntime().Execution.Process != nil = %t, want %t", got, tt.wantProcess)
+			}
+			if got := resolved.Execution.CommandSession != nil; got != tt.wantCommandSession {
+				t.Fatalf("ResolveRuntime().Execution.CommandSession != nil = %t, want %t", got, tt.wantCommandSession)
+			}
+			if got := resolved.Execution.Runtime != nil; got != tt.wantRuntime {
+				t.Fatalf("ResolveRuntime().Execution.Runtime != nil = %t, want %t", got, tt.wantRuntime)
+			}
+			if tt.wantRuntime && !resolved.Execution.Runtime.SupportsAll(resolved.Execution.Runtime.Capabilities()...) {
+				t.Fatal("ResolveRuntime().Execution.Runtime should report its declared capabilities")
 			}
 		})
 	}

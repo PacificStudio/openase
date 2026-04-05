@@ -10,6 +10,10 @@ export function createEmptyTicketRunTranscriptState(): TicketRunTranscriptState 
     currentRun: null,
     blocks: [],
     blockCache: {},
+    stepEntriesByRun: {},
+    traceEntriesByRun: {},
+    lifecycleBlocksByRun: {},
+    pageInfoByRun: {},
   }
 }
 

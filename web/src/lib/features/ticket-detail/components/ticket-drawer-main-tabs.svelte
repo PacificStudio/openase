@@ -17,10 +17,12 @@
     runs = [],
     currentRun = null,
     runBlocks = [],
+    runPageInfoByRun = {},
     runsLoaded = false,
     loadingRuns = false,
     runsError = '',
     loadingRunId = null,
+    loadingOlderRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     savingFields = false,
@@ -32,6 +34,7 @@
     onLoadRuns,
     onSaveFields,
     onSelectRun,
+    onLoadOlderRunTranscript,
     onResumeRetry,
     onCreateComment,
     onUpdateComment,
@@ -43,10 +46,15 @@
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    runPageInfoByRun?: Record<
+      string,
+      { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
+    >
     runsLoaded?: boolean
     loadingRuns?: boolean
     runsError?: string
     loadingRunId?: string | null
+    loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     savingFields?: boolean
@@ -58,6 +66,7 @@
     onLoadRuns?: () => Promise<void> | void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onSelectRun?: (runId: string) => Promise<void> | void
+    onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
     onCreateComment?: (body: string) => Promise<boolean> | boolean
     onUpdateComment?: (commentId: string, body: string) => Promise<boolean> | boolean
@@ -108,13 +117,16 @@
       {runs}
       {currentRun}
       blocks={runBlocks}
+      {runPageInfoByRun}
       {loadingRuns}
       {runsError}
       {loadingRunId}
+      {loadingOlderRunId}
       {runStreamState}
       {recoveringRunTranscript}
       {resumingRetry}
       {onSelectRun}
+      {onLoadOlderRunTranscript}
       onRetryLoadRuns={onLoadRuns}
       {onResumeRetry}
     />

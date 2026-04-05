@@ -1,4 +1,5 @@
 import type { ChatDiffPayload } from '$lib/api/chat'
+import type { TicketRunStepEntry, TicketRunTraceEntry } from './types'
 
 export type TicketRunTranscriptInterruptOption = {
   id: string
@@ -64,4 +65,16 @@ export type TicketRunTranscriptState = {
   currentRun: import('./types').TicketRun | null
   blocks: TicketRunTranscriptBlock[]
   blockCache: Record<string, TicketRunTranscriptBlock[]>
+  stepEntriesByRun: Record<string, TicketRunStepEntry[]>
+  traceEntriesByRun: Record<string, TicketRunTraceEntry[]>
+  lifecycleBlocksByRun: Record<string, TicketRunTranscriptBlock[]>
+  pageInfoByRun: Record<
+    string,
+    {
+      hasOlder: boolean
+      hiddenOlderCount: number
+      oldestCursor?: string
+      newestCursor?: string
+    }
+  >
 }

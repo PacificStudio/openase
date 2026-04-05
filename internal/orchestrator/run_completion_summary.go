@@ -1114,11 +1114,14 @@ func (c *runtimeCompletionSummaryCoordinator) runCompletionSummaryGitCommand(
 	if c == nil || c.transports == nil {
 		return nil, fmt.Errorf("machine transport resolver unavailable for machine %s", machine.Name)
 	}
-	transport, err := c.transports.Resolve(machine)
+	resolved, err := c.transports.ResolveRuntime(machine)
 	if err != nil {
 		return nil, err
 	}
-	session, err := transport.OpenCommandSession(ctx, machine)
+	if resolved.Execution.CommandSession == nil {
+		return nil, fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return nil, fmt.Errorf("open remote command session for run completion summary: %w", err)
 	}

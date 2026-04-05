@@ -231,4 +231,28 @@ describe('TicketRunHistoryPanel', () => {
     expect(getByText('Done.')).toBeTruthy()
     expect(getByText('Run created.')).toBeTruthy()
   })
+
+  it('renders the hidden-history banner and requests older transcript pages', async () => {
+    const onLoadOlderRunTranscript = vi.fn()
+    const { getByRole } = render(TicketRunHistoryPanel, {
+      props: {
+        ticket,
+        runs: [latestRun],
+        currentRun: latestRun,
+        blocks: latestBlocks,
+        runPageInfoByRun: {
+          [latestRun.id]: {
+            hasOlder: true,
+            hiddenOlderCount: 934,
+            oldestCursor: 'cursor-1',
+            newestCursor: 'cursor-2',
+          },
+        },
+        onLoadOlderRunTranscript,
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: /934 earlier events hidden/i }))
+    expect(onLoadOlderRunTranscript).toHaveBeenCalledWith(latestRun.id)
+  })
 })

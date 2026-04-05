@@ -65,18 +65,18 @@ func (e *RuntimePreflightError) Unwrap() error {
 
 func RunRemoteRuntimePreflight(
 	ctx context.Context,
-	transport Transport,
+	execution CommandSessionExecution,
 	machine domain.Machine,
 	spec RuntimePreflightSpec,
 ) error {
-	if transport == nil {
+	if execution == nil {
 		return &RuntimePreflightError{
 			Stage:   RuntimePreflightStageTransport,
 			Message: fmt.Sprintf("transport unavailable for machine %s", machine.Name),
 		}
 	}
 
-	session, err := transport.OpenCommandSession(ctx, machine)
+	session, err := execution.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return &RuntimePreflightError{
 			Stage:   RuntimePreflightStageTransport,
@@ -108,7 +108,7 @@ func buildRemoteRuntimePreflightCommand(spec RuntimePreflightSpec) string {
 
 	lines := []string{
 		"set -eu",
-		`fail() { stage="$1"; shift; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*" >&2; exit 97; }`,
+		`fail() { stage="$1"; shift; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*" >&2; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*"; exit 97; }`,
 		"if [ ! -d " + sshinfra.ShellQuote(workingDirectory) + " ]; then fail workspace " + sshinfra.ShellQuote("working directory does not exist: "+workingDirectory) + "; fi",
 		"cd " + sshinfra.ShellQuote(workingDirectory),
 		"if [ ! -x " + sshinfra.ShellQuote(wrapperPath) + " ]; then fail openase " + sshinfra.ShellQuote("workspace openase wrapper is missing at "+filepath.ToSlash(filepath.Join(workingDirectory, wrapperPath))) + "; fi",

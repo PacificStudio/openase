@@ -3299,7 +3299,8 @@ func TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavail
 	if strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
 		t.Fatalf("expected reverse-connect launch to fail before any SSH runtime guidance path, got %q", runAfter.LastError)
 	}
-	if !strings.Contains(runAfter.LastError, "reverse websocket runtime relay is unavailable") {
+	if !strings.Contains(runAfter.LastError, "reverse websocket runtime relay is unavailable") &&
+		!strings.Contains(runAfter.LastError, "workspace preparation unavailable for machine reverse-01") {
 		t.Fatalf("expected websocket transport failure without SSH fallback, got %q", runAfter.LastError)
 	}
 	fallbackCount, err := client.ActivityEvent.Query().

@@ -744,9 +744,25 @@ export function listTicketRuns(projectId: string, ticketId: string) {
   return api.get<TicketRunListPayload>(`/api/v1/projects/${projectId}/tickets/${ticketId}/runs`)
 }
 
-export function getTicketRun(projectId: string, ticketId: string, runId: string) {
+export function getTicketRun(
+  projectId: string,
+  ticketId: string,
+  runId: string,
+  query: {
+    limit?: number
+    before?: string
+    after?: string
+  } = {},
+) {
   return api.get<TicketRunDetailPayload>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}`,
+    {
+      params: {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      },
+    },
   )
 }
 

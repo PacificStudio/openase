@@ -113,6 +113,7 @@
 
 <header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
   <a href="/orgs" class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold">
+    <img src="/favicon.svg" alt="" class="size-5" />
     <span class="text-primary font-bold">OpenASE</span>
   </a>
 

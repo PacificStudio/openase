@@ -1259,9 +1259,27 @@ type OpenAPITicketRunsResponse struct {
 }
 
 type OpenAPITicketRunResponse struct {
-	Run          OpenAPITicketRun             `json:"run"`
-	TraceEntries []OpenAPITicketRunTraceEntry `json:"trace_entries"`
-	StepEntries  []OpenAPITicketRunStepEntry  `json:"step_entries"`
+	Run            OpenAPITicketRun               `json:"run"`
+	TranscriptPage OpenAPITicketRunTranscriptPage `json:"transcript_page"`
+	TraceEntries   []OpenAPITicketRunTraceEntry   `json:"trace_entries"`
+	StepEntries    []OpenAPITicketRunStepEntry    `json:"step_entries"`
+}
+
+type OpenAPITicketRunTranscriptPage struct {
+	Items            []OpenAPITicketRunTranscriptItem `json:"items"`
+	HasOlder         bool                             `json:"has_older"`
+	HiddenOlderCount int                              `json:"hidden_older_count"`
+	HasNewer         bool                             `json:"has_newer"`
+	HiddenNewerCount int                              `json:"hidden_newer_count"`
+	OldestCursor     string                           `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                           `json:"newest_cursor,omitempty"`
+}
+
+type OpenAPITicketRunTranscriptItem struct {
+	Kind       string                      `json:"kind"`
+	Cursor     string                      `json:"cursor"`
+	TraceEntry *OpenAPITicketRunTraceEntry `json:"trace_entry,omitempty"`
+	StepEntry  *OpenAPITicketRunStepEntry  `json:"step_entry,omitempty"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -4653,6 +4671,15 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 	ticketRunGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	ticketRunGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
 	ticketRunGet.AddParameter(uuidPathParameter("runId", "Run ID."))
+	ticketRunGet.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Transcript page size. Defaults to the latest page size.").
+		WithSchema(openapi3.NewIntegerSchema()))
+	ticketRunGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Load transcript items older than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
+	ticketRunGet.AddParameter(openapi3.NewQueryParameter("after").
+		WithDescription("Load transcript items newer than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", http.MethodGet, ticketRunGet)
 
 	return nil

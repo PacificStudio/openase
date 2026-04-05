@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/imgs/openase.svg" alt="OpenASE" width="80" height="80" />
+</p>
+
 <h1 align="center">OpenASE<br><sub>Ticket-Driven Automated Software Engineering</sub></h1>
 
 <p align="center">

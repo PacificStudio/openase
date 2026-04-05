@@ -262,8 +262,24 @@ export type TicketRunRecord = Omit<
 export type TicketRunListPayload = Omit<RawTicketRunListPayload, 'runs'> & {
   runs: TicketRunRecord[]
 }
+export type TicketRunTranscriptItemRecord = {
+  kind: 'step' | 'trace'
+  cursor: string
+  step_entry?: TicketRunStepRecord
+  trace_entry?: TicketRunTraceRecord
+}
+export type TicketRunTranscriptPageRecord = {
+  items: TicketRunTranscriptItemRecord[]
+  has_older: boolean
+  hidden_older_count: number
+  has_newer: boolean
+  hidden_newer_count: number
+  oldest_cursor?: string
+  newest_cursor?: string
+}
 export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run'> & {
   run: TicketRunRecord
+  transcript_page?: TicketRunTranscriptPageRecord
 }
 export type TicketRunTraceRecord = ItemOf<TicketRunDetailPayload['trace_entries']>
 export type TicketRunStepRecord = ItemOf<TicketRunDetailPayload['step_entries']>

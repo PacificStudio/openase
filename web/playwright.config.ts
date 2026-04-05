@@ -4,10 +4,12 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
-const host = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
-const port = parsePlaywrightPort(process.env.PLAYWRIGHT_PORT)
+const host = process.env.PLAYWRIGHT_WEB_HOST ?? process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
+const port = parsePlaywrightPort(process.env.PLAYWRIGHT_WEB_PORT ?? process.env.PLAYWRIGHT_PORT)
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
-const serverMode = parsePlaywrightServerMode(process.env.PLAYWRIGHT_SERVER_MODE)
+const serverMode = parsePlaywrightServerMode(
+  process.env.PLAYWRIGHT_WEB_SERVER_MODE ?? process.env.PLAYWRIGHT_SERVER_MODE,
+)
 const builtIndexPath = fileURLToPath(
   new URL('../internal/webui/static/index.html', import.meta.url),
 )
@@ -72,8 +74,8 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       ...process.env,
-      CHOKIDAR_USEPOLLING: '1',
       OPENASE_E2E_MOCK: '1',
+      CHOKIDAR_USEPOLLING: '1',
     },
   },
   projects: [

@@ -227,6 +227,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          export PLAYWRIGHT_WEB_SERVER_MODE=preview
           printf 'Using Playwright web server %s\n' "${PLAYWRIGHT_BASE_URL}"
 
           if pnpm run ci; then

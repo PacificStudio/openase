@@ -249,21 +249,7 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 	if err := writeMachineEnvelope(conn2, domain.MessageTypeGoodbye, "", domain.Goodbye{Reason: "test complete"}); err != nil {
 		t.Fatalf("write goodbye: %v", err)
 	}
-	var activities []*ent.ActivityEvent
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		activities, err = client.ActivityEvent.Query().
-			Where(entactivityevent.ProjectIDEQ(projectID)).
-			Order(ent.Asc(entactivityevent.FieldCreatedAt)).
-			All(ctx)
-		if err != nil {
-			t.Fatalf("list activity events: %v", err)
-		}
-		if len(activities) >= 3 || time.Now().After(deadline) {
-			break
-		}
-		time.Sleep(25 * time.Millisecond)
-	}
+	activities := waitForProjectActivityEvents(ctx, t, client, projectID, 3)
 	if len(activities) != 3 {
 		t.Fatalf("expected three machine activity events, got %+v", activities)
 	}
@@ -329,14 +315,7 @@ func TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric(t *testing
 		t.Fatalf("expected error envelope, got %+v", envelope)
 	}
 
-	time.Sleep(50 * time.Millisecond)
-	activities, err := client.ActivityEvent.Query().
-		Where(entactivityevent.ProjectIDEQ(projectID)).
-		Order(ent.Asc(entactivityevent.FieldCreatedAt)).
-		All(ctx)
-	if err != nil {
-		t.Fatalf("list activity events: %v", err)
-	}
+	activities := waitForProjectActivityEvents(ctx, t, client, projectID, 1)
 	if len(activities) != 1 || activities[0].EventType != "machine.daemon_auth_failed" {
 		t.Fatalf("expected machine.daemon_auth_failed activity, got %+v", activities)
 	}
@@ -426,6 +405,28 @@ func bindReverseWebsocketMachineToProject(t *testing.T, client *ent.Client) (uui
 		t.Fatalf("create agent: %v", err)
 	}
 	return project.ID, machine.ID
+}
+
+func waitForProjectActivityEvents(ctx context.Context, t *testing.T, client *ent.Client, projectID uuid.UUID, want int) []*ent.ActivityEvent {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		activities, err := client.ActivityEvent.Query().
+			Where(entactivityevent.ProjectIDEQ(projectID)).
+			Order(ent.Asc(entactivityevent.FieldCreatedAt)).
+			All(ctx)
+		if err != nil {
+			t.Fatalf("list activity events: %v", err)
+		}
+		if len(activities) >= want {
+			return activities
+		}
+		if time.Now().After(deadline) {
+			return activities
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func authenticateMachineWebsocket(t *testing.T, conn *websocket.Conn, token string, machineID uuid.UUID) {

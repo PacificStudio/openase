@@ -43,6 +43,22 @@ function replayFrames(
   return state
 }
 
+function sliceTranscriptPage(detail: ReturnType<typeof mapTicketRunDetail>, itemCount: number) {
+  const startIndex = Math.max(detail.transcriptPage.items.length - itemCount, 0)
+  const items = detail.transcriptPage.items.slice(startIndex)
+  return {
+    ...detail,
+    transcriptPage: {
+      ...detail.transcriptPage,
+      items,
+      hasOlder: startIndex > 0,
+      hiddenOlderCount: startIndex,
+      oldestCursor: items[0]?.cursor,
+      newestCursor: items.at(-1)?.cursor,
+    },
+  }
+}
+
 describe('ticket run transcript real sample replay', () => {
   it('reaches the same final transcript state when a large Claude run is hydrated then supplemented via stream', () => {
     const fixture = loadFixture('claude-code-replay-fixture.json')
@@ -64,5 +80,28 @@ describe('ticket run transcript real sample replay', () => {
 
     expect(state.currentRun).toEqual(detail.run)
     expect(state.currentRun?.status).toBe('ended')
+  })
+
+  it('reaches the same transcript state when hydrating only the latest page, expanding older history, and then replaying stream supplements', () => {
+    const fixture = loadFixture('claude-code-replay-fixture.json')
+    const fullDetail = mapTicketRunDetail(fixture.detail)
+    const latestPageOnly = sliceTranscriptPage(fullDetail, 120)
+
+    let pagedState = setTicketRunList(createEmptyTicketRunTranscriptState(), [fullDetail.run])
+    pagedState = hydrateTicketRunDetail(pagedState, latestPageOnly)
+    pagedState = hydrateTicketRunDetail(pagedState, fullDetail, { select: false })
+    for (const frame of fixture.supplement_frames) {
+      pagedState = applyTicketRunStreamFrame(pagedState, {
+        event: frame.event,
+        data: JSON.stringify(frame.payload),
+      })
+    }
+
+    const fullHydrationThenSupplement = replayFrames(
+      fixture.supplement_frames,
+      fixture.detail,
+      true,
+    )
+    expect(pagedState).toEqual(fullHydrationThenSupplement)
   })
 })

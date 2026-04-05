@@ -117,14 +117,19 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshot(
 		return fmt.Errorf("machine transport resolver unavailable for remote machine %s", machine.Name)
 	}
 
-	transport, err := l.transports.Resolve(machine)
+	resolved, err := l.transports.ResolveRuntime(machine)
 	if err != nil {
 		return err
 	}
-	if transport.Mode() == catalogdomain.MachineConnectionModeWSListener {
-		return l.materializeRemoteRuntimeSnapshotWithSync(ctx, transport, machine, workspaceRoot, adapterType, snapshot)
+	if resolved.Execution.Runtime != nil &&
+		resolved.Execution.Runtime.Supports(catalogdomain.MachineTransportCapabilityArtifactSync) &&
+		resolved.Execution.Runtime.ArtifactSync != nil {
+		return l.materializeRemoteRuntimeSnapshotWithSync(ctx, resolved.Execution.Runtime.ArtifactSync, machine, workspaceRoot, adapterType, snapshot)
 	}
-	session, err := transport.OpenCommandSession(ctx, machine)
+	if resolved.Execution.CommandSession == nil {
+		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
@@ -144,7 +149,7 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshot(
 
 func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshotWithSync(
 	ctx context.Context,
-	transport machinetransport.Transport,
+	syncer machinetransport.ArtifactSyncExecution,
 	machine catalogdomain.Machine,
 	workspaceRoot string,
 	adapterType string,
@@ -183,7 +188,7 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshotWithSync(
 		filepath.ToSlash(skillsRelativePath),
 		".openase/bin/openase",
 	}
-	if err := transport.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
+	if err := syncer.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
 		LocalRoot:   tempRoot,
 		TargetRoot:  workspaceRoot,
 		Paths:       paths,

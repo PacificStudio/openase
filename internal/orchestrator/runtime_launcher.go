@@ -1091,15 +1091,21 @@ func (l *RuntimeLauncher) runRemoteRuntimePreflight(
 		return nil
 	}
 
-	transport, err := l.transports.Resolve(machine)
+	resolved, err := l.transports.ResolveRuntime(machine)
 	if err != nil {
 		return err
 	}
-	if transport.Mode() != catalogdomain.MachineConnectionModeWSListener {
+	if resolved.Execution.Runtime == nil ||
+		!resolved.Execution.Runtime.SupportsAll(
+			catalogdomain.MachineTransportCapabilityWorkspacePrepare,
+			catalogdomain.MachineTransportCapabilityArtifactSync,
+			catalogdomain.MachineTransportCapabilityProcessStreaming,
+		) ||
+		resolved.Execution.Runtime.CommandSession == nil {
 		return nil
 	}
 
-	return machinetransport.RunRemoteRuntimePreflight(ctx, transport, machine, machinetransport.RuntimePreflightSpec{
+	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.Execution.Runtime.CommandSession, machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workingDirectory,
 		AgentCommand:     command,
 		Environment:      environment,
@@ -1183,11 +1189,14 @@ func (l *RuntimeLauncher) refreshRemoteWorkspaceSkills(
 		return err
 	}
 
-	transport, err := l.transports.Resolve(machine)
+	resolved, err := l.transports.ResolveRuntime(machine)
 	if err != nil {
 		return err
 	}
-	session, err := transport.OpenCommandSession(ctx, machine)
+	if resolved.Execution.CommandSession == nil {
+		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
