@@ -209,6 +209,19 @@ jobs:
         run: |
           set -euo pipefail
 
+          playwright_port="$(
+            python3 - <<'PY'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+          )"
+          export PLAYWRIGHT_PORT="${playwright_port}"
+          export PLAYWRIGHT_BASE_URL="http://127.0.0.1:${playwright_port}"
+          export PLAYWRIGHT_WEB_SERVER_MODE=preview
+
           if pnpm run ci; then
             exit 0
           fi
