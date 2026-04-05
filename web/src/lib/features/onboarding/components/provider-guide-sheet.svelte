@@ -214,10 +214,7 @@
       </Sheet.Body>
 
       <Sheet.Footer class="flex-row flex-wrap">
-        <Button
-          variant="outline"
-          onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}
-        >
+        <Button variant="outline" onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}>
           Open organization settings
         </Button>
         <Button

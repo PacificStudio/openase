@@ -198,7 +198,9 @@
                       {/if}
                       <span class="truncate">{provider.name}</span>
                       <span
-                        class="shrink-0 text-xs {providerIsDispatchReady(provider.availability_state)
+                        class="shrink-0 text-xs {providerIsDispatchReady(
+                          provider.availability_state,
+                        )
                           ? 'text-emerald-600'
                           : 'text-muted-foreground'}"
                       >
