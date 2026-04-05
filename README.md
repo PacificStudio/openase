@@ -61,6 +61,34 @@
 
 ---
 
+## 🧭 Why OpenASE Exists
+
+AI coding agents are powerful — but only when humans stay in control. The real question is **how** that control works. OpenASE is built around two complementary modes of human–agent interaction: **synchronous** and **asynchronous**.
+
+### Asynchronous Tasks — Agents on Autopilot
+
+When the requirements are clear, the acceptance criteria are well-defined, and a **Harness** (a hard-boundary document that constrains agent behavior) is in place, the agent can execute the entire task autonomously. Humans don't need to babysit. Create a ticket, walk away, and review the result when it's done. This is where AI agents deliver the most leverage — freeing up human attention for higher-order thinking.
+
+### Synchronous Tasks — Humans in the Loop
+
+When requirements are vague, the Harness is incomplete, or the problem space still needs exploration, humans and agents collaborate interactively. Through this back-and-forth, requirements crystallize, and the Harness gets refined — translating fuzzy project intent into precise, machine-enforceable constraints. When the moment is right, the task is **handed off** to async execution seamlessly.
+
+### The Interplay
+
+In practice, these two modes are constantly interleaved:
+
+- **Requirements change** → existing Harnesses go stale and need synchronous refinement.
+- **Projects iterate** → new Harnesses must be authored to prevent agents from drifting off course.
+- **Tech debt accumulates** → scheduled jobs trigger agents to clean it up automatically on a cron.
+
+This interplay of sync and async work deserves a **unified home** — not scattered across terminals, IDEs, and chat windows. OpenASE brings it all together: **multi-agent CLI support** (Claude Code, Codex, Gemini CLI), **multi-machine scheduling**, and a single control plane so you never have to context-switch between tools.
+
+### The Vision
+
+OpenASE aims to be a **full-lifecycle software engineering platform**: end-to-end iteration from ticket to deployed code, team collaboration across roles, and multi-repository orchestration — all driven by the ticket-first, agent-native model described above.
+
+---
+
 ## ✨ Key Features
 
 <table align="center" width="100%">
