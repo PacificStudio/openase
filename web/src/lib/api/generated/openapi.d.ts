@@ -8695,6 +8695,8 @@ export interface operations {
                 cost_tokens_input?: number
                 /** Format: int64 */
                 cost_tokens_output?: number
+                /** Format: int64 */
+                cost_tokens_total?: number
                 created_at?: string
                 created_by?: string
                 current_run_id?: string | null
@@ -11135,6 +11137,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -11301,6 +11305,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -11448,6 +11454,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -11710,6 +11718,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -12177,6 +12187,7 @@ export interface operations {
         content: {
           'application/json': {
             runs?: {
+              adapter_type?: string
               agent_id?: string
               agent_name?: string
               attempt_number?: number
@@ -12196,10 +12207,31 @@ export interface operations {
               id?: string
               last_error?: string | null
               last_heartbeat_at?: string | null
+              model_name?: string
               provider?: string
               runtime_started_at?: string | null
               status?: string
               terminal_at?: string | null
+              usage?: {
+                /** Format: int64 */
+                cache_creation?: number
+                /** Format: int64 */
+                cached_input?: number
+                /** Format: int64 */
+                candidate?: number
+                /** Format: int64 */
+                input?: number
+                /** Format: int64 */
+                output?: number
+                /** Format: int64 */
+                prompt?: number
+                /** Format: int64 */
+                reasoning?: number
+                /** Format: int64 */
+                tool?: number
+                /** Format: int64 */
+                total?: number
+              }
             }[]
           }
         }
@@ -12266,6 +12298,7 @@ export interface operations {
         content: {
           'application/json': {
             run?: {
+              adapter_type?: string
               agent_id?: string
               agent_name?: string
               attempt_number?: number
@@ -12285,10 +12318,31 @@ export interface operations {
               id?: string
               last_error?: string | null
               last_heartbeat_at?: string | null
+              model_name?: string
               provider?: string
               runtime_started_at?: string | null
               status?: string
               terminal_at?: string | null
+              usage?: {
+                /** Format: int64 */
+                cache_creation?: number
+                /** Format: int64 */
+                cached_input?: number
+                /** Format: int64 */
+                candidate?: number
+                /** Format: int64 */
+                input?: number
+                /** Format: int64 */
+                output?: number
+                /** Format: int64 */
+                prompt?: number
+                /** Format: int64 */
+                reasoning?: number
+                /** Format: int64 */
+                tool?: number
+                /** Format: int64 */
+                total?: number
+              }
             }
             step_entries?: {
               agent_run_id?: string
@@ -14432,6 +14486,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -15745,6 +15801,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -15904,6 +15962,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null
@@ -16758,6 +16818,8 @@ export interface operations {
               cost_tokens_input?: number
               /** Format: int64 */
               cost_tokens_output?: number
+              /** Format: int64 */
+              cost_tokens_total?: number
               created_at?: string
               created_by?: string
               current_run_id?: string | null

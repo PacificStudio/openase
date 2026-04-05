@@ -1,10 +1,52 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
 const host = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
-const playwrightPort = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
-const playwrightBaseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${playwrightPort}`
-const playwrightWebServerMode = process.env.PLAYWRIGHT_WEB_SERVER_MODE ?? 'dev'
+const port = parsePlaywrightPort(process.env.PLAYWRIGHT_PORT)
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
+const serverMode = parsePlaywrightServerMode(
+  process.env.PLAYWRIGHT_WEB_SERVER_MODE ?? process.env.PLAYWRIGHT_SERVER_MODE,
+)
+const builtIndexPath = fileURLToPath(
+  new URL('../internal/webui/static/index.html', import.meta.url),
+)
+const buildCommand = `${nodePath} ./node_modules/vite/bin/vite.js build --logLevel warn`
+const previewCommand = `${nodePath} ./node_modules/vite/bin/vite.js preview --host ${host} --port ${port} --strictPort`
+const webServerCommand = existsSync(builtIndexPath)
+  ? previewCommand
+  : `${buildCommand} && ${previewCommand}`
+
+function parsePlaywrightPort(raw: string | undefined): number {
+  if (!raw) {
+    return 4173
+  }
+
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65_535) {
+    throw new Error(`OPENASE_PLAYWRIGHT_PORT must be a valid TCP port, got ${raw}`)
+  }
+
+  return parsed
+}
+
+function parsePlaywrightServerMode(raw: string | undefined): 'dev' | 'preview' {
+  if (!raw || raw === 'dev' || raw === 'preview') {
+    return raw ?? 'preview'
+  }
+
+  throw new Error(`OPENASE_PLAYWRIGHT_SERVER_MODE must be dev or preview, got ${raw}`)
+}
+
+function buildPlaywrightWebServerCommand(): string {
+  if (serverMode === 'preview') {
+    return webServerCommand
+  }
+
+  return `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port} --strictPort`
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -18,7 +60,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: playwrightBaseURL,
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -26,8 +68,8 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   webServer: {
-    command: `${nodePath} ./node_modules/vite/bin/vite.js ${playwrightWebServerMode} --host ${host} --port ${playwrightPort}`,
-    port: playwrightPort,
+    command: buildPlaywrightWebServerCommand(),
+    port,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {

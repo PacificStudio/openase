@@ -17,6 +17,9 @@
     runs = [],
     currentRun = null,
     runBlocks = [],
+    runsLoaded = false,
+    loadingRuns = false,
+    runsError = '',
     loadingRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
@@ -26,6 +29,7 @@
     deletingCommentId = null,
     resumingRetry = false,
     onViewChange,
+    onLoadRuns,
     onSaveFields,
     onSelectRun,
     onResumeRetry,
@@ -39,6 +43,9 @@
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
+    runsLoaded?: boolean
+    loadingRuns?: boolean
+    runsError?: string
     loadingRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
@@ -48,6 +55,7 @@
     deletingCommentId?: string | null
     resumingRetry?: boolean
     onViewChange?: (view: 'comments' | 'runs') => void
+    onLoadRuns?: () => Promise<void> | void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
@@ -74,6 +82,14 @@
   $effect(() => {
     onViewChange?.(activeView === 'runs' ? 'runs' : 'comments')
   })
+
+  $effect(() => {
+    if (activeView !== 'runs' || runsLoaded || loadingRuns) {
+      return
+    }
+
+    void onLoadRuns?.()
+  })
 </script>
 
 <Tabs.Root bind:value={activeView} class="flex flex-col gap-0">
@@ -92,11 +108,14 @@
       {runs}
       {currentRun}
       blocks={runBlocks}
+      {loadingRuns}
+      {runsError}
       {loadingRunId}
       {runStreamState}
       {recoveringRunTranscript}
       {resumingRetry}
       {onSelectRun}
+      onRetryLoadRuns={onLoadRuns}
       {onResumeRetry}
     />
   </Tabs.Content>

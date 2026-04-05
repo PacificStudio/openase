@@ -12,22 +12,28 @@
     runs = [],
     currentRun = null,
     blocks = [],
+    loadingRuns = false,
+    runsError = '',
     loadingRunId = null,
     runStreamState = 'idle',
     recoveringRunTranscript = false,
     resumingRetry = false,
     onSelectRun,
+    onRetryLoadRuns,
     onResumeRetry,
   }: {
     ticket: TicketDetail
     runs?: TicketRun[]
     currentRun?: TicketRun | null
     blocks?: TicketRunTranscriptBlock[]
+    loadingRuns?: boolean
+    runsError?: string
     loadingRunId?: string | null
     runStreamState?: StreamConnectionState
     recoveringRunTranscript?: boolean
     resumingRetry?: boolean
     onSelectRun?: (runId: string) => Promise<void> | void
+    onRetryLoadRuns?: () => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
   } = $props()
 
@@ -169,7 +175,24 @@
   })
 </script>
 
-{#if runs.length === 0}
+{#if loadingRuns}
+  <section class="px-4 py-6">
+    <p class="text-muted-foreground text-xs">Loading runs…</p>
+  </section>
+{:else if runsError}
+  <section class="space-y-2 px-4 py-6">
+    <p class="text-destructive text-xs">{runsError}</p>
+    {#if onRetryLoadRuns}
+      <button
+        type="button"
+        class="border-border bg-background hover:bg-muted rounded-md border px-2 py-1 text-[11px] transition"
+        onclick={() => void onRetryLoadRuns()}
+      >
+        Retry loading runs
+      </button>
+    {/if}
+  </section>
+{:else if runs.length === 0}
   <section class="px-4 py-6">
     <p class="text-muted-foreground text-xs">No runs yet.</p>
   </section>

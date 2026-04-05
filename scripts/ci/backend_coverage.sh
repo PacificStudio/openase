@@ -26,12 +26,24 @@ GO_TEST_TIMEOUT="${OPENASE_GO_TEST_TIMEOUT:-20m}"
 ENABLE_FULL_BACKEND_COVERAGE="${OPENASE_ENABLE_FULL_BACKEND_COVERAGE:-false}"
 BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
+GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW="${OPENASE_GO_TEST_HEARTBEAT_INTERVAL_SECONDS:-}"
 ORIGINAL_HOME="${HOME:-}"
 ORIGINAL_XDG_CACHE_HOME="${XDG_CACHE_HOME:-}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
 ORIGINAL_GOMODCACHE="$("${GO_BIN}" env GOMODCACHE)"
 ORIGINAL_GOCACHE="$("${GO_BIN}" env GOCACHE)"
 GO_TEST_PROGRESS_MODE="${OPENASE_GO_TEST_PROGRESS_MODE:-}"
+
+GO_TEST_HEARTBEAT_INTERVAL_SECONDS=0
+if [[ -n "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}" ]]; then
+  if [[ ! "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}" =~ ^[0-9]+$ ]]; then
+    printf 'OPENASE_GO_TEST_HEARTBEAT_INTERVAL_SECONDS must be a non-negative integer, got %s\n' "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}" >&2
+    exit 1
+  fi
+  GO_TEST_HEARTBEAT_INTERVAL_SECONDS="${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}"
+elif [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  GO_TEST_HEARTBEAT_INTERVAL_SECONDS=30
+fi
 
 tmp_dir="$(mktemp -d)"
 backend_profile="${tmp_dir}/backend.out"
@@ -106,6 +118,9 @@ run_go_test() {
 
 run_go_test_quiet_success() {
   local output_file="${tmp_dir}/go-test-$RANDOM.log"
+  local test_pid=""
+  local heartbeat_pid=""
+  local status=0
 
   # Keep JSON progress visible in CI so long-running backend suites keep emitting
   # package/test events instead of looking like a silent hung process.
@@ -117,12 +132,40 @@ run_go_test_quiet_success() {
     return 1
   fi
 
-  if run_go_test "$@" >"${output_file}" 2>&1; then
+  run_go_test "$@" >"${output_file}" 2>&1 &
+  test_pid=$!
+
+  if (( GO_TEST_HEARTBEAT_INTERVAL_SECONDS > 0 )); then
+    (
+      while kill -0 "${test_pid}" 2>/dev/null; do
+        sleep "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS}"
+        if ! kill -0 "${test_pid}" 2>/dev/null; then
+          exit 0
+        fi
+
+        now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        printf '[backend-coverage-heartbeat] %s go test still running\n' "${now}"
+      done
+    ) &
+    heartbeat_pid=$!
+  fi
+
+  if wait "${test_pid}"; then
+    if [[ -n "${heartbeat_pid}" ]]; then
+      kill "${heartbeat_pid}" 2>/dev/null || true
+      wait "${heartbeat_pid}" 2>/dev/null || true
+    fi
     return 0
   fi
 
+  status=$?
+  if [[ -n "${heartbeat_pid}" ]]; then
+    kill "${heartbeat_pid}" 2>/dev/null || true
+    wait "${heartbeat_pid}" 2>/dev/null || true
+  fi
+
   cat "${output_file}" >&2
-  return 1
+  return "${status}"
 }
 
 run_backend_full_suite() {

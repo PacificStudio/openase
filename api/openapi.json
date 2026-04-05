@@ -12299,6 +12299,10 @@
                               "format": "int64",
                               "type": "integer"
                             },
+                            "cost_tokens_total": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
                             "created_at": {
                               "type": "string"
                             },
@@ -17153,6 +17157,10 @@
                             "format": "int64",
                             "type": "integer"
                           },
+                          "cost_tokens_total": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
                           "created_at": {
                             "type": "string"
                           },
@@ -17533,6 +17541,10 @@
                           "format": "int64",
                           "type": "integer"
                         },
+                        "cost_tokens_total": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -17866,6 +17878,10 @@
                             "type": "integer"
                           },
                           "cost_tokens_output": {
+                            "format": "int64",
+                            "type": "integer"
+                          },
+                          "cost_tokens_total": {
                             "format": "int64",
                             "type": "integer"
                           },
@@ -18581,6 +18597,10 @@
                           "type": "integer"
                         },
                         "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_total": {
                           "format": "int64",
                           "type": "integer"
                         },
@@ -19496,6 +19516,9 @@
                     "runs": {
                       "items": {
                         "properties": {
+                          "adapter_type": {
+                            "type": "string"
+                          },
                           "agent_id": {
                             "type": "string"
                           },
@@ -19556,6 +19579,9 @@
                             "nullable": true,
                             "type": "string"
                           },
+                          "model_name": {
+                            "type": "string"
+                          },
                           "provider": {
                             "type": "string"
                           },
@@ -19569,6 +19595,47 @@
                           "terminal_at": {
                             "nullable": true,
                             "type": "string"
+                          },
+                          "usage": {
+                            "properties": {
+                              "cache_creation": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "cached_input": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "candidate": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "input": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "output": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "prompt": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "reasoning": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "tool": {
+                                "format": "int64",
+                                "type": "integer"
+                              },
+                              "total": {
+                                "format": "int64",
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
                           }
                         },
                         "type": "object"
@@ -19686,6 +19753,9 @@
                   "properties": {
                     "run": {
                       "properties": {
+                        "adapter_type": {
+                          "type": "string"
+                        },
                         "agent_id": {
                           "type": "string"
                         },
@@ -19746,6 +19816,9 @@
                           "nullable": true,
                           "type": "string"
                         },
+                        "model_name": {
+                          "type": "string"
+                        },
                         "provider": {
                           "type": "string"
                         },
@@ -19759,6 +19832,47 @@
                         "terminal_at": {
                           "nullable": true,
                           "type": "string"
+                        },
+                        "usage": {
+                          "properties": {
+                            "cache_creation": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "cached_input": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "candidate": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "input": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "output": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "prompt": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "reasoning": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "tool": {
+                              "format": "int64",
+                              "type": "integer"
+                            },
+                            "total": {
+                              "format": "int64",
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
                         }
                       },
                       "type": "object"
@@ -24043,6 +24157,10 @@
                           "format": "int64",
                           "type": "integer"
                         },
+                        "cost_tokens_total": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -26575,6 +26693,10 @@
                           "format": "int64",
                           "type": "integer"
                         },
+                        "cost_tokens_total": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
                         "created_at": {
                           "type": "string"
                         },
@@ -26934,6 +27056,10 @@
                           "type": "integer"
                         },
                         "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_total": {
                           "format": "int64",
                           "type": "integer"
                         },
@@ -28507,6 +28633,10 @@
                           "type": "integer"
                         },
                         "cost_tokens_output": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "cost_tokens_total": {
                           "format": "int64",
                           "type": "integer"
                         },

@@ -146,17 +146,26 @@ func TestCatalogMappingHelpers(t *testing.T) {
 		},
 	}
 	run := &ent.AgentRun{
-		ID:               runID,
-		AgentID:          agentID,
-		WorkflowID:       workflowID,
-		TicketID:         ticketID,
-		ProviderID:       providerID,
-		Status:           entagentrun.StatusExecuting,
-		SessionID:        "session-1",
-		RuntimeStartedAt: &runtimeStartedAt,
-		LastError:        "",
-		LastHeartbeatAt:  &lastHeartbeatAt,
-		CreatedAt:        now,
+		ID:                       runID,
+		AgentID:                  agentID,
+		WorkflowID:               workflowID,
+		TicketID:                 ticketID,
+		ProviderID:               providerID,
+		Status:                   entagentrun.StatusExecuting,
+		SessionID:                "session-1",
+		RuntimeStartedAt:         &runtimeStartedAt,
+		LastError:                "",
+		LastHeartbeatAt:          &lastHeartbeatAt,
+		InputTokens:              120,
+		OutputTokens:             30,
+		CachedInputTokens:        15,
+		CacheCreationInputTokens: 9,
+		ReasoningTokens:          6,
+		PromptTokens:             90,
+		CandidateTokens:          24,
+		ToolTokens:               12,
+		TotalTokens:              150,
+		CreatedAt:                now,
 	}
 	agent := &ent.Agent{
 		ID:                    agentID,
@@ -238,6 +247,13 @@ func TestCatalogMappingHelpers(t *testing.T) {
 	mappedRun := mapAgentRun(run)
 	if mappedRun.RuntimeStartedAt == nil || mappedRun.RuntimeStartedAt.Location() != time.UTC || mappedRun.CreatedAt.Location() != time.UTC {
 		t.Fatalf("mapAgentRun() = %+v", mappedRun)
+	}
+	if mappedRun.CacheCreationInputTokens != 9 ||
+		mappedRun.PromptTokens != 90 ||
+		mappedRun.CandidateTokens != 24 ||
+		mappedRun.ToolTokens != 12 ||
+		mappedRun.TotalTokens != 150 {
+		t.Fatalf("mapAgentRun() usage fields = %+v", mappedRun)
 	}
 	if mapped := mapAgentRuns([]*ent.AgentRun{run}); len(mapped) != 1 || mapped[0].ID != runID {
 		t.Fatalf("mapAgentRuns() = %+v", mapped)

@@ -19,6 +19,7 @@ const ticket: TicketDetail = {
   retryPaused: false,
   costTokensInput: 644414,
   costTokensOutput: 18598,
+  costTokensTotal: 663012,
   costAmount: 0,
   budgetUsd: 10,
   dependencies: [],
@@ -40,7 +41,7 @@ describe('TicketSummary', () => {
     cleanup()
   })
 
-  it('shows input and output token counters in the detail metadata', () => {
+  it('shows total token usage with a breakdown action in the detail metadata', () => {
     const { getByText } = render(TicketSummary, {
       props: {
         ticket,
@@ -48,9 +49,8 @@ describe('TicketSummary', () => {
       },
     })
 
-    expect(getByText('Input Tokens')).toBeTruthy()
-    expect(getByText('644,414')).toBeTruthy()
-    expect(getByText('Output Tokens')).toBeTruthy()
-    expect(getByText('18,598')).toBeTruthy()
+    expect(getByText('Total Tokens')).toBeTruthy()
+    expect(getByText('663,012')).toBeTruthy()
+    expect(getByText('Breakdown')).toBeTruthy()
   })
 })

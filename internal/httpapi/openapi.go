@@ -581,6 +581,9 @@ type OpenAPITicketRun struct {
 	AgentID            string                             `json:"agent_id"`
 	AgentName          string                             `json:"agent_name"`
 	Provider           string                             `json:"provider"`
+	AdapterType        string                             `json:"adapter_type"`
+	ModelName          string                             `json:"model_name"`
+	Usage              OpenAPITicketRunUsage              `json:"usage"`
 	Status             string                             `json:"status"`
 	CurrentStepStatus  *string                            `json:"current_step_status,omitempty"`
 	CurrentStepSummary *string                            `json:"current_step_summary,omitempty"`
@@ -591,6 +594,18 @@ type OpenAPITicketRun struct {
 	CompletedAt        *string                            `json:"completed_at,omitempty"`
 	LastError          *string                            `json:"last_error,omitempty"`
 	CompletionSummary  *OpenAPITicketRunCompletionSummary `json:"completion_summary,omitempty"`
+}
+
+type OpenAPITicketRunUsage struct {
+	Total         int64 `json:"total"`
+	Input         int64 `json:"input"`
+	Output        int64 `json:"output"`
+	CachedInput   int64 `json:"cached_input"`
+	CacheCreation int64 `json:"cache_creation"`
+	Reasoning     int64 `json:"reasoning"`
+	Prompt        int64 `json:"prompt"`
+	Candidate     int64 `json:"candidate"`
+	Tool          int64 `json:"tool"`
 }
 
 type OpenAPITicketRunCompletionSummary struct {
@@ -770,6 +785,7 @@ type OpenAPITicket struct {
 	BudgetUSD         float64                     `json:"budget_usd"`
 	CostTokensInput   int64                       `json:"cost_tokens_input"`
 	CostTokensOutput  int64                       `json:"cost_tokens_output"`
+	CostTokensTotal   int64                       `json:"cost_tokens_total"`
 	CostAmount        float64                     `json:"cost_amount"`
 	AttemptCount      int                         `json:"attempt_count"`
 	ConsecutiveErrors int                         `json:"consecutive_errors"`
