@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
+const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? '4173')
+const webHost = process.env.PLAYWRIGHT_WEB_HOST ?? '127.0.0.1'
+const baseURL = `http://${webHost}:${webPort}`
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -14,7 +17,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -22,13 +25,14 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   webServer: {
-    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host 127.0.0.1 --port 4173`,
-    port: 4173,
+    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${webHost} --port ${webPort}`,
+    port: webPort,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {
       ...process.env,
       OPENASE_E2E_MOCK: '1',
+      CHOKIDAR_USEPOLLING: '1',
     },
   },
   projects: [
