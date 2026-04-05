@@ -1,9 +1,5 @@
 import type { Machine } from '$lib/api/contracts'
-import type {
-  MachineDraft,
-  MachineDraftParseResult,
-  MachineStatus,
-} from './types'
+import type { MachineDraft, MachineDraftParseResult, MachineStatus } from './types'
 import {
   getWorkspaceRootRecommendation,
   normalizeExecutionMode,
