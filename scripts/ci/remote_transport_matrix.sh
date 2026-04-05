@@ -42,6 +42,11 @@ run_case \
   'TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync$'
 
 run_case \
+  "Listener websocket runtime container e2e" \
+  "./internal/infra/machinetransport" \
+  'TestWebsocketListenerRuntimeContainerE2E$'
+  
+run_case \
   "Reverse websocket runtime happy path" \
   "./internal/orchestrator" \
   'TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync$'

@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +25,14 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+)
+
+const (
+	websocketListenerContainerHelperEnv  = "OPENASE_TEST_WS_LISTENER_HELPER"
+	websocketListenerContainerPortEnv    = "OPENASE_TEST_WS_LISTENER_PORT"
+	websocketListenerContainerImage      = "debian:bookworm-slim"
+	websocketListenerContainerBinaryPath = "/openase-ws-listener.test"
+	websocketListenerContainerPort       = 19852
 )
 
 func TestUnifiedWebsocketRuntimeContractSuite(t *testing.T) {
@@ -127,6 +139,83 @@ func TestUnifiedWebsocketRuntimeContractSuite(t *testing.T) {
 			t.Fatalf("reverse runtime participant error = %v", err)
 		}
 	})
+}
+
+func TestWebsocketListenerRuntimeContainerE2E(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("docker-backed listener container e2e currently requires linux")
+	}
+
+	dockerPath := requireDockerRuntime(t)
+	ensureDockerImage(t, dockerPath, websocketListenerContainerImage)
+
+	testBinary, err := os.Executable()
+	if err != nil {
+		t.Fatalf("resolve current executable: %v", err)
+	}
+
+	hostPort := freeTCPPort(t)
+	containerName := "openase-ws-listener-" + strings.ToLower(strings.ReplaceAll(uuid.NewString(), "-", ""))
+	hostTempRoot := filepath.Clean(os.TempDir())
+	runCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	runArgs := []string{
+		"run", "-d", "--rm",
+		"--name", containerName,
+		"--user", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
+		"-p", fmt.Sprintf("127.0.0.1:%d:%d", hostPort, websocketListenerContainerPort),
+		"-v", fmt.Sprintf("%s:%s", hostTempRoot, hostTempRoot),
+		"-v", fmt.Sprintf("%s:%s:ro", filepath.Clean(testBinary), websocketListenerContainerBinaryPath),
+		"-v", "/etc/passwd:/etc/passwd:ro",
+		"-v", "/etc/group:/etc/group:ro",
+		"-e", websocketListenerContainerHelperEnv + "=1",
+		"-e", websocketListenerContainerPortEnv + "=" + strconv.Itoa(websocketListenerContainerPort),
+		websocketListenerContainerImage,
+		"/bin/sh", "-lc",
+		fmt.Sprintf("%s -test.run '^TestWebsocketListenerRuntimeContainerHelper$' -test.timeout=0", websocketListenerContainerBinaryPath),
+	}
+	// #nosec G204 -- test uses a validated local docker CLI plus fixed test arguments.
+	output, err := exec.CommandContext(runCtx, dockerPath, runArgs...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("start listener container: %v\n%s", err, strings.TrimSpace(string(output)))
+	}
+
+	t.Cleanup(func() {
+		// #nosec G204 -- test reads logs from the controlled docker test container.
+		logs, _ := exec.Command(dockerPath, "logs", containerName).CombinedOutput()
+		if t.Failed() && strings.TrimSpace(string(logs)) != "" {
+			t.Logf("listener container logs:\n%s", strings.TrimSpace(string(logs)))
+		}
+		// #nosec G204 -- test removes the controlled docker test container during cleanup.
+		_, _ = exec.Command(dockerPath, "rm", "-f", containerName).CombinedOutput()
+	})
+
+	machine := testListenerMachine(fmt.Sprintf("ws://127.0.0.1:%d", hostPort), "")
+	waitForContainerListenerRuntime(t, machine)
+	runRuntimeContractSuite(t, machine, func(ctx context.Context) (*runtimeProtocolClient, func(error), error) {
+		return dialWebsocketRuntimeClient(ctx, machine)
+	})
+}
+
+func TestWebsocketListenerRuntimeContainerHelper(t *testing.T) {
+	if os.Getenv(websocketListenerContainerHelperEnv) != "1" {
+		t.Skip("helper process only")
+	}
+
+	port := strings.TrimSpace(os.Getenv(websocketListenerContainerPortEnv))
+	if port == "" {
+		t.Fatal("listener helper port is required")
+	}
+
+	server := &http.Server{
+		Addr:              "0.0.0.0:" + port,
+		Handler:           NewWebsocketListenerHandler(ListenerHandlerOptions{}),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		t.Fatalf("listener helper server failed: %v", err)
+	}
 }
 
 func runRuntimeContractSuite(
@@ -415,4 +504,70 @@ func runtimeEnvelopeFromMachineEnvelopeForTest(envelope machinechanneldomain.Env
 		return runtimecontract.Envelope{}, err
 	}
 	return runtimeEnvelope, nil
+}
+
+func requireDockerRuntime(t *testing.T) string {
+	t.Helper()
+
+	dockerPath, err := exec.LookPath("docker")
+	if err != nil {
+		t.Skip("docker is not available on PATH")
+	}
+	checkCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	// #nosec G204 -- test probes the local docker daemon through a controlled CLI path.
+	if output, err := exec.CommandContext(checkCtx, dockerPath, "info", "--format", "{{.ServerVersion}}").CombinedOutput(); err != nil {
+		t.Skipf("docker daemon is unavailable: %v (%s)", err, strings.TrimSpace(string(output)))
+	}
+	return dockerPath
+}
+
+func ensureDockerImage(t *testing.T, dockerPath string, image string) {
+	t.Helper()
+
+	checkCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	// #nosec G204 -- test inspects a fixed docker image name through the local docker CLI.
+	if err := exec.CommandContext(checkCtx, dockerPath, "image", "inspect", image).Run(); err == nil {
+		return
+	}
+
+	pullCtx, pullCancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer pullCancel()
+	// #nosec G204 -- test pulls a fixed docker image through the local docker CLI when absent.
+	output, err := exec.CommandContext(pullCtx, dockerPath, "pull", image).CombinedOutput()
+	if err != nil {
+		t.Fatalf("pull docker image %s: %v\n%s", image, err, strings.TrimSpace(string(output)))
+	}
+}
+
+func waitForContainerListenerRuntime(t *testing.T, machine catalogdomain.Machine) {
+	t.Helper()
+
+	transport := websocketTransport{mode: catalogdomain.MachineConnectionModeWSListener}
+	deadline := time.Now().Add(20 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, err := transport.Probe(ctx, machine)
+		cancel()
+		if err == nil {
+			return
+		}
+		lastErr = err
+		time.Sleep(100 * time.Millisecond)
+	}
+	t.Fatalf("listener container runtime for %s did not become reachable: %v", machine.Name, lastErr)
+}
+
+func freeTCPPort(t *testing.T) int {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for free tcp port: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	return listener.Addr().(*net.TCPAddr).Port
 }

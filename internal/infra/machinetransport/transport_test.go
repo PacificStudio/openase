@@ -144,6 +144,21 @@ func TestResolverResolveRuntimeSeparatesChannelAndExecutionSurfaces(t *testing.T
 			if tt.wantRuntime && !resolved.Execution.Runtime.SupportsAll(resolved.Execution.Runtime.Capabilities()...) {
 				t.Fatal("ResolveRuntime().Execution.Runtime should report its declared capabilities")
 			}
+			if got := resolved.ProbeExecutor() != nil; got != (tt.wantProbe || tt.wantRuntime) {
+				t.Fatalf("ResolveRuntime().ProbeExecutor() != nil = %t", got)
+			}
+			if got := resolved.WorkspaceExecutor() != nil; got != (tt.wantWorkspace || tt.wantRuntime) {
+				t.Fatalf("ResolveRuntime().WorkspaceExecutor() != nil = %t", got)
+			}
+			if got := resolved.ArtifactSyncExecutor() != nil; got != (tt.wantArtifactSync || tt.wantRuntime) {
+				t.Fatalf("ResolveRuntime().ArtifactSyncExecutor() != nil = %t", got)
+			}
+			if got := resolved.ProcessExecutor() != nil; got != (tt.wantProcess || tt.wantRuntime) {
+				t.Fatalf("ResolveRuntime().ProcessExecutor() != nil = %t", got)
+			}
+			if got := resolved.CommandSessionExecutor() != nil; got != (tt.wantCommandSession || tt.wantRuntime) {
+				t.Fatalf("ResolveRuntime().CommandSessionExecutor() != nil = %t", got)
+			}
 		})
 	}
 }
