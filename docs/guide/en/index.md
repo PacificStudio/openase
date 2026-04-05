@@ -25,6 +25,7 @@ OpenASE is a **ticket-driven automated software engineering platform**. Think of
 ### Appendix
 
 - [Module Architecture](./architecture.md) — How modules collaborate with each other
+- [Remote Runtime v1 Rollout](../../en/remote-websocket-rollout.md) — Supported remote topologies, migration, validation, and operator rollout guidance
 - [FAQ](./faq.md) — Common questions & troubleshooting guide
 
 ## How It Works

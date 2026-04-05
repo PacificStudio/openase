@@ -90,3 +90,19 @@ Updates  → 人工记录项目进展
                     │  Activity   │
                     └─────────────┘
 ```
+
+## Remote Runtime v1 边界
+
+远程机器执行现在只有一条正式 runtime 平面：
+
+- 本地机器继续使用 `local_process`
+- 远程机器一律通过 websocket 执行
+- `ws_listener` 表示控制面直接拨号到机器公布的 listener
+- `ws_reverse` 表示 `openase machine-agent run` 保持反向 websocket 会话，并通过该通道承载 runtime 消息
+- SSH bootstrap 与 SSH diagnostics 保持在执行平面之外，只作为 helper 操作存在
+
+这层拆分在运维上很重要：
+
+- 机器拓扑决定由谁主动发起连接
+- websocket runtime contract 决定命令、进程和产物如何传输
+- SSH helper 只负责引导和修复，工单执行不会回退到 SSH

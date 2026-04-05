@@ -90,3 +90,19 @@ Updates  → Manually record project progress
                     │  Activity   │
                     └─────────────┘
 ```
+
+## Remote Runtime v1 Boundaries
+
+Remote machine execution now has a single runtime plane:
+
+- local machines stay on `local_process`
+- remote machines execute over websocket only
+- `ws_listener` means the control plane dials the machine's advertised listener directly
+- `ws_reverse` means `openase machine-agent run` keeps a reverse websocket session open and carries runtime envelopes through that channel
+- SSH bootstrap and SSH diagnostics remain outside the execution plane as helper-only operations
+
+That separation matters operationally:
+
+- machine topology decides who dials whom
+- websocket runtime contract decides how commands, processes, and artifacts flow
+- SSH helper commands repair or bootstrap remote access, but ticket execution does not fall back to SSH

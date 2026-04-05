@@ -2,7 +2,7 @@
 
 This guide covers the current repository state for building OpenASE from source, running first-time setup, and starting the platform in development or on a single host.
 
-For remote websocket machine rollout, daemon install, and transport troubleshooting, see [`docs/remote-websocket-rollout.md`](./remote-websocket-rollout.md).
+For Remote Runtime v1 topology selection, migration, daemon install, and troubleshooting, see [`docs/remote-websocket-rollout.md`](./remote-websocket-rollout.md).
 
 ## What You Need
 
@@ -69,6 +69,24 @@ make openapi-generate
 ```
 
 The frontend build and Go build are one release unit. `vite build` refreshes files under `internal/webui/static/`, but any already-built or already-running `openase` binary continues serving the older embedded bundle until you rebuild the binary too. If browser stack traces mention chunk names that do not exist under `internal/webui/static/_app/immutable/`, first assume an old binary or cached immutable assets, rebuild `./cmd/openase`, and then hard refresh the page.
+
+## Remote Runtime Local Validation
+
+Use the remote-runtime-specific checks from the repo root when you touch websocket execution, daemon setup, or SSH helper guidance:
+
+```bash
+scripts/ci/remote_transport_matrix.sh
+```
+
+That fast matrix is the default repo-side validation gate for Remote Runtime v1 changes. For Linux hosts with Docker Compose, the slower end-to-end harness exercises the real listener, reverse daemon, and SSH helper flows:
+
+```bash
+make remote-runtime-container
+scripts/ci/remote_runtime_container_harness.sh listener
+scripts/ci/remote_runtime_container_harness.sh reverse ssh
+```
+
+Use the fast matrix first, then the container harness when you need rollout-grade validation for daemon install, helper repair, or listener reachability.
 
 ## API Contract Generation
 

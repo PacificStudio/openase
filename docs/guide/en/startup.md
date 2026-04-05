@@ -14,7 +14,8 @@ Go to **[Settings](./settings.md)** and complete the following:
 
 Go to **[Machines](./machines.md)** and add an execution environment for agents:
 
-- Can be a local machine, remote SSH host, or cloud VM
+- Can be the reserved local machine, a direct-connect listener, or a reverse-connect daemon host
+- Remote machines should use websocket runtime; keep SSH only if you want helper bootstrap or diagnostics access
 - Click "Test Connection" after adding to verify connectivity
 
 ## Step 3: Register an Agent

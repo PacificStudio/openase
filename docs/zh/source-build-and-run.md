@@ -2,7 +2,7 @@
 
 本指南覆盖了从源码构建 OpenASE、运行首次设置以及在开发环境或单机部署上启动平台的完整流程。
 
-关于远程 WebSocket 机器部署、守护进程安装和传输故障排查，请参见 [`docs/en/remote-websocket-rollout.md`](../en/remote-websocket-rollout.md)。
+关于 Remote Runtime v1 的拓扑选择、迁移、守护进程安装和故障排查，请参见 [`docs/zh/remote-websocket-rollout.md`](./remote-websocket-rollout.md)。
 
 ## 环境要求
 
@@ -69,6 +69,24 @@ make openapi-generate
 ```
 
 前端构建和 Go 构建是一个发布单元。`vite build` 会刷新 `internal/webui/static/` 下的文件，但已构建或正在运行的 `openase` 二进制文件会继续提供旧的嵌入包，直到你重新构建二进制文件。如果浏览器堆栈跟踪提到 `internal/webui/static/_app/immutable/` 下不存在的 chunk 名称，首先假定是旧二进制文件或缓存的不可变资源，重新构建 `./cmd/openase`，然后强制刷新页面。
+
+## Remote Runtime 本地验证
+
+当你修改 websocket 执行、daemon setup 或 SSH helper 指南时，请在仓库根目录运行 Remote Runtime 专用检查：
+
+```bash
+scripts/ci/remote_transport_matrix.sh
+```
+
+这套快速矩阵是 Remote Runtime v1 改动的默认仓库侧验证门。对于具备 Linux 和 Docker Compose 的环境，可以进一步使用较慢的端到端 harness 覆盖真实 listener、反向 daemon 和 SSH helper 流程：
+
+```bash
+make remote-runtime-container
+scripts/ci/remote_runtime_container_harness.sh listener
+scripts/ci/remote_runtime_container_harness.sh reverse ssh
+```
+
+建议先跑快速矩阵，再在需要 rollout 级验证 daemon 安装、helper 修复或 listener 可达性时跑容器 harness。
 
 ## API 契约生成
 

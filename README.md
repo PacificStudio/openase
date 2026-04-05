@@ -275,14 +275,14 @@ You create a ticket  →  Orchestrator detects pickup status
 | **Machines (Local)** | ✅ Stable | Local machine registration, health probes, resource metrics |
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
 | **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, managed user service (`systemd --user` on Linux, `launchd` on macOS) |
-| **Machines (Remote)** | 🚧 WIP | Native websocket execution now covers direct-connect and reverse-connect reachability; SSH remains a helper/bootstrap path while rollout hardens |
+| **Machines (Remote)** | ✅ Stable | Remote Runtime v1 uses websocket-only execution for direct-connect listeners and reverse-connect daemons; SSH is helper-only for bootstrap and diagnostics |
 | **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
 
 ### Roadmap
 
 | Priority | Item | Description |
 |----------|------|-------------|
-| 🔴 High | **Remote Machine Execution** | Complete websocket execution for direct-connect and reverse-connect machines, then remove legacy SSH compatibility from the runtime path |
+| 🟡 Medium | **Remote Runtime Operations** | Expand rollout automation, dashboards, and operator tooling around the websocket-only remote runtime plane |
 | 🟡 Medium | **Windows Support** | Native service management and shell-script support outside WSL2 |
 | 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
 | 🟡 Medium | **iOS & Android App** | Mobile control plane for monitoring and managing projects on the go |
@@ -793,9 +793,10 @@ make lint-all                    # Full lint suite
 | Module Architecture | [English](docs/guide/en/architecture.md) | [中文](docs/guide/zh/architecture.md) |
 | FAQ | [English](docs/guide/en/faq.md) | [中文](docs/guide/zh/faq.md) |
 | **Source Build & Run** | [English](docs/en/source-build-and-run.md) | [中文](docs/zh/source-build-and-run.md) |
+| WebSocket Runtime Contract | [English](docs/en/websocket-runtime-contract.md) | [中文](docs/zh/websocket-runtime-contract.md) |
 | OIDC & RBAC | [English](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md) |
 | Observability | [English](docs/en/observability-checklist.md) | [中文](docs/zh/observability-checklist.md) |
-| WebSocket Rollout | [English](docs/en/remote-websocket-rollout.md) | [中文](docs/zh/remote-websocket-rollout.md) |
+| Remote Runtime v1 Rollout | [English](docs/en/remote-websocket-rollout.md) | [中文](docs/zh/remote-websocket-rollout.md) |
 | Gemini CLI Adaptation | [English](docs/en/gemini-cli-adaptation-guide.md) | [中文](docs/zh/gemini-cli-adaptation-guide.md) |
 | Claude Code Stream Protocol | [English](docs/en/claude-code-stream-protocol.md) | [中文](docs/zh/claude-code-stream-protocol.md) |
 

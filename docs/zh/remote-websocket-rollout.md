@@ -1,6 +1,6 @@
-# 远程 WebSocket 传输部署指南
+# Remote Runtime v1 部署指南
 
-本指南将远程 WebSocket 传输从仅代码实现转变为可运维的功能。涵盖验证矩阵、可观测性契约、部署前提、守护进程安装流程、升级与回滚步骤以及部署检查清单。
+本指南记录最终的 Remote Runtime v1 模型：远程执行统一走 websocket，SSH 固定在 helper 通道，运维在 direct-connect listener 和 reverse-connect machine-agent daemon 两种拓扑之间做选择。内容涵盖支持拓扑、旧机器记录迁移、验证策略、可观测性、守护进程安装、升级与回滚，以及分阶段 rollout 检查清单。
 
 本指南中的术语：
 
@@ -8,6 +8,22 @@
 - `reverse_connect`：机器守护进程可以反向拨回控制面。
 - `websocket`：目标远程执行路径。
 - `ssh_compat`：需要迁移到 websocket 的遗留执行模式存储值。SSH 仅保留为引导、诊断和紧急修复 helper。
+
+## 架构摘要
+
+Remote Runtime v1 将远程机器行为拆成三个独立关注点：
+
+- 拓扑：`direct_connect` 或 `reverse_connect`
+- runtime 平面：统一 websocket
+- helper 通道：可选的 SSH bootstrap 与 diagnostics
+
+它们与机器存储字段和运行入口的映射如下：
+
+| 拓扑 | 机器存储状态 | 运行入口 | 说明 |
+| --- | --- | --- | --- |
+| Direct-connect listener | `reachability_mode=direct_connect`、`execution_mode=websocket`、`connection_mode=ws_listener` | 控制面直接拨号到保存的 `advertised_endpoint` | 适用于 OpenASE 可以直接到达机器 |
+| Reverse-connect daemon | `reachability_mode=reverse_connect`、`execution_mode=websocket`、`connection_mode=ws_reverse` | 远端主机运行 `openase machine-agent run` 并保持 machine-channel 会话 | 适用于机器可以向外拨号但不应暴露入站 listener |
+| 遗留兼容记录 | `execution_mode=ssh_compat` | 正常 runtime 不存在对应入口 | 只用于迁移阶段；工单执行不得回退到 SSH |
 
 ## 自动化验证矩阵
 
@@ -39,6 +55,20 @@ scripts/ci/remote_transport_matrix.sh
 - Agent 进程启动
 - 输出流或命令握手
 - 清理或断开连接记账
+
+## CI 与本地验证策略
+
+按以下顺序使用验证层：
+
+1. `scripts/ci/remote_transport_matrix.sh`
+2. 对于具备 Linux + Docker Compose 的机器，运行 `make remote-runtime-container` 或 `scripts/ci/remote_runtime_container_harness.sh ...`
+3. rollout 过程中结合 `openase machine test <machine-uuid>` 与 `openase machine ssh-diagnostics <machine-uuid>` 做定向运维检查
+
+设计意图是：
+
+- 快速矩阵进入普通仓库和 PR 验证
+- 容器 harness 负责本地专用或手动 / nightly 的 rollout 级检查
+- 运维命令负责部署后的单机诊断
 
 ## 本地容器 Harness
 
@@ -159,6 +189,72 @@ SSH 兼容路径：
 
 - 不再是受支持的 runtime 回退路径
 - 应被视为遗留记录状态加 helper 基础设施，而不是远程执行模型
+
+## 迁移现有机器记录
+
+### 盘点当前状态
+
+先列出机器，识别仍然存储 `execution_mode=ssh_compat` 或缺少 websocket 拓扑必填字段的记录：
+
+```bash
+openase machine list
+```
+
+### 迁移 direct-connect 机器
+
+当控制面可以直接拨号到机器时使用此路径：
+
+1. 保存 `reachability_mode=direct_connect`。
+2. 保存 `execution_mode=websocket`。
+3. 保存有效的 `advertised_endpoint`。
+4. 重新保存机器，使 `connection_mode` 解析为 `ws_listener`。
+5. 运行：
+
+```bash
+openase machine test <machine-uuid>
+```
+
+只有在仍需 helper 引导或诊断时才保留 SSH 凭证。
+
+### 迁移 reverse-connect 机器
+
+当机器应主动回拨控制面时使用此路径：
+
+1. 保存 `reachability_mode=reverse_connect`。
+2. 保存 `execution_mode=websocket`。
+3. 保存有效的 `workspace_root`。
+4. 签发专用 machine channel token：
+
+```bash
+openase machine issue-channel-token \
+  --machine-id <machine-uuid> \
+  --ttl 24h \
+  --format shell
+```
+
+5. 在远端主机粘贴导出的 `OPENASE_MACHINE_*` 变量，并启动：
+
+```bash
+openase machine-agent run
+```
+
+6. 确认守护进程会话和机器检查：
+
+```bash
+openase machine test <machine-uuid>
+openase machine ssh-diagnostics <machine-uuid>
+```
+
+如果已经保留 SSH helper 访问，则应优先使用 `openase machine ssh-bootstrap <machine-uuid>` 上传当前二进制并安装或刷新反向 daemon 服务。
+
+### 运维工作流变化
+
+迁移完成后，运维需要默认接受以下前提：
+
+- 两种远程拓扑的工单执行都固定在 websocket 上
+- direct-connect 故障首先按 listener 可达性问题排查，而不是去找 SSH fallback
+- reverse-connect 故障首先按 daemon 注册或会话健康问题排查
+- SSH 命令负责引导或修复远程访问，但不属于 runtime 执行平面
 
 ## 引导与守护进程安装
 

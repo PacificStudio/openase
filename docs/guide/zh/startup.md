@@ -14,7 +14,8 @@
 
 进入 **[Machines](./machines.md)**，添加 Agent 将要运行的执行环境：
 
-- 可以是本地机器、远程 SSH 主机或云端 VM
+- 可以是保留的本地机器、direct-connect listener，或 reverse-connect daemon 所在主机
+- 远程机器应使用 websocket runtime；只有在需要 helper 引导或诊断时才保留 SSH
 - 添加后点击"测试连接"确认机器可达
 
 ## 第 3 步：注册 Agent
