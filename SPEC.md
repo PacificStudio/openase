@@ -9055,6 +9055,8 @@ Where:
 
 - `ticket_agent` tokens continue to be used for orchestration Agent runs and keep existing effective capabilities
 - `project_conversation` tokens are for Project AI runtime and cannot impersonate ticket runtime by forging `ticket_id`
+- `project_conversation` ticket mutation must go through project-scoped ticket routes and requires a dedicated `tickets.update` capability
+- `tickets.update.self` remains a current-ticket-only capability and must not grant `project_conversation` access to ticket-runtime-only endpoints
 - API authorization must check both scope and `principal_kind`
 - Any ticket-runtime-only endpoint must explicitly reject `project_conversation` principal
 - Workspace injection, skill injection, and platform API injection must take effect based on this principal-aware token
