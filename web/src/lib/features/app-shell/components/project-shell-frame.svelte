@@ -146,6 +146,7 @@
       <ProjectShellProjectAssistant
         organizationId={currentOrg.id}
         projectId={currentProject.id}
+        projectName={currentProject.name ?? ''}
         defaultProviderId={currentProject.default_agent_provider_id ?? null}
         focus={assistantFocus}
         open={projectAssistantOpen}

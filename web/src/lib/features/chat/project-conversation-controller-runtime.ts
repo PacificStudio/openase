@@ -33,7 +33,12 @@ type ProjectConversationControllerRuntimeInput = {
   getTabs: () => ProjectConversationTabState[]
   setTabs: (value: ProjectConversationTabState[]) => void
   setActiveTabId: (value: string) => void
-  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
+  newTabState: (
+    providerId?: string,
+    restored?: boolean,
+    projectId?: string,
+    projectName?: string,
+  ) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   persistTabs: () => void
@@ -63,7 +68,7 @@ export function createProjectConversationControllerRuntime(
   })
 
   function connectTabStream(tab: ProjectConversationTabState, conversationId: string) {
-    const projectId = getProjectId()
+    const projectId = tab.projectId || getProjectId()
     if (!projectId) {
       return Promise.resolve()
     }

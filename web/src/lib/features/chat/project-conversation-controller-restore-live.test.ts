@@ -80,13 +80,16 @@ function seedProjectConversationTabsStorage(
     conversationId: string
     providerId: string
     draft?: string
+    projectId?: string
   }>,
   activeTabIndex: number,
 ) {
   window.localStorage.setItem(
-    'openase.project-conversation.project-1',
+    'openase.project-conversation.global',
     JSON.stringify({
       tabs: tabs.map((tab) => ({
+        projectId: tab.projectId ?? 'project-1',
+        projectName: 'Project 1',
         conversationId: tab.conversationId,
         providerId: tab.providerId,
         draft: tab.draft ?? '',
@@ -130,6 +133,7 @@ describe('createProjectConversationController restore live flows', () => {
     watchProjectConversation.mockResolvedValue(undefined)
 
     const controller = createProjectConversationController({
+      getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
       getProjectId: () => 'project-1',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
@@ -184,6 +188,7 @@ describe('createProjectConversationController restore live flows', () => {
     })
 
     const controller = createProjectConversationController({
+      getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
       getProjectId: () => 'project-1',
     })
     controller.syncProviders(providerFixtures, 'provider-1')

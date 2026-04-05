@@ -27,7 +27,7 @@
     initialPrompt = '',
     onClose,
   }: {
-    context: { projectId: string }
+    context: { projectId: string; projectName?: string }
     organizationId?: string
     providers?: AgentProvider[]
     defaultProviderId?: string | null
@@ -47,6 +47,10 @@
     autoDispatchQueueTurnId = $state('')
 
   const controller = createProjectConversationController({
+    getProjectContext: () => ({
+      projectId: context.projectId,
+      projectName: context.projectName ?? '',
+    }),
     getProjectId: () => context.projectId,
     onError: (message) => toastStore.error(message),
   })
@@ -127,7 +131,12 @@
 
   $effect(() => {
     const restoreKey = context.projectId
-    if (!restoreKey || restoreKey === previousRestoreKey) {
+    if (!restoreKey) {
+      return
+    }
+    if (previousRestoreKey) {
+      // Project changed but panel already restored - don't re-restore, just persist
+      previousRestoreKey = restoreKey
       return
     }
     previousRestoreKey = restoreKey
@@ -234,13 +243,6 @@
     await controller.sendTurn(message, nextFocus)
     suppressedFocusKey = ''
   }
-
-  function handleDismissFocus() {
-    suppressedFocusKey = effectiveFocusKey
-  }
-  function handleCancelQueuedTurn(queuedTurnId: string) {
-    controller.cancelQueuedTurn(queuedTurnId)
-  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -262,6 +264,7 @@
     {tabs}
     {activeTabId}
     {conversations}
+    currentProjectId={context.projectId}
     conversationId={activeTab?.conversationId ?? ''}
     {workspaceDiff}
     {workspaceDiffLoading}
@@ -286,8 +289,10 @@
     {inputDisabled}
     {sendDisabled}
     {canQueueTurn}
-    onDismissFocus={handleDismissFocus}
-    onCancelQueuedTurn={handleCancelQueuedTurn}
+    onDismissFocus={() => {
+      suppressedFocusKey = effectiveFocusKey
+    }}
+    onCancelQueuedTurn={(id) => controller.cancelQueuedTurn(id)}
     onDraftChange={controller.setDraft}
     onSend={handleSend}
   />

@@ -26,7 +26,12 @@ type ProjectConversationRuntimeTabOpsInput = {
   getTabs: () => ProjectConversationTabState[]
   setTabs: (value: ProjectConversationTabState[]) => void
   setActiveTabId: (value: string) => void
-  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
+  newTabState: (
+    providerId?: string,
+    restored?: boolean,
+    projectId?: string,
+    projectName?: string,
+  ) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   persistTabs: () => void
@@ -105,9 +110,17 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.phase === 'idle' &&
       activeTab.draft.trim().length === 0
         ? activeTab
-        : input.newTabState(conversation?.providerId ?? input.getProviderId(), false)
+        : input.newTabState(
+            conversation?.providerId ?? input.getProviderId(),
+            false,
+            conversation?.projectId,
+            '',
+          )
     if (conversation?.providerId) {
       target.providerId = conversation.providerId
+    }
+    if (conversation?.projectId) {
+      target.projectId = conversation.projectId
     }
     if (target !== activeTab) input.setTabs([...input.getTabs(), target])
     input.setActiveTabId(target.id)
@@ -129,7 +142,7 @@ export function createProjectConversationRuntimeTabOps(
     focus?: ProjectAIFocus | null,
   ) {
     const trimmed = message.trim()
-    const projectId = input.getProjectId()
+    const projectId = activeTab?.projectId || input.getProjectId()
     const providerId = activeTab?.providerId?.trim() ?? ''
     if (
       !trimmed ||

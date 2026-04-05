@@ -435,14 +435,14 @@ func TestPrintSetupSuccessLaunchdHints(t *testing.T) {
 			StdoutPath: provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", "logs", "openase.stdout.log")),
 			StderrPath: provider.MustParseAbsolutePath(filepath.Join(homeDir, ".openase", "logs", "openase.stderr.log")),
 		},
-		LaunchdTarget: launchdServiceTarget(501, managedServiceName),
+		LaunchdTarget: "user/501/com.openase",
 		LaunchdPlist:  launchdPlistPath(homeDir, managedServiceName),
 	})
 
 	text := output.String()
 	for _, want := range []string{
 		"Service:  openase via launchd",
-		"launchctl print gui/501/com.openase",
+		"launchctl print user/501/com.openase",
 		filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist"),
 		filepath.Join(homeDir, ".openase", "logs", "openase.stdout.log"),
 		filepath.Join(homeDir, ".openase", "logs", "openase.stderr.log"),
