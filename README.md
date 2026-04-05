@@ -26,6 +26,41 @@
 
 ---
 
+## 🖼️ Product Screenshots
+
+<p align="center">
+  The embedded web UI covers ticket orchestration, AI-assisted planning, skill authoring, and live project tracking.
+</p>
+
+<p align="center">
+  <img src="docs/imgs/active-project-board.png" alt="OpenASE active project board" width="100%" />
+</p>
+<p align="center">
+  <strong>Live execution</strong><br>
+  Monitor real project work as tickets move across backlog, todo, in-progress, and review.
+</p>
+
+<table align="center" width="100%">
+<tr>
+<td width="50%" align="center" style="vertical-align: top; padding: 12px;">
+  <img src="docs/imgs/kanban-board.png" alt="OpenASE kanban board" width="100%" />
+  <p><strong>Ticket board</strong><br>Manage backlog and execution flow with a kanban-style ticket view.</p>
+</td>
+<td width="50%" align="center" style="vertical-align: top; padding: 12px;">
+  <img src="docs/imgs/kanban-board-with-ai-assistant.png" alt="OpenASE project AI assistant beside the ticket board" width="100%" />
+  <p><strong>Project AI</strong><br>Break work into tickets and inspect workspace context directly beside the board.</p>
+</td>
+</tr>
+<tr>
+<td colspan="2" align="center" style="vertical-align: top; padding: 12px;">
+  <img src="docs/imgs/skill-editor-install-codex.png" alt="OpenASE skill editor" width="100%" />
+  <p><strong>Skill editor</strong><br>Edit built-in or custom skills that drive repeatable automation workflows.</p>
+</td>
+</tr>
+</table>
+
+---
+
 ## ✨ Key Features
 
 <table align="center" width="100%">

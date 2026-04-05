@@ -132,34 +132,33 @@
   }
 </script>
 
-<div class="space-y-6">
-  <div class="border-border bg-card space-y-4 rounded-xl border p-4">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div class="space-y-1">
-        <h4 class="text-foreground text-sm font-semibold">Built-in CLI setup guide</h4>
-        <p class="text-muted-foreground text-xs">
-          When you enter this step, OpenASE rechecks availability using the machines already bound
-          to registered providers. Even if you have not registered a provider yet, you can follow
-          the official setup steps below to install, sign in, and verify first.
+<div class="space-y-8">
+  <section>
+    <div class="mb-3 flex items-center justify-between gap-3">
+      <div>
+        <h4 class="text-foreground text-sm font-semibold">CLI setup guide</h4>
+        <p class="text-muted-foreground mt-0.5 text-xs">
+          Install, sign in, and verify — then recheck availability.
         </p>
       </div>
       <Button
         variant="outline"
         size="sm"
+        class="shrink-0"
         disabled={isRefreshing(uniqueMachineIds(providers))}
         onclick={() => void refreshProviders(uniqueMachineIds(providers))}
       >
         {#if isRefreshing(uniqueMachineIds(providers))}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Checking...
+          Checking…
         {:else}
           <RefreshCcw class="mr-1.5 size-3.5" />
-          Recheck all providers
+          Recheck all
         {/if}
       </Button>
     </div>
 
-    <div class="grid grid-cols-1 gap-3 xl:grid-cols-3">
+    <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
       {#each providerGuides as guide (guide.key)}
         <ProviderGuideCard
           {guide}
@@ -171,15 +170,13 @@
         />
       {/each}
     </div>
-  </div>
+  </section>
 
-  <div class="space-y-3">
-    <div class="space-y-1">
+  <section>
+    <div class="mb-3">
       <h4 class="text-foreground text-sm font-semibold">Registered providers</h4>
-      <p class="text-muted-foreground text-xs">
-        Registered providers keep their exact machine, model, and availability details. If an
-        instance is unavailable, go back to the matching CLI guide and recheck after finishing
-        setup.
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Machine, model, and real-time availability for each registered instance.
       </p>
     </div>
 
@@ -203,7 +200,7 @@
         {/each}
       </div>
     {/if}
-  </div>
+  </section>
 </div>
 
 <ProviderGuideSheet
