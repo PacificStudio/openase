@@ -18,6 +18,9 @@
     currentRun = null,
     runBlocks = [],
     runPageInfoByRun = {},
+    runsLoaded = false,
+    loadingRuns = false,
+    runsError = '',
     loadingRunId = null,
     loadingOlderRunId = null,
     runStreamState = 'idle',
@@ -28,6 +31,7 @@
     deletingCommentId = null,
     resumingRetry = false,
     onViewChange,
+    onLoadRuns,
     onSaveFields,
     onSelectRun,
     onLoadOlderRunTranscript,
@@ -46,6 +50,9 @@
       string,
       { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
     >
+    runsLoaded?: boolean
+    loadingRuns?: boolean
+    runsError?: string
     loadingRunId?: string | null
     loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
@@ -56,6 +63,7 @@
     deletingCommentId?: string | null
     resumingRetry?: boolean
     onViewChange?: (view: 'comments' | 'runs') => void
+    onLoadRuns?: () => Promise<void> | void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onSelectRun?: (runId: string) => Promise<void> | void
     onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
@@ -83,6 +91,14 @@
   $effect(() => {
     onViewChange?.(activeView === 'runs' ? 'runs' : 'comments')
   })
+
+  $effect(() => {
+    if (activeView !== 'runs' || runsLoaded || loadingRuns) {
+      return
+    }
+
+    void onLoadRuns?.()
+  })
 </script>
 
 <Tabs.Root bind:value={activeView} class="flex flex-col gap-0">
@@ -102,6 +118,8 @@
       {currentRun}
       blocks={runBlocks}
       {runPageInfoByRun}
+      {loadingRuns}
+      {runsError}
       {loadingRunId}
       {loadingOlderRunId}
       {runStreamState}
@@ -109,6 +127,7 @@
       {resumingRetry}
       {onSelectRun}
       {onLoadOlderRunTranscript}
+      onRetryLoadRuns={onLoadRuns}
       {onResumeRetry}
     />
   </Tabs.Content>

@@ -109,6 +109,7 @@ type ticketResponse struct {
 	BudgetUSD         float64                      `json:"budget_usd"`
 	CostTokensInput   int64                        `json:"cost_tokens_input"`
 	CostTokensOutput  int64                        `json:"cost_tokens_output"`
+	CostTokensTotal   int64                        `json:"cost_tokens_total"`
 	CostAmount        float64                      `json:"cost_amount"`
 	AttemptCount      int                          `json:"attempt_count"`
 	ConsecutiveErrors int                          `json:"consecutive_errors"`
@@ -1258,6 +1259,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		BudgetUSD:         item.BudgetUSD,
 		CostTokensInput:   item.CostTokensInput,
 		CostTokensOutput:  item.CostTokensOutput,
+		CostTokensTotal:   item.CostTokensInput + item.CostTokensOutput,
 		CostAmount:        item.CostAmount,
 		AttemptCount:      item.AttemptCount,
 		ConsecutiveErrors: item.ConsecutiveErrors,

@@ -1784,6 +1784,9 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 	if payload.Ticket.ID != ticketItem.ID.String() || payload.Ticket.Identifier != "ASE-9" {
 		t.Fatalf("unexpected ticket payload: %+v", payload.Ticket)
 	}
+	if payload.Ticket.CostTokensInput != 0 || payload.Ticket.CostTokensOutput != 0 || payload.Ticket.CostTokensTotal != 0 {
+		t.Fatalf("expected ticket token totals to be present on detail payload, got %+v", payload.Ticket)
+	}
 	if payload.AssignedAgent == nil {
 		t.Fatalf("expected ticket detail to include assigned agent")
 	}

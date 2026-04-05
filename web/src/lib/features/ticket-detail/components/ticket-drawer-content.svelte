@@ -24,6 +24,9 @@
     hooks,
     timeline,
     runs = [],
+    runsLoaded = false,
+    loadingRuns = false,
+    runsError = '',
     currentRun = null,
     runBlocks = [],
     runPageInfoByRun = {},
@@ -49,6 +52,7 @@
     resettingWorkspace = false,
     archiving = false,
     onClose,
+    onLoadRuns,
     onSaveFields,
     onPriorityChange,
     onArchive,
@@ -73,6 +77,9 @@
     hooks: HookExecution[]
     timeline: TicketTimelineItem[]
     runs?: TicketRun[]
+    runsLoaded?: boolean
+    loadingRuns?: boolean
+    runsError?: string
     currentRun?: TicketRun | null
     runBlocks?: TicketRunTranscriptBlock[]
     runPageInfoByRun?: Record<
@@ -101,6 +108,7 @@
     resettingWorkspace?: boolean
     archiving?: boolean
     onClose?: () => void
+    onLoadRuns?: () => Promise<void> | void
     onSaveFields?: (draft: { title: string; description: string; statusId: string }) => void
     onPriorityChange?: (priority: TicketDetail['priority']) => void
     onArchive?: () => void
@@ -192,6 +200,9 @@
       {ticket}
       {timeline}
       {runs}
+      {runsLoaded}
+      {loadingRuns}
+      {runsError}
       {currentRun}
       {runBlocks}
       {runPageInfoByRun}
@@ -204,6 +215,7 @@
       {updatingCommentId}
       {deletingCommentId}
       {resumingRetry}
+      {onLoadRuns}
       {onSaveFields}
       {onSelectRun}
       {onLoadOlderRunTranscript}
@@ -220,6 +232,10 @@
     {hooks}
     {dependencyCandidates}
     {repoOptions}
+    {runs}
+    {runsLoaded}
+    {loadingRuns}
+    {runsError}
     {creatingDependency}
     {deletingDependencyId}
     {creatingExternalLink}
@@ -229,6 +245,7 @@
     {deletingRepoScopeId}
     {resumingRetry}
     {resettingWorkspace}
+    {onLoadRuns}
     {onResumeRetry}
     {onResetWorkspace}
     {onAddDependency}

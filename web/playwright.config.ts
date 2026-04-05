@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
@@ -5,6 +8,14 @@ const host = process.env.PLAYWRIGHT_WEB_HOST ?? process.env.PLAYWRIGHT_HOST ?? '
 const port = parsePlaywrightPort(process.env.PLAYWRIGHT_WEB_PORT ?? process.env.PLAYWRIGHT_PORT)
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
 const serverMode = parsePlaywrightServerMode(process.env.PLAYWRIGHT_SERVER_MODE)
+const builtIndexPath = fileURLToPath(
+  new URL('../internal/webui/static/index.html', import.meta.url),
+)
+const buildCommand = `${nodePath} ./node_modules/vite/bin/vite.js build --logLevel warn`
+const previewCommand = `${nodePath} ./node_modules/vite/bin/vite.js preview --host ${host} --port ${port} --strictPort`
+const webServerCommand = existsSync(builtIndexPath)
+  ? previewCommand
+  : `${buildCommand} && ${previewCommand}`
 
 function parsePlaywrightPort(raw: string | undefined): number {
   if (!raw) {
@@ -21,7 +32,7 @@ function parsePlaywrightPort(raw: string | undefined): number {
 
 function parsePlaywrightServerMode(raw: string | undefined): 'dev' | 'preview' {
   if (!raw || raw === 'dev' || raw === 'preview') {
-    return raw ?? 'dev'
+    return raw ?? 'preview'
   }
 
   throw new Error(`OPENASE_PLAYWRIGHT_SERVER_MODE must be dev or preview, got ${raw}`)
@@ -29,10 +40,10 @@ function parsePlaywrightServerMode(raw: string | undefined): 'dev' | 'preview' {
 
 function buildPlaywrightWebServerCommand(): string {
   if (serverMode === 'preview') {
-    return `${nodePath} ./node_modules/vite/bin/vite.js preview --host ${host} --port ${port} --strictPort`
+    return webServerCommand
   }
 
-  return `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port}`
+  return `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port} --strictPort`
 }
 
 export default defineConfig({

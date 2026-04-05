@@ -1,3 +1,4 @@
+import type { StreamConnectionState } from '$lib/api/sse'
 import type { TicketDetailLiveContext } from './context'
 import { createEmptyTicketRunTranscriptState } from './run-transcript'
 import type {
@@ -13,7 +14,9 @@ import type {
 
 type TicketDrawerRunTranscriptState = ReturnType<typeof createEmptyTicketRunTranscriptState>
 
-type TicketDrawerMutableState = {
+export type TicketDrawerMutableState = {
+  loading: boolean
+  error: string
   ticket: TicketDetail | null
   timeline: TicketTimelineItem[]
   hooks: HookExecution[]
@@ -21,6 +24,9 @@ type TicketDrawerMutableState = {
   dependencyCandidates: TicketReferenceOption[]
   repoOptions: TicketRepoOption[]
   runs: TicketRun[]
+  runsLoaded: boolean
+  loadingRuns: boolean
+  runsError: string
   selectedRunId: string | null
   followLatest: boolean
   currentRun: TicketRun | null
@@ -30,6 +36,24 @@ type TicketDrawerMutableState = {
   runTraceEntriesByRun: TicketDrawerRunTranscriptState['traceEntriesByRun']
   runLifecycleBlocksByRun: TicketDrawerRunTranscriptState['lifecycleBlocksByRun']
   runPageInfoByRun: TicketDrawerRunTranscriptState['pageInfoByRun']
+  loadingRunId: string | null
+  loadingOlderRunId: string | null
+  runStreamState: StreamConnectionState
+  recoveringRunTranscript: boolean
+  savingFields: boolean
+  creatingDependency: boolean
+  deletingDependencyId: string | null
+  creatingExternalLink: boolean
+  deletingExternalLinkId: string | null
+  creatingRepoScope: boolean
+  updatingRepoScopeId: string | null
+  deletingRepoScopeId: string | null
+  creatingComment: boolean
+  updatingCommentId: string | null
+  deletingCommentId: string | null
+  resumingRetry: boolean
+  resettingWorkspace: boolean
+  archiving: boolean
 }
 
 export function applyTicketDrawerContext(
@@ -81,4 +105,37 @@ export function readTicketDrawerRunTranscriptState(
     lifecycleBlocksByRun: state.runLifecycleBlocksByRun,
     pageInfoByRun: state.runPageInfoByRun,
   }
+}
+
+export function resetTicketDrawerState(state: TicketDrawerMutableState) {
+  state.loading = false
+  state.error = ''
+  state.ticket = null
+  state.timeline = []
+  state.hooks = []
+  state.statuses = []
+  state.dependencyCandidates = []
+  state.repoOptions = []
+  state.runsLoaded = false
+  state.loadingRuns = false
+  state.runsError = ''
+  applyTicketDrawerRunTranscriptState(state, createEmptyTicketRunTranscriptState())
+  state.loadingRunId = null
+  state.loadingOlderRunId = null
+  state.runStreamState = 'idle'
+  state.recoveringRunTranscript = false
+  state.savingFields = false
+  state.creatingDependency = false
+  state.deletingDependencyId = null
+  state.creatingExternalLink = false
+  state.deletingExternalLinkId = null
+  state.creatingRepoScope = false
+  state.updatingRepoScopeId = null
+  state.deletingRepoScopeId = null
+  state.creatingComment = false
+  state.updatingCommentId = null
+  state.deletingCommentId = null
+  state.resumingRetry = false
+  state.resettingWorkspace = false
+  state.archiving = false
 }

@@ -13,6 +13,8 @@
     currentRun = null,
     blocks = [],
     runPageInfoByRun = {},
+    loadingRuns = false,
+    runsError = '',
     loadingRunId = null,
     loadingOlderRunId = null,
     runStreamState = 'idle',
@@ -20,6 +22,7 @@
     resumingRetry = false,
     onSelectRun,
     onLoadOlderRunTranscript,
+    onRetryLoadRuns,
     onResumeRetry,
   }: {
     ticket: TicketDetail
@@ -30,6 +33,8 @@
       string,
       { hasOlder: boolean; hiddenOlderCount: number; oldestCursor?: string; newestCursor?: string }
     >
+    loadingRuns?: boolean
+    runsError?: string
     loadingRunId?: string | null
     loadingOlderRunId?: string | null
     runStreamState?: StreamConnectionState
@@ -37,6 +42,7 @@
     resumingRetry?: boolean
     onSelectRun?: (runId: string) => Promise<void> | void
     onLoadOlderRunTranscript?: (runId: string) => Promise<void> | void
+    onRetryLoadRuns?: () => Promise<void> | void
     onResumeRetry?: () => Promise<void> | void
   } = $props()
 
@@ -201,7 +207,24 @@
   })
 </script>
 
-{#if runs.length === 0}
+{#if loadingRuns}
+  <section class="px-4 py-6">
+    <p class="text-muted-foreground text-xs">Loading runs…</p>
+  </section>
+{:else if runsError}
+  <section class="space-y-2 px-4 py-6">
+    <p class="text-destructive text-xs">{runsError}</p>
+    {#if onRetryLoadRuns}
+      <button
+        type="button"
+        class="border-border bg-background hover:bg-muted rounded-md border px-2 py-1 text-[11px] transition"
+        onclick={() => void onRetryLoadRuns()}
+      >
+        Retry loading runs
+      </button>
+    {/if}
+  </section>
+{:else if runs.length === 0}
   <section class="px-4 py-6">
     <p class="text-muted-foreground text-xs">No runs yet.</p>
   </section>

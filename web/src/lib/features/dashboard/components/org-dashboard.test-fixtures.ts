@@ -49,6 +49,7 @@ export const ticketPayload = {
       cost_amount: 1.5,
       cost_tokens_input: 100,
       cost_tokens_output: 50,
+      cost_tokens_total: 150,
       retry_paused: false,
       pause_reason: '',
       children: [],

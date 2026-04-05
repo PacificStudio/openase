@@ -6,42 +6,14 @@ import {
   hydrateTicketRunDetail,
   setTicketRunList,
 } from './run-transcript'
+import { toRunRecord } from './run-transcript-test-helpers'
 import {
   buildHydratedRunDetail,
   buildNewerRun,
   latestRun,
   olderRun,
 } from './run-transcript.test-fixtures'
-import type { TicketRun, TicketRunTranscriptBlock } from './types'
-
-function toRunRecord(run: TicketRun) {
-  return {
-    id: run.id,
-    ticket_id: 'ticket-1',
-    attempt_number: run.attemptNumber,
-    agent_id: run.agentId,
-    agent_name: run.agentName,
-    provider: run.provider,
-    status: run.status,
-    current_step_status: run.currentStepStatus ?? null,
-    current_step_summary: run.currentStepSummary ?? null,
-    created_at: run.createdAt,
-    runtime_started_at: run.runtimeStartedAt ?? null,
-    last_heartbeat_at: run.lastHeartbeatAt ?? null,
-    completed_at: run.completedAt ?? null,
-    terminal_at: run.terminalAt ?? run.completedAt ?? null,
-    last_error: run.lastError ?? null,
-    completion_summary: run.completionSummary
-      ? {
-          status: run.completionSummary.status,
-          markdown: run.completionSummary.markdown ?? null,
-          json: run.completionSummary.json ?? null,
-          generated_at: run.completionSummary.generatedAt ?? null,
-          error: run.completionSummary.error ?? null,
-        }
-      : null,
-  }
-}
+import type { TicketRunTranscriptBlock } from './types'
 
 describe('ticket run transcript reducer', () => {
   it('auto-selects the latest run from true attempt ordering', () => {

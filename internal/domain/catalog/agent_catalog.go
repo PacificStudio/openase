@@ -85,7 +85,11 @@ type AgentRun struct {
 	InputTokens                  int64
 	OutputTokens                 int64
 	CachedInputTokens            int64
+	CacheCreationInputTokens     int64
 	ReasoningTokens              int64
+	PromptTokens                 int64
+	CandidateTokens              int64
+	ToolTokens                   int64
 	TotalTokens                  int64
 	CurrentStepStatus            *string
 	CurrentStepSummary           *string

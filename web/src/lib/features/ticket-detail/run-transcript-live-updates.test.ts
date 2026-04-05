@@ -12,9 +12,9 @@ import {
   buildNewerRun,
   latestRun,
   olderRun,
-  toRunRecord,
   toTranscriptTimeline,
 } from './run-transcript.test-fixtures'
+import { toRunRecord } from './run-transcript-test-helpers'
 import type { TicketRun, TicketRunTranscriptBlock } from './types'
 
 describe('ticket run transcript live updates', () => {

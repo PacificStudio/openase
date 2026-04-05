@@ -21,6 +21,9 @@ type TicketDrawerMutableState = {
   dependencyCandidates: TicketReferenceOption[]
   repoOptions: TicketRepoOption[]
   runs: TicketRun[]
+  runsLoaded: boolean
+  loadingRuns: boolean
+  runsError: string
   selectedRunId: string | null
   followLatest: boolean
   currentRun: TicketRun | null
@@ -63,6 +66,9 @@ export function createTicketDrawerMutableState(): TicketDrawerMutableState {
     dependencyCandidates: [] as TicketReferenceOption[],
     repoOptions: [] as TicketRepoOption[],
     runs: [] as TicketRun[],
+    runsLoaded: false,
+    loadingRuns: false,
+    runsError: '',
     selectedRunId: null as string | null,
     followLatest: true,
     currentRun: null as TicketRun | null,
@@ -109,6 +115,9 @@ export function resetTicketDrawerMutableState(state: TicketDrawerMutableState): 
   state.dependencyCandidates = []
   state.repoOptions = []
   state.runs = []
+  state.runsLoaded = false
+  state.loadingRuns = false
+  state.runsError = ''
   state.selectedRunId = null
   state.followLatest = true
   state.currentRun = null

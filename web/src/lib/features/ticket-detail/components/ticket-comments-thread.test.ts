@@ -19,6 +19,7 @@ const ticket: TicketDetail = {
   retryPaused: false,
   costTokensInput: 0,
   costTokensOutput: 0,
+  costTokensTotal: 0,
   costAmount: 0,
   budgetUsd: 100,
   dependencies: [],

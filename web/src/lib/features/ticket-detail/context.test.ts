@@ -31,6 +31,7 @@ it('maps assigned agent details from the explicit ticket detail payload', () => 
   })
   expect(detail.ticket.costTokensInput).toBe(1444743)
   expect(detail.ticket.costTokensOutput).toBe(23322)
+  expect(detail.ticket.costTokensTotal).toBe(1468065)
   expect(detail.ticket.pickupDiagnosis).toEqual({
     state: 'running',
     primaryReasonCode: 'running_current_run',
@@ -166,9 +167,9 @@ it('builds project reference data once and filters dependency candidates per tic
     { id: 'status-3', stage: 'completed', color: '#10b981' },
   ])
   expect(selected.statuses).toEqual([
-    { id: 'status-1', name: 'Todo', color: '#2563eb' },
-    { id: 'status-2', name: 'In Progress', color: '#f59e0b' },
-    { id: 'status-3', name: 'Done', color: '#10b981' },
+    { id: 'status-1', name: 'Todo', color: '#2563eb', stage: 'unstarted' },
+    { id: 'status-2', name: 'In Progress', color: '#f59e0b', stage: 'started' },
+    { id: 'status-3', name: 'Done', color: '#10b981', stage: 'completed' },
   ])
   expect(selected.dependencyCandidates).toEqual([
     { id: 'ticket-2', identifier: 'ASE-2', title: 'Backend migration' },
