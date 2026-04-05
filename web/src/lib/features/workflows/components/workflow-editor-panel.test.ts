@@ -6,10 +6,6 @@ import type { SkillState } from '../model'
 import type { HarnessValidationIssue } from '$lib/api/contracts'
 import WorkflowEditorPanel from './workflow-editor-panel.svelte'
 
-vi.mock('./harness-ai-sidebar.svelte', () => ({
-  default: vi.fn(),
-}))
-
 const harnessFixture: HarnessContent = {
   frontmatter: 'type: coding',
   body: 'You are a coding assistant.',
@@ -192,17 +188,9 @@ describe('WorkflowEditorPanel', () => {
     expect(getByText(/Unknown variable/)).toBeTruthy()
   })
 
-  it('does not show AI drawer by default', () => {
-    const { container } = renderPanel()
-    expect(container.querySelector('[role="separator"]')).toBeNull()
-  })
-
-  it('opens the AI drawer when AI button is clicked', async () => {
-    const { getByText, container } = renderPanel()
-
-    await fireEvent.click(getByText('AI'))
-
-    expect(container.querySelector('[role="separator"]')).toBeTruthy()
+  it('does not render a standalone AI button in the workflow editor toolbar', () => {
+    const { queryByRole } = renderPanel()
+    expect(queryByRole('button', { name: 'AI' })).toBeNull()
   })
 
   it('shows fallback text when no workflow is selected', () => {

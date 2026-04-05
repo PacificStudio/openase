@@ -95,9 +95,6 @@
   />
 {:else if step.id === 'ai_discovery'}
   <StepAiDiscovery
-    {orgId}
-    {projectId}
-    hasWorkflow={data.agentWorkflow.workflows.length > 0}
     {onOpenProjectAI}
     onComplete={() => {
       onDataChange({
