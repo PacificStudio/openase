@@ -70,7 +70,10 @@ fi
 
 GO_TEST_PACKAGE_PARALLEL="${OPENASE_GO_TEST_PACKAGE_PARALLEL:-}"
 if [[ -z "${GO_TEST_PACKAGE_PARALLEL}" && "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  GO_TEST_PACKAGE_PARALLEL=4
+  # CI runners can OOM or terminate `go test ./...` when too many package
+  # binaries and embedded Postgres instances overlap. Keep local defaults
+  # unchanged, but cap the GitHub Actions package fan-out more aggressively.
+  GO_TEST_PACKAGE_PARALLEL=2
 fi
 
 go_test_parallel_args=()
