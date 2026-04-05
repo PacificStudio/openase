@@ -53,28 +53,21 @@
   }
 </script>
 
-<div class="space-y-6">
+<div class="space-y-5">
   {#if localMachine}
-    <div class="border-info/40 bg-info/10 rounded-xl border px-4 py-3 text-sm">
-      The local machine keeps its reserved identity. Name, host, and SSH settings stay fixed.
+    <div class="border-info/40 bg-info/10 rounded-lg border px-3.5 py-2.5 text-xs">
+      Local machine identity is reserved. Name, host, and SSH settings are fixed.
     </div>
   {/if}
 
   <MachineEditorGuidance {machine} {draft} onSelectMode={updateMode} />
 
-  <section class="space-y-4">
-    <div>
-      <h3 class="text-foreground text-sm font-semibold">Identity & network</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        {mode === 'create'
-          ? 'Register the machine identity, transport, and advertised endpoint.'
-          : 'Update how OpenASE addresses this machine.'}
-      </p>
-    </div>
+  <section class="border-border space-y-3 border-t pt-5">
+    <h3 class="text-foreground text-sm font-semibold">Identity & network</h3>
 
-    <div class="grid gap-4 md:grid-cols-3">
-      <div class="space-y-2">
-        <Label for="machine-name">Name</Label>
+    <div class="grid gap-3 md:grid-cols-3">
+      <div class="space-y-1.5">
+        <Label for="machine-name" class="text-xs">Name</Label>
         <Input
           id="machine-name"
           value={draft.name}
@@ -83,8 +76,8 @@
         />
       </div>
 
-      <div class="space-y-2">
-        <Label for="machine-host">Host</Label>
+      <div class="space-y-1.5">
+        <Label for="machine-host" class="text-xs">Host</Label>
         <Input
           id="machine-host"
           value={draft.host}
@@ -93,8 +86,8 @@
         />
       </div>
 
-      <div class="space-y-2">
-        <Label for="machine-port">Port</Label>
+      <div class="space-y-1.5">
+        <Label for="machine-port" class="text-xs">Port</Label>
         <Input
           id="machine-port"
           value={draft.port}
@@ -104,34 +97,28 @@
     </div>
 
     {#if connectionMode === 'ws_listener'}
-      <div class="space-y-2">
-        <Label for="machine-advertised-endpoint">Advertised listener endpoint</Label>
+      <div class="space-y-1.5">
+        <Label for="machine-advertised-endpoint" class="text-xs">Listener endpoint</Label>
         <Input
           id="machine-advertised-endpoint"
           value={draft.advertisedEndpoint}
           placeholder="wss://builder.example.com/openase"
           oninput={(event) => updateField('advertisedEndpoint', event)}
         />
-        <p class="text-muted-foreground text-xs">
-          OpenASE connects to this machine-advertised websocket endpoint when running listener mode
-          checks.
+        <p class="text-muted-foreground text-[11px]">
+          WebSocket endpoint OpenASE connects to in listener mode.
         </p>
       </div>
     {/if}
   </section>
 
-  <section class="border-border space-y-4 border-t pt-6">
-    <div>
-      <h3 class="text-foreground text-sm font-semibold">Transport credentials</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        Only the fields required by the selected connection mode stay editable here.
-      </p>
-    </div>
+  <section class="border-border space-y-3 border-t pt-5">
+    <h3 class="text-foreground text-sm font-semibold">Transport credentials</h3>
 
     {#if connectionMode === 'ssh'}
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="space-y-2">
-          <Label for="machine-ssh-user">SSH user</Label>
+      <div class="grid gap-3 md:grid-cols-2">
+        <div class="space-y-1.5">
+          <Label for="machine-ssh-user" class="text-xs">SSH user</Label>
           <Input
             id="machine-ssh-user"
             value={draft.sshUser}
@@ -140,8 +127,8 @@
           />
         </div>
 
-        <div class="space-y-2">
-          <Label for="machine-ssh-key">SSH key path</Label>
+        <div class="space-y-1.5">
+          <Label for="machine-ssh-key" class="text-xs">SSH key path</Label>
           <Input
             id="machine-ssh-key"
             value={draft.sshKeyPath}
@@ -151,48 +138,35 @@
         </div>
       </div>
     {:else}
-      <div class="border-border bg-card text-muted-foreground rounded-xl border px-4 py-3 text-sm">
+      <p class="text-muted-foreground text-xs">
         {#if connectionMode === 'local'}
-          Local machines do not use SSH credentials.
+          Local transport — no credentials needed.
         {:else if connectionMode === 'ws_reverse'}
-          Reverse websocket machines rely on daemon registration instead of SSH credentials.
+          Reverse WebSocket — daemon handles registration.
         {:else}
-          Listener websocket machines use the advertised endpoint instead of SSH credentials.
+          Listener WebSocket — uses the advertised endpoint above.
         {/if}
-      </div>
+      </p>
     {/if}
   </section>
 
-  <section class="border-border space-y-4 border-t pt-6">
-    <div>
-      <h3 class="text-foreground text-sm font-semibold">Workspace & runtime</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        Configure where OpenASE writes workspaces and which CLI path the machine should use.
-      </p>
-    </div>
+  <section class="border-border space-y-3 border-t pt-5">
+    <h3 class="text-foreground text-sm font-semibold">Workspace & runtime</h3>
 
-    <div class="border-border bg-card space-y-3 rounded-xl border px-4 py-4">
+    <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-3.5 py-2.5">
       <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Recommended root</Badge>
-        <code class="bg-muted text-foreground rounded px-2 py-1 text-xs">
+        <code class="bg-muted text-foreground rounded px-1.5 py-0.5 text-xs">
           {workspaceRootRecommendation.value}
         </code>
         <Badge variant="outline" class={workspaceStateTone[workspaceRootState.kind]}>
           {workspaceRootState.label}
         </Badge>
       </div>
-      <p class="text-muted-foreground text-xs">{workspaceRootRecommendation.reason}</p>
-      {#if localMachine}
-        <p class="text-muted-foreground text-xs">
-          The local `~/.openase/workspace` shortcut stays readable in the UI and is expanded to an
-          absolute path when saved.
-        </p>
-      {/if}
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <div class="space-y-2">
-        <Label for="machine-workspace-root">Workspace root</Label>
+    <div class="grid gap-3 md:grid-cols-2">
+      <div class="space-y-1.5">
+        <Label for="machine-workspace-root" class="text-xs">Workspace root</Label>
         <Input
           id="machine-workspace-root"
           value={draft.workspaceRoot}
@@ -201,8 +175,8 @@
         />
       </div>
 
-      <div class="space-y-2">
-        <Label for="machine-agent-cli">Agent CLI path</Label>
+      <div class="space-y-1.5">
+        <Label for="machine-agent-cli" class="text-xs">Agent CLI path</Label>
         <Input
           id="machine-agent-cli"
           value={draft.agentCLIPath}
@@ -212,47 +186,42 @@
     </div>
   </section>
 
-  <section class="border-border space-y-4 border-t pt-6">
-    <div>
-      <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        Optional notes, routing labels, and environment variables.
-      </p>
-    </div>
+  <section class="border-border space-y-3 border-t pt-5">
+    <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
 
-    <div class="space-y-2">
-      <Label for="machine-description">Description</Label>
+    <div class="space-y-1.5">
+      <Label for="machine-description" class="text-xs">Description</Label>
       <Textarea
         id="machine-description"
         value={draft.description}
-        rows={3}
+        rows={2}
         oninput={(event) => updateField('description', event)}
       />
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <div class="space-y-2">
-        <Label for="machine-labels">Labels</Label>
+    <div class="grid gap-3 lg:grid-cols-2">
+      <div class="space-y-1.5">
+        <Label for="machine-labels" class="text-xs">Labels</Label>
         <Textarea
           id="machine-labels"
           value={draft.labels}
-          rows={4}
+          rows={3}
           placeholder="gpu, a100, europe-west"
           oninput={(event) => updateField('labels', event)}
         />
-        <p class="text-muted-foreground text-xs">Separate labels with commas or new lines.</p>
+        <p class="text-muted-foreground text-[11px]">Comma or newline separated.</p>
       </div>
 
-      <div class="space-y-2">
-        <Label for="machine-env-vars">Environment variables</Label>
+      <div class="space-y-1.5">
+        <Label for="machine-env-vars" class="text-xs">Environment variables</Label>
         <Textarea
           id="machine-env-vars"
           value={draft.envVars}
-          rows={4}
+          rows={3}
           placeholder={`CUDA_VISIBLE_DEVICES=0\nOPENASE_AGENT_HOME=/srv/openase`}
           oninput={(event) => updateField('envVars', event)}
         />
-        <p class="text-muted-foreground text-xs">One `KEY=VALUE` pair per line.</p>
+        <p class="text-muted-foreground text-[11px]">One KEY=VALUE per line.</p>
       </div>
     </div>
   </section>
