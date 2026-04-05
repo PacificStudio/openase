@@ -31,6 +31,7 @@ export default defineConfig({
     reuseExistingServer: false,
     env: {
       ...process.env,
+      CHOKIDAR_USEPOLLING: '1',
       OPENASE_E2E_MOCK: '1',
     },
   },
