@@ -290,6 +290,151 @@ func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 	}
 }
 
+func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
+	manager := &stubSetupManager{platform: "launchd"}
+	service := &stubSetupFlowService{
+		bootstrap: setup.Bootstrap{
+			ConfigPath: "/tmp/.openase/config.yaml",
+			Sources: []setup.DatabaseSourceOption{
+				{ID: setup.DatabaseSourceManual, Name: "Manual", Description: "manual"},
+			},
+			AuthModes: []setup.AuthModeOption{
+				{ID: setup.AuthModeDisabled, Name: "Disabled", Description: "disabled"},
+				{ID: setup.AuthModeOIDC, Name: "OIDC", Description: "oidc"},
+			},
+			Defaults: setup.Defaults{
+				ManualDatabase: setup.RawDatabaseInput{
+					Host:    "127.0.0.1",
+					Port:    5432,
+					Name:    "openase",
+					User:    "openase",
+					SSLMode: "disable",
+				},
+				Auth: setup.RawAuthInput{
+					Mode: string(setup.AuthModeDisabled),
+					OIDC: &setup.RawOIDCInput{
+						ClientID:       "openase",
+						RedirectURL:    setup.DefaultOIDCRedirectURL,
+						Scopes:         setup.DefaultOIDCScopes,
+						SessionTTL:     setup.DefaultOIDCSessionTTL,
+						SessionIdleTTL: setup.DefaultOIDCIdleTTL,
+					},
+				},
+			},
+		},
+		prepared: setup.PreparedDatabase{
+			Source: setup.DatabaseSourceManual,
+			Config: setup.DatabaseConfig{
+				Host:    "127.0.0.1",
+				Port:    5432,
+				Name:    "openase",
+				User:    "openase",
+				SSLMode: "disable",
+			},
+		},
+		completeResult: setup.CompleteResult{
+			ConfigPath:       "/tmp/.openase/config.yaml",
+			EnvPath:          "/tmp/.openase/.env",
+			OrganizationName: setup.DefaultOrganizationName,
+			OrganizationSlug: setup.DefaultOrganizationSlug,
+			ProjectName:      setup.DefaultProjectName,
+			ProjectSlug:      setup.DefaultProjectSlug,
+		},
+	}
+
+	var (
+		output           bytes.Buffer
+		supportChecked   bool
+		managerBuilt     bool
+		installSpecBuilt bool
+		serviceVerified  bool
+	)
+	input := strings.NewReader(strings.Join([]string{
+		"",                     // manual database
+		"", "", "", "", "", "", // manual db defaults
+		"2",                          // oidc auth
+		"https://example.auth0.com/", // issuer
+		"",                           // client id default
+		"oidc-secret",                // client secret
+		"",                           // redirect default
+		"",                           // scopes default
+		"admin@example.com",          // bootstrap admins
+		"",                           // allowed domains
+		"2",                          // launchd runtime
+		"",                           // final confirm
+	}, "\n"))
+
+	if err := runSetupFlowWithDeps(context.Background(), input, &output, service, setupFlowOptions{}, setupFlowDeps{
+		buildUserServiceManager: func() (provider.UserServiceManager, error) {
+			managerBuilt = true
+			return manager, nil
+		},
+		buildManagedServiceInstallSpec: func(configPath string) (provider.UserServiceInstallSpec, error) {
+			installSpecBuilt = true
+			return provider.UserServiceInstallSpec{
+				Name:       managedServiceName,
+				StdoutPath: provider.MustParseAbsolutePath("/Users/tester/.openase/logs/openase.stdout.log"),
+				StderrPath: provider.MustParseAbsolutePath("/Users/tester/.openase/logs/openase.stderr.log"),
+			}, nil
+		},
+		checkManagedUserServiceSupport: func(context.Context) error {
+			supportChecked = true
+			return nil
+		},
+		verifyManagedUserService: func(context.Context, provider.ServiceName) error {
+			serviceVerified = true
+			return nil
+		},
+		buildInstalledSetupService: func(context.Context, string, provider.UserServiceInstallSpec) *installedSetupService {
+			return &installedSetupService{
+				Name:     managedServiceName,
+				Platform: "launchd",
+				InstallSpec: provider.UserServiceInstallSpec{
+					Name:       managedServiceName,
+					StdoutPath: provider.MustParseAbsolutePath("/Users/tester/.openase/logs/openase.stdout.log"),
+					StderrPath: provider.MustParseAbsolutePath("/Users/tester/.openase/logs/openase.stderr.log"),
+				},
+				LaunchdTarget: "gui/501/com.openase",
+				LaunchdPlist:  "/Users/tester/Library/LaunchAgents/com.openase.plist",
+			}
+		},
+		goos: "darwin",
+	}); err != nil {
+		t.Fatalf("runSetupFlowWithDeps() error = %v", err)
+	}
+
+	if !supportChecked || !managerBuilt || !installSpecBuilt || !serviceVerified {
+		t.Fatalf("launchd flow hooks support=%t manager=%t spec=%t verify=%t", supportChecked, managerBuilt, installSpecBuilt, serviceVerified)
+	}
+	if service.completeInput.Auth.Mode != string(setup.AuthModeOIDC) {
+		t.Fatalf("complete auth input = %+v", service.completeInput.Auth)
+	}
+	if service.completeInput.Auth.OIDC == nil || service.completeInput.Auth.OIDC.ClientSecret != "oidc-secret" {
+		t.Fatalf("oidc config = %+v", service.completeInput.Auth.OIDC)
+	}
+	if manager.applySpec.Name != managedServiceName {
+		t.Fatalf("service install spec = %+v", manager.applySpec)
+	}
+
+	text := output.String()
+	for _, want := range []string{
+		"Runtime:   managed user service via launchd",
+		"Service:  openase via launchd",
+		"launchctl print gui/501/com.openase",
+		"/Users/tester/Library/LaunchAgents/com.openase.plist",
+		"/Users/tester/.openase/logs/openase.stdout.log",
+		"/Users/tester/.openase/logs/openase.stderr.log",
+		oidcGuideURL,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("output = %q, want substring %q", text, want)
+		}
+	}
+	if strings.Contains(text, "systemctl --user") {
+		t.Fatalf("output should not contain systemd hints: %q", text)
+	}
+}
+
 func TestRunSetupFlowFallsBackWhenSystemdUnavailable(t *testing.T) {
 	service := &stubSetupFlowService{
 		bootstrap: setup.Bootstrap{
@@ -357,6 +502,96 @@ func TestRunSetupFlowFallsBackWhenSystemdUnavailable(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "Continue with config-only setup instead?") {
 		t.Fatalf("output = %q", output.String())
+	}
+}
+
+func TestRunSetupFlowFallsBackWhenLaunchdUnavailableOnDarwin(t *testing.T) {
+	service := &stubSetupFlowService{
+		bootstrap: setup.Bootstrap{
+			ConfigPath: "/tmp/.openase/config.yaml",
+			Sources: []setup.DatabaseSourceOption{
+				{ID: setup.DatabaseSourceManual, Name: "Manual", Description: "manual"},
+			},
+			Defaults: setup.Defaults{
+				ManualDatabase: setup.RawDatabaseInput{
+					Host:    "127.0.0.1",
+					Port:    5432,
+					Name:    "openase",
+					User:    "openase",
+					SSLMode: "disable",
+				},
+			},
+		},
+		prepared: setup.PreparedDatabase{
+			Source: setup.DatabaseSourceManual,
+			Config: setup.DatabaseConfig{
+				Host:    "127.0.0.1",
+				Port:    5432,
+				Name:    "openase",
+				User:    "openase",
+				SSLMode: "disable",
+			},
+		},
+		completeResult: setup.CompleteResult{
+			ConfigPath: "/tmp/.openase/config.yaml",
+			EnvPath:    "/tmp/.openase/.env",
+		},
+	}
+
+	var (
+		output         bytes.Buffer
+		supportChecked bool
+	)
+	input := strings.NewReader(strings.Join([]string{
+		"", "", "", "", "", "", "", // manual database defaults
+		"",  // disabled auth
+		"2", // choose service mode
+		"",  // accept fallback to config-only
+		"",  // final confirm
+	}, "\n"))
+
+	if err := runSetupFlowWithDeps(context.Background(), input, &output, service, setupFlowOptions{}, setupFlowDeps{
+		buildUserServiceManager: func() (provider.UserServiceManager, error) {
+			t.Fatal("buildUserServiceManager should not run after fallback")
+			return nil, nil
+		},
+		buildManagedServiceInstallSpec: func(string) (provider.UserServiceInstallSpec, error) {
+			t.Fatal("buildManagedServiceInstallSpec should not run after fallback")
+			return provider.UserServiceInstallSpec{}, nil
+		},
+		checkManagedUserServiceSupport: func(context.Context) error {
+			supportChecked = true
+			return errors.New("launchd is unavailable")
+		},
+		verifyManagedUserService: func(context.Context, provider.ServiceName) error {
+			t.Fatal("verifyManagedUserService should not run after fallback")
+			return nil
+		},
+		goos: "darwin",
+	}); err != nil {
+		t.Fatalf("runSetupFlowWithDeps() error = %v", err)
+	}
+
+	if !supportChecked {
+		t.Fatal("expected managed service support check to run")
+	}
+	if service.completeCalls != 1 {
+		t.Fatalf("complete calls = %d", service.completeCalls)
+	}
+
+	text := output.String()
+	for _, want := range []string{
+		"Current machine cannot use the managed OpenASE user service via launchd: launchd is unavailable",
+		"Continue with config-only setup instead?",
+		"Runtime:   config-only",
+		"OpenASE setup completed.",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("output = %q, want substring %q", text, want)
+		}
+	}
+	if strings.Contains(text, "Service:  openase via launchd") {
+		t.Fatalf("unexpected launchd success hints in output = %q", text)
 	}
 }
 
