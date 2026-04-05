@@ -210,16 +210,17 @@ jobs:
           set -euo pipefail
 
           port="$(python3 - <<'PY'
-import socket
+          import socket
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+              sock.bind(("127.0.0.1", 0))
+              print(sock.getsockname()[1])
+          PY
           )"
           echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
           echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
           echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_SERVER_MODE=preview" >> "${GITHUB_ENV}"
 
       - name: Run Web CI
         shell: bash
@@ -315,8 +316,9 @@ PY
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # The self-hosted runner watchdog is more aggressive than the job timeout.
-              # Emit a short heartbeat even when `go test -json` is between package events.
+              # The self-hosted runner watchdog is more aggressive than the job
+              # timeout. Emit a short heartbeat even when `go test -json` is
+              # between package events.
               sleep "${heartbeat_interval_seconds}"
             done
           }
@@ -342,6 +344,72 @@ PY
           heartbeat_pid=$!
 
           make check
+
+      - name: Build OpenASE Binary
+        timeout-minutes: 10
+        run: make build
+
+  macos-managed-service:
+    name: macOS Managed Service Checks
+    runs-on: macos-15
+    timeout-minutes: 30
+    needs:
+      - changes
+      - frontend
+    if: |
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.changes.outputs.go_changed == 'true' &&
+      (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Download Embedded Web Assets
+        if: needs.changes.outputs.web_changed == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: embedded-web-assets
+          path: internal/webui/static
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run macOS Managed Service Go Tests
+        shell: bash
+        env:
+          OPENASE_GO_TEST_PROGRESS_MODE: plain
+        run: |
+          set -euo pipefail
+
+          # This job covers the macOS-managed-service build and unit-test paths
+          # that GitHub-hosted runners can exercise reliably. Real launchd session
+          # behavior still depends on a signed-in user session and stays in manual
+          # smoke-test territory outside CI.
+          ./scripts/ci/with_clean_openase_test_env.sh go test \
+            -count=1 \
+            -timeout=20m \
+            ./internal/provider \
+            ./internal/infra/userservice \
+            ./internal/cli
 
       - name: Build OpenASE Binary
         timeout-minutes: 10
