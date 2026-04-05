@@ -3,7 +3,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Popover from '$ui/popover'
-  import { ArrowLeft, Bot, Clock, Power, PowerOff, Save, Trash2 } from '@lucide/svelte'
+  import { ArrowLeft, Clock, Power, PowerOff, Save, Trash2 } from '@lucide/svelte'
   import type { Skill } from '$lib/api/contracts'
 
   type SkillHistoryEntry = {
@@ -17,26 +17,20 @@
     skill,
     busy = false,
     hasDirtyChanges = false,
-    assistantOpen = false,
-    assistantDisabled = false,
     history = [],
     onNavigateBack,
     onSave,
     onToggleEnabled,
     onDelete,
-    onToggleAssistant,
   }: {
     skill: Skill
     busy?: boolean
     hasDirtyChanges?: boolean
-    assistantOpen?: boolean
-    assistantDisabled?: boolean
     history?: SkillHistoryEntry[]
     onNavigateBack?: () => void
     onSave?: () => void
     onToggleEnabled?: () => void
     onDelete?: () => void
-    onToggleAssistant?: () => void
   } = $props()
 </script>
 
@@ -100,17 +94,6 @@
     >
       <Save class="size-3" />
       {busy ? 'Saving\u2026' : 'Save'}
-    </Button>
-    <Button
-      variant="ghost"
-      size="sm"
-      class="h-7 gap-1 px-2 text-xs"
-      title="Toggle fix and verify panel"
-      onclick={onToggleAssistant}
-      disabled={assistantDisabled}
-    >
-      <Bot class="size-3.5" />
-      <span class={assistantOpen ? 'text-primary' : ''}>Fix &amp; verify</span>
     </Button>
     <Button
       variant="ghost"

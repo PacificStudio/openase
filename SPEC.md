@@ -2,7 +2,7 @@
 
 **Ticket-driven fully automated software engineering platform | Product Requirements Document (PRD)**
 
-March 2026 | Open-source license: Apache License 2.0
+March 2026 | Open-source license: GNU General Public License v3.0
 
 ---
 ## Chapter 1 Executive Summary
