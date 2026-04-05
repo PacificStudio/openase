@@ -105,9 +105,10 @@ openapi-check-ci:
 	@tmp_dir="$$(mktemp -d)"; \
 	trap 'rm -rf "$$tmp_dir"' EXIT; \
 	printf '{ "private": true }\n' > "$$tmp_dir/package.json"; \
-	$(PNPM) --dir "$$tmp_dir" add --save-dev --ignore-scripts openapi-typescript@7.13.0 prettier@3.8.1; \
+	$(PNPM) --dir "$$tmp_dir" add --save-dev --ignore-scripts --reporter=append-only openapi-typescript@7.13.0 prettier@3.8.1; \
 	"$$tmp_dir/node_modules/.bin/openapi-typescript" "$(CURDIR)/api/openapi.json" -o "$(CURDIR)/web/src/lib/api/generated/openapi.d.ts"; \
 	node "$$tmp_dir/node_modules/prettier/bin/prettier.cjs" \
+		--log-level warn \
 		--no-config \
 		--semi false \
 		--single-quote true \
@@ -120,12 +121,13 @@ openapi-check-ci:
 
 frontend-api-audit-check:
 	python3 ./scripts/dev/audit_frontend_api_usage.py \
+		--summary-only \
 		--fail-on backend_only \
 		--fail-on contract_only \
 		--fail-on wrapped_but_unused
 
 web-install:
-	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile
+	$(PNPM) --dir $(WEB_DIR) install --frozen-lockfile --reporter=append-only
 
 web-lint: web-install
 	$(PNPM) --dir $(WEB_DIR) run lint
