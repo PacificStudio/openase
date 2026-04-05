@@ -122,6 +122,16 @@ run_go_test_quiet_success() {
   local heartbeat_pid=""
   local status=0
 
+  # Keep JSON progress visible in CI so long-running backend suites keep emitting
+  # package/test events instead of looking like a silent hung process.
+  if [[ "${GO_TEST_PROGRESS_MODE}" == "json" ]]; then
+    if run_go_test "$@" 2>&1 | tee "${output_file}"; then
+      return 0
+    fi
+
+    return 1
+  fi
+
   run_go_test "$@" >"${output_file}" 2>&1 &
   test_pid=$!
 
