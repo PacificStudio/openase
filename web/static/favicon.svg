@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <!-- Column 1 (height 3) -->
+  <rect x="6" y="6" width="4.25" height="4.25" rx="1" fill="rgb(220,232,245)"/>
+  <rect x="6" y="11.25" width="4.25" height="4.25" rx="1" fill="rgb(178,215,245)"/>
+  <rect x="6" y="16.5" width="4.25" height="4.25" rx="1" fill="rgb(135,197,245)"/>
+  <rect x="6" y="21.75" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+
+  <!-- Column 2 (height 1) -->
+  <rect x="11.25" y="6" width="4.25" height="4.25" rx="1" fill="rgb(220,232,245)"/>
+  <rect x="11.25" y="11.25" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+  <rect x="11.25" y="16.5" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+  <rect x="11.25" y="21.75" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+
+  <!-- Column 3 (height 4) -->
+  <rect x="16.5" y="6" width="4.25" height="4.25" rx="1" fill="rgb(220,232,245)"/>
+  <rect x="16.5" y="11.25" width="4.25" height="4.25" rx="1" fill="rgb(178,215,245)"/>
+  <rect x="16.5" y="16.5" width="4.25" height="4.25" rx="1" fill="rgb(135,197,245)"/>
+  <rect x="16.5" y="21.75" width="4.25" height="4.25" rx="1" fill="rgb(93,180,245)"/>
+
+  <!-- Column 4 (height 2) -->
+  <rect x="21.75" y="6" width="4.25" height="4.25" rx="1" fill="rgb(220,232,245)"/>
+  <rect x="21.75" y="11.25" width="4.25" height="4.25" rx="1" fill="rgb(178,215,245)"/>
+  <rect x="21.75" y="16.5" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+  <rect x="21.75" y="21.75" width="4.25" height="4.25" rx="1" fill="rgb(255,255,255)"/>
+</svg>
