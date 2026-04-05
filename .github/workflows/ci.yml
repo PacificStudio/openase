@@ -209,7 +209,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          playwright_port="$(python3 -c 'import socket; sock = socket.socket(); sock.bind(("'"'"'127.0.0.1'"'"'", 0)); print(sock.getsockname()[1]); sock.close()')"
+          playwright_port="$(python3 -c 'import socket; sock = socket.socket(); sock.bind(("127.0.0.1", 0)); print(sock.getsockname()[1]); sock.close()')"
           export PLAYWRIGHT_PORT="${playwright_port}"
           export PLAYWRIGHT_BASE_URL="http://127.0.0.1:${playwright_port}"
           export PLAYWRIGHT_WEB_SERVER_MODE=preview
