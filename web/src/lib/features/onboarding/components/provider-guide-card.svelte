@@ -56,8 +56,13 @@
     </div>
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <p class="text-foreground text-sm font-semibold leading-tight">{guide.title}</p>
-        <span class={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none', status.className)}>
+        <p class="text-foreground text-sm leading-tight font-semibold">{guide.title}</p>
+        <span
+          class={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] leading-none font-medium',
+            status.className,
+          )}
+        >
           {status.text}
         </span>
       </div>
@@ -68,11 +73,15 @@
   <div class="mb-3 space-y-1.5 text-xs">
     <div class="flex items-center justify-between">
       <span class="text-muted-foreground">CLI</span>
-      <span class="text-foreground font-medium">{cliDetectionLabel[cliDetectionState(providers)]}</span>
+      <span class="text-foreground font-medium"
+        >{cliDetectionLabel[cliDetectionState(providers)]}</span
+      >
     </div>
     <div class="flex items-center justify-between">
       <span class="text-muted-foreground">Auth</span>
-      <span class="text-foreground font-medium">{authDetectionLabel[authDetectionState(providers)]}</span>
+      <span class="text-foreground font-medium"
+        >{authDetectionLabel[authDetectionState(providers)]}</span
+      >
     </div>
     <div class="flex items-center justify-between">
       <span class="text-muted-foreground">Instances</span>
@@ -82,7 +91,7 @@
 
   {#if primaryProvider}
     <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
-      <p class="text-foreground font-medium leading-snug">
+      <p class="text-foreground leading-snug font-medium">
         {providerAvailabilityHeadline(
           primaryProvider.availability_state,
           primaryProvider.availability_reason,
@@ -117,9 +126,7 @@
       </Button>
     {:else}
       <Button size="sm" class="flex-1" variant="outline" onclick={() => onOpenGuide(guide.key)}>
-        {availableProviders.length > 1
-          ? `${availableProviders.length} instances`
-          : 'Setup guide'}
+        {availableProviders.length > 1 ? `${availableProviders.length} instances` : 'Setup guide'}
       </Button>
     {/if}
 

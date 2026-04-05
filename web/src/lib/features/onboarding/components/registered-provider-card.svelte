@@ -54,8 +54,13 @@
 
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <p class="text-foreground truncate text-sm font-semibold leading-tight">{provider.name}</p>
-        <span class={cn('inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none', status.className)}>
+        <p class="text-foreground truncate text-sm leading-tight font-semibold">{provider.name}</p>
+        <span
+          class={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] leading-none font-medium',
+            status.className,
+          )}
+        >
           {status.text}
         </span>
         {#if isSelected}
@@ -71,11 +76,15 @@
   <div class="mb-3 space-y-1.5 text-xs">
     <div class="flex items-center justify-between gap-3">
       <span class="text-muted-foreground">Machine</span>
-      <span class="text-foreground truncate text-right font-medium">{provider.machine_name || '—'}</span>
+      <span class="text-foreground truncate text-right font-medium"
+        >{provider.machine_name || '—'}</span
+      >
     </div>
     <div class="flex items-center justify-between gap-3">
       <span class="text-muted-foreground">CLI</span>
-      <span class="text-foreground truncate text-right font-mono text-[11px]">{provider.cli_command || '—'}</span>
+      <span class="text-foreground truncate text-right font-mono text-[11px]"
+        >{provider.cli_command || '—'}</span
+      >
     </div>
     {#if checkedAt}
       <div class="flex items-center justify-between gap-3">
@@ -86,7 +95,7 @@
   </div>
 
   <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
-    <p class="text-foreground font-medium leading-snug">
+    <p class="text-foreground leading-snug font-medium">
       {providerAvailabilityHeadline(provider.availability_state, provider.availability_reason)}
     </p>
     <p class="text-muted-foreground mt-0.5 leading-snug">
