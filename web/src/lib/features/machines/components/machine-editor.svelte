@@ -14,7 +14,6 @@
   import type {
     MachineDraft,
     MachineDraftField,
-    MachineEditorMode,
     MachineExecutionMode,
     MachineItem,
     MachineReachabilityMode,
@@ -26,7 +25,6 @@
     draft,
     onDraftChange,
   }: {
-    mode: MachineEditorMode
     machine: MachineItem | null
     draft: MachineDraft
     onDraftChange?: (field: MachineDraftField, value: string) => void
