@@ -21,12 +21,13 @@ The matrix currently covers:
 
 | Scenario | Coverage |
 | --- | --- |
+| Unified websocket runtime contract across listener and reverse topologies | `TestUnifiedWebsocketRuntimeContractSuite` |
 | SSH bootstrap + reverse websocket machine session | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
 | SSH bootstrap helper behavior | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
 | SSH diagnostics helper behavior | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH bootstrap + listener websocket runtime | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
 | Direct SSH runtime rejection | `TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution` |
-| Reverse websocket launch does not fall back to SSH | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
+| Reverse websocket launch without SSH fallback when no reverse session is connected | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
 | Remote binary / preflight failure | `TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics` |
 | Daemon auth failure | `TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric` |
 
@@ -38,10 +39,12 @@ What each happy-path runtime case verifies:
 - output streaming or command handshake
 - cleanup or disconnect bookkeeping
 
-Known current gap:
+The runtime contract itself is now shared by both websocket topologies:
 
-- listener websocket has an end-to-end runtime happy path.
-- reverse websocket runtime still needs broader end-to-end launch coverage beyond daemon session registration and helper flows.
+- listener websocket validates the contract over a direct websocket listener
+- reverse websocket validates the same contract over machine-channel `runtime` envelopes
+
+For the wire contract, versioning rules, and error taxonomy, see [`docs/en/websocket-runtime-contract.md`](./websocket-runtime-contract.md).
 
 ## Observability Contract
 

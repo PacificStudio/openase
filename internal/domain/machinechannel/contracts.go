@@ -113,6 +113,7 @@ const (
 	MessageTypeToolInventory MessageType = "tool_inventory"
 	MessageTypeError         MessageType = "error"
 	MessageTypeRetryAfter    MessageType = "retry_after"
+	MessageTypeRuntime       MessageType = "runtime"
 )
 
 const ProtocolVersion = 1
@@ -262,7 +263,8 @@ func ParseEnvelope(raw []byte) (Envelope, error) {
 		MessageTypeSystemInfo,
 		MessageTypeToolInventory,
 		MessageTypeError,
-		MessageTypeRetryAfter:
+		MessageTypeRetryAfter,
+		MessageTypeRuntime:
 	default:
 		return Envelope{}, fmt.Errorf("%w: unsupported message type %q", ErrUnexpectedMessage, strings.TrimSpace(string(envelope.Type)))
 	}

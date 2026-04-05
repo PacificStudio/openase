@@ -27,6 +27,11 @@ run_case \
   'TestMachineConnectWebsocketPublishesActivityAndMetrics$'
 
 run_case \
+  "Unified websocket runtime contract suite" \
+  "./internal/infra/machinetransport" \
+  'TestUnifiedWebsocketRuntimeContractSuite$'
+
+run_case \
   "Reverse websocket daemon auth failure" \
   "./internal/httpapi" \
   'TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric$'
@@ -42,11 +47,11 @@ run_case \
   'TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics$'
 
 run_case \
-  "Reverse websocket rollout fallback to SSH" \
+  "Reverse websocket rollout does not fall back to SSH" \
   "./internal/orchestrator" \
-  'TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable$'
+  'TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable$'
 
 run_case \
-  "Pure SSH regression" \
+  "Direct SSH runtime rejection" \
   "./internal/orchestrator" \
-  'TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH$'
+  'TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution$'

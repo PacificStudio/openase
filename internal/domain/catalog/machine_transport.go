@@ -282,6 +282,7 @@ func SupportedMachineTransportCapabilities(mode MachineConnectionMode) []Machine
 	switch mode {
 	case MachineConnectionModeLocal,
 		MachineConnectionModeSSH,
+		MachineConnectionModeWSReverse,
 		MachineConnectionModeWSListener:
 		return []MachineTransportCapability{
 			MachineTransportCapabilityProbe,

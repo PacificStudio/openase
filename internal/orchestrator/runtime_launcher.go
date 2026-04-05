@@ -173,6 +173,16 @@ func (l *RuntimeLauncher) ConfigureMetrics(metrics provider.MetricsProvider) {
 	l.metrics = metrics
 }
 
+func (l *RuntimeLauncher) ConfigureReverseRuntimeRelay(relay *machinetransport.ReverseRuntimeRelayRegistry) {
+	if l == nil || relay == nil || l.transports == nil {
+		return
+	}
+	l.transports.WithReverseRuntimeRelay(relay)
+	if l.tickets != nil {
+		l.tickets.ConfigureTransportResolver(l.transports)
+	}
+}
+
 func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 	if l == nil || l.client == nil {
 		return fmt.Errorf("runtime launcher unavailable")

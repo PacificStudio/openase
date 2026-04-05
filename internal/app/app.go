@@ -61,12 +61,13 @@ var (
 )
 
 type App struct {
-	config         config.Config
-	logger         *slog.Logger
-	events         provider.EventProvider
-	trace          provider.TraceProvider
-	metrics        provider.MetricsProvider
-	metricsHandler http.Handler
+	config              config.Config
+	logger              *slog.Logger
+	events              provider.EventProvider
+	trace               provider.TraceProvider
+	metrics             provider.MetricsProvider
+	metricsHandler      http.Handler
+	reverseRuntimeRelay *machinetransport.ReverseRuntimeRelayRegistry
 }
 
 func New(
@@ -85,12 +86,13 @@ func New(
 	}
 
 	return &App{
-		config:         cfg,
-		logger:         logger,
-		events:         events,
-		trace:          trace,
-		metrics:        metrics,
-		metricsHandler: metricsHandler,
+		config:              cfg,
+		logger:              logger,
+		events:              events,
+		trace:               trace,
+		metrics:             metrics,
+		metricsHandler:      metricsHandler,
+		reverseRuntimeRelay: machinetransport.NewReverseRuntimeRelayRegistry(),
 	}
 }
 
@@ -121,7 +123,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		return fmt.Errorf("resolve user home directory: %w", err)
 	}
 	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
-	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
+	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool).
+		WithReverseRuntimeRelay(a.reverseRuntimeRelay)
 	defer func() {
 		if closeErr := sshPool.Close(); closeErr != nil {
 			a.logger.Error("close ssh pool", "error", closeErr)
@@ -239,6 +242,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithSkillRefinementService(skillRefinementSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
+		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
 	)
 	driver, err := a.config.ResolvedEventDriver()
@@ -276,7 +280,8 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		return fmt.Errorf("resolve user home directory: %w", err)
 	}
 	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
-	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool)
+	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool).
+		WithReverseRuntimeRelay(a.reverseRuntimeRelay)
 	defer func() {
 		if closeErr := sshPool.Close(); closeErr != nil {
 			a.logger.Error("close ssh pool", "error", closeErr)
@@ -301,6 +306,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		sshPool,
 		workflowSvc,
 	)
+	runtimeLauncher.ConfigureReverseRuntimeRelay(a.reverseRuntimeRelay)
 	runtimeState := orchestrator.NewRuntimeStateStore()
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)

@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/BetterAndBetterII/openase/internal/infra/sse"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
@@ -69,6 +70,7 @@ type Server struct {
 	ticketWorkspaceResetter    ticketWorkspaceResetter
 	machineChannel             *machinechannelservice.Service
 	machineSessions            *machinechannelservice.SessionRegistry
+	reverseRuntimeRelay        *machinetransport.ReverseRuntimeRelayRegistry
 	shutdownCtx                context.Context
 	shutdownCancel             context.CancelFunc
 	shutdownOnce               sync.Once
@@ -177,6 +179,12 @@ func WithMachineChannel(service *machinechannelservice.Service, sessions *machin
 	return func(server *Server) {
 		server.machineChannel = service
 		server.machineSessions = sessions
+	}
+}
+
+func WithReverseRuntimeRelay(relay *machinetransport.ReverseRuntimeRelayRegistry) ServerOption {
+	return func(server *Server) {
+		server.reverseRuntimeRelay = relay
 	}
 }
 
