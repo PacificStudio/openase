@@ -68,6 +68,16 @@ if [[ -z "${GO_TEST_PROGRESS_MODE}" ]]; then
   fi
 fi
 
+GO_TEST_PACKAGE_PARALLEL="${OPENASE_GO_TEST_PACKAGE_PARALLEL:-}"
+if [[ -z "${GO_TEST_PACKAGE_PARALLEL}" && "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  GO_TEST_PACKAGE_PARALLEL=4
+fi
+
+go_test_parallel_args=()
+if [[ -n "${GO_TEST_PACKAGE_PARALLEL}" ]]; then
+  go_test_parallel_args+=("-p=${GO_TEST_PACKAGE_PARALLEL}")
+fi
+
 mapfile -t domain_packages < <("${GO_BIN}" list ./internal/domain/... ./internal/types/...)
 mapfile -t backend_packages < <("${GO_BIN}" list ./internal/... ./cmd/openase)
 
@@ -130,6 +140,7 @@ run_backend_full_suite() {
     -count=1 \
     -timeout="${GO_TEST_TIMEOUT}" \
     -parallel=1 \
+    "${go_test_parallel_args[@]}" \
     "${backend_packages[@]}"
   printf 'Backend full test suite passed.\n'
 }
@@ -158,6 +169,7 @@ if enable_full_backend_coverage; then
     -count=1 \
     -timeout="${GO_TEST_TIMEOUT}" \
     -parallel=1 \
+    "${go_test_parallel_args[@]}" \
     -covermode=atomic \
     -coverpkg="${backend_coverpkg}" \
     -coverprofile="${backend_profile}" \
@@ -171,6 +183,7 @@ fi
 printf '\nRunning domain/core coverage gate...\n'
 run_go_test_ci_visible \
   -count=1 \
+  "${go_test_parallel_args[@]}" \
   -covermode=atomic \
   -coverpkg="${domain_coverpkg}" \
   -coverprofile="${domain_profile}" \
