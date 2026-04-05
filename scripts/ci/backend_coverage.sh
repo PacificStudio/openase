@@ -115,9 +115,18 @@ run_go_test_quiet_success() {
   return 1
 }
 
+run_go_test_ci_visible() {
+  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    run_go_test "$@"
+    return
+  fi
+
+  run_go_test_quiet_success "$@"
+}
+
 run_backend_full_suite() {
   printf 'Running backend full test suite...\n'
-  run_go_test_quiet_success \
+  run_go_test_ci_visible \
     -count=1 \
     -timeout="${GO_TEST_TIMEOUT}" \
     -parallel=1 \
@@ -160,7 +169,7 @@ else
 fi
 
 printf '\nRunning domain/core coverage gate...\n'
-run_go_test_quiet_success \
+run_go_test_ci_visible \
   -count=1 \
   -covermode=atomic \
   -coverpkg="${domain_coverpkg}" \
