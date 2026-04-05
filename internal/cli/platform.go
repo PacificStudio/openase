@@ -29,6 +29,7 @@ type rawPlatformContext struct {
 	token     string
 	projectID string
 	ticketID  string
+	scopes    []string
 }
 
 type platformContext struct {
@@ -36,6 +37,7 @@ type platformContext struct {
 	token     string
 	projectID string
 	ticketID  string
+	scopes    []string
 }
 
 type ticketCommandOptions struct {
@@ -914,7 +916,41 @@ func (raw rawPlatformContext) resolve() (platformContext, error) {
 		token:     token,
 		projectID: strings.TrimSpace(firstNonEmpty(raw.projectID, os.Getenv("OPENASE_PROJECT_ID"))),
 		ticketID:  strings.TrimSpace(firstNonEmpty(raw.ticketID, os.Getenv("OPENASE_TICKET_ID"))),
+		scopes:    parsePlatformScopeList(firstNonEmpty(strings.Join(raw.scopes, ","), os.Getenv("OPENASE_AGENT_SCOPES"))),
 	}, nil
+}
+
+func parsePlatformScopeList(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	items := strings.Split(raw, ",")
+	scopes := make([]string, 0, len(items))
+	for _, item := range items {
+		scope := strings.TrimSpace(item)
+		if scope == "" || slicesContains(scopes, scope) {
+			continue
+		}
+		scopes = append(scopes, scope)
+	}
+	return scopes
+}
+
+func slicesContains(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+func (platform platformContext) hasScope(scope string) bool {
+	return slicesContains(platform.scopes, strings.TrimSpace(scope))
+}
+
+func (platform platformContext) useProjectScopedTicketUpdate() bool {
+	return platform.hasScope("tickets.update")
 }
 
 func (platform platformContext) parseTicketListInput(raw ticketListInput) (ticketListInput, error) {
@@ -1339,7 +1375,15 @@ func (client platformClient) updateTicket(ctx context.Context, platform platform
 		payload["archived"] = input.archived
 	}
 
-	return client.doJSON(ctx, platform, http.MethodPatch, "/tickets/"+url.PathEscape(input.ticketID), payload)
+	path := "/tickets/" + url.PathEscape(input.ticketID)
+	if platform.useProjectScopedTicketUpdate() {
+		if strings.TrimSpace(platform.projectID) == "" {
+			return nil, fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID for project-scoped ticket updates")
+		}
+		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID)
+	}
+
+	return client.doJSON(ctx, platform, http.MethodPatch, path, payload)
 }
 
 func (client platformClient) reportTicketUsage(ctx context.Context, platform platformContext, input ticketReportUsageInput) ([]byte, error) {

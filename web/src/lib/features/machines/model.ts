@@ -93,7 +93,11 @@ export function updateMachineDraft(
     )
 
     nextDraft.reachabilityMode = reachabilityMode
-    nextDraft.executionMode = coerceExecutionMode(reachabilityMode, executionMode)
+    nextDraft.executionMode = coerceExecutionMode(
+      reachabilityMode,
+      executionMode,
+      nextDraft.advertisedEndpoint,
+    )
     applyModeDefaults(draft, nextDraft)
   }
 
@@ -121,6 +125,7 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
   const executionMode = coerceExecutionMode(
     reachabilityMode,
     normalizeExecutionMode(draft.executionMode, draft.host),
+    draft.advertisedEndpoint,
   )
   const connectionMode = resolveConnectionMode(reachabilityMode, executionMode)
   const name = reachabilityMode === 'local' ? 'local' : draft.name.trim()

@@ -24,9 +24,7 @@ import (
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
-	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
-	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
@@ -598,51 +596,6 @@ func (l *RuntimeLauncher) recordLaunchFailureMetric(launchErr error) {
 	}).Add(1)
 }
 
-func (l *RuntimeLauncher) recordSSHRuntimeFallback(
-	ctx context.Context,
-	assignment runtimeAssignment,
-	launchContext runtimeLaunchContext,
-	machine catalogdomain.Machine,
-	launchErr error,
-) {
-	if l == nil {
-		return
-	}
-	logAttrs := []any{
-		"machine_id", machine.ID.String(),
-		"transport_mode", machine.ConnectionMode.String(),
-		"fallback_transport_mode", catalogdomain.MachineConnectionModeSSH.String(),
-	}
-	if details := runtimeLaunchFailureDetails(launchErr); details != nil {
-		if details.stage != "" {
-			logAttrs = append(logAttrs, "failure_stage", string(details.stage))
-		}
-		if strings.TrimSpace(details.workspaceRoot) != "" {
-			logAttrs = append(logAttrs, "workspace_root", details.workspaceRoot)
-		}
-	}
-	l.logger.Warn("fallback runtime launch to ssh", logAttrs...)
-
-	if l.client == nil || assignment.ticket == nil || assignment.agent == nil || launchContext.project == nil {
-		return
-	}
-	metadata := mergeRuntimeFailureMetadata(map[string]any{
-		"machine_id":              machine.ID.String(),
-		"from_transport_mode":     machine.ConnectionMode.String(),
-		"fallback_transport_mode": catalogdomain.MachineConnectionModeSSH.String(),
-	}, launchErr)
-	if _, err := activitysvc.NewEmitter(activitysvc.EntRecorder{Client: l.client}, l.events).Emit(ctx, activitysvc.RecordInput{
-		ProjectID: launchContext.project.ID,
-		TicketID:  &assignment.ticket.ID,
-		AgentID:   &assignment.agent.ID,
-		EventType: activityevent.TypeRuntimeFallbackToSSH,
-		Message:   fmt.Sprintf("Runtime launch fell back to SSH for machine %s.", machine.Name),
-		Metadata:  metadata,
-	}); err != nil {
-		l.logger.Warn("record runtime fallback activity", "machine_id", machine.ID.String(), "ticket_id", assignment.ticket.ID, "agent_id", assignment.agent.ID, "error", err)
-	}
-}
-
 func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
 	pausedAssignments, err := l.listAssignments(ctx,
 		entticket.CurrentRunIDNotNil(),
@@ -883,17 +836,10 @@ func (l *RuntimeLauncher) startRuntimeSession(ctx context.Context, assignment ru
 	}
 
 	session, err := l.startRuntimeSessionOnMachine(ctx, assignment, launchContext, machine, remote)
-	if err == nil {
-		return session, nil
-	}
-	if !remote || !shouldFallbackToSSH(machine, err) {
+	if err != nil {
 		return nil, err
 	}
-
-	fallbackMachine := machine
-	fallbackMachine.ConnectionMode = catalogdomain.MachineConnectionModeSSH
-	l.recordSSHRuntimeFallback(ctx, assignment, launchContext, machine, err)
-	return l.startRuntimeSessionOnMachine(ctx, assignment, launchContext, fallbackMachine, remote)
+	return session, nil
 }
 
 func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
@@ -906,6 +852,14 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 	workspaceRoot := ""
 	if remote && machine.WorkspaceRoot != nil {
 		workspaceRoot = strings.TrimSpace(*machine.WorkspaceRoot)
+	}
+	if remote && machine.ConnectionMode == catalogdomain.MachineConnectionModeSSH {
+		return nil, wrapRuntimeLaunchFailure(
+			machine,
+			workspaceRoot,
+			runtimeLaunchStageTransportResolve,
+			fmt.Errorf("ssh runtime execution is no longer supported for machine %s; migrate the machine to websocket execution and use SSH only for bootstrap or diagnostics", machine.Name),
+		)
 	}
 
 	commandString := launchContext.agent.Edges.Provider.CliCommand

@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
-const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? '4173')
-const webHost = process.env.PLAYWRIGHT_WEB_HOST ?? '127.0.0.1'
-const baseURL = `http://${webHost}:${webPort}`
+const host = process.env.PLAYWRIGHT_WEB_HOST ?? process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
+const port = Number(process.env.PLAYWRIGHT_WEB_PORT ?? process.env.PLAYWRIGHT_PORT ?? '4173')
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -25,8 +25,8 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   webServer: {
-    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${webHost} --port ${webPort}`,
-    port: webPort,
+    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port}`,
+    port,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {

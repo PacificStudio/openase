@@ -22,6 +22,7 @@ const TokenPrefix = domain.TokenPrefix
 const (
 	ScopeTicketsCreate                 = domain.ScopeTicketsCreate
 	ScopeTicketsList                   = domain.ScopeTicketsList
+	ScopeTicketsUpdate                 = domain.ScopeTicketsUpdate
 	ScopeTicketsReportUsage            = domain.ScopeTicketsReportUsage
 	ScopeTicketsUpdateSelf             = domain.ScopeTicketsUpdateSelf
 	ScopeProjectsUpdate                = domain.ScopeProjectsUpdate
@@ -125,6 +126,7 @@ var (
 		ScopeTicketRepoScopesUpdate,
 		ScopeTicketsCreate,
 		ScopeTicketsList,
+		ScopeTicketsUpdate,
 		ScopeTicketsReportUsage,
 		ScopeTicketsUpdateSelf,
 		ScopeWorkflowsCreate,
@@ -509,7 +511,8 @@ func privilegedScopesForPrincipalKind(kind PrincipalKind) []string {
 func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 	switch kind {
 	case PrincipalKindProjectConversation:
-		return append(ScopeSet(nil), supportedAgentScopes...)
+		scopes := supportedScopesForPrincipalKind(kind)
+		return append(ScopeSet(nil), scopes...)
 	default:
 		return append(ScopeSet(nil), defaultAgentScopes...)
 	}
@@ -518,7 +521,14 @@ func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 func supportedScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
 	switch kind {
 	case PrincipalKindProjectConversation:
-		return append(ScopeSet(nil), supportedAgentScopes...)
+		scopes := make(ScopeSet, 0, len(supportedAgentScopes))
+		for _, scope := range supportedAgentScopes {
+			if scope == ScopeTicketsUpdateSelf {
+				continue
+			}
+			scopes = append(scopes, scope)
+		}
+		return scopes
 	default:
 		return append(ScopeSet(nil), supportedAgentScopes...)
 	}

@@ -116,38 +116,32 @@ func TestWebsocketListenerTransportStartProcess(t *testing.T) {
 	machine := testListenerMachine(websocketURL(server.URL), "")
 	transport := websocketTransport{mode: domain.MachineConnectionModeWSListener}
 
-	spec, err := provider.NewAgentCLIProcessSpec(
-		provider.MustParseAgentCLICommand("sh"),
-		[]string{"-c", "cat"},
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("NewAgentCLIProcessSpec() error = %v", err)
-	}
+	for attempt := range 20 {
+		spec, err := provider.NewAgentCLIProcessSpec(
+			provider.MustParseAgentCLICommand("sh"),
+			[]string{"-lc", "printf listener-process"},
+			nil,
+			nil,
+		)
+		if err != nil {
+			t.Fatalf("NewAgentCLIProcessSpec() error = %v", err)
+		}
 
-	process, err := transport.StartProcess(context.Background(), machine, spec)
-	if err != nil {
-		t.Fatalf("StartProcess() error = %v", err)
-	}
-	defer func() { _ = process.Stop(context.Background()) }()
+		process, err := transport.StartProcess(context.Background(), machine, spec)
+		if err != nil {
+			t.Fatalf("StartProcess() error = %v", err)
+		}
 
-	if _, err := process.Stdin().Write([]byte("listener-process\n")); err != nil {
-		t.Fatalf("process.Stdin().Write() error = %v", err)
-	}
-	if err := process.Stdin().Close(); err != nil {
-		t.Fatalf("process.Stdin().Close() error = %v", err)
-	}
-
-	stdout, err := io.ReadAll(process.Stdout())
-	if err != nil {
-		t.Fatalf("ReadAll(process.Stdout()) error = %v", err)
-	}
-	if err := process.Wait(); err != nil {
-		t.Fatalf("process.Wait() error = %v", err)
-	}
-	if !strings.Contains(string(stdout), "listener-process") {
-		t.Fatalf("process stdout = %q", string(stdout))
+		stdout, err := io.ReadAll(process.Stdout())
+		if err != nil {
+			t.Fatalf("ReadAll(process.Stdout()) error = %v", err)
+		}
+		if err := process.Wait(); err != nil {
+			t.Fatalf("process.Wait() error = %v", err)
+		}
+		if !strings.Contains(string(stdout), "listener-process") {
+			t.Fatalf("attempt %d process stdout = %q", attempt+1, string(stdout))
+		}
 	}
 }
 

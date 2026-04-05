@@ -45,60 +45,59 @@
   const iconPath = $derived(adapterIconPath(guide.adapterTypes[0] ?? ''))
 </script>
 
-<div class="border-border bg-background flex h-full flex-col rounded-xl border p-4">
+<div class="border-border bg-background flex h-full flex-col rounded-lg border p-4">
   <div class="mb-3 flex items-start gap-3">
-    <div class="bg-muted flex size-11 shrink-0 items-center justify-center rounded-xl">
+    <div class="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg">
       {#if iconPath}
-        <img src={iconPath} alt="" class="size-6" />
+        <img src={iconPath} alt="" class="size-5" />
       {:else}
-        <Zap class="text-foreground size-5" />
+        <Zap class="text-foreground size-4" />
       {/if}
     </div>
-    <div class="min-w-0 flex-1 space-y-1">
+    <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <p class="text-foreground text-sm font-semibold">{guide.title}</p>
-        <span class={cn('text-xs', status.className)}>{status.text}</span>
+        <p class="text-foreground text-sm leading-tight font-semibold">{guide.title}</p>
+        <span
+          class={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] leading-none font-medium',
+            status.className,
+          )}
+        >
+          {status.text}
+        </span>
       </div>
-      <p class="text-muted-foreground text-xs">
-        {providers.length > 0
-          ? `${providers.length} provider${providers.length === 1 ? '' : 's'} registered`
-          : 'No provider registered yet'}
-      </p>
+      <p class="text-muted-foreground mt-0.5 text-xs">{guide.recommendedModel}</p>
     </div>
   </div>
 
-  <div class="mb-3 grid grid-cols-2 gap-2 text-xs">
-    <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">CLI</p>
-      <p class="text-foreground mt-1 font-medium">
-        {cliDetectionLabel[cliDetectionState(providers)]}
-      </p>
+  <div class="mb-3 space-y-1.5 text-xs">
+    <div class="flex items-center justify-between">
+      <span class="text-muted-foreground">CLI</span>
+      <span class="text-foreground font-medium"
+        >{cliDetectionLabel[cliDetectionState(providers)]}</span
+      >
     </div>
-    <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">Auth</p>
-      <p class="text-foreground mt-1 font-medium">
-        {authDetectionLabel[authDetectionState(providers)]}
-      </p>
+    <div class="flex items-center justify-between">
+      <span class="text-muted-foreground">Auth</span>
+      <span class="text-foreground font-medium"
+        >{authDetectionLabel[authDetectionState(providers)]}</span
+      >
     </div>
-    <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">Recommended model</p>
-      <p class="text-foreground mt-1 font-medium">{guide.recommendedModel}</p>
-    </div>
-    <div class="bg-muted/50 rounded-lg px-3 py-2">
-      <p class="text-muted-foreground">Default entry</p>
-      <p class="text-foreground mt-1 font-medium">{guide.title}</p>
+    <div class="flex items-center justify-between">
+      <span class="text-muted-foreground">Instances</span>
+      <span class="text-foreground font-medium">{providers.length}</span>
     </div>
   </div>
 
   {#if primaryProvider}
-    <div class="border-border bg-muted/30 mb-3 rounded-lg border px-3 py-2 text-xs">
-      <p class="text-foreground font-medium">
+    <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
+      <p class="text-foreground leading-snug font-medium">
         {providerAvailabilityHeadline(
           primaryProvider.availability_state,
           primaryProvider.availability_reason,
         )}
       </p>
-      <p class="text-muted-foreground mt-1">
+      <p class="text-muted-foreground mt-0.5 leading-snug">
         {providerAvailabilityDescription(
           primaryProvider.availability_state,
           primaryProvider.availability_reason,
@@ -118,7 +117,7 @@
       >
         {#if selecting && selectedId === availableProviders[0]?.id}
           <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Setting...
+          Setting…
         {:else if selectedId === availableProviders[0]?.id}
           Default
         {:else}
@@ -127,9 +126,7 @@
       </Button>
     {:else}
       <Button size="sm" class="flex-1" variant="outline" onclick={() => onOpenGuide(guide.key)}>
-        {availableProviders.length > 1
-          ? `View ${availableProviders.length} instances`
-          : 'Continue setup'}
+        {availableProviders.length > 1 ? `${availableProviders.length} instances` : 'Setup guide'}
       </Button>
     {/if}
 

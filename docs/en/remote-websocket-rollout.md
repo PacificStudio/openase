@@ -7,7 +7,7 @@ Terminology used in this guide:
 - `direct_connect`: the control plane can reach the machine.
 - `reverse_connect`: the machine daemon can dial back to the control plane.
 - `websocket`: the intended remote execution path.
-- `ssh_compat`: a temporary compatibility path or helper used during rollout, bootstrap, and diagnostics.
+- `ssh_compat`: a legacy stored execution value that should be migrated to websocket. SSH remains helper-only for bootstrap, diagnostics, and emergency repair.
 
 ## Automated Validation Matrix
 
@@ -22,9 +22,11 @@ The matrix currently covers:
 | Scenario | Coverage |
 | --- | --- |
 | SSH bootstrap + reverse websocket machine session | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
-| SSH bootstrap + reverse websocket runtime fallback | `TestRuntimeLauncherFallsBackToSSHWhenWebsocketReverseTransportUnavailable` |
+| SSH bootstrap helper behavior | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
+| SSH diagnostics helper behavior | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH bootstrap + listener websocket runtime | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
-| Pure SSH fallback runtime regression | `TestRuntimeLauncherRunTickPreparesRemoteWorkspaceAndLaunchesOverSSH` |
+| Direct SSH runtime rejection | `TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution` |
+| Reverse websocket launch does not fall back to SSH | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
 | Remote binary / preflight failure | `TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics` |
 | Daemon auth failure | `TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric` |
 
@@ -39,7 +41,7 @@ What each happy-path runtime case verifies:
 Known current gap:
 
 - listener websocket has an end-to-end runtime happy path.
-- reverse websocket currently keeps machine channel coverage plus an automatic SSH fallback runtime path when websocket launch fails before process start and SSH credentials are configured.
+- reverse websocket runtime still needs broader end-to-end launch coverage beyond daemon session registration and helper flows.
 
 ## Observability Contract
 
@@ -85,7 +87,6 @@ Project activity now records:
 - `machine.reconnected`
 - `machine.disconnected`
 - `machine.daemon_auth_failed`
-- `runtime.fallback_to_ssh`
 - `agent.failed`
   - includes `failure_stage`, `transport_mode`, `machine_id`, and `workspace_root` when the failure happened during launch
 
@@ -94,7 +95,6 @@ Use project activity together with logs when you need to answer:
 - Which machine lost or replaced a websocket session?
 - Did the daemon fail authentication or just reconnect?
 - Did the runtime fail in transport setup, workspace prepare, binary preflight, or process start?
-- Did OpenASE fall back to SSH for this ticket?
 
 ## Deployment Prerequisites
 
@@ -112,19 +112,18 @@ Reverse websocket:
 
 - best when the machine can dial out but cannot expose an inbound listener
 - requires a machine channel token
-- should keep SSH credentials on the machine record during rollout so OpenASE can fall back to SSH when needed
+- may keep SSH credentials on the machine record only when operators want helper bootstrap or diagnostics
 
 Listener websocket:
 
 - best when the control plane can directly reach the machine
 - requires a machine-advertised websocket endpoint
-- should still keep SSH credentials configured during rollout to preserve operational fallback
+- may keep SSH credentials configured for helper bootstrap or diagnostics when operators want direct repair access
 
 SSH compatibility:
 
-- remains the baseline fallback path during rollout
-- should stay validated and enabled until websocket launch success and reconnect recovery meet rollout criteria
-- should be treated as helper or compatibility infrastructure, not the long-term remote execution model
+- is no longer a supported runtime fallback path
+- should be treated as legacy record state plus helper infrastructure, not as the remote execution model
 
 ## Bootstrap And Daemon Install
 
@@ -144,7 +143,7 @@ Before starting the daemon, make sure the machine record has:
   - `reverse_connect + websocket`, or
   - `direct_connect + websocket`
 - a valid `workspace_root`
-- SSH helper credentials preserved only when you still need rollout fallback or diagnostics
+- SSH helper credentials preserved only when you still need bootstrap, diagnostics, or emergency repair access
 - `agent_cli_path` when the remote CLI is not discoverable from `PATH`
 
 ### 3. Issue A Dedicated Machine Channel Token
@@ -165,6 +164,16 @@ This prints shell exports for:
 - `OPENASE_MACHINE_CONTROL_PLANE_URL`
 
 ### 4. Start The Reverse Websocket Daemon
+
+If the control plane can already reach the machine over SSH, you can use the helper flow instead of copying files manually:
+
+```bash
+./bin/openase machine ssh-bootstrap <machine-uuid>
+```
+
+This uploads the current `openase` binary, writes the machine-agent environment file, installs the per-user service, and restarts it.
+
+Manual fallback for operators who are not using the helper:
 
 On the remote machine:
 
@@ -217,7 +226,7 @@ For listener websocket mode, deploy the listener endpoint first, then save the a
 1. Stop the daemon service.
 2. Restore the previous binary.
 3. Restart the daemon.
-4. If websocket launch is still unstable, switch the machine or provider back to SSH and verify the fallback runtime path before widening rollout again.
+4. If websocket launch is still unstable, use `openase machine ssh-diagnostics <machine-uuid>` and `openase machine ssh-bootstrap <machine-uuid>` to repair daemon configuration before widening rollout again.
 
 ## Troubleshooting
 
@@ -231,20 +240,23 @@ For listener websocket mode, deploy the listener endpoint first, then save the a
 | Git clone fails | `failure_stage=repo_auth` | repository credential projection, `GH_TOKEN`, deploy key, or remote git transport policy |
 | Workspace root invalid | `failure_stage=workspace_root` | saved machine `workspace_root`, permissions, mounted filesystem availability |
 
+Use `openase machine ssh-diagnostics <machine-uuid>` when you need a quick helper-only readout for workspace permissions, remote binary presence, service status, or recent logs.
+
 ## Rollout Checklist
 
 ### Stage 1: Transport Compatibility
 
 - run `scripts/ci/remote_transport_matrix.sh`
-- confirm the pure SSH regression still passes
+- confirm direct SSH runtime is rejected
+- confirm reverse websocket launch failures do not fall back to SSH
 - confirm websocket preflight failures are classified with `failure_stage`
 
 ### Stage 2: Reverse Websocket Canary
 
 - enable `ws_reverse` on a small machine subset
-- keep SSH credentials on each machine
+- keep SSH credentials only where operators want helper bootstrap or diagnostics
 - verify `machine.connected` and reconnect behavior under a daemon restart
-- confirm a forced websocket transport failure falls back to SSH when expected
+- confirm a forced websocket transport failure stays classified as a websocket-side launch error
 
 ### Stage 3: Listener Expansion
 
@@ -252,9 +264,9 @@ For listener websocket mode, deploy the listener endpoint first, then save the a
 - verify DNS, TLS, and direct control-plane reachability before each listener rollout
 - run at least one happy-path listener runtime per rollout batch
 
-### Stage 4: Broad Rollout With SSH Kept Hot
+### Stage 4: Broad Rollout With Optional SSH Helper
 
-- do not remove SSH fallback during the initial rollout window
+- do not treat SSH as part of the runtime execution plan during the rollout window
 - keep dashboard views for:
   - launch success rate by `transport_mode`
   - reconnect recovery

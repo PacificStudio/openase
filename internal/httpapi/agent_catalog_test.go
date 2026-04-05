@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"sort"
 	"strings"
@@ -182,6 +183,150 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	deleteAgentRec := performJSONRequest(t, server, http.MethodDelete, "/api/v1/agents/"+agentPayload.Agent.ID, "")
 	if deleteAgentRec.Code != http.StatusOK {
 		t.Fatalf("expected agent delete 200, got %d: %s", deleteAgentRec.Code, deleteAgentRec.Body.String())
+	}
+}
+
+func TestCreateAgentProviderPublishesLifecycleEventToOrganizationStream(t *testing.T) {
+	service := newFakeCatalogService()
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers/stream",
+	)
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close provider stream response body: %v", err)
+		}
+	})
+
+	providerRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex"}`,
+	)
+	if providerRec.Code != http.StatusCreated {
+		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
+	}
+
+	var providerPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, providerRec, &providerPayload)
+
+	body := readSSEBodyUntilContainsAll(t, response, cancel, []string{
+		"event: provider.created\n",
+		`"organization_id":"` + orgPayload.Organization.ID + `"`,
+		`"provider":{"id":"` + providerPayload.Provider.ID + `"`,
+		`"cli_command":"codex"`,
+		`"model_name":"gpt-5.3-codex"`,
+	})
+
+	if !strings.Contains(body, `"type":"provider.created"`) {
+		t.Fatalf("expected provider.created envelope, got %q", body)
+	}
+}
+
+func TestPatchAgentProviderPublishesLifecycleEventToOrganizationStream(t *testing.T) {
+	service := newFakeCatalogService()
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	orgRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/orgs", `{"name":"Acme Platform","slug":"acme-platform"}`)
+	if orgRec.Code != http.StatusCreated {
+		t.Fatalf("expected organization create 201, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+
+	var orgPayload struct {
+		Organization organizationResponse `json:"organization"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+
+	providerRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex"}`,
+	)
+	if providerRec.Code != http.StatusCreated {
+		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
+	}
+
+	var providerPayload struct {
+		Provider agentProviderResponse `json:"provider"`
+	}
+	decodeResponse(t, providerRec, &providerPayload)
+
+	response, cancel := openSSERequest(
+		t,
+		testServer.URL+"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers/stream",
+	)
+	t.Cleanup(func() {
+		if err := response.Body.Close(); err != nil {
+			t.Errorf("close provider stream response body: %v", err)
+		}
+	})
+
+	patchRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/providers/"+providerPayload.Provider.ID,
+		`{"model_name":"gpt-5.4","cli_command":"codex-beta","cli_args":["serve","--stdio"]}`,
+	)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("expected provider patch 200, got %d: %s", patchRec.Code, patchRec.Body.String())
+	}
+
+	body := readSSEBodyUntilContainsAll(t, response, cancel, []string{
+		"event: provider.updated\n",
+		`"organization_id":"` + orgPayload.Organization.ID + `"`,
+		`"provider":{"id":"` + providerPayload.Provider.ID + `"`,
+		`"cli_command":"codex-beta"`,
+		`"cli_args":["serve","--stdio"]`,
+		`"model_name":"gpt-5.4"`,
+	})
+
+	if !strings.Contains(body, `"type":"provider.updated"`) {
+		t.Fatalf("expected provider.updated envelope, got %q", body)
 	}
 }
 

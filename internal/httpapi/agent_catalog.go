@@ -206,6 +206,9 @@ func (s *Server) createAgentProvider(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.publishProviderLifecycleEvent(c.Request().Context(), providerCreatedEventType, item); err != nil {
+		return err
+	}
 	if err := s.emitProviderActivityForAffectedProjects(
 		c.Request().Context(),
 		item.OrganizationID,
@@ -273,6 +276,9 @@ func (s *Server) patchAgentProvider(c echo.Context) error {
 	item, err := s.catalog.UpdateAgentProvider(c.Request().Context(), input)
 	if err != nil {
 		return writeCatalogError(c, err)
+	}
+	if err := s.publishProviderLifecycleEvent(c.Request().Context(), providerUpdatedEventType, item); err != nil {
+		return err
 	}
 	if current.MachineID != item.MachineID {
 		if err := s.emitProviderActivityForAffectedProjects(

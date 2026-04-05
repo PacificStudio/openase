@@ -204,16 +204,36 @@ jobs:
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
 
+      - name: Select Playwright Port
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          port="$(python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+          )"
+          echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port}" >> "${GITHUB_ENV}"
+
       - name: Run Web CI
         shell: bash
         run: |
           set -euo pipefail
+
+          printf 'Using Playwright web server %s\n' "${PLAYWRIGHT_BASE_URL}"
 
           if pnpm run ci; then
             exit 0
           fi
 
           echo "Frontend CI diagnostics:"
+          echo "Playwright web server: ${PLAYWRIGHT_BASE_URL}"
           pnpm exec prettier --version || true
           sha256sum src/routes/\(app\)/orgs/+page.svelte || true
           pnpm exec prettier --check src/routes/\(app\)/orgs/+page.svelte || true
@@ -283,19 +303,20 @@ jobs:
         timeout-minutes: 45
         shell: bash
         env:
-          OPENASE_GO_TEST_PROGRESS_MODE: plain
+          OPENASE_GO_TEST_PROGRESS_MODE: json
         run: |
           set -euo pipefail
 
           heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
-          heartbeat_interval_seconds=120
+          heartbeat_interval_seconds=30
 
           heartbeat() {
             while true; do
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # Long plain `go test` runs can stay quiet long enough to trip runner watchdogs.
+              # The self-hosted runner watchdog is more aggressive than the job timeout.
+              # Emit a short heartbeat even when `go test -json` is between package events.
               sleep "${heartbeat_interval_seconds}"
             done
           }

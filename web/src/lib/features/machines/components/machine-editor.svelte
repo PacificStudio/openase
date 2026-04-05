@@ -126,7 +126,7 @@
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">SSH helper & compatibility</h3>
+    <h3 class="text-foreground text-sm font-semibold">SSH helper</h3>
 
     {#if localMachine}
       <p class="text-muted-foreground text-xs">Local execution does not use SSH helper access.</p>
@@ -154,13 +154,14 @@
       </div>
       <p class="text-muted-foreground text-xs">
         {#if executionMode === 'ssh_compat'}
-          Required while this machine still uses the legacy SSH compatibility execution path.
+          Legacy record detected. Resave this machine as websocket execution, then keep SSH only for
+          bootstrap or diagnostics.
         {:else if reachabilityMode === 'reverse_connect'}
-          Optional SSH helper access for bootstrap or diagnostics. Runtime execution stays on the
-          reverse websocket daemon.
+          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
+          execution stays on the reverse websocket daemon.
         {:else}
-          Optional SSH helper access for bootstrap or diagnostics. Runtime execution stays on the
-          websocket listener above.
+          Optional SSH helper access for bootstrap, diagnostics, or emergency repair. Runtime
+          execution stays on the websocket listener above.
         {/if}
       </p>
     {/if}
