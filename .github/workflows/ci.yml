@@ -209,11 +209,25 @@ jobs:
         run: |
           set -euo pipefail
 
+          pick_playwright_port() {
+            python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+          }
+
+          export OPENASE_PLAYWRIGHT_PORT="$(pick_playwright_port)"
+          printf 'Using Playwright web server port %s\n' "${OPENASE_PLAYWRIGHT_PORT}"
+
           if pnpm run ci; then
             exit 0
           fi
 
           echo "Frontend CI diagnostics:"
+          echo "Playwright web server port: ${OPENASE_PLAYWRIGHT_PORT}"
           pnpm exec prettier --version || true
           sha256sum src/routes/\(app\)/orgs/+page.svelte || true
           pnpm exec prettier --check src/routes/\(app\)/orgs/+page.svelte || true
