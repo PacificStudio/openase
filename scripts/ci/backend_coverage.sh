@@ -104,13 +104,25 @@ run_go_test() {
   "${TEST_ENV_WRAPPER}" "${GO_BIN}" test "$@"
 }
 
+run_go_test_quiet_success() {
+  local output_file="${tmp_dir}/go-test-$RANDOM.log"
+
+  if run_go_test "$@" >"${output_file}" 2>&1; then
+    return 0
+  fi
+
+  cat "${output_file}" >&2
+  return 1
+}
+
 run_backend_full_suite() {
   printf 'Running backend full test suite...\n'
-  run_go_test \
+  run_go_test_quiet_success \
     -count=1 \
     -timeout="${GO_TEST_TIMEOUT}" \
     -parallel=1 \
     "${backend_packages[@]}"
+  printf 'Backend full test suite passed.\n'
 }
 
 enable_full_backend_coverage() {
@@ -148,7 +160,7 @@ else
 fi
 
 printf '\nRunning domain/core coverage gate...\n'
-run_go_test \
+run_go_test_quiet_success \
   -count=1 \
   -covermode=atomic \
   -coverpkg="${domain_coverpkg}" \

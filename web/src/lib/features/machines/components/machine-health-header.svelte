@@ -4,12 +4,13 @@
   import { formatRelativeTime } from '$lib/utils'
   import { RefreshCw } from '@lucide/svelte'
   import {
-    machineConnectionModeLabel,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
     machineDetectionMessage,
     machineDetectionStatusLabel,
+    machineExecutionModeLabel,
+    machineReachabilityLabel,
   } from '../model'
   import type { MachineItem, MachineSnapshot } from '../types'
 
@@ -43,7 +44,8 @@
 
     {#if machine}
       <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{machineConnectionModeLabel(machine.connection_mode)}</Badge>
+        <Badge variant="outline">{machineReachabilityLabel(machine.reachability_mode)}</Badge>
+        <Badge variant="outline">{machineExecutionModeLabel(machine.execution_mode)}</Badge>
         <Badge variant="secondary">{machineDetectedOSLabel(machine.detected_os)}</Badge>
         <Badge variant="secondary">{machineDetectedArchLabel(machine.detected_arch)}</Badge>
         <Badge variant="outline" class={machineDetectionBadgeClass(machine.detection_status)}>
@@ -54,10 +56,10 @@
         {machineDetectionMessage(machine)}
       </p>
       <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
-        {#if machine.connection_mode === 'ws_listener' && machine.advertised_endpoint}
+        {#if machine.execution_mode === 'websocket' && machine.reachability_mode === 'direct_connect' && machine.advertised_endpoint}
           <span class="truncate font-mono">{machine.advertised_endpoint}</span>
         {/if}
-        {#if machine.connection_mode !== 'local'}
+        {#if machine.reachability_mode !== 'local'}
           <span>session {machine.daemon_status?.session_state ?? 'unknown'}</span>
         {/if}
       </div>

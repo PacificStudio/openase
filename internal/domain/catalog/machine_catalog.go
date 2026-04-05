@@ -23,6 +23,8 @@ type Machine struct {
 	Name                  string
 	Host                  string
 	Port                  int
+	ReachabilityMode      MachineReachabilityMode
+	ExecutionMode         MachineExecutionMode
 	ConnectionMode        MachineConnectionMode
 	TransportCapabilities []MachineTransportCapability
 	SSHUser               *string
@@ -57,6 +59,8 @@ type MachineInput struct {
 	Name                  string                         `json:"name"`
 	Host                  string                         `json:"host"`
 	Port                  *int                           `json:"port"`
+	ReachabilityMode      string                         `json:"reachability_mode"`
+	ExecutionMode         string                         `json:"execution_mode"`
 	ConnectionMode        string                         `json:"connection_mode"`
 	TransportCapabilities []string                       `json:"transport_capabilities"`
 	SSHUser               *string                        `json:"ssh_user"`
@@ -80,6 +84,8 @@ type CreateMachine struct {
 	Name                  string
 	Host                  string
 	Port                  int
+	ReachabilityMode      MachineReachabilityMode
+	ExecutionMode         MachineExecutionMode
 	ConnectionMode        MachineConnectionMode
 	TransportCapabilities []MachineTransportCapability
 	SSHUser               *string
@@ -104,6 +110,8 @@ type UpdateMachine struct {
 	Name                  string
 	Host                  string
 	Port                  int
+	ReachabilityMode      MachineReachabilityMode
+	ExecutionMode         MachineExecutionMode
 	ConnectionMode        MachineConnectionMode
 	TransportCapabilities []MachineTransportCapability
 	SSHUser               *string
@@ -150,14 +158,19 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		return CreateMachine{}, fmt.Errorf("machine %q must use host %q", LocalMachineName, LocalMachineHost)
 	}
 
-	connectionMode, err := parseMachineConnectionMode(raw.ConnectionMode, host)
+	connectionMode, reachabilityMode, executionMode, err := ResolveMachineConnectionMode(
+		raw.ConnectionMode,
+		raw.ReachabilityMode,
+		raw.ExecutionMode,
+		host,
+	)
 	if err != nil {
 		return CreateMachine{}, err
 	}
-	if connectionMode == MachineConnectionModeLocal && host != LocalMachineHost {
+	if reachabilityMode == MachineReachabilityModeLocal && host != LocalMachineHost {
 		return CreateMachine{}, fmt.Errorf("connection_mode local requires host %q", LocalMachineHost)
 	}
-	if connectionMode != MachineConnectionModeLocal && host == LocalMachineHost {
+	if reachabilityMode != MachineReachabilityModeLocal && host == LocalMachineHost {
 		return CreateMachine{}, fmt.Errorf("host %q requires connection_mode local", LocalMachineHost)
 	}
 
@@ -229,6 +242,8 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 		Name:                  name,
 		Host:                  host,
 		Port:                  port,
+		ReachabilityMode:      reachabilityMode,
+		ExecutionMode:         executionMode,
 		ConnectionMode:        connectionMode,
 		TransportCapabilities: transportCapabilities,
 		SSHUser:               sshUser,
@@ -260,6 +275,8 @@ func ParseUpdateMachine(id uuid.UUID, organizationID uuid.UUID, raw MachineInput
 		Name:                  input.Name,
 		Host:                  input.Host,
 		Port:                  input.Port,
+		ReachabilityMode:      input.ReachabilityMode,
+		ExecutionMode:         input.ExecutionMode,
 		ConnectionMode:        input.ConnectionMode,
 		TransportCapabilities: input.TransportCapabilities,
 		SSHUser:               input.SSHUser,

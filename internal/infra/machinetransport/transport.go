@@ -500,20 +500,7 @@ func copyCapabilities(
 	mode domain.MachineConnectionMode,
 ) []domain.MachineTransportCapability {
 	if len(items) == 0 {
-		switch mode {
-		case domain.MachineConnectionModeLocal,
-			domain.MachineConnectionModeSSH,
-			domain.MachineConnectionModeWSReverse,
-			domain.MachineConnectionModeWSListener:
-			return []domain.MachineTransportCapability{
-				domain.MachineTransportCapabilityProbe,
-				domain.MachineTransportCapabilityWorkspacePrepare,
-				domain.MachineTransportCapabilityArtifactSync,
-				domain.MachineTransportCapabilityProcessStreaming,
-			}
-		default:
-			return nil
-		}
+		return domain.SupportedMachineTransportCapabilities(mode)
 	}
 	cloned := make([]domain.MachineTransportCapability, 0, len(items))
 	cloned = append(cloned, items...)

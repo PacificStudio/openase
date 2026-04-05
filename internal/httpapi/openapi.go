@@ -97,6 +97,11 @@ type OpenAPIMachine struct {
 	Name                  string                          `json:"name"`
 	Host                  string                          `json:"host"`
 	Port                  int                             `json:"port"`
+	ReachabilityMode      string                          `json:"reachability_mode"`
+	ExecutionMode         string                          `json:"execution_mode"`
+	ExecutionCapabilities []string                        `json:"execution_capabilities,omitempty"`
+	SSHHelperEnabled      bool                            `json:"ssh_helper_enabled"`
+	SSHHelperRequired     bool                            `json:"ssh_helper_required"`
 	ConnectionMode        string                          `json:"connection_mode"`
 	TransportCapabilities []string                        `json:"transport_capabilities,omitempty"`
 	SSHUser               *string                         `json:"ssh_user,omitempty"`
@@ -1759,11 +1764,16 @@ var (
 		"name":                              "Human-readable machine name.",
 		"host":                              "Hostname or address used to reach the machine.",
 		"port":                              "Transport-specific port used to connect to the machine.",
-		"connection_mode":                   "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
-		"transport_capabilities":            "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
-		"ssh_user":                          "SSH username used for machine access when connection_mode is ssh.",
-		"ssh_key_path":                      "Path to the SSH private key used for machine access when connection_mode is ssh.",
-		"advertised_endpoint":               "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+		"reachability_mode":                 "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
+		"execution_mode":                    "Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility.",
+		"execution_capabilities":            "Runtime execution capabilities derived from the actually implemented path for this machine record.",
+		"ssh_helper_enabled":                "Whether SSH helper credentials are configured for bootstrap or diagnostics.",
+		"ssh_helper_required":               "Whether this record still depends on legacy SSH compatibility for execution during rollout.",
+		"connection_mode":                   "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
+		"transport_capabilities":            "Legacy compatibility alias for execution_capabilities.",
+		"ssh_user":                          "SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution.",
+		"ssh_key_path":                      "Path to the SSH private key used for SSH helper access or legacy ssh_compat execution.",
+		"advertised_endpoint":               "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",
 		"daemon_status":                     "Daemon registration and session metadata for websocket-capable machine transports.",
 		"daemon_status.registered":          "Whether the machine daemon currently has an active registration with the control plane.",
 		"daemon_status.last_registered_at":  "RFC3339 timestamp for the daemon's last successful registration heartbeat.",

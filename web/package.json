@@ -22,7 +22,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ci": "prettier --check . && eslint . && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && pnpm run test:ticket-run-transcript && vite build && playwright test"
+    "ci": "prettier --check --log-level warn . && eslint . --quiet && node scripts/check-file-budgets.mjs && node scripts/check-dependency-boundaries.mjs && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --output machine --threshold error && vitest run --reporter=dot src/lib/features/ticket-detail/run-transcript-real-samples.test.ts src/lib/features/ticket-detail/run-transcript-live-updates.test.ts src/lib/features/ticket-detail/run-transcript.test.ts && vite build --logLevel warn && playwright test --reporter=dot --quiet"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

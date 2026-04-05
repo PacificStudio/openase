@@ -110,11 +110,13 @@ type MachineMutationBody = {
   agent_cli_path?: string
   connection_mode?: string
   description?: string
+  execution_mode?: string
   env_vars?: string[]
   host?: string
   labels?: string[]
   name?: string
   port?: number
+  reachability_mode?: string
   ssh_key_path?: string
   ssh_user?: string
   status?: string

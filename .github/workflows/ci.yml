@@ -199,7 +199,7 @@ jobs:
         run: rm -rf test-results ../.playwright-artifacts
 
       - name: Install Web Dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --reporter=append-only
 
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
@@ -288,7 +288,7 @@ jobs:
           set -euo pipefail
 
           heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
-          heartbeat_interval_seconds=15
+          heartbeat_interval_seconds=120
 
           heartbeat() {
             while true; do

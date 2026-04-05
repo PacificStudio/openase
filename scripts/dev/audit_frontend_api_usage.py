@@ -73,6 +73,11 @@ def build_parser() -> argparse.ArgumentParser:
             f"Defaults to {DEFAULT_IGNORE_FILE.name} next to this script when present."
         ),
     )
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="Emit only per-category counts in text mode.",
+    )
     return parser
 
 
@@ -379,11 +384,19 @@ def categorize_operation(
     return "backend_only", details
 
 
-def render_text_report(report: dict[str, list[dict[str, object]]], limit: int) -> str:
+def render_text_report(
+    report: dict[str, list[dict[str, object]]],
+    limit: int,
+    *,
+    summary_only: bool,
+) -> str:
     lines: list[str] = []
     for category in REPORT_CATEGORIES:
         items = report.get(category, [])
         if not items:
+            continue
+        if summary_only:
+            lines.append(f"[{category}] {len(items)}")
             continue
         shown = items[:limit] if limit > 0 else items
         lines.append(f"[{category}] {len(items)}")
@@ -461,7 +474,9 @@ def main() -> int:
         json.dump(report, sys.stdout, indent=2, sort_keys=True)
         sys.stdout.write("\n")
     else:
-        sys.stdout.write(render_text_report(report, args.limit))
+        sys.stdout.write(
+            render_text_report(report, args.limit, summary_only=args.summary_only)
+        )
 
     failing_categories = [category for category in args.fail_on if report.get(category)]
     if failing_categories:

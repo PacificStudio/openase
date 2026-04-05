@@ -4154,6 +4154,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -4179,9 +4188,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
@@ -4381,6 +4399,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -4406,9 +4433,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
@@ -4521,7 +4557,7 @@
               "schema": {
                 "properties": {
                   "advertised_endpoint": {
-                    "description": "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+                    "description": "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4552,7 +4588,7 @@
                     "type": "object"
                   },
                   "connection_mode": {
-                    "description": "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
+                    "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4610,6 +4646,11 @@
                     "nullable": true,
                     "type": "array"
                   },
+                  "execution_mode": {
+                    "description": "Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "host": {
                     "description": "Hostname or address used to reach the machine.",
                     "nullable": true,
@@ -4633,13 +4674,18 @@
                     "nullable": true,
                     "type": "integer"
                   },
+                  "reachability_mode": {
+                    "description": "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for machine access when connection_mode is ssh.",
+                    "description": "Path to the SSH private key used for SSH helper access or legacy ssh_compat execution.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH username used for machine access when connection_mode is ssh.",
+                    "description": "SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4649,7 +4695,7 @@
                     "type": "string"
                   },
                   "transport_capabilities": {
-                    "description": "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
+                    "description": "Legacy compatibility alias for execution_capabilities.",
                     "items": {
                       "type": "string"
                     },
@@ -4744,6 +4790,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -4769,9 +4824,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
@@ -4973,6 +5037,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -4998,9 +5071,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
@@ -5370,6 +5452,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -5395,9 +5486,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
@@ -7141,6 +7241,15 @@
                             },
                             "type": "array"
                           },
+                          "execution_capabilities": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "execution_mode": {
+                            "type": "string"
+                          },
                           "host": {
                             "type": "string"
                           },
@@ -7166,9 +7275,18 @@
                           "port": {
                             "type": "integer"
                           },
+                          "reachability_mode": {
+                            "type": "string"
+                          },
                           "resources": {
                             "additionalProperties": {},
                             "type": "object"
+                          },
+                          "ssh_helper_enabled": {
+                            "type": "boolean"
+                          },
+                          "ssh_helper_required": {
+                            "type": "boolean"
                           },
                           "ssh_key_path": {
                             "nullable": true,
@@ -7283,7 +7401,7 @@
               "schema": {
                 "properties": {
                   "advertised_endpoint": {
-                    "description": "Listener websocket endpoint advertised by the machine when connection_mode is ws_listener.",
+                    "description": "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -7314,7 +7432,7 @@
                     "type": "object"
                   },
                   "connection_mode": {
-                    "description": "Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener.",
+                    "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
                     "type": "string"
                   },
                   "daemon_status": {
@@ -7365,6 +7483,10 @@
                     },
                     "type": "array"
                   },
+                  "execution_mode": {
+                    "description": "Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility.",
+                    "type": "string"
+                  },
                   "host": {
                     "description": "Hostname or address used to reach the machine.",
                     "type": "string"
@@ -7385,13 +7507,17 @@
                     "nullable": true,
                     "type": "integer"
                   },
+                  "reachability_mode": {
+                    "description": "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
+                    "type": "string"
+                  },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for machine access when connection_mode is ssh.",
+                    "description": "Path to the SSH private key used for SSH helper access or legacy ssh_compat execution.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH username used for machine access when connection_mode is ssh.",
+                    "description": "SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -7400,7 +7526,7 @@
                     "type": "string"
                   },
                   "transport_capabilities": {
-                    "description": "Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming.",
+                    "description": "Legacy compatibility alias for execution_capabilities.",
                     "items": {
                       "type": "string"
                     },
@@ -7494,6 +7620,15 @@
                           },
                           "type": "array"
                         },
+                        "execution_capabilities": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "execution_mode": {
+                          "type": "string"
+                        },
                         "host": {
                           "type": "string"
                         },
@@ -7519,9 +7654,18 @@
                         "port": {
                           "type": "integer"
                         },
+                        "reachability_mode": {
+                          "type": "string"
+                        },
                         "resources": {
                           "additionalProperties": {},
                           "type": "object"
+                        },
+                        "ssh_helper_enabled": {
+                          "type": "boolean"
+                        },
+                        "ssh_helper_required": {
+                          "type": "boolean"
                         },
                         "ssh_key_path": {
                           "nullable": true,
