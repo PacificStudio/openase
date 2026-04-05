@@ -35,6 +35,7 @@ import (
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -43,9 +44,11 @@ import (
 	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
+	machinechannel "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
+	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
@@ -3651,6 +3654,209 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 	}
 }
 
+func TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	hookLogPath := filepath.Join(t.TempDir(), "hook.log")
+	workspaceRoot := t.TempDir()
+	fakeOpenASEBinDir := t.TempDir()
+	writeRuntimeLauncherFakeOpenASEBinary(t, fakeOpenASEBinDir)
+
+	reverseRelay := machinetransport.NewReverseRuntimeRelayRegistry()
+	machineChannelSvc := machinechannel.NewService(machinechannelrepo.NewEntRepository(client))
+	server := httpapi.NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		httpapi.WithMachineChannel(machineChannelSvc, machinechannel.NewSessionRegistry(machinechannel.DefaultHeartbeatTimeout)),
+		httpapi.WithReverseRuntimeRelay(reverseRelay),
+	)
+	httpServer := httptest.NewServer(server.Handler())
+	defer httpServer.Close()
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Reverse Websocket Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_claim": []any{
+					map[string]any{"cmd": fmt.Sprintf("printf 'claim\\n' >> %q", hookLogPath)},
+				},
+				"on_start": []any{
+					map[string]any{"cmd": fmt.Sprintf("printf 'start\\n' >> %q", hookLogPath)},
+				},
+			},
+		}).
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	repoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, repoRoot)
+	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
+	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nUse reverse websocket runtime.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, repoRoot)
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-411R").
+		SetTitle("Launch websocket reverse runtime").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("reverse-01").
+		SetHost("reverse.internal").
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath("/bin/sh").
+		SetConnectionMode(entmachine.ConnectionModeWsReverse).
+		SetStatus(entmachine.StatusOffline).
+		SetEnvVars([]string{
+			"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+			"OPENASE_REAL_BIN=" + filepath.Join(fakeOpenASEBinDir, "openase"),
+		}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create reverse machine: %v", err)
+	}
+
+	issued, err := machineChannelSvc.IssueToken(ctx, machinechanneldomain.IssueInput{MachineID: machineItem.ID, TTL: time.Hour})
+	if err != nil {
+		t.Fatalf("issue reverse websocket token: %v", err)
+	}
+
+	daemonConfig, err := machinechanneldomain.ParseDaemonConfig(
+		machineItem.ID.String(),
+		issued.Token,
+		httpServer.URL,
+		100*time.Millisecond,
+		25*time.Millisecond,
+		filepath.Join(fakeOpenASEBinDir, "openase"),
+		"/bin/sh",
+	)
+	if err != nil {
+		t.Fatalf("parse daemon config: %v", err)
+	}
+	daemonCtx, cancelDaemon := context.WithCancel(ctx)
+	defer cancelDaemon()
+	daemonErrCh := make(chan error, 1)
+	go func() {
+		daemonErrCh <- machinechannel.NewDaemon(slog.New(slog.NewTextHandler(io.Discard, nil))).Run(daemonCtx, daemonConfig)
+	}()
+
+	waitForReverseRuntimeMachineReady(t, client, machineItem.ID)
+
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(machineItem.ID).
+		SetCliArgs([]string{"-lc", "printf reverse-runtime"}).
+		Save(ctx); err != nil {
+		t.Fatalf("bind reverse provider: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-ws-reverse-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	adapter := &runtimeWebsocketLaunchAdapter{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, workflowSvc)
+	launcher.ConfigureReverseRuntimeRelay(reverseRelay)
+	launcher.adapters.adapters[entagentprovider.AdapterTypeCodexAppServer] = adapter
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if err := launcher.launchAgent(ctx, assignment); err != nil {
+		t.Fatalf("launchAgent() error = %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
+	}
+	if runAfter.SessionID != "ws-listener-thread" {
+		t.Fatalf("expected websocket session id, got %q", runAfter.SessionID)
+	}
+	if adapter.stdout != "reverse-runtime" {
+		t.Fatalf("adapter stdout = %q, want reverse-runtime", adapter.stdout)
+	}
+
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	repoWorkspacePath := filepath.Join(
+		workspacePath,
+		"repo-"+strings.ReplaceAll(fixture.projectID.String(), "-", "")[:8],
+	)
+	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
+		t.Fatalf("expected synced openase wrapper in reverse websocket workspace: %v", err)
+	}
+
+	// #nosec G304 -- test reads a temp file path created inside this test.
+	rawHooks, err := os.ReadFile(hookLogPath)
+	if err != nil {
+		t.Fatalf("read reverse websocket hook log: %v", err)
+	}
+	if string(rawHooks) != "claim\nstart\n" {
+		t.Fatalf("unexpected reverse websocket hook log %q", string(rawHooks))
+	}
+
+	cancelDaemon()
+	if err := <-daemonErrCh; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatalf("reverse websocket daemon returned error: %v", err)
+	}
+}
+
 func TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("HOME", t.TempDir())
@@ -3852,6 +4058,30 @@ func TestBuildWorkspaceRepoPlansUsesGeneratedTicketBranchWhenScopeOverrideBlank(
 	if plans[0].BranchName != "agent/ASE-475" || plans[0].Input.BranchName != nil {
 		t.Fatalf("expected generated ticket branch plan, got %+v", plans[0])
 	}
+}
+
+func waitForReverseRuntimeMachineReady(t *testing.T, client *ent.Client, machineID uuid.UUID) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		machineItem, err := client.Machine.Get(context.Background(), machineID)
+		if err != nil {
+			t.Fatalf("reload reverse runtime machine: %v", err)
+		}
+		if machineItem.DaemonRegistered &&
+			machineItem.DaemonSessionState == entmachine.DaemonSessionStateConnected &&
+			machineItem.Status == entmachine.StatusOnline {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	machineItem, err := client.Machine.Get(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("reload reverse runtime machine after wait: %v", err)
+	}
+	t.Fatalf("reverse runtime machine did not become ready: %+v", machineItem)
 }
 
 func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.T) {

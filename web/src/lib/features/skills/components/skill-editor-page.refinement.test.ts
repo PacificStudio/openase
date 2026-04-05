@@ -75,7 +75,9 @@ describe('SkillEditorPage', () => {
     expect(await findByRole('button', { name: 'Save' })).toBeTruthy()
     expect(queryByRole('button', { name: 'Fix & verify' })).toBeNull()
     expect(
-      queryByPlaceholderText('Describe what Codex should improve and verify for this draft bundle…'),
+      queryByPlaceholderText(
+        'Describe what Codex should improve and verify for this draft bundle…',
+      ),
     ).toBeNull()
   })
 })

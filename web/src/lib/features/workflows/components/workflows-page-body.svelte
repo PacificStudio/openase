@@ -8,7 +8,7 @@
     WorkflowSummary,
     WorkflowTemplateDraft,
   } from '../types'
-  import type { HarnessValidationIssue } from '$lib/api/contracts'
+  import type { AgentProvider, HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
   import * as Sheet from '$ui/sheet'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
@@ -25,6 +25,7 @@
     workflows,
     selectedId,
     projectId = '',
+    providers,
     selectedWorkflow = null,
     harness,
     draftHarness,
@@ -44,6 +45,7 @@
     templateDraft = null as WorkflowTemplateDraft | null,
     onSelectedIdChange,
     onDraftChange,
+    onApplyAssistantDraft,
     onSave,
     onValidate,
     onToggleSkill,
@@ -57,6 +59,7 @@
     workflows: WorkflowSummary[]
     selectedId: string
     projectId?: string
+    providers: AgentProvider[]
     selectedWorkflow?: WorkflowSummary | null
     harness: ReturnType<typeof toHarnessContent> | null
     draftHarness: string
@@ -76,6 +79,7 @@
     templateDraft?: WorkflowTemplateDraft | null
     onSelectedIdChange?: (id: string) => void
     onDraftChange?: (raw: string) => void
+    onApplyAssistantDraft?: (content: string) => void
     onSave?: () => void
     onValidate?: () => void
     onToggleSkill?: (skill: SkillState) => void
@@ -101,6 +105,8 @@
       </div>
     {/if}
     <WorkflowEditorPanel
+      projectId={projectId || undefined}
+      {providers}
       selectedWorkflow={selectedWorkflow ?? undefined}
       harness={harness ? toHarnessContent(draftHarness) : null}
       {variableGroups}
@@ -112,6 +118,7 @@
       {loadingHarness}
       {showList}
       onDraftChange={(raw) => onDraftChange?.(raw)}
+      {onApplyAssistantDraft}
       {onSave}
       {onValidate}
       onToggleSkill={(skill) => onToggleSkill?.(skill)}

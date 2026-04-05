@@ -275,7 +275,7 @@ You create a ticket  →  Orchestrator detects pickup status
 | **Machines (Local)** | ✅ Stable | Local machine registration, health probes, resource metrics |
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
 | **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, managed user service (`systemd --user` on Linux, `launchd` on macOS) |
-| **Machines (Remote)** | 🚧 WIP | Remote runtime is converging on websocket execution with direct-connect and reverse-connect reachability; SSH remains a helper and rollout compatibility path |
+| **Machines (Remote)** | 🚧 WIP | Native websocket execution now covers direct-connect and reverse-connect reachability; SSH remains a helper/bootstrap path while rollout hardens |
 | **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
 
 ### Roadmap

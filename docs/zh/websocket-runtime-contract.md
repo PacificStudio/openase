@@ -78,6 +78,15 @@ WebSocket runtime 契约是两种 WebSocket 传输拓扑共享的唯一执行契
 - 编排器只应在 `retryable=true` 时重试，通常对应 `transient`
 - `unsupported` 应阻止继续 rollout，直到双方升级到兼容版本
 
+## 反向会话恢复语义
+
+反向 WebSocket 对每台机器只维护一个活跃的 machine-channel runtime relay。
+
+- 新守护进程注册会替换该机器旧的反向 runtime relay
+- 被替换 relay 上的命令或进程会话会立即以传输错误结束，而不会回退到 SSH
+- 断连、心跳超时和服务端关闭会关闭反向 runtime client，并用明确的断开原因结束进行中的会话
+- 守护进程重连后，新的 runtime 请求会附着到新的 relay 会话；是否重试由上层决定，但传输契约不会静默切换执行平面
+
 ## 验证
 
 `TestUnifiedWebsocketRuntimeContractSuite` 会把同一套契约测试跑在：
@@ -93,3 +102,7 @@ WebSocket runtime 契约是两种 WebSocket 传输拓扑共享的唯一执行契
 - artifact sync
 - command session open/stream/close
 - process start/status/interrupt/exit
+
+`TestReverseRuntimeRelayRegisterReplacesExistingClientSessions` 与
+`TestReverseRuntimeRelayRemoveDisconnectsManagedSessions` 额外覆盖了反向连接
+runtime 会话的替换/断开语义。

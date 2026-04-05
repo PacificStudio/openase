@@ -78,6 +78,15 @@ Recommended interpretation:
 - orchestrators may retry only when `retryable=true`, typically for `transient`
 - `unsupported` should stop rollout until both peers are upgraded to a compatible contract
 
+## Reverse Session Recovery
+
+Reverse websocket keeps exactly one active machine-channel runtime relay per machine.
+
+- a newer daemon registration replaces the previous reverse runtime relay for that machine
+- in-flight command or process sessions on the replaced relay terminate immediately with a transport error instead of falling back to SSH
+- disconnects, heartbeat timeouts, and server shutdown close the reverse runtime client and fail in-flight sessions with a clear disconnect cause
+- once the daemon reconnects, new runtime requests attach to the new relay session; upper layers decide whether to retry, but the transport contract does not silently change execution planes
+
 ## Validation
 
 `TestUnifiedWebsocketRuntimeContractSuite` runs the same suite against:
@@ -93,3 +102,7 @@ The suite verifies:
 - artifact sync
 - command session open/stream/close
 - process start/status/interrupt/exit
+
+`TestReverseRuntimeRelayRegisterReplacesExistingClientSessions` and
+`TestReverseRuntimeRelayRemoveDisconnectsManagedSessions` cover the
+replacement/disconnect semantics for reverse-connected runtime sessions.

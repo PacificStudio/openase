@@ -41,13 +41,13 @@ const machineModeGuides: Record<MachineReachabilityMode, MachineModeGuide> = {
   reverse_connect: {
     mode: 'reverse_connect',
     label: 'Reverse Connect',
-    summary: 'The machine daemon dials out to the control plane.',
+    summary: 'The machine daemon dials out and carries native websocket runtime execution.',
     requiredFields:
       'Machine identity, daemon registration, and a workspace root the daemon can access.',
     installMethod:
-      'Install and register the daemon on the remote host, then keep the CLI path aligned with that host.',
+      'Install and register the daemon on the remote host, keep the CLI path aligned with that host, and keep SSH only for helper bootstrap or diagnostics.',
     testSemantics:
-      'Connection tests rely on daemon session state and any reported platform metadata.',
+      'Connection tests rely on daemon session state and reported platform metadata while runtime execution stays on the reverse websocket session.',
     commonErrors:
       'No registered daemon session, stale credentials, or a workspace root that the daemon cannot access.',
   },

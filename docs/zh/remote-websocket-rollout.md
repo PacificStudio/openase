@@ -23,6 +23,7 @@ scripts/ci/remote_transport_matrix.sh
 | --- | --- |
 | 监听与反向拓扑共享的统一 WebSocket runtime 契约 | `TestUnifiedWebsocketRuntimeContractSuite` |
 | SSH 引导 + 反向 WebSocket 机器会话 | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
+| 反向 WebSocket runtime 正常路径（含 hook 与产物同步） | `TestRuntimeLauncherLaunchesWebsocketReverseRuntimeWithHooksAndArtifactSync` |
 | SSH 引导 helper 行为 | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
 | SSH 诊断 helper 行为 | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH 引导 + 监听 WebSocket 运行时 | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
@@ -258,6 +259,7 @@ WantedBy=default.target
 
 - 在小规模机器子集上启用 `ws_reverse`
 - 只在运维需要 helper 引导或诊断的机器上保留 SSH 凭证
+- 每个 rollout 批次至少跑一次反向 WebSocket 正常路径 runtime
 - 验证守护进程重启下的 `machine.connected` 和重连行为
 - 确认强制 WebSocket 传输失败仍被归类为 WebSocket 侧启动错误
 
