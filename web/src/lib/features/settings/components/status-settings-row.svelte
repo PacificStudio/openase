@@ -7,6 +7,7 @@
   } from '$lib/features/statuses/public'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import { ColorPicker } from '$ui/color-picker'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Input } from '$ui/input'
   import {
@@ -94,12 +95,7 @@
 {#if editing}
   <div class="border-border bg-muted/30 rounded-md border px-3 py-3">
     <div class="flex items-center gap-3">
-      <input
-        type="color"
-        bind:value={draft.color}
-        disabled={busy}
-        class="size-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0 disabled:cursor-not-allowed"
-      />
+      <ColorPicker bind:value={draft.color} disabled={busy} />
       <Input
         bind:value={draft.name}
         disabled={busy}
