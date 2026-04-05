@@ -288,7 +288,7 @@ jobs:
           set -euo pipefail
 
           heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
-          heartbeat_interval_seconds=120
+          heartbeat_interval_seconds=20
 
           heartbeat() {
             while true; do
