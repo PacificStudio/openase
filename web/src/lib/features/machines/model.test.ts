@@ -15,6 +15,11 @@ function machineFixture(overrides: Partial<Machine> = {}): Machine {
     name: 'GPU Builder',
     host: 'builder.internal',
     port: 22,
+    reachability_mode: 'direct_connect',
+    execution_mode: 'ssh_compat',
+    execution_capabilities: ['probe'],
+    ssh_helper_enabled: true,
+    ssh_helper_required: true,
     connection_mode: 'ssh',
     transport_capabilities: ['probe'],
     ssh_user: 'ubuntu',
@@ -53,14 +58,16 @@ describe('machines model', () => {
   it('starts new remote drafts with the conservative workspace recommendation', () => {
     const draft = createEmptyMachineDraft()
 
-    expect(draft.connectionMode).toBe('ssh')
+    expect(draft.reachabilityMode).toBe('direct_connect')
+    expect(draft.executionMode).toBe('websocket')
     expect(draft.workspaceRoot).toBe('/srv/openase/workspace')
   })
 
   it('switches local drafts to the reserved local identity and workspace convention', () => {
-    const draft = updateMachineDraft(createEmptyMachineDraft(), 'connectionMode', 'local', null)
+    const draft = updateMachineDraft(createEmptyMachineDraft(), 'reachabilityMode', 'local', null)
 
-    expect(draft.connectionMode).toBe('local')
+    expect(draft.reachabilityMode).toBe('local')
+    expect(draft.executionMode).toBe('local_process')
     expect(draft.name).toBe('local')
     expect(draft.host).toBe('local')
     expect(draft.workspaceRoot).toBe('~/.openase/workspace')
@@ -76,12 +83,7 @@ describe('machines model', () => {
   })
 
   it('requires an advertised endpoint for websocket listener machines', () => {
-    const draft = updateMachineDraft(
-      createEmptyMachineDraft(),
-      'connectionMode',
-      'ws_listener',
-      null,
-    )
+    const draft = createEmptyMachineDraft()
     draft.name = 'listener'
     draft.host = 'listener.internal'
     draft.port = '443'
@@ -104,12 +106,7 @@ describe('machines model', () => {
   })
 
   it('rejects listener endpoints that do not use websocket schemes', () => {
-    const draft = updateMachineDraft(
-      createEmptyMachineDraft(),
-      'connectionMode',
-      'ws_listener',
-      null,
-    )
+    const draft = createEmptyMachineDraft()
     draft.name = 'listener'
     draft.host = 'listener.internal'
     draft.port = '443'
@@ -127,7 +124,8 @@ describe('machines model', () => {
       ...createEmptyMachineDraft(),
       name: 'listener-01',
       host: 'listener.internal',
-      connectionMode: 'ws_listener' as const,
+      reachabilityMode: 'direct_connect' as const,
+      executionMode: 'websocket' as const,
       advertisedEndpoint: 'wss://listener.internal/openase/transport',
       sshUser: '',
       sshKeyPath: '',
@@ -137,6 +135,8 @@ describe('machines model', () => {
     expect(parseMachineDraft(draft)).toEqual({
       ok: true,
       value: expect.objectContaining({
+        reachability_mode: 'direct_connect',
+        execution_mode: 'websocket',
         connection_mode: 'ws_listener',
         advertised_endpoint: 'wss://listener.internal/openase/transport',
         ssh_user: '',

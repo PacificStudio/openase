@@ -3,6 +3,8 @@ import type { Machine, MachineProbe, Organization } from '$lib/api/contracts'
 export type ResourceMap = Record<string, unknown>
 
 export type MachineStatus = 'online' | 'offline' | 'degraded' | 'maintenance'
+export type MachineReachabilityMode = 'local' | 'direct_connect' | 'reverse_connect'
+export type MachineExecutionMode = 'local_process' | 'websocket' | 'ssh_compat'
 export type MachineConnectionMode = 'local' | 'ssh' | 'ws_reverse' | 'ws_listener'
 export type MachineDetectedOS = 'darwin' | 'linux' | 'unknown'
 export type MachineDetectedArch = 'amd64' | 'arm64' | 'unknown'
@@ -12,7 +14,8 @@ export type MachineDraft = {
   name: string
   host: string
   port: string
-  connectionMode: MachineConnectionMode
+  reachabilityMode: MachineReachabilityMode
+  executionMode: MachineExecutionMode
   advertisedEndpoint: string
   sshUser: string
   sshKeyPath: string
@@ -28,6 +31,8 @@ export type MachineMutationInput = {
   name: string
   host: string
   port: number
+  reachability_mode: MachineReachabilityMode
+  execution_mode: MachineExecutionMode
   connection_mode: MachineConnectionMode
   advertised_endpoint: string
   ssh_user: string
@@ -145,13 +150,19 @@ export type MachineEditorMode = 'create' | 'edit'
 export type MachineItem = Machine
 
 export type MachineModeGuide = {
-  mode: MachineConnectionMode
+  mode: MachineReachabilityMode
   label: string
   summary: string
   requiredFields: string
   installMethod: string
   testSemantics: string
   commonErrors: string
+}
+
+export type MachineExecutionGuide = {
+  mode: MachineExecutionMode
+  label: string
+  summary: string
 }
 
 export type WorkspaceRootRecommendation = {

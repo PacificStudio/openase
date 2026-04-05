@@ -8,14 +8,16 @@
     getWorkspaceRootRecommendation,
     getWorkspaceRootState,
     isLocalMachine,
-    normalizeConnectionMode,
+    normalizeExecutionMode,
+    normalizeReachabilityMode,
   } from '../model'
   import type {
-    MachineConnectionMode,
     MachineDraft,
     MachineDraftField,
     MachineEditorMode,
+    MachineExecutionMode,
     MachineItem,
+    MachineReachabilityMode,
     WorkspaceRootState,
   } from '../types'
 
@@ -32,7 +34,12 @@
   } = $props()
 
   const localMachine = $derived(isLocalMachine(machine, draft))
-  const connectionMode = $derived(normalizeConnectionMode(draft.connectionMode, draft.host))
+  const reachabilityMode = $derived(
+    normalizeReachabilityMode(draft.reachabilityMode, draft.host, machine?.connection_mode),
+  )
+  const executionMode = $derived(
+    normalizeExecutionMode(draft.executionMode, draft.host, machine?.connection_mode),
+  )
   const workspaceRootRecommendation = $derived(getWorkspaceRootRecommendation({ draft, machine }))
   const workspaceRootState = $derived(getWorkspaceRootState({ draft, machine }))
 
@@ -48,22 +55,31 @@
     onDraftChange?.(field, target.value)
   }
 
-  function updateMode(mode: MachineConnectionMode) {
-    onDraftChange?.('connectionMode', mode)
+  function updateReachability(mode: MachineReachabilityMode) {
+    onDraftChange?.('reachabilityMode', mode)
+  }
+
+  function updateExecution(mode: MachineExecutionMode) {
+    onDraftChange?.('executionMode', mode)
   }
 </script>
 
 <div class="space-y-5">
   {#if localMachine}
     <div class="border-info/40 bg-info/10 rounded-lg border px-3.5 py-2.5 text-xs">
-      Local machine identity is reserved. Name, host, and SSH settings are fixed.
+      Local machine identity is reserved. Name, host, and helper access settings are fixed.
     </div>
   {/if}
 
-  <MachineEditorGuidance {machine} {draft} onSelectMode={updateMode} />
+  <MachineEditorGuidance
+    {machine}
+    {draft}
+    onSelectReachability={updateReachability}
+    onSelectExecution={updateExecution}
+  />
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Identity & network</h3>
+    <h3 class="text-foreground text-sm font-semibold">Identity & reachability</h3>
 
     <div class="grid gap-3 md:grid-cols-3">
       <div class="space-y-1.5">
@@ -96,7 +112,7 @@
       </div>
     </div>
 
-    {#if connectionMode === 'ws_listener'}
+    {#if reachabilityMode === 'direct_connect' && executionMode === 'websocket'}
       <div class="space-y-1.5">
         <Label for="machine-advertised-endpoint" class="text-xs">Listener endpoint</Label>
         <Input
@@ -106,16 +122,18 @@
           oninput={(event) => updateField('advertisedEndpoint', event)}
         />
         <p class="text-muted-foreground text-[11px]">
-          WebSocket endpoint OpenASE connects to in listener mode.
+          WebSocket endpoint OpenASE connects to for direct-connect execution.
         </p>
       </div>
     {/if}
   </section>
 
   <section class="border-border space-y-3 border-t pt-5">
-    <h3 class="text-foreground text-sm font-semibold">Transport credentials</h3>
+    <h3 class="text-foreground text-sm font-semibold">SSH helper & compatibility</h3>
 
-    {#if connectionMode === 'ssh'}
+    {#if localMachine}
+      <p class="text-muted-foreground text-xs">Local execution does not use SSH helper access.</p>
+    {:else}
       <div class="grid gap-3 md:grid-cols-2">
         <div class="space-y-1.5">
           <Label for="machine-ssh-user" class="text-xs">SSH user</Label>
@@ -137,14 +155,15 @@
           />
         </div>
       </div>
-    {:else}
       <p class="text-muted-foreground text-xs">
-        {#if connectionMode === 'local'}
-          Local transport — no credentials needed.
-        {:else if connectionMode === 'ws_reverse'}
-          Reverse WebSocket — daemon handles registration.
+        {#if executionMode === 'ssh_compat'}
+          Required while this machine still uses the legacy SSH compatibility execution path.
+        {:else if reachabilityMode === 'reverse_connect'}
+          Optional SSH helper access for bootstrap or diagnostics. Runtime execution stays on the
+          reverse websocket daemon.
         {:else}
-          Listener WebSocket — uses the advertised endpoint above.
+          Optional SSH helper access for bootstrap or diagnostics. Runtime execution stays on the
+          websocket listener above.
         {/if}
       </p>
     {/if}

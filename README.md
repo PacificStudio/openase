@@ -82,7 +82,8 @@
   <img src="https://img.shields.io/badge/Infra-F59E0B?style=for-the-badge&logo=server&logoColor=white" alt="Infra" />
 </div>
 
-<p align="center"><strong>SSH / Local / Cloud VMs</strong></p>
+<p align="center"><strong>Local / Direct-Connect / Reverse-Connect Machines</strong></p>
+<p align="center"><strong>Websocket Execution + SSH Helper Compatibility</strong></p>
 <p align="center"><strong>Health Monitoring & Probes</strong></p>
 <p align="center"><strong>CPU / Memory / Disk Metrics</strong></p>
 <p align="center"><strong>Connectivity Diagnostics</strong></p>
@@ -152,14 +153,14 @@ You create a ticket  →  Orchestrator detects pickup status
 | **Machines (Local)** | ✅ Stable | Local machine registration, health probes, resource metrics |
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
 | **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, systemd service |
-| **Machines (Remote)** | 🚧 WIP | Remote SSH/cloud machine execution is under active development |
+| **Machines (Remote)** | 🚧 WIP | Remote runtime is converging on websocket execution with direct-connect and reverse-connect reachability; SSH remains a helper and rollout compatibility path |
 | **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
 
 ### Roadmap
 
 | Priority | Item | Description |
 |----------|------|-------------|
-| 🔴 High | **Remote Machine Execution** | Full support for SSH-based remote machines, workspace provisioning, and remote agent execution |
+| 🔴 High | **Remote Machine Execution** | Complete websocket execution for direct-connect and reverse-connect machines, then remove legacy SSH compatibility from the runtime path |
 | 🟡 Medium | **macOS / Windows Support** | Testing and adaptation for non-Linux platforms |
 | 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
 | 🟢 Future | **Multi-org Collaboration** | Cross-organization project sharing and permissions |

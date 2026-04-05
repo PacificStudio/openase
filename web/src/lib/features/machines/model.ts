@@ -1,6 +1,18 @@
 import type { Machine } from '$lib/api/contracts'
-import type { MachineDraft, MachineDraftParseResult, MachineStatus } from './types'
-import { getWorkspaceRootRecommendation, normalizeConnectionMode } from './machine-guidance'
+import type {
+  MachineConnectionMode,
+  MachineDraft,
+  MachineDraftParseResult,
+  MachineExecutionMode,
+  MachineReachabilityMode,
+  MachineStatus,
+} from './types'
+import {
+  getWorkspaceRootRecommendation,
+  normalizeConnectionMode,
+  normalizeExecutionMode,
+  normalizeReachabilityMode,
+} from './machine-guidance'
 
 export { parseMachineSnapshot } from './snapshot'
 export * from './machine-guidance'
@@ -10,7 +22,8 @@ export function createEmptyMachineDraft(): MachineDraft {
     name: '',
     host: '',
     port: '22',
-    connectionMode: 'ssh',
+    reachabilityMode: 'direct_connect',
+    executionMode: 'websocket',
     sshUser: '',
     sshKeyPath: '',
     advertisedEndpoint: '',
@@ -30,7 +43,16 @@ export function machineToDraft(machine: Machine): MachineDraft {
     name: machine.name,
     host: machine.host,
     port: String(machine.port || 22),
-    connectionMode: normalizeConnectionMode(machine.connection_mode, machine.host),
+    reachabilityMode: normalizeReachabilityMode(
+      machine.reachability_mode,
+      machine.host,
+      machine.connection_mode,
+    ),
+    executionMode: normalizeExecutionMode(
+      machine.execution_mode,
+      machine.host,
+      machine.connection_mode,
+    ),
     sshUser: machine.ssh_user ?? '',
     sshKeyPath: machine.ssh_key_path ?? '',
     advertisedEndpoint: machine.advertised_endpoint ?? '',
@@ -52,7 +74,24 @@ export function updateMachineDraft(
   const previousRecommendation = getWorkspaceRootRecommendation({ draft, machine }).value
   const nextDraft: MachineDraft = { ...draft, [field]: value }
 
-  if (field !== 'connectionMode') {
+  if (field === 'reachabilityMode' || field === 'executionMode') {
+    const reachabilityMode = normalizeReachabilityMode(nextDraft.reachabilityMode, nextDraft.host)
+    const executionMode = normalizeExecutionMode(
+      nextDraft.executionMode,
+      nextDraft.host,
+      resolveLegacyConnectionMode(
+        nextDraft.reachabilityMode,
+        nextDraft.executionMode,
+        nextDraft.host,
+      ),
+    )
+
+    nextDraft.reachabilityMode = reachabilityMode
+    nextDraft.executionMode = coerceExecutionMode(reachabilityMode, executionMode)
+    applyModeDefaults(draft, nextDraft)
+  }
+
+  if (field !== 'reachabilityMode' && field !== 'executionMode') {
     return maybeRefreshRecommendedWorkspaceRoot(
       draft,
       nextDraft,
@@ -60,13 +99,6 @@ export function updateMachineDraft(
       machine,
       previousRecommendation,
     )
-  }
-
-  const nextMode = normalizeConnectionMode(value, nextDraft.host)
-  nextDraft.connectionMode = nextMode
-  applyModeDefaults(draft, nextDraft, nextMode)
-  if (nextMode !== 'ws_listener') {
-    nextDraft.advertisedEndpoint = ''
   }
 
   return maybeRefreshRecommendedWorkspaceRoot(
@@ -79,9 +111,14 @@ export function updateMachineDraft(
 }
 
 export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult {
-  const connectionMode = normalizeConnectionMode(draft.connectionMode, draft.host)
-  const name = connectionMode === 'local' ? 'local' : draft.name.trim()
-  const host = connectionMode === 'local' ? 'local' : draft.host.trim()
+  const reachabilityMode = normalizeReachabilityMode(draft.reachabilityMode, draft.host)
+  const executionMode = coerceExecutionMode(
+    reachabilityMode,
+    normalizeExecutionMode(draft.executionMode, draft.host),
+  )
+  const connectionMode = resolveConnectionMode(reachabilityMode, executionMode)
+  const name = reachabilityMode === 'local' ? 'local' : draft.name.trim()
+  const host = reachabilityMode === 'local' ? 'local' : draft.host.trim()
   const port = parseMachinePort(draft.port)
   if (port === null) {
     return { ok: false, error: 'Port must be an integer between 1 and 65535.' }
@@ -92,7 +129,7 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
     return { ok: false, error: identityError }
   }
 
-  const transportError = validateTransportFields(draft, connectionMode)
+  const transportError = validateTransportFields(draft, reachabilityMode, executionMode)
   if (transportError) {
     return { ok: false, error: transportError }
   }
@@ -120,9 +157,11 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
       name,
       host,
       port,
+      reachability_mode: reachabilityMode,
+      execution_mode: executionMode,
       connection_mode: connectionMode,
-      ssh_user: connectionMode === 'ssh' ? sshUser : '',
-      ssh_key_path: connectionMode === 'ssh' ? sshKeyPath : '',
+      ssh_user: sshUser,
+      ssh_key_path: sshKeyPath,
       advertised_endpoint: connectionMode === 'ws_listener' ? advertisedEndpoint : '',
       description: draft.description.trim(),
       labels: splitLabels(draft.labels),
@@ -189,6 +228,8 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
       machine.name,
       machine.host,
       machine.status,
+      machine.reachability_mode,
+      machine.execution_mode,
       machine.connection_mode,
       machine.advertised_endpoint,
       machine.detected_os,
@@ -204,9 +245,10 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
 
 export function isLocalMachine(machine: Machine | null | undefined, draft?: MachineDraft): boolean {
   return (
-    normalizeConnectionMode(
-      draft?.connectionMode ?? machine?.connection_mode,
+    normalizeReachabilityMode(
+      draft?.reachabilityMode ?? machine?.reachability_mode,
       draft?.host ?? machine?.host,
+      machine?.connection_mode,
     ) === 'local'
   )
 }
@@ -220,33 +262,78 @@ function maybeRefreshRecommendedWorkspaceRoot(
 ): MachineDraft {
   const followsRecommendation =
     draft.workspaceRoot.trim() === '' || draft.workspaceRoot.trim() === previousRecommendation
-  if ((field === 'connectionMode' || field === 'sshUser') && followsRecommendation) {
+  if (
+    (field === 'reachabilityMode' || field === 'executionMode' || field === 'sshUser') &&
+    followsRecommendation
+  ) {
     nextDraft.workspaceRoot = getWorkspaceRootRecommendation({ draft: nextDraft, machine }).value
   }
   return nextDraft
 }
 
-function applyModeDefaults(
-  draft: MachineDraft,
-  nextDraft: MachineDraft,
-  nextMode: MachineDraft['connectionMode'],
-) {
-  if (nextMode === 'local') {
+function applyModeDefaults(draft: MachineDraft, nextDraft: MachineDraft) {
+  if (nextDraft.reachabilityMode === 'local') {
     if (!nextDraft.name.trim() || nextDraft.name.trim().toLowerCase() === 'local') {
       nextDraft.name = 'local'
     }
     nextDraft.host = 'local'
     nextDraft.port = '22'
+    nextDraft.executionMode = 'local_process'
     nextDraft.sshUser = ''
     nextDraft.sshKeyPath = ''
     nextDraft.advertisedEndpoint = ''
     return
   }
 
-  if (draft.connectionMode === 'local') {
+  if (draft.reachabilityMode === 'local') {
     if (nextDraft.name.trim().toLowerCase() === 'local') nextDraft.name = ''
     if (nextDraft.host.trim().toLowerCase() === 'local') nextDraft.host = ''
   }
+
+  if (nextDraft.reachabilityMode === 'reverse_connect') {
+    nextDraft.executionMode = 'websocket'
+    nextDraft.advertisedEndpoint = ''
+  }
+  if (nextDraft.reachabilityMode === 'direct_connect' && nextDraft.executionMode !== 'websocket') {
+    nextDraft.advertisedEndpoint = ''
+  }
+}
+
+function resolveConnectionMode(
+  reachabilityMode: MachineReachabilityMode,
+  executionMode: MachineExecutionMode,
+): MachineConnectionMode {
+  if (reachabilityMode === 'local') {
+    return 'local'
+  }
+  if (reachabilityMode === 'reverse_connect') {
+    return 'ws_reverse'
+  }
+  return executionMode === 'ssh_compat' ? 'ssh' : 'ws_listener'
+}
+
+function resolveLegacyConnectionMode(
+  reachabilityMode: string,
+  executionMode: string,
+  host: string,
+): MachineConnectionMode {
+  return resolveConnectionMode(
+    normalizeReachabilityMode(reachabilityMode, host),
+    normalizeExecutionMode(executionMode, host),
+  )
+}
+
+function coerceExecutionMode(
+  reachabilityMode: MachineReachabilityMode,
+  executionMode: MachineExecutionMode,
+): MachineExecutionMode {
+  if (reachabilityMode === 'local') {
+    return 'local_process'
+  }
+  if (reachabilityMode === 'reverse_connect') {
+    return 'websocket'
+  }
+  return executionMode === 'local_process' ? 'websocket' : executionMode
 }
 
 function parseMachinePort(rawPort: string): number | null {
@@ -272,14 +359,26 @@ function validateMachineIdentity(name: string, host: string): string | null {
 
 function validateTransportFields(
   draft: MachineDraft,
-  connectionMode: MachineDraft['connectionMode'],
+  reachabilityMode: MachineReachabilityMode,
+  executionMode: MachineExecutionMode,
 ): string | null {
-  if (connectionMode === 'ssh') {
-    if (!draft.sshUser.trim()) return 'SSH user is required for SSH machines.'
-    if (!draft.sshKeyPath.trim()) return 'SSH key path is required for SSH machines.'
+  const sshUser = draft.sshUser.trim()
+  const sshKeyPath = draft.sshKeyPath.trim()
+  const hasAnySSHHelper = sshUser.length > 0 || sshKeyPath.length > 0
+
+  if (executionMode === 'ssh_compat') {
+    if (!sshUser) return 'SSH user is required for SSH compatibility.'
+    if (!sshKeyPath) return 'SSH key path is required for SSH compatibility.'
   }
-  if (connectionMode === 'ws_listener' && !draft.advertisedEndpoint.trim()) {
-    return 'Advertised endpoint is required for websocket listener machines.'
+  if (hasAnySSHHelper && (!sshUser || !sshKeyPath)) {
+    return 'SSH helper access requires both an SSH user and an SSH key path.'
+  }
+  if (
+    reachabilityMode === 'direct_connect' &&
+    executionMode === 'websocket' &&
+    !draft.advertisedEndpoint.trim()
+  ) {
+    return 'Advertised endpoint is required for direct-connect websocket machines.'
   }
   return null
 }

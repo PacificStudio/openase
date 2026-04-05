@@ -9,6 +9,8 @@ type machinePatchRequest struct {
 	Name                  *string                               `json:"name"`
 	Host                  *string                               `json:"host"`
 	Port                  *int                                  `json:"port"`
+	ReachabilityMode      *string                               `json:"reachability_mode"`
+	ExecutionMode         *string                               `json:"execution_mode"`
 	ConnectionMode        *string                               `json:"connection_mode"`
 	TransportCapabilities *[]string                             `json:"transport_capabilities"`
 	SSHUser               *string                               `json:"ssh_user"`
@@ -36,6 +38,8 @@ func parseMachinePatchRequest(
 		Name:                  current.Name,
 		Host:                  current.Host,
 		Port:                  intPointer(current.Port),
+		ReachabilityMode:      current.ReachabilityMode.String(),
+		ExecutionMode:         current.ExecutionMode.String(),
 		ConnectionMode:        current.ConnectionMode.String(),
 		TransportCapabilities: machineTransportCapabilityStrings(current.TransportCapabilities),
 		SSHUser:               current.SSHUser,
@@ -73,6 +77,12 @@ func parseMachinePatchRequest(
 	}
 	if patch.ConnectionMode != nil {
 		request.ConnectionMode = *patch.ConnectionMode
+	}
+	if patch.ReachabilityMode != nil {
+		request.ReachabilityMode = *patch.ReachabilityMode
+	}
+	if patch.ExecutionMode != nil {
+		request.ExecutionMode = *patch.ExecutionMode
 	}
 	if patch.TransportCapabilities != nil {
 		request.TransportCapabilities = *patch.TransportCapabilities

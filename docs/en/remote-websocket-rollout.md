@@ -2,6 +2,13 @@
 
 This guide turns the remote websocket transport into an operable feature instead of a code-only implementation. It covers the validation matrix, observability contract, deployment prerequisites, daemon install flow, upgrade and rollback steps, and the rollout checklist.
 
+Terminology used in this guide:
+
+- `direct_connect`: the control plane can reach the machine.
+- `reverse_connect`: the machine daemon can dial back to the control plane.
+- `websocket`: the intended remote execution path.
+- `ssh_compat`: a temporary compatibility path or helper used during rollout, bootstrap, and diagnostics.
+
 ## Automated Validation Matrix
 
 Run the focused transport matrix from the repo root:
@@ -99,7 +106,7 @@ Use project activity together with logs when you need to answer:
 - Listener websocket requires inbound reachability from the control plane to the machine-advertised websocket endpoint.
 - If TLS termination sits in front of OpenASE, make sure the advertised hostname matches the listener certificate and that websocket upgrade headers survive the proxy.
 
-### Transport Mode Prerequisites
+### Reachability And Compatibility Prerequisites
 
 Reverse websocket:
 
@@ -113,10 +120,11 @@ Listener websocket:
 - requires a machine-advertised websocket endpoint
 - should still keep SSH credentials configured during rollout to preserve operational fallback
 
-Pure SSH:
+SSH compatibility:
 
-- remains the baseline fallback path
+- remains the baseline fallback path during rollout
 - should stay validated and enabled until websocket launch success and reconnect recovery meet rollout criteria
+- should be treated as helper or compatibility infrastructure, not the long-term remote execution model
 
 ## Bootstrap And Daemon Install
 
@@ -132,9 +140,11 @@ make build-web
 
 Before starting the daemon, make sure the machine record has:
 
-- the intended connection mode (`ws_reverse` or `ws_listener`)
+- the intended reachability plus execution pair:
+  - `reverse_connect + websocket`, or
+  - `direct_connect + websocket`
 - a valid `workspace_root`
-- SSH credentials preserved for fallback during rollout
+- SSH helper credentials preserved only when you still need rollout fallback or diagnostics
 - `agent_cli_path` when the remote CLI is not discoverable from `PATH`
 
 ### 3. Issue A Dedicated Machine Channel Token

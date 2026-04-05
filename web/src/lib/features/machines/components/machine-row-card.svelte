@@ -7,11 +7,12 @@
   import { buildResourceBars, buildStatusDots, type StatusDot } from './machine-row-card-view'
   import {
     isLocalMachine,
-    machineConnectionModeLabel,
     machineDetectedArchLabel,
     machineDetectedOSLabel,
     machineDetectionBadgeClass,
     machineDetectionStatusLabel,
+    machineExecutionModeLabel,
+    machineReachabilityLabel,
     parseMachineSnapshot,
   } from '../model'
   import type { MachineItem } from '../types'
@@ -47,7 +48,8 @@
 
   const snapshot = $derived(parseMachineSnapshot(machine.resources))
   const localMachine = $derived(isLocalMachine(machine))
-  const connectionModeLabel = $derived(machineConnectionModeLabel(machine.connection_mode))
+  const reachabilityLabel = $derived(machineReachabilityLabel(machine.reachability_mode))
+  const executionLabel = $derived(machineExecutionModeLabel(machine.execution_mode))
   const platformLabel = $derived(
     `${machineDetectedOSLabel(machine.detected_os)} / ${machineDetectedArchLabel(machine.detected_arch)}`,
   )
@@ -78,7 +80,8 @@
           {machine.host}:{machine.port}
         </p>
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" class="text-[10px]">{connectionModeLabel}</Badge>
+          <Badge variant="outline" class="text-[10px]">{reachabilityLabel}</Badge>
+          <Badge variant="outline" class="text-[10px]">{executionLabel}</Badge>
           <Badge variant="secondary" class="text-[10px]">{platformLabel}</Badge>
           <Badge variant="outline" class={cn('text-[10px]', detectionBadgeClass)}>
             {detectionLabel}

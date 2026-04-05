@@ -45,6 +45,11 @@ type machineResponse struct {
 	Name                  string                           `json:"name"`
 	Host                  string                           `json:"host"`
 	Port                  int                              `json:"port"`
+	ReachabilityMode      string                           `json:"reachability_mode"`
+	ExecutionMode         string                           `json:"execution_mode"`
+	ExecutionCapabilities []string                         `json:"execution_capabilities,omitempty"`
+	SSHHelperEnabled      bool                             `json:"ssh_helper_enabled"`
+	SSHHelperRequired     bool                             `json:"ssh_helper_required"`
 	ConnectionMode        string                           `json:"connection_mode"`
 	TransportCapabilities []string                         `json:"transport_capabilities,omitempty"`
 	SSHUser               *string                          `json:"ssh_user,omitempty"`
@@ -322,14 +327,21 @@ func mapProjectResponse(item domain.Project) projectResponse {
 }
 
 func mapMachineResponse(item domain.Machine) machineResponse {
+	executionCapabilities := machineTransportCapabilityStrings(item.TransportCapabilities)
+	sshHelperEnabled := item.SSHUser != nil || item.SSHKeyPath != nil
 	return machineResponse{
 		ID:                    item.ID.String(),
 		OrganizationID:        item.OrganizationID.String(),
 		Name:                  item.Name,
 		Host:                  item.Host,
 		Port:                  item.Port,
+		ReachabilityMode:      item.ReachabilityMode.String(),
+		ExecutionMode:         item.ExecutionMode.String(),
+		ExecutionCapabilities: executionCapabilities,
+		SSHHelperEnabled:      sshHelperEnabled,
+		SSHHelperRequired:     item.ConnectionMode.RequiresSSHHelper(),
 		ConnectionMode:        item.ConnectionMode.String(),
-		TransportCapabilities: machineTransportCapabilityStrings(item.TransportCapabilities),
+		TransportCapabilities: executionCapabilities,
 		SSHUser:               item.SSHUser,
 		SSHKeyPath:            item.SSHKeyPath,
 		AdvertisedEndpoint:    item.AdvertisedEndpoint,

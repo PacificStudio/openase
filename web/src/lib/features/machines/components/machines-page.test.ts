@@ -67,6 +67,11 @@ const machineFixture = {
   name: 'GPU Builder',
   host: 'builder.internal',
   port: 22,
+  reachability_mode: 'direct_connect',
+  execution_mode: 'ssh_compat',
+  execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
+  ssh_helper_enabled: true,
+  ssh_helper_required: true,
   connection_mode: 'ssh',
   transport_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
   ssh_user: 'ubuntu',
@@ -211,12 +216,13 @@ describe('MachinesPage cache behavior', () => {
     const view = render(MachinesPage)
 
     expect(await view.findByText('Linux / amd64')).toBeTruthy()
-    expect(view.getByText('SSH')).toBeTruthy()
+    expect(view.getByText('Direct Connect')).toBeTruthy()
+    expect(view.getByText('SSH Compat')).toBeTruthy()
     expect(view.getByText('Detected')).toBeTruthy()
 
     await openMachineDetails('machine-1')
 
-    expect(await view.findByText('Connection mode')).toBeTruthy()
+    expect(await view.findByText('Reachability mode')).toBeTruthy()
     expect(view.getAllByText('Detected amd64 on Linux.').length).toBeGreaterThan(0)
     expect(view.getByText('/home/ubuntu/.openase/workspace')).toBeTruthy()
     expect(view.getByText('Keeping the saved workspace root override.')).toBeTruthy()
@@ -231,7 +237,7 @@ describe('MachinesPage cache behavior', () => {
     expect(await view.findByText('Configuration')).toBeTruthy()
     expect(view.getByText('Health & Status')).toBeTruthy()
 
-    expect(view.getByText('Connection mode')).toBeTruthy()
+    expect(view.getByText('Reachability mode')).toBeTruthy()
 
     await fireEvent.click(view.getByText('Health & Status'))
 

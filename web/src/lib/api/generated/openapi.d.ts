@@ -4480,6 +4480,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -4487,9 +4489,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -4577,6 +4582,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -4584,9 +4591,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -4660,7 +4670,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Listener websocket endpoint advertised by the machine when connection_mode is ws_listener. */
+          /** @description Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect. */
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
@@ -4673,7 +4683,7 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener. */
+          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
           connection_mode?: string | null
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
@@ -4696,6 +4706,8 @@ export interface operations {
           detection_status?: string | null
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[] | null
+          /** @description Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility. */
+          execution_mode?: string | null
           /** @description Hostname or address used to reach the machine. */
           host?: string | null
           /** @description Labels attached to the machine for operator reference. */
@@ -4704,13 +4716,15 @@ export interface operations {
           name?: string | null
           /** @description Transport-specific port used to connect to the machine. */
           port?: number | null
-          /** @description Path to the SSH private key used for machine access when connection_mode is ssh. */
+          /** @description Reachability topology for the machine: local, direct_connect, or reverse_connect. */
+          reachability_mode?: string | null
+          /** @description Path to the SSH private key used for SSH helper access or legacy ssh_compat execution. */
           ssh_key_path?: string | null
-          /** @description SSH username used for machine access when connection_mode is ssh. */
+          /** @description SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string | null
-          /** @description Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming. */
+          /** @description Legacy compatibility alias for execution_capabilities. */
           transport_capabilities?: string[] | null
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
@@ -4746,6 +4760,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -4753,9 +4769,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -4855,6 +4874,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -4862,9 +4883,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -5049,6 +5073,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -5056,9 +5082,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -6080,6 +6109,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -6087,9 +6118,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
@@ -6151,7 +6185,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Listener websocket endpoint advertised by the machine when connection_mode is ws_listener. */
+          /** @description Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect. */
           advertised_endpoint?: string | null
           /** @description Absolute path to the agent CLI executable on the machine. */
           agent_cli_path?: string | null
@@ -6164,7 +6198,7 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Transport mode used for the machine, such as local, ssh, ws_reverse, or ws_listener. */
+          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
           connection_mode?: string
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
@@ -6187,6 +6221,8 @@ export interface operations {
           detection_status?: string
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[]
+          /** @description Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility. */
+          execution_mode?: string
           /** @description Hostname or address used to reach the machine. */
           host?: string
           /** @description Labels attached to the machine for operator reference. */
@@ -6195,13 +6231,15 @@ export interface operations {
           name?: string
           /** @description Transport-specific port used to connect to the machine. */
           port?: number | null
-          /** @description Path to the SSH private key used for machine access when connection_mode is ssh. */
+          /** @description Reachability topology for the machine: local, direct_connect, or reverse_connect. */
+          reachability_mode?: string
+          /** @description Path to the SSH private key used for SSH helper access or legacy ssh_compat execution. */
           ssh_key_path?: string | null
-          /** @description SSH username used for machine access when connection_mode is ssh. */
+          /** @description SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution. */
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string
-          /** @description Transport features the machine advertises, such as probe, workspace_prepare, artifact_sync, and process_streaming. */
+          /** @description Legacy compatibility alias for execution_capabilities. */
           transport_capabilities?: string[]
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
@@ -6237,6 +6275,8 @@ export interface operations {
               detection_message?: string
               detection_status?: string
               env_vars?: string[]
+              execution_capabilities?: string[]
+              execution_mode?: string
               host?: string
               id?: string
               labels?: string[]
@@ -6244,9 +6284,12 @@ export interface operations {
               name?: string
               organization_id?: string
               port?: number
+              reachability_mode?: string
               resources?: {
                 [key: string]: unknown
               }
+              ssh_helper_enabled?: boolean
+              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
