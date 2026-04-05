@@ -22,7 +22,6 @@
   } from '../types'
 
   let {
-    mode,
     machine,
     draft,
     onDraftChange,
