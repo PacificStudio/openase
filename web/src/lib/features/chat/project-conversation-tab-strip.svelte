@@ -3,23 +3,27 @@
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
+  import * as Tooltip from '$ui/tooltip'
   import { LoaderCircle, X } from '@lucide/svelte'
   import {
     formatProjectConversationLabel,
     formatProjectConversationTabStatus,
     type ProjectConversationTabView,
   } from './project-conversation-panel-labels'
+  import { getProjectColor } from './project-conversation-tab-colors'
 
   let {
     tabs,
     activeTabId,
     conversations,
+    currentProjectId = '',
     onSelectTab,
     onCloseTab,
   }: {
     tabs: ProjectConversationTabView[]
     activeTabId: string
     conversations: ProjectConversation[]
+    currentProjectId?: string
     onSelectTab: (tabId: string) => void
     onCloseTab: (tabId: string) => void
   } = $props()
@@ -60,6 +64,10 @@
       {@const label = formatProjectConversationLabel(tab, conversations)}
       {@const status = formatProjectConversationTabStatus(tab)}
       {@const isActive = tab.id === activeTabId}
+      {@const isCrossProject =
+        !!tab.projectId && !!currentProjectId && tab.projectId !== currentProjectId}
+      {@const projectColor = isCrossProject ? getProjectColor(tab.projectId) : ''}
+      {@const projectLabel = tab.projectName || 'Other project'}
 
       <div
         role="tab"
@@ -76,11 +84,33 @@
           }
         }}
       >
+        {#if isCrossProject}
+          <Tooltip.Root>
+            <Tooltip.Trigger>
+              {#snippet child({ props })}
+                <span
+                  {...props}
+                  class="absolute inset-x-0 top-0 h-[3px]"
+                  style="background-color: {projectColor}"
+                ></span>
+              {/snippet}
+            </Tooltip.Trigger>
+            <Tooltip.Content side="bottom" class="text-xs">
+              {projectLabel}
+            </Tooltip.Content>
+          </Tooltip.Root>
+        {/if}
         {#if isActive}
           <span class="bg-foreground absolute inset-x-2.5 bottom-0 h-[1.5px] rounded-full"></span>
         {/if}
         {#if tab.pending}
           <LoaderCircle class="size-3 shrink-0 animate-spin opacity-50" />
+        {/if}
+        {#if isCrossProject && isActive}
+          <span
+            class="shrink-0 rounded-sm px-1 py-px text-[9px] leading-tight font-medium text-white"
+            style="background-color: {projectColor}">{projectLabel}</span
+          >
         {/if}
         <span class="max-w-[140px] truncate">{label}</span>
         {#if status && !tab.pending}

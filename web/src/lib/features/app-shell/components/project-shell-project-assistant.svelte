@@ -5,6 +5,7 @@
   let {
     organizationId,
     projectId,
+    projectName = '',
     defaultProviderId,
     focus = null,
     open = false,
@@ -15,6 +16,7 @@
   }: {
     organizationId: string
     projectId: string
+    projectName?: string
     defaultProviderId: string | null
     focus?: ProjectAIFocus | null
     open?: boolean
@@ -64,7 +66,7 @@
       <ProjectConversationPanel
         {organizationId}
         {defaultProviderId}
-        context={{ projectId }}
+        context={{ projectId, projectName }}
         {focus}
         title="Project AI"
         placeholder="Ask anything about this project…"
