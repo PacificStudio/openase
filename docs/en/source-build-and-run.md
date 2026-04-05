@@ -109,6 +109,16 @@ database:
 
 There is no third setup-managed database path. If your user account cannot access Docker and the machine does not already provide PostgreSQL, prepare PostgreSQL first and then use the manual connection path in setup.
 
+For macOS local development, the recommended manual path is a native PostgreSQL install managed by Homebrew or Postgres.app. Use Docker-backed setup when you already rely on Docker Desktop or Colima and want OpenASE to manage the container lifecycle for you.
+
+Homebrew example:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+psql postgres://localhost:5432/postgres?sslmode=disable -c "SELECT 1;"
+```
+
 If you prefer to manage config by hand instead of using setup, start from the sample config:
 
 ```bash
@@ -179,7 +189,7 @@ The default flow stays inside the terminal and does not open a browser. It walks
   - `oidc`, with in-flow prompts for issuer URL, client ID, client secret, redirect URL, scopes, and bootstrap admins
 - choosing how OpenASE should run after setup:
   - config-only
-  - install/update the current-user `systemd --user` service when the machine supports it
+  - install/update the current-user managed service: `systemd --user` on Linux, `launchd` on macOS
 - writing `~/.openase/config.yaml`
 - writing `~/.openase/.env` with the generated platform auth token
 - creating `~/.openase/logs/` and `~/.openase/workspaces/`
@@ -193,7 +203,7 @@ Successful setup does all of the following:
 - creates `~/.openase/logs/` and `~/.openase/workspaces/`
 - does not require a repo path, repo URL, default branch, or mode selection
 - does not scaffold repo-local `.openase/` assets during setup
-- can install the managed OpenASE service directly when `systemd --user` is available
+- can install the managed OpenASE service directly when the local platform supports `systemd --user` or `launchd`
 - can write runnable OIDC browser-login settings directly into the generated config
 
 When you choose Docker-backed PostgreSQL, setup uses predictable defaults:
@@ -272,14 +282,24 @@ Setup can install the managed service inline when you choose the service runtime
 openase all-in-one --config <resolved-config-path>
 ```
 
-On supported platforms this uses the repo's user-service abstraction for the local platform. The service reads `~/.openase/.env` and writes logs under `~/.openase/logs/`.
+On supported platforms this uses the repo's user-service abstraction for the local platform. The service reads `~/.openase/.env`. On Linux it runs as a `systemd --user` unit and `openase logs` reads from `journalctl`; on macOS it runs as a `launchd` LaunchAgent and `openase logs` tails `~/.openase/logs/openase.stdout.log` plus `~/.openase/logs/openase.stderr.log`.
 
 Important long-running deployment notes:
 
-- The managed `systemd --user` unit only runs OpenASE itself. It does not manage PostgreSQL for you.
+- The managed user service only runs OpenASE itself. It does not manage PostgreSQL for you.
 - If you use an existing PostgreSQL instance, keep that database running separately.
-- If setup created a Docker PostgreSQL container, that container is still separate from `openase.service`.
-- On servers where OpenASE should stay up after you log out, enable lingering for the user account:
+- If setup created a Docker PostgreSQL container, that container is still separate from the OpenASE service.
+
+Service manager details:
+
+| Platform | Manager | Definition path | Inspect | Restart | Stop | Logs |
+|----------|---------|-----------------|---------|---------|------|------|
+| Linux | `systemd --user` | `~/.config/systemd/user/openase.service` | `systemctl --user status openase` | `systemctl --user restart openase` | `systemctl --user stop openase` | `journalctl --user -u openase -n 200 -f` |
+| macOS | `launchd` | `~/Library/LaunchAgents/com.openase.plist` | `launchctl print gui/$(id -u)/com.openase \|\| launchctl print user/$(id -u)/com.openase` | `launchctl kickstart -k <target>` | `launchctl bootout <target>` | `tail -n 200 -f ~/.openase/logs/openase.stdout.log ~/.openase/logs/openase.stderr.log` |
+
+On macOS, setup prefers the `gui/<uid>/com.openase` target and falls back to `user/<uid>/com.openase` when that is the active user domain. Use whichever target `launchctl print` succeeds with for `kickstart` and `bootout`.
+
+On Linux servers where OpenASE should stay up after you log out, enable lingering for the user account:
 
 ```bash
 loginctl enable-linger "$USER"
