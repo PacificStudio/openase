@@ -89,7 +89,7 @@
 
 <PageScaffold
   title="Machines"
-  description="Configure machine access and inspect system-managed runtime health."
+  description="Machine access, transport configuration, and runtime health."
   variant="workspace"
   {actions}
 >

@@ -162,7 +162,7 @@ describe('MachinesPage cache behavior', () => {
     expect(await firstRender.findByTestId('machine-card-machine-1')).toBeTruthy()
 
     await openMachineDetails('machine-1')
-    expect(await firstRender.findByText('Health snapshot')).toBeTruthy()
+    expect(await firstRender.findByTestId('machine-editor-sheet')).toBeTruthy()
 
     expect(loadMachines).toHaveBeenCalledTimes(1)
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
@@ -171,7 +171,7 @@ describe('MachinesPage cache behavior', () => {
 
     const secondRender = render(MachinesPage)
     expect(await secondRender.findByTestId('machine-card-machine-1')).toBeTruthy()
-    expect(await secondRender.findByText('Health snapshot')).toBeTruthy()
+    expect(await secondRender.findByTestId('machine-editor-sheet')).toBeTruthy()
 
     expect(loadMachines).toHaveBeenCalledTimes(1)
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
@@ -182,7 +182,7 @@ describe('MachinesPage cache behavior', () => {
     expect(await firstRender.findByTestId('machine-card-machine-1')).toBeTruthy()
 
     await openMachineDetails('machine-1')
-    expect(await firstRender.findByText('Health snapshot')).toBeTruthy()
+    expect(await firstRender.findByTestId('machine-editor-sheet')).toBeTruthy()
     firstRender.unmount()
 
     markMachinesPageCacheDirty('org-1')
@@ -194,7 +194,7 @@ describe('MachinesPage cache behavior', () => {
 
     const secondRender = render(MachinesPage)
     expect(await secondRender.findByTestId('machine-card-machine-1')).toBeTruthy()
-    expect(await secondRender.findByText('Health snapshot')).toBeTruthy()
+    expect(await secondRender.findByTestId('machine-editor-sheet')).toBeTruthy()
 
     expect(loadMachines).toHaveBeenCalledTimes(2)
     expect(loadMachineSnapshot).toHaveBeenCalledTimes(1)
@@ -218,9 +218,24 @@ describe('MachinesPage cache behavior', () => {
 
     expect(await view.findByText('Connection mode')).toBeTruthy()
     expect(view.getAllByText('Detected amd64 on Linux.').length).toBeGreaterThan(0)
-    expect(view.getByText('Recommended root')).toBeTruthy()
     expect(view.getByText('/home/ubuntu/.openase/workspace')).toBeTruthy()
     expect(view.getByText('Keeping the saved workspace root override.')).toBeTruthy()
+  })
+
+  it('separates configuration and health into tabs for existing machines', async () => {
+    const view = render(MachinesPage)
+    expect(await view.findByTestId('machine-card-machine-1')).toBeTruthy()
+
+    await openMachineDetails('machine-1')
+
+    expect(await view.findByText('Configuration')).toBeTruthy()
+    expect(view.getByText('Health & Status')).toBeTruthy()
+
+    expect(view.getByText('Connection mode')).toBeTruthy()
+
+    await fireEvent.click(view.getByText('Health & Status'))
+
+    expect(await view.findByText('Health snapshot')).toBeTruthy()
   })
 })
 
