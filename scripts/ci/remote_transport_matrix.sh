@@ -42,6 +42,11 @@ run_case \
   'TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync$'
 
 run_case \
+  "Listener websocket runtime container e2e" \
+  "./internal/infra/machinetransport" \
+  'TestWebsocketListenerRuntimeContainerE2E$'
+
+run_case \
   "Listener websocket preflight failure classification" \
   "./internal/orchestrator" \
   'TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics$'
