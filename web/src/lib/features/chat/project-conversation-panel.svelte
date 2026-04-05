@@ -243,13 +243,6 @@
     await controller.sendTurn(message, nextFocus)
     suppressedFocusKey = ''
   }
-
-  function handleDismissFocus() {
-    suppressedFocusKey = effectiveFocusKey
-  }
-  function handleCancelQueuedTurn(queuedTurnId: string) {
-    controller.cancelQueuedTurn(queuedTurnId)
-  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -296,8 +289,10 @@
     {inputDisabled}
     {sendDisabled}
     {canQueueTurn}
-    onDismissFocus={handleDismissFocus}
-    onCancelQueuedTurn={handleCancelQueuedTurn}
+    onDismissFocus={() => {
+      suppressedFocusKey = effectiveFocusKey
+    }}
+    onCancelQueuedTurn={(id) => controller.cancelQueuedTurn(id)}
     onDraftChange={controller.setDraft}
     onSend={handleSend}
   />

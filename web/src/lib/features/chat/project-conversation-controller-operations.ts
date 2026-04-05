@@ -1,14 +1,13 @@
-/* eslint-disable max-lines */
-import {
-  listProjectConversations,
-  respondProjectConversationInterrupt,
-  type ProjectConversation,
-} from '$lib/api/chat'
+import { respondProjectConversationInterrupt, type ProjectConversation } from '$lib/api/chat'
 import { invalidateProjectConversationStream } from './project-conversation-controller-helpers'
 import {
   readProjectConversationTabs,
   migrateLegacyProjectConversationTabs,
 } from './project-conversation-storage'
+import {
+  fetchCrossProjectConversations,
+  mapPersistedToRestoredTabs,
+} from './project-conversation-controller-restore-helpers'
 import { createProjectConversationControllerRuntime } from './project-conversation-controller-runtime'
 import {
   disposeProjectConversationTabs,
@@ -72,32 +71,8 @@ export function createProjectConversationControllerOperations(
       migrateLegacyProjectConversationTabs(projectId)
       const persisted = readProjectConversationTabs()
 
-      const projectIdsToFetch = new Set<string>([projectId])
-      for (const tab of persisted.tabs) {
-        if (tab.projectId) projectIdsToFetch.add(tab.projectId)
-      }
-
-      const allConversations: ProjectConversation[] = []
-      const currentProjectConversationIds = new Set<string>()
-      const orderedProjectIds = [...projectIdsToFetch]
-      const fetchResults = await Promise.all(
-        orderedProjectIds.map(async (pid) => {
-          try {
-            const payload = await listProjectConversations({ projectId: pid })
-            return { pid, conversations: payload.conversations }
-          } catch {
-            return { pid, conversations: [] as ProjectConversation[] }
-          }
-        }),
-      )
-      for (const result of fetchResults) {
-        for (const conversation of result.conversations) {
-          allConversations.push(conversation)
-          if (result.pid === projectId) {
-            currentProjectConversationIds.add(conversation.id)
-          }
-        }
-      }
+      const { allConversations, currentProjectConversationIds } =
+        await fetchCrossProjectConversations(projectId, persisted.tabs)
       if (currentRestoreID !== restoreOperationID) return
 
       input.setConversations(runtime.sortProjectConversations(allConversations))
@@ -109,42 +84,12 @@ export function createProjectConversationControllerOperations(
       const conversationsByID = new Map(
         allConversations.map((conversation) => [conversation.id, conversation]),
       )
-      const restoredTabs = persisted.tabs
-        .map((persistedTab) => {
-          const conversation = persistedTab.conversationId
-            ? conversationsByID.get(persistedTab.conversationId)
-            : null
-          if (conversation != null) {
-            const tab = input.newTabState(
-              conversation.providerId,
-              true,
-              conversation.projectId || persistedTab.projectId,
-              persistedTab.projectName,
-            )
-            tab.draft = persistedTab.draft
-            return { tab, conversationId: conversation.id, restored: true }
-          }
-          if (persistedTab.conversationId.trim()) {
-            return null
-          }
-          const tab = input.newTabState(
-            persistedTab.providerId || input.getPreferredProviderId(),
-            false,
-            persistedTab.projectId,
-            persistedTab.projectName,
-          )
-          tab.draft = persistedTab.draft
-          return { tab, conversationId: '', restored: false }
-        })
-        .filter(
-          (
-            item,
-          ): item is {
-            tab: ProjectConversationTabState
-            conversationId: string
-            restored: boolean
-          } => item != null,
-        )
+      const restoredTabs = mapPersistedToRestoredTabs(
+        persisted.tabs,
+        conversationsByID,
+        input.newTabState,
+        input.getPreferredProviderId(),
+      )
 
       if (restoredTabs.length === 0) {
         const currentProjectConversations = allConversations.filter((c) =>
