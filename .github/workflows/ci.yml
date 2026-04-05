@@ -210,13 +210,7 @@ jobs:
           set -euo pipefail
 
           playwright_port="$(
-            python3 - <<'PY'
-import socket
-
-with socket.socket() as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
+            python3 -c 'import socket; sock = socket.socket(); sock.bind(("127.0.0.1", 0)); print(sock.getsockname()[1]); sock.close()'
           )"
 
           echo "OPENASE_PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
