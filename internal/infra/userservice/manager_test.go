@@ -106,7 +106,7 @@ func TestSystemdConstructorsPlatformAndLifecycleHelpers(t *testing.T) {
 func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{
-		results: []error{&exec.ExitError{}},
+		results: []error{&exec.ExitError{}, &exec.ExitError{}, nil},
 	}
 	manager := newLaunchdUserManagerForTest(homeDir, runner)
 	spec := testInstallSpec(t, homeDir)
@@ -137,6 +137,8 @@ func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 
 	expectedCalls := []recordedCommand{
 		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "gui/501"}},
 		{name: "launchctl", args: []string{"bootstrap", "gui/501", plistPath}},
 		{name: "launchctl", args: []string{"enable", "gui/501/com.openase"}},
 		{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/com.openase"}},
@@ -149,7 +151,7 @@ func TestLaunchdApplyWritesPlistAndBootstrapsService(t *testing.T) {
 func TestLaunchdRestartBootstrapsWhenServiceIsNotLoaded(t *testing.T) {
 	homeDir := t.TempDir()
 	runner := &recordingRunner{
-		results: []error{&exec.ExitError{}},
+		results: []error{&exec.ExitError{}, &exec.ExitError{}, nil},
 	}
 	manager := newLaunchdUserManagerForTest(homeDir, runner)
 
@@ -159,6 +161,8 @@ func TestLaunchdRestartBootstrapsWhenServiceIsNotLoaded(t *testing.T) {
 
 	expected := []recordedCommand{
 		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "gui/501"}},
 		{name: "launchctl", args: []string{"bootstrap", "gui/501", filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist")}},
 		{name: "launchctl", args: []string{"enable", "gui/501/com.openase"}},
 		{name: "launchctl", args: []string{"kickstart", "-k", "gui/501/com.openase"}},
@@ -174,7 +178,7 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 		t.Fatalf("NewLaunchdUserManager() = %+v", manager)
 	}
 
-	runner := &recordingRunner{results: []error{&exec.ExitError{}}}
+	runner := &recordingRunner{results: []error{&exec.ExitError{}, &exec.ExitError{}, nil}}
 	manager := newLaunchdUserManagerForTest(homeDir, runner)
 	if got := manager.Platform(); got != "launchd" {
 		t.Fatalf("Platform() = %q", got)
@@ -182,7 +186,12 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
 		t.Fatalf("Down(unloaded) error = %v", err)
 	}
-	if len(runner.calls) != 1 || !reflect.DeepEqual(runner.calls[0], recordedCommand{name: "launchctl", args: []string{"print", "gui/501/com.openase"}}) {
+	expectedDownUnloaded := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "gui/501"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expectedDownUnloaded) {
 		t.Fatalf("Down(unloaded) calls = %+v", runner.calls)
 	}
 
@@ -210,6 +219,50 @@ func TestLaunchdConstructorsPlatformDownAndRestartLoaded(t *testing.T) {
 	}
 	if !reflect.DeepEqual(runner.calls, expectedRestart) {
 		t.Fatalf("Restart(loaded) calls = %+v", runner.calls)
+	}
+}
+
+func TestLaunchdFallsBackToUserDomainWhenGUISessionIsUnavailable(t *testing.T) {
+	homeDir := t.TempDir()
+	runner := &recordingRunner{
+		results: []error{&exec.ExitError{}, &exec.ExitError{}, &exec.ExitError{}, nil},
+	}
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
+
+	if err := manager.Restart(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Restart returned error: %v", err)
+	}
+
+	expected := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "gui/501"}},
+		{name: "launchctl", args: []string{"print", "user/501"}},
+		{name: "launchctl", args: []string{"bootstrap", "user/501", filepath.Join(homeDir, "Library", "LaunchAgents", "com.openase.plist")}},
+		{name: "launchctl", args: []string{"enable", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"kickstart", "-k", "user/501/com.openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expected) {
+		t.Fatalf("unexpected commands: %+v", runner.calls)
+	}
+}
+
+func TestLaunchdPrefersLoadedUserDomainOverGUIFallback(t *testing.T) {
+	homeDir := t.TempDir()
+	runner := &recordingRunner{results: []error{&exec.ExitError{}, nil}}
+	manager := newLaunchdUserManagerForTest(homeDir, runner)
+
+	if err := manager.Down(context.Background(), provider.MustParseServiceName("openase")); err != nil {
+		t.Fatalf("Down returned error: %v", err)
+	}
+
+	expected := []recordedCommand{
+		{name: "launchctl", args: []string{"print", "gui/501/com.openase"}},
+		{name: "launchctl", args: []string{"print", "user/501/com.openase"}},
+		{name: "launchctl", args: []string{"bootout", "user/501/com.openase"}},
+	}
+	if !reflect.DeepEqual(runner.calls, expected) {
+		t.Fatalf("unexpected commands: %+v", runner.calls)
 	}
 }
 
@@ -242,12 +295,12 @@ func TestLaunchdLogsUsesTail(t *testing.T) {
 func TestLaunchdHelperErrorPathsAndExecRunner(t *testing.T) {
 	homeDir := t.TempDir()
 	manager := newLaunchdUserManagerForTest(homeDir, &recordingRunner{results: []error{errors.New("boom")}})
-	if _, err := manager.isLoaded(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl print gui/501/com.openase: boom") {
+	if _, err := manager.isLoaded(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "probe launchd service gui/501/com.openase: boom") {
 		t.Fatalf("isLoaded(unexpected error) = %v", err)
 	}
 
 	failing := newLaunchdUserManagerForTest(homeDir, &recordingRunner{results: []error{nil, errors.New("boom")}})
-	if err := failing.Restart(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), "launchctl kickstart -k gui/501/com.openase: boom") {
+	if err := failing.Restart(context.Background(), provider.MustParseServiceName("openase")); err == nil || !strings.Contains(err.Error(), `restart launchd service "openase" via gui/501`) || !strings.Contains(err.Error(), "launchctl kickstart -k gui/501/com.openase: boom") {
 		t.Fatalf("Restart(error) = %v", err)
 	}
 
@@ -264,6 +317,28 @@ func TestLaunchdHelperErrorPathsAndExecRunner(t *testing.T) {
 	}
 	if stdout.String() != "out" || stderr.String() != "err" {
 		t.Fatalf("execCommandRunner output = %q / %q", stdout.String(), stderr.String())
+	}
+}
+
+func TestCheckLaunchdSupportWithRunnerDistinguishesCommonFailureModes(t *testing.T) {
+	missingBinary := func(string) (string, error) {
+		return "", exec.ErrNotFound
+	}
+	presentBinary := func(string) (string, error) {
+		return "/usr/bin/launchctl", nil
+	}
+	if _, err := checkLaunchdSupportWithRunner(context.Background(), t.TempDir(), 501, &recordingRunner{}, missingBinary); err == nil || !strings.Contains(err.Error(), "launchctl is not installed") {
+		t.Fatalf("missing launchctl error = %v", err)
+	}
+
+	missingHome := filepath.Join(t.TempDir(), "missing-home")
+	if _, err := checkLaunchdSupportWithRunner(context.Background(), missingHome, 501, &recordingRunner{}, presentBinary); err == nil || !strings.Contains(err.Error(), "launchd LaunchAgent installation requires an accessible home directory") {
+		t.Fatalf("missing home error = %v", err)
+	}
+
+	runner := &recordingRunner{results: []error{&exec.ExitError{}, &exec.ExitError{}}}
+	if _, err := checkLaunchdSupportWithRunner(context.Background(), t.TempDir(), 501, runner, presentBinary); err == nil || !strings.Contains(err.Error(), "launchd is installed, but no usable domain was found for uid 501") || !strings.Contains(err.Error(), "gui/501, user/501") {
+		t.Fatalf("session unavailable error = %v", err)
 	}
 }
 

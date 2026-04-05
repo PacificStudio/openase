@@ -10,7 +10,13 @@ import {
 import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
 import type { ProjectAIFocus } from './project-ai-focus'
 
+export type ProjectContext = {
+  projectId: string
+  projectName: string
+}
+
 export type CreateProjectConversationControllerInput = {
+  getProjectContext: () => ProjectContext
   getProjectId: () => string
   onError?: (message: string) => void
   onStateChange?: (snapshot: ProjectConversationControllerSnapshot) => void
@@ -25,6 +31,8 @@ export type QueuedProjectTurn = {
 
 export type ProjectConversationTabState = ProjectConversationControllerState & {
   id: string
+  projectId: string
+  projectName: string
   providerId: string
   restored: boolean
   needsHydration: boolean
@@ -61,9 +69,13 @@ export function createProjectConversationTabState(
   tabNumber: number,
   providerId = '',
   restored = false,
+  projectId = '',
+  projectName = '',
 ): ProjectConversationTabState {
   return {
     id: `tab-${tabNumber}`,
+    projectId,
+    projectName,
     providerId,
     restored,
     needsHydration: false,
@@ -126,12 +138,11 @@ export function ensureProjectConversationTabSelection(
 }
 
 export function canQueueProjectConversationTurn(input: {
-  projectId: string
   tab: ProjectConversationTabState | null
 }) {
   return (
-    !!input.projectId &&
     input.tab != null &&
+    !!input.tab.projectId &&
     !!input.tab.providerId &&
     (isProjectConversationTabPending(input.tab) ||
       (input.tab.phase === 'idle' && input.tab.queuedTurns.length > 0)) &&
@@ -140,13 +151,13 @@ export function canQueueProjectConversationTurn(input: {
 }
 
 export function persistProjectConversationTabs(input: {
-  projectId: string
   tabs: ProjectConversationTabState[]
   activeTabId: string
 }) {
-  if (!input.projectId) return
-  storeProjectConversationTabs(input.projectId, {
+  storeProjectConversationTabs({
     tabs: input.tabs.map((tab) => ({
+      projectId: tab.projectId,
+      projectName: tab.projectName,
       conversationId: tab.conversationId.trim(),
       providerId: tab.providerId.trim(),
       draft: tab.draft,

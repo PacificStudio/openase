@@ -70,7 +70,8 @@
           <Sheet.Title>{activeGuide.title} setup guide</Sheet.Title>
           <Sheet.Description>
             Finish installation, sign-in, and verification first, then come back here and recheck.
-            Once the matching provider becomes available, you can set it as default directly in this step.
+            Once the matching provider becomes available, you can set it as default directly in this
+            step.
           </Sheet.Description>
         </Sheet.Header>
 
@@ -79,7 +80,8 @@
             <div class="space-y-1">
               <p class="text-foreground text-sm font-semibold">Official guide</p>
               <p class="text-muted-foreground text-xs">
-                Prefer following the official documentation for installation and authentication to avoid mismatches with the local PATH or credential state.
+                Prefer following the official documentation for installation and authentication to
+                avoid mismatches with the local PATH or credential state.
               </p>
             </div>
             <a

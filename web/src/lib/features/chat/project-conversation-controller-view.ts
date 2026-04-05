@@ -49,12 +49,12 @@ export function buildProjectConversationControllerSnapshot(
       : false,
     draft: activeTab?.draft ?? '',
     inputDisabled:
-      !input.controllerInput.getProjectId() ||
+      !activeTab?.projectId ||
       !activeTab?.providerId ||
       activeTab == null ||
       projectConversationHasPendingInterrupt(activeTab.entries),
     sendDisabled:
-      !input.controllerInput.getProjectId() ||
+      !activeTab?.projectId ||
       !activeTab?.providerId ||
       activeTab == null ||
       activeTab.phase !== 'idle' ||

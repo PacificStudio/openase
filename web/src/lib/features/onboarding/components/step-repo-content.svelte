@@ -100,7 +100,9 @@
           </div>
           <div>
             <p class="text-foreground text-sm font-medium">Create a new repository</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">Create a new code repository on GitHub</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">
+              Create a new code repository on GitHub
+            </p>
           </div>
         </button>
 
@@ -188,7 +190,9 @@
     {:else}
       <div class="space-y-3">
         <div>
-          <p class="text-foreground mb-1 text-xs font-medium">Search or browse GitHub repositories</p>
+          <p class="text-foreground mb-1 text-xs font-medium">
+            Search or browse GitHub repositories
+          </p>
           <div class="flex items-center gap-2">
             <Input
               bind:value={repoSearchQuery}

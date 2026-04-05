@@ -84,7 +84,9 @@
       })
       searchResults = payload.repositories
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to search repositories.')
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to search repositories.',
+      )
     } finally {
       searchingRepos = false
     }
@@ -122,7 +124,9 @@
       toastStore.success(`Repository ${newRepoName} was created and linked to the project.`)
       onComplete(updatedRepos.repos)
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the repository.')
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the repository.',
+      )
     } finally {
       creating = false
     }
@@ -143,7 +147,9 @@
       toastStore.success(`Repository ${linkRepoName} was linked to the project.`)
       onComplete(updatedRepos.repos)
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to link the repository.')
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to link the repository.',
+      )
     } finally {
       linking = false
     }

@@ -61,7 +61,7 @@
 <article
   data-testid={`machine-card-${machine.id}`}
   class={cn(
-    'border-border bg-card hover:bg-muted/20 hover-lift rounded-2xl border p-4 transition-colors',
+    'border-border bg-card hover:bg-muted/20 hover-lift rounded-lg border p-4 transition-colors',
     selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
   )}
 >

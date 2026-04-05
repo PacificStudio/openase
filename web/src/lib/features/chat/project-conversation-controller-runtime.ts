@@ -33,7 +33,12 @@ type ProjectConversationControllerRuntimeInput = {
   getTabs: () => ProjectConversationTabState[]
   setTabs: (value: ProjectConversationTabState[]) => void
   setActiveTabId: (value: string) => void
-  newTabState: (providerId?: string, restored?: boolean) => ProjectConversationTabState
+  newTabState: (
+    providerId?: string,
+    restored?: boolean,
+    projectId?: string,
+    projectName?: string,
+  ) => ProjectConversationTabState
   getActiveTab: () => ProjectConversationTabState | null
   ensureTabExists: () => void
   persistTabs: () => void
@@ -63,7 +68,7 @@ export function createProjectConversationControllerRuntime(
   })
 
   function connectTabStream(tab: ProjectConversationTabState, conversationId: string) {
-    const projectId = getProjectId()
+    const projectId = tab.projectId || getProjectId()
     if (!projectId) {
       return Promise.resolve()
     }
@@ -123,6 +128,7 @@ export function createProjectConversationControllerRuntime(
     conversationId: string,
     restored: boolean,
   ) {
+    const previousPhase = tab.phase
     const currentOperationId = beginProjectConversationOperation(tab, 'restoring')
     try {
       await loadProjectConversation({
@@ -157,7 +163,7 @@ export function createProjectConversationControllerRuntime(
       if (isCurrentProjectConversationOperation(tab, currentOperationId)) {
         tab.restored = restored
         if (tab.phase === 'restoring') {
-          tab.phase = 'idle'
+          tab.phase = previousPhase === 'restoring' ? 'idle' : previousPhase
         }
       }
       touchTabs()

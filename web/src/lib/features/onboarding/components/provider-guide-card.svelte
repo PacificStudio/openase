@@ -60,7 +60,9 @@
         <span class={cn('text-xs', status.className)}>{status.text}</span>
       </div>
       <p class="text-muted-foreground text-xs">
-        {providers.length > 0 ? `${providers.length} provider${providers.length === 1 ? "" : "s"} registered` : 'No provider registered yet'}
+        {providers.length > 0
+          ? `${providers.length} provider${providers.length === 1 ? '' : 's'} registered`
+          : 'No provider registered yet'}
       </p>
     </div>
   </div>
@@ -125,7 +127,9 @@
       </Button>
     {:else}
       <Button size="sm" class="flex-1" variant="outline" onclick={() => onOpenGuide(guide.key)}>
-        {availableProviders.length > 1 ? `View ${availableProviders.length} instances` : 'Continue setup'}
+        {availableProviders.length > 1
+          ? `View ${availableProviders.length} instances`
+          : 'Continue setup'}
       </Button>
     {/if}
 

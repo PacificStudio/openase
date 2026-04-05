@@ -72,7 +72,9 @@
       toastStore.success('GitHub token saved.')
       await runProbe()
     } catch (caughtError) {
-      toastStore.error(caughtError instanceof ApiError ? caughtError.detail : 'Failed to save the token.')
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save the token.',
+      )
     } finally {
       saving = false
     }
@@ -129,7 +131,9 @@
         <div class="flex-1">
           <p class="text-foreground text-sm font-medium">GitHub identity verified</p>
           <p class="text-muted-foreground text-sm">
-            OpenASE will use the GitHub account <span class="text-foreground font-medium">{probeResult.login}</span>
+            OpenASE will use the GitHub account <span class="text-foreground font-medium"
+              >{probeResult.login}</span
+            >
           </p>
         </div>
       </div>
@@ -166,7 +170,9 @@
         <AlertCircle class="text-destructive size-4" />
         <p class="text-destructive text-sm font-medium">Token validation failed</p>
       </div>
-      <p class="text-muted-foreground mt-1 text-xs">Check the token permissions. Repository read/write access is required.</p>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Check the token permissions. Repository read/write access is required.
+      </p>
       <Button variant="outline" size="sm" class="mt-2" onclick={handleRetry}>Retry</Button>
     </div>
   {:else}
@@ -184,7 +190,9 @@
           <div>
             <p class="text-foreground text-sm font-medium">Import automatically from local gh</p>
             <p class="text-muted-foreground mt-0.5 text-xs">
-              Detect and import the local <code class="bg-muted rounded px-1 text-[10px]">gh auth token</code> automatically
+              Detect and import the local <code class="bg-muted rounded px-1 text-[10px]"
+                >gh auth token</code
+              > automatically
             </p>
           </div>
         </button>
@@ -208,7 +216,8 @@
     {:else if mode === 'import'}
       <div class="space-y-3">
         <p class="text-muted-foreground text-sm">
-          Make sure GitHub CLI is installed and already signed in. OpenASE will read the current token automatically.
+          Make sure GitHub CLI is installed and already signed in. OpenASE will read the current
+          token automatically.
         </p>
         <div class="bg-muted/50 rounded-md p-3">
           <p class="text-muted-foreground mb-1 text-xs">If you are not signed in yet:</p>
@@ -231,7 +240,9 @@
       <div class="space-y-3">
         <p class="text-muted-foreground text-sm">Paste the token below after you obtain it:</p>
         <div class="bg-muted/50 space-y-1 rounded-md p-3">
-          <p class="text-muted-foreground text-xs">Run this command in the terminal to get the token:</p>
+          <p class="text-muted-foreground text-xs">
+            Run this command in the terminal to get the token:
+          </p>
           <code class="text-foreground text-xs">gh auth token</code>
         </div>
         <div class="flex items-center gap-2">

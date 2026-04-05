@@ -4,10 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/xml"
-	"errors"
 	"fmt"
-	"io"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -54,55 +51,63 @@ func (m *LaunchdUserManager) Apply(ctx context.Context, spec provider.UserServic
 		return fmt.Errorf("write launchd plist: %w", err)
 	}
 
-	loaded, err := m.isLoaded(ctx, spec.Name)
+	ref, err := m.resolveService(ctx, spec.Name)
 	if err != nil {
 		return err
 	}
-	if loaded {
-		if err := m.run(ctx, "bootout", m.target(spec.Name)); err != nil {
-			return err
+	if ref.Loaded {
+		if err := m.run(ctx, "bootout", ref.Target); err != nil {
+			return fmt.Errorf("refresh launchd service %q via %s: %w", spec.Name, ref.Domain, err)
 		}
 	}
-	if err := m.run(ctx, "bootstrap", m.domain(), plistPath); err != nil {
-		return err
+	if err := m.run(ctx, "bootstrap", ref.Domain, plistPath); err != nil {
+		return fmt.Errorf("install launchd service %q via %s: %w", spec.Name, ref.Domain, err)
 	}
-	if err := m.run(ctx, "enable", m.target(spec.Name)); err != nil {
-		return err
+	if err := m.run(ctx, "enable", ref.Target); err != nil {
+		return fmt.Errorf("enable launchd service %q via %s: %w", spec.Name, ref.Domain, err)
 	}
-	if err := m.run(ctx, "kickstart", "-k", m.target(spec.Name)); err != nil {
-		return err
+	if err := m.run(ctx, "kickstart", "-k", ref.Target); err != nil {
+		return fmt.Errorf("start launchd service %q via %s: %w", spec.Name, ref.Domain, err)
 	}
 
 	return nil
 }
 
 func (m *LaunchdUserManager) Down(ctx context.Context, name provider.ServiceName) error {
-	loaded, err := m.isLoaded(ctx, name)
+	ref, err := m.resolveService(ctx, name)
 	if err != nil {
 		return err
 	}
-	if !loaded {
+	if !ref.Loaded {
 		return nil
 	}
 
-	return m.run(ctx, "bootout", m.target(name))
+	if err := m.run(ctx, "bootout", ref.Target); err != nil {
+		return fmt.Errorf("stop launchd service %q via %s: %w", name, ref.Domain, err)
+	}
+
+	return nil
 }
 
 func (m *LaunchdUserManager) Restart(ctx context.Context, name provider.ServiceName) error {
-	loaded, err := m.isLoaded(ctx, name)
+	ref, err := m.resolveService(ctx, name)
 	if err != nil {
 		return err
 	}
-	if !loaded {
-		if err := m.run(ctx, "bootstrap", m.domain(), m.plistPath(name)); err != nil {
-			return err
+	if !ref.Loaded {
+		if err := m.run(ctx, "bootstrap", ref.Domain, m.plistPath(name)); err != nil {
+			return fmt.Errorf("install launchd service %q via %s: %w", name, ref.Domain, err)
 		}
-		if err := m.run(ctx, "enable", m.target(name)); err != nil {
-			return err
+		if err := m.run(ctx, "enable", ref.Target); err != nil {
+			return fmt.Errorf("enable launchd service %q via %s: %w", name, ref.Domain, err)
 		}
 	}
 
-	return m.run(ctx, "kickstart", "-k", m.target(name))
+	if err := m.run(ctx, "kickstart", "-k", ref.Target); err != nil {
+		return fmt.Errorf("restart launchd service %q via %s: %w", name, ref.Domain, err)
+	}
+
+	return nil
 }
 
 func (m *LaunchdUserManager) Logs(ctx context.Context, name provider.ServiceName, opts provider.UserServiceLogsOptions) error {
@@ -112,25 +117,24 @@ func (m *LaunchdUserManager) Logs(ctx context.Context, name provider.ServiceName
 	}
 	args = append(args, m.stdoutPath(name), m.stderrPath(name))
 
-	return m.runner.Run(ctx, "tail", args, opts.Stdout, opts.Stderr)
+	if err := m.runner.Run(ctx, "tail", args, opts.Stdout, opts.Stderr); err != nil {
+		return fmt.Errorf("tail launchd logs for %q: %w", name, err)
+	}
+
+	return nil
 }
 
 func (m *LaunchdUserManager) isLoaded(ctx context.Context, name provider.ServiceName) (bool, error) {
-	err := m.runner.Run(ctx, "launchctl", []string{"print", m.target(name)}, io.Discard, io.Discard)
-	if err == nil {
-		return true, nil
+	ref, err := m.resolveService(ctx, name)
+	if err != nil {
+		return false, err
 	}
 
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		return false, nil
-	}
-
-	return false, fmt.Errorf("launchctl print %s: %w", m.target(name), err)
+	return ref.Loaded, nil
 }
 
 func (m *LaunchdUserManager) plistPath(name provider.ServiceName) string {
-	return filepath.Join(m.homeDir, "Library", "LaunchAgents", m.label(name)+".plist")
+	return launchdPlistPath(m.homeDir, name)
 }
 
 func (m *LaunchdUserManager) stdoutPath(name provider.ServiceName) string {
@@ -142,15 +146,16 @@ func (m *LaunchdUserManager) stderrPath(name provider.ServiceName) string {
 }
 
 func (m *LaunchdUserManager) label(name provider.ServiceName) string {
-	return "com." + name.String()
+	return launchdLabel(name)
 }
 
-func (m *LaunchdUserManager) domain() string {
-	return fmt.Sprintf("gui/%d", m.uid)
-}
+func (m *LaunchdUserManager) resolveService(ctx context.Context, name provider.ServiceName) (LaunchdServiceReference, error) {
+	ref, err := resolveLaunchdServiceWithRunner(ctx, m.uid, name, m.runner)
+	if err != nil {
+		return LaunchdServiceReference{}, fmt.Errorf("resolve launchd service %q: %w", name, err)
+	}
 
-func (m *LaunchdUserManager) target(name provider.ServiceName) string {
-	return m.domain() + "/" + m.label(name)
+	return ref, nil
 }
 
 func (m *LaunchdUserManager) run(ctx context.Context, args ...string) error {

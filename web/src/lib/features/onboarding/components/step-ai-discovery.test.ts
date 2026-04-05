@@ -36,12 +36,16 @@ describe('StepAiDiscovery', () => {
 
     expect(getByText('On the final step, clicking any button will finish the tour.')).toBeTruthy()
     expect(
-      getByText('You can try Project AI, open the workflow editor, or click "Got it" to end the tour now.'),
+      getByText(
+        'You can try Project AI, open the workflow editor, or click "Got it" to end the tour now.',
+      ),
     ).toBeTruthy()
 
     await fireEvent.click(getByText('Break down 3 follow-up tickets'))
 
-    expect(onOpenProjectAI).toHaveBeenCalledWith('Based on the current project and existing tickets, break down 3 follow-up tickets for me.')
+    expect(onOpenProjectAI).toHaveBeenCalledWith(
+      'Based on the current project and existing tickets, break down 3 follow-up tickets for me.',
+    )
     expect(onComplete).toHaveBeenCalledTimes(1)
     expect(goto).not.toHaveBeenCalled()
   })

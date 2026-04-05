@@ -111,7 +111,9 @@
 
 {#if step.status !== 'completed'}
   <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4">
-    <p class="text-muted-foreground text-xs">If you do not want to continue setup, you can skip the tour and finish now.</p>
+    <p class="text-muted-foreground text-xs">
+      If you do not want to continue setup, you can skip the tour and finish now.
+    </p>
     <Button variant="ghost" size="sm" class="text-xs" onclick={onOnboardingComplete}>
       Skip tour
     </Button>

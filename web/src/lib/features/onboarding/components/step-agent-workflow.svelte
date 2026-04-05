@@ -128,7 +128,9 @@
       onComplete(refreshedAgents.agents, refreshedWorkflows.workflows)
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create the agent and workflow.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : 'Failed to create the agent and workflow.',
       )
     } finally {
       bootstrapping = false
@@ -141,7 +143,9 @@
     <div class="border-border flex items-start gap-3 rounded-lg border border-dashed p-4">
       <AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-500" />
       <div>
-        <p class="text-foreground text-sm font-medium">The current project status is "{projectStatus}"</p>
+        <p class="text-foreground text-sm font-medium">
+          The current project status is "{projectStatus}"
+        </p>
         <p class="text-muted-foreground mt-1 text-xs">
           Projects in Completed / Canceled / Archived do not automatically create execution roles.
           Change the project status first.

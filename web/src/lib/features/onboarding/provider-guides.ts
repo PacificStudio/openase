@@ -205,22 +205,34 @@ export function providerStatus(provider: AgentProvider | null) {
 export function reasonSpecificHints(provider: AgentProvider | null): string[] {
   switch (provider?.availability_reason) {
     case 'machine_offline':
-      return ['The bound machine is currently offline. Bring it back online, then rerun detection here.']
+      return [
+        'The bound machine is currently offline. Bring it back online, then rerun detection here.',
+      ]
     case 'machine_degraded':
       return ['The machine is connected but degraded. Fix host health first, then rerun detection.']
     case 'machine_maintenance':
       return ['The machine is in maintenance mode. Exit maintenance and rerun detection.']
     case 'cli_missing':
-      return ['OpenASE found this provider, but could not detect the matching CLI in the target machine PATH.']
+      return [
+        'OpenASE found this provider, but could not detect the matching CLI in the target machine PATH.',
+      ]
     case 'not_logged_in':
-      return ['The CLI is installed, but authentication is missing or expired. Rerun the sign-in command, then detect again.']
+      return [
+        'The CLI is installed, but authentication is missing or expired. Rerun the sign-in command, then detect again.',
+      ]
     case 'not_ready':
-      return ['The CLI exists, but the readiness probe still fails. Run a verification command first to inspect the exact error.']
+      return [
+        'The CLI exists, but the readiness probe still fails. Run a verification command first to inspect the exact error.',
+      ]
     case 'config_incomplete':
-      return ['This provider registration is incomplete. Check that the CLI command, model, and machine binding are all filled in.']
+      return [
+        'This provider registration is incomplete. Check that the CLI command, model, and machine binding are all filled in.',
+      ]
     case 'l4_snapshot_missing':
     case 'stale_l4_snapshot':
-      return ['OpenASE does not yet have a usable fresh machine snapshot. Rerunning detection will fetch one again.']
+      return [
+        'OpenASE does not yet have a usable fresh machine snapshot. Rerunning detection will fetch one again.',
+      ]
     default:
       return []
   }

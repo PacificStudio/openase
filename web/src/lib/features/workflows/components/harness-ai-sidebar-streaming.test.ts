@@ -445,7 +445,8 @@ describe('HarnessAiSidebar long streaming', () => {
         event: 'message',
         payload: {
           type: 'text',
-          content: 'I will first map the editable areas from the current harness and project status topology, then provide a directly applicable structured diff.',
+          content:
+            'I will first map the editable areas from the current harness and project status topology, then provide a directly applicable structured diff.',
         },
       },
       {

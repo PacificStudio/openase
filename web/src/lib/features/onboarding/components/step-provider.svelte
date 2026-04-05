@@ -78,7 +78,9 @@
     } catch (caughtError) {
       if (!silent) {
         toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : 'Failed to recheck provider availability.',
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : 'Failed to recheck provider availability.',
         )
       }
     } finally {
@@ -100,7 +102,9 @@
     } catch (caughtError) {
       selectedId = previousSelectedId
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to set the default provider.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : 'Failed to set the default provider.',
       )
     } finally {
       selecting = false
@@ -134,9 +138,9 @@
       <div class="space-y-1">
         <h4 class="text-foreground text-sm font-semibold">Built-in CLI setup guide</h4>
         <p class="text-muted-foreground text-xs">
-          When you enter this step, OpenASE rechecks availability using the machines already bound to
-          registered providers. Even if you have not registered a provider yet, you can follow the
-          official setup steps below to install, sign in, and verify first.
+          When you enter this step, OpenASE rechecks availability using the machines already bound
+          to registered providers. Even if you have not registered a provider yet, you can follow
+          the official setup steps below to install, sign in, and verify first.
         </p>
       </div>
       <Button
@@ -174,7 +178,8 @@
       <h4 class="text-foreground text-sm font-semibold">Registered providers</h4>
       <p class="text-muted-foreground text-xs">
         Registered providers keep their exact machine, model, and availability details. If an
-        instance is unavailable, go back to the matching CLI guide and recheck after finishing setup.
+        instance is unavailable, go back to the matching CLI guide and recheck after finishing
+        setup.
       </p>
     </div>
 

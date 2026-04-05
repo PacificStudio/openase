@@ -541,6 +541,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		"- current_project_name: OpenASE",
 		"- statuses:",
 		"Todo => 990e8400-e29b-41d4-a716-446655440000",
+		"Do not claim that you have already performed platform write operations.",
 		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.",
 		"Updated issue status",
 	) {
@@ -627,6 +628,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		"repo=bb0e8400-e29b-41d4-a716-446655440000 branch=feat/openase-278-coverage",
 		"### Hook History",
 		"go test ./... failed in auth package",
+		"Do not claim that you have already performed platform write operations.",
 		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.",
 	) {
 		t.Fatalf("ticket detail prompt = %q", prompt)
