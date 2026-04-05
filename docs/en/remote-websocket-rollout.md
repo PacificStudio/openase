@@ -17,7 +17,7 @@ Run the focused transport matrix from the repo root:
 scripts/ci/remote_transport_matrix.sh
 ```
 
-The matrix currently covers:
+The fast matrix currently covers:
 
 | Scenario | Coverage |
 | --- | --- |
@@ -39,6 +39,39 @@ What each happy-path runtime case verifies:
 - agent process launch
 - output streaming or command handshake
 - cleanup or disconnect bookkeeping
+
+## Local Container Harness
+
+Use the slow local-only container harness when you need real daemon startup,
+container networking, remote filesystem permissions, SSH transport, and process
+execution instead of in-process fakes:
+
+```bash
+make remote-runtime-container
+```
+
+Run targeted cases directly when you only need one slice:
+
+```bash
+scripts/ci/remote_runtime_container_harness.sh listener
+scripts/ci/remote_runtime_container_harness.sh reverse ssh
+```
+
+The container harness:
+
+- stays out of the normal pull-request CI workflow
+- writes case logs plus compose service logs under `.artifacts/remote-runtime-container/`
+- requires Linux plus Docker Compose
+- uses `scripts/ci/remote_runtime_container.compose.yml`
+- is available in a separate manual/nightly workflow: `.github/workflows/remote-runtime-container.yml`
+
+Current container cases:
+
+| Scenario | Coverage |
+| --- | --- |
+| Direct-connect websocket runtime over a real listener container | `TestWebsocketListenerRuntimeContainerE2E` |
+| Reverse-connect websocket runtime over a real machine-agent container | `TestWebsocketReverseRuntimeContainerE2E` |
+| SSH bootstrap + diagnostics helper over a real SSH container | `TestMachineSSHHelperContainerE2E` |
 
 The runtime contract itself is now shared by both websocket topologies:
 

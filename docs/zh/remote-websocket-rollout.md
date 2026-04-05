@@ -17,7 +17,7 @@
 scripts/ci/remote_transport_matrix.sh
 ```
 
-当前矩阵覆盖：
+当前快速矩阵覆盖：
 
 | 场景 | 覆盖 |
 | --- | --- |
@@ -39,6 +39,37 @@ scripts/ci/remote_transport_matrix.sh
 - Agent 进程启动
 - 输出流或命令握手
 - 清理或断开连接记账
+
+## 本地容器 Harness
+
+当你需要验证真实的守护进程启动、容器网络、远端文件系统权限、SSH 传输和进程执行，而不是只依赖进程内 fake 时，使用慢速的本地容器 harness：
+
+```bash
+make remote-runtime-container
+```
+
+只跑指定 case 时可以直接执行：
+
+```bash
+scripts/ci/remote_runtime_container_harness.sh listener
+scripts/ci/remote_runtime_container_harness.sh reverse ssh
+```
+
+这套容器 harness：
+
+- 不会进入普通 pull request CI
+- 会把 case 日志和 compose 服务日志写到 `.artifacts/remote-runtime-container/`
+- 需要 Linux 和 Docker Compose
+- 使用 `scripts/ci/remote_runtime_container.compose.yml`
+- 提供独立的手动 / nightly workflow：`.github/workflows/remote-runtime-container.yml`
+
+当前容器 case：
+
+| 场景 | 覆盖 |
+| --- | --- |
+| 通过真实 listener 容器验证 direct-connect websocket runtime | `TestWebsocketListenerRuntimeContainerE2E` |
+| 通过真实 machine-agent 容器验证 reverse-connect websocket runtime | `TestWebsocketReverseRuntimeContainerE2E` |
+| 通过真实 SSH 容器验证 SSH bootstrap + diagnostics helper | `TestMachineSSHHelperContainerE2E` |
 
 runtime 契约本身现在由两种 WebSocket 拓扑共同验证：
 

@@ -11,7 +11,7 @@ VERSION ?= dev
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -20,6 +20,7 @@ help:
 		'  make fmt-check     Fail if tracked Go files need gofmt' \
 		'  make test          Run the Go test suite' \
 		'  make test-backend-coverage Run full backend tests plus domain/core 100% coverage gate (set OPENASE_ENABLE_FULL_BACKEND_COVERAGE=true for optional overall 75%+ metric)' \
+		'  make remote-runtime-container Run the local-only docker compose harness for websocket runtime and SSH helper validation' \
 		'  make check         Run Go formatting and enforced backend coverage checks' \
 		'  make hooks-install Install Git hooks via lefthook' \
 		'  make hooks-run     Run the pre-commit hook against all files' \
@@ -66,6 +67,9 @@ test:
 
 test-backend-coverage:
 	./scripts/ci/backend_coverage.sh
+
+remote-runtime-container:
+	./scripts/ci/remote_runtime_container_harness.sh $(REMOTE_RUNTIME_CASES)
 
 check: fmt-check test-backend-coverage
 

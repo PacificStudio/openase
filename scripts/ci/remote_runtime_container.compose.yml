@@ -1,0 +1,50 @@
+services:
+  ws-listener:
+    image: debian:bookworm-slim
+    init: true
+    user: "${OPENASE_TEST_UID:-0}:${OPENASE_TEST_GID:-0}"
+    environment:
+      OPENASE_TEST_WS_LISTENER_HELPER: "1"
+      OPENASE_TEST_WS_LISTENER_PORT: "${OPENASE_TEST_WS_LISTENER_PORT:-19852}"
+    command:
+      - /bin/sh
+      - -lc
+      - exec /opt/openase/ws-listener.test -test.run '^TestWebsocketListenerRuntimeContainerHelper$' -test.timeout=0
+    volumes:
+      - "${OPENASE_TEST_WS_LISTENER_BINARY:-/tmp/ws-listener.test}:/opt/openase/ws-listener.test:ro"
+      - "${OPENASE_TEST_TMP_ROOT:-/tmp}:${OPENASE_TEST_TMP_ROOT:-/tmp}"
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
+    ports:
+      - "127.0.0.1:${OPENASE_TEST_WS_LISTENER_HOST_PORT:-19852}:${OPENASE_TEST_WS_LISTENER_PORT:-19852}"
+
+  reverse-daemon:
+    image: debian:bookworm-slim
+    init: true
+    user: "${OPENASE_TEST_UID:-0}:${OPENASE_TEST_GID:-0}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      OPENASE_MACHINE_ID: "${OPENASE_MACHINE_ID:-}"
+      OPENASE_MACHINE_CHANNEL_TOKEN: "${OPENASE_MACHINE_CHANNEL_TOKEN:-}"
+      OPENASE_MACHINE_CONTROL_PLANE_URL: "${OPENASE_MACHINE_CONTROL_PLANE_URL:-}"
+      OPENASE_MACHINE_HEARTBEAT_INTERVAL: "${OPENASE_MACHINE_HEARTBEAT_INTERVAL:-200ms}"
+    command:
+      - /bin/sh
+      - -lc
+      - exec /opt/openase/openase machine-agent run --openase-binary-path /opt/openase/openase --agent-cli-path /bin/sh --reconnect-backoff 250ms
+    volumes:
+      - "${OPENASE_TEST_OPENASE_BINARY:-/tmp/openase}:/opt/openase/openase:ro"
+      - "${OPENASE_TEST_TMP_ROOT:-/tmp}:${OPENASE_TEST_TMP_ROOT:-/tmp}"
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
+
+  ssh-helper:
+    build:
+      context: ../..
+      dockerfile: scripts/ci/remote-runtime/ssh-fixture/Dockerfile
+    init: true
+    ports:
+      - "127.0.0.1:${OPENASE_TEST_SSH_HELPER_HOST_PORT:-2222}:22"
+    volumes:
+      - "${OPENASE_TEST_SSH_AUTHORIZED_KEYS:-/tmp/authorized_keys}:/home/openase/.ssh/authorized_keys"
