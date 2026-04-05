@@ -241,7 +241,18 @@ func (r *Resolver) ResolveRuntime(machine domain.Machine) (ResolvedTransport, er
 		resolved.Execution.Process = transport
 		resolved.Execution.CommandSession = transport
 	case domain.MachineConnectionModeWSReverse:
-		resolved.Execution.Runtime = newRemoteRuntimeSurface(capabilities)
+		resolved.Execution.Probe = transport
+		resolved.Execution.Workspace = transport
+		resolved.Execution.ArtifactSync = transport
+		resolved.Execution.Process = transport
+		resolved.Execution.CommandSession = transport
+
+		runtime := newRemoteRuntimeSurface(capabilities)
+		runtime.Workspace = transport
+		runtime.ArtifactSync = transport
+		runtime.Process = transport
+		runtime.CommandSession = transport
+		resolved.Execution.Runtime = runtime
 	case domain.MachineConnectionModeWSListener:
 		resolved.Execution.Probe = transport
 		resolved.Execution.Workspace = transport
