@@ -245,11 +245,14 @@ func (m *projectConversationRuntimeManager) ensureConversationWorkspace(
 		return "", fmt.Errorf("prepare chat workspace auth: %w", err)
 	}
 
-	transport, err := m.resolveTransport(machine)
+	resolved, err := m.resolveRuntimeTransport(machine)
 	if err != nil {
 		return "", err
 	}
-	workspaceItem, err := transport.PrepareWorkspace(ctx, machine, request)
+	if resolved.Execution.Workspace == nil {
+		return "", fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	workspaceItem, err := resolved.Execution.Workspace.PrepareWorkspace(ctx, machine, request)
 	if err != nil {
 		if machine.Host == catalogdomain.LocalMachineHost {
 			return "", fmt.Errorf("prepare local chat workspace: %w", err)
@@ -329,11 +332,14 @@ func (m *projectConversationRuntimeManager) copyConversationWorkspaceArtifactsRe
 	if err != nil {
 		return fmt.Errorf("derive remote skills relative path: %w", err)
 	}
-	transport, err := m.resolveTransport(machine)
+	resolved, err := m.resolveRuntimeTransport(machine)
 	if err != nil {
 		return err
 	}
-	return transport.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
+	if resolved.Execution.ArtifactSync == nil {
+		return fmt.Errorf("%w: artifact sync unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	return resolved.Execution.ArtifactSync.SyncArtifacts(ctx, machine, machinetransport.SyncArtifactsRequest{
 		LocalRoot:   localRoot,
 		TargetRoot:  remoteWorkspaceRoot,
 		Paths:       relativePaths,
@@ -356,6 +362,13 @@ func (m *projectConversationRuntimeManager) resolveTransport(machine catalogdoma
 	return m.transports.Resolve(machine)
 }
 
+func (m *projectConversationRuntimeManager) resolveRuntimeTransport(machine catalogdomain.Machine) (machinetransport.ResolvedTransport, error) {
+	if m == nil || m.transports == nil {
+		return machinetransport.ResolvedTransport{}, fmt.Errorf("chat machine transport resolver unavailable for machine %s", machine.Name)
+	}
+	return m.transports.ResolveRuntime(machine)
+}
+
 func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 	ctx context.Context,
 	machine catalogdomain.Machine,
@@ -366,11 +379,17 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 		return nil
 	}
 
-	transport, err := m.resolveTransport(machine)
+	resolved, err := m.resolveRuntimeTransport(machine)
 	if err != nil {
 		return err
 	}
-	if transport.Mode() != catalogdomain.MachineConnectionModeWSListener {
+	if resolved.Execution.Runtime == nil ||
+		!resolved.Execution.Runtime.SupportsAll(
+			catalogdomain.MachineTransportCapabilityWorkspacePrepare,
+			catalogdomain.MachineTransportCapabilityArtifactSync,
+			catalogdomain.MachineTransportCapabilityProcessStreaming,
+		) ||
+		resolved.Execution.Runtime.CommandSession == nil {
 		return nil
 	}
 
@@ -378,7 +397,7 @@ func (m *projectConversationRuntimeManager) runRemoteRuntimePreflight(
 	if machine.AgentCLIPath != nil && strings.TrimSpace(*machine.AgentCLIPath) != "" {
 		command = strings.TrimSpace(*machine.AgentCLIPath)
 	}
-	return machinetransport.RunRemoteRuntimePreflight(ctx, transport, machine, machinetransport.RuntimePreflightSpec{
+	return machinetransport.RunRemoteRuntimePreflight(ctx, resolved.Execution.Runtime.CommandSession, machine, machinetransport.RuntimePreflightSpec{
 		WorkingDirectory: workspacePath,
 		AgentCommand:     command,
 		Environment:      append([]string(nil), machine.EnvVars...),

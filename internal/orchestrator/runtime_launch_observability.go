@@ -152,9 +152,8 @@ func classifyRuntimeLaunchPreflightStage(err error) runtimeLaunchFailureStage {
 	}
 }
 
-func shouldFallbackToSSH(machine catalogdomain.Machine, err error) bool {
-	if machine.ConnectionMode != catalogdomain.MachineConnectionModeWSReverse &&
-		machine.ConnectionMode != catalogdomain.MachineConnectionModeWSListener {
+func shouldFallbackToSSH(machine catalogdomain.Machine, supportsRemoteRuntime bool, err error) bool {
+	if !supportsRemoteRuntime {
 		return false
 	}
 	if machine.SSHUser == nil || strings.TrimSpace(*machine.SSHUser) == "" {

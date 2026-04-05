@@ -72,11 +72,15 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	}
 
 	var workspaceItem workspaceinfra.Workspace
-	transport, transportErr := p.resolveTransport(machine)
+	resolved, transportErr := p.resolveRuntimeTransport(machine)
 	if transportErr != nil {
 		err = transportErr
 	} else {
-		workspaceItem, err = transport.PrepareWorkspace(ctx, machine, request)
+		if resolved.Execution.Workspace == nil {
+			err = fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+		} else {
+			workspaceItem, err = resolved.Execution.Workspace.PrepareWorkspace(ctx, machine, request)
+		}
 	}
 	if err != nil {
 		if updateErr := p.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
@@ -391,12 +395,15 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 		}
 		return nil
 	}
-	transport, err := p.resolveTransport(machine)
+	resolved, err := p.resolveRuntimeTransport(machine)
 	if err != nil {
 		return err
 	}
 
-	session, err := transport.OpenCommandSession(ctx, machine)
+	if resolved.Execution.CommandSession == nil {
+		return fmt.Errorf("%w: remote command session unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	session, err := resolved.Execution.CommandSession.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return fmt.Errorf("open remote command session for machine %s: %w", machine.Name, err)
 	}
@@ -411,9 +418,9 @@ func (p *runtimeWorkspaceProvisioner) removeWorkspaceRoot(ctx context.Context, m
 	return nil
 }
 
-func (p *runtimeWorkspaceProvisioner) resolveTransport(machine catalogdomain.Machine) (machinetransport.Transport, error) {
+func (p *runtimeWorkspaceProvisioner) resolveRuntimeTransport(machine catalogdomain.Machine) (machinetransport.ResolvedTransport, error) {
 	if p == nil || p.transports == nil {
-		return nil, fmt.Errorf("machine transport resolver unavailable for machine %s", machine.Name)
+		return machinetransport.ResolvedTransport{}, fmt.Errorf("machine transport resolver unavailable for machine %s", machine.Name)
 	}
-	return p.transports.Resolve(machine)
+	return p.transports.ResolveRuntime(machine)
 }

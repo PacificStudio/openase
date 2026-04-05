@@ -65,18 +65,18 @@ func (e *RuntimePreflightError) Unwrap() error {
 
 func RunRemoteRuntimePreflight(
 	ctx context.Context,
-	transport Transport,
+	execution CommandSessionExecution,
 	machine domain.Machine,
 	spec RuntimePreflightSpec,
 ) error {
-	if transport == nil {
+	if execution == nil {
 		return &RuntimePreflightError{
 			Stage:   RuntimePreflightStageTransport,
 			Message: fmt.Sprintf("transport unavailable for machine %s", machine.Name),
 		}
 	}
 
-	session, err := transport.OpenCommandSession(ctx, machine)
+	session, err := execution.OpenCommandSession(ctx, machine)
 	if err != nil {
 		return &RuntimePreflightError{
 			Stage:   RuntimePreflightStageTransport,

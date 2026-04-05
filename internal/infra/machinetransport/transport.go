@@ -39,6 +39,131 @@ type SyncArtifactsRequest struct {
 	RemovePaths []string
 }
 
+type ProbeExecution interface {
+	Probe(ctx context.Context, machine domain.Machine) (domain.MachineProbe, error)
+}
+
+type WorkspaceExecution interface {
+	PrepareWorkspace(ctx context.Context, machine domain.Machine, request workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error)
+}
+
+type ArtifactSyncExecution interface {
+	SyncArtifacts(ctx context.Context, machine domain.Machine, request SyncArtifactsRequest) error
+}
+
+type ProcessExecution interface {
+	StartProcess(ctx context.Context, machine domain.Machine, spec provider.AgentCLIProcessSpec) (provider.AgentCLIProcess, error)
+}
+
+type CommandSessionExecution interface {
+	OpenCommandSession(ctx context.Context, machine domain.Machine) (CommandSession, error)
+}
+
+type ChannelTransport interface {
+	Mode() domain.MachineConnectionMode
+	SessionState(ctx context.Context, machine domain.Machine) (domain.MachineTransportSessionState, error)
+	Heartbeat(ctx context.Context, machine domain.Machine) (domain.MachineDaemonStatus, error)
+}
+
+type capabilitySurface struct {
+	ordered []domain.MachineTransportCapability
+	set     map[domain.MachineTransportCapability]struct{}
+}
+
+func newCapabilitySurface(items []domain.MachineTransportCapability) capabilitySurface {
+	cloned := append([]domain.MachineTransportCapability(nil), items...)
+	set := make(map[domain.MachineTransportCapability]struct{}, len(cloned))
+	for _, item := range cloned {
+		set[item] = struct{}{}
+	}
+	return capabilitySurface{
+		ordered: cloned,
+		set:     set,
+	}
+}
+
+func (s capabilitySurface) Capabilities() []domain.MachineTransportCapability {
+	return append([]domain.MachineTransportCapability(nil), s.ordered...)
+}
+
+func (s capabilitySurface) Supports(capability domain.MachineTransportCapability) bool {
+	_, ok := s.set[capability]
+	return ok
+}
+
+func (s capabilitySurface) SupportsAll(capabilities ...domain.MachineTransportCapability) bool {
+	for _, capability := range capabilities {
+		if !s.Supports(capability) {
+			return false
+		}
+	}
+	return true
+}
+
+type RemoteRuntimeSurface struct {
+	capabilities   capabilitySurface
+	Workspace      WorkspaceExecution
+	ArtifactSync   ArtifactSyncExecution
+	Process        ProcessExecution
+	CommandSession CommandSessionExecution
+}
+
+func newRemoteRuntimeSurface(items []domain.MachineTransportCapability) *RemoteRuntimeSurface {
+	return &RemoteRuntimeSurface{capabilities: newCapabilitySurface(items)}
+}
+
+func (s *RemoteRuntimeSurface) Capabilities() []domain.MachineTransportCapability {
+	if s == nil {
+		return nil
+	}
+	return s.capabilities.Capabilities()
+}
+
+func (s *RemoteRuntimeSurface) Supports(capability domain.MachineTransportCapability) bool {
+	if s == nil {
+		return false
+	}
+	return s.capabilities.Supports(capability)
+}
+
+func (s *RemoteRuntimeSurface) SupportsAll(capabilities ...domain.MachineTransportCapability) bool {
+	if s == nil {
+		return false
+	}
+	return s.capabilities.SupportsAll(capabilities...)
+}
+
+type ExecutionSurface struct {
+	capabilities   capabilitySurface
+	Probe          ProbeExecution
+	Workspace      WorkspaceExecution
+	ArtifactSync   ArtifactSyncExecution
+	Process        ProcessExecution
+	CommandSession CommandSessionExecution
+	Runtime        *RemoteRuntimeSurface
+}
+
+func newExecutionSurface(items []domain.MachineTransportCapability) ExecutionSurface {
+	return ExecutionSurface{capabilities: newCapabilitySurface(items)}
+}
+
+func (s ExecutionSurface) Capabilities() []domain.MachineTransportCapability {
+	return s.capabilities.Capabilities()
+}
+
+func (s ExecutionSurface) Supports(capability domain.MachineTransportCapability) bool {
+	return s.capabilities.Supports(capability)
+}
+
+func (s ExecutionSurface) SupportsAll(capabilities ...domain.MachineTransportCapability) bool {
+	return s.capabilities.SupportsAll(capabilities...)
+}
+
+type ResolvedTransport struct {
+	Channel   ChannelTransport
+	Execution ExecutionSurface
+}
+
 type Transport interface {
 	Mode() domain.MachineConnectionMode
 	Capabilities(machine domain.Machine) []domain.MachineTransportCapability
@@ -79,6 +204,50 @@ func (r *Resolver) Resolve(machine domain.Machine) (Transport, error) {
 	default:
 		return nil, fmt.Errorf("%w: unsupported connection mode %q", ErrTransportUnavailable, mode)
 	}
+}
+
+func (r *Resolver) ResolveRuntime(machine domain.Machine) (ResolvedTransport, error) {
+	transport, err := r.Resolve(machine)
+	if err != nil {
+		return ResolvedTransport{}, err
+	}
+
+	capabilities := transport.Capabilities(machine)
+	resolved := ResolvedTransport{
+		Channel:   transport,
+		Execution: newExecutionSurface(capabilities),
+	}
+
+	switch transport.Mode() {
+	case domain.MachineConnectionModeLocal:
+		resolved.Execution.Probe = transport
+		resolved.Execution.Workspace = transport
+		resolved.Execution.ArtifactSync = transport
+		resolved.Execution.Process = transport
+	case domain.MachineConnectionModeSSH:
+		resolved.Execution.Probe = transport
+		resolved.Execution.Workspace = transport
+		resolved.Execution.ArtifactSync = transport
+		resolved.Execution.Process = transport
+		resolved.Execution.CommandSession = transport
+	case domain.MachineConnectionModeWSReverse:
+		resolved.Execution.Runtime = newRemoteRuntimeSurface(capabilities)
+	case domain.MachineConnectionModeWSListener:
+		resolved.Execution.Probe = transport
+		resolved.Execution.Workspace = transport
+		resolved.Execution.ArtifactSync = transport
+		resolved.Execution.Process = transport
+		resolved.Execution.CommandSession = transport
+
+		runtime := newRemoteRuntimeSurface(capabilities)
+		runtime.Workspace = transport
+		runtime.ArtifactSync = transport
+		runtime.Process = transport
+		runtime.CommandSession = transport
+		resolved.Execution.Runtime = runtime
+	}
+
+	return resolved, nil
 }
 
 type resolvedProcessManager struct {
@@ -139,7 +308,7 @@ func NewMonitorCollector(resolver *Resolver, sshPool *sshinfra.Pool) *MonitorCol
 }
 
 func (c *MonitorCollector) CollectReachability(ctx context.Context, machine domain.Machine) (domain.MachineReachability, error) {
-	transport, err := c.resolve(machine)
+	channel, err := c.resolve(machine)
 	if err != nil {
 		checkedAt := c.currentTime()
 		return domain.MachineReachability{
@@ -149,10 +318,10 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 		}, err
 	}
 
-	switch transport.Mode() {
+	switch channel.Mode() {
 	case domain.MachineConnectionModeWSReverse:
 		checkedAt := c.currentTime()
-		heartbeat, hbErr := transport.Heartbeat(ctx, machine)
+		heartbeat, hbErr := channel.Heartbeat(ctx, machine)
 		reachable := heartbeat.Registered && heartbeat.SessionState == domain.MachineTransportSessionStateConnected
 		failureCause := ""
 		if !reachable {
@@ -163,19 +332,31 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 		}
 		return domain.MachineReachability{
 			CheckedAt:    checkedAt,
-			Transport:    transport.Mode().String(),
+			Transport:    channel.Mode().String(),
 			Reachable:    reachable,
 			FailureCause: failureCause,
 		}, hbErr
 	case domain.MachineConnectionModeWSListener:
-		probe, probeErr := transport.Probe(ctx, machine)
+		resolved, resolveErr := c.resolver.ResolveRuntime(machine)
+		if resolveErr != nil {
+			return domain.MachineReachability{}, resolveErr
+		}
+		if resolved.Execution.Probe == nil {
+			err := fmt.Errorf("%w: probe unavailable for machine %s", ErrTransportUnavailable, machine.Name)
+			return domain.MachineReachability{
+				CheckedAt:    c.currentTime(),
+				Transport:    channel.Mode().String(),
+				FailureCause: err.Error(),
+			}, err
+		}
+		probe, probeErr := resolved.Execution.Probe.Probe(ctx, machine)
 		failureCause := ""
 		if probeErr != nil {
 			failureCause = probeErr.Error()
 		}
 		return domain.MachineReachability{
 			CheckedAt:    probe.CheckedAt,
-			Transport:    transport.Mode().String(),
+			Transport:    channel.Mode().String(),
 			Reachable:    probeErr == nil,
 			FailureCause: failureCause,
 		}, probeErr
@@ -184,7 +365,7 @@ func (c *MonitorCollector) CollectReachability(ctx context.Context, machine doma
 			checkedAt := c.currentTime()
 			return domain.MachineReachability{
 				CheckedAt:    checkedAt,
-				Transport:    transport.Mode().String(),
+				Transport:    channel.Mode().String(),
 				FailureCause: "machine monitor collector unavailable",
 			}, fmt.Errorf("machine monitor collector unavailable")
 		}
@@ -236,11 +417,15 @@ func (c *MonitorCollector) CollectFullAudit(ctx context.Context, machine domain.
 	return c.sshCollector.CollectFullAudit(ctx, machine)
 }
 
-func (c *MonitorCollector) resolve(machine domain.Machine) (Transport, error) {
+func (c *MonitorCollector) resolve(machine domain.Machine) (ChannelTransport, error) {
 	if c == nil || c.resolver == nil {
 		return nil, fmt.Errorf("%w: monitor resolver unavailable", ErrTransportUnavailable)
 	}
-	return c.resolver.Resolve(machine)
+	resolved, err := c.resolver.ResolveRuntime(machine)
+	if err != nil {
+		return nil, err
+	}
+	return resolved.Channel, nil
 }
 
 func (c *MonitorCollector) currentTime() time.Time {
