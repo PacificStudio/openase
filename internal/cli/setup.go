@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -34,19 +35,22 @@ type setupRuntimeMode string
 
 const (
 	setupRuntimeModeConfigOnly         setupRuntimeMode = "config-only"
-	setupRuntimeModeSystemdUserService setupRuntimeMode = "systemd-user-service"
+	setupRuntimeModeManagedUserService setupRuntimeMode = "managed-user-service"
 )
 
 type setupFlowDeps struct {
 	buildUserServiceManager        func() (provider.UserServiceManager, error)
 	buildManagedServiceInstallSpec func(string) (provider.UserServiceInstallSpec, error)
-	checkSystemdUserServiceSupport func(context.Context) error
-	verifySystemdUserService       func(context.Context, provider.ServiceName) error
+	checkManagedUserServiceSupport func(context.Context) error
+	verifyManagedUserService       func(context.Context, provider.ServiceName) error
 }
 
 type installedSetupService struct {
-	Name     provider.ServiceName
-	Platform string
+	Name          provider.ServiceName
+	Platform      string
+	InstallSpec   provider.UserServiceInstallSpec
+	LaunchdTarget string
+	LaunchdPlist  string
 }
 
 type setupFlowService interface {
@@ -79,7 +83,7 @@ Run the interactive local setup flow for OpenASE.
 
 The default flow stays inside the terminal, prepares a PostgreSQL connection,
 checks key local CLIs, configures auth mode, optionally installs the current-
-user systemd service, and writes a runnable ~/.openase/config.yaml plus
+user managed service, and writes a runnable ~/.openase/config.yaml plus
 ~/.openase/.env. Use --web only for legacy browser-based troubleshooting.
 `),
 		Example: "openase setup\nopenase setup --force\nopenase setup --web --host 127.0.0.1 --port 19836",
@@ -116,8 +120,8 @@ func runSetupFlowCommand(ctx context.Context, in io.Reader, out io.Writer, opts 
 	err = runSetupFlowWithDeps(ctx, in, out, service, opts, setupFlowDeps{
 		buildUserServiceManager:        buildUserServiceManager,
 		buildManagedServiceInstallSpec: buildManagedServiceInstallSpec,
-		checkSystemdUserServiceSupport: checkSystemdUserServiceSupport,
-		verifySystemdUserService:       verifySystemdUserService,
+		checkManagedUserServiceSupport: checkManagedUserServiceSupport,
+		verifyManagedUserService:       verifyManagedUserService,
 	})
 	if err != nil {
 		printSetupFailure(out, defaultSetupConfigPath)
@@ -189,8 +193,11 @@ func runSetupFlowWithDeps(
 	printSetupSummary(out, bootstrap, prepared, auth, runtimeMode)
 
 	confirmationLabel := "Write ~/.openase/config.yaml and ~/.openase/.env now?"
-	if runtimeMode == setupRuntimeModeSystemdUserService {
-		confirmationLabel = "Write ~/.openase/config.yaml and ~/.openase/.env, then install the current-user systemd service now?"
+	if runtimeMode == setupRuntimeModeManagedUserService {
+		confirmationLabel = fmt.Sprintf(
+			"Write ~/.openase/config.yaml and ~/.openase/.env, then install the managed OpenASE user service via %s now?",
+			setupManagedUserServicePlatformName(runtime.GOOS),
+		)
 	}
 	confirmed, err := prompter.confirm(confirmationLabel, true)
 	if err != nil {
@@ -218,7 +225,7 @@ func runSetupFlowWithDeps(
 	}
 
 	var installedService *installedSetupService
-	if runtimeMode == setupRuntimeModeSystemdUserService {
+	if runtimeMode == setupRuntimeModeManagedUserService {
 		installedService, err = installSetupManagedService(ctx, deps, result.ConfigPath)
 		if err != nil {
 			return err
@@ -375,7 +382,7 @@ func printSetupIntro(out io.Writer, bootstrap setup.Bootstrap) {
 	_, _ = fmt.Fprintln(out, "  1. Prepare and validate PostgreSQL")
 	_, _ = fmt.Fprintln(out, "  2. Check key local CLIs such as git, codex, and claude")
 	_, _ = fmt.Fprintln(out, "  3. Configure auth mode and optional OIDC browser login")
-	_, _ = fmt.Fprintln(out, "  4. Choose config-only mode or current-user systemd service mode")
+	_, _ = fmt.Fprintln(out, "  4. Choose config-only mode or managed user service mode")
 	_, _ = fmt.Fprintln(out, "  5. Write ~/.openase/config.yaml and ~/.openase/.env")
 	_, _ = fmt.Fprintln(out, "  6. Initialize the default local workspace metadata")
 	if bootstrap.ConfigExists {
@@ -481,10 +488,7 @@ func printSetupSuccess(
 	_, _ = fmt.Fprintf(out, "  Open %s\n", defaultSetupURL)
 	_, _ = fmt.Fprintf(out, "Next: openase doctor --config %s\n", result.ConfigPath)
 	if installedService != nil {
-		_, _ = fmt.Fprintf(out, "Next: systemctl --user status %s\n", installedService.Name)
-		_, _ = fmt.Fprintf(out, "Logs: journalctl --user -u %s -n 200 -f\n", installedService.Name)
-		_, _ = fmt.Fprintf(out, "Restart: systemctl --user restart %s\n", installedService.Name)
-		_, _ = fmt.Fprintf(out, "Stop: systemctl --user stop %s\n", installedService.Name)
+		printManagedServiceSuccessHints(out, installedService)
 	} else {
 		_, _ = fmt.Fprintf(out, "Next: openase all-in-one --config %s\n", result.ConfigPath)
 	}
@@ -788,7 +792,7 @@ func promptAuthConfig(prompter *setupPrompter, bootstrap setup.Bootstrap) (setup
 func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupFlowDeps) (setupRuntimeMode, error) {
 	options := []string{
 		"Only Write Config: setup writes ~/.openase files and you start openase manually later.",
-		"Install Current-User systemd Service: setup also installs the managed OpenASE service for this Linux user.",
+		setupManagedUserServicePrompt(runtime.GOOS),
 	}
 	index, err := prompter.choose("Choose how OpenASE should run after setup", options, 0)
 	if err != nil {
@@ -798,8 +802,13 @@ func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupF
 		return setupRuntimeModeConfigOnly, nil
 	}
 
-	if err := deps.checkSystemdUserServiceSupport(ctx); err != nil {
-		_, _ = fmt.Fprintf(prompter.out, "\nCurrent machine cannot use current-user systemd services: %v\n", err)
+	if err := deps.checkManagedUserServiceSupport(ctx); err != nil {
+		_, _ = fmt.Fprintf(
+			prompter.out,
+			"\nCurrent machine cannot use the managed OpenASE user service via %s: %v\n",
+			setupManagedUserServicePlatformName(runtime.GOOS),
+			err,
+		)
 		fallback, confirmErr := prompter.confirm("Continue with config-only setup instead?", true)
 		if confirmErr != nil {
 			return "", confirmErr
@@ -810,7 +819,7 @@ func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupF
 		return "", errSetupAborted
 	}
 
-	return setupRuntimeModeSystemdUserService, nil
+	return setupRuntimeModeManagedUserService, nil
 }
 
 func installSetupManagedService(
@@ -822,25 +831,19 @@ func installSetupManagedService(
 	if err != nil {
 		return nil, fmt.Errorf("setup wrote config files, but failed to build the managed service installer: %w", err)
 	}
-	if manager.Platform() != "systemd --user" {
-		return nil, fmt.Errorf("setup wrote config files, but this machine exposes %s instead of systemd --user; rerun setup in config-only mode", manager.Platform())
-	}
 
 	spec, err := deps.buildManagedServiceInstallSpec(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("setup wrote config files, but failed to build the systemd service definition: %w", err)
+		return nil, fmt.Errorf("setup wrote config files, but failed to build the managed service definition: %w", err)
 	}
 	if err := manager.Apply(ctx, spec); err != nil {
-		return nil, fmt.Errorf("setup wrote config files, but failed to install current-user systemd service %q: %w", spec.Name, err)
+		return nil, fmt.Errorf("setup wrote config files, but failed to install managed user service %q via %s: %w", spec.Name, manager.Platform(), err)
 	}
-	if err := deps.verifySystemdUserService(ctx, spec.Name); err != nil {
-		return nil, fmt.Errorf("setup wrote config files, but systemd could not verify service %q: %w", spec.Name, err)
+	if err := deps.verifyManagedUserService(ctx, spec.Name); err != nil {
+		return nil, fmt.Errorf("setup wrote config files, but %s could not verify service %q: %w", manager.Platform(), spec.Name, err)
 	}
 
-	return &installedSetupService{
-		Name:     spec.Name,
-		Platform: manager.Platform(),
-	}, nil
+	return buildInstalledSetupService(manager.Platform(), spec), nil
 }
 
 func describeSetupAuthMode(auth setup.AuthConfig) string {
@@ -854,21 +857,91 @@ func describeSetupAuthMode(auth setup.AuthConfig) string {
 
 func describeSetupRuntimeMode(mode setupRuntimeMode) string {
 	switch mode {
-	case setupRuntimeModeSystemdUserService:
-		return "current-user systemd service"
+	case setupRuntimeModeManagedUserService:
+		return fmt.Sprintf("managed user service via %s", setupManagedUserServicePlatformName(runtime.GOOS))
 	default:
 		return "config-only"
 	}
 }
 
+func setupManagedUserServicePlatformName(goos string) string {
+	switch goos {
+	case "linux":
+		return "systemd --user"
+	case "darwin":
+		return "launchd"
+	default:
+		return "managed user service"
+	}
+}
+
+func setupManagedUserServicePrompt(goos string) string {
+	switch goos {
+	case "linux":
+		return "Install Managed User Service (systemd --user): setup also installs the managed OpenASE service for this Linux user."
+	case "darwin":
+		return "Install Managed User Service (launchd): setup also installs the managed OpenASE service for this macOS user."
+	default:
+		return "Install Managed User Service: setup also installs the managed OpenASE service for this user when the platform supports it."
+	}
+}
+
+func checkManagedUserServiceSupport(ctx context.Context) error {
+	switch runtime.GOOS {
+	case "linux":
+		return checkSystemdUserServiceSupport(ctx)
+	case "darwin":
+		return checkLaunchdUserServiceSupport(ctx)
+	default:
+		return fmt.Errorf("managed user services are not supported on %s", runtime.GOOS)
+	}
+}
+
+func verifyManagedUserService(ctx context.Context, name provider.ServiceName) error {
+	switch runtime.GOOS {
+	case "linux":
+		return verifySystemdUserService(ctx, name)
+	case "darwin":
+		return verifyLaunchdUserService(ctx, name)
+	default:
+		return fmt.Errorf("managed user services are not supported on %s", runtime.GOOS)
+	}
+}
+
+func buildInstalledSetupService(platform string, spec provider.UserServiceInstallSpec) *installedSetupService {
+	service := &installedSetupService{
+		Name:        spec.Name,
+		Platform:    platform,
+		InstallSpec: spec,
+	}
+	if platform == "launchd" {
+		homeDir := filepath.Dir(spec.WorkingDirectory.String())
+		service.LaunchdTarget = launchdServiceTarget(os.Getuid(), spec.Name)
+		service.LaunchdPlist = launchdPlistPath(homeDir, spec.Name)
+	}
+
+	return service
+}
+
+func printManagedServiceSuccessHints(out io.Writer, installedService *installedSetupService) {
+	switch installedService.Platform {
+	case "launchd":
+		_, _ = fmt.Fprintf(out, "Next: launchctl print %s\n", installedService.LaunchdTarget)
+		_, _ = fmt.Fprintf(out, "Plist: %s\n", installedService.LaunchdPlist)
+		_, _ = fmt.Fprintf(out, "Stdout log: %s\n", installedService.InstallSpec.StdoutPath)
+		_, _ = fmt.Fprintf(out, "Stderr log: %s\n", installedService.InstallSpec.StderrPath)
+		_, _ = fmt.Fprintf(out, "Restart: launchctl kickstart -k %s\n", installedService.LaunchdTarget)
+		_, _ = fmt.Fprintf(out, "Stop: launchctl bootout %s\n", installedService.LaunchdTarget)
+	default:
+		_, _ = fmt.Fprintf(out, "Next: systemctl --user status %s\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Logs: journalctl --user -u %s -n 200 -f\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Restart: systemctl --user restart %s\n", installedService.Name)
+		_, _ = fmt.Fprintf(out, "Stop: systemctl --user stop %s\n", installedService.Name)
+	}
+}
+
 func checkSystemdUserServiceSupport(ctx context.Context) error {
-	if runtime.GOOS != "linux" {
-		return fmt.Errorf("systemd user services are only supported on Linux")
-	}
-	if err := runSystemctlUser(ctx, "show-environment"); err != nil {
-		return err
-	}
-	return nil
+	return runSystemctlUser(ctx, "show-environment")
 }
 
 func verifySystemdUserService(ctx context.Context, name provider.ServiceName) error {
@@ -879,6 +952,42 @@ func verifySystemdUserService(ctx context.Context, name provider.ServiceName) er
 		return err
 	}
 	return nil
+}
+
+func checkLaunchdUserServiceSupport(ctx context.Context) error {
+	if err := runLaunchctl(ctx, "print", launchdServiceDomain(os.Getuid())); err != nil {
+		return fmt.Errorf("launchd is not available for this login session: %w", err)
+	}
+	return nil
+}
+
+func verifyLaunchdUserService(ctx context.Context, name provider.ServiceName) error {
+	if err := runLaunchctl(ctx, "print", launchdServiceTarget(os.Getuid(), name)); err != nil {
+		normalized := strings.ToLower(err.Error())
+		if strings.Contains(normalized, "could not find service") ||
+			strings.Contains(normalized, "service does not exist") ||
+			strings.Contains(normalized, "not found") {
+			return fmt.Errorf("launchd could not find the managed OpenASE service")
+		}
+		return err
+	}
+	return nil
+}
+
+func launchdServiceLabel(name provider.ServiceName) string {
+	return "com." + name.String()
+}
+
+func launchdServiceDomain(uid int) string {
+	return fmt.Sprintf("gui/%d", uid)
+}
+
+func launchdServiceTarget(uid int, name provider.ServiceName) string {
+	return launchdServiceDomain(uid) + "/" + launchdServiceLabel(name)
+}
+
+func launchdPlistPath(homeDir string, name provider.ServiceName) string {
+	return filepath.Join(homeDir, "Library", "LaunchAgents", launchdServiceLabel(name)+".plist")
 }
 
 func runSystemctlUser(ctx context.Context, args ...string) error {
@@ -909,6 +1018,27 @@ func runSystemctlUser(ctx context.Context, args ...string) error {
 	default:
 		return fmt.Errorf("systemctl --user %s failed: %s", strings.Join(args, " "), strings.TrimSpace(string(output)))
 	}
+}
+
+func runLaunchctl(ctx context.Context, args ...string) error {
+	path, err := exec.LookPath("launchctl")
+	if err != nil {
+		return fmt.Errorf("launchctl is not installed")
+	}
+
+	//nolint:gosec // setup intentionally shells out to the local launchd CLI for capability checks
+	command := exec.CommandContext(ctx, path, args...)
+	output, err := command.CombinedOutput()
+	if err == nil {
+		return nil
+	}
+
+	trimmedOutput := strings.TrimSpace(string(output))
+	if trimmedOutput == "" {
+		trimmedOutput = err.Error()
+	}
+
+	return fmt.Errorf("launchctl %s failed: %s", strings.Join(args, " "), trimmedOutput)
 }
 
 func runSetupWebWizard(ctx context.Context, out io.Writer, host string, port int) error {
