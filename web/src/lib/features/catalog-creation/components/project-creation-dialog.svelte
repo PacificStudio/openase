@@ -113,148 +113,152 @@
     </Dialog.Header>
 
     <form
-      class="space-y-4"
+      class="flex min-h-0 flex-1 flex-col gap-6"
       onsubmit={(event) => {
         event.preventDefault()
         void handleSubmit()
       }}
     >
-      <div class="space-y-2">
-        <Label for="project-name">Name</Label>
-        <Input
-          id="project-name"
-          value={draft.name}
-          placeholder="Automation Platform"
-          oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
-
-      <div class="space-y-2">
-        <Label for="project-description">Description</Label>
-        <Textarea
-          id="project-description"
-          rows={2}
-          value={draft.description}
-          placeholder="Brief project description"
-          oninput={(event) =>
-            updateField('description', (event.currentTarget as HTMLTextAreaElement).value)}
-        />
-      </div>
-
-      <div class="grid gap-4 sm:grid-cols-2">
+      <Dialog.Body class="space-y-4">
         <div class="space-y-2">
-          <Label>Status</Label>
-          <Select.Root
-            type="single"
-            value={draft.status}
-            onValueChange={(value) => updateField('status', value || 'Planned')}
-          >
-            <Select.Trigger class="w-full">{draft.status}</Select.Trigger>
-            <Select.Content>
-              {#each projectStatusOptions as status (status)}
-                <Select.Item value={status}>{status}</Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
+          <Label for="project-name">Name</Label>
+          <Input
+            id="project-name"
+            value={draft.name}
+            placeholder="Automation Platform"
+            oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
+          />
         </div>
 
         <div class="space-y-2">
-          <Label>Provider</Label>
-          <Select.Root
-            type="single"
-            value={draft.defaultAgentProviderId}
-            onValueChange={(value) => updateField('defaultAgentProviderId', value || '')}
-          >
-            <Select.Trigger class="w-full">
-              {@const provider = selectedProvider()}
-              {#if provider}
-                {@const iconPath = adapterIconPath(provider.adapter_type)}
-                <span class="flex items-center gap-2 truncate">
-                  {#if iconPath}
-                    <img src={iconPath} alt="" class="size-4 shrink-0" />
-                  {:else}
-                    <Wrench class="text-muted-foreground size-4 shrink-0" />
-                  {/if}
-                  <span class="truncate">{provider.name}</span>
-                  <span class="text-muted-foreground shrink-0 text-xs">
-                    {providerAvailabilityLabel(provider.availability_state)}
-                  </span>
-                </span>
-              {:else}
-                None
-              {/if}
-            </Select.Trigger>
-            <Select.Content>
-              <Select.Item value="">None</Select.Item>
-              {#each providers as provider (provider.id)}
-                {@const iconPath = adapterIconPath(provider.adapter_type)}
-                <Select.Item value={provider.id}>
-                  <span class="flex items-center gap-2">
+          <Label for="project-description">Description</Label>
+          <Textarea
+            id="project-description"
+            rows={2}
+            value={draft.description}
+            placeholder="Brief project description"
+            oninput={(event) =>
+              updateField('description', (event.currentTarget as HTMLTextAreaElement).value)}
+          />
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-2">
+            <Label>Status</Label>
+            <Select.Root
+              type="single"
+              value={draft.status}
+              onValueChange={(value) => updateField('status', value || 'Planned')}
+            >
+              <Select.Trigger class="w-full">{draft.status}</Select.Trigger>
+              <Select.Content>
+                {#each projectStatusOptions as status (status)}
+                  <Select.Item value={status}>{status}</Select.Item>
+                {/each}
+              </Select.Content>
+            </Select.Root>
+          </div>
+
+          <div class="space-y-2">
+            <Label>Provider</Label>
+            <Select.Root
+              type="single"
+              value={draft.defaultAgentProviderId}
+              onValueChange={(value) => updateField('defaultAgentProviderId', value || '')}
+            >
+              <Select.Trigger class="w-full">
+                {@const provider = selectedProvider()}
+                {#if provider}
+                  {@const iconPath = adapterIconPath(provider.adapter_type)}
+                  <span class="flex items-center gap-2 truncate">
                     {#if iconPath}
                       <img src={iconPath} alt="" class="size-4 shrink-0" />
                     {:else}
                       <Wrench class="text-muted-foreground size-4 shrink-0" />
                     {/if}
                     <span class="truncate">{provider.name}</span>
-                    <span
-                      class="shrink-0 text-xs {providerIsDispatchReady(provider.availability_state)
-                        ? 'text-emerald-600'
-                        : 'text-muted-foreground'}"
-                    >
+                    <span class="text-muted-foreground shrink-0 text-xs">
                       {providerAvailabilityLabel(provider.availability_state)}
                     </span>
                   </span>
-                </Select.Item>
-              {/each}
-            </Select.Content>
-          </Select.Root>
-        </div>
-      </div>
-
-      <Collapsible.Root bind:open={advancedOpen}>
-        <Collapsible.Trigger>
-          {#snippet child({ props })}
-            <button
-              {...props}
-              type="button"
-              class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
-            >
-              <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
-              Advanced settings
-            </button>
-          {/snippet}
-        </Collapsible.Trigger>
-        <Collapsible.Content>
-          <div class="mt-3 grid gap-4 sm:grid-cols-2">
-            <div class="space-y-2">
-              <Label for="project-slug">Slug</Label>
-              <Input
-                id="project-slug"
-                value={draft.slug}
-                placeholder="auto-generated"
-                oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="project-max-agents">Max agents</Label>
-              <Input
-                id="project-max-agents"
-                type="number"
-                min="1"
-                step="1"
-                value={draft.maxConcurrentAgents}
-                placeholder="Unlimited"
-                oninput={(event) =>
-                  updateField(
-                    'maxConcurrentAgents',
-                    (event.currentTarget as HTMLInputElement).value,
-                  )}
-              />
-            </div>
+                {:else}
+                  None
+                {/if}
+              </Select.Trigger>
+              <Select.Content>
+                <Select.Item value="">None</Select.Item>
+                {#each providers as provider (provider.id)}
+                  {@const iconPath = adapterIconPath(provider.adapter_type)}
+                  <Select.Item value={provider.id}>
+                    <span class="flex items-center gap-2">
+                      {#if iconPath}
+                        <img src={iconPath} alt="" class="size-4 shrink-0" />
+                      {:else}
+                        <Wrench class="text-muted-foreground size-4 shrink-0" />
+                      {/if}
+                      <span class="truncate">{provider.name}</span>
+                      <span
+                        class="shrink-0 text-xs {providerIsDispatchReady(provider.availability_state)
+                          ? 'text-emerald-600'
+                          : 'text-muted-foreground'}"
+                      >
+                        {providerAvailabilityLabel(provider.availability_state)}
+                      </span>
+                    </span>
+                  </Select.Item>
+                {/each}
+              </Select.Content>
+            </Select.Root>
           </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+        </div>
+
+        <Collapsible.Root bind:open={advancedOpen}>
+          <Collapsible.Trigger>
+            {#snippet child({ props })}
+              <button
+                {...props}
+                type="button"
+                class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
+              >
+                <ChevronRight
+                  class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
+                />
+                Advanced settings
+              </button>
+            {/snippet}
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+              <div class="space-y-2">
+                <Label for="project-slug">Slug</Label>
+                <Input
+                  id="project-slug"
+                  value={draft.slug}
+                  placeholder="auto-generated"
+                  oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="project-max-agents">Max agents</Label>
+                <Input
+                  id="project-max-agents"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={draft.maxConcurrentAgents}
+                  placeholder="Unlimited"
+                  oninput={(event) =>
+                    updateField(
+                      'maxConcurrentAgents',
+                      (event.currentTarget as HTMLInputElement).value,
+                    )}
+                />
+              </div>
+            </div>
+          </Collapsible.Content>
+        </Collapsible.Root>
+      </Dialog.Body>
 
       <Dialog.Footer>
         <Dialog.Close>

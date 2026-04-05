@@ -12,8 +12,8 @@
 
 <div
   bind:this={ref}
-  data-slot="sheet-header"
-  class={cn('flex shrink-0 flex-col gap-1.5 p-4', className)}
+  data-slot="sheet-body"
+  class={cn('min-h-0 flex-1 overflow-y-auto px-4', className)}
   {...restProps}
 >
   {@render children?.()}
