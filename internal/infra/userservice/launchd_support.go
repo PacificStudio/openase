@@ -10,8 +10,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
+
+var _ = logging.DeclareComponent("userservice-launchd-support")
 
 // LaunchdSupport describes the current launchd session prerequisites.
 type LaunchdSupport struct {
