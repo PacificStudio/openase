@@ -471,9 +471,9 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	tickets := fakeTicketReader{
 		items: []ticketservice.Ticket{
-			{Identifier: "ASE-1", StatusName: "In Progress"},
-			{Identifier: "ASE-2", StatusName: "Done"},
-			{Identifier: "ASE-3", StatusName: "Todo", RetryPaused: true},
+			{StatusName: "In Progress"},
+			{StatusName: "Done"},
+			{StatusName: "Todo", RetryPaused: true},
 		},
 	}
 	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, fakeStatusReader{
