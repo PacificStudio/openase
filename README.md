@@ -69,13 +69,54 @@
 
 AI coding agents are powerful — but only when humans stay in control. The real question is **how** that control works. OpenASE is built around two complementary modes of human–agent interaction: **synchronous** and **asynchronous**.
 
-### Asynchronous Tasks — Agents on Autopilot
+### Asynchronous AI — Ticket Agents
 
-When the requirements are clear, the acceptance criteria are well-defined, and a **Harness** (a hard-boundary document that constrains agent behavior) is in place, the agent can execute the entire task autonomously. Humans don't need to babysit. Create a ticket, walk away, and review the result when it's done. This is where AI agents deliver the most leverage — freeing up human attention for higher-order thinking.
+When the requirements are clear, the acceptance criteria are well-defined, and a **Harness** (a hard-boundary document that constrains agent behavior) is in place, the **Ticket Agent** executes the entire task autonomously. It follows the Workflow's instructions, updates ticket statuses, and completes the work described in each ticket — humans don't need to babysit.
 
-### Synchronous Tasks — Humans in the Loop
+The Workflow defines the status flow and tells the agent how to transition tickets through each stage. It is a **soft control surface**: you write natural-language instructions in the Workflow to guide how the agent should behave at each status. Here are two common patterns:
 
-When requirements are vague, the Harness is incomplete, or the problem space still needs exploration, humans and agents collaborate interactively. Through this back-and-forth, requirements crystallize, and the Harness gets refined — translating fuzzy project intent into precise, machine-enforceable constraints. When the moment is right, the task is **handed off** to async execution seamlessly.
+- **Fullstack Coder** — A single agent handles the entire lifecycle. Set up a simple status flow like `Todo → In Progress → In Review → Merging → Done`. The agent picks up a ticket, writes the code, opens a PR, and moves it forward. Human review at the `In Review` stage is optional — you can keep it for quality gates or let another agent handle the review.
+
+- **Mixed Relay** — Multiple specialized agents collaborate in a relay. Set up a richer flow like `Design → Backend → Frontend → Testing → In Review → Merging → Done`, and assign different agent roles (product manager, backend engineer, frontend engineer, tester) to each stage. Agents hand off work to the next role as the ticket progresses. Human review checkpoints are optional at any stage — you can insert them where you want oversight, or remove them entirely for full autonomy.
+
+> Both async and sync AI support multiple agent CLIs. **Claude Code** and **Codex** are recommended for production use; **Gemini CLI** is supported but less stable.
+
+### Synchronous AI — Project AI
+
+When your requirements are still vague, the problem space needs exploration, or you're not ready to commit to a formal ticket — start a conversation with **Project AI**.
+
+Project AI is a synchronous, interactive assistant that lives in the sidebar of the control plane. Use it to analyze requirements, explore technical approaches, draft PRDs and documentation, scaffold repositories, and prepare everything before kicking off async execution. Each conversation tab runs in an **independent workspace** — tabs are isolated, can run in parallel, and are easy to manage and review side by side.
+
+**What Project AI can do:**
+
+- Read ticket details, dependencies, activity history, and run status
+- Read Workflow/Harness configuration, Skill code, and machine health
+- Inspect git workspace diffs (branch, file changes, repo status)
+- Create and update tickets, publish project updates
+- Modify Workflows/Harnesses and Skills directly
+- Trigger agent execution on tickets
+- Operate git (commit, branch, push)
+- Control agent runtimes (pause, resume, interrupt)
+
+**Multi-agent, isolated workspaces — in one panel:** Each Project AI tab spawns its own isolated workspace. You can run multiple agents side by side in the same panel — each working on a different task, in a different branch, with zero interference. No more juggling terminals or switching between IDEs. One unified view to launch, monitor, and interact with all your agents simultaneously.
+
+**Context-aware focus:** As you navigate the control plane, Project AI automatically switches between 4 focus modes — **Workflow**, **Skill**, **Ticket**, and **Machine** — injecting the relevant context into the conversation so it always understands what you're looking at.
+
+**Best practice:** Start with a fuzzy idea, discuss it with Project AI to converge on the best approach, let it draft documents and initialize the repo. Then set up an automated Fullstack or Mixed Relay Workflow, configure ticket dependencies to control parallelism and blocking, and let the system run. With well-structured Harnesses and dependency graphs, the platform can sustain long periods of high-throughput autonomous work with zero human intervention.
+
+### Skills — Extending What Agents Can Do
+
+Skills are reusable instruction documents that give agents extra capabilities beyond raw coding. Every Workflow automatically binds a **built-in Ticket Skill** that teaches the Ticket Agent how to update ticket statuses on the platform — this is how agents drive the status flow without hardcoded logic.
+
+Beyond the built-in skills, you can:
+
+- **Bind more built-in skills** to any Workflow for common operations (e.g., git conventions, PR creation, code review checklists).
+- **Create custom skills** from the Skill Editor to encode project-specific knowledge and procedures.
+- **Import skills from your repository** — ask Project AI to pull skill files from your repo and register them in OpenASE.
+
+When a Workflow runs, its bound skills are **injected into the CLI agent's skill directory** at runtime (e.g., `.codex/skills/`, `.claude/skills/`, `.gemini/skills/`), so the agent picks them up natively. Project AI has access to **all skills** regardless of Workflow binding, making it the ideal place to author, edit, and debug skills before deploying them.
+
+**Best practice:** Use Project AI to create, modify, or debug your skills interactively. Once a skill works as expected, save it to OpenASE and bind it to the relevant Workflows — every Ticket Agent that runs under those Workflows will inherit the skill automatically.
 
 ### The Interplay
 
@@ -86,6 +127,20 @@ In practice, these two modes are constantly interleaved:
 - **Tech debt accumulates** → scheduled jobs trigger agents to clean it up automatically on a cron.
 
 This interplay of sync and async work deserves a **unified home** — not scattered across terminals, IDEs, and chat windows. OpenASE brings it all together: **multi-agent CLI support** (Claude Code, Codex, Gemini CLI), **multi-machine scheduling**, and a single control plane so you never have to context-switch between tools.
+
+### Organization & Project Management
+
+OpenASE supports **multi-Organization** management out of the box. Each Org contains its own set of Projects, and each Project has independent tickets, workflows, skills, machines, and agent configurations. Cross-Org **team collaboration** (shared projects, role-based permissions across Orgs) is currently **WIP**.
+
+### ⚠️ Security Notice
+
+To maximize unattended Workflow execution efficiency, OpenASE launches CLI agents with **permissive flags by default** (e.g., `--dangerously-skip-permissions` for Claude Code, `--full-auto` for Codex). This means agents can read, write, and execute arbitrary commands on the host machine without per-action confirmation.
+
+**Be aware of the risks:**
+- Only run OpenASE on machines where you trust the agent's scope of access.
+- Restrict OS-level permissions (user accounts, filesystem boundaries) as appropriate.
+- **This project is NOT designed for public-facing deployment.** It is intended for local development, private networks, and trusted environments.
+- By default, OpenASE runs in **Demo Mode** (auth disabled) — no login required, anyone on the network can access the control plane. This is convenient for quick local evaluation, but **for LAN or multi-user deployments, always configure HTTPS + OIDC authentication** to protect your data and agent access. See the [OIDC & RBAC Guide](docs/guide/en/settings.md) for setup instructions.
 
 ### The Vision
 
@@ -230,6 +285,9 @@ You create a ticket  →  Orchestrator detects pickup status
 | 🔴 High | **Remote Machine Execution** | Complete websocket execution for direct-connect and reverse-connect machines, then remove legacy SSH compatibility from the runtime path |
 | 🟡 Medium | **Windows Support** | Native service management and shell-script support outside WSL2 |
 | 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
+| 🟡 Medium | **iOS & Android App** | Mobile control plane for monitoring and managing projects on the go |
+| 🟡 Medium | **Desktop All-in-One App** | Standalone desktop application bundling the full OpenASE experience |
+| 🟡 Medium | **Kubernetes Runtime** | Run agent workloads on Kubernetes clusters for elastic scaling |
 | 🟢 Future | **Multi-org Collaboration** | Cross-organization project sharing and permissions |
 | 🟢 Future | **Plugin Ecosystem** | Third-party plugin support for custom tools and integrations |
 | 🟢 Future | **Metrics Dashboard** | Agent performance metrics, ticket throughput analytics |

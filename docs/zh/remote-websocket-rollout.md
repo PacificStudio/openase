@@ -21,12 +21,13 @@ scripts/ci/remote_transport_matrix.sh
 
 | 场景 | 覆盖 |
 | --- | --- |
+| 监听与反向拓扑共享的统一 WebSocket runtime 契约 | `TestUnifiedWebsocketRuntimeContractSuite` |
 | SSH 引导 + 反向 WebSocket 机器会话 | `TestMachineConnectWebsocketPublishesActivityAndMetrics` |
 | SSH 引导 helper 行为 | `TestRunMachineSSHBootstrapUploadsBinaryEnvAndService` |
 | SSH 诊断 helper 行为 | `TestRunMachineSSHDiagnosticsReportsBootstrapAndRegistrationIssues` |
 | SSH 引导 + 监听 WebSocket 运行时 | `TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync` |
 | 直接 SSH runtime 拒绝 | `TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution` |
-| 反向 WebSocket 启动不回退到 SSH | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
+| 无反向会话时反向 WebSocket 启动不回退到 SSH | `TestRuntimeLauncherDoesNotFallBackToSSHWhenWebsocketReverseTransportUnavailable` |
 | 远程二进制/预检失败 | `TestRuntimeLauncherRecordsWebsocketPreflightFailureStageInActivityAndMetrics` |
 | 守护进程认证失败 | `TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric` |
 
@@ -38,10 +39,12 @@ scripts/ci/remote_transport_matrix.sh
 - 输出流或命令握手
 - 清理或断开连接记账
 
-当前已知差距：
+runtime 契约本身现在由两种 WebSocket 拓扑共同验证：
 
-- 监听 WebSocket 已有端到端运行时正常路径。
-- 反向 WebSocket runtime 仍需要比当前守护进程会话注册与 helper 流更完整的端到端启动覆盖。
+- 监听 WebSocket 通过直接 listener 端点验证契约
+- 反向 WebSocket 通过 machine-channel `runtime` 消息验证同一份契约
+
+关于消息模型、版本兼容规则与错误分类，请参见 [`docs/zh/websocket-runtime-contract.md`](./websocket-runtime-contract.md)。
 
 ## 可观测性契约
 

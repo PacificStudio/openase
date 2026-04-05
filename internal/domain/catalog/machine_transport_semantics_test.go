@@ -1,6 +1,9 @@
 package catalog
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestMachineTransportSemanticsHelpers(t *testing.T) {
 	t.Run("reachability and execution enums", func(t *testing.T) {
@@ -261,15 +264,14 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ParseStoredMachineTransportCapabilities(ws_reverse) error = %v", err)
 		}
-		if len(got) != 0 {
-			t.Fatalf("ParseStoredMachineTransportCapabilities(ws_reverse) = %+v, want empty", got)
+		want := []MachineTransportCapability{
+			MachineTransportCapabilityProbe,
+			MachineTransportCapabilityWorkspacePrepare,
+			MachineTransportCapabilityArtifactSync,
+			MachineTransportCapabilityProcessStreaming,
 		}
-
-		if _, err := ParseStoredMachineTransportCapabilities(
-			[]string{MachineTransportCapabilityProbe.String()},
-			MachineConnectionModeWSReverse,
-		); err == nil {
-			t.Fatal("ParseStoredMachineTransportCapabilities(ws_reverse probe) expected unsupported error")
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("ParseStoredMachineTransportCapabilities(ws_reverse) = %+v, want %+v", got, want)
 		}
 	})
 }

@@ -12,6 +12,7 @@ import (
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
+	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -92,6 +93,11 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	connectedAt := time.Now().UTC()
 	sessionID := uuid.NewString()
 	registered, replaced := s.machineSessions.Register(parsedMachineID, sessionID, connectedAt, websocketSessionCloser{conn: conn})
+	if s.reverseRuntimeRelay != nil {
+		s.reverseRuntimeRelay.Register(parsedMachineID, sessionID, func(ctx context.Context, envelope runtimecontract.Envelope) error {
+			return writeMachineEnvelope(conn, domain.MessageTypeRuntime, sessionID, envelope)
+		})
+	}
 	machineRecord, err := s.machineChannel.RecordConnectedSession(ctx, machinechannelservice.ConnectedSessionRecord{
 		MachineID:        parsedMachineID,
 		SessionID:        sessionID,
@@ -102,6 +108,9 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	})
 	if err != nil {
 		_, _ = s.machineSessions.Remove(sessionID)
+		if s.reverseRuntimeRelay != nil {
+			s.reverseRuntimeRelay.Remove(sessionID)
+		}
 		s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "register_failed", err)
 		return nil
 	}
@@ -114,6 +123,9 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 		ReplacedPreviousSession:  replaced != nil,
 	}); err != nil {
 		_, _ = s.machineSessions.Remove(sessionID)
+		if s.reverseRuntimeRelay != nil {
+			s.reverseRuntimeRelay.Remove(sessionID)
+		}
 		machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 			MachineID:      parsedMachineID,
 			SessionID:      sessionID,
@@ -166,6 +178,9 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 				return nil
 			}
 		case domain.MessageTypeGoodbye:
+			if s.reverseRuntimeRelay != nil {
+				s.reverseRuntimeRelay.Remove(sessionID)
+			}
 			goodbyePayload, _ := domain.DecodePayload[domain.Goodbye](envelope)
 			_, _ = s.machineSessions.Remove(sessionID)
 			machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
@@ -178,6 +193,20 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 			s.recordMachineChannelActiveSessions()
 			s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "goodbye")
 			return nil
+		case domain.MessageTypeRuntime:
+			if s.reverseRuntimeRelay == nil {
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "runtime_unavailable", fmt.Errorf("reverse runtime relay unavailable"))
+				return nil
+			}
+			runtimeEnvelope, decodeErr := runtimeEnvelopeFromMachineEnvelope(envelope)
+			if decodeErr != nil {
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "invalid_runtime", decodeErr)
+				return nil
+			}
+			if err := s.reverseRuntimeRelay.Deliver(sessionID, runtimeEnvelope); err != nil {
+				s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "runtime_delivery_failed", err)
+				return nil
+			}
 		default:
 			s.failMachineConnection(ctx, conn, parsedMachineID, sessionID, "unexpected_message", domain.ErrUnexpectedMessage)
 			return nil
@@ -186,6 +215,9 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 
 	if _, ok := s.machineSessions.Remove(sessionID); !ok {
 		return nil
+	}
+	if s.reverseRuntimeRelay != nil {
+		s.reverseRuntimeRelay.Remove(sessionID)
 	}
 	machineRecord, _ = s.machineChannel.RecordDisconnectedSession(context.Background(), machinechannelservice.DisconnectedSessionRecord{
 		MachineID:      parsedMachineID,
@@ -197,6 +229,14 @@ func (s *Server) handleMachineConnect(c echo.Context) error {
 	s.recordMachineChannelActiveSessions()
 	s.emitMachineChannelDisconnectActivityBestEffort(ctx, machineRecord.OrganizationID, parsedMachineID, sessionID, "connection_closed")
 	return nil
+}
+
+func runtimeEnvelopeFromMachineEnvelope(envelope domain.Envelope) (runtimecontract.Envelope, error) {
+	var runtimeEnvelope runtimecontract.Envelope
+	if err := json.Unmarshal(envelope.Payload, &runtimeEnvelope); err != nil {
+		return runtimecontract.Envelope{}, err
+	}
+	return runtimeEnvelope, nil
 }
 
 func (s *Server) runMachineSessionExpiryLoop(ctx context.Context) {

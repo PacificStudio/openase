@@ -12,9 +12,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
+	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/gorilla/websocket"
 )
 
@@ -154,6 +157,20 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 		"replaced_previous_session", registered.ReplacedPreviousSession,
 	)
 
+	var writeMu sync.Mutex
+	runtimeServer := machinetransport.NewDaemonRuntimeProtocolServer(func(ctx context.Context, envelope runtimecontract.Envelope) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return writeJSONEnvelope(conn, domain.Envelope{
+			Version:   domain.ProtocolVersion,
+			Type:      domain.MessageTypeRuntime,
+			SessionID: registered.SessionID,
+			Payload:   mustMarshalJSON(envelope),
+		})
+	})
+	defer runtimeServer.Close()
+
+	incomingCh := make(chan domain.Envelope, 1)
 	readErrCh := make(chan error, 1)
 	go func() {
 		for {
@@ -162,10 +179,7 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 				readErrCh <- readErr
 				return
 			}
-			if incoming.Type == domain.MessageTypeError {
-				readErrCh <- parseMachineConnectionError(incoming)
-				return
-			}
+			incomingCh <- incoming
 		}
 	}()
 
@@ -175,17 +189,33 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 	for {
 		select {
 		case <-ctx.Done():
+			writeMu.Lock()
 			_ = writeJSONEnvelope(conn, domain.Envelope{
 				Version:   domain.ProtocolVersion,
 				Type:      domain.MessageTypeGoodbye,
 				SessionID: registered.SessionID,
 				Payload:   mustMarshalJSON(domain.Goodbye{Reason: "shutdown"}),
 			})
+			writeMu.Unlock()
 			return nil
 		case err := <-readErrCh:
 			return err
+		case incoming := <-incomingCh:
+			switch incoming.Type {
+			case domain.MessageTypeError:
+				return parseMachineConnectionError(incoming)
+			case domain.MessageTypeRuntime:
+				runtimeEnvelope, err := domain.DecodePayload[runtimecontract.Envelope](incoming)
+				if err != nil {
+					return fmt.Errorf("decode runtime envelope: %w", err)
+				}
+				if err := runtimeServer.HandleEnvelope(ctx, runtimeEnvelope); err != nil {
+					return err
+				}
+			}
 		case now := <-ticker.C:
-			if err := writeJSONEnvelope(conn, domain.Envelope{
+			writeMu.Lock()
+			err := writeJSONEnvelope(conn, domain.Envelope{
 				Version:   domain.ProtocolVersion,
 				Type:      domain.MessageTypeHeartbeat,
 				SessionID: registered.SessionID,
@@ -194,7 +224,9 @@ func (d *Daemon) runSession(ctx context.Context, config domain.DaemonConfig) err
 					SystemInfo:    &systemInfo,
 					ToolInventory: toolInventory,
 				}),
-			}); err != nil {
+			})
+			writeMu.Unlock()
+			if err != nil {
 				return fmt.Errorf("send heartbeat: %w", err)
 			}
 		}
