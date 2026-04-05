@@ -82,6 +82,32 @@ describe('machines model', () => {
     expect(nextDraft.workspaceRoot).toBe('/home/deploy/.openase/workspace')
   })
 
+  it('keeps legacy direct-connect ssh compatibility records editable without forcing websocket migration', () => {
+    const parsed = parseMachineDraft(machineToDraft(machineFixture()))
+
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok) {
+      expect(parsed.value.execution_mode).toBe('ssh_compat')
+      expect(parsed.value.connection_mode).toBe('ssh')
+    }
+  })
+
+  it('migrates legacy direct-connect ssh compatibility drafts to websocket once a listener endpoint is provided', () => {
+    const parsed = parseMachineDraft(
+      machineToDraft(
+        machineFixture({
+          advertised_endpoint: 'wss://builder.internal/openase/transport',
+        }),
+      ),
+    )
+
+    expect(parsed.ok).toBe(true)
+    if (parsed.ok) {
+      expect(parsed.value.execution_mode).toBe('websocket')
+      expect(parsed.value.connection_mode).toBe('ws_listener')
+    }
+  })
+
   it('requires an advertised endpoint for websocket listener machines', () => {
     const draft = createEmptyMachineDraft()
     draft.name = 'listener'

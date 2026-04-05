@@ -38,7 +38,7 @@
       mode: 'direct_connect',
       icon: Radio,
       shortDesc: 'Control plane can dial the machine',
-      keyTrait: 'Listener or SSH compat',
+      keyTrait: 'Listener plus optional SSH helper',
     },
     {
       mode: 'reverse_connect',
@@ -48,7 +48,7 @@
     },
   ]
 
-  const directConnectExecutionOptions: MachineExecutionMode[] = ['websocket', 'ssh_compat']
+  const directConnectExecutionOptions: MachineExecutionMode[] = ['websocket']
 
   let {
     machine,
@@ -135,7 +135,8 @@
           Execution path
         </h4>
         <p class="text-muted-foreground mt-0.5 text-xs">
-          Websocket is the target model. SSH compatibility exists only for rollout and migration.
+          Websocket is the runtime model. SSH remains available only as a bootstrap and diagnostics
+          helper.
         </p>
       </div>
       <div class="grid gap-2 sm:grid-cols-2">

@@ -4647,7 +4647,7 @@
                     "type": "array"
                   },
                   "execution_mode": {
-                    "description": "Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility.",
+                    "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4680,12 +4680,12 @@
                     "type": "string"
                   },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for SSH helper access or legacy ssh_compat execution.",
+                    "description": "Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution.",
+                    "description": "SSH helper username used for bootstrap, diagnostics, or emergency repair access.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -7484,7 +7484,7 @@
                     "type": "array"
                   },
                   "execution_mode": {
-                    "description": "Execution path currently used by this record: local_process, websocket, or ssh_compat during rollout compatibility.",
+                    "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
                     "type": "string"
                   },
                   "host": {
@@ -7512,12 +7512,12 @@
                     "type": "string"
                   },
                   "ssh_key_path": {
-                    "description": "Path to the SSH private key used for SSH helper access or legacy ssh_compat execution.",
+                    "description": "Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access.",
                     "nullable": true,
                     "type": "string"
                   },
                   "ssh_user": {
-                    "description": "SSH helper username used for bootstrap, diagnostics, or legacy ssh_compat execution.",
+                    "description": "SSH helper username used for bootstrap, diagnostics, or emergency repair access.",
                     "nullable": true,
                     "type": "string"
                   },

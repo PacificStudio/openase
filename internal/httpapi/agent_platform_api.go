@@ -25,6 +25,7 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleAgentListProjectWorkflows)
 	api.GET("/projects/:projectId/updates", s.handleAgentListProjectUpdates)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
+	api.PATCH("/projects/:projectId/tickets/:ticketId", s.handleAgentUpdateProjectTicket)
 	api.POST("/projects/:projectId/updates", s.handleAgentCreateProjectUpdateThread)
 	api.GET("/tickets/:ticketId", s.handleAgentGetOwnTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
@@ -218,6 +219,47 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
+	return s.handleAgentTicketUpdate(c, claims, current)
+}
+
+func (s *Server) handleAgentUpdateProjectTicket(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsUpdate)
+	if !ok {
+		return nil
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+	}
+	if claims.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+	}
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		return writeTicketError(c, err)
+	}
+	if current.ProjectID != projectID {
+		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+	}
+
+	return s.handleAgentTicketUpdate(c, claims, current)
+}
+
+func (s *Server) handleAgentTicketUpdate(c echo.Context, claims agentplatform.Claims, current ticketservice.Ticket) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
 	var raw rawAgentUpdateTicketRequest
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
@@ -236,6 +278,10 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 		}
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
+	var previous ticketservice.Ticket
+	if input.ParentTicketID.Set {
+		previous = current
+	}
 
 	item, err := s.ticketService.Update(c.Request().Context(), input)
 	if err != nil {
@@ -244,6 +290,11 @@ func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
 	eventType := ticketMutationEventType(input)
 	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
 		return writeTicketError(c, err)
+	}
+	if input.ParentTicketID.Set {
+		if err := s.publishParentRelationshipUpdates(c.Request().Context(), previous, item); err != nil {
+			return writeTicketError(c, err)
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{

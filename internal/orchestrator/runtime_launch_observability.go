@@ -151,26 +151,3 @@ func classifyRuntimeLaunchPreflightStage(err error) runtimeLaunchFailureStage {
 		return runtimeLaunchStagePreflightTransport
 	}
 }
-
-func shouldFallbackToSSH(machine catalogdomain.Machine, err error) bool {
-	if machine.ConnectionMode != catalogdomain.MachineConnectionModeWSReverse &&
-		machine.ConnectionMode != catalogdomain.MachineConnectionModeWSListener {
-		return false
-	}
-	if machine.SSHUser == nil || strings.TrimSpace(*machine.SSHUser) == "" {
-		return false
-	}
-	if machine.SSHKeyPath == nil || strings.TrimSpace(*machine.SSHKeyPath) == "" {
-		return false
-	}
-	details := runtimeLaunchFailureDetails(err)
-	if details == nil {
-		return false
-	}
-	switch details.stage {
-	case runtimeLaunchStageWorkspaceTransport, runtimeLaunchStagePreflightTransport, runtimeLaunchStageTransportResolve:
-		return true
-	default:
-		return false
-	}
-}
