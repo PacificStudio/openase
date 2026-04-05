@@ -37,6 +37,9 @@ type ticketRunResponse struct {
 	AgentID            string                              `json:"agent_id"`
 	AgentName          string                              `json:"agent_name"`
 	Provider           string                              `json:"provider"`
+	AdapterType        string                              `json:"adapter_type"`
+	ModelName          string                              `json:"model_name"`
+	Usage              ticketRunUsageResponse              `json:"usage"`
 	Status             string                              `json:"status"`
 	CurrentStepStatus  *string                             `json:"current_step_status,omitempty"`
 	CurrentStepSummary *string                             `json:"current_step_summary,omitempty"`
@@ -47,6 +50,18 @@ type ticketRunResponse struct {
 	CompletedAt        *string                             `json:"completed_at,omitempty"`
 	LastError          *string                             `json:"last_error,omitempty"`
 	CompletionSummary  *ticketRunCompletionSummaryResponse `json:"completion_summary,omitempty"`
+}
+
+type ticketRunUsageResponse struct {
+	Total         int64 `json:"total"`
+	Input         int64 `json:"input"`
+	Output        int64 `json:"output"`
+	CachedInput   int64 `json:"cached_input"`
+	CacheCreation int64 `json:"cache_creation"`
+	Reasoning     int64 `json:"reasoning"`
+	Prompt        int64 `json:"prompt"`
+	Candidate     int64 `json:"candidate"`
+	Tool          int64 `json:"tool"`
 }
 
 type ticketRunCompletionSummaryResponse struct {
@@ -510,8 +525,12 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 	}
 
 	providerName := "unknown"
+	adapterType := ""
+	modelName := ""
 	if providerItem, ok := catalog.providers[item.ProviderID]; ok && strings.TrimSpace(providerItem.Name) != "" {
 		providerName = providerItem.Name
+		adapterType = strings.TrimSpace(providerItem.AdapterType.String())
+		modelName = strings.TrimSpace(providerItem.ModelName)
 	}
 
 	var completedAt *string
@@ -526,6 +545,9 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		AgentID:            item.AgentID.String(),
 		AgentName:          agentName,
 		Provider:           providerName,
+		AdapterType:        adapterType,
+		ModelName:          modelName,
+		Usage:              mapTicketRunUsageResponse(item),
 		Status:             mapTicketRunStatus(item.Status),
 		CurrentStepStatus:  copyStringPointer(item.CurrentStepStatus),
 		CurrentStepSummary: copyStringPointer(item.CurrentStepSummary),
@@ -536,6 +558,20 @@ func mapTicketRunResponse(item domain.AgentRun, catalog ticketRunCatalog) ticket
 		CompletedAt:        completedAt,
 		LastError:          optionalTrimmedString(item.LastError),
 		CompletionSummary:  mapTicketRunCompletionSummaryResponse(item),
+	}
+}
+
+func mapTicketRunUsageResponse(item domain.AgentRun) ticketRunUsageResponse {
+	return ticketRunUsageResponse{
+		Total:         item.TotalTokens,
+		Input:         item.InputTokens,
+		Output:        item.OutputTokens,
+		CachedInput:   item.CachedInputTokens,
+		CacheCreation: item.CacheCreationInputTokens,
+		Reasoning:     item.ReasoningTokens,
+		Prompt:        item.PromptTokens,
+		Candidate:     item.CandidateTokens,
+		Tool:          item.ToolTokens,
 	}
 }
 

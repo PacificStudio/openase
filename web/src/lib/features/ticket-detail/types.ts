@@ -81,6 +81,7 @@ export type TicketDetail = {
   nextRetryAt?: string
   costTokensInput: number
   costTokensOutput: number
+  costTokensTotal: number
   costAmount: number
   budgetUsd: number
   pickupDiagnosis?: TicketPickupDiagnosis
@@ -182,12 +183,27 @@ export type TicketActivity = {
   agentName?: string
 }
 
+export type TicketRunUsage = {
+  total: number
+  input: number
+  output: number
+  cachedInput: number
+  cacheCreation: number
+  reasoning: number
+  prompt: number
+  candidate: number
+  tool: number
+}
+
 export type TicketRun = {
   id: string
   attemptNumber: number
   agentId: string
   agentName: string
   provider: string
+  adapterType: string
+  modelName: string
+  usage: TicketRunUsage
   status: 'launching' | 'ready' | 'executing' | 'ended' | 'failed' | 'completed'
   currentStepStatus?: string
   currentStepSummary?: string

@@ -71,7 +71,13 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	agentID := uuid.New()
 	firstRunID := uuid.New()
 	secondRunID := uuid.New()
-	catalog.providers[providerID] = domain.AgentProvider{ID: providerID, OrganizationID: org.ID, Name: "Codex"}
+	catalog.providers[providerID] = domain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		Name:           "Codex",
+		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
+		ModelName:      "gpt-5.4",
+	}
 	catalog.agents[agentID] = domain.Agent{ID: agentID, ProjectID: project.ID, ProviderID: providerID, Name: "Ticket Runner"}
 
 	firstCreatedAt := time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC)
@@ -103,6 +109,15 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		Status:                       domain.AgentRunStatusExecuting,
 		RuntimeStartedAt:             &secondRuntimeStartedAt,
 		LastHeartbeatAt:              &secondHeartbeatAt,
+		InputTokens:                  1200,
+		OutputTokens:                 340,
+		CachedInputTokens:            120,
+		CacheCreationInputTokens:     45,
+		ReasoningTokens:              80,
+		PromptTokens:                 920,
+		CandidateTokens:              260,
+		ToolTokens:                   30,
+		TotalTokens:                  1540,
 		CurrentStepStatus:            &secondStepStatus,
 		CurrentStepSummary:           &secondStepSummary,
 		CompletionSummaryStatus:      &secondSummaryStatus,
@@ -269,6 +284,25 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 	if listPayload.Runs[0].Status != "executing" || listPayload.Runs[0].Provider != "Codex" {
 		t.Fatalf("expected mapped status/provider on latest run, got %+v", listPayload.Runs[0])
 	}
+	if listPayload.Runs[0].AdapterType != "codex-app-server" || listPayload.Runs[0].ModelName != "gpt-5.4" {
+		t.Fatalf("expected adapter/model metadata on latest run, got %+v", listPayload.Runs[0])
+	}
+	if !reflect.DeepEqual(
+		listPayload.Runs[0].Usage,
+		ticketRunUsageResponse{
+			Total:         1540,
+			Input:         1200,
+			Output:        340,
+			CachedInput:   120,
+			CacheCreation: 45,
+			Reasoning:     80,
+			Prompt:        920,
+			Candidate:     260,
+			Tool:          30,
+		},
+	) {
+		t.Fatalf("expected structured usage breakdown on latest run, got %+v", listPayload.Runs[0].Usage)
+	}
 	if listPayload.Runs[0].CompletionSummary == nil ||
 		listPayload.Runs[0].CompletionSummary.Status != "completed" ||
 		listPayload.Runs[0].CompletionSummary.Markdown == nil {
@@ -298,6 +332,14 @@ func TestTicketRunRoutesExposeRunNativeTranscriptData(t *testing.T) {
 		detailPayload.Run.CompletionSummary.GeneratedAt == nil ||
 		detailPayload.Run.CompletionSummary.JSON["provider"] != "Codex" {
 		t.Fatalf("expected run detail to expose completion summary payload, got %+v", detailPayload.Run)
+	}
+	if detailPayload.Run.AdapterType != "codex-app-server" ||
+		detailPayload.Run.ModelName != "gpt-5.4" ||
+		detailPayload.Run.Usage.CacheCreation != 45 ||
+		detailPayload.Run.Usage.Prompt != 920 ||
+		detailPayload.Run.Usage.Candidate != 260 ||
+		detailPayload.Run.Usage.Tool != 30 {
+		t.Fatalf("expected run detail usage breakdown and adapter/model metadata, got %+v", detailPayload.Run)
 	}
 	if len(detailPayload.TraceEntries) != 6 || detailPayload.TraceEntries[1].Kind != domain.AgentTraceKindToolCallStarted {
 		t.Fatalf("expected ordered raw trace entries, got %+v", detailPayload.TraceEntries)
@@ -866,19 +908,33 @@ func TestMapTicketRunResponseMapsTerminatedRunsToEndedWithoutCompletedAt(t *test
 			agentID: {ID: agentID, Name: "Runner"},
 		},
 		providers: map[uuid.UUID]domain.AgentProvider{
-			providerID: {ID: providerID, Name: "Codex"},
+			providerID: {
+				ID:          providerID,
+				Name:        "Codex",
+				AdapterType: domain.AgentProviderAdapterTypeCodexAppServer,
+				ModelName:   "gpt-5.4",
+			},
 		},
 	}
 
 	ended := mapTicketRunResponse(domain.AgentRun{
-		ID:         runID,
-		AgentID:    agentID,
-		TicketID:   uuid.New(),
-		ProviderID: providerID,
-		WorkflowID: uuid.New(),
-		Status:     domain.AgentRunStatusTerminated,
-		TerminalAt: &terminalAt,
-		CreatedAt:  terminalAt.Add(-10 * time.Minute),
+		ID:                       runID,
+		AgentID:                  agentID,
+		TicketID:                 uuid.New(),
+		ProviderID:               providerID,
+		WorkflowID:               uuid.New(),
+		Status:                   domain.AgentRunStatusTerminated,
+		InputTokens:              20,
+		OutputTokens:             5,
+		CachedInputTokens:        3,
+		CacheCreationInputTokens: 2,
+		ReasoningTokens:          1,
+		PromptTokens:             18,
+		CandidateTokens:          4,
+		ToolTokens:               2,
+		TotalTokens:              25,
+		TerminalAt:               &terminalAt,
+		CreatedAt:                terminalAt.Add(-10 * time.Minute),
 	}, catalog)
 	if ended.Status != "ended" {
 		t.Fatalf("terminated run status = %q, want ended", ended.Status)
@@ -888,6 +944,9 @@ func TestMapTicketRunResponseMapsTerminatedRunsToEndedWithoutCompletedAt(t *test
 	}
 	if ended.CompletedAt != nil {
 		t.Fatalf("terminated run completed_at = %+v, want nil", ended.CompletedAt)
+	}
+	if ended.AdapterType != "codex-app-server" || ended.ModelName != "gpt-5.4" || ended.Usage.Total != 25 {
+		t.Fatalf("terminated run metadata/usage = %+v", ended)
 	}
 
 	completed := mapTicketRunResponse(domain.AgentRun{

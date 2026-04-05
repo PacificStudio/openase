@@ -135,6 +135,9 @@
         hooks={drawerState.hooks}
         timeline={drawerState.timeline}
         runs={drawerState.runs}
+        runsLoaded={drawerState.runsLoaded}
+        loadingRuns={drawerState.loadingRuns}
+        runsError={drawerState.runsError}
         currentRun={drawerState.currentRun}
         runBlocks={drawerState.runBlocks}
         loadingRunId={drawerState.loadingRunId}
@@ -158,6 +161,8 @@
         resettingWorkspace={drawerState.resettingWorkspace}
         onClose={appStore.closeRightPanel}
         archiving={drawerState.archiving}
+        onLoadRuns={() =>
+          projectId && ticketId ? drawerState.ensureRunsLoaded(projectId, ticketId) : undefined}
         onSaveFields={drawerActions.handleSaveFields}
         onPriorityChange={drawerActions.handlePriorityChange}
         onArchive={drawerActions.handleArchive}

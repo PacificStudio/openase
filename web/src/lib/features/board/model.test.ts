@@ -69,6 +69,7 @@ const ticketsFixture: Ticket[] = [
     budget_usd: 0,
     cost_tokens_input: 0,
     cost_tokens_output: 0,
+    cost_tokens_total: 0,
     cost_amount: 0,
     attempt_count: 0,
     consecutive_errors: 0,

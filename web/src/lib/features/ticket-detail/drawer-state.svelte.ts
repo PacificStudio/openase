@@ -5,10 +5,11 @@ import { fetchTicketDetailLiveContext, fetchTicketDetailProjectReferenceData } f
 import {
   recoverTicketDrawerRunTranscript,
   defaultTicketDrawerRunTranscriptDeps,
-  loadTicketDrawerRunTranscript,
   type TicketDrawerRunTranscriptDeps,
 } from './drawer-run-transcript'
+import { ensureTicketDrawerRunsLoaded } from './drawer-state-run-loading'
 import {
+  createEmptyTicketRunTranscriptState,
   applyTicketRunStreamFrame,
   hydrateTicketRunDetail,
   selectTicketRun,
@@ -19,6 +20,7 @@ import {
   applyTicketDrawerRunTranscriptState,
   applyTicketDrawerTimelineRefresh,
   readTicketDrawerRunTranscriptState,
+  resetTicketDrawerState,
 } from './drawer-state-mutators'
 import { createTicketDrawerReferenceController } from './drawer-state-reference'
 import type {
@@ -58,6 +60,9 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     dependencyCandidates: [] as TicketReferenceOption[],
     repoOptions: [] as TicketRepoOption[],
     runs: [] as TicketRun[],
+    runsLoaded: false,
+    loadingRuns: false,
+    runsError: '',
     selectedRunId: null as string | null,
     followLatest: true,
     currentRun: null as TicketRun | null,
@@ -84,6 +89,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
   let loadRequestId = 0
   let runDetailRequestId = 0
   let runRecoveryRequestId = 0
+  let runTranscriptRequestId = 0
   const referenceController = createTicketDrawerReferenceController({
     fetchLiveContext: resolvedDeps.fetchLiveContext,
     fetchReferenceData: resolvedDeps.fetchReferenceData,
@@ -112,7 +118,14 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     async load(projectId: string, ticketId: string, options: LoadOptions = {}) {
       const requestId = ++loadRequestId
       runDetailRequestId += 1
+      runTranscriptRequestId += 1
       state.loadingRunId = null
+      if (!options.background || state.ticket?.id !== ticketId) {
+        state.loadingRuns = false
+        state.runsLoaded = false
+        state.runsError = ''
+        applyTicketDrawerRunTranscriptState(state, createEmptyTicketRunTranscriptState())
+      }
       if (!options.background) {
         state.loading = true
         state.error = ''
@@ -135,17 +148,6 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
 
         referenceController.applyReferenceData(projectId, ticketId, nextReferenceData!)
         applyTicketDrawerContext(state, detailContext)
-        await loadTicketDrawerRunTranscript(
-          resolvedDeps,
-          {
-            getState: () => readTicketDrawerRunTranscriptState(state),
-            setState: (nextState) => applyTicketDrawerRunTranscriptState(state, nextState),
-          },
-          projectId,
-          ticketId,
-          requestId,
-          (activeRequestID) => activeRequestID === loadRequestId,
-        )
       } catch (caughtError) {
         if (requestId !== loadRequestId) return
         const message =
@@ -170,12 +172,30 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     setRunStreamState(nextState: StreamConnectionState) {
       state.runStreamState = nextState
     },
+    async ensureRunsLoaded(projectId: string, ticketId: string, options: { force?: boolean } = {}) {
+      await ensureTicketDrawerRunsLoaded(
+        resolvedDeps,
+        state,
+        projectId,
+        ticketId,
+        ++runTranscriptRequestId,
+        {
+          get current() {
+            return runTranscriptRequestId
+          },
+          set current(value: number) {
+            runTranscriptRequestId = value
+          },
+        },
+        options,
+      )
+    },
     applyRunStreamFrame(frame: Pick<SSEFrame, 'event' | 'data'>) {
       const nextState = applyTicketRunStreamFrame(readTicketDrawerRunTranscriptState(state), frame)
       applyTicketDrawerRunTranscriptState(state, nextState)
     },
     async recoverRunTranscript(projectId: string, ticketId: string) {
-      if (state.loading || !state.ticket) {
+      if (state.loading || !state.ticket || !state.runsLoaded) {
         return
       }
 
@@ -251,38 +271,9 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
     reset() {
       loadRequestId += 1
       runDetailRequestId += 1
+      runTranscriptRequestId += 1
       referenceController.resetQueues()
-      state.loading = false
-      state.error = ''
-      state.ticket = null
-      state.timeline = []
-      state.hooks = []
-      state.statuses = []
-      state.dependencyCandidates = []
-      state.repoOptions = []
-      state.runs = []
-      state.selectedRunId = null
-      state.followLatest = true
-      state.currentRun = null
-      state.runBlocks = []
-      state.runBlockCache = {}
-      state.loadingRunId = null
-      state.runStreamState = 'idle'
-      state.recoveringRunTranscript = false
-      state.savingFields = false
-      state.creatingDependency = false
-      state.deletingDependencyId = null
-      state.creatingExternalLink = false
-      state.deletingExternalLinkId = null
-      state.creatingRepoScope = false
-      state.updatingRepoScopeId = null
-      state.deletingRepoScopeId = null
-      state.creatingComment = false
-      state.updatingCommentId = null
-      state.deletingCommentId = null
-      state.resumingRetry = false
-      state.resettingWorkspace = false
-      state.archiving = false
+      resetTicketDrawerState(state)
     },
     invalidateReferences(projectId?: string) {
       referenceController.invalidateReferences(projectId)

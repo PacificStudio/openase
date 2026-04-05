@@ -177,6 +177,9 @@ export function buildTicketDetailLiveContext(
       nextRetryAt: detailTicket.next_retry_at ?? undefined,
       costTokensInput: detailTicket.cost_tokens_input,
       costTokensOutput: detailTicket.cost_tokens_output,
+      costTokensTotal:
+        detailTicket.cost_tokens_total ??
+        (detailTicket.cost_tokens_input ?? 0) + (detailTicket.cost_tokens_output ?? 0),
       costAmount: detailTicket.cost_amount,
       budgetUsd: detailTicket.budget_usd,
       pickupDiagnosis: mapTicketPickupDiagnosis(detailPayload.pickup_diagnosis),

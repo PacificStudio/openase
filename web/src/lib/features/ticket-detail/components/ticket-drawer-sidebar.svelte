@@ -7,18 +7,20 @@
   import RotateCcw from '@lucide/svelte/icons/rotate-ccw'
   import User from '@lucide/svelte/icons/user'
   import Workflow from '@lucide/svelte/icons/workflow'
-  import { cn, formatCount, formatCurrency, formatRelativeTime } from '$lib/utils'
+  import { cn, formatCurrency, formatRelativeTime } from '$lib/utils'
   import TicketDependencies from './ticket-dependencies.svelte'
   import TicketExternalLinks from './ticket-external-links.svelte'
   import TicketHooks from './ticket-hooks.svelte'
   import TicketRepos from './ticket-repos.svelte'
   import TicketRuntimeStateCard from './ticket-runtime-state-card.svelte'
+  import TicketTokenUsageSummary from './ticket-token-usage-summary.svelte'
   import type { DependencyDraft } from '../mutation-shared'
   import type {
     HookExecution,
     TicketDetail,
     TicketReferenceOption,
     TicketRepoOption,
+    TicketRun,
   } from '../types'
 
   let {
@@ -26,6 +28,10 @@
     hooks,
     dependencyCandidates,
     repoOptions,
+    runs = [],
+    runsLoaded = false,
+    loadingRuns = false,
+    runsError = '',
     creatingDependency = false,
     deletingDependencyId = null,
     creatingExternalLink = false,
@@ -35,6 +41,7 @@
     deletingRepoScopeId = null,
     resumingRetry = false,
     resettingWorkspace = false,
+    onLoadRuns,
     onResumeRetry,
     onResetWorkspace,
     onAddDependency,
@@ -49,6 +56,10 @@
     hooks: HookExecution[]
     dependencyCandidates: TicketReferenceOption[]
     repoOptions: TicketRepoOption[]
+    runs?: TicketRun[]
+    runsLoaded?: boolean
+    loadingRuns?: boolean
+    runsError?: string
     creatingDependency?: boolean
     deletingDependencyId?: string | null
     creatingExternalLink?: boolean
@@ -84,6 +95,7 @@
       },
     ) => void
     onDeleteScope?: (scopeId: string) => void
+    onLoadRuns?: () => Promise<void> | void
   } = $props()
 
   const costPercent = $derived.by(() =>
@@ -152,11 +164,14 @@
         </div>
         <div class="text-foreground">{ticket.attemptCount}</div>
 
-        <div class="text-muted-foreground">Input Tokens</div>
-        <div class="text-foreground">{formatCount(ticket.costTokensInput)}</div>
-
-        <div class="text-muted-foreground">Output Tokens</div>
-        <div class="text-foreground">{formatCount(ticket.costTokensOutput)}</div>
+        <TicketTokenUsageSummary
+          {ticket}
+          {runs}
+          {runsLoaded}
+          {loadingRuns}
+          {runsError}
+          {onLoadRuns}
+        />
 
         <div class="text-muted-foreground flex items-center gap-1.5">
           <User class="size-3.5" />

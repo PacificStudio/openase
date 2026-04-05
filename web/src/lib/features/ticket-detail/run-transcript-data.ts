@@ -11,6 +11,7 @@ import type {
   TicketRunDetail,
   TicketRunStepEntry,
   TicketRunTraceEntry,
+  TicketRunUsage,
 } from './types'
 
 export function mapTicketRuns(payload: TicketRunListPayload): TicketRun[] {
@@ -46,6 +47,9 @@ export function mapTicketRun(item: TicketRunRecord): TicketRun {
     agentId: item.agent_id,
     agentName: item.agent_name,
     provider: item.provider,
+    adapterType: item.adapter_type,
+    modelName: item.model_name,
+    usage: mapTicketRunUsage(item.usage),
     status: normalizeRunStatus(item.status),
     currentStepStatus: item.current_step_status ?? undefined,
     currentStepSummary: item.current_step_summary ?? undefined,
@@ -56,6 +60,35 @@ export function mapTicketRun(item: TicketRunRecord): TicketRun {
     completedAt: item.completed_at ?? undefined,
     lastError: item.last_error ?? undefined,
     completionSummary: mapTicketRunCompletionSummary(item.completion_summary),
+  }
+}
+
+type TicketRunUsageRecord =
+  | {
+      total?: number
+      input?: number
+      output?: number
+      cached_input?: number
+      cache_creation?: number
+      reasoning?: number
+      prompt?: number
+      candidate?: number
+      tool?: number
+    }
+  | null
+  | undefined
+
+export function mapTicketRunUsage(item: TicketRunUsageRecord): TicketRunUsage {
+  return {
+    total: item?.total ?? 0,
+    input: item?.input ?? 0,
+    output: item?.output ?? 0,
+    cachedInput: item?.cached_input ?? 0,
+    cacheCreation: item?.cache_creation ?? 0,
+    reasoning: item?.reasoning ?? 0,
+    prompt: item?.prompt ?? 0,
+    candidate: item?.candidate ?? 0,
+    tool: item?.tool ?? 0,
   }
 }
 
