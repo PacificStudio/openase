@@ -210,12 +210,12 @@ jobs:
           set -euo pipefail
 
           port="$(python3 - <<'PY'
-import socket
+          import socket
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
+          with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+              sock.bind(("127.0.0.1", 0))
+              print(sock.getsockname()[1])
+          PY
           )"
           echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
           echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
