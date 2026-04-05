@@ -806,6 +806,10 @@ make lint-all                    # Full lint suite
 
 See [LICENSE](LICENSE).
 
+## Friendly Link
+
+[linux.do](https://linux.do/latest)
+
 ---
 
 <p align="center">
