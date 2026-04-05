@@ -1,8 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
-  import { listProviders } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import ProjectConversationComposer from './project-conversation-composer.svelte'
@@ -15,6 +13,7 @@
   } from './project-ai-focus'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
+  import { watchProjectConversationProviders } from './project-conversation-panel-provider-sync'
 
   let {
     context,
@@ -84,42 +83,15 @@
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
 
-  $effect(() => {
-    if (providers.length > 0 || !organizationId) {
-      loadingProviders = false
-      providerError = ''
-      loadedProviders = []
-      return
-    }
-
-    let cancelled = false
-
-    const load = async () => {
-      loadingProviders = true
-      providerError = ''
-
-      try {
-        const payload = await listProviders(organizationId)
-        if (!cancelled) {
-          loadedProviders = payload.providers
-        }
-      } catch (caughtError) {
-        if (!cancelled) {
-          providerError =
-            caughtError instanceof ApiError ? caughtError.detail : 'Failed to load chat providers.'
-        }
-      } finally {
-        if (!cancelled) {
-          loadingProviders = false
-        }
-      }
-    }
-
-    void load()
-    return () => {
-      cancelled = true
-    }
-  })
+  $effect(() =>
+    watchProjectConversationProviders({
+      organizationId,
+      hasInlineProviders: providers.length > 0,
+      setLoading: (value) => (loadingProviders = value),
+      setError: (value) => (providerError = value),
+      setProviders: (value) => (loadedProviders = value),
+    }),
+  )
 
   $effect(() => {
     const nextProviders = activeProviders

@@ -492,8 +492,8 @@ func (s *websocketListenerSession) startCommand(command string) error {
 
 func (s *websocketListenerSession) waitForExit() {
 	exitCode := 0
-	// Drain stdout/stderr before Wait. The exec.Cmd pipe contract allows Wait
-	// to close the pipes, which can otherwise truncate fast-exit command output.
+	// Drain stdout/stderr before Wait. os/exec closes these pipes during Wait,
+	// so waiting first can drop trailing output from short-lived commands.
 	s.streams.Wait()
 	if err := s.command.Wait(); err != nil {
 		var exitErr *exec.ExitError

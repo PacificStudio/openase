@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
-const playwrightPort = readPortFromEnv('OPENASE_PLAYWRIGHT_PORT', 4173)
-const playwrightBaseURL = `http://127.0.0.1:${playwrightPort}`
+const host = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
+const port = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${port}`
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -16,7 +17,7 @@ export default defineConfig({
   retries: 0,
   reporter: [['list']],
   use: {
-    baseURL: playwrightBaseURL,
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -24,12 +25,13 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   webServer: {
-    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host 127.0.0.1 --port ${playwrightPort}`,
-    port: playwrightPort,
+    command: `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port}`,
+    port,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {
       ...process.env,
+      CHOKIDAR_USEPOLLING: '1',
       OPENASE_E2E_MOCK: '1',
     },
   },
@@ -42,17 +44,3 @@ export default defineConfig({
     },
   ],
 })
-
-function readPortFromEnv(name: string, fallback: number): number {
-  const raw = process.env[name]?.trim()
-  if (!raw) {
-    return fallback
-  }
-
-  const parsed = Number.parseInt(raw, 10)
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    return fallback
-  }
-
-  return parsed
-}

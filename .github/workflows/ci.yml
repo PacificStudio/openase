@@ -204,30 +204,36 @@ jobs:
       - name: Install Playwright Browser
         run: pnpm exec playwright install chromium
 
-      - name: Run Web CI
+      - name: Select Playwright Port
         shell: bash
         run: |
           set -euo pipefail
 
-          pick_playwright_port() {
-            python3 - <<'PY'
+          port="$(python3 - <<'PY'
 import socket
 
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
     sock.bind(("127.0.0.1", 0))
     print(sock.getsockname()[1])
 PY
-          }
+          )"
+          echo "PLAYWRIGHT_HOST=127.0.0.1" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_PORT=${port}" >> "${GITHUB_ENV}"
+          echo "PLAYWRIGHT_BASE_URL=http://127.0.0.1:${port}" >> "${GITHUB_ENV}"
 
-          export OPENASE_PLAYWRIGHT_PORT="$(pick_playwright_port)"
-          printf 'Using Playwright web server port %s\n' "${OPENASE_PLAYWRIGHT_PORT}"
+      - name: Run Web CI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf 'Using Playwright web server %s\n' "${PLAYWRIGHT_BASE_URL}"
 
           if pnpm run ci; then
             exit 0
           fi
 
           echo "Frontend CI diagnostics:"
-          echo "Playwright web server port: ${OPENASE_PLAYWRIGHT_PORT}"
+          echo "Playwright web server: ${PLAYWRIGHT_BASE_URL}"
           pnpm exec prettier --version || true
           sha256sum src/routes/\(app\)/orgs/+page.svelte || true
           pnpm exec prettier --check src/routes/\(app\)/orgs/+page.svelte || true
