@@ -209,9 +209,11 @@ export PATH=$PWD/.tooling/go/bin:$HOME/.local/go1.26.1/bin:$PATH
 </details>
 
 <details>
-<summary><strong>Install Node.js 18+ & pnpm (build-time only)</strong></summary>
+<summary><strong>Install Node.js 22 LTS or 24 LTS & pnpm (build-time only)</strong></summary>
 
 Node.js is only needed to build the frontend. It is **not required at runtime**.
+
+Use an LTS release: **Node 22 LTS** is the default recommendation, and **Node 24 LTS** is also expected to work. Avoid odd-numbered non-LTS releases such as **Node 23**. The current frontend dependency set includes `engines` constraints that can cause `pnpm` to reject versions like `v23.11.1` during install or build.
 
 ```bash
 # Option A: via nvm (recommended)
@@ -238,6 +240,8 @@ pnpm --version   # 10.x.x (via corepack)
 <summary><strong>Install PostgreSQL</strong></summary>
 
 You have two choices — let OpenASE setup start a Docker-backed PostgreSQL automatically, or install one yourself.
+
+There is no third setup-managed "user-space local database" path. If your user cannot access Docker, you must prepare PostgreSQL yourself before running `openase setup`.
 
 **Option A: Docker (recommended for local dev)**
 
@@ -309,10 +313,11 @@ This runs the following under the hood:
 
 ```bash
 corepack pnpm --dir web install --frozen-lockfile
-corepack pnpm --dir web run api:generate
 corepack pnpm --dir web run build
 go build -o ./bin/openase ./cmd/openase
 ```
+
+`make build-web` rebuilds the embedded frontend and then compiles the Go binary. It does **not** refresh the committed OpenAPI artifacts. If you changed backend API shapes or want to refresh `api/openapi.json` and `web/src/lib/api/generated/openapi.d.ts`, run `make openapi-generate` separately first.
 
 Verify the build:
 
@@ -328,7 +333,7 @@ Verify the build:
 
 The interactive terminal setup will walk you through:
 
-1. **Database** — start a Docker PostgreSQL automatically, or enter an existing DSN
+1. **Database** — start a Docker PostgreSQL automatically, or enter an existing PostgreSQL connection (`host`, `port`, `database`, `user`, `password`, `sslmode`)
 2. **CLI detection** — checks for `git`, `claude`, `codex`, `gemini` on PATH
 3. **Auth mode** — `disabled` (local dev) or `oidc` (browser login)
 4. **Service mode** — config-only, or install a `systemd --user` service
@@ -344,7 +349,7 @@ Setup creates the following under `~/.openase/`:
 └── workspaces/       # Agent workspaces
 ```
 
-> **Docker PostgreSQL note:** When choosing Docker, setup uses predictable defaults — container `openase-local-postgres`, port `127.0.0.1:15432`, database `openase`. It generates the password automatically.
+> **Docker PostgreSQL note:** When choosing Docker, setup uses predictable defaults — container `openase-local-postgres`, port `127.0.0.1:15432`, database `openase`. It generates the password automatically. If your account does not have Docker access, setup does not offer another local-database fallback; prepare PostgreSQL first and then choose the manual connection path.
 
 ### Step 3: Launch
 
@@ -395,8 +400,18 @@ Setup can install a `systemd --user` service automatically. You can also manage 
 ./bin/openase up      --config ~/.openase/config.yaml   # Install & start
 ./bin/openase logs    --lines 100                        # Tail logs
 ./bin/openase restart                                    # Restart
-./bin/openase down                                       # Stop & uninstall
+./bin/openase down                                       # Stop
 ```
+
+The managed service only runs OpenASE itself (`openase all-in-one --config ...`). It does not manage PostgreSQL for you. If you pointed OpenASE at an existing PostgreSQL instance, keep that database running separately. If setup created a Docker PostgreSQL container, that container is still a separate service boundary from `openase.service`.
+
+For long-running server use, `systemd --user` may also need lingering enabled so the user service survives logout and can start as expected after reboot:
+
+```bash
+loginctl enable-linger "$USER"
+```
+
+Run that once per user account on machines where you expect OpenASE to keep running without an active login session.
 
 ### Split-Process Mode
 
@@ -590,7 +605,7 @@ Agent workers inherit environment variables from the workspace wrapper:
 ```bash
 make hooks-install        # Set up git hooks (lefthook)
 make check                # Run formatting + backend coverage checks
-make build-web            # Build frontend + Go binary
+make build-web            # Build frontend assets + Go binary (does not refresh OpenAPI artifacts)
 make build                # Build Go binary only (uses existing frontend)
 make run                  # Run API server in dev mode
 make doctor               # Run local environment diagnostics
