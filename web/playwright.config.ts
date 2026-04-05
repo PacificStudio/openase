@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const nodePath = process.env.PLAYWRIGHT_NODE_PATH ?? process.execPath
+const host = process.env.PLAYWRIGHT_HOST ?? '127.0.0.1'
 const playwrightPort = Number(process.env.PLAYWRIGHT_PORT ?? '4173')
-const playwrightBaseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${playwrightPort}`
+const playwrightBaseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://${host}:${playwrightPort}`
 const playwrightWebServerMode = process.env.PLAYWRIGHT_WEB_SERVER_MODE ?? 'dev'
 
 export default defineConfig({
@@ -25,12 +26,13 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   webServer: {
-    command: `${nodePath} ./node_modules/vite/bin/vite.js ${playwrightWebServerMode} --host 127.0.0.1 --port ${playwrightPort}`,
+    command: `${nodePath} ./node_modules/vite/bin/vite.js ${playwrightWebServerMode} --host ${host} --port ${playwrightPort}`,
     port: playwrightPort,
     timeout: 120_000,
     reuseExistingServer: false,
     env: {
       ...process.env,
+      CHOKIDAR_USEPOLLING: '1',
       OPENASE_E2E_MOCK: '1',
     },
   },

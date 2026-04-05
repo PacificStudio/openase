@@ -74,6 +74,13 @@ export function subscribeOrganizationMachineEvents(
   return subscribeOrganizationEvents(orgId, 'machines', listener)
 }
 
+export function subscribeOrganizationProviderEvents(
+  orgId: string,
+  listener: OrganizationEventListener,
+) {
+  return subscribeOrganizationEvents(orgId, 'providers', listener)
+}
+
 export function resetOrganizationEventBusForTests() {
   for (const runtime of runtimes.values()) {
     runtime.disconnect?.()

@@ -8,6 +8,7 @@
   import { StageIcon } from '$lib/features/board/public'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
+  import { ColorPicker } from '$ui/color-picker'
   import { Input } from '$ui/input'
   import { Plus, X } from '@lucide/svelte'
   import StatusSettingsRow from './status-settings-row.svelte'
@@ -224,11 +225,7 @@
 
           {#if addingInStage === group.stage}
             <div class="bg-muted/30 mt-1 flex items-center gap-2 rounded-md px-2 py-2">
-              <input
-                type="color"
-                bind:value={addColor}
-                class="size-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
-              />
+              <ColorPicker bind:value={addColor} />
               <Input
                 bind:value={addName}
                 class="h-8 flex-1 text-sm"

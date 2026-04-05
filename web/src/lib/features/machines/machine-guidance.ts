@@ -30,13 +30,13 @@ const machineModeGuides: Record<MachineReachabilityMode, MachineModeGuide> = {
     label: 'Direct Connect',
     summary: 'The control plane can reach the machine directly.',
     requiredFields:
-      'Machine identity, a remote workspace root, and either websocket listener details or SSH compatibility access.',
+      'Machine identity, a remote workspace root, and websocket listener details. SSH is optional helper access.',
     installMethod:
-      'Preferred: expose a websocket listener endpoint. Compatibility: keep SSH helper access while migrating.',
+      'Expose a websocket listener endpoint for runtime execution. Keep SSH only when you need bootstrap, diagnostics, or emergency repair access.',
     testSemantics:
-      'Tests either dial the advertised websocket listener or use legacy SSH compatibility during rollout.',
+      'Connection tests dial the advertised websocket listener. Separate SSH helper diagnostics cover helper-only access.',
     commonErrors:
-      'Missing advertised endpoints, unreachable listener URLs, or stale SSH compatibility credentials.',
+      'Missing advertised endpoints, unreachable listener URLs, or stale SSH helper credentials.',
   },
   reverse_connect: {
     mode: 'reverse_connect',
@@ -68,7 +68,7 @@ const machineExecutionGuides: Record<MachineExecutionMode, MachineExecutionGuide
     mode: 'ssh_compat',
     label: 'SSH Compat',
     summary:
-      'Legacy compatibility path during rollout. Keep only until the machine is migrated to websocket execution.',
+      'Legacy record only. Migrate this machine to websocket execution and keep SSH only as a helper channel.',
   },
 }
 
@@ -181,7 +181,7 @@ export function machineDetectionMessage(machine: Machine | null, draft?: Machine
     return 'Local machines default to the local OpenASE workspace convention. Run a connection test to confirm the platform details.'
   }
   if (executionMode === 'ssh_compat') {
-    return 'This machine still uses SSH compatibility during rollout. Keep SSH helper credentials in place until it is migrated to websocket execution.'
+    return 'This machine still stores a legacy SSH compatibility execution mode. Resave it as websocket execution and keep SSH only for bootstrap or diagnostics.'
   }
   return 'Detection is optional. You can keep saving the machine, then confirm the platform and workspace details after websocket checks or daemon registration.'
 }
@@ -226,7 +226,7 @@ export function getWorkspaceRootRecommendation(
     reason:
       executionMode === 'websocket'
         ? 'Fallback websocket workspace root until the remote platform is detected.'
-        : 'Fallback remote workspace root while this machine still uses SSH compatibility.',
+        : 'Fallback remote workspace root while you migrate this legacy machine to websocket execution.',
   }
 }
 
