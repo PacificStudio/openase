@@ -231,6 +231,42 @@ async function handleColumnArchiveAll(
   }
 }
 
+export async function handleTicketArchive(
+  state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'persistBoardSnapshot' | 'requestReload'>,
+  ticketId: string,
+) {
+  const projectId = appStore.currentProject?.id
+  if (!projectId) return
+
+  const location = findTicketLocation(state.allColumns, ticketId)
+  if (!location || location.ticket.archived) return
+
+  state.allColumns = patchTicket(state.allColumns, ticketId, (ticket) => ({
+    ...ticket,
+    archived: true,
+  }))
+  state.persistBoardSnapshot(projectId)
+
+  try {
+    await updateTicket(ticketId, { archived: true })
+    toastStore.success('Ticket archived.')
+  } catch (caughtError) {
+    toastStore.error(
+      caughtError instanceof ApiError ? caughtError.detail : 'Failed to archive ticket.',
+    )
+  } finally {
+    state.requestReload(projectId)
+  }
+}
+
+export async function handleTicketStatusChange(
+  state: TicketsPageControllerActionsState,
+  ticketId: string,
+  targetStatusId: string,
+) {
+  return handleTicketDrop(state, ticketId, targetStatusId)
+}
+
 export async function handleColumnAction(
   state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'allStatuses' | 'requestReload'>,
   columnId: string,

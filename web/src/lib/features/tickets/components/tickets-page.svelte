@@ -102,6 +102,7 @@
       ondropticket={controller.handleTicketDrop}
       onStatusChange={controller.handleStatusChange}
       onPriorityChange={controller.handlePriorityChange}
+      onArchiveTicket={controller.handleTicketArchive}
       onCreateTicket={(statusId) => appStore.openNewTicketDialog(statusId)}
       onColumnAction={controller.handleColumnAction}
       draggingTicketId={controller.draggingTicketId}

@@ -35,6 +35,7 @@ import {
   handleTicketDragOverColumn as dragOverTicketColumn,
   handleTicketDragStart as startTicketDrag,
   handleTicketDrop as dropTicket,
+  handleTicketArchive as archiveTicket,
 } from './tickets-page-controller-actions'
 import { createTicketsPageControllerApi } from './tickets-page-controller-api'
 import { createTicketsPageControllerState } from './tickets-page-controller-state'
@@ -276,6 +277,10 @@ export function createTicketsPageController() {
     await runColumnAction(controllerState, columnId, action)
   }
 
+  async function handleTicketArchive(ticketId: string) {
+    await archiveTicket(controllerState, ticketId)
+  }
+
   return createTicketsPageControllerApi({
     getLoading: () => loading,
     getError: () => error,
@@ -295,5 +300,6 @@ export function createTicketsPageController() {
     handleTicketDrop,
     handlePriorityChange,
     handleColumnAction,
+    handleTicketArchive,
   })
 }
