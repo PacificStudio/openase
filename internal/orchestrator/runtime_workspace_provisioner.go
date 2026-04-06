@@ -89,6 +89,19 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 		}
 		return workspaceinfra.Workspace{}, err
 	}
+	if err := p.materializeWorkspaceInstructionHub(
+		ctx,
+		machine,
+		resolved,
+		workspaceItem,
+		string(launchContext.agent.Edges.Provider.AdapterType),
+		remote,
+	); err != nil {
+		if updateErr := p.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
+			return workspaceinfra.Workspace{}, fmt.Errorf("materialize workspace instruction hub failed: %w (ticket repo workspace state update failed: %v)", err, updateErr)
+		}
+		return workspaceinfra.Workspace{}, err
+	}
 	repoPlans = repoPlansWithPreparedHeads(repoPlans, workspaceItem.Repos)
 	if err := p.markTicketRepoWorkspacesReady(ctx, runID, repoPlans); err != nil {
 		return workspaceinfra.Workspace{}, err
