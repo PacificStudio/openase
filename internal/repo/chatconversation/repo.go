@@ -14,6 +14,7 @@ import (
 	entchatentry "github.com/BetterAndBetterII/openase/ent/chatentry"
 	entchatpendinginterrupt "github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	entchatturn "github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	entprojectconversationtraceevent "github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
@@ -475,11 +476,14 @@ func (r *Repository) AppendStepEvent(ctx context.Context, input domain.AppendSte
 }
 
 func (r *Repository) ListConversations(ctx context.Context, filter domain.ListConversationsFilter) ([]domain.Conversation, error) {
+	predicates := []predicate.ChatConversation{
+		entchatconversation.ProjectIDEQ(filter.ProjectID),
+	}
+	if trimmedUserID := strings.TrimSpace(filter.UserID); trimmedUserID != "" {
+		predicates = append(predicates, entchatconversation.UserIDEQ(trimmedUserID))
+	}
 	query := r.client.ChatConversation.Query().
-		Where(
-			entchatconversation.ProjectIDEQ(filter.ProjectID),
-			entchatconversation.UserIDEQ(strings.TrimSpace(filter.UserID)),
-		).
+		Where(predicates...).
 		Order(ent.Desc(entchatconversation.FieldLastActivityAt))
 	if filter.Source != nil {
 		query.Where(entchatconversation.SourceEQ(string(*filter.Source)))
@@ -498,6 +502,20 @@ func (r *Repository) ListConversations(ctx context.Context, filter domain.ListCo
 	}
 
 	return mapConversations(items), nil
+}
+
+func (r *Repository) UpdateConversationUser(
+	ctx context.Context,
+	conversationID uuid.UUID,
+	userID string,
+) (domain.Conversation, error) {
+	item, err := r.client.ChatConversation.UpdateOneID(conversationID).
+		SetUserID(strings.TrimSpace(userID)).
+		Save(ctx)
+	if err != nil {
+		return domain.Conversation{}, mapWriteError("update chat conversation owner", err)
+	}
+	return mapConversation(item), nil
 }
 
 func (r *Repository) GetConversation(ctx context.Context, id uuid.UUID) (domain.Conversation, error) {

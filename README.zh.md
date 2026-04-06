@@ -608,7 +608,7 @@ set -a && source ~/.openase/.env && set +a
 
 | 模式 | 说明 | 使用场景 |
 |------|------|---------|
-| `disabled` | 无需认证 | 本地开发 |
+| `disabled` | 无需认证；持久 Project Conversation 使用稳定本地主体 `local-user:default` | 本地开发 |
 | `oidc` | 通过 OIDC 提供商浏览器登录 | 生产环境、团队使用 |
 
 OIDC 支持标准提供商：Auth0、Azure Entra ID 以及任何 OpenID Connect 兼容的 IdP。参见 OIDC & RBAC 指南（[EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)）了解配置方法。

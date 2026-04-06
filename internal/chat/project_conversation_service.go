@@ -201,6 +201,21 @@ func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
 	return UserID("conversation:" + conversation.ID.String())
 }
 
+func isStableLocalProjectConversationUser(userID UserID) bool {
+	return strings.TrimSpace(userID.String()) == strings.TrimSpace(LocalProjectConversationUserID.String())
+}
+
+func (s *ProjectConversationService) normalizeConversationUser(
+	ctx context.Context,
+	conversation domain.Conversation,
+	userID UserID,
+) (domain.Conversation, error) {
+	if !isStableLocalProjectConversationUser(userID) || conversation.UserID == userID.String() {
+		return conversation, nil
+	}
+	return s.conversations.UpdateConversationUser(ctx, conversation.ID, userID.String())
+}
+
 func (s *ProjectConversationService) CreateConversation(
 	ctx context.Context,
 	userID UserID,
@@ -234,12 +249,30 @@ func (s *ProjectConversationService) ListConversations(
 	providerID *uuid.UUID,
 ) ([]domain.Conversation, error) {
 	source := domain.SourceProjectSidebar
-	return s.conversations.ListConversations(ctx, domain.ListConversationsFilter{
+	filter := domain.ListConversationsFilter{
 		ProjectID:  projectID,
 		UserID:     userID.String(),
 		Source:     &source,
 		ProviderID: providerID,
-	})
+	}
+	if isStableLocalProjectConversationUser(userID) {
+		filter.UserID = ""
+	}
+	conversations, err := s.conversations.ListConversations(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	if !isStableLocalProjectConversationUser(userID) {
+		return conversations, nil
+	}
+	for index, conversation := range conversations {
+		normalized, normalizeErr := s.normalizeConversationUser(ctx, conversation, userID)
+		if normalizeErr != nil {
+			return nil, normalizeErr
+		}
+		conversations[index] = normalized
+	}
+	return conversations, nil
 }
 
 func (s *ProjectConversationService) GetConversation(ctx context.Context, userID UserID, conversationID uuid.UUID) (domain.Conversation, error) {
@@ -247,10 +280,10 @@ func (s *ProjectConversationService) GetConversation(ctx context.Context, userID
 	if err != nil {
 		return domain.Conversation{}, err
 	}
-	if conversation.UserID != userID.String() {
+	if conversation.UserID != userID.String() && !isStableLocalProjectConversationUser(userID) {
 		return domain.Conversation{}, ErrConversationNotFound
 	}
-	return conversation, nil
+	return s.normalizeConversationUser(ctx, conversation, userID)
 }
 
 func (s *ProjectConversationService) GetPrincipal(ctx context.Context, userID UserID, conversationID uuid.UUID) (domain.ProjectConversationPrincipal, error) {
@@ -275,8 +308,13 @@ func (s *ProjectConversationService) ListEntries(ctx context.Context, userID Use
 
 func (s *ProjectConversationService) WatchConversation(
 	ctx context.Context,
+	userID UserID,
 	conversationID uuid.UUID,
-) (<-chan StreamEvent, func()) {
+) (<-chan StreamEvent, func(), error) {
+	conversation, err := s.GetConversation(ctx, userID, conversationID)
+	if err != nil {
+		return nil, nil, err
+	}
 	live, hasLive := s.runtimeManager.Get(conversationID)
 
 	state := s.watchConversationRuntimeState(ctx, conversationID, live, hasLive)
@@ -288,14 +326,12 @@ func (s *ProjectConversationService) WatchConversation(
 	if live != nil {
 		sessionProvider = &live.provider
 	}
-	if conversation, err := s.conversations.GetConversation(ctx, conversationID); err == nil {
-		if sessionProvider == nil && s.catalog != nil {
-			if providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); providerErr == nil {
-				sessionProvider = &providerItem
-			}
+	if sessionProvider == nil && s.catalog != nil {
+		if providerItem, providerErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); providerErr == nil {
+			sessionProvider = &providerItem
 		}
-		mergeConversationSessionPayload(sessionPayload, conversation, sessionProvider)
 	}
+	mergeConversationSessionPayload(sessionPayload, conversation, sessionProvider)
 	if hasLive && live != nil {
 		anchor := liveRuntimeSessionAnchor(live, SessionID(conversationID.String()))
 		mergeConversationSessionPayload(sessionPayload, domain.Conversation{
@@ -306,7 +342,11 @@ func (s *ProjectConversationService) WatchConversation(
 			ProviderThreadActiveFlags: append([]string(nil), anchor.ProviderThreadActiveFlags...),
 		}, sessionProvider)
 	}
-	return s.streamBroker.Watch(conversationID, StreamEvent{Event: "session", Payload: sessionPayload})
+	events, cleanup := s.streamBroker.Watch(
+		conversationID,
+		StreamEvent{Event: "session", Payload: sessionPayload},
+	)
+	return events, cleanup, nil
 }
 
 func (s *ProjectConversationService) WatchProjectConversations(

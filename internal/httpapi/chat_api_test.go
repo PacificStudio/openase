@@ -119,6 +119,55 @@ func TestCurrentRequestAIPrincipalIssuesServerDefinedCookieWhenAuthDisabled(t *t
 	}
 }
 
+func TestCurrentProjectConversationUserIDUsesHumanPrincipalInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	userID := uuid.MustParse("8db7261e-e16d-458e-8926-cd01550686a5")
+	setHumanPrincipal(ctx, humanauthdomain.AuthenticatedPrincipal{
+		User: humanauthdomain.User{ID: userID},
+	})
+
+	got, err := server.currentProjectConversationUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentProjectConversationUserID() error = %v", err)
+	}
+	if got != chatservice.UserID("user:"+userID.String()) {
+		t.Fatalf("currentProjectConversationUserID() = %q, want %q", got, "user:"+userID.String())
+	}
+}
+
+func TestCurrentProjectConversationUserIDRejectsMissingHumanSessionInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	_, err := server.currentProjectConversationUserID(ctx)
+	if !errors.Is(err, humanauthservice.ErrUnauthorized) {
+		t.Fatalf("currentProjectConversationUserID() error = %v, want %v", err, humanauthservice.ErrUnauthorized)
+	}
+}
+
+func TestCurrentProjectConversationUserIDUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeDisabled}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	got, err := server.currentProjectConversationUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentProjectConversationUserID() error = %v", err)
+	}
+	if got != chatservice.LocalProjectConversationUserID {
+		t.Fatalf("currentProjectConversationUserID() = %q, want %q", got, chatservice.LocalProjectConversationUserID)
+	}
+}
+
 func TestPrepareProjectConversationActionBodyInjectsExplicitAuditActor(t *testing.T) {
 	conversationID := uuid.MustParse("57cdcb4e-6e4c-4474-839a-4daa5abdd8d2")
 	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), conversationID)
@@ -210,6 +259,32 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 		body   string
 	}{
 		{
+			name:   "stream conversation",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/stream",
+		},
+		{
+			name:   "get conversation",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID,
+		},
+		{
+			name:   "list entries",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/entries",
+		},
+		{
+			name:   "workspace diff",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace-diff",
+		},
+		{
+			name:   "start turn",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/turns",
+			body:   `{"message":"continue"}`,
+		},
+		{
 			name:   "close runtime",
 			method: http.MethodDelete,
 			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",
@@ -219,6 +294,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			method: http.MethodPost,
 			target: "/api/v1/chat/conversations/" + conversationID + "/interrupts/" + interruptID + "/respond",
 			body:   `{"decision":"approve"}`,
+		},
+		{
+			name:   "project mux stream",
+			method: http.MethodGet,
+			target: "/api/v1/chat/projects/" + uuid.NewString() + "/conversations/stream",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -817,7 +897,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		principal,
+		chatservice.LocalProjectConversationUserID,
 		firstConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-1"},
@@ -834,7 +914,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		principal,
+		chatservice.LocalProjectConversationUserID,
 		secondConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-2"},
@@ -1044,7 +1124,6 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	if err != nil {
 		t.Fatalf("new mux stream request: %v", err)
 	}
-	addAIPrincipalCookie(req, principal)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -1071,7 +1150,7 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		principal,
+		chatservice.LocalProjectConversationUserID,
 		firstConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-1"},
@@ -1087,7 +1166,7 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		principal,
+		chatservice.LocalProjectConversationUserID,
 		secondConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-2"},
@@ -1099,6 +1178,172 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 		!strings.Contains(secondMessage.Data, "\"conversation_id\":\""+secondConversation.ID.String()+"\"") ||
 		!strings.Contains(secondMessage.Data, "\"marker\":\"conversation-2\"") {
 		t.Fatalf("second mux message frame = %+v", secondMessage)
+	}
+}
+
+func TestProjectConversationListRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-local-principal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Local Principal").
+		SetSlug("openase-local-principal").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	_, err = repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	_, err = repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-b",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations?project_id="+project.ID.String(),
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := strings.Count(rec.Body.String(), `"user_id":"`+chatservice.LocalProjectConversationUserID.String()+`"`); got != 2 {
+		t.Fatalf("expected both conversations to normalize to the stable local principal, got body %s", rec.Body.String())
+	}
+}
+
+func TestProjectConversationStreamRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-local-stream").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Local Stream").
+		SetSlug("openase-local-stream").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/conversations/"+conversation.ID.String()+"/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new stream request: %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open stream: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	frame := readProjectConversationSSEFrame(t, bufio.NewReader(resp.Body))
+	if frame.Event != "session" || !strings.Contains(frame.Data, conversation.ID.String()) {
+		t.Fatalf("expected initial session frame for the legacy conversation, got %+v", frame)
 	}
 }
 
