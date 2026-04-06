@@ -29,13 +29,13 @@
   ]
 </script>
 
-<nav class="w-[200px] shrink-0 space-y-0.5">
+<nav class="flex w-full shrink-0 flex-wrap gap-1 pb-1 lg:w-[200px] lg:flex-col lg:gap-0.5">
   {#each items as item (item.key)}
     {@const Icon = item.icon}
     <button
       type="button"
       class={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+        'flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors lg:w-full',
         active === item.key
           ? 'bg-muted text-foreground font-medium'
           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',

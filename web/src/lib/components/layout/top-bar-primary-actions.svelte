@@ -62,6 +62,8 @@
   size="sm"
   class="gap-1.5"
   disabled={!newTicketEnabled}
+  data-testid="topbar-new-ticket-button"
+  aria-label={newTicketEnabled ? 'New ticket' : (newTicketTitle ?? 'New ticket')}
   title={newTicketEnabled
     ? 'Create ticket'
     : (newTicketTitle ?? 'Ticket creation is not available.')}

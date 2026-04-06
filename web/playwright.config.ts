@@ -48,6 +48,28 @@ function buildPlaywrightWebServerCommand(): string {
   return `${nodePath} ./node_modules/vite/bin/vite.js dev --host ${host} --port ${port} --strictPort`
 }
 
+const mobileTestMatch = /tests\/e2e\/mobile\/.+\.spec\.ts$/
+
+function mobileViewportProject(
+  name: string,
+  width: number,
+  height: number,
+  options: { scale: number; mobile: boolean; touch: boolean },
+) {
+  return {
+    name,
+    testMatch: mobileTestMatch,
+    use: {
+      browserName: 'chromium' as const,
+      viewport: { width, height },
+      screen: { width, height },
+      deviceScaleFactor: options.scale,
+      isMobile: options.mobile,
+      hasTouch: options.touch,
+    },
+  }
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/global-setup.ts',
@@ -81,9 +103,35 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testIgnore: mobileTestMatch,
       use: {
         ...devices['Desktop Chrome'],
       },
     },
+    mobileViewportProject('phone-390x844-iphone', 390, 844, {
+      scale: 3,
+      mobile: true,
+      touch: true,
+    }),
+    mobileViewportProject('phone-430x932-android', 430, 932, {
+      scale: 3,
+      mobile: true,
+      touch: true,
+    }),
+    mobileViewportProject('phone-360x800-compact', 360, 800, {
+      scale: 2,
+      mobile: true,
+      touch: true,
+    }),
+    mobileViewportProject('tablet-768x1024-portrait', 768, 1024, {
+      scale: 2,
+      mobile: true,
+      touch: true,
+    }),
+    mobileViewportProject('tablet-1024x768-landscape', 1024, 768, {
+      scale: 2,
+      mobile: true,
+      touch: true,
+    }),
   ],
 })

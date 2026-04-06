@@ -81,6 +81,7 @@ type MockState = {
   agents: Record<string, unknown>[]
   agentRuns: Record<string, unknown>[]
   activityEvents: Record<string, unknown>[]
+  projectUpdates: Record<string, unknown>[]
   tickets: Record<string, unknown>[]
   statuses: Record<string, unknown>[]
   repos: Record<string, unknown>[]
@@ -108,6 +109,8 @@ type MockState = {
     agent: number
     skill: number
     scheduledJob: number
+    projectUpdateThread: number
+    projectUpdateComment: number
     projectConversation: number
     projectConversationEntry: number
     projectConversationTurn: number
@@ -315,6 +318,75 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     return jsonResponse({
       events: clone(mockState.activityEvents.filter((event) => event.project_id === projectId)),
     })
+  }
+
+  if (segments[2] === 'updates') {
+    if (segments.length === 3 && request.method === 'GET') {
+      return jsonResponse({
+        threads: clone(
+          mockState.projectUpdates.filter((thread) => thread.project_id === projectId),
+        ),
+      })
+    }
+
+    if (segments.length === 3 && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const thread = createProjectUpdateThreadRecord(projectId, body)
+      mockState.projectUpdates.unshift(thread)
+      return jsonResponse({ thread: clone(thread) }, 201)
+    }
+
+    const thread = findById(mockState.projectUpdates, segments[3])
+    if (!thread) {
+      return notFound('Project update not found.')
+    }
+
+    if (segments.length === 4 && request.method === 'PATCH') {
+      const body = await readBody<Record<string, unknown>>(request)
+      updateProjectUpdateThreadRecord(thread, body)
+      return jsonResponse({ thread: clone(thread) })
+    }
+
+    if (segments.length === 4 && request.method === 'DELETE') {
+      deleteProjectUpdateThreadRecord(thread)
+      return jsonResponse({ deleted_thread_id: asString(thread.id) })
+    }
+
+    if (segments.length === 5 && segments[4] === 'comments' && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const comment = createProjectUpdateCommentRecord(asString(thread.id) ?? '', body)
+      const comments = readProjectUpdateComments(thread)
+      comments.push(comment)
+      thread.comments = comments
+      thread.comment_count = comments.filter((item) => !item.is_deleted).length
+      thread.last_activity_at = comment.updated_at
+      thread.updated_at = comment.updated_at
+      return jsonResponse({ comment: clone(comment) }, 201)
+    }
+
+    if (segments.length === 6 && segments[4] === 'comments') {
+      const comments = readProjectUpdateComments(thread)
+      const comment = comments.find((item) => item.id === segments[5])
+      if (!comment) {
+        return notFound('Project update comment not found.')
+      }
+
+      if (request.method === 'PATCH') {
+        const body = await readBody<Record<string, unknown>>(request)
+        updateProjectUpdateCommentRecord(comment, body)
+        thread.last_activity_at = comment.updated_at
+        thread.updated_at = comment.updated_at
+        return jsonResponse({ comment: clone(comment) })
+      }
+
+      if (request.method === 'DELETE') {
+        deleteProjectUpdateCommentRecord(comment)
+        thread.comment_count = comments.filter((item) => !item.is_deleted).length
+        thread.last_activity_at = comment.updated_at
+        thread.updated_at = comment.updated_at
+        return jsonResponse({ deleted_comment_id: asString(comment.id) })
+      }
+    }
   }
 
   if (segments[2] === 'security-settings') {
@@ -1483,7 +1555,7 @@ function createInitialState(): MockState {
       project_id: PROJECT_ID,
       ticket_id: DEFAULT_TICKET_ID,
       agent_id: DEFAULT_AGENT_ID,
-      event_type: 'agent_started',
+      event_type: 'agent.executing',
       message: 'coding-main started work.',
       metadata: {
         agent_name: 'coding-main',
@@ -1491,6 +1563,8 @@ function createInitialState(): MockState {
       created_at: nowIso,
     },
   ]
+
+  const projectUpdates: Record<string, unknown>[] = []
 
   const tickets = [
     createMockTicketRecord({
@@ -1694,6 +1768,7 @@ function createInitialState(): MockState {
     agents,
     agentRuns,
     activityEvents,
+    projectUpdates,
     tickets,
     statuses,
     repos,
@@ -1715,6 +1790,8 @@ function createInitialState(): MockState {
       agent: 1,
       skill: 2,
       scheduledJob: 1,
+      projectUpdateThread: 0,
+      projectUpdateComment: 0,
       projectConversation: 0,
       projectConversationEntry: 0,
       projectConversationTurn: 0,
@@ -1914,6 +1991,112 @@ function createMockTicketRecord(input: {
     pause_reason: '',
     created_at: input.createdAt ?? nowIso,
   }
+}
+
+function createProjectUpdateThreadRecord(projectId: string, input: Record<string, unknown>) {
+  const createdAt = nowIso
+  const body = asString(input.body)?.trim() ?? ''
+  const status = parseProjectUpdateStatus(asString(input.status))
+  const title = asString(input.title)?.trim() || summarizeProjectUpdateTitle(body)
+
+  return {
+    id: `update-thread-${++mockState.counters.projectUpdateThread}`,
+    project_id: projectId,
+    status,
+    title,
+    body_markdown: body,
+    created_by: asString(input.created_by) ?? 'playwright',
+    created_at: createdAt,
+    updated_at: createdAt,
+    edited_at: null,
+    edit_count: 0,
+    last_edited_by: null,
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+    last_activity_at: createdAt,
+    comment_count: 0,
+    comments: [],
+  }
+}
+
+function updateProjectUpdateThreadRecord(
+  thread: Record<string, unknown>,
+  input: Record<string, unknown>,
+) {
+  const updatedAt = nowIso
+  thread.status = parseProjectUpdateStatus(asString(input.status))
+  thread.title =
+    asString(input.title)?.trim() || summarizeProjectUpdateTitle(asString(input.body) ?? '')
+  thread.body_markdown = asString(input.body)?.trim() ?? ''
+  thread.updated_at = updatedAt
+  thread.edited_at = updatedAt
+  thread.edit_count = (asNumber(thread.edit_count) ?? 0) + 1
+  thread.last_edited_by = asString(input.edited_by) ?? 'playwright'
+  thread.last_activity_at = updatedAt
+}
+
+function deleteProjectUpdateThreadRecord(thread: Record<string, unknown>) {
+  const deletedAt = nowIso
+  thread.is_deleted = true
+  thread.deleted_at = deletedAt
+  thread.deleted_by = 'playwright'
+  thread.updated_at = deletedAt
+  thread.last_activity_at = deletedAt
+}
+
+function createProjectUpdateCommentRecord(threadId: string, input: Record<string, unknown>) {
+  const createdAt = nowIso
+  return {
+    id: `update-comment-${++mockState.counters.projectUpdateComment}`,
+    thread_id: threadId,
+    body_markdown: asString(input.body)?.trim() ?? '',
+    created_by: asString(input.created_by) ?? 'playwright',
+    created_at: createdAt,
+    updated_at: createdAt,
+    edited_at: null,
+    edit_count: 0,
+    last_edited_by: null,
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+  }
+}
+
+function updateProjectUpdateCommentRecord(
+  comment: Record<string, unknown>,
+  input: Record<string, unknown>,
+) {
+  const updatedAt = nowIso
+  comment.body_markdown = asString(input.body)?.trim() ?? ''
+  comment.updated_at = updatedAt
+  comment.edited_at = updatedAt
+  comment.edit_count = (asNumber(comment.edit_count) ?? 0) + 1
+  comment.last_edited_by = asString(input.edited_by) ?? 'playwright'
+}
+
+function deleteProjectUpdateCommentRecord(comment: Record<string, unknown>) {
+  const deletedAt = nowIso
+  comment.is_deleted = true
+  comment.deleted_at = deletedAt
+  comment.deleted_by = 'playwright'
+  comment.updated_at = deletedAt
+}
+
+function readProjectUpdateComments(thread: Record<string, unknown>) {
+  return Array.isArray(thread.comments) ? [...thread.comments] : []
+}
+
+function summarizeProjectUpdateTitle(body: string) {
+  const firstLine = body.split('\n')[0]?.trim() ?? ''
+  if (firstLine.length > 0) {
+    return firstLine.slice(0, 72)
+  }
+  return 'Update'
+}
+
+function parseProjectUpdateStatus(raw: string | null | undefined) {
+  return raw === 'at_risk' || raw === 'off_track' ? raw : 'on_track'
 }
 
 function buildTicketDetailPayload(ticketId: string) {
