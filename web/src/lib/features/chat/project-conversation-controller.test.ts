@@ -260,6 +260,65 @@ describe('createProjectConversationController', () => {
     expect(controller.pending).toBe(true)
   })
 
+  it('drops the active tab back to idle when the backend auto-releases the runtime after completion', async () => {
+    let streamHandlers:
+      | {
+          onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
+        }
+      | undefined
+
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    watchProjectConversationMux.mockImplementation((params) => {
+      streamHandlers = params
+      return resolvedMuxSubscription()
+    })
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const controller = createProjectConversationController({
+      getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('Finish this turn and release the runtime')
+    expect(controller.phase).toBe('awaiting_reply')
+
+    streamHandlers?.onEvent({
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-1',
+        runtimeState: 'inactive',
+        providerAnchorKind: 'thread',
+        providerAnchorId: 'thread-1',
+        providerTurnId: 'turn-1',
+        providerStatus: 'notLoaded',
+        providerActiveFlags: [],
+      },
+    })
+    streamHandlers?.onEvent({
+      kind: 'turn_done',
+      payload: {
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+      },
+    })
+
+    expect(controller.phase).toBe('idle')
+    expect(controller.pending).toBe(false)
+  })
+
   it('keeps a running tab pending after switching away and hydrating it again', async () => {
     const streamHandlers = new Map<
       string,

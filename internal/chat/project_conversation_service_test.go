@@ -1591,6 +1591,300 @@ func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *tes
 	}
 }
 
+func TestProjectConversationConsumeTurnAutoReleasesCompletedRuntime(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "Finish and release the runtime")
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	principal, err := repoStore.EnsurePrincipal(ctx, chatdomain.EnsurePrincipalInput{
+		ConversationID: conversation.ID,
+		ProjectID:      project.ID,
+		ProviderID:     providerID,
+		Name:           projectConversationPrincipalName(conversation.ID),
+	})
+	if err != nil {
+		t.Fatalf("ensure principal: %v", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	workspacePath := t.TempDir()
+	run, err := repoStore.CreateRun(ctx, chatdomain.CreateRunInput{
+		RunID:                uuid.New(),
+		PrincipalID:          principal.ID,
+		ConversationID:       conversation.ID,
+		ProjectID:            project.ID,
+		ProviderID:           providerID,
+		TurnID:               &turn.ID,
+		Status:               chatdomain.RunStatusExecuting,
+		SessionID:            optionalString(conversation.ID.String()),
+		WorkspacePath:        optionalString(workspacePath),
+		RuntimeStartedAt:     &now,
+		LastHeartbeatAt:      &now,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &now,
+	})
+	if err != nil {
+		t.Fatalf("create run: %v", err)
+	}
+	principal, err = repoStore.UpdatePrincipalRuntime(ctx, chatdomain.UpdatePrincipalRuntimeInput{
+		PrincipalID:          principal.ID,
+		RuntimeState:         chatdomain.RuntimeStateExecuting,
+		CurrentSessionID:     optionalString(conversation.ID.String()),
+		CurrentWorkspacePath: optionalString(workspacePath),
+		CurrentRunID:         &run.ID,
+		LastHeartbeatAt:      &now,
+		CurrentStepStatus:    optionalString("turn_executing"),
+		CurrentStepSummary:   optionalString("Project conversation turn executing."),
+		CurrentStepChangedAt: &now,
+	})
+	if err != nil {
+		t.Fatalf("seed principal runtime state: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+	watched, cleanup := service.WatchConversation(ctx, conversation.ID)
+	initial := requireProjectConversationStreamEvent(t, watched)
+	if initial.Event != "session" {
+		t.Fatalf("initial event = %q, want session", initial.Event)
+	}
+
+	closer := &fakeRuntime{closeResult: true}
+	live := &liveProjectConversation{
+		principal: principal,
+		runtime:   closer,
+		codex: &fakeProjectConversationCodexRuntime{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-release",
+				LastTurnID:                "provider-turn-release",
+				ProviderThreadStatus:      "idle",
+				ProviderThreadActiveFlags: []string{},
+			},
+		},
+		workspace: provider.AbsolutePath(t.TempDir()),
+	}
+	service.runtimeManager.live[conversation.ID] = live
+
+	streamEvents := streamWithEvents(
+		StreamEvent{
+			Event:   "message",
+			Payload: textPayload{Type: chatMessageTypeText, Content: "Completed output"},
+		},
+		StreamEvent{
+			Event:   "done",
+			Payload: donePayload{SessionID: conversation.ID.String(), CostUSD: floatPointer(0.21)},
+		},
+	)
+
+	service.consumeTurn(ctx, conversation, turn, live, run, TurnStream{Events: streamEvents})
+
+	if len(closer.closeCalls) != 1 || closer.closeCalls[0] != SessionID(conversation.ID.String()) {
+		t.Fatalf("runtime close calls = %+v, want %s", closer.closeCalls, conversation.ID)
+	}
+	if _, exists := service.runtimeManager.Get(conversation.ID); exists {
+		t.Fatal("expected live runtime registry entry to be removed after completion")
+	}
+
+	reloadedPrincipal, err := repoStore.GetPrincipal(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload principal: %v", err)
+	}
+	if reloadedPrincipal.RuntimeState != chatdomain.RuntimeStateInactive {
+		t.Fatalf("principal runtime state = %q, want inactive", reloadedPrincipal.RuntimeState)
+	}
+	if reloadedPrincipal.CurrentSessionID != nil || reloadedPrincipal.CurrentRunID != nil {
+		t.Fatalf("expected principal runtime ownership to be cleared, got %+v", reloadedPrincipal)
+	}
+
+	reloadedRun, err := client.ProjectConversationRun.Get(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if string(reloadedRun.Status) != string(chatdomain.RunStatusCompleted) || reloadedRun.TerminalAt == nil {
+		t.Fatalf("run = %+v, want completed terminal run", reloadedRun)
+	}
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if reloadedConversation.Status != chatdomain.ConversationStatusActive {
+		t.Fatalf("conversation status = %q, want active", reloadedConversation.Status)
+	}
+	if reloadedConversation.ProviderThreadID == nil || *reloadedConversation.ProviderThreadID != "thread-release" {
+		t.Fatalf("expected provider thread anchor to persist, got %+v", reloadedConversation.ProviderThreadID)
+	}
+	if reloadedConversation.LastTurnID == nil || *reloadedConversation.LastTurnID != "provider-turn-release" {
+		t.Fatalf("expected last turn anchor to persist, got %+v", reloadedConversation.LastTurnID)
+	}
+	if reloadedConversation.ProviderThreadStatus == nil || *reloadedConversation.ProviderThreadStatus != "notLoaded" {
+		t.Fatalf("expected provider thread status notLoaded after release, got %+v", reloadedConversation.ProviderThreadStatus)
+	}
+	if len(reloadedConversation.ProviderThreadActiveFlags) != 0 {
+		t.Fatalf("expected provider active flags to clear after release, got %+v", reloadedConversation.ProviderThreadActiveFlags)
+	}
+	if !containsAll(reloadedConversation.RollingSummary, "user: Finish and release the runtime", "assistant: Completed output") {
+		t.Fatalf("rolling summary = %q", reloadedConversation.RollingSummary)
+	}
+
+	cleanup()
+	collected := collectStreamEvents(watched)
+	if len(collected) < 3 {
+		t.Fatalf("expected initial session, turn_done, and inactive session events, got %+v", collected)
+	}
+	if collected[len(collected)-2].Event != "turn_done" {
+		t.Fatalf("penultimate event = %q, want turn_done", collected[len(collected)-2].Event)
+	}
+	lastPayload, ok := collected[len(collected)-1].Payload.(map[string]any)
+	if collected[len(collected)-1].Event != "session" || !ok {
+		t.Fatalf("last event = %+v, want inactive session payload", collected[len(collected)-1])
+	}
+	if lastPayload["runtime_state"] != string(chatdomain.RuntimeStateInactive) {
+		t.Fatalf("inactive session payload = %#v", lastPayload)
+	}
+	if lastPayload["provider_thread_id"] != "thread-release" || lastPayload["last_turn_id"] != "provider-turn-release" {
+		t.Fatalf("inactive session should retain anchors, got %#v", lastPayload)
+	}
+	if lastPayload["provider_thread_status"] != "notLoaded" {
+		t.Fatalf("inactive session should report notLoaded provider status, got %#v", lastPayload)
+	}
+}
+
+func TestProjectConversationStartTurnResumesCodexAfterAutoRelease(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	firstTurn, _, err := repoStore.CreateTurnWithUserEntry(ctx, conversation.ID, "First completed turn")
+	if err != nil {
+		t.Fatalf("create first turn: %v", err)
+	}
+
+	service := NewProjectConversationService(
+		nil,
+		repoStore,
+		fakeProjectConversationCatalog{
+			fakeCatalogReader: fakeCatalogReader{
+				project: catalogdomain.Project{
+					ID:             project.ID,
+					OrganizationID: org.ID,
+					Name:           "OpenASE",
+					Slug:           "openase",
+					Description:    "Issue-driven automation",
+				},
+				providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+					providerID: {
+						ID:             providerID,
+						OrganizationID: org.ID,
+						MachineID:      machineID,
+						AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+						CliCommand:     "codex",
+					},
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          catalogdomain.LocalMachineName,
+				Host:          catalogdomain.LocalMachineHost,
+				WorkspaceRoot: stringPointer(t.TempDir()),
+			},
+		},
+		fakeTicketReader{},
+		harnessWorkflowReader{},
+		&fakeAgentCLIProcessManager{process: &fakeAgentCLIProcess{stdin: &trackingWriteCloser{}, stdout: `{"response":"OK"}`}},
+		nil,
+	)
+
+	firstLive := &liveProjectConversation{
+		runtime: &fakeRuntime{closeResult: true},
+		codex: &fakeProjectConversationCodexRuntime{
+			anchor: RuntimeSessionAnchor{
+				ProviderThreadID:          "thread-shared",
+				LastTurnID:                "provider-turn-1",
+				ProviderThreadStatus:      "idle",
+				ProviderThreadActiveFlags: []string{},
+			},
+		},
+	}
+	service.runtimeManager.live[conversation.ID] = firstLive
+	service.consumeTurn(
+		ctx,
+		conversation,
+		firstTurn,
+		firstLive,
+		chatdomain.ProjectConversationRun{},
+		TurnStream{Events: streamWithEvents(
+			StreamEvent{
+				Event:   "message",
+				Payload: textPayload{Type: chatMessageTypeText, Content: "First completed answer"},
+			},
+			StreamEvent{
+				Event:   "done",
+				Payload: donePayload{SessionID: conversation.ID.String()},
+			},
+		)},
+	)
+
+	nextCodex := &fakeProjectConversationCodexRuntime{
+		startStream: TurnStream{Events: closedStreamEvents()},
+	}
+	service.newCodexRuntime = func(provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error) {
+		return nextCodex, nil
+	}
+
+	secondTurn, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Continue after auto release", nil)
+	if err != nil {
+		t.Fatalf("StartTurn() error = %v", err)
+	}
+	if secondTurn.ID == uuid.Nil {
+		t.Fatal("expected second turn to persist")
+	}
+	if nextCodex.ensureInput.ResumeProviderThreadID != "thread-shared" || nextCodex.ensureInput.ResumeProviderTurnID != "provider-turn-1" {
+		t.Fatalf("expected resume from persisted Codex anchors, got %+v", nextCodex.ensureInput)
+	}
+	if strings.Contains(nextCodex.startInput.SystemPrompt, "First completed answer") {
+		t.Fatalf("expected resumed Codex turn to avoid replaying recovery prompt, got %q", nextCodex.startInput.SystemPrompt)
+	}
+
+}
+
 func TestProjectConversationConsumeTurnMarksInterruptedStatus(t *testing.T) {
 	t.Parallel()
 
@@ -2537,7 +2831,7 @@ func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *
 	if err != nil {
 		t.Fatalf("reload conversation: %v", err)
 	}
-	if reloadedConversation.ProviderThreadStatus == nil || *reloadedConversation.ProviderThreadStatus != "waitingOnUserInput" {
+	if reloadedConversation.ProviderThreadStatus == nil || *reloadedConversation.ProviderThreadStatus != "notLoaded" {
 		t.Fatalf("expected persisted provider thread status, got %+v", reloadedConversation.ProviderThreadStatus)
 	}
 	entries, err := repoStore.ListEntries(ctx, conversation.ID)

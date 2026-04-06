@@ -994,12 +994,15 @@ func (s *ProjectConversationService) consumeTurn(
 			_, _ = s.entries.CompleteTurn(ctx, turn.ID, domain.TurnStatusCompleted, optionalNonEmptyString(anchor.LastTurnID))
 			entries, _ := s.entries.ListEntries(ctx, conversationID)
 			summary := buildRollingSummary(entries)
-			_, _ = s.conversations.UpdateConversationAnchors(
+			updatedConversation := conversation
+			if storedConversation, err := s.conversations.UpdateConversationAnchors(
 				ctx,
 				conversationID,
 				domain.ConversationStatusActive,
 				conversationAnchorsFromRuntimeAnchor(anchor, summary),
-			)
+			); err == nil {
+				updatedConversation = storedConversation
+			}
 			s.recordConversationStep(ctx, live, run, domain.RuntimeStateReady, domain.RunStatusCompleted, "turn_completed", "Project conversation turn completed.", optionalNonEmptyString(anchor.ProviderThreadID), done.CostUSD, "")
 			s.broadcastConversationEvent(conversation, StreamEvent{
 				Event: "turn_done",
@@ -1009,6 +1012,7 @@ func (s *ProjectConversationService) consumeTurn(
 					"cost_usd":        done.CostUSD,
 				},
 			})
+			s.autoReleaseCompletedRuntime(ctx, updatedConversation, live)
 		case "token_usage_updated":
 			payload, ok := event.Payload.(runtimeTokenUsagePayload)
 			if !ok {
@@ -1627,6 +1631,70 @@ func liveRuntimeSessionAnchor(live *liveProjectConversation, sessionID SessionID
 		return live.codex.SessionAnchor(sessionID)
 	}
 	return RuntimeSessionAnchor{}
+}
+
+func (s *ProjectConversationService) autoReleaseCompletedRuntime(
+	ctx context.Context,
+	conversation domain.Conversation,
+	live *liveProjectConversation,
+) {
+	if s == nil || s.runtimeManager == nil {
+		return
+	}
+
+	closedLive, _ := s.runtimeManager.Close(conversation.ID)
+	if closedLive == nil {
+		closedLive = live
+	}
+
+	if s.runtimeStore != nil {
+		principalID := uuid.Nil
+		if closedLive != nil && closedLive.principal.ID != uuid.Nil {
+			principalID = closedLive.principal.ID
+		} else if principal, err := s.runtimeStore.GetPrincipal(ctx, conversation.ID); err == nil {
+			principalID = principal.ID
+		}
+		if principalID != uuid.Nil {
+			if _, err := s.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: principalID}); err != nil {
+				s.logger.Warn("close completed project conversation principal failed", "conversation_id", conversation.ID, "principal_id", principalID, "error", err)
+			}
+		}
+	}
+
+	emptyFlags := []string{}
+	updatedConversation, err := s.conversations.UpdateConversationAnchors(
+		ctx,
+		conversation.ID,
+		domain.ConversationStatusActive,
+		domain.ConversationAnchors{
+			ProviderThreadID:          conversation.ProviderThreadID,
+			LastTurnID:                conversation.LastTurnID,
+			ProviderThreadStatus:      optionalString("notLoaded"),
+			ProviderThreadActiveFlags: &emptyFlags,
+			RollingSummary:            conversation.RollingSummary,
+		},
+	)
+	if err != nil {
+		s.logger.Warn("persist completed project conversation auto-release failed", "conversation_id", conversation.ID, "error", err)
+		return
+	}
+
+	var providerItem *catalogdomain.AgentProvider
+	switch {
+	case closedLive != nil:
+		providerItem = &closedLive.provider
+	case live != nil:
+		providerItem = &live.provider
+	case s.catalog != nil:
+		if resolved, resolveErr := s.catalog.GetAgentProvider(ctx, updatedConversation.ProviderID); resolveErr == nil {
+			providerItem = &resolved
+		}
+	}
+
+	s.broadcastConversationEvent(updatedConversation, StreamEvent{
+		Event:   "session",
+		Payload: conversationSessionPayload(conversation.ID, string(domain.RuntimeStateInactive), updatedConversation, providerItem),
+	})
 }
 
 func (s *ProjectConversationService) watchConversationRuntimeState(
