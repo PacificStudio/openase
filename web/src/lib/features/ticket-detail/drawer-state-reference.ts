@@ -149,20 +149,20 @@ export function createTicketDrawerReferenceController(input: ReferenceController
     ensureReferenceData,
     applyReferenceData,
     async refreshTimeline(projectId: string, ticketId: string) {
+      timelineRefreshQueued = true
       if (input.isLoading() || !input.getTicket()) {
         return
       }
-      timelineRefreshQueued = true
       await runTimelineRefresh(projectId, ticketId)
       if (timelineRefreshQueued) {
         await runTimelineRefresh(projectId, ticketId)
       }
     },
     async refreshReferences(projectId: string, ticketId: string) {
+      referenceRefreshQueued = true
       if (input.isLoading()) {
         return
       }
-      referenceRefreshQueued = true
       await runReferenceRefresh(projectId, ticketId)
       if (referenceRefreshQueued) {
         await runReferenceRefresh(projectId, ticketId)
@@ -173,6 +173,23 @@ export function createTicketDrawerReferenceController(input: ReferenceController
       timelineRefreshLoop = null
       referenceRefreshQueued = false
       referenceRefreshLoop = null
+    },
+    async flushPendingRefreshes(projectId: string, ticketId: string) {
+      if (input.isLoading() || !input.getTicket()) {
+        return
+      }
+      if (timelineRefreshQueued) {
+        await runTimelineRefresh(projectId, ticketId)
+        if (timelineRefreshQueued) {
+          await runTimelineRefresh(projectId, ticketId)
+        }
+      }
+      if (referenceRefreshQueued) {
+        await runReferenceRefresh(projectId, ticketId)
+        if (referenceRefreshQueued) {
+          await runReferenceRefresh(projectId, ticketId)
+        }
+      }
     },
     invalidateReferences(projectId?: string) {
       if (!projectId || referenceProjectId === projectId) {
