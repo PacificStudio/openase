@@ -1,18 +1,5 @@
 <script lang="ts">
-  import {
-    createInstanceRoleBinding,
-    createOrganizationRoleBinding,
-    createProjectRoleBinding,
-    deleteInstanceRoleBinding,
-    deleteOrganizationRoleBinding,
-    deleteProjectRoleBinding,
-    getEffectivePermissions,
-    listInstanceRoleBindings,
-    listOrganizationRoleBindings,
-    listProjectRoleBindings,
-    type EffectivePermissionsResponse,
-    type RoleBinding,
-  } from '$lib/api/auth'
+  import { type EffectivePermissionsResponse, type RoleBinding } from '$lib/api/auth'
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -20,7 +7,13 @@
   import SecuritySettingsHumanAuthAuthenticatedView from './security-settings-human-auth-authenticated-view.svelte'
   import SecuritySettingsHumanAuthSummary from './security-settings-human-auth-summary.svelte'
   import {
-    createBindingPayload,
+    createRoleBindingForScope,
+    deleteRoleBindingForScope,
+    loadHumanAuthRbacState,
+    reloadHumanAuthScope,
+    scopeDisplayName,
+  } from './security-settings-human-auth.data'
+  import {
     defaultBindingDraftForScope,
     formatError,
     type BindingDraft,
@@ -86,32 +79,17 @@
       error = ''
 
       try {
-        const [
-          nextInstancePermissions,
-          nextOrgPermissions,
-          nextProjectPermissions,
-          nextInstanceBindings,
-          nextOrgBindings,
-          nextProjectBindings,
-        ] =
-          await Promise.all([
-            getEffectivePermissions({}),
-            getEffectivePermissions({ orgId }),
-            getEffectivePermissions({ projectId }),
-            listInstanceRoleBindings(),
-            listOrganizationRoleBindings(orgId),
-            listProjectRoleBindings(projectId),
-          ])
+        const nextState = await loadHumanAuthRbacState(orgId, projectId)
         if (cancelled) {
           return
         }
 
-        instancePermissions = nextInstancePermissions
-        orgPermissions = nextOrgPermissions
-        projectPermissions = nextProjectPermissions
-        instanceBindings = nextInstanceBindings
-        orgBindings = nextOrgBindings
-        projectBindings = nextProjectBindings
+        instancePermissions = nextState.instancePermissions
+        orgPermissions = nextState.orgPermissions
+        projectPermissions = nextState.projectPermissions
+        instanceBindings = nextState.instanceBindings
+        orgBindings = nextState.orgBindings
+        projectBindings = nextState.projectBindings
       } catch (caughtError) {
         if (cancelled) {
           return
@@ -151,32 +129,13 @@
       return
     }
 
-    if (scope === 'instance') {
-      const [nextPermissions, nextBindings] = await Promise.all([
-        getEffectivePermissions({}),
-        listInstanceRoleBindings(),
-      ])
-      instancePermissions = nextPermissions
-      instanceBindings = nextBindings
-      return
-    }
-
-    if (scope === 'organization') {
-      const [nextPermissions, nextBindings] = await Promise.all([
-        getEffectivePermissions({ orgId }),
-        listOrganizationRoleBindings(orgId),
-      ])
-      orgPermissions = nextPermissions
-      orgBindings = nextBindings
-      return
-    }
-
-    const [nextPermissions, nextBindings] = await Promise.all([
-      getEffectivePermissions({ projectId }),
-      listProjectRoleBindings(projectId),
-    ])
-    projectPermissions = nextPermissions
-    projectBindings = nextBindings
+    const nextState = await reloadHumanAuthScope(scope, orgId, projectId)
+    instancePermissions = nextState.instancePermissions ?? instancePermissions
+    orgPermissions = nextState.orgPermissions ?? orgPermissions
+    projectPermissions = nextState.projectPermissions ?? projectPermissions
+    instanceBindings = nextState.instanceBindings ?? instanceBindings
+    orgBindings = nextState.orgBindings ?? orgBindings
+    projectBindings = nextState.projectBindings ?? projectBindings
   }
 
   async function handleCreateBinding(scope: ScopeKind) {
@@ -194,19 +153,10 @@
     error = ''
 
     try {
-      const payload = createBindingPayload(scope, draft)
-      if (scope === 'instance') {
-        await createInstanceRoleBinding(payload)
-      } else if (scope === 'organization') {
-        await createOrganizationRoleBinding(orgId, payload)
-      } else {
-        await createProjectRoleBinding(projectId, payload)
-      }
+      await createRoleBindingForScope(scope, orgId, projectId, draft)
       await reloadScope(scope)
       resetDraft(scope)
-      toastStore.success(
-        `${scope === 'instance' ? 'Instance' : scope === 'organization' ? 'Organization' : 'Project'} role binding added.`,
-      )
+      toastStore.success(`${scopeDisplayName(scope)} role binding added.`)
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : 'Failed to create role binding.'
@@ -229,17 +179,9 @@
     error = ''
 
     try {
-      if (scope === 'instance') {
-        await deleteInstanceRoleBinding(bindingId)
-      } else if (scope === 'organization') {
-        await deleteOrganizationRoleBinding(orgId, bindingId)
-      } else {
-        await deleteProjectRoleBinding(projectId, bindingId)
-      }
+      await deleteRoleBindingForScope(scope, orgId, projectId, bindingId)
       await reloadScope(scope)
-      toastStore.success(
-        `${scope === 'instance' ? 'Instance' : scope === 'organization' ? 'Organization' : 'Project'} role binding deleted.`,
-      )
+      toastStore.success(`${scopeDisplayName(scope)} role binding deleted.`)
     } catch (caughtError) {
       const message = formatError(caughtError, 'Failed to delete role binding.')
       error = message
@@ -262,7 +204,8 @@
   }
 
   function patchDraft(scope: ScopeKind, patch: Partial<BindingDraft>) {
-    const currentDraft = scope === 'organization' ? orgDraft : projectDraft
+    const currentDraft =
+      scope === 'instance' ? instanceDraft : scope === 'organization' ? orgDraft : projectDraft
     updateDraft(scope, { ...currentDraft, ...patch })
   }
 

@@ -5,10 +5,15 @@ import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
+  createdOrganizationUserBinding,
   configuredSecurity,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
+  effectivePermissionsMock,
+  hydrateOidcAuth,
+  mockEffectivePermissionsByScope,
+  organizationGroupBinding,
 } from './security-settings.test-helpers'
 
 const {
@@ -164,85 +169,15 @@ describe('Security settings', () => {
   })
 
   it('renders oidc principal state and creates an organization role binding', async () => {
-    authStore.hydrate({
-      authMode: 'oidc',
-      authenticated: true,
-      issuerURL: 'https://idp.example.com',
-      csrfToken: 'csrf-token',
-      user: {
-        id: 'user-1',
-        primaryEmail: 'alice@example.com',
-        displayName: 'Alice Control Plane',
-      },
-      roles: ['instance_admin'],
-      permissions: ['org.update'],
-    })
+    hydrateOidcAuth()
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => {
-      if (!orgId && !projectId) {
-        return {
-          user: {
-            id: 'user-1',
-            primary_email: 'alice@example.com',
-            display_name: 'Alice Control Plane',
-          },
-          scope: { kind: 'instance', id: '' },
-          roles: ['instance_admin'],
-          permissions: ['rbac.manage'],
-          groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-        }
-      }
-      if (orgId) {
-        return {
-          user: {
-            id: 'user-1',
-            primary_email: 'alice@example.com',
-            display_name: 'Alice Control Plane',
-          },
-          scope: { kind: 'organization', id: orgId },
-          roles: ['org_admin'],
-          permissions: ['org.read', 'rbac.manage'],
-          groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-        }
-      }
-      return {
-        user: {
-          id: 'user-1',
-          primary_email: 'alice@example.com',
-          display_name: 'Alice Control Plane',
-        },
-        scope: { kind: 'project', id: projectId ?? '' },
-        roles: ['project_admin'],
-        permissions: ['project.read', 'rbac.manage'],
-        groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-      }
-    })
+    getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
     listInstanceRoleBindings.mockResolvedValue([])
-    listOrganizationRoleBindings.mockResolvedValue([
-      {
-        id: 'binding-1',
-        scopeKind: 'organization',
-        scopeID: currentOrg().id,
-        subjectKind: 'group',
-        subjectKey: 'platform-admins',
-        roleKey: 'org_admin',
-        grantedBy: 'user:user-1',
-        createdAt: '2026-04-04T09:00:00Z',
-      },
-    ])
+    listOrganizationRoleBindings.mockResolvedValue([organizationGroupBinding()])
     listProjectRoleBindings.mockResolvedValue([])
-    createOrganizationRoleBinding.mockResolvedValue({
-      id: 'binding-2',
-      scopeKind: 'organization',
-      scopeID: currentOrg().id,
-      subjectKind: 'user',
-      subjectKey: 'bob@example.com',
-      roleKey: 'org_member',
-      grantedBy: 'user:user-1',
-      createdAt: '2026-04-04T10:00:00Z',
-    })
+    createOrganizationRoleBinding.mockResolvedValue(createdOrganizationUserBinding())
 
     const { findAllByPlaceholderText, findByText } = render(SecuritySettings)
 
@@ -278,49 +213,46 @@ describe('Security settings', () => {
   })
 
   it('filters role picker options by scope, including instance bindings', async () => {
-    authStore.hydrate({
-      authMode: 'oidc',
-      authenticated: true,
-      issuerURL: 'https://idp.example.com',
-      csrfToken: 'csrf-token',
-      user: {
-        id: 'user-1',
-        primaryEmail: 'alice@example.com',
-        displayName: 'Alice Control Plane',
-      },
-      roles: ['instance_admin'],
-      permissions: ['org.update'],
-    })
+    hydrateOidcAuth()
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => ({
-      user: {
-        id: 'user-1',
-        primary_email: 'alice@example.com',
-        display_name: 'Alice Control Plane',
-      },
-      scope: { kind: orgId ? 'organization' : projectId ? 'project' : 'instance', id: orgId ?? projectId ?? '' },
-      roles: ['instance_admin'],
-      permissions: ['rbac.manage'],
-      groups: [],
-    }))
+    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) =>
+      effectivePermissionsMock(
+        orgId ? 'organization' : projectId ? 'project' : 'instance',
+        orgId ?? projectId ?? '',
+      ),
+    )
     listInstanceRoleBindings.mockResolvedValue([])
     listOrganizationRoleBindings.mockResolvedValue([])
     listProjectRoleBindings.mockResolvedValue([])
 
     const { findByText } = render(SecuritySettings)
 
-    const instanceSection = (await findByText('Instance RBAC')).closest('.border-border') as HTMLElement
-    const organizationSection = (await findByText('Organization RBAC')).closest('.border-border') as HTMLElement
-    const projectSection = (await findByText('Project RBAC')).closest('.border-border') as HTMLElement
+    const instanceSection = (await findByText('Instance RBAC')).closest(
+      '.border-border',
+    ) as HTMLElement
+    const organizationSection = (await findByText('Organization RBAC')).closest(
+      '.border-border',
+    ) as HTMLElement
+    const projectSection = (await findByText('Project RBAC')).closest(
+      '.border-border',
+    ) as HTMLElement
 
-    const instanceRoleSelect = within(instanceSection).getAllByRole('combobox')[1] as HTMLSelectElement
-    const organizationRoleSelect = within(organizationSection).getAllByRole('combobox')[1] as HTMLSelectElement
-    const projectRoleSelect = within(projectSection).getAllByRole('combobox')[1] as HTMLSelectElement
+    const instanceRoleSelect = within(instanceSection).getAllByRole(
+      'combobox',
+    )[1] as HTMLSelectElement
+    const organizationRoleSelect = within(organizationSection).getAllByRole(
+      'combobox',
+    )[1] as HTMLSelectElement
+    const projectRoleSelect = within(projectSection).getAllByRole(
+      'combobox',
+    )[1] as HTMLSelectElement
 
     const instanceRoleOptions = Array.from(instanceRoleSelect.options).map((option) => option.value)
-    const organizationRoleOptions = Array.from(organizationRoleSelect.options).map((option) => option.value)
+    const organizationRoleOptions = Array.from(organizationRoleSelect.options).map(
+      (option) => option.value,
+    )
     const projectRoleOptions = Array.from(projectRoleSelect.options).map((option) => option.value)
 
     expect(instanceRoleOptions).toEqual(['instance_admin'])
