@@ -14,7 +14,7 @@
   const controller = createOrgDashboardController()
 </script>
 
-<div class="flex min-h-0 flex-col">
+<div class="flex h-full min-h-0 flex-col">
   <OrgDashboardHeader
     editingInfo={controller.editingInfo}
     editName={controller.editName}
