@@ -4,7 +4,10 @@ import (
 	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
+
+var _ = logging.DeclareComponent("machine-probe")
 
 // NormalizePlatform maps raw OS/arch values into the domain detection model.
 func NormalizePlatform(rawOS string, rawArch string) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
