@@ -128,7 +128,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 	case "/api/v1/auth/users/:userId/sessions/revoke":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,
-			permission:    humanauthdomain.PermissionSecurityManage,
+			permission:    humanauthdomain.PermissionSecurityUpdate,
 			checkRequired: true,
 		}, true
 	case "/api/v1/instance/role-bindings", "/api/v1/instance/role-bindings/:bindingId":
