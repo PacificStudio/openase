@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenASE Desktop Error</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body data-view="error">
+    <main class="shell">
+      <section class="panel panel-error">
+        <span class="eyebrow">Desktop shell blocked</span>
+        <h1>OpenASE could not start</h1>
+        <p id="message">Loading desktop diagnostics...</p>
+        <dl class="meta-grid compact">
+          <div>
+            <dt>v1 database strategy</dt>
+            <dd>manual PostgreSQL or Docker PostgreSQL</dd>
+          </div>
+          <div>
+            <dt>Expected config</dt>
+            <dd id="config-path">~/.openase/config.yaml</dd>
+          </div>
+        </dl>
+        <div class="actions">
+          <button id="retry">Retry service</button>
+          <button id="open-logs" class="secondary">Open logs</button>
+          <button id="open-data" class="secondary">Open data</button>
+          <button id="open-guide" class="secondary">Open guide</button>
+        </div>
+      </section>
+    </main>
+    <script src="./shell.js"></script>
+  </body>
+</html>

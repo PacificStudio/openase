@@ -61,6 +61,18 @@ def require_by_name(items, key: str, want: str):
     raise RuntimeError(f"could not find item with {key}={want!r} in {items!r}")
 
 
+def require_single_local_machine(base_url: str, org_id: str) -> dict:
+    machines = request_json(base_url, "GET", f"/api/v1/orgs/{org_id}/machines").get("machines", [])
+    local_machine = next((item for item in machines if item.get("name") == "local"), None)
+    if local_machine is None:
+        raise RuntimeError(f"organization {org_id} does not expose a local machine")
+    if local_machine.get("status") != "online":
+        raise RuntimeError(
+            f"organization {org_id} local machine is not healthy: status={local_machine.get('status')!r}"
+        )
+    return local_machine
+
+
 def run_cli(command, env=None, check=True):
     result = subprocess.run(
         command,
@@ -97,18 +109,19 @@ def run_cli_json(command, env=None):
 
 
 def assert_idle_agent_defaults(agent: dict):
-    if agent["status"] != "idle":
-        raise RuntimeError(f"expected new agent to be idle, got {agent['status']!r}")
-    if agent.get("current_ticket_id") is not None:
-        raise RuntimeError(f"expected new agent current_ticket_id to be empty, got {agent['current_ticket_id']!r}")
-    if agent.get("session_id") != "":
-        raise RuntimeError(f"expected new agent session_id to be empty, got {agent.get('session_id')!r}")
-    if agent.get("runtime_phase") != "none":
-        raise RuntimeError(f"expected new agent runtime_phase to be 'none', got {agent.get('runtime_phase')!r}")
-    if agent.get("runtime_started_at") is not None:
+    if agent.get("runtime_control_state") != "active":
         raise RuntimeError(
-            f"expected new agent runtime_started_at to be empty, got {agent.get('runtime_started_at')!r}"
+            f"expected new agent runtime_control_state to be 'active', got {agent.get('runtime_control_state')!r}"
         )
+    if agent.get("total_tokens_used") != 0:
+        raise RuntimeError(f"expected new agent total_tokens_used to be 0, got {agent.get('total_tokens_used')!r}")
+    if agent.get("total_tickets_completed") != 0:
+        raise RuntimeError(
+            "expected new agent total_tickets_completed to be 0, "
+            f"got {agent.get('total_tickets_completed')!r}"
+        )
+    if agent.get("runtime") is not None:
+        raise RuntimeError(f"expected new agent runtime summary to be absent, got {agent.get('runtime')!r}")
 
 
 def cleanup_harness_artifacts(repo_root: Path | None, workflow: dict | None):
@@ -179,7 +192,7 @@ def main() -> int:
                 "name": f"OpenASE Blackbox Project {stamp}",
                 "slug": project_slug,
                 "description": "Temporary project for local deployment black-box validation.",
-                "status": "active",
+                "status": "In Progress",
                 "max_concurrent_agents": 2,
             },
         )["project"]
@@ -207,24 +220,14 @@ def main() -> int:
             },
         )["repo"]
 
-        print("[4/11] create workflow, provider, ticket, and idle agent")
-        workflow = request_json(
-            base_url,
-            "POST",
-            f"/api/v1/projects/{project['id']}/workflows",
-            {
-                "name": workflow_name,
-                "type": "coding",
-                "pickup_status_ids": [todo["id"]],
-                "finish_status_ids": [done["id"]],
-                "harness_content": "---\nworkflow:\n  role: coding\n---\n\n# Blackbox Workflow\n",
-            },
-        )["workflow"]
+        print("[4/11] verify local machine, then create provider, idle agent, workflow, and ticket")
+        local_machine = require_single_local_machine(base_url, org["id"])
         provider = request_json(
             base_url,
             "POST",
             f"/api/v1/orgs/{org['id']}/providers",
             {
+                "machine_id": local_machine["id"],
                 "name": "Codex Smoke Provider",
                 "adapter_type": "codex-app-server",
                 "cli_command": "codex",
@@ -233,6 +236,29 @@ def main() -> int:
                 "model_name": "gpt-5.4",
             },
         )["provider"]
+        agent = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/agents",
+            {
+                "provider_id": provider["id"],
+                "name": f"smoke-agent-{stamp}",
+            },
+        )["agent"]
+        assert_idle_agent_defaults(agent)
+        workflow = request_json(
+            base_url,
+            "POST",
+            f"/api/v1/projects/{project['id']}/workflows",
+            {
+                "agent_id": agent["id"],
+                "name": workflow_name,
+                "type": "coding",
+                "pickup_status_ids": [todo["id"]],
+                "finish_status_ids": [done["id"]],
+                "harness_content": "# Blackbox Workflow\n\nKeep the implementation focused on the current ticket.\n",
+            },
+        )["workflow"]
         ticket = request_json(
             base_url,
             "POST",
@@ -245,28 +271,24 @@ def main() -> int:
                 "created_by": "user:blackbox",
             },
         )["ticket"]
-        agent = request_json(
-            base_url,
-            "POST",
-            f"/api/v1/projects/{project['id']}/agents",
-            {
-                "provider_id": provider["id"],
-                "name": f"smoke-agent-{stamp}",
-                "capabilities": ["smoke", "coding"],
-            },
-        )["agent"]
-        assert_idle_agent_defaults(agent)
 
         print("[5/11] attach repo scope and validate ticket detail")
-        repo_scope = request_json(
+        existing_scopes = request_json(
             base_url,
-            "POST",
+            "GET",
             f"/api/v1/projects/{project['id']}/tickets/{ticket['id']}/repo-scopes",
-            {
-                "repo_id": repo["id"],
-                "branch_name": f"blackbox/{stamp}",
-            },
-        )["repo_scope"]
+        )["repo_scopes"]
+        repo_scope = next((item for item in existing_scopes if item.get("repo_id") == repo["id"]), None)
+        if repo_scope is None:
+            repo_scope = request_json(
+                base_url,
+                "POST",
+                f"/api/v1/projects/{project['id']}/tickets/{ticket['id']}/repo-scopes",
+                {
+                    "repo_id": repo["id"],
+                    "branch_name": f"blackbox/{stamp}",
+                },
+            )["repo_scope"]
         detail = request_json(
             base_url,
             "GET",

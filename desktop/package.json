@@ -1,0 +1,39 @@
+{
+  "name": "@openase/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Electron desktop shell for OpenASE v1.",
+  "author": "Pacific Studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pacificstudio/openase.git"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
+  "main": "main/index.js",
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev": "concurrently -k -n web,desktop \"pnpm --dir ../web dev --host 127.0.0.1 --port 4174\" \"wait-on http://127.0.0.1:4174 && OPENASE_DESKTOP_DEV_SERVER_URL=http://127.0.0.1:4174 electron .\"",
+    "build": "node ./scripts/prepare-openase-bundle.mjs",
+    "package": "node ./scripts/package-desktop.mjs",
+    "package:dir": "node ./scripts/package-desktop.mjs --dir",
+    "package:smoke": "node ./scripts/smoke-package.mjs",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "pnpm run test:unit && pnpm run test:e2e",
+    "validate": "node ./scripts/run-desktop-ci.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "concurrently": "^9.2.1",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "playwright": "^1.55.0",
+    "vitest": "^4.1.0",
+    "wait-on": "^8.0.5"
+  }
+}
