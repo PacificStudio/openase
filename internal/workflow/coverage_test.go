@@ -706,8 +706,16 @@ func TestWorkflowHookHelpersAndExecution(t *testing.T) {
 		workflowHookOnReload,
 		runtime,
 	)
-	if !strings.Contains(command, runtime.ProjectID.String()) || !strings.Contains(command, "Coverage Workflow") || !strings.Contains(command, "{{ unknown }}") {
+	if !strings.Contains(command, shellQuote(runtime.ProjectID.String())) ||
+		!strings.Contains(command, shellQuote("Coverage Workflow")) ||
+		!strings.Contains(command, shellQuote("7")) ||
+		!strings.Contains(command, shellQuote("on_reload")) ||
+		!strings.Contains(command, "{{ unknown }}") {
 		t.Fatalf("renderWorkflowHookCommand() = %q", command)
+	}
+	if got := shellQuote("foo 'bar'\n$(baz)"); got != `'foo '"'"'bar'"'"'
+$(baz)'` {
+		t.Fatalf("shellQuote() = %q", got)
 	}
 
 	parsedHooks, err := parseWorkflowHooks(map[string]any{
@@ -757,6 +765,31 @@ func TestWorkflowHookHelpersAndExecution(t *testing.T) {
 		Timeout: 10 * time.Millisecond,
 	}, runtime); err == nil || !strings.Contains(err.Error(), "timed out") {
 		t.Fatalf("run(timeout) error = %v", err)
+	}
+
+	maliciousRuntime := workflowHookRuntime{
+		ProjectID:       runtime.ProjectID,
+		WorkflowID:      runtime.WorkflowID,
+		WorkflowName:    "foo; touch pwned && printf hacked #\nline two 'quoted' $(boom)",
+		WorkflowVersion: runtime.WorkflowVersion,
+	}
+	safeWorkspace := t.TempDir()
+	executor = newWorkflowHookExecutor(safeWorkspace, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := executor.run(context.Background(), workflowHookOnReload, workflowHookDefinition{
+		Command: "printf '%s' {{ workflow.name }} > safe.txt",
+	}, maliciousRuntime); err != nil {
+		t.Fatalf("run(shell-safe interpolation) error = %v", err)
+	}
+	//nolint:gosec // test reads a file it created under t.TempDir-backed workspace.
+	content, err := os.ReadFile(filepath.Join(safeWorkspace, "safe.txt"))
+	if err != nil {
+		t.Fatalf("ReadFile(safe.txt) error = %v", err)
+	}
+	if got := string(content); got != maliciousRuntime.WorkflowName {
+		t.Fatalf("safe.txt = %q, want %q", got, maliciousRuntime.WorkflowName)
+	}
+	if _, err := os.Stat(filepath.Join(safeWorkspace, "pwned")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected pwned file to be absent, got err=%v", err)
 	}
 
 	hookLogs := hookLogBuffer.String()

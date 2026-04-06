@@ -258,7 +258,7 @@ func (e *workflowHookExecutor) run(ctx context.Context, hookName workflowHookNam
 	}
 	defer cancel()
 
-	//nolint:gosec // workflow hooks intentionally execute repository-defined shell commands
+	//nolint:gosec // workflow hooks intentionally execute repository-defined shell commands; runtime template values are shell-quoted before insertion.
 	cmd := exec.CommandContext(commandContext, "sh", "-c", commandText)
 	cmd.Dir = e.workingDirectory
 	cmd.Env = append(os.Environ(),
@@ -306,17 +306,25 @@ func renderWorkflowHookCommand(command string, hookName workflowHookName, runtim
 
 		switch groups[1] {
 		case "project.id":
-			return runtime.ProjectID.String()
+			return shellQuote(runtime.ProjectID.String())
 		case "workflow.id":
-			return runtime.WorkflowID.String()
+			return shellQuote(runtime.WorkflowID.String())
 		case "workflow.name":
-			return runtime.WorkflowName
+			return shellQuote(runtime.WorkflowName)
 		case "workflow.version":
-			return strconv.Itoa(runtime.WorkflowVersion)
+			return shellQuote(strconv.Itoa(runtime.WorkflowVersion))
 		case "hook.name":
-			return string(hookName)
+			return shellQuote(string(hookName))
 		default:
 			return match
 		}
 	})
+}
+
+func shellQuote(raw string) string {
+	if raw == "" {
+		return "''"
+	}
+
+	return "'" + strings.ReplaceAll(raw, "'", `'"'"'`) + "'"
 }

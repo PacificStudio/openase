@@ -1674,6 +1674,13 @@ workflow_hooks:
 ---
 ```
 
+Workflow Hook template placeholders inserted into `cmd` are treated as shell
+data, not shell syntax. The runtime shell-quotes values such as
+`{{ workflow.name }}`, `{{ workflow.id }}`, and `{{ hook.name }}` before
+executing `sh -c`, so metacharacters remain literal. For free-form text, prefer
+the injected environment variables such as `OPENASE_WORKFLOW_NAME` and
+`OPENASE_HOOK_NAME` instead of building shell strings manually.
+
 **The execution context of a Workflow Hook is not the ticket workspace**—it runs in the service-managed project-level runtime context. If a Hook needs access to a code repository, the platform can explicitly check out the repo required by the Hook declaration into a lightweight project workspace; however, Workflow/Skill control plane editing itself does not rely on whether any repo workspace pre-exists.
 
 **Prerequisites:**
@@ -8407,7 +8414,7 @@ The following is the complete list of all variables available in Harness templat
 
 | Variable | Type | Description | Example |
 |------|------|------|--------|
-| `workflow.name` | string | Workflow name | `coding` |
+| `workflow.name` | string | Workflow name. In Workflow Hook `cmd` interpolation, this value is shell-quoted before reinsertion; use `OPENASE_WORKFLOW_NAME` for free-form text. | `coding` |
 | `workflow.type` | string | User-visible workflow type label (raw value) | `Backend Engineer` |
 | `workflow.family` | string | Stable workflow family derived from platform | `coding` |
 | `workflow.role_name` | string | Role name | `fullstack-developer` |
