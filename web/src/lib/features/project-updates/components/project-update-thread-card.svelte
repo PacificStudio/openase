@@ -3,8 +3,8 @@
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
   import * as Select from '$ui/select'
-  import { ChevronDown, ChevronUp, Pencil, Trash2, X } from '@lucide/svelte'
-  import ProjectUpdateMarkdownContent from './project-update-markdown-content.svelte'
+  import { Pencil, Trash2, X } from '@lucide/svelte'
+  import ProjectUpdateThreadBody from './project-update-thread-body.svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
   import { projectUpdateStatusLabel } from '../status'
   import type { ProjectUpdateStatus, ProjectUpdateThread } from '../types'
@@ -45,17 +45,6 @@
   let deletingThread = $state(false)
   let creatingComment = $state(false)
   let showComments = $state(false)
-  let contentExpanded = $state(false)
-  let contentRef = $state<HTMLDivElement | null>(null)
-  let contentOverflows = $state(false)
-
-  $effect(() => {
-    if (contentRef) {
-      const lineHeight = 20
-      const maxLines = 3
-      contentOverflows = contentRef.scrollHeight > lineHeight * maxLines + 4
-    }
-  })
 
   const threadStatusCfg = $derived(projectUpdateStatusConfig[thread.status])
   const ThreadStatusIcon = $derived(threadStatusCfg.icon)
@@ -198,59 +187,93 @@
             <span>{formatRelativeTime(thread.createdAt)}</span>
             {#if isProjectUpdateEdited(thread.createdAt, thread.updatedAt, thread.editedAt)}
               <span class="opacity-40">&middot;</span>
-              <span>{projectUpdateEditedLabel(thread.createdAt, thread.updatedAt, thread.editedAt)}</span>
+              <span
+                >{projectUpdateEditedLabel(
+                  thread.createdAt,
+                  thread.updatedAt,
+                  thread.editedAt,
+                )}</span
+              >
             {/if}
           </div>
           <div class="ml-auto flex shrink-0 items-center gap-1">
             {#if !thread.isDeleted}
-              <Select.Root type="single" value={thread.status} onValueChange={(value) => {
-                if (value && value !== thread.status) {
-                  void onUpdateThread?.(thread.id, { status: value as ProjectUpdateStatus, body: thread.bodyMarkdown || '' })
-                }
-              }}>
-                <Select.Trigger size="sm" class={cn('h-5 w-auto shrink-0 gap-0.5 border-none px-1.5 text-[10px] font-medium shadow-none', threadStatusCfg.textClass)}>
+              <Select.Root
+                type="single"
+                value={thread.status}
+                onValueChange={(value) => {
+                  if (value && value !== thread.status) {
+                    void onUpdateThread?.(thread.id, {
+                      status: value as ProjectUpdateStatus,
+                      body: thread.bodyMarkdown || '',
+                    })
+                  }
+                }}
+              >
+                <Select.Trigger
+                  size="sm"
+                  class={cn(
+                    'h-5 w-auto shrink-0 gap-0.5 border-none px-1.5 text-[10px] font-medium shadow-none',
+                    threadStatusCfg.textClass,
+                  )}
+                >
                   {projectUpdateStatusLabel(thread.status)}
                 </Select.Trigger>
                 <Select.Content>
                   {#each projectUpdateStatusOptions as opt (opt.value)}
                     {@const Icon = opt.icon}
-                    <Select.Item value={opt.value}><Icon class={cn('size-3', opt.textClass)} />{opt.label}</Select.Item>
+                    <Select.Item value={opt.value}
+                      ><Icon class={cn('size-3', opt.textClass)} />{opt.label}</Select.Item
+                    >
                   {/each}
                 </Select.Content>
               </Select.Root>
             {:else}
-              <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}>{projectUpdateStatusLabel(thread.status)}</span>
+              <span class={cn('shrink-0 text-[10px] font-medium', threadStatusCfg.textClass)}
+                >{projectUpdateStatusLabel(thread.status)}</span
+              >
             {/if}
-            <div class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div
+              class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+            >
               {#if !thread.isDeleted}
-                <button type="button" class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors" aria-label="Edit update" onclick={() => (editingThread = true)}>
+                <button
+                  type="button"
+                  class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
+                  aria-label="Edit update"
+                  onclick={() => (editingThread = true)}
+                >
                   <Pencil class="size-3" />
                 </button>
               {/if}
-              <button type="button" class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors" aria-label="Delete update" onclick={handleDeleteThread} disabled={thread.isDeleted || deletingThread}>
+              <button
+                type="button"
+                class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
+                aria-label="Delete update"
+                onclick={handleDeleteThread}
+                disabled={thread.isDeleted || deletingThread}
+              >
                 <Trash2 class="size-3" />
               </button>
             </div>
           </div>
         </div>
-        {#if thread.bodyMarkdown}
-          <div bind:this={contentRef} class={cn('mt-1 overflow-hidden', !contentExpanded && contentOverflows && 'max-h-[64px]')}>
-            <ProjectUpdateMarkdownContent source={thread.bodyMarkdown} class={cn('text-sm leading-5', thread.isDeleted && 'line-through opacity-60')} />
-          </div>
-          {#if contentOverflows}
-            <button type="button" class="text-muted-foreground hover:text-foreground mt-0.5 flex items-center gap-0.5 text-xs transition-colors" onclick={() => (contentExpanded = !contentExpanded)}>
-              {#if contentExpanded}<ChevronUp class="size-3" />Show less{:else}<ChevronDown class="size-3" />Show more{/if}
-            </button>
-          {/if}
-        {:else if thread.title}
-          <p class={cn('mt-1 text-sm', thread.isDeleted && 'line-through opacity-60')}>{thread.title}</p>
-        {/if}
+        <ProjectUpdateThreadBody
+          bodyMarkdown={thread.bodyMarkdown}
+          title={thread.title}
+          isDeleted={thread.isDeleted}
+        />
         {#if thread.isDeleted}
           <p class="text-muted-foreground mt-1 text-xs italic">Deleted</p>
         {/if}
         {#if thread.commentCount > 0}
-          <button type="button" class="text-muted-foreground hover:text-foreground mt-1 text-[11px] transition-colors" onclick={() => (showComments = !showComments)}>
-            {thread.commentCount} {thread.commentCount === 1 ? 'reply' : 'replies'}
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground mt-1 text-[11px] transition-colors"
+            onclick={() => (showComments = !showComments)}
+          >
+            {thread.commentCount}
+            {thread.commentCount === 1 ? 'reply' : 'replies'}
           </button>
         {/if}
       </div>
