@@ -31,7 +31,14 @@ export type AgentRunInstance = {
   modelName: string
   workflowId: string
   workflowName: string
-  status: 'launching' | 'ready' | 'executing' | 'completed' | 'errored' | 'interrupted' | 'terminated'
+  status:
+    | 'launching'
+    | 'ready'
+    | 'executing'
+    | 'completed'
+    | 'errored'
+    | 'interrupted'
+    | 'terminated'
   ticket: { id: string; identifier: string; title: string }
   lastHeartbeat: string | null
   runtimeStartedAt: string | null

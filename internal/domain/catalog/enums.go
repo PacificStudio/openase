@@ -178,13 +178,13 @@ const (
 	DefaultAgentTotalTokensUsed       int64       = 0
 	DefaultAgentTotalTicketsCompleted             = 0
 
-	AgentStatusIdle       AgentStatus = "idle"
-	AgentStatusClaimed    AgentStatus = "claimed"
-	AgentStatusRunning    AgentStatus = "running"
-	AgentStatusPaused     AgentStatus = "paused"
-	AgentStatusFailed     AgentStatus = "failed"
+	AgentStatusIdle        AgentStatus = "idle"
+	AgentStatusClaimed     AgentStatus = "claimed"
+	AgentStatusRunning     AgentStatus = "running"
+	AgentStatusPaused      AgentStatus = "paused"
+	AgentStatusFailed      AgentStatus = "failed"
 	AgentStatusInterrupted AgentStatus = "interrupted"
-	AgentStatusTerminated AgentStatus = "terminated"
+	AgentStatusTerminated  AgentStatus = "terminated"
 )
 
 func (s AgentStatus) String() string {
@@ -250,13 +250,13 @@ func (s AgentRuntimePhase) IsValid() bool {
 type AgentRunStatus string
 
 const (
-	AgentRunStatusLaunching  AgentRunStatus = "launching"
-	AgentRunStatusReady      AgentRunStatus = "ready"
-	AgentRunStatusExecuting  AgentRunStatus = "executing"
-	AgentRunStatusCompleted  AgentRunStatus = "completed"
-	AgentRunStatusErrored    AgentRunStatus = "errored"
+	AgentRunStatusLaunching   AgentRunStatus = "launching"
+	AgentRunStatusReady       AgentRunStatus = "ready"
+	AgentRunStatusExecuting   AgentRunStatus = "executing"
+	AgentRunStatusCompleted   AgentRunStatus = "completed"
+	AgentRunStatusErrored     AgentRunStatus = "errored"
 	AgentRunStatusInterrupted AgentRunStatus = "interrupted"
-	AgentRunStatusTerminated AgentRunStatus = "terminated"
+	AgentRunStatusTerminated  AgentRunStatus = "terminated"
 )
 
 func (s AgentRunStatus) String() string {
@@ -275,12 +275,12 @@ func (s AgentRunStatus) IsValid() bool {
 type AgentRuntimeControlState string
 
 const (
-	DefaultAgentRuntimeControlState        AgentRuntimeControlState = AgentRuntimeControlStateActive
-	AgentRuntimeControlStateActive         AgentRuntimeControlState = "active"
+	DefaultAgentRuntimeControlState            AgentRuntimeControlState = AgentRuntimeControlStateActive
+	AgentRuntimeControlStateActive             AgentRuntimeControlState = "active"
 	AgentRuntimeControlStateInterruptRequested AgentRuntimeControlState = "interrupt_requested"
-	AgentRuntimeControlStatePauseRequested AgentRuntimeControlState = "pause_requested"
-	AgentRuntimeControlStatePaused         AgentRuntimeControlState = "paused"
-	AgentRuntimeControlStateRetired        AgentRuntimeControlState = "retired"
+	AgentRuntimeControlStatePauseRequested     AgentRuntimeControlState = "pause_requested"
+	AgentRuntimeControlStatePaused             AgentRuntimeControlState = "paused"
+	AgentRuntimeControlStateRetired            AgentRuntimeControlState = "retired"
 )
 
 func (s AgentRuntimeControlState) String() string {

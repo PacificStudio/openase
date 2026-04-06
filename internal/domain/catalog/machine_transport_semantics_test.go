@@ -274,4 +274,27 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 			t.Fatalf("ParseStoredMachineTransportCapabilities(ws_reverse) = %+v, want %+v", got, want)
 		}
 	})
+
+	t.Run("transport capabilities dedupe and reject unsupported modes", func(t *testing.T) {
+		got, err := ParseStoredMachineTransportCapabilities(
+			[]string{"probe", "probe", "artifact_sync"},
+			MachineConnectionModeSSH,
+		)
+		if err != nil {
+			t.Fatalf("ParseStoredMachineTransportCapabilities(ssh duplicate) error = %v", err)
+		}
+		want := []MachineTransportCapability{
+			MachineTransportCapabilityProbe,
+			MachineTransportCapabilityArtifactSync,
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Fatalf("ParseStoredMachineTransportCapabilities(ssh duplicate) = %+v, want %+v", got, want)
+		}
+		if _, err := ParseStoredMachineTransportCapabilities(
+			[]string{"probe"},
+			MachineConnectionMode("bogus"),
+		); err == nil {
+			t.Fatal("ParseStoredMachineTransportCapabilities(bogus mode) expected unsupported-mode error")
+		}
+	})
 }

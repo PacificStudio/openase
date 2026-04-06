@@ -90,7 +90,8 @@
     if (agent.runtimeControlState === 'paused') {
       return 'Paused agents no longer have a running session to interrupt.'
     }
-    if (agent.activeRunCount === 0) return 'This agent definition has no active AgentRuns to interrupt.'
+    if (agent.activeRunCount === 0)
+      return 'This agent definition has no active AgentRuns to interrupt.'
     if (agent.status !== 'claimed' && agent.status !== 'running') {
       return 'Only claimed or running agents can be interrupted.'
     }

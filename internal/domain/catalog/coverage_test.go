@@ -1829,6 +1829,9 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePauseRequested, Runtime: activeAgent.Runtime}); err == nil {
 		t.Fatal("ResolvePauseRuntimeControlState() expected in-progress validation error")
 	}
+	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateInterruptRequested, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolvePauseRuntimeControlState() expected interrupt-in-progress validation error")
+	}
 	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateInterruptRequested, Runtime: activeAgent.Runtime}); err == nil {
 		t.Fatal("ResolveInterruptRuntimeControlState() expected in-progress validation error")
 	}
@@ -1846,6 +1849,9 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 	}
 	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateActive, Runtime: &AgentRuntime{CurrentRunID: &activeRunID, CurrentTicketID: &activeTicketID, Status: AgentStatusIdle}}); err == nil {
 		t.Fatal("ResolveInterruptRuntimeControlState() expected status validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateRetired, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected retired validation error")
 	}
 
 	pausedAgent := Agent{

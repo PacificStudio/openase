@@ -134,7 +134,6 @@
       {@const hasRuns = runs.length > 0}
 
       <div class="border-border/60 bg-card/60 rounded-xl border">
-        <!-- Collapsed row -->
         <div class="flex items-center gap-3 px-4 py-2.5">
           <button
             type="button"
@@ -178,18 +177,18 @@
                   ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                   : agent.runtimeControlState === 'interrupt_requested'
                     ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                  : agent.runtimeControlState === 'retired'
-                    ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
-                    : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+                    : agent.runtimeControlState === 'retired'
+                      ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
+                      : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
               )}
             >
               {agent.runtimeControlState === 'interrupt_requested'
                 ? 'Interrupt Requested'
                 : agent.runtimeControlState === 'pause_requested'
-                ? 'Pause Requested'
-                : agent.runtimeControlState === 'retired'
-                  ? 'Retired'
-                  : 'Paused'}
+                  ? 'Pause Requested'
+                  : agent.runtimeControlState === 'retired'
+                    ? 'Retired'
+                    : 'Paused'}
             </span>
           {/if}
 
@@ -247,7 +246,6 @@
           </div>
         </div>
 
-        <!-- Expanded: active runs -->
         {#if expanded && hasRuns}
           <div class="border-border border-t px-4 py-2">
             <div class="space-y-1.5">

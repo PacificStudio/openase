@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
-	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"

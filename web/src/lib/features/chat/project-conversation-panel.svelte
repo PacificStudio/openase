@@ -13,6 +13,7 @@
     projectAIFocusKey,
     type ProjectAIFocus,
   } from './project-ai-focus'
+  import { deriveFocusInterruptTarget } from './project-conversation-panel-focus-action'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
   import { watchProjectConversationProviders } from './project-conversation-panel-provider-sync'
@@ -84,24 +85,7 @@
     effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
-  const focusInterruptTarget = $derived.by(() => {
-    if (focusForSend?.kind !== 'ticket') {
-      return null
-    }
-    const agent = focusForSend.ticketAssignedAgent
-    const run = focusForSend.ticketCurrentRun
-    if (
-      !agent?.id ||
-      agent.runtimeControlState !== 'active' ||
-      (run?.status !== 'launching' && run?.status !== 'ready' && run?.status !== 'executing')
-    ) {
-      return null
-    }
-    return {
-      agentId: agent.id,
-      agentName: agent.name || focusForSend.ticketIdentifier,
-    }
-  })
+  const focusInterruptTarget = $derived(deriveFocusInterruptTarget(focusForSend))
 
   $effect(() =>
     watchProjectConversationProviders({
@@ -135,7 +119,6 @@
     appliedInitialPromptSignature = ''
 
     let cancelled = false
-
     const restore = async () => {
       await controller.restore()
       if (!cancelled) {
@@ -220,7 +203,6 @@
     if (!message) {
       return
     }
-
     const nextFocus = suppressedFocusKey === effectiveFocusKey ? null : effectiveFocus
     if (controller.queuedTurns.length > 0 || controller.sendDisabled) {
       if (!controller.canQueueTurn || !controller.enqueueTurn(message, nextFocus)) {
@@ -240,14 +222,12 @@
     if (!focusInterruptTarget) {
       return
     }
-
     const confirmed = window.confirm(
       `Interrupt "${focusInterruptTarget.agentName}"? This stops the current agent run. Use Close Runtime separately if you want to stop Project AI itself.`,
     )
     if (!confirmed) {
       return
     }
-
     try {
       await interruptAgent(focusInterruptTarget.agentId)
       toastStore.success(`Interrupt requested for "${focusInterruptTarget.agentName}".`)
@@ -273,7 +253,6 @@
     onOpenConversation={(conversationId) => void controller.openConversation(conversationId)}
     {onClose}
   />
-
   <ProjectConversationContent
     {tabs}
     {activeTabId}
@@ -289,7 +268,6 @@
     onCloseTab={controller.closeTab}
     onRespondInterrupt={controller.respondInterrupt}
   />
-
   <ProjectConversationComposer
     {loadingProviders}
     {providerError}
