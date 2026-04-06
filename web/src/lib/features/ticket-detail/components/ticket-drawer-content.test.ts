@@ -68,7 +68,7 @@ import {
   ticketFixture,
   timelineFixture,
 } from './ticket-drawer-content.test-helpers'
-import ProjectConversationPanel from '$lib/features/chat/project-conversation-panel.svelte'
+import { ProjectConversationPanel } from '$lib/features/chat'
 import { buildTicketProjectAIFocus } from '../ticket-project-ai-focus'
 
 const ticketFocus = buildTicketProjectAIFocus({
