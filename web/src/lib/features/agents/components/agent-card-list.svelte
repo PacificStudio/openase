@@ -41,7 +41,8 @@
 
   function toggleExpand(agentId: string) {
     const next = new Set(expandedIds)
-    next.has(agentId) ? next.delete(agentId) : next.add(agentId)
+    if (next.has(agentId)) next.delete(agentId)
+    else next.add(agentId)
     expandedIds = next
   }
 
