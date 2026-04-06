@@ -12,7 +12,9 @@
   } = $props()
 </script>
 
-<div class="border-border flex items-center justify-between border-b px-6 py-4">
+<div
+  class="border-border flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4"
+>
   <div class="min-w-0">
     <h1 class="text-foreground truncate text-lg font-semibold">{title}</h1>
     {#if description}

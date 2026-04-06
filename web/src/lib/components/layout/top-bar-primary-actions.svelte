@@ -1,38 +1,61 @@
 <script lang="ts">
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
-  import { Plus, Search } from '@lucide/svelte'
+  import { Bot, Plus, Search } from '@lucide/svelte'
 
   let {
     searchEnabled = false,
     newTicketEnabled = false,
     newTicketTitle = '',
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
+    projectSelected = false,
     onOpenSearch,
     onNewTicket,
+    onOpenProjectAssistant,
   }: {
     searchEnabled?: boolean
     newTicketEnabled?: boolean
     newTicketTitle?: string
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
+    projectSelected?: boolean
     onOpenSearch?: () => void
     onNewTicket?: () => void
+    onOpenProjectAssistant?: (initialPrompt?: string) => void
   } = $props()
+
+  const isMobile = $derived(viewport.isMobile)
 </script>
 
 {#if searchEnabled}
-  <Button
-    variant="outline"
-    size="sm"
-    class="text-muted-foreground hidden w-[200px] justify-start gap-2 sm:flex"
-    onclick={onOpenSearch}
-  >
-    <Search class="size-3.5" />
-    <span class="text-xs">Search...</span>
-    <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
-  </Button>
+  {#if isMobile}
+    <Button variant="ghost" size="icon-sm" onclick={onOpenSearch} aria-label="Search">
+      <Search class="size-4" />
+    </Button>
+  {:else}
+    <Button
+      variant="outline"
+      size="sm"
+      class="text-muted-foreground w-[200px] justify-start gap-2"
+      onclick={onOpenSearch}
+    >
+      <Search class="size-3.5" />
+      <span class="text-xs">Search...</span>
+      <kbd class="bg-muted ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+    </Button>
+    <Separator orientation="vertical" class="mx-1 h-5" />
+  {/if}
+{/if}
 
-  <Separator orientation="vertical" class="mx-1 h-5" />
+{#if isMobile && projectSelected}
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    onclick={() => onOpenProjectAssistant?.()}
+    aria-label="Project AI"
+  >
+    <Bot class="size-4" />
+  </Button>
 {/if}
 
 <Button

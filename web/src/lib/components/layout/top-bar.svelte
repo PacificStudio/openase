@@ -1,13 +1,13 @@
 <script lang="ts">
-  import { goto, preloadCode, preloadData } from '$app/navigation'
+  import { preloadCode, preloadData } from '$app/navigation'
   import type { Organization, Project } from '$lib/api/contracts'
-  import { organizationPath, projectPath, type ProjectSection } from '$lib/stores/app-context'
+  import type { ProjectSection } from '$lib/stores/app-context'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Separator } from '$ui/separator'
-  import * as Tooltip from '$ui/tooltip'
-  import { Check, ChevronDown, Plus } from '@lucide/svelte'
-  import * as DropdownMenu from '$ui/dropdown-menu'
+  import { Menu } from '@lucide/svelte'
+  import TopBarBreadcrumb from './top-bar-breadcrumb.svelte'
   import TopBarPrimaryActions from './top-bar-primary-actions.svelte'
   import TopBarUserMenu from './top-bar-user-menu.svelte'
 
@@ -38,6 +38,8 @@
     onCreateProject,
     onOpenSettings,
     onLogout,
+    onOpenMobileNav,
+    onOpenProjectAssistant,
   }: {
     organizations?: Organization[]
     projects?: Project[]
@@ -65,7 +67,11 @@
     onCreateProject?: () => void
     onOpenSettings?: () => void
     onLogout?: () => void
+    onOpenMobileNav?: () => void
+    onOpenProjectAssistant?: (initialPrompt?: string) => void
   } = $props()
+
+  const isMobile = $derived(viewport.isMobile)
 
   const healthDotClass = $derived.by(() => {
     switch (projectHealth) {
@@ -80,19 +86,6 @@
     }
   })
 
-  function handleOrgSelect(orgId: string) {
-    return goto(organizationPath(orgId))
-  }
-
-  function handleProjectSelect(projectId: string) {
-    if (!currentOrgId) {
-      return Promise.resolve()
-    }
-
-    const section = currentProjectId ? currentSection : 'dashboard'
-    return goto(projectPath(currentOrgId, projectId, section))
-  }
-
   function warmRoute(href: string) {
     void preloadCode(href)
     void preloadData(href)
@@ -100,157 +93,53 @@
 
   const userInitials = $derived.by(() => {
     const source = userDisplayName.trim() || userPrimaryEmail.trim()
-    if (!source) {
-      return 'U'
-    }
+    if (!source) return 'U'
     const parts = source.split(/\s+/).filter((value) => value !== '')
-    if (parts.length === 1) {
-      return parts[0].slice(0, 2).toUpperCase()
-    }
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
     return `${parts[0]?.[0] ?? ''}${parts[1]?.[0] ?? ''}`.toUpperCase()
   })
 </script>
 
-<header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-4">
+<header
+  class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-3 md:px-4"
+>
+  {#if isMobile}
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      class="shrink-0"
+      onclick={onOpenMobileNav}
+      aria-label="Open navigation"
+    >
+      <Menu class="size-4" />
+    </Button>
+  {/if}
+
   <a href="/orgs" class="text-foreground mr-1 flex items-center gap-1.5 text-sm font-semibold">
     <img src="/favicon.svg" alt="" class="size-5" />
-    <span class="text-primary font-bold">OpenASE</span>
+    <span class={cn('text-primary font-bold', isMobile && 'sr-only')}>OpenASE</span>
   </a>
 
-  <Separator orientation="vertical" class="mx-1 h-5" />
-
-  <DropdownMenu.Root>
-    <DropdownMenu.Trigger>
-      {#snippet child({ props })}
-        <Button
-          {...props}
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground gap-1 text-xs"
-          disabled={organizations.length === 0}
-        >
-          {orgName}
-          <ChevronDown class="size-3" />
-        </Button>
-      {/snippet}
-    </DropdownMenu.Trigger>
-    <DropdownMenu.Content class="w-56">
-      <DropdownMenu.Label class="flex items-center justify-between">
-        <span>Organizations</span>
-        {#if onCreateOrg}
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-foreground hover:bg-accent -mr-1 flex size-5 items-center justify-center rounded"
-            onclick={(e) => {
-              e.stopPropagation()
-              onCreateOrg()
-            }}
-            title="Create organization"
-          >
-            <Plus class="size-3.5" />
-          </button>
-        {/if}
-      </DropdownMenu.Label>
-      {#if organizations.length > 0}
-        {#each organizations as organization (organization.id)}
-          <DropdownMenu.Item
-            onclick={() => void handleOrgSelect(organization.id)}
-            onpointerenter={() => warmRoute(organizationPath(organization.id))}
-          >
-            <span class="flex w-full items-center gap-2">
-              {#if organization.id === currentOrgId}
-                <Check class="size-4" />
-              {:else}
-                <span class="size-4"></span>
-              {/if}
-              <span class={organization.id === currentOrgId ? 'font-medium' : ''}>
-                {organization.name}
-              </span>
-            </span>
-          </DropdownMenu.Item>
-        {/each}
-      {:else}
-        <DropdownMenu.Item disabled>No organizations available</DropdownMenu.Item>
-      {/if}
-    </DropdownMenu.Content>
-  </DropdownMenu.Root>
-
-  {#if currentOrgId && (projectName || projects.length > 0)}
-    <span class="text-muted-foreground/50">/</span>
+  {#if !isMobile}
+    <Separator orientation="vertical" class="mx-1 h-5" />
+    <TopBarBreadcrumb
+      {organizations}
+      {projects}
+      {currentOrgId}
+      {currentProjectId}
+      {currentSection}
+      {orgName}
+      {projectName}
+      {projectHealth}
+      {projectHealthLabel}
+      {onCreateOrg}
+      {onCreateProject}
+    />
+  {:else if projectName}
+    <span class="text-foreground min-w-0 truncate text-xs font-medium">{projectName}</span>
     {#if projectHealth}
-      <Tooltip.Root>
-        <Tooltip.Trigger>
-          {#snippet child({ props })}
-            <span
-              {...props}
-              class={cn('size-2 shrink-0 cursor-default rounded-full', healthDotClass)}
-            ></span>
-          {/snippet}
-        </Tooltip.Trigger>
-        <Tooltip.Content side="bottom" class="max-w-64 text-xs">
-          {projectHealthLabel ||
-            (projectHealth === 'healthy'
-              ? 'All systems healthy'
-              : projectHealth === 'degraded'
-                ? 'Project has warnings'
-                : 'Project has critical issues')}
-        </Tooltip.Content>
-      </Tooltip.Root>
+      <span class={cn('size-1.5 shrink-0 rounded-full', healthDotClass)}></span>
     {/if}
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        {#snippet child({ props })}
-          <Button {...props} variant="ghost" size="sm" class="text-foreground gap-1 text-xs">
-            <span class={projectName ? 'font-medium' : 'text-muted-foreground'}>
-              {projectName || 'Select project'}
-            </span>
-            <ChevronDown class="size-3" />
-          </Button>
-        {/snippet}
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content class="w-64">
-        <DropdownMenu.Label class="flex items-center justify-between">
-          <span>Projects</span>
-          {#if onCreateProject}
-            <button
-              type="button"
-              class="text-muted-foreground hover:text-foreground hover:bg-accent -mr-1 flex size-5 items-center justify-center rounded"
-              onclick={(e) => {
-                e.stopPropagation()
-                onCreateProject()
-              }}
-              title="Create project"
-            >
-              <Plus class="size-3.5" />
-            </button>
-          {/if}
-        </DropdownMenu.Label>
-        {#if projects.length > 0}
-          {#each projects as project (project.id)}
-            <DropdownMenu.Item
-              onclick={() => void handleProjectSelect(project.id)}
-              onpointerenter={() => {
-                if (!currentOrgId) return
-                warmRoute(projectPath(currentOrgId, project.id, currentSection))
-              }}
-            >
-              <span class="flex w-full items-center gap-2">
-                {#if project.id === currentProjectId}
-                  <Check class="size-4" />
-                {:else}
-                  <span class="size-4"></span>
-                {/if}
-                <span class={project.id === currentProjectId ? 'font-medium' : ''}>
-                  {project.name}
-                </span>
-              </span>
-            </DropdownMenu.Item>
-          {/each}
-        {:else}
-          <DropdownMenu.Item disabled>No projects available</DropdownMenu.Item>
-        {/if}
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
   {/if}
 
   <div class="flex-1"></div>
@@ -262,6 +151,8 @@
     {sseStatus}
     {onOpenSearch}
     {onNewTicket}
+    {onOpenProjectAssistant}
+    projectSelected={Boolean(currentProjectId)}
   />
 
   <TopBarUserMenu

@@ -22,7 +22,7 @@
   import type { ChannelCreateInput, ChannelUpdateInput } from '../notification-channels'
   import type { RuleCreateInput, RuleUpdateInput } from '../notification-rules'
   import NotificationChannelPanel from './notification-channel-panel.svelte'
-  import NotificationEventTogglePanel from './notification-event-toggle-panel.svelte'
+  import NotificationRulePanel from './notification-rule-panel.svelte'
 
   let channels = $state<NotificationChannel[]>([])
   let rules = $state<NotificationRule[]>([])
@@ -198,7 +198,7 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Notifications</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage notification channels and grouped event toggles with built-in default messages.
+      Configure delivery channels and subscribe to project events. Changes take effect immediately.
     </p>
   </div>
 
@@ -209,45 +209,62 @@
       <!-- Skeleton: channels -->
       <div class="space-y-3">
         <div class="flex items-center justify-between">
-          <div class="bg-muted h-4 w-36 animate-pulse rounded"></div>
+          <div class="bg-muted h-5 w-40 animate-pulse rounded"></div>
           <div class="bg-muted h-8 w-24 animate-pulse rounded-md"></div>
         </div>
-        {#each { length: 2 } as _}
-          <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-4 py-3">
-            <div class="bg-muted h-5 w-9 shrink-0 animate-pulse rounded-full"></div>
-            <div class="flex-1 space-y-1.5">
-              <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
-              <div class="bg-muted h-3 w-20 animate-pulse rounded"></div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          {#each { length: 2 } as _}
+            <div class="border-border bg-card rounded-lg border p-4">
+              <div class="flex items-center justify-between">
+                <div class="space-y-2">
+                  <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+                  <div class="bg-muted h-3 w-16 animate-pulse rounded"></div>
+                </div>
+                <div class="bg-muted h-5 w-9 animate-pulse rounded-full"></div>
+              </div>
             </div>
-            <div class="flex items-center gap-1">
-              <div class="bg-muted size-7 animate-pulse rounded"></div>
-              <div class="bg-muted size-7 animate-pulse rounded"></div>
-            </div>
-          </div>
-        {/each}
+          {/each}
+        </div>
       </div>
       <!-- Skeleton: rules -->
       <div class="space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
-          <div class="bg-muted h-8 w-20 animate-pulse rounded-md"></div>
-        </div>
-        {#each { length: 2 } as _}
-          <div class="border-border bg-card flex items-center gap-3 rounded-lg border px-4 py-3">
-            <div class="bg-muted h-5 w-9 shrink-0 animate-pulse rounded-full"></div>
-            <div class="flex-1 space-y-1.5">
-              <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
-              <div class="bg-muted h-3 w-44 animate-pulse rounded"></div>
+        <div class="bg-muted h-5 w-32 animate-pulse rounded"></div>
+        {#each { length: 3 } as _}
+          <div class="border-border bg-card rounded-lg border p-4">
+            <div class="flex items-center justify-between">
+              <div class="space-y-2">
+                <div class="bg-muted h-4 w-24 animate-pulse rounded"></div>
+                <div class="bg-muted h-3 w-48 animate-pulse rounded"></div>
+              </div>
+              <div class="bg-muted h-5 w-9 animate-pulse rounded-full"></div>
             </div>
-            <div class="bg-muted size-7 animate-pulse rounded"></div>
           </div>
         {/each}
       </div>
     </div>
   {:else if error}
-    <div class="text-destructive text-sm">{error}</div>
+    <div
+      class="border-destructive/30 bg-destructive/5 flex flex-col items-center gap-2 rounded-lg border px-6 py-8 text-center"
+    >
+      <svg
+        class="text-destructive size-8"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="1.5"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+        />
+      </svg>
+      <p class="text-destructive text-sm font-medium">{error}</p>
+      <p class="text-muted-foreground text-xs">Check your connection and try refreshing the page.</p>
+    </div>
   {:else}
-    <div class="space-y-6">
+    <div class="space-y-8">
       <NotificationChannelPanel
         {channels}
         onCreate={handleCreateChannel}
@@ -256,7 +273,10 @@
         onToggle={handleToggleChannel}
         onTest={handleTestChannel}
       />
-      <NotificationEventTogglePanel
+
+      <Separator />
+
+      <NotificationRulePanel
         {channels}
         {eventTypes}
         {rules}
