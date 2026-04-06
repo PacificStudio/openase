@@ -163,7 +163,7 @@
   description="Search pages, tickets, workflows, agents, projects, and commands."
   class="mx-2 max-w-3xl border border-white/10 shadow-2xl sm:mx-auto"
 >
-  <Command.Input placeholder="Search..." />
+  <Command.Input placeholder="Search pages, tickets, workflows, agents, and commands..." />
   <Command.List class="max-h-[60dvh] sm:max-h-[26rem]">
     <Command.Empty>
       <div class="text-muted-foreground px-4 py-8 text-center text-sm">
