@@ -50,16 +50,16 @@ type workflowHookRuntime struct {
 }
 
 type workflowHookExecutor struct {
-	logger   *slog.Logger
-	repoRoot string
+	logger           *slog.Logger
+	workingDirectory string
 }
 
 var workflowHookTemplatePattern = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}`)
 
-func newWorkflowHookExecutor(repoRoot string, logger *slog.Logger) *workflowHookExecutor {
+func newWorkflowHookExecutor(workingDirectory string, logger *slog.Logger) *workflowHookExecutor {
 	return &workflowHookExecutor{
-		logger:   logger.With("component", "workflow-hook-executor"),
-		repoRoot: repoRoot,
+		logger:           logger.With("component", "workflow-hook-executor"),
+		workingDirectory: workingDirectory,
 	}
 }
 
@@ -260,7 +260,7 @@ func (e *workflowHookExecutor) run(ctx context.Context, hookName workflowHookNam
 
 	//nolint:gosec // workflow hooks intentionally execute repository-defined shell commands
 	cmd := exec.CommandContext(commandContext, "sh", "-c", commandText)
-	cmd.Dir = e.repoRoot
+	cmd.Dir = e.workingDirectory
 	cmd.Env = append(os.Environ(),
 		"OPENASE_PROJECT_ID="+runtime.ProjectID.String(),
 		"OPENASE_WORKFLOW_ID="+runtime.WorkflowID.String(),

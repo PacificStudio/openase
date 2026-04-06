@@ -12,6 +12,7 @@ import (
 
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	ticketstatusservice "github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -123,7 +124,7 @@ type Service struct {
 	tickets      ticketReader
 	workflows    workflowReader
 	statuses     statusReader
-	workingDir   provider.AbsolutePath
+	projectsRoot provider.AbsolutePath
 	maxTurns     int
 	maxBudgetUSD float64
 	sessions     sessionRegistry
@@ -172,7 +173,7 @@ func NewService(
 	tickets ticketReader,
 	workflows workflowReader,
 	statuses statusReader,
-	workingDir provider.AbsolutePath,
+	projectsRoot provider.AbsolutePath,
 ) *Service {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -185,10 +186,26 @@ func NewService(
 		tickets:      tickets,
 		workflows:    workflows,
 		statuses:     statuses,
-		workingDir:   workingDir,
+		projectsRoot: projectsRoot,
 		maxTurns:     DefaultMaxTurns,
 		maxBudgetUSD: DefaultMaxBudgetUSD,
 	}
+}
+
+func (s *Service) resolveWorkingDirectory(projectID uuid.UUID) (provider.AbsolutePath, error) {
+	if s == nil || strings.TrimSpace(s.projectsRoot.String()) == "" || projectID == uuid.Nil {
+		return "", nil
+	}
+
+	workingDirectory, err := workspaceinfra.ProjectChatPath(s.projectsRoot.String(), projectID.String())
+	if err != nil {
+		return "", fmt.Errorf("resolve project chat working directory: %w", err)
+	}
+	if err := os.MkdirAll(workingDirectory, 0o750); err != nil {
+		return "", fmt.Errorf("ensure project chat working directory: %w", err)
+	}
+
+	return provider.MustParseAbsolutePath(workingDirectory), nil
 }
 
 func (s *Service) EnableDurableSessions(path string) {
@@ -318,12 +335,21 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 		}
 	}
 
+	workingDirectory, err := s.resolveWorkingDirectory(input.Context.ProjectID)
+	if err != nil {
+		if created {
+			s.sessions.Delete(sessionID)
+			_ = s.deletePersistedSession(sessionID)
+		}
+		return TurnStream{}, err
+	}
+
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
 		SessionID:              sessionID,
 		Provider:               providerItem,
 		Message:                input.Message,
 		SystemPrompt:           systemPrompt,
-		WorkingDirectory:       s.workingDir,
+		WorkingDirectory:       workingDirectory,
 		ResumeProviderThreadID: resumeProviderThreadID(existingSession),
 		MaxTurns:               policy.MaxTurns,
 		MaxBudgetUSD:           policy.MaxBudgetUSD,
