@@ -2,7 +2,6 @@
   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { ExternalLink, Archive, Copy, CircleDot, Signal } from '@lucide/svelte'
-  import { cn } from '$lib/utils'
   import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
   import type { BoardStatusOption, BoardTicket } from '../types'
   import StageIcon from './stage-icon.svelte'
