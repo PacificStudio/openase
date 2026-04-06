@@ -136,6 +136,7 @@ func discoverInstructionHubSources(repo workspaceinfra.PreparedRepo) ([]instruct
 		if err != nil {
 			return fmt.Errorf("derive relative path for %s: %w", currentPath, err)
 		}
+		// #nosec G304 -- instruction docs are discovered from orchestrator-managed prepared repo paths.
 		content, err := os.ReadFile(currentPath)
 		if err != nil {
 			return fmt.Errorf("read instruction doc %s: %w", currentPath, err)
@@ -186,7 +187,8 @@ func discoverRemoteInstructionHubSources(
 }
 
 func buildRemoteInstructionHubDiscoveryCommand(repos []workspaceinfra.PreparedRepo) string {
-	lines := []string{"set -eu"}
+	lines := make([]string, 0, 1+4*len(repos))
+	lines = append(lines, "set -eu")
 	for _, repo := range repos {
 		lines = append(lines,
 			"repo_name="+sshinfra.ShellQuote(strings.TrimSpace(repo.Name)),
@@ -436,6 +438,7 @@ func cleanupLocalGeneratedInstructionHub(workspaceRoot string, targetFile string
 		return nil
 	}
 	siblingPath := filepath.Join(workspaceRoot, sibling)
+	// #nosec G304 -- sibling hub path is derived from the workspace root plus a fixed filename.
 	content, err := os.ReadFile(siblingPath)
 	switch {
 	case errors.Is(err, os.ErrNotExist):

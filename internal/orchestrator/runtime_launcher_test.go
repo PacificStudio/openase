@@ -658,6 +658,7 @@ Launch from the workspace root for multi-repo runs.
 	}
 
 	agentsHubPath := filepath.Join(workspacePath, "AGENTS.md")
+	// #nosec G304 -- test reads a generated workspace file under a temp home-backed workspace root.
 	rawHub, err := os.ReadFile(agentsHubPath)
 	if err != nil {
 		t.Fatalf("read workspace-root AGENTS hub: %v", err)
@@ -4016,6 +4017,7 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstruction
 	}
 
 	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	// #nosec G304 -- test reads a generated workspace file under the websocket listener temp workspace root.
 	rawHub, err := os.ReadFile(filepath.Join(workspacePath, "AGENTS.md"))
 	if err != nil {
 		t.Fatalf("read websocket workspace-root AGENTS hub: %v", err)
