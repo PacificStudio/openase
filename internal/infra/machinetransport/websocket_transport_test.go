@@ -6,10 +6,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
@@ -34,8 +38,15 @@ func TestWebsocketListenerTransportProbeAndReachability(t *testing.T) {
 	if strings.TrimSpace(probe.Output) == "" {
 		t.Fatal("Probe().Output must not be empty")
 	}
+	expectedOS, expectedArch, expectedStatus := machineprobe.NormalizePlatform(runtime.GOOS, runtime.GOARCH)
+	if probe.DetectedOS != expectedOS || probe.DetectedArch != expectedArch || probe.DetectionStatus != expectedStatus {
+		t.Fatalf("Probe() detection metadata = (%q, %q, %q)", probe.DetectedOS, probe.DetectedArch, probe.DetectionStatus)
+	}
 	if got := probe.Resources["advertised_endpoint"]; got != advertisedEndpointString(machine) {
 		t.Fatalf("Probe().Resources[advertised_endpoint] = %v", got)
+	}
+	if got := probe.Resources["detected_arch"]; got != expectedArch.String() {
+		t.Fatalf("Probe().Resources[detected_arch] = %v", got)
 	}
 
 	collector := NewMonitorCollector(NewResolver(nil, nil), nil)
@@ -48,6 +59,31 @@ func TestWebsocketListenerTransportProbeAndReachability(t *testing.T) {
 	}
 	if reachability.Transport != domain.MachineConnectionModeWSListener.String() {
 		t.Fatalf("CollectReachability().Transport = %q", reachability.Transport)
+	}
+}
+
+func TestAugmentRuntimeProbeFallsBackToParsedOutputWhenStructuredMetadataMissing(t *testing.T) {
+	t.Parallel()
+
+	checkedAt := time.Date(2026, 4, 6, 6, 30, 0, 0, time.UTC)
+	probe := augmentRuntimeProbe(domain.Machine{
+		ConnectionMode: domain.MachineConnectionModeWSReverse,
+	}, runtimecontract.ProbeResponse{
+		CheckedAt: checkedAt.Format(time.RFC3339),
+		Output:    "openase\nreverse-01\nLinux 6.8 mystery",
+	})
+
+	if !probe.CheckedAt.Equal(checkedAt) {
+		t.Fatalf("Probe().CheckedAt = %s", probe.CheckedAt.Format(time.RFC3339))
+	}
+	if probe.DetectedOS != domain.MachineDetectedOSLinux {
+		t.Fatalf("Probe().DetectedOS = %q", probe.DetectedOS)
+	}
+	if probe.DetectedArch != domain.MachineDetectedArchUnknown {
+		t.Fatalf("Probe().DetectedArch = %q", probe.DetectedArch)
+	}
+	if probe.DetectionStatus != domain.MachineDetectionStatusDegraded {
+		t.Fatalf("Probe().DetectionStatus = %q", probe.DetectionStatus)
 	}
 }
 

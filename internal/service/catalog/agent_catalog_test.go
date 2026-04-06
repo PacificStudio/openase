@@ -3,10 +3,13 @@ package catalog
 import (
 	"context"
 	"errors"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	transportinfra "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	"github.com/google/uuid"
 )
 
@@ -524,6 +527,61 @@ func TestRefreshMachineHealthCollectsAndPersistsMultiLevelSnapshot(t *testing.T)
 	}
 }
 
+func TestTestMachineConnectionPreservesDetectedPlatformForWebsocketRuntimeMachines(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(transportinfra.NewWebsocketListenerHandler(transportinfra.ListenerHandlerOptions{}))
+	defer server.Close()
+
+	machineID := uuid.New()
+	orgID := uuid.New()
+	repo := &stubRepository{
+		machine: domain.Machine{
+			ID:                 machineID,
+			OrganizationID:     orgID,
+			Name:               "listener-01",
+			Host:               "listener.internal",
+			Port:               443,
+			Status:             domain.MachineStatusOnline,
+			ConnectionMode:     domain.MachineConnectionModeWSListener,
+			AdvertisedEndpoint: stringPointer(websocketURL(server.URL)),
+			DetectedOS:         domain.MachineDetectedOSLinux,
+			DetectedArch:       domain.MachineDetectedArchAMD64,
+			DetectionStatus:    domain.MachineDetectionStatusOK,
+			Resources: map[string]any{
+				"transport":         domain.MachineConnectionModeWSListener.String(),
+				"detected_os":       domain.MachineDetectedOSLinux.String(),
+				"detected_arch":     domain.MachineDetectedArchAMD64.String(),
+				"detection_status":  domain.MachineDetectionStatusOK.String(),
+				"cpu_usage_percent": 61.2,
+			},
+		},
+	}
+	tester := transportinfra.NewTester(transportinfra.NewResolver(nil, nil))
+	svc := New(repo, stubExecutableResolver{}, tester)
+
+	updated, probe, err := svc.TestMachineConnection(context.Background(), machineID)
+	if err != nil {
+		t.Fatalf("TestMachineConnection() error = %v", err)
+	}
+	if probe.Transport != domain.MachineConnectionModeWSListener.String() {
+		t.Fatalf("TestMachineConnection().probe.Transport = %q", probe.Transport)
+	}
+	if repo.recordedMachineProbe == nil {
+		t.Fatal("expected machine probe to be recorded")
+	}
+	if repo.recordedMachineProbe.DetectedOS != domain.MachineDetectedOSLinux ||
+		repo.recordedMachineProbe.DetectedArch != domain.MachineDetectedArchAMD64 ||
+		repo.recordedMachineProbe.DetectionStatus != domain.MachineDetectionStatusOK {
+		t.Fatalf("recorded probe detection metadata = %+v", repo.recordedMachineProbe)
+	}
+	if updated.DetectedOS != domain.MachineDetectedOSLinux ||
+		updated.DetectedArch != domain.MachineDetectedArchAMD64 ||
+		updated.DetectionStatus != domain.MachineDetectionStatusOK {
+		t.Fatalf("updated machine detection metadata = %+v", updated)
+	}
+}
+
 func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
 	runID := uuid.New()
@@ -865,6 +923,21 @@ func (r *stubRepository) RecordMachineProbe(_ context.Context, input domain.Reco
 }
 
 func (r *stubRepository) recordMachineProbe(input domain.RecordMachineProbe) error {
+	detectedOS, err := domain.ParseStoredMachineDetectedOS(input.DetectedOS.String())
+	if err != nil {
+		return err
+	}
+	detectedArch, err := domain.ParseStoredMachineDetectedArch(input.DetectedArch.String())
+	if err != nil {
+		return err
+	}
+	detectionStatus, err := domain.ParseStoredMachineDetectionStatus(input.DetectionStatus.String())
+	if err != nil {
+		return err
+	}
+	input.DetectedOS = detectedOS
+	input.DetectedArch = detectedArch
+	input.DetectionStatus = detectionStatus
 	r.recordedMachineProbe = &input
 	r.machine.Status = input.Status
 	r.machine.LastHeartbeatAt = &input.LastHeartbeatAt
@@ -873,6 +946,21 @@ func (r *stubRepository) recordMachineProbe(input domain.RecordMachineProbe) err
 	r.machine.DetectionStatus = input.DetectionStatus
 	r.machine.Resources = cloneTestResources(input.Resources)
 	return nil
+}
+
+func websocketURL(raw string) string {
+	switch {
+	case strings.HasPrefix(raw, "https://"):
+		return "wss://" + strings.TrimPrefix(raw, "https://")
+	case strings.HasPrefix(raw, "http://"):
+		return "ws://" + strings.TrimPrefix(raw, "http://")
+	default:
+		return raw
+	}
+}
+
+func stringPointer(value string) *string {
+	return &value
 }
 
 func (r *stubRepository) CreateProject(context.Context, domain.CreateProject) (domain.Project, error) {
