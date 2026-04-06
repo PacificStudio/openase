@@ -1,12 +1,16 @@
 package httpapi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -273,6 +277,9 @@ func (s *Server) patchTicketRepoScope(c echo.Context) error {
 	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitPullRequestActivity(c.Request().Context(), projectID, ticketID, current, item); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"repo_scope": mapTicketRepoScopeResponse(item),
@@ -300,8 +307,77 @@ func (s *Server) deleteTicketRepoScope(c echo.Context) error {
 	if err := s.publishTicketUpdatedByID(c.Request().Context(), ticketID); err != nil {
 		return writeCatalogError(c, err)
 	}
+	if err := s.emitPullRequestActivity(
+		c.Request().Context(),
+		projectID,
+		ticketID,
+		item,
+		domain.TicketRepoScope{ID: item.ID, TicketID: item.TicketID, RepoID: item.RepoID, BranchName: item.BranchName},
+	); err != nil {
+		return writeCatalogError(c, err)
+	}
 
 	return c.JSON(http.StatusOK, map[string]any{
 		"repo_scope": mapTicketRepoScopeResponse(item),
 	})
+}
+
+func (s *Server) emitPullRequestActivity(
+	ctx context.Context,
+	projectID uuid.UUID,
+	ticketID uuid.UUID,
+	current domain.TicketRepoScope,
+	updated domain.TicketRepoScope,
+) error {
+	if s.ticketService == nil {
+		return nil
+	}
+
+	beforeURL := strings.TrimSpace(optionalStringValue(current.PullRequestURL))
+	afterURL := strings.TrimSpace(optionalStringValue(updated.PullRequestURL))
+	if beforeURL == afterURL {
+		return nil
+	}
+
+	ticketItem, err := s.ticketService.Get(ctx, ticketID)
+	if err != nil {
+		return err
+	}
+
+	var eventType activityevent.Type
+	var message string
+	switch {
+	case beforeURL == "" && afterURL != "":
+		eventType = activityevent.TypePROpened
+		message = fmt.Sprintf("%s PR opened", ticketItem.Identifier)
+	case beforeURL != "" && afterURL == "":
+		eventType = activityevent.TypePRClosed
+		message = fmt.Sprintf("%s PR closed", ticketItem.Identifier)
+	default:
+		eventType = activityevent.TypePROpened
+		message = fmt.Sprintf("%s PR updated", ticketItem.Identifier)
+	}
+
+	return s.emitActivity(ctx, activitysvc.RecordInput{
+		ProjectID: projectID,
+		TicketID:  &ticketID,
+		EventType: eventType,
+		Message:   message,
+		Metadata: map[string]any{
+			"ticket_identifier": ticketItem.Identifier,
+			"repo_scope_id":     updated.ID.String(),
+			"repo_id":           updated.RepoID.String(),
+			"branch_name":       updated.BranchName,
+			"pull_request_url":  afterURL,
+			"previous_pr_url":   beforeURL,
+			"changed_fields":    []string{"pull_request_url"},
+		},
+	})
+}
+
+func optionalStringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
