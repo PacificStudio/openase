@@ -352,23 +352,25 @@ describe('watchProjectConversation', () => {
     ])
   })
 
-  it('downgrades platform command proposals to plain assistant text in project conversation streams', async () => {
+  it('keeps unsupported structured project conversation messages as raw payloads', async () => {
     consumeEventStream.mockImplementation(async (_body, onFrame) => {
       onFrame({
         event: 'message',
         data: JSON.stringify({
-          type: 'platform_command_proposal',
-          entry_id: 'entry-1',
-          summary: 'Update ASE-1',
-          commands: [
-            {
-              command: 'ticket.update',
-              args: {
-                ticket: 'ASE-1',
-                status: 'Todo',
+          type: 'custom_structured_payload',
+          raw: {
+            entry_id: 'entry-1',
+            summary: 'Update ASE-1',
+            commands: [
+              {
+                command: 'ticket.update',
+                args: {
+                  ticket: 'ASE-1',
+                  status: 'Todo',
+                },
               },
-            },
-          ],
+            ],
+          },
         }),
       })
     })
@@ -384,8 +386,20 @@ describe('watchProjectConversation', () => {
       {
         kind: 'message',
         payload: {
-          type: 'text',
-          content: 'Update ASE-1',
+          type: 'custom_structured_payload',
+          raw: {
+            entry_id: 'entry-1',
+            summary: 'Update ASE-1',
+            commands: [
+              {
+                command: 'ticket.update',
+                args: {
+                  ticket: 'ASE-1',
+                  status: 'Todo',
+                },
+              },
+            ],
+          },
         },
       },
     ])

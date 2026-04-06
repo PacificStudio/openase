@@ -139,18 +139,6 @@ export function mapPersistedEntries(
       continue
     }
 
-    if (entry.kind === 'action_proposal' || entry.kind === 'platform_command_proposal') {
-      transcript.push({
-        id: entry.id,
-        kind: 'text',
-        role: 'assistant',
-        turnId: entry.turnId,
-        content: summarizeLegacyProposalPayload(entry.payload),
-        streaming: false,
-      })
-      continue
-    }
-
     if (entry.kind === 'diff') {
       transcript.push(createProjectConversationDiffEntry({ id: entry.id, payload: entry.payload }))
       continue
@@ -234,17 +222,4 @@ export function isTextPayload(
 
 export function isDiffPayload(payload: ChatMessagePayload): payload is ChatDiffPayload {
   return payload.type === 'diff'
-}
-
-function summarizeLegacyProposalPayload(payload: Record<string, unknown>) {
-  const summary = typeof payload.summary === 'string' ? payload.summary.trim() : ''
-  if (summary) {
-    return summary
-  }
-
-  try {
-    return JSON.stringify(payload, null, 2)
-  } catch {
-    return 'Legacy proposal payload'
-  }
 }

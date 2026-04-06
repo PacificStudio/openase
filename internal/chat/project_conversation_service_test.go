@@ -2281,12 +2281,12 @@ func TestProjectConversationWatchConversationIsolatesEventsPerConversation(t *te
 		t.Fatalf("second watcher initial event = %q, want session", event.Event)
 	}
 
-	_, err = service.AppendActionExecutionResult(
+	_, err = service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		firstConversation.ID,
 		nil,
-		map[string]any{"marker": "conversation-1"},
+		testTaskNotificationPayload("conversation-1"),
 	)
 	if err != nil {
 		t.Fatalf("append action result: %v", err)
@@ -2300,12 +2300,12 @@ func TestProjectConversationWatchConversationIsolatesEventsPerConversation(t *te
 	if !ok {
 		t.Fatalf("expected message payload map, got %#v", delivered.Payload)
 	}
-	if payload["type"] != "action_result" {
-		t.Fatalf("first watcher payload type = %#v, want action_result", payload["type"])
+	if payload["type"] != "task_notification" {
+		t.Fatalf("first watcher payload type = %#v, want task_notification", payload["type"])
 	}
-	nested, ok := payload["payload"].(map[string]any)
+	nested, ok := payload["raw"].(map[string]any)
 	if !ok || nested["marker"] != "conversation-1" {
-		t.Fatalf("first watcher payload = %#v, want marker conversation-1", payload["payload"])
+		t.Fatalf("first watcher payload = %#v, want marker conversation-1", payload["raw"])
 	}
 
 	requireNoProjectConversationStreamEvent(t, secondEvents)
@@ -2346,12 +2346,12 @@ func TestProjectConversationWatchConversationFansOutToAllWatchers(t *testing.T) 
 		t.Fatalf("second watcher initial event = %q, want session", event.Event)
 	}
 
-	_, err = service.AppendActionExecutionResult(
+	_, err = service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		conversation.ID,
 		nil,
-		map[string]any{"marker": "fanout-1"},
+		testTaskNotificationPayload("fanout-1"),
 	)
 	if err != nil {
 		t.Fatalf("append first action result: %v", err)
@@ -2369,20 +2369,20 @@ func TestProjectConversationWatchConversationFansOutToAllWatchers(t *testing.T) 
 		if !ok {
 			t.Fatalf("%s watcher payload = %#v, want map", name, delivered.Payload)
 		}
-		nested, ok := payload["payload"].(map[string]any)
+		nested, ok := payload["raw"].(map[string]any)
 		if !ok || nested["marker"] != "fanout-1" {
-			t.Fatalf("%s watcher payload = %#v, want marker fanout-1", name, payload["payload"])
+			t.Fatalf("%s watcher payload = %#v, want marker fanout-1", name, payload["raw"])
 		}
 	}
 
 	cleanupFirst()
 	cleanupFirst = nil
-	_, err = service.AppendActionExecutionResult(
+	_, err = service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		conversation.ID,
 		nil,
-		map[string]any{"marker": "fanout-2"},
+		testTaskNotificationPayload("fanout-2"),
 	)
 	if err != nil {
 		t.Fatalf("append second action result: %v", err)
@@ -2393,9 +2393,9 @@ func TestProjectConversationWatchConversationFansOutToAllWatchers(t *testing.T) 
 	if delivered.Event != "message" || !ok {
 		t.Fatalf("remaining watcher event = %+v, want message payload", delivered)
 	}
-	nested, ok := payload["payload"].(map[string]any)
+	nested, ok := payload["raw"].(map[string]any)
 	if !ok || nested["marker"] != "fanout-2" {
-		t.Fatalf("remaining watcher payload = %#v, want marker fanout-2", payload["payload"])
+		t.Fatalf("remaining watcher payload = %#v, want marker fanout-2", payload["raw"])
 	}
 }
 
@@ -2440,11 +2440,8 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 
 	for index := range projectConversationStreamBufferSize {
 		service.broadcast(firstConversation.ID, StreamEvent{
-			Event: "message",
-			Payload: map[string]any{
-				"type":    "action_result",
-				"payload": map[string]any{"marker": fmt.Sprintf("buffer-%d", index)},
-			},
+			Event:   "message",
+			Payload: testTaskNotificationPayload(fmt.Sprintf("buffer-%d", index)),
 		})
 
 		delivered := requireProjectConversationStreamEvent(t, activeWatcher)
@@ -2452,18 +2449,15 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 		if delivered.Event != "message" || !ok {
 			t.Fatalf("active watcher event = %+v, want message payload", delivered)
 		}
-		nested, ok := payload["payload"].(map[string]any)
+		nested, ok := payload["raw"].(map[string]any)
 		if !ok || nested["marker"] != fmt.Sprintf("buffer-%d", index) {
-			t.Fatalf("active watcher payload = %#v, want marker buffer-%d", payload["payload"], index)
+			t.Fatalf("active watcher payload = %#v, want marker buffer-%d", payload["raw"], index)
 		}
 	}
 
 	service.broadcast(firstConversation.ID, StreamEvent{
-		Event: "message",
-		Payload: map[string]any{
-			"type":    "action_result",
-			"payload": map[string]any{"marker": "after-blocked"},
-		},
+		Event:   "message",
+		Payload: testTaskNotificationPayload("after-blocked"),
 	})
 
 	delivered := requireProjectConversationStreamEvent(t, activeWatcher)
@@ -2471,17 +2465,14 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 	if delivered.Event != "message" || !ok {
 		t.Fatalf("active watcher event after blocked = %+v, want message payload", delivered)
 	}
-	nested, ok := payload["payload"].(map[string]any)
+	nested, ok := payload["raw"].(map[string]any)
 	if !ok || nested["marker"] != "after-blocked" {
-		t.Fatalf("active watcher payload after blocked = %#v, want marker after-blocked", payload["payload"])
+		t.Fatalf("active watcher payload after blocked = %#v, want marker after-blocked", payload["raw"])
 	}
 
 	service.broadcast(secondConversation.ID, StreamEvent{
-		Event: "message",
-		Payload: map[string]any{
-			"type":    "action_result",
-			"payload": map[string]any{"marker": "other-conversation"},
-		},
+		Event:   "message",
+		Payload: testTaskNotificationPayload("other-conversation"),
 	})
 
 	otherDelivered := requireProjectConversationStreamEvent(t, otherConversationWatcher)
@@ -2489,9 +2480,9 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 	if otherDelivered.Event != "message" || !ok {
 		t.Fatalf("other conversation watcher event = %+v, want message payload", otherDelivered)
 	}
-	otherNested, ok := otherPayload["payload"].(map[string]any)
+	otherNested, ok := otherPayload["raw"].(map[string]any)
 	if !ok || otherNested["marker"] != "other-conversation" {
-		t.Fatalf("other conversation watcher payload = %#v, want marker other-conversation", otherPayload["payload"])
+		t.Fatalf("other conversation watcher payload = %#v, want marker other-conversation", otherPayload["raw"])
 	}
 
 	overflowDelivered := false
@@ -2501,7 +2492,7 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 		if !ok {
 			continue
 		}
-		nested, ok := payload["payload"].(map[string]any)
+		nested, ok := payload["raw"].(map[string]any)
 		if ok && nested["marker"] == "after-blocked" {
 			overflowDelivered = true
 		}
@@ -2573,12 +2564,12 @@ func TestProjectConversationWatchProjectConversationsIsolatesByProjectAndUser(t 
 	}
 	requireNoProjectConversationMuxEvent(t, events)
 
-	if _, err := service.AppendActionExecutionResult(
+	if _, err := service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		firstConversation.ID,
 		nil,
-		map[string]any{"marker": "first-project"},
+		testTaskNotificationPayload("first-project"),
 	); err != nil {
 		t.Fatalf("append first action result: %v", err)
 	}
@@ -2587,21 +2578,21 @@ func TestProjectConversationWatchProjectConversationsIsolatesByProjectAndUser(t 
 		t.Fatalf("delivered mux event = %+v, want first conversation message", delivered)
 	}
 
-	if _, err := service.AppendActionExecutionResult(
+	if _, err := service.AppendSystemEntry(
 		ctx,
 		UserID("user:other"),
 		secondConversation.ID,
 		nil,
-		map[string]any{"marker": "wrong-user"},
+		testTaskNotificationPayload("wrong-user"),
 	); err != nil {
 		t.Fatalf("append second action result: %v", err)
 	}
-	if _, err := service.AppendActionExecutionResult(
+	if _, err := service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		thirdConversation.ID,
 		nil,
-		map[string]any{"marker": "wrong-project"},
+		testTaskNotificationPayload("wrong-project"),
 	); err != nil {
 		t.Fatalf("append third action result: %v", err)
 	}
@@ -2649,12 +2640,12 @@ func TestProjectConversationWatchProjectConversationsFansOutToAllWatchers(t *tes
 	requireProjectConversationMuxEvent(t, firstWatcher)
 	requireProjectConversationMuxEvent(t, secondWatcher)
 
-	if _, err := service.AppendActionExecutionResult(
+	if _, err := service.AppendSystemEntry(
 		ctx,
 		UserID("user:conversation"),
 		conversation.ID,
 		nil,
-		map[string]any{"marker": "mux-fanout"},
+		testTaskNotificationPayload("mux-fanout"),
 	); err != nil {
 		t.Fatalf("append action result: %v", err)
 	}
@@ -4454,6 +4445,15 @@ func requireNoProjectConversationStreamEvent(t *testing.T, events <-chan StreamE
 		}
 		t.Fatalf("expected no stream event, got %+v", event)
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func testTaskNotificationPayload(marker string) map[string]any {
+	return map[string]any{
+		"type": "task_notification",
+		"raw": map[string]any{
+			"marker": marker,
+		},
 	}
 }
 

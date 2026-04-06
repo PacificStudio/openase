@@ -77,7 +77,7 @@ func TestParseStartInputPreservesSkillEditorContext(t *testing.T) {
 	}
 }
 
-func TestMapClaudeEventLeavesProposalJSONAsText(t *testing.T) {
+func TestMapClaudeEventLeavesUnsupportedStructuredJSONAsText(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
 		Message: []byte("{\n" +
@@ -85,7 +85,7 @@ func TestMapClaudeEventLeavesProposalJSONAsText(t *testing.T) {
 			"  \"content\":[\n" +
 			"    {\n" +
 			"      \"type\":\"text\",\n" +
-			"      \"text\":\"```json\\n{\\\"type\\\":\\\"action_proposal\\\",\\\"summary\\\":\\\"Create 2 child tickets\\\",\\\"actions\\\":[{\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/api/v1/projects/p/tickets\\\",\\\"body\\\":{\\\"title\\\":\\\"Child\\\"}}]}\\n```\"\n" +
+			"      \"text\":\"```json\\n{\\\"type\\\":\\\"custom_structured_payload\\\",\\\"summary\\\":\\\"Create 2 child tickets\\\",\\\"items\\\":[{\\\"name\\\":\\\"Child\\\"}]}\\n```\"\n" +
 			"    }\n" +
 			"  ]\n" +
 			"}"),
@@ -96,21 +96,21 @@ func TestMapClaudeEventLeavesProposalJSONAsText(t *testing.T) {
 
 	payload, ok := events[0].Payload.(textPayload)
 	if !ok {
-		t.Fatalf("expected proposal JSON to remain plain text, got %#v", events[0].Payload)
+		t.Fatalf("expected unsupported JSON to remain plain text, got %#v", events[0].Payload)
 	}
-	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") ||
+	if !strings.Contains(payload.Content, "\"type\":\"custom_structured_payload\"") ||
 		!strings.Contains(payload.Content, "Create 2 child tickets") {
-		t.Fatalf("unexpected plain-text proposal payload: %#v", payload)
+		t.Fatalf("unexpected plain-text structured payload: %#v", payload)
 	}
 }
 
-func TestNormalizeAssistantTextLeavesActionProposalCodeFenceAsText(t *testing.T) {
-	events := normalizeAssistantText("```json \n {\"type\":\"action_proposal\",\"actions\":[]} \n```")
+func TestNormalizeAssistantTextLeavesUnsupportedStructuredCodeFenceAsText(t *testing.T) {
+	events := normalizeAssistantText("```json \n {\"type\":\"custom_structured_payload\",\"items\":[]} \n```")
 	if len(events) != 1 {
 		t.Fatalf("expected one text event, got %+v", events)
 	}
 	payload, ok := events[0].Payload.(textPayload)
-	if !ok || !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") {
+	if !ok || !strings.Contains(payload.Content, "\"type\":\"custom_structured_payload\"") {
 		t.Fatalf("unexpected payload: %#v", events[0].Payload)
 	}
 }
@@ -551,7 +551,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 		"- statuses:",
 		"Todo => 990e8400-e29b-41d4-a716-446655440000",
 		"Do not claim that you have already performed platform write operations.",
-		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.",
+		"Do not output proposal JSON.",
 		"Updated issue status",
 	) {
 		t.Fatalf("project sidebar prompt = %q", runtime.lastInput.SystemPrompt)
@@ -638,7 +638,7 @@ func TestBuildSystemPromptIncludesTicketDetailAndHookHistory(t *testing.T) {
 		"### Hook History",
 		"go test ./... failed in auth package",
 		"Do not claim that you have already performed platform write operations.",
-		"Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.",
+		"Do not output proposal JSON.",
 	) {
 		t.Fatalf("ticket detail prompt = %q", prompt)
 	}

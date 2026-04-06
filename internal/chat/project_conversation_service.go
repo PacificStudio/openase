@@ -714,7 +714,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 	return resolved, nil
 }
 
-func (s *ProjectConversationService) AppendActionExecutionResult(
+func (s *ProjectConversationService) AppendSystemEntry(
 	ctx context.Context,
 	userID UserID,
 	conversationID uuid.UUID,
@@ -725,17 +725,12 @@ func (s *ProjectConversationService) AppendActionExecutionResult(
 	if err != nil {
 		return domain.Entry{}, err
 	}
-	entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, domain.EntryKindActionResult, payload)
+	entryPayload := cloneMapAny(payload)
+	entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, domain.EntryKindSystem, entryPayload)
 	if err != nil {
 		return domain.Entry{}, err
 	}
-	s.broadcastConversationEvent(conversation, StreamEvent{
-		Event: "message",
-		Payload: map[string]any{
-			"type":    "action_result",
-			"payload": cloneMapAny(payload),
-		},
-	})
+	s.broadcastConversationEvent(conversation, StreamEvent{Event: "message", Payload: cloneMapAny(payload)})
 	return entry, nil
 }
 
@@ -2032,16 +2027,8 @@ func renderRecoveryLines(entries []domain.Entry, limit int) []string {
 			lines = append(lines, "user: "+strings.TrimSpace(stringValue(entry.Payload["content"])))
 		case domain.EntryKindAssistantTextDelta:
 			lines = append(lines, "assistant: "+strings.TrimSpace(stringValue(entry.Payload["content"])))
-		case domain.EntryKindActionProposal:
-			summary := strings.TrimSpace(stringValue(entry.Payload["summary"]))
-			if summary == "" {
-				summary = "legacy proposal"
-			}
-			lines = append(lines, "assistant: "+summary)
 		case domain.EntryKindInterrupt:
 			lines = append(lines, "system: turn paused for interrupt")
-		case domain.EntryKindActionResult:
-			lines = append(lines, "system: legacy proposal executed")
 		}
 	}
 	return lines

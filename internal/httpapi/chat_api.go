@@ -1,15 +1,12 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
@@ -859,129 +856,6 @@ func optionalConversationTime(value *time.Time) any {
 		return nil
 	}
 	return value.UTC().Format(time.RFC3339)
-}
-
-func (s *Server) executeActionProposalActions(_ context.Context, payload map[string]any, executedBy string) ([]map[string]any, error) {
-	rawActions, ok := payload["actions"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("action proposal actions must be an array")
-	}
-	results := make([]map[string]any, 0, len(rawActions))
-	for index, rawAction := range rawActions {
-		action, ok := rawAction.(map[string]any)
-		if !ok {
-			results = append(results, map[string]any{
-				"action_index": index,
-				"ok":           false,
-				"summary":      "action payload is invalid",
-			})
-			continue
-		}
-		method := strings.ToUpper(strings.TrimSpace(httpStringValue(action["method"])))
-		path := strings.TrimSpace(httpStringValue(action["path"]))
-		body, _ := action["body"].(map[string]any)
-		result := map[string]any{
-			"action_index": index,
-			"action":       action,
-		}
-		preparedBody, err := prepareProjectConversationActionBody(method, path, body, executedBy)
-		if err != nil {
-			result["ok"] = false
-			result["summary"] = err.Error()
-			results = append(results, result)
-			continue
-		}
-		status, responseBody, err := s.executeInternalAPIAction(method, path, preparedBody)
-		result["status_code"] = status
-		if responseBody != "" {
-			result["detail"] = responseBody
-		}
-		if err != nil || status < 200 || status >= 300 {
-			result["ok"] = false
-			result["summary"] = fmt.Sprintf("%s %s failed.", method, path)
-		} else {
-			result["ok"] = true
-			result["summary"] = fmt.Sprintf("%s %s succeeded.", method, path)
-		}
-		results = append(results, result)
-	}
-	return results, nil
-}
-
-func httpStringValue(value any) string {
-	typed, _ := value.(string)
-	return typed
-}
-
-func (s *Server) executeInternalAPIAction(method string, path string, body map[string]any) (int, string, error) {
-	var reader io.Reader
-	if body != nil {
-		encoded, err := json.Marshal(body)
-		if err != nil {
-			return 0, "", err
-		}
-		reader = bytes.NewReader(encoded)
-	}
-	req := httptest.NewRequest(method, path, reader)
-	if body != nil {
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	}
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, req)
-	return rec.Code, strings.TrimSpace(rec.Body.String()), nil
-}
-
-func projectConversationConfirmedActionActor(userID chatservice.UserID, conversationID uuid.UUID) string {
-	return fmt.Sprintf("user:%s via project-conversation:%s", strings.TrimSpace(string(userID)), conversationID.String())
-}
-
-func prepareProjectConversationActionBody(method string, path string, body map[string]any, executedBy string) (map[string]any, error) {
-	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
-	normalizedPath := strings.TrimSpace(path)
-	if normalizedMethod == "" || normalizedPath == "" {
-		return nil, fmt.Errorf("action proposal requires method and path")
-	}
-	prepared := cloneHTTPActionBody(body)
-	switch {
-	case normalizedMethod == http.MethodPost && projectConversationTicketCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationTicketPatchPath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationTicketCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationTicketCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationUpdateThreadCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateThreadPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationUpdateCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationWorkflowCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationWorkflowPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPut && projectConversationWorkflowHarnessUpdatePath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodGet:
-		return prepared, nil
-	default:
-		return nil, fmt.Errorf("%s %s is not allowed because its audit actor is not explicit for project conversation confirmation", normalizedMethod, normalizedPath)
-	}
-	return prepared, nil
-}
-
-func cloneHTTPActionBody(body map[string]any) map[string]any {
-	if len(body) == 0 {
-		return map[string]any{}
-	}
-	cloned := make(map[string]any, len(body))
-	for key, value := range body {
-		cloned[key] = value
-	}
-	return cloned
 }
 
 func projectConversationTicketCreatePath(path string) bool {

@@ -669,7 +669,7 @@ func (s *Service) buildSystemPrompt(
 ) (string, error) {
 	var sb strings.Builder
 	sb.WriteString("You are the embedded AI assistant for the OpenASE platform. You are helping the user understand or operate OpenASE, not replacing the orchestration engine to execute tickets.\n\n")
-	sb.WriteString("Answer using the context below. Do not claim that you have already performed platform write operations. When platform or repository actions are actually needed, use the skills, CLI, and tools available at runtime directly. Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.\n\n")
+	sb.WriteString("Answer using the context below. Do not claim that you have already performed platform write operations. When platform or repository actions are actually needed, use the skills, CLI, and tools available at runtime directly. Do not output proposal JSON.\n\n")
 
 	switch input.Source {
 	case SourceHarnessEditor:

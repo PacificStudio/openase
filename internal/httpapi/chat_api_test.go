@@ -84,70 +84,6 @@ func TestCurrentRequestChatUserIDAllowsHeaderFallbackWhenAuthDisabled(t *testing
 	}
 }
 
-func TestPrepareProjectConversationActionBodyInjectsExplicitAuditActor(t *testing.T) {
-	conversationID := uuid.MustParse("57cdcb4e-6e4c-4474-839a-4daa5abdd8d2")
-	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), conversationID)
-
-	tests := []struct {
-		name      string
-		method    string
-		path      string
-		body      map[string]any
-		fieldName string
-	}{
-		{
-			name:      "ticket create",
-			method:    http.MethodPost,
-			path:      "/api/v1/projects/" + uuid.NewString() + "/tickets",
-			body:      map[string]any{"title": "Follow up"},
-			fieldName: "created_by",
-		},
-		{
-			name:      "ticket comment patch",
-			method:    http.MethodPatch,
-			path:      "/api/v1/tickets/" + uuid.NewString() + "/comments/" + uuid.NewString(),
-			body:      map[string]any{"body": "Updated after confirmation"},
-			fieldName: "edited_by",
-		},
-		{
-			name:      "workflow harness update",
-			method:    http.MethodPut,
-			path:      "/api/v1/workflows/" + uuid.NewString() + "/harness",
-			body:      map[string]any{"content": "new harness"},
-			fieldName: "edited_by",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			prepared, err := prepareProjectConversationActionBody(tc.method, tc.path, tc.body, executedBy)
-			if err != nil {
-				t.Fatalf("prepareProjectConversationActionBody() error = %v", err)
-			}
-			if got := prepared[tc.fieldName]; got != executedBy {
-				t.Fatalf("prepareProjectConversationActionBody() %s = %#v, want %q", tc.fieldName, got, executedBy)
-			}
-		})
-	}
-}
-
-func TestPrepareProjectConversationActionBodyRejectsImplicitAuditRoutes(t *testing.T) {
-	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), uuid.New())
-
-	_, err := prepareProjectConversationActionBody(
-		http.MethodPost,
-		"/api/v1/projects/"+uuid.NewString()+"/repos",
-		map[string]any{"name": "repo"},
-		executedBy,
-	)
-	if err == nil {
-		t.Fatal("expected unsupported path to be rejected")
-	}
-	if !strings.Contains(err.Error(), "audit actor is not explicit") {
-		t.Fatalf("unexpected error = %v", err)
-	}
-}
-
 func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) {
 	projectConversationService := chatservice.NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
 	server := NewServer(
@@ -455,7 +391,7 @@ func TestChatRouteStreamsTicketDetailContext(t *testing.T) {
 		t.Fatalf("expected hook history in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
 	if !strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not claim that you have already performed platform write operations.") ||
-		!strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.") {
+		!strings.Contains(adapter.lastSpec.AppendSystemPrompt, "Do not output proposal JSON.") {
 		t.Fatalf("expected direct-execution instructions in system prompt, got %q", adapter.lastSpec.AppendSystemPrompt)
 	}
 	if !slicesContain(adapter.lastSpec.Environment, "ANTHROPIC_API_KEY=test-key") {
@@ -776,36 +712,36 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 		t.Fatalf("second session frame = %+v, want conversation %s", secondSession, secondConversation.ID)
 	}
 
-	if _, err := projectConversationService.AppendActionExecutionResult(
+	if _, err := projectConversationService.AppendSystemEntry(
 		ctx,
 		chatservice.UserID("user:conversation"),
 		firstConversation.ID,
 		nil,
-		map[string]any{"marker": "conversation-1"},
+		testTaskNotificationPayload("conversation-1"),
 	); err != nil {
 		t.Fatalf("append first action result: %v", err)
 	}
 
 	firstMessage := readProjectConversationSSEFrame(t, firstReader)
 	if firstMessage.Event != "message" ||
-		!strings.Contains(firstMessage.Data, "\"type\":\"action_result\"") ||
+		!strings.Contains(firstMessage.Data, "\"type\":\"task_notification\"") ||
 		!strings.Contains(firstMessage.Data, "\"marker\":\"conversation-1\"") {
 		t.Fatalf("first message frame = %+v", firstMessage)
 	}
 
-	if _, err := projectConversationService.AppendActionExecutionResult(
+	if _, err := projectConversationService.AppendSystemEntry(
 		ctx,
 		chatservice.UserID("user:conversation"),
 		secondConversation.ID,
 		nil,
-		map[string]any{"marker": "conversation-2"},
+		testTaskNotificationPayload("conversation-2"),
 	); err != nil {
 		t.Fatalf("append second action result: %v", err)
 	}
 
 	secondMessage := readProjectConversationSSEFrame(t, secondReader)
 	if secondMessage.Event != "message" ||
-		!strings.Contains(secondMessage.Data, "\"type\":\"action_result\"") ||
+		!strings.Contains(secondMessage.Data, "\"type\":\"task_notification\"") ||
 		!strings.Contains(secondMessage.Data, "\"marker\":\"conversation-2\"") {
 		t.Fatalf("second message frame = %+v", secondMessage)
 	}
@@ -914,12 +850,12 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 		t.Fatalf("expected one initial mux frame for second conversation, got %+v and %+v", firstSession, secondSession)
 	}
 
-	if _, err := projectConversationService.AppendActionExecutionResult(
+	if _, err := projectConversationService.AppendSystemEntry(
 		ctx,
 		chatservice.UserID("user:conversation"),
 		firstConversation.ID,
 		nil,
-		map[string]any{"marker": "conversation-1"},
+		testTaskNotificationPayload("conversation-1"),
 	); err != nil {
 		t.Fatalf("append first action result: %v", err)
 	}
@@ -930,12 +866,12 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 		t.Fatalf("first mux message frame = %+v", firstMessage)
 	}
 
-	if _, err := projectConversationService.AppendActionExecutionResult(
+	if _, err := projectConversationService.AppendSystemEntry(
 		ctx,
 		chatservice.UserID("user:conversation"),
 		secondConversation.ID,
 		nil,
-		map[string]any{"marker": "conversation-2"},
+		testTaskNotificationPayload("conversation-2"),
 	); err != nil {
 		t.Fatalf("append second action result: %v", err)
 	}
@@ -1328,6 +1264,15 @@ func readProjectConversationSSEFrame(t *testing.T, reader *bufio.Reader) project
 		}
 		frame.Data = strings.Join(dataLines, "\n")
 		return frame
+	}
+}
+
+func testTaskNotificationPayload(marker string) map[string]any {
+	return map[string]any{
+		"type": "task_notification",
+		"raw": map[string]any{
+			"marker": marker,
+		},
 	}
 }
 
