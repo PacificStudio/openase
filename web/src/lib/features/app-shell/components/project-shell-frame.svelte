@@ -138,7 +138,7 @@
       />
     </aside>
 
-    <main class={cn('flex min-w-0 flex-1 flex-col overflow-auto', resizing && 'select-none')}>
+    <main class={cn('flex min-w-0 flex-1 flex-col overflow-hidden', resizing && 'select-none')}>
       {@render children()}
     </main>
 
