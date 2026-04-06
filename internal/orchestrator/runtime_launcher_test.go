@@ -271,6 +271,12 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if err != nil {
 		t.Fatalf("resolve workspace path: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(workspacePath, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no workspace-root AGENTS.md for single-repo run, stat err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(workspacePath, "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no workspace-root CLAUDE.md for single-repo run, stat err=%v", err)
+	}
 	repoWorkspacePath := filepath.Join(
 		workspacePath,
 		"repo-"+strings.ReplaceAll(fixture.projectID.String(), "-", "")[:8],
@@ -491,6 +497,196 @@ workflow:
 	}
 	if !readyRuns[runOne.ID.String()] || !readyRuns[runTwo.ID.String()] {
 		t.Fatalf("expected ready activity metadata for runs %s and %s, got %+v", runOne.ID, runTwo.ID, readyRuns)
+	}
+}
+
+func TestRuntimeLauncherLaunchAgentGeneratesWorkspaceRootAGENTSHubForMultiRepoRuns(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	backendRepoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, backendRepoRoot)
+	writeInstructionHubFixture(t, filepath.Join(backendRepoRoot, "AGENTS.md"), "# backend agents\nUse backend repo.\n")
+	writeInstructionHubFixture(t, filepath.Join(backendRepoRoot, "docs", "CLAUDE.md"), "# backend claude\nExtra backend context.\n")
+	writeInstructionHubFixture(t, filepath.Join(backendRepoRoot, ".codex", "AGENTS.md"), "# ignored codex\n")
+	harnessPath := filepath.Join(backendRepoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := `---
+workflow:
+  role: coding
+---
+
+Launch from the workspace root for multi-repo runs.
+`
+	if err := os.WriteFile(harnessPath, []byte(harnessContent), 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, backendRepoRoot)
+
+	frontendRepoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, frontendRepoRoot)
+	writeInstructionHubFixture(t, filepath.Join(frontendRepoRoot, "CLAUDE.md"), "# frontend claude\nUse frontend repo.\n")
+	writeInstructionHubFixture(t, filepath.Join(frontendRepoRoot, ".claude", "CLAUDE.md"), "# ignored claude\n")
+	commitRuntimeLauncherRepo(t, frontendRepoRoot)
+
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL(backendRepoRoot).
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("repos/backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("frontend").
+		SetRepositoryURL(frontendRepoRoot).
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("repos/frontend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), backendRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, harnessContent)
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-401M").
+		SetTitle("Launch Codex with multi-repo instruction hub").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	for _, repo := range []*ent.ProjectRepo{backendRepo, frontendRepo} {
+		if _, err := client.TicketRepoScope.Create().
+			SetTicketID(ticketItem.ID).
+			SetRepoID(repo.ID).
+			SetBranchName("agent/ASE-401M").
+			SetPrStatus("none").
+			SetCiStatus("pending").
+			Save(ctx); err != nil {
+			t.Fatalf("create ticket repo scope for %s: %v", repo.Name, err)
+		}
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-multi-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetWorkspaceRoot("/srv/openase/workspaces").
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine workspace root: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if err := launcher.launchAgent(ctx, assignment); err != nil {
+		t.Fatalf("launchAgent() error = %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
+	}
+
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	if manager.capturedProcessSpec().WorkingDirectory == nil || manager.capturedProcessSpec().WorkingDirectory.String() != workspacePath {
+		t.Fatalf("expected multi-repo working directory %s, got %+v", workspacePath, manager.capturedProcessSpec().WorkingDirectory)
+	}
+
+	agentsHubPath := filepath.Join(workspacePath, "AGENTS.md")
+	// #nosec G304 -- test reads a generated workspace file under a temp home-backed workspace root.
+	rawHub, err := os.ReadFile(agentsHubPath)
+	if err != nil {
+		t.Fatalf("read workspace-root AGENTS hub: %v", err)
+	}
+	hub := string(rawHub)
+	for _, fragment := range []string{
+		generatedInstructionHubMarker,
+		"## Repo `repos/backend (backend)`",
+		"### Source `repos/backend/AGENTS.md`",
+		"# backend agents",
+		"### Source `repos/backend/docs/CLAUDE.md`",
+		"# backend claude",
+		"## Repo `repos/frontend (frontend)`",
+		"### Source `repos/frontend/CLAUDE.md`",
+		"# frontend claude",
+	} {
+		if !strings.Contains(hub, fragment) {
+			t.Fatalf("workspace-root AGENTS hub missing fragment %q in %q", fragment, hub)
+		}
+	}
+	if strings.Contains(hub, "# ignored codex") || strings.Contains(hub, "# ignored claude") {
+		t.Fatalf("workspace-root AGENTS hub should exclude pruned docs, got %q", hub)
+	}
+	if strings.Index(hub, "repos/backend/AGENTS.md") > strings.Index(hub, "repos/frontend/CLAUDE.md") {
+		t.Fatalf("workspace-root AGENTS hub repo ordering is not deterministic: %q", hub)
+	}
+	if _, err := os.Stat(filepath.Join(workspacePath, "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no workspace-root CLAUDE.md for codex multi-repo run, stat err=%v", err)
 	}
 }
 
@@ -3645,6 +3841,201 @@ func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithHooksAndArtifactSync
 	}
 	if string(rawHooks) != "claim\nstart\n" {
 		t.Fatalf("unexpected websocket hook log %q", string(rawHooks))
+	}
+}
+
+func TestRuntimeLauncherLaunchesWebsocketListenerRuntimeWithMultiRepoInstructionHub(t *testing.T) {
+	ctx := context.Background()
+	t.Setenv("HOME", t.TempDir())
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+	workspaceRoot := t.TempDir()
+	fakeOpenASEBinDir := t.TempDir()
+	writeRuntimeLauncherFakeOpenASEBinary(t, fakeOpenASEBinDir)
+
+	server := httptest.NewServer(machinetransport.NewWebsocketListenerHandler(machinetransport.ListenerHandlerOptions{}))
+	defer server.Close()
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Websocket Coding").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		SetMaxConcurrent(1).
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	backendRepoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, backendRepoRoot)
+	writeInstructionHubFixture(t, filepath.Join(backendRepoRoot, "AGENTS.md"), "# backend agents\nUse backend repo.\n")
+	writeInstructionHubFixture(t, filepath.Join(backendRepoRoot, ".openase", "CLAUDE.md"), "# ignored openase\n")
+	harnessPath := filepath.Join(backendRepoRoot, ".openase", "harnesses", "coding.md")
+	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
+		t.Fatalf("create harness dir: %v", err)
+	}
+	harnessContent := []byte("---\nworkflow:\n  role: coding\n---\n\nUse websocket listener runtime with multi-repo instruction hubs.\n")
+	if err := os.WriteFile(harnessPath, harnessContent, 0o600); err != nil {
+		t.Fatalf("write harness file: %v", err)
+	}
+	commitRuntimeLauncherRepo(t, backendRepoRoot)
+
+	frontendRepoRoot := t.TempDir()
+	initRuntimeLauncherRepo(t, frontendRepoRoot)
+	writeInstructionHubFixture(t, filepath.Join(frontendRepoRoot, "docs", "CLAUDE.md"), "# frontend claude\nUse frontend repo.\n")
+	writeInstructionHubFixture(t, filepath.Join(frontendRepoRoot, ".claude", "CLAUDE.md"), "# ignored claude\n")
+	commitRuntimeLauncherRepo(t, frontendRepoRoot)
+
+	backendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL(backendRepoRoot).
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("repos/backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create backend repo: %v", err)
+	}
+	frontendRepo, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("frontend").
+		SetRepositoryURL(frontendRepoRoot).
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("repos/frontend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create frontend repo: %v", err)
+	}
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), backendRepoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	publishRuntimeLauncherWorkflowVersionContent(ctx, t, client, workflowItem.ID, string(harnessContent))
+	t.Cleanup(func() {
+		if err := workflowSvc.Close(); err != nil {
+			t.Errorf("close workflow service: %v", err)
+		}
+	})
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-411M").
+		SetTitle("Launch websocket listener runtime with multi-repo instruction hub").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	for _, repo := range []*ent.ProjectRepo{backendRepo, frontendRepo} {
+		if _, err := client.TicketRepoScope.Create().
+			SetTicketID(ticketItem.ID).
+			SetRepoID(repo.ID).
+			SetBranchName("agent/ASE-411M").
+			SetPrStatus("none").
+			SetCiStatus("pending").
+			Save(ctx); err != nil {
+			t.Fatalf("create ticket repo scope for %s: %v", repo.Name, err)
+		}
+	}
+
+	if _, err := client.Machine.Create().
+		SetOrganizationID(fixture.orgID).
+		SetName("listener-multi-01").
+		SetHost("listener.multi.internal").
+		SetWorkspaceRoot(workspaceRoot).
+		SetAgentCliPath("/bin/sh").
+		SetConnectionMode(entmachine.ConnectionModeWsListener).
+		SetAdvertisedEndpoint(runtimeLauncherWebsocketURL(server.URL)).
+		SetStatus(entmachine.StatusOnline).
+		SetEnvVars([]string{
+			"PATH=" + fakeOpenASEBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+			"OPENASE_REAL_BIN=" + filepath.Join(fakeOpenASEBinDir, "openase"),
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("create listener machine: %v", err)
+	}
+	remoteMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ("listener-multi-01"),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load listener machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(remoteMachine.ID).
+		SetCliArgs([]string{"-lc", "printf websocket-multi"}).
+		Save(ctx); err != nil {
+		t.Fatalf("bind listener provider: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-ws-multi-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	adapter := &runtimeWebsocketLaunchAdapter{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, nil, workflowSvc)
+	launcher.adapters.adapters[entagentprovider.AdapterTypeCodexAppServer] = adapter
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	assignment, err := launcher.loadAssignmentByRun(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if err := launcher.launchAgent(ctx, assignment); err != nil {
+		t.Fatalf("launchAgent() error = %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
+	}
+	if adapter.stdout != "websocket-multi" {
+		t.Fatalf("adapter stdout = %q, want websocket-multi", adapter.stdout)
+	}
+
+	workspacePath := runtimeWorkspacePathForRun(ctx, t, launcher, agentItem.ID, ticketItem.ID)
+	// #nosec G304 -- test reads a generated workspace file under the websocket listener temp workspace root.
+	rawHub, err := os.ReadFile(filepath.Join(workspacePath, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("read websocket workspace-root AGENTS hub: %v", err)
+	}
+	hub := string(rawHub)
+	for _, fragment := range []string{
+		generatedInstructionHubMarker,
+		"repos/backend/AGENTS.md",
+		"# backend agents",
+		"repos/frontend/docs/CLAUDE.md",
+		"# frontend claude",
+	} {
+		if !strings.Contains(hub, fragment) {
+			t.Fatalf("websocket workspace-root AGENTS hub missing fragment %q in %q", fragment, hub)
+		}
+	}
+	if strings.Contains(hub, "# ignored openase") || strings.Contains(hub, "# ignored claude") {
+		t.Fatalf("websocket workspace-root AGENTS hub should exclude pruned docs, got %q", hub)
 	}
 }
 
