@@ -132,7 +132,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			checkRequired: true,
 		}, true
 	case "/api/v1/instance/users", "/api/v1/instance/users/:userId", "/api/v1/instance/users/:userId/status":
-		permission := humanauthdomain.PermissionSecurityManage
+		permission := humanauthdomain.PermissionSecurityUpdate
 		if method == http.MethodGet {
 			permission = humanauthdomain.PermissionSecurityRead
 		}

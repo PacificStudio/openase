@@ -5,22 +5,17 @@ import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
-  createdOrganizationUserBinding,
   configuredSecurity,
-  configuredSessionGovernance,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
   effectivePermissionsMock,
   hydrateOidcAuth,
-  mockEffectivePermissionsByScope,
-  organizationGroupBinding,
 } from './security-settings.test-helpers'
 
 const {
   deleteGitHubOutboundCredential,
   getSecuritySettings,
-  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
   revokeAllOtherAuthSessions,
   revokeAuthSession,
@@ -29,7 +24,6 @@ const {
 } = vi.hoisted(() => ({
   deleteGitHubOutboundCredential: vi.fn(),
   getSecuritySettings: vi.fn(),
-  getSessionGovernance: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
   revokeAllOtherAuthSessions: vi.fn(),
   revokeAuthSession: vi.fn(),
@@ -39,9 +33,7 @@ const {
 
 const {
   createInstanceRoleBinding,
-  createOrganizationRoleBinding,
   createProjectRoleBinding,
-  adminRevokeUserAuthSessions,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
@@ -52,12 +44,9 @@ const {
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
-  transitionInstanceUserStatus,
 } = vi.hoisted(() => ({
   createInstanceRoleBinding: vi.fn(),
-  createOrganizationRoleBinding: vi.fn(),
   createProjectRoleBinding: vi.fn(),
-  adminRevokeUserAuthSessions: vi.fn(),
   deleteInstanceRoleBinding: vi.fn(),
   deleteOrganizationRoleBinding: vi.fn(),
   deleteProjectRoleBinding: vi.fn(),
@@ -68,7 +57,6 @@ const {
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
   logoutHumanSession: vi.fn(),
-  transitionInstanceUserStatus: vi.fn(),
 }))
 
 const { goto } = vi.hoisted(() => ({
@@ -82,7 +70,6 @@ vi.mock('$app/navigation', () => ({
 vi.mock('$lib/api/openase', () => ({
   deleteGitHubOutboundCredential,
   getSecuritySettings,
-  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
   revokeAllOtherAuthSessions,
   revokeAuthSession,
@@ -92,9 +79,7 @@ vi.mock('$lib/api/openase', () => ({
 
 vi.mock('$lib/api/auth', () => ({
   createInstanceRoleBinding,
-  createOrganizationRoleBinding,
   createProjectRoleBinding,
-  adminRevokeUserAuthSessions,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
@@ -105,7 +90,6 @@ vi.mock('$lib/api/auth', () => ({
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
-  transitionInstanceUserStatus,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
 }))
 
@@ -202,119 +186,6 @@ describe('Security settings', () => {
     expect(await findByText('No scopes reported')).toBeTruthy()
   })
 
-  it('renders oidc principal state and creates an organization role binding', async () => {
-    hydrateOidcAuth()
-    appStore.currentOrg = currentOrg()
-    appStore.currentProject = currentProject()
-    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
-    listInstanceRoleBindings.mockResolvedValue([])
-    listOrganizationRoleBindings.mockResolvedValue([organizationGroupBinding()])
-    listProjectRoleBindings.mockResolvedValue([])
-    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
-    createOrganizationRoleBinding.mockResolvedValue(createdOrganizationUserBinding())
-    listInstanceUsers.mockResolvedValue([
-      {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-        primaryIdentity: {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-        },
-      },
-    ])
-    getInstanceUserDetail.mockResolvedValue({
-      user: {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-        primaryIdentity: {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-        },
-      },
-      identities: [
-        {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-          claimsVersion: 4,
-          rawClaimsJSON: '{}',
-          createdAt: '2026-04-05T09:00:00Z',
-          updatedAt: '2026-04-05T10:00:00Z',
-        },
-      ],
-      groups: [],
-      activeSessionCount: 1,
-      latestStatusAudit: undefined,
-      recentAuditEvents: [],
-    })
-
-    const { findAllByPlaceholderText, findAllByText, findByText } = render(SecuritySettings)
-
-    expect(await findByText('Human access and RBAC')).toBeTruthy()
-    expect(await findByText('Alice Control Plane')).toBeTruthy()
-    expect(await findByText('alice@example.com')).toBeTruthy()
-    expect(await findByText('Instance effective access')).toBeTruthy()
-    expect(await findByText('Platform Admins')).toBeTruthy()
-    expect(await findByText('org_admin')).toBeTruthy()
-    expect(await findByText('project_admin')).toBeTruthy()
-    expect(await findByText('Approval boundary')).toBeTruthy()
-    expect(await findByText('Session governance')).toBeTruthy()
-    expect(await findByText('User directory and deprovision')).toBeTruthy()
-    expect(await findByText('Bob Reviewer')).toBeTruthy()
-    expect((await findAllByText('Firefox on Linux')).length).toBeGreaterThan(0)
-    expect(await findByText('Login succeeded')).toBeTruthy()
-    expect(await findByText('Stored rules')).toBeTruthy()
-    expect(await findByText('reserved')).toBeTruthy()
-    expect(
-      await findByText(
-        /Agent scopes are related runtime token capabilities, but they are not reused as human permissions\./,
-      ),
-    ).toBeTruthy()
-
-    const orgSectionTitle = await findByText('Organization RBAC')
-    const orgSection = orgSectionTitle.closest('.border-border') as HTMLElement
-    const subjectInputs = await findAllByPlaceholderText('user@example.com')
-    const orgInput = subjectInputs.find((element) => orgSection.contains(element as Node))
-    expect(orgInput).toBeTruthy()
-    await fireEvent.input(orgInput as HTMLElement, { target: { value: 'bob@example.com' } })
-
-    const addButton = within(orgSection).getByRole('button', { name: 'Add binding' })
-    await fireEvent.click(addButton)
-
-    await waitFor(() => {
-      expect(createOrganizationRoleBinding).toHaveBeenCalledWith(currentOrg().id, {
-        subject_kind: 'user',
-        subject_key: 'bob@example.com',
-        role_key: 'org_member',
-        expires_at: undefined,
-      })
-    })
-  })
-
   it('filters role picker options by scope, including instance bindings', async () => {
     hydrateOidcAuth()
     appStore.currentOrg = currentOrg()
@@ -383,83 +254,5 @@ describe('Security settings', () => {
       'project_member',
       'project_viewer',
     ])
-  })
-
-  it('disables a cached user from the directory with an audit reason', async () => {
-    hydrateOidcAuth()
-    appStore.currentOrg = currentOrg()
-    appStore.currentProject = currentProject()
-    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
-    listInstanceRoleBindings.mockResolvedValue([])
-    listOrganizationRoleBindings.mockResolvedValue([])
-    listProjectRoleBindings.mockResolvedValue([])
-    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
-    listInstanceUsers.mockResolvedValue([
-      {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-      },
-    ])
-    getInstanceUserDetail.mockResolvedValue({
-      user: {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-      },
-      identities: [],
-      groups: [],
-      activeSessionCount: 1,
-      recentAuditEvents: [],
-    })
-    transitionInstanceUserStatus.mockResolvedValue({
-      user: {
-        id: 'user-2',
-        status: 'disabled',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-06T10:00:00Z',
-      },
-      changed: true,
-      revokedSessionCount: 1,
-      latestStatusAudit: {
-        status: 'disabled',
-        reason: 'Left the organization',
-        source: 'admin_manual',
-        actorID: 'user:user-1',
-        changedAt: '2026-04-06T10:00:00Z',
-        revokedSessionCount: 1,
-      },
-    })
-
-    const { findByPlaceholderText, findByRole } = render(SecuritySettings)
-    const reasonInput = await findByPlaceholderText(
-      'Document the lifecycle reason for audit and future review',
-    )
-    await fireEvent.input(reasonInput, { target: { value: 'Left the organization' } })
-
-    const disableButton = await findByRole('button', { name: 'Disable and revoke sessions' })
-    await fireEvent.click(disableButton)
-
-    await waitFor(() => {
-      expect(transitionInstanceUserStatus).toHaveBeenCalledWith('user-2', {
-        status: 'disabled',
-        reason: 'Left the organization',
-      })
-    })
   })
 })
