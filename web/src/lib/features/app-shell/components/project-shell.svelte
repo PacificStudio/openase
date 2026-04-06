@@ -11,6 +11,7 @@
   } from '$lib/features/project-events'
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { type AppRouteContext, type ProjectSection } from '$lib/stores/app-context'
   import type { Snippet } from 'svelte'
   import ProjectShellFrame from './project-shell-frame.svelte'
@@ -194,12 +195,19 @@
   })
 
   function handleOpenSearch() {
+    if (viewport.isMobile) {
+      appStore.closeMobileSidebar()
+      projectAssistantOpen = false
+    }
     searchOpen = true
   }
 
   function handleOpenProjectAssistant(initialPrompt = '') {
     projectAssistantPrompt = initialPrompt
     searchOpen = false
+    if (viewport.isMobile) {
+      appStore.closeMobileSidebar()
+    }
     projectAssistantOpen = true
   }
 
@@ -212,6 +220,10 @@
   )
 
   function handleNewTicket() {
+    if (viewport.isMobile) {
+      appStore.closeMobileSidebar()
+      projectAssistantOpen = false
+    }
     appStore.openNewTicketDialog()
   }
   function handleToggleTheme() {
