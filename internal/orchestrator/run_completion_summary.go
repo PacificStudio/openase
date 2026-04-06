@@ -167,6 +167,7 @@ func (c *runtimeCompletionSummaryCoordinator) reconcileRunCompletionSummaries(ct
 			entagentrun.StatusIn(
 				entagentrun.StatusCompleted,
 				entagentrun.StatusErrored,
+				entagentrun.StatusInterrupted,
 				entagentrun.StatusTerminated,
 			),
 		).

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
+  import { interruptAgent } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import ProjectConversationComposer from './project-conversation-composer.svelte'
@@ -11,6 +13,7 @@
     projectAIFocusKey,
     type ProjectAIFocus,
   } from './project-ai-focus'
+  import { deriveFocusInterruptTarget } from './project-conversation-panel-focus-action'
   import { getProjectConversationStatusMessage } from './project-conversation-panel-labels'
   import { applyEligibleInitialPrompt } from './project-conversation-panel-prompt'
   import { watchProjectConversationProviders } from './project-conversation-panel-provider-sync'
@@ -82,6 +85,7 @@
     effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
+  const focusInterruptTarget = $derived(deriveFocusInterruptTarget(focusForSend))
 
   $effect(() =>
     watchProjectConversationProviders({
@@ -115,7 +119,6 @@
     appliedInitialPromptSignature = ''
 
     let cancelled = false
-
     const restore = async () => {
       await controller.restore()
       if (!cancelled) {
@@ -200,7 +203,6 @@
     if (!message) {
       return
     }
-
     const nextFocus = suppressedFocusKey === effectiveFocusKey ? null : effectiveFocus
     if (controller.queuedTurns.length > 0 || controller.sendDisabled) {
       if (!controller.canQueueTurn || !controller.enqueueTurn(message, nextFocus)) {
@@ -214,6 +216,26 @@
     controller.setDraft('')
     await controller.sendTurn(message, nextFocus)
     suppressedFocusKey = ''
+  }
+
+  async function handleInterruptFocusedAgent() {
+    if (!focusInterruptTarget) {
+      return
+    }
+    const confirmed = window.confirm(
+      `Interrupt "${focusInterruptTarget.agentName}"? This stops the current agent run. Use Close Runtime separately if you want to stop Project AI itself.`,
+    )
+    if (!confirmed) {
+      return
+    }
+    try {
+      await interruptAgent(focusInterruptTarget.agentId)
+      toastStore.success(`Interrupt requested for "${focusInterruptTarget.agentName}".`)
+    } catch (error) {
+      toastStore.error(
+        error instanceof ApiError ? error.detail : 'Failed to interrupt the focused agent.',
+      )
+    }
   }
 </script>
 
@@ -231,7 +253,6 @@
     onOpenConversation={(conversationId) => void controller.openConversation(conversationId)}
     {onClose}
   />
-
   <ProjectConversationContent
     {tabs}
     {activeTabId}
@@ -247,13 +268,14 @@
     onCloseTab={controller.closeTab}
     onRespondInterrupt={controller.respondInterrupt}
   />
-
   <ProjectConversationComposer
     {loadingProviders}
     {providerError}
     providerCount={chatProviders.length}
     statusMessage={statusMessage ?? undefined}
     {focusCard}
+    focusActionLabel={focusInterruptTarget ? 'Interrupt Agent' : ''}
+    focusActionDisabled={!focusInterruptTarget}
     {queuedTurns}
     hasPendingInterrupt={controller.hasPendingInterrupt}
     {draft}
@@ -261,6 +283,7 @@
     {inputDisabled}
     {sendDisabled}
     {canQueueTurn}
+    onFocusAction={handleInterruptFocusedAgent}
     onDismissFocus={() => {
       suppressedFocusKey = effectiveFocusKey
     }}

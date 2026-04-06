@@ -607,6 +607,8 @@ func mapTicketRunStatus(status domain.AgentRunStatus) string {
 	switch status {
 	case domain.AgentRunStatusErrored:
 		return "failed"
+	case domain.AgentRunStatusInterrupted:
+		return "interrupted"
 	case domain.AgentRunStatusTerminated:
 		return "ended"
 	default:

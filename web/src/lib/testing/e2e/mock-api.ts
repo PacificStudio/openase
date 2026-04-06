@@ -696,6 +696,10 @@ async function handleAgentRoutes(request: Request, segments: string[]) {
     agent.runtime_control_state = 'paused'
     return jsonResponse({ agent: clone(agent) })
   }
+  if (segments[2] === 'interrupt' && request.method === 'POST') {
+    agent.runtime_control_state = 'interrupt_requested'
+    return jsonResponse({ agent: clone(agent) })
+  }
   if (segments[2] === 'resume' && request.method === 'POST') {
     agent.runtime_control_state = 'active'
     return jsonResponse({ agent: clone(agent) })

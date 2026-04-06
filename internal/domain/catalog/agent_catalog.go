@@ -361,6 +361,8 @@ func BuildAgentRuntimeSummary(currentRuns []AgentRun, controlState AgentRuntimeC
 	case AgentRunStatusErrored:
 		runtime.Status = AgentStatusFailed
 		runtime.RuntimePhase = AgentRuntimePhaseFailed
+	case AgentRunStatusInterrupted:
+		runtime.Status = AgentStatusInterrupted
 	case AgentRunStatusTerminated:
 		runtime.Status = AgentStatusTerminated
 		if controlState == AgentRuntimeControlStatePaused {
@@ -418,10 +420,12 @@ func agentRuntimeRepresentativePriority(status AgentRunStatus) int {
 		return 2
 	case AgentRunStatusErrored:
 		return 3
-	case AgentRunStatusTerminated:
+	case AgentRunStatusInterrupted:
 		return 4
-	default:
+	case AgentRunStatusTerminated:
 		return 5
+	default:
+		return 6
 	}
 }
 

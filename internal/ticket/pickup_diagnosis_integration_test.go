@@ -74,6 +74,34 @@ func TestGetPickupDiagnosisRetryPausedRepeatedStalls(t *testing.T) {
 	}
 }
 
+func TestGetPickupDiagnosisRetryPausedInterrupted(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := newTicketService(client)
+
+	ticketItem := createDiagnosisTicket(ctx, t, service, fixture)
+	if _, err := client.Ticket.UpdateOneID(ticketItem.ID).
+		SetRetryPaused(true).
+		SetPauseReason(ticketing.PauseReasonUserInterrupted.String()).
+		ClearNextRetryAt().
+		Save(ctx); err != nil {
+		t.Fatalf("pause interrupted retry: %v", err)
+	}
+
+	diagnosis, err := service.GetPickupDiagnosis(ctx, ticketItem.ID)
+	if err != nil {
+		t.Fatalf("GetPickupDiagnosis() error = %v", err)
+	}
+
+	if diagnosis.State != PickupDiagnosisStateBlocked || diagnosis.PrimaryReasonCode != PickupDiagnosisReasonRetryPausedInterrupted {
+		t.Fatalf("interrupted diagnosis = %+v", diagnosis)
+	}
+	if diagnosis.NextActionHint == "" {
+		t.Fatalf("expected interrupted retry hint, got %+v", diagnosis)
+	}
+}
+
 func TestGetPickupDiagnosisBlockedDependency(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)

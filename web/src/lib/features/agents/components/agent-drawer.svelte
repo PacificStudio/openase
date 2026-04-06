@@ -1,12 +1,24 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import { deleteAgent, pauseAgent, retireAgent, resumeAgent, updateAgent } from '$lib/api/openase'
+  import {
+    deleteAgent,
+    interruptAgent,
+    pauseAgent,
+    retireAgent,
+    resumeAgent,
+    updateAgent,
+  } from '$lib/api/openase'
   import type { AgentProvider } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import AgentDrawerContent from './agent-drawer-content.svelte'
   import AgentDrawerHeader from './agent-drawer-header.svelte'
-  import { canPauseAgent, canRetireAgent, canResumeAgent } from './agent-drawer-state'
+  import {
+    canInterruptAgent,
+    canPauseAgent,
+    canRetireAgent,
+    canResumeAgent,
+  } from './agent-drawer-state'
   import type { AgentInstance } from '../types'
 
   let {
@@ -117,6 +129,21 @@
     )
   }
 
+  async function handleInterrupt() {
+    if (!agent) return
+    const confirmed = window.confirm(
+      `Interrupt "${agent.name}"? This stops the current agent run and leaves the ticket waiting for manual retry.`,
+    )
+    if (!confirmed) return
+
+    await runAgentAction(
+      () => interruptAgent(agent.id),
+      `Interrupt requested for "${agent.name}".`,
+      'Failed to interrupt agent.',
+      () => onUpdated?.(),
+    )
+  }
+
   async function handleResume() {
     if (!agent) return
     await runAgentAction(
@@ -191,9 +218,11 @@
       <AgentDrawerContent
         {agent}
         {actionBusy}
+        canInterrupt={canInterruptAgent(agent)}
         canPause={canPauseAgent(agent)}
         canResume={canResumeAgent(agent)}
         canRetire={canRetireAgent(agent)}
+        onInterrupt={handleInterrupt}
         onPause={handlePause}
         onResume={handleResume}
         onRetire={handleRetire}

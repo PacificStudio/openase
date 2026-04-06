@@ -1,8 +1,8 @@
 import { ApiError } from '$lib/api/client'
-import { createAgent, pauseAgent, resumeAgent } from '$lib/api/openase'
+import { createAgent, interruptAgent, pauseAgent, resumeAgent } from '$lib/api/openase'
 import { loadAgentsPageData, type AgentsPageData } from './data'
 
-export type RuntimeAction = 'pause' | 'resume'
+export type RuntimeAction = 'interrupt' | 'pause' | 'resume'
 
 export async function runRuntimeAction(input: {
   action: RuntimeAction
@@ -12,8 +12,13 @@ export async function runRuntimeAction(input: {
   defaultProviderId: string | null
 }): Promise<{ data: AgentsPageData; feedback: string }> {
   const payload =
-    input.action === 'pause' ? await pauseAgent(input.agentId) : await resumeAgent(input.agentId)
-  const verb = input.action === 'pause' ? 'Pause' : 'Resume'
+    input.action === 'interrupt'
+      ? await interruptAgent(input.agentId)
+      : input.action === 'pause'
+        ? await pauseAgent(input.agentId)
+        : await resumeAgent(input.agentId)
+  const verb =
+    input.action === 'interrupt' ? 'Interrupt' : input.action === 'pause' ? 'Pause' : 'Resume'
 
   return {
     data: await loadAgentsPageData(input.projectId, input.orgId, input.defaultProviderId),

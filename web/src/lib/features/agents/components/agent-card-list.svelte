@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import * as Tooltip from '$ui/tooltip'
   import {
+    Hand,
     Pause,
     Play,
     ChevronDown,
@@ -22,6 +23,7 @@
     runtimeActionAgentId = null,
     onSelectAgent,
     onSelectTicket,
+    onInterruptAgent,
     onPauseAgent,
     onResumeAgent,
   }: {
@@ -30,6 +32,7 @@
     runtimeActionAgentId?: string | null
     onSelectAgent?: (agentId: string) => void
     onSelectTicket?: (ticketId: string) => void
+    onInterruptAgent?: (agentId: string) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
   } = $props()
@@ -59,6 +62,7 @@
     running: 'text-blue-500',
     paused: 'text-orange-500',
     failed: 'text-red-500',
+    interrupted: 'text-rose-500',
     terminated: 'text-slate-500',
   }
 
@@ -68,6 +72,7 @@
     running: 'Running',
     paused: 'Paused',
     failed: 'Failed',
+    interrupted: 'Interrupted',
     terminated: 'Terminated',
   }
 
@@ -77,7 +82,16 @@
     executing: 'bg-blue-500',
     completed: 'bg-emerald-500',
     errored: 'bg-red-500',
+    interrupted: 'bg-rose-500',
     terminated: 'bg-slate-500',
+  }
+
+  function canInterrupt(agent: AgentInstance) {
+    return (
+      agent.runtimeControlState === 'active' &&
+      agent.activeRunCount > 0 &&
+      (agent.status === 'claimed' || agent.status === 'running')
+    )
   }
 
   function canPause(agent: AgentInstance) {
@@ -120,7 +134,6 @@
       {@const hasRuns = runs.length > 0}
 
       <div class="border-border/60 bg-card/60 rounded-xl border">
-        <!-- Collapsed row -->
         <div class="flex items-center gap-3 px-4 py-2.5">
           <button
             type="button"
@@ -162,16 +175,20 @@
                 'inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap',
                 agent.runtimeControlState === 'pause_requested'
                   ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300'
-                  : agent.runtimeControlState === 'retired'
-                    ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
-                    : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
+                  : agent.runtimeControlState === 'interrupt_requested'
+                    ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                    : agent.runtimeControlState === 'retired'
+                      ? 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300'
+                      : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
               )}
             >
-              {agent.runtimeControlState === 'pause_requested'
-                ? 'Pause Requested'
-                : agent.runtimeControlState === 'retired'
-                  ? 'Retired'
-                  : 'Paused'}
+              {agent.runtimeControlState === 'interrupt_requested'
+                ? 'Interrupt Requested'
+                : agent.runtimeControlState === 'pause_requested'
+                  ? 'Pause Requested'
+                  : agent.runtimeControlState === 'retired'
+                    ? 'Retired'
+                    : 'Paused'}
             </span>
           {/if}
 
@@ -192,6 +209,16 @@
               onclick={() => onSelectAgent?.(agent.id)}
             >
               <Pencil class="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label="Interrupt agent"
+              disabled={!canInterrupt(agent) || runtimeActionAgentId === agent.id}
+              title="Interrupt this agent run"
+              onclick={() => onInterruptAgent?.(agent.id)}
+            >
+              <Hand class="size-3.5" />
             </Button>
             {#if agent.runtimeControlState === 'paused'}
               <Button
@@ -219,7 +246,6 @@
           </div>
         </div>
 
-        <!-- Expanded: active runs -->
         {#if expanded && hasRuns}
           <div class="border-border border-t px-4 py-2">
             <div class="space-y-1.5">

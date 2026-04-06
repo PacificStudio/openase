@@ -213,6 +213,9 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusErrored}}, AgentRuntimeControlStateActive); got.Status != AgentStatusFailed {
 		t.Fatalf("BuildAgentRuntimeSummary() errored status = %q, want failed", got.Status)
 	}
+	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusInterrupted}}, AgentRuntimeControlStateActive); got.Status != AgentStatusInterrupted {
+		t.Fatalf("BuildAgentRuntimeSummary() interrupted status = %q, want interrupted", got.Status)
+	}
 	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusCompleted}}, AgentRuntimeControlStateActive); got.Status != DefaultAgentStatus {
 		t.Fatalf("BuildAgentRuntimeSummary() completed status = %q, want idle", got.Status)
 	}
@@ -294,8 +297,8 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	) {
 		t.Fatal("preferAgentRuntimeRepresentative(equal) expected false")
 	}
-	if got := agentRuntimeRepresentativePriority(AgentRunStatusCompleted); got != 5 {
-		t.Fatalf("agentRuntimeRepresentativePriority(completed) = %d, want 5", got)
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusCompleted); got != 6 {
+		t.Fatalf("agentRuntimeRepresentativePriority(completed) = %d, want 6", got)
 	}
 	if got := agentRuntimeRepresentativePriority(AgentRunStatusReady); got != 1 {
 		t.Fatalf("agentRuntimeRepresentativePriority(ready) = %d, want 1", got)
@@ -306,8 +309,11 @@ func TestCatalogAgentParsersAndRuntimeHelpers(t *testing.T) {
 	if got := agentRuntimeRepresentativePriority(AgentRunStatusErrored); got != 3 {
 		t.Fatalf("agentRuntimeRepresentativePriority(errored) = %d, want 3", got)
 	}
-	if got := agentRuntimeRepresentativePriority(AgentRunStatusTerminated); got != 4 {
-		t.Fatalf("agentRuntimeRepresentativePriority(terminated) = %d, want 4", got)
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusInterrupted); got != 4 {
+		t.Fatalf("agentRuntimeRepresentativePriority(interrupted) = %d, want 4", got)
+	}
+	if got := agentRuntimeRepresentativePriority(AgentRunStatusTerminated); got != 5 {
+		t.Fatalf("agentRuntimeRepresentativePriority(terminated) = %d, want 5", got)
 	}
 	if got := BuildAgentRuntimeSummary([]AgentRun{{Status: AgentRunStatusTerminated}}, AgentRuntimeControlStateActive); got.Status != AgentStatusTerminated {
 		t.Fatalf("BuildAgentRuntimeSummary(terminated active) = %q, want terminated", got.Status)
@@ -1810,17 +1816,42 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 	if err != nil || state != AgentRuntimeControlStatePauseRequested {
 		t.Fatalf("ResolvePauseRuntimeControlState() = %q, %v; want pause_requested, nil", state, err)
 	}
+	state, err = ResolveInterruptRuntimeControlState(activeAgent)
+	if err != nil || state != AgentRuntimeControlStateInterruptRequested {
+		t.Fatalf("ResolveInterruptRuntimeControlState() = %q, %v; want interrupt_requested, nil", state, err)
+	}
 	if _, err := ResolvePauseRuntimeControlState(Agent{}); err == nil {
 		t.Fatal("ResolvePauseRuntimeControlState() expected missing run validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected missing run validation error")
 	}
 	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePauseRequested, Runtime: activeAgent.Runtime}); err == nil {
 		t.Fatal("ResolvePauseRuntimeControlState() expected in-progress validation error")
 	}
+	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateInterruptRequested, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolvePauseRuntimeControlState() expected interrupt-in-progress validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateInterruptRequested, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected in-progress validation error")
+	}
 	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePaused, Runtime: activeAgent.Runtime}); err == nil {
 		t.Fatal("ResolvePauseRuntimeControlState() expected paused validation error")
 	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePauseRequested, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected pause-in-progress validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePaused, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected paused validation error")
+	}
 	if _, err := ResolvePauseRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateActive, Runtime: &AgentRuntime{CurrentRunID: &activeRunID, CurrentTicketID: &activeTicketID, Status: AgentStatusIdle}}); err == nil {
 		t.Fatal("ResolvePauseRuntimeControlState() expected status validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateActive, Runtime: &AgentRuntime{CurrentRunID: &activeRunID, CurrentTicketID: &activeTicketID, Status: AgentStatusIdle}}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected status validation error")
+	}
+	if _, err := ResolveInterruptRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateRetired, Runtime: activeAgent.Runtime}); err == nil {
+		t.Fatal("ResolveInterruptRuntimeControlState() expected retired validation error")
 	}
 
 	pausedAgent := Agent{
@@ -1841,6 +1872,9 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 	if _, err := ResolveResumeRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePauseRequested, Runtime: pausedAgent.Runtime}); err == nil {
 		t.Fatal("ResolveResumeRuntimeControlState() expected still pausing validation error")
 	}
+	if _, err := ResolveResumeRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStateInterruptRequested, Runtime: pausedAgent.Runtime}); err == nil {
+		t.Fatal("ResolveResumeRuntimeControlState() expected still interrupting validation error")
+	}
 	if _, err := ResolveResumeRuntimeControlState(Agent{RuntimeControlState: AgentRuntimeControlStatePaused, Runtime: &AgentRuntime{CurrentRunID: &activeRunID, CurrentTicketID: &activeTicketID, Status: AgentStatusIdle}}); err == nil {
 		t.Fatal("ResolveResumeRuntimeControlState() expected status validation error")
 	}
@@ -1859,10 +1893,10 @@ func TestCatalogRuntimeControlAndEnumHelpers(t *testing.T) {
 		{"machine", MachineStatusOffline, MachineStatusOffline.IsValid, "offline"},
 		{"provider_capability", AgentProviderCapabilityStateUnsupported, AgentProviderCapabilityStateUnsupported.IsValid, "unsupported"},
 		{"adapter", AgentProviderAdapterTypeCustom, AgentProviderAdapterTypeCustom.IsValid, "custom"},
-		{"agent_status", AgentStatusPaused, AgentStatusPaused.IsValid, "paused"},
+		{"agent_status", AgentStatusInterrupted, AgentStatusInterrupted.IsValid, "interrupted"},
 		{"runtime_phase", AgentRuntimePhaseFailed, AgentRuntimePhaseFailed.IsValid, "failed"},
-		{"run_status", AgentRunStatusCompleted, AgentRunStatusCompleted.IsValid, "completed"},
-		{"runtime_control", AgentRuntimeControlStatePaused, AgentRuntimeControlStatePaused.IsValid, "paused"},
+		{"run_status", AgentRunStatusInterrupted, AgentRunStatusInterrupted.IsValid, "interrupted"},
+		{"runtime_control", AgentRuntimeControlStateInterruptRequested, AgentRuntimeControlStateInterruptRequested.IsValid, "interrupt_requested"},
 	}
 	for _, check := range validityChecks {
 		if !check.isValid() || check.stringer.String() != check.wantValue {

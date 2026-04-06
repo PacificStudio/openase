@@ -725,6 +725,33 @@ func TestPauseAndResumeAgentRoutes(t *testing.T) {
 		},
 	}
 
+	interruptRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/interrupt", "")
+	if interruptRec.Code != http.StatusOK {
+		t.Fatalf("expected interrupt route 200, got %d: %s", interruptRec.Code, interruptRec.Body.String())
+	}
+
+	var interruptPayload struct {
+		Agent agentResponse `json:"agent"`
+	}
+	decodeResponse(t, interruptRec, &interruptPayload)
+	if interruptPayload.Agent.RuntimeControlState != "interrupt_requested" {
+		t.Fatalf("expected interrupt_requested control state, got %+v", interruptPayload.Agent)
+	}
+
+	service.agents[agentID] = domain.Agent{
+		ID:                  agentID,
+		ProviderID:          providerID,
+		ProjectID:           projectID,
+		Name:                "worker-1",
+		RuntimeControlState: domain.AgentRuntimeControlStateActive,
+		Runtime: &domain.AgentRuntime{
+			CurrentRunID:    &runID,
+			Status:          domain.AgentStatusRunning,
+			CurrentTicketID: &ticketID,
+			RuntimePhase:    domain.AgentRuntimePhaseReady,
+		},
+	}
+
 	pauseRec := performJSONRequest(t, server, http.MethodPost, "/api/v1/agents/"+agentID.String()+"/pause", "")
 	if pauseRec.Code != http.StatusOK {
 		t.Fatalf("expected pause route 200, got %d: %s", pauseRec.Code, pauseRec.Body.String())
@@ -844,6 +871,9 @@ func TestPauseAndResumeAgentRouteErrors(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
+		{name: "interrupt invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/interrupt", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
+		{name: "interrupt missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/interrupt", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
+		{name: "interrupt conflict", method: http.MethodPost, path: "/api/v1/agents/" + pausedAgentID.String() + "/interrupt", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
 		{name: "pause invalid id", method: http.MethodPost, path: "/api/v1/agents/not-a-uuid/pause", wantStatus: http.StatusBadRequest, wantBody: "agentId must be a valid UUID"},
 		{name: "pause missing agent", method: http.MethodPost, path: "/api/v1/agents/" + uuid.NewString() + "/pause", wantStatus: http.StatusNotFound, wantBody: "resource not found"},
 		{name: "pause conflict", method: http.MethodPost, path: "/api/v1/agents/" + pausedAgentID.String() + "/pause", wantStatus: http.StatusConflict, wantBody: "AGENT_RUNTIME_CONTROL_CONFLICT"},
@@ -1536,6 +1566,22 @@ func (f *fakeCatalogService) RequestAgentPause(_ context.Context, id uuid.UUID) 
 	}
 
 	nextState, err := domain.ResolvePauseRuntimeControlState(item)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", catalogservice.ErrConflict, err)
+	}
+
+	item.RuntimeControlState = nextState
+	f.agents[id] = item
+	return item, nil
+}
+
+func (f *fakeCatalogService) RequestAgentInterrupt(_ context.Context, id uuid.UUID) (domain.Agent, error) {
+	item, ok := f.agents[id]
+	if !ok {
+		return domain.Agent{}, catalogservice.ErrNotFound
+	}
+
+	nextState, err := domain.ResolveInterruptRuntimeControlState(item)
 	if err != nil {
 		return domain.Agent{}, fmt.Errorf("%w: %v", catalogservice.ErrConflict, err)
 	}

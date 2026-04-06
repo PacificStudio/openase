@@ -319,6 +319,7 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 	t.Run("scope helpers and parser failures", func(t *testing.T) {
 		gotSupported := SupportedScopes()
 		wantSupported := []string{
+			string(ScopeAgentsInterrupt),
 			string(ScopeActivityRead),
 			string(ScopeProjectsAddRepo),
 			string(ScopeProjectsUpdate),
@@ -391,6 +392,9 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 		}
 		if gotGroups[0].Category != "activity" || !slices.Equal(gotGroups[0].Scopes, []string{string(ScopeActivityRead)}) {
 			t.Fatalf("SupportedScopeGroups()[0] = %+v", gotGroups[0])
+		}
+		if !slices.Contains(gotGroups[1].Scopes, string(ScopeAgentsInterrupt)) {
+			t.Fatalf("SupportedScopeGroups()[1] = %+v", gotGroups[1])
 		}
 		lastGroup := gotGroups[len(gotGroups)-1]
 		if lastGroup.Category != "workflows" || !slices.Contains(lastGroup.Scopes, string(ScopeWorkflowsHarnessVariablesRead)) {

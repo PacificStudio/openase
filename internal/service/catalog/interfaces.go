@@ -68,6 +68,7 @@ type AgentService interface {
 	CreateAgent(ctx context.Context, input domain.CreateAgent) (domain.Agent, error)
 	GetAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	UpdateAgent(ctx context.Context, input domain.UpdateAgent) (domain.Agent, error)
+	RequestAgentInterrupt(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	RequestAgentResume(ctx context.Context, id uuid.UUID) (domain.Agent, error)
 	RetireAgent(ctx context.Context, id uuid.UUID) (domain.Agent, error)
