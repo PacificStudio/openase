@@ -103,36 +103,22 @@ function seedProjectConversationTabsStorage(
   )
 }
 
-function mockLiveMuxStream() {
-  let handlers:
-    | {
-        signal?: AbortSignal
-        onOpen?: () => void
-        onFrame: (frame: {
-          conversationId: string
-          sentAt: string
-          event: { kind: string; payload: Record<string, unknown> }
-        }) => void
-      }
-    | undefined
-
-  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
-    handlers = nextHandlers
-    nextHandlers.onOpen?.()
+function mockLiveMuxStream(
+  onFrame?: (handlers: {
+    onFrame: (frame: {
+      conversationId: string
+      sentAt: string
+      event: { kind: string; payload: Record<string, unknown> }
+    }) => void
+  }) => void,
+) {
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, handlers) => {
+    handlers.onOpen?.()
+    onFrame?.(handlers)
     await new Promise<void>((resolve) => {
-      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+      handlers.signal?.addEventListener('abort', () => resolve(), { once: true })
     })
   })
-
-  return {
-    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
-      handlers?.onFrame({
-        conversationId,
-        sentAt: '2026-04-01T10:00:00Z',
-        event,
-      })
-    },
-  }
 }
 
 describe('createProjectConversationController restore flows', () => {
@@ -142,7 +128,13 @@ describe('createProjectConversationController restore flows', () => {
   })
 
   it('refreshes workspace diff on turn completion and preserves it after runtime reset', async () => {
-    const mux = mockLiveMuxStream()
+    const streamHandlers: Array<{
+      onFrame: (frame: {
+        conversationId: string
+        sentAt: string
+        event: { kind: string; payload: Record<string, unknown> }
+      }) => void
+    }> = []
 
     createProjectConversation.mockResolvedValue({
       conversation: { id: 'conversation-1' },
@@ -150,6 +142,9 @@ describe('createProjectConversationController restore flows', () => {
     getProjectConversationWorkspaceDiff
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    mockLiveMuxStream((handlers) => {
+      streamHandlers.push(handlers)
+    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -162,22 +157,30 @@ describe('createProjectConversationController restore flows', () => {
     controller.syncProviders(providerFixtures, 'provider-1')
 
     await controller.sendTurn('Race test')
-    mux.emit('conversation-1', {
-      kind: 'turn_done',
-      payload: {
-        conversationId: 'conversation-1',
-        turnId: 'turn-1',
+    streamHandlers[0]?.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-01T10:05:00Z',
+      event: {
+        kind: 'turn_done',
+        payload: {
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+        },
       },
     })
     await Promise.resolve()
 
     await controller.resetConversation()
 
-    mux.emit('conversation-1', {
-      kind: 'message',
-      payload: {
-        type: 'text',
-        content: 'late assistant reply',
+    streamHandlers[0]?.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-01T10:06:00Z',
+      event: {
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: 'late assistant reply',
+        },
       },
     })
 
@@ -193,10 +196,11 @@ describe('createProjectConversationController restore flows', () => {
       controller.entries.some(
         (entry) => entry.kind === 'text' && entry.content === 'late assistant reply',
       ),
-    ).toBe(true)
+    ).toBe(false)
     expect(controller.workspaceDiff?.dirty).toBe(true)
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
-    await controller.dispose()
+
+    controller.dispose()
   })
 
   it('switches conversations, reloads the matching transcript, and continues the selected session', async () => {
@@ -250,6 +254,7 @@ describe('createProjectConversationController restore flows', () => {
               },
             ],
     }))
+    mockLiveMuxStream()
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-3', turn_index: 2, status: 'started' },
     })
@@ -259,7 +264,6 @@ describe('createProjectConversationController restore flows', () => {
       getProjectId: () => 'project-1',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
-    mockLiveMuxStream()
 
     await controller.restore()
 
@@ -274,6 +278,13 @@ describe('createProjectConversationController restore flows', () => {
 
     expect(controller.conversationId).toBe('conversation-2')
     expect(listProjectConversationEntries).toHaveBeenLastCalledWith('conversation-2')
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onFrame: expect.any(Function),
+      }),
+    )
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
     ])
@@ -296,7 +307,8 @@ describe('createProjectConversationController restore flows', () => {
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
       { kind: 'text', role: 'user', content: 'Follow up on the older plan' },
     ])
-    await controller.dispose()
+
+    controller.dispose()
   })
 
   it('does not stay in restoring when workspace diff loading hangs', async () => {
@@ -355,6 +367,7 @@ describe('createProjectConversationController restore flows', () => {
     expect(controller.workspaceDiffLoading).toBe(true)
 
     expect(resolveWorkspaceDiff).not.toBeNull()
-    await controller.dispose()
+
+    controller.dispose()
   })
 })

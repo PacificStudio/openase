@@ -102,36 +102,22 @@ function seedProjectConversationTabsStorage(
   )
 }
 
-function mockLiveMuxStream() {
-  let handlers:
-    | {
-        signal?: AbortSignal
-        onOpen?: () => void
-        onFrame: (frame: {
-          conversationId: string
-          sentAt: string
-          event: { kind: string; payload: Record<string, unknown> }
-        }) => void
-      }
-    | undefined
-
-  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
-    handlers = nextHandlers
-    nextHandlers.onOpen?.()
+function mockLiveMuxStream(
+  onFrame?: (handlers: {
+    onFrame: (frame: {
+      conversationId: string
+      sentAt: string
+      event: { kind: string; payload: Record<string, unknown> }
+    }) => void
+  }) => void,
+) {
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, handlers) => {
+    handlers.onOpen?.()
+    onFrame?.(handlers)
     await new Promise<void>((resolve) => {
-      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+      handlers.signal?.addEventListener('abort', () => resolve(), { once: true })
     })
   })
-
-  return {
-    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
-      handlers?.onFrame({
-        conversationId,
-        sentAt: '2026-04-01T10:00:00Z',
-        event,
-      })
-    },
-  }
 }
 
 describe('createProjectConversationController restore live flows', () => {
@@ -182,7 +168,8 @@ describe('createProjectConversationController restore live flows', () => {
     expect(controller.tabs).toHaveLength(1)
     expect(controller.tabs[0]?.restored).toBe(true)
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledWith('conversation-1')
-    await controller.dispose()
+
+    controller.dispose()
   })
 
   it('appends live assistant text to a restored conversation controller state', async () => {
@@ -190,7 +177,16 @@ describe('createProjectConversationController restore live flows', () => {
       [{ conversationId: 'conversation-1', providerId: 'provider-1' }],
       0,
     )
-    const mux = mockLiveMuxStream()
+
+    let streamHandlers:
+      | {
+          onFrame: (frame: {
+            conversationId: string
+            sentAt: string
+            event: { kind: string; payload: Record<string, unknown> }
+          }) => void
+        }
+      | undefined
 
     listProjectConversations.mockResolvedValue({
       conversations: [
@@ -216,6 +212,9 @@ describe('createProjectConversationController restore live flows', () => {
         },
       ],
     })
+    mockLiveMuxStream((handlers) => {
+      streamHandlers = handlers
+    })
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -225,11 +224,15 @@ describe('createProjectConversationController restore live flows', () => {
 
     await controller.restore()
 
-    mux.emit('conversation-1', {
-      kind: 'message',
-      payload: {
-        type: 'text',
-        content: 'First streamed reply chunk.',
+    streamHandlers?.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-01T10:05:00Z',
+      event: {
+        kind: 'message',
+        payload: {
+          type: 'text',
+          content: 'First streamed reply chunk.',
+        },
       },
     })
 
@@ -241,6 +244,7 @@ describe('createProjectConversationController restore live flows', () => {
           entry.content === 'First streamed reply chunk.',
       ),
     ).toBe(true)
-    await controller.dispose()
+
+    controller.dispose()
   })
 })

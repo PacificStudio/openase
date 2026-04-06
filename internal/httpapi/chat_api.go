@@ -14,6 +14,7 @@ import (
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
+	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
@@ -196,7 +197,7 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -330,6 +331,19 @@ func optionalChatSessionIDString(value *chatservice.SessionID) string {
 	return value.String()
 }
 
+func (s *Server) currentProjectConversationUserID(c echo.Context) (chatservice.UserID, error) {
+	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
+		return chatservice.ParseUserID(actor)
+	}
+	if s != nil && s.auth.Mode == config.AuthModeOIDC {
+		return "", humanauthservice.ErrUnauthorized
+	}
+	// Auth-disabled mode is a local-instance fallback, so persistent project
+	// conversations use one stable server-defined principal instead of a
+	// browser-local random identifier.
+	return chatservice.LocalProjectConversationUserID, nil
+}
+
 func writeChatUserError(c echo.Context, err error) error {
 	if errors.Is(err, humanauthservice.ErrUnauthorized) {
 		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
@@ -402,7 +416,7 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionTicketComment); err != nil {
 		return err
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -435,7 +449,7 @@ func (s *Server) handleListProjectConversations(c echo.Context) error {
 	); err != nil {
 		return err
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -464,7 +478,7 @@ func (s *Server) handleGetProjectConversation(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -483,7 +497,7 @@ func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -502,7 +516,7 @@ func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -521,7 +535,7 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -562,11 +576,22 @@ func (s *Server) handleProjectConversationStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
 
 	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
 	defer cancel()
 
-	events, cleanup := s.projectConversationService.WatchConversation(streamCtx, conversationID)
+	events, cleanup, err := s.projectConversationService.WatchConversation(
+		streamCtx,
+		userID,
+		conversationID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
 	defer cleanup()
 
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
@@ -617,7 +642,7 @@ func (s *Server) handleRespondProjectConversationInterrupt(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_INTERRUPT_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -647,7 +672,7 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestAIPrincipal(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
