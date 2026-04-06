@@ -9,6 +9,7 @@ vi.mock('./sse', () => ({
 }))
 
 import {
+  closeProjectConversationRuntime,
   createProjectConversation,
   getProjectConversation,
   listProjectConversationEntries,
@@ -444,6 +445,26 @@ describe('watchProjectConversation', () => {
       },
     ])
   })
+
+  it('does not send browser-local chat user headers for the direct project conversation stream', async () => {
+    consumeEventStream.mockImplementation(async () => {})
+
+    await watchProjectConversation('conversation-1', {
+      onEvent: () => {},
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/chat/conversations/conversation-1/stream',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          accept: 'text/event-stream',
+        }),
+      }),
+    )
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+  })
 })
 
 describe('project conversation REST mapping', () => {
@@ -605,7 +626,7 @@ describe('project conversation REST mapping', () => {
     })
   })
 
-  it('relies on server-defined principals when responding to project conversation interrupts', async () => {
+  it('does not send browser-local chat user headers when responding to project conversation interrupts', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -638,11 +659,11 @@ describe('project conversation REST mapping', () => {
         }),
       }),
     )
-    const requestOptions = vi.mocked(fetch).mock.calls[0]?.[1]
-    expect(new Headers(requestOptions?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
   })
 
-  it('relies on server-defined principals when opening the project conversation mux stream', async () => {
+  it('does not send browser-local chat user headers when opening the project conversation mux stream', async () => {
     consumeEventStream.mockImplementation(async () => {})
     vi.stubGlobal(
       'fetch',
@@ -666,8 +687,56 @@ describe('project conversation REST mapping', () => {
         }),
       }),
     )
-    const requestOptions = vi.mocked(fetch).mock.calls[0]?.[1]
-    expect(new Headers(requestOptions?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+  })
+
+  it('does not send browser-local chat user headers for persistent project conversation REST endpoints', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => ({ conversation: { id: 'conversation-1' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ conversations: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ conversation: { id: 'conversation-1' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ entries: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+        }),
+    )
+
+    await createProjectConversation({ projectId: 'project-1', providerId: 'provider-1' })
+    await listProjectConversations({ projectId: 'project-1' })
+    await getProjectConversation('conversation-1')
+    await listProjectConversationEntries('conversation-1')
+    await startProjectConversationTurn('conversation-1', { message: 'continue' })
+    await expect(closeProjectConversationRuntime('conversation-1')).resolves.toBeUndefined()
+
+    for (const [, init] of vi.mocked(fetch).mock.calls) {
+      expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+    }
   })
 })
 
