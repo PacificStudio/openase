@@ -13,7 +13,10 @@ import (
 )
 
 var (
-	ticketEventsTopic     = provider.MustParseTopic("ticket.events")
+	ticketEventsTopic   = provider.MustParseTopic("ticket.events")
+	agentEventsTopic    = provider.MustParseTopic("agent.events")
+	activityEventsTopic = provider.MustParseTopic("activity.events")
+
 	ticketStatusEventType = provider.MustParseEventType("ticket.status_changed")
 )
 
@@ -44,7 +47,7 @@ func (e *Engine) Start(ctx context.Context) error {
 		return nil
 	}
 
-	stream, err := e.events.Subscribe(ctx, ticketEventsTopic)
+	stream, err := e.events.Subscribe(ctx, supportedNotificationTopics()...)
 	if err != nil {
 		return fmt.Errorf("subscribe notification engine: %w", err)
 	}
@@ -122,10 +125,51 @@ func (e *Engine) run(ctx context.Context, stream <-chan provider.Event) {
 }
 
 func buildRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
-	if event.Topic != ticketEventsTopic {
-		return uuid.UUID{}, nil, fmt.Errorf("unsupported topic %s", event.Topic)
+	eventType, err := domain.ParseRuleEventType(event.Type.String())
+	if err != nil {
+		return uuid.UUID{}, nil, fmt.Errorf("unsupported event type %s", event.Type)
+	}
+	if !notificationEventTopicAllowed(eventType, event.Topic) {
+		return uuid.UUID{}, nil, fmt.Errorf("event type %s is not wired for topic %s", eventType, event.Topic)
 	}
 
+	switch event.Topic {
+	case ticketEventsTopic:
+		return buildTicketRuleContext(event)
+	case agentEventsTopic:
+		return buildAgentRuleContext(event)
+	case activityEventsTopic:
+		return buildActivityRuleContext(event)
+	default:
+		return uuid.UUID{}, nil, fmt.Errorf("unsupported topic %s", event.Topic)
+	}
+}
+
+func supportedNotificationTopics() []provider.Topic {
+	return []provider.Topic{ticketEventsTopic, agentEventsTopic, activityEventsTopic}
+}
+
+func notificationEventTopicAllowed(eventType domain.RuleEventType, topic provider.Topic) bool {
+	switch eventType {
+	case domain.RuleEventTypeTicketCreated,
+		domain.RuleEventTypeTicketUpdated,
+		domain.RuleEventTypeTicketStatusChanged:
+		return topic == ticketEventsTopic
+	case domain.RuleEventTypeAgentClaimed,
+		domain.RuleEventTypeAgentFailed:
+		return topic == agentEventsTopic
+	case domain.RuleEventTypeTicketRetryPaused,
+		domain.RuleEventTypeHookFailed,
+		domain.RuleEventTypeHookPassed,
+		domain.RuleEventTypePROpened,
+		domain.RuleEventTypePRClosed:
+		return topic == activityEventsTopic
+	default:
+		return false
+	}
+}
+
+func buildTicketRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
 	payload := map[string]any{}
 	if len(event.Payload) > 0 {
 		if err := json.Unmarshal(event.Payload, &payload); err != nil {
@@ -173,4 +217,114 @@ func buildRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
 	}
 
 	return projectID, contextMap, nil
+}
+
+func buildAgentRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
+	payload := map[string]any{}
+	if len(event.Payload) > 0 {
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return uuid.UUID{}, nil, fmt.Errorf("decode agent event payload: %w", err)
+		}
+	}
+
+	agentPayload, ok := payload["agent"].(map[string]any)
+	if !ok {
+		return uuid.UUID{}, nil, fmt.Errorf("agent event payload.agent is missing")
+	}
+
+	projectIDValue, ok := agentPayload["project_id"].(string)
+	if !ok {
+		return uuid.UUID{}, nil, fmt.Errorf("agent event project_id is missing")
+	}
+	projectID, err := uuid.Parse(projectIDValue)
+	if err != nil {
+		return uuid.UUID{}, nil, fmt.Errorf("agent event project_id is invalid: %w", err)
+	}
+
+	contextMap := map[string]any{
+		"event": map[string]any{
+			"topic":        event.Topic.String(),
+			"type":         event.Type.String(),
+			"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
+		},
+		"event_type":   event.Type.String(),
+		"project_id":   projectIDValue,
+		"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
+		"payload":      payload,
+		"agent":        agentPayload,
+	}
+	for key, value := range agentPayload {
+		if _, exists := contextMap[key]; !exists {
+			contextMap[key] = value
+		}
+	}
+	if currentTicketID, ok := agentPayload["current_ticket_id"]; ok {
+		contextMap["ticket_id"] = currentTicketID
+	}
+
+	return projectID, contextMap, nil
+}
+
+func buildActivityRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
+	payload := map[string]any{}
+	if len(event.Payload) > 0 {
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return uuid.UUID{}, nil, fmt.Errorf("decode activity event payload: %w", err)
+		}
+	}
+
+	activityPayload, ok := payload["event"].(map[string]any)
+	if !ok {
+		return uuid.UUID{}, nil, fmt.Errorf("activity event payload.event is missing")
+	}
+
+	projectIDValue, ok := activityPayload["project_id"].(string)
+	if !ok {
+		return uuid.UUID{}, nil, fmt.Errorf("activity event project_id is missing")
+	}
+	projectID, err := uuid.Parse(projectIDValue)
+	if err != nil {
+		return uuid.UUID{}, nil, fmt.Errorf("activity event project_id is invalid: %w", err)
+	}
+
+	contextMap := map[string]any{
+		"event": map[string]any{
+			"topic":        event.Topic.String(),
+			"type":         event.Type.String(),
+			"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
+			"message":      stringMapValue(activityPayload, "message"),
+		},
+		"event_type":   event.Type.String(),
+		"project_id":   projectIDValue,
+		"published_at": event.PublishedAt.UTC().Format(time.RFC3339),
+		"payload":      payload,
+		"activity":     activityPayload,
+		"message":      stringMapValue(activityPayload, "message"),
+	}
+	for key, value := range activityPayload {
+		if _, exists := contextMap[key]; !exists {
+			contextMap[key] = value
+		}
+	}
+
+	metadata, ok := activityPayload["metadata"].(map[string]any)
+	if ok {
+		contextMap["metadata"] = metadata
+		for key, value := range metadata {
+			if _, exists := contextMap[key]; !exists {
+				contextMap[key] = value
+			}
+		}
+	}
+
+	return projectID, contextMap, nil
+}
+
+func stringMapValue(values map[string]any, key string) string {
+	raw, ok := values[key]
+	if !ok {
+		return ""
+	}
+	text, _ := raw.(string)
+	return text
 }

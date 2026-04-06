@@ -2,6 +2,7 @@ package ticket
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,7 +15,10 @@ import (
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
 )
@@ -759,6 +763,125 @@ func TestTicketServiceRunsDoneHookWhenFinishStatusChangeReleasesCurrentRun(t *te
 	}
 	if string(raw) != "done\n" {
 		t.Fatalf("unexpected done hook log %q", string(raw))
+	}
+}
+
+func TestTicketServicePublishesHookPassedActivityEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	fixture := seedTicketServiceFixture(ctx, t, client)
+	service := newTicketService(client)
+	bus := eventinfra.NewChannelBus()
+	service.ConfigureActivityEmitter(activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, bus))
+
+	projectItem, err := client.Project.Get(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(projectItem.OrganizationID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus(entmachine.StatusOnline).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	if _, err := client.AgentProvider.UpdateOneID(fixture.providerID).
+		SetMachineID(localMachine.ID).
+		Save(ctx); err != nil {
+		t.Fatalf("bind provider to local machine: %v", err)
+	}
+	if _, err := client.Workflow.UpdateOneID(fixture.workflowID).
+		SetHooks(map[string]any{
+			"ticket_hooks": map[string]any{
+				"on_done": []any{
+					map[string]any{"cmd": `printf 'done\n' >> "$OPENASE_WORKSPACE/hook.log"`},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("set workflow done hooks: %v", err)
+	}
+
+	ticketItem, err := service.Create(ctx, CreateInput{
+		ProjectID:  fixture.projectID,
+		Title:      "Hook activity",
+		StatusID:   &fixture.todoID,
+		Priority:   priorityPtr(PriorityHigh),
+		Type:       "feature",
+		WorkflowID: &fixture.workflowID,
+	})
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	runID := seedTicketCurrentRun(ctx, t, client, fixture, ticketItem.ID)
+
+	repoItem, err := client.ProjectRepo.Create().
+		SetProjectID(fixture.projectID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		SetWorkspaceDirname("backend").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	repoPath := filepath.Join(workspaceRoot, "backend")
+	if err := os.MkdirAll(repoPath, 0o750); err != nil {
+		t.Fatalf("create repo path: %v", err)
+	}
+	if _, err := client.TicketRepoWorkspace.Create().
+		SetTicketID(ticketItem.ID).
+		SetAgentRunID(runID).
+		SetRepoID(repoItem.ID).
+		SetWorkspaceRoot(workspaceRoot).
+		SetRepoPath(repoPath).
+		SetBranchName("agent/planner/ASE-hook-activity").
+		SetState(entticketrepoworkspace.StateReady).
+		SetPreparedAt(time.Now().UTC()).
+		Save(ctx); err != nil {
+		t.Fatalf("create ticket repo workspace: %v", err)
+	}
+
+	stream, err := bus.Subscribe(ctx, provider.MustParseTopic("activity.events"))
+	if err != nil {
+		t.Fatalf("subscribe activity stream: %v", err)
+	}
+
+	if _, err := service.Update(ctx, UpdateInput{
+		TicketID:                          ticketItem.ID,
+		StatusID:                          Some(fixture.doneID),
+		RestrictStatusToWorkflowFinishSet: true,
+	}); err != nil {
+		t.Fatalf("update ticket status: %v", err)
+	}
+
+	var event provider.Event
+	select {
+	case event = <-stream:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for hook activity")
+	}
+
+	if event.Type != provider.MustParseEventType("hook.passed") {
+		t.Fatalf("expected hook.passed event, got %+v", event)
+	}
+
+	var payload struct {
+		Event struct {
+			EventType string         `json:"event_type"`
+			Message   string         `json:"message"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatalf("decode activity payload: %v", err)
+	}
+	if payload.Event.EventType != "hook.passed" || payload.Event.Metadata["hook_name"] != "on_done" || payload.Event.Metadata["ticket_identifier"] != ticketItem.Identifier {
+		t.Fatalf("unexpected hook activity payload: %+v", payload)
 	}
 }
 

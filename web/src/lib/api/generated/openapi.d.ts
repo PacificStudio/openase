@@ -5266,7 +5266,9 @@ export interface operations {
             event_types?: {
               default_template?: string
               event_type?: string
+              group?: string
               label?: string
+              level?: string
             }[]
           }
         }

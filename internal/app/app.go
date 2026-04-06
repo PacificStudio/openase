@@ -146,6 +146,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	ticketSvc.ConfigureSSHPool(sshPool)
 	ticketSvc.ConfigureTransportResolver(transportResolver)
 	ticketSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
+	ticketSvc.ConfigureActivityEmitter(activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events))
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	ticketStatusSvc := ticketstatus.NewService(ticketStatusRepo)
 	catalogSvc := catalogservice.New(

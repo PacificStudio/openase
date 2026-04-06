@@ -1107,6 +1107,8 @@ type OpenAPINotificationRule struct {
 type OpenAPINotificationRuleEventType struct {
 	EventType       string `json:"event_type"`
 	Label           string `json:"label"`
+	Group           string `json:"group"`
+	Level           string `json:"level"`
 	DefaultTemplate string `json:"default_template"`
 }
 

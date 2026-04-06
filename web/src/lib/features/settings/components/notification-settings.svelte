@@ -22,7 +22,7 @@
   import type { ChannelCreateInput, ChannelUpdateInput } from '../notification-channels'
   import type { RuleCreateInput, RuleUpdateInput } from '../notification-rules'
   import NotificationChannelPanel from './notification-channel-panel.svelte'
-  import NotificationRulePanel from './notification-rule-panel.svelte'
+  import NotificationEventTogglePanel from './notification-event-toggle-panel.svelte'
 
   let channels = $state<NotificationChannel[]>([])
   let rules = $state<NotificationRule[]>([])
@@ -192,23 +192,13 @@
       unwrapApiError(caughtError, 'Failed to delete rule.')
     }
   }
-
-  async function handleToggleRule(ruleId: string, isEnabled: boolean): Promise<NotificationRule> {
-    try {
-      const payload = await updateNotificationRule(ruleId, { is_enabled: isEnabled })
-      await refreshRules()
-      return payload.rule
-    } catch (caughtError) {
-      unwrapApiError(caughtError, 'Failed to update rule state.')
-    }
-  }
 </script>
 
 <div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">Notifications</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage notification channels, rules, and delivery controls.
+      Manage notification channels and grouped event toggles with built-in default messages.
     </p>
   </div>
 
@@ -266,14 +256,13 @@
         onToggle={handleToggleChannel}
         onTest={handleTestChannel}
       />
-      <NotificationRulePanel
+      <NotificationEventTogglePanel
         {channels}
         {eventTypes}
         {rules}
         onCreate={handleCreateRule}
-        onUpdate={handleUpdateRule}
         onDelete={handleDeleteRule}
-        onToggle={handleToggleRule}
+        onUpdate={handleUpdateRule}
       />
     </div>
   {/if}

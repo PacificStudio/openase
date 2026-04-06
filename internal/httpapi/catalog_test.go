@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -1237,6 +1239,135 @@ func TestTicketRepoScopeRoutesPublishTicketRefreshEvents(t *testing.T) {
 		nil,
 	)
 	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticket.ID.String())
+}
+
+func TestTicketRepoScopeRoutesPublishPullRequestActivityEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme Repo Scope PR Events").
+		SetSlug("acme-repo-scope-pr-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Repo Scope PR Events").
+		SetSlug("openase-repo-scope-pr-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	status, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Todo").
+		SetColor("#111111").
+		SetPosition(1).
+		SetIsDefault(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create status: %v", err)
+	}
+	ticket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-44").
+		SetTitle("repo scope pr events").
+		SetStatusID(status.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	repo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+
+	activityStream := subscribeTopicEvents(t, bus, activityStreamTopic)
+
+	var createResp struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		map[string]any{"repo_id": repo.ID.String()},
+		http.StatusCreated,
+		&createResp,
+	)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		map[string]any{"pull_request_url": "https://github.com/acme/backend/pull/44"},
+		http.StatusOK,
+		nil,
+	)
+
+	opened := readEventType(t, activityStream, provider.MustParseEventType(activityevent.TypePROpened.String()), 3)
+
+	var openedPayload struct {
+		Event struct {
+			Message   string         `json:"message"`
+			EventType string         `json:"event_type"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(opened.Payload, &openedPayload); err != nil {
+		t.Fatalf("decode pr.opened payload: %v", err)
+	}
+	if openedPayload.Event.EventType != activityevent.TypePROpened.String() || openedPayload.Event.Metadata["pull_request_url"] != "https://github.com/acme/backend/pull/44" {
+		t.Fatalf("unexpected pr.opened payload: %+v", openedPayload)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		nil,
+		http.StatusOK,
+		nil,
+	)
+
+	closed := readEventType(t, activityStream, provider.MustParseEventType(activityevent.TypePRClosed.String()), 2)
+
+	var closedPayload struct {
+		Event struct {
+			Message   string         `json:"message"`
+			EventType string         `json:"event_type"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(closed.Payload, &closedPayload); err != nil {
+		t.Fatalf("decode pr.closed payload: %v", err)
+	}
+	if closedPayload.Event.EventType != activityevent.TypePRClosed.String() || closedPayload.Event.Metadata["previous_pr_url"] != "https://github.com/acme/backend/pull/44" {
+		t.Fatalf("unexpected pr.closed payload: %+v", closedPayload)
+	}
 }
 
 func performJSONRequest(t *testing.T, server *Server, method string, target string, body string) *httptest.ResponseRecorder {

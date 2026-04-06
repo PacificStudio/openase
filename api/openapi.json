@@ -5832,7 +5832,13 @@
                           "event_type": {
                             "type": "string"
                           },
+                          "group": {
+                            "type": "string"
+                          },
                           "label": {
+                            "type": "string"
+                          },
+                          "level": {
                             "type": "string"
                           }
                         },

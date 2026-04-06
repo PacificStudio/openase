@@ -168,6 +168,31 @@ func readEvents(
 	return events
 }
 
+func readEventType(
+	t *testing.T,
+	stream <-chan provider.Event,
+	want provider.EventType,
+	maxReads int,
+) provider.Event {
+	t.Helper()
+
+	seen := make([]provider.EventType, 0, maxReads)
+	for len(seen) < maxReads {
+		select {
+		case event := <-stream:
+			seen = append(seen, event.Type)
+			if event.Type == want {
+				return event
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("timed out waiting for event %s after %d reads; saw %v", want, len(seen), seen)
+		}
+	}
+
+	t.Fatalf("expected event %s within %d reads; saw %v", want, maxReads, seen)
+	return provider.Event{}
+}
+
 func readTicketEventTicketIDs(
 	t *testing.T,
 	stream <-chan provider.Event,

@@ -173,7 +173,7 @@ func TestNotificationRoutesLogStructuredBoundaryErrors(t *testing.T) {
 func TestNotificationChannelRoutesCRUDAndTestSend(t *testing.T) {
 	client := openTestEntClient(t)
 
-	webhookRequests := make(chan map[string]any, 2)
+	webhookRequests := make(chan map[string]any, 4)
 	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			_ = r.Body.Close()
@@ -386,6 +386,9 @@ func TestNotificationRuleRoutesCRUDAndEventCatalog(t *testing.T) {
 	if len(eventTypesResp.EventTypes) == 0 {
 		t.Fatal("expected non-empty notification event type catalog")
 	}
+	if eventTypesResp.EventTypes[0].Group == "" || eventTypesResp.EventTypes[0].Level == "" {
+		t.Fatalf("expected grouped event catalog metadata, got %+v", eventTypesResp.EventTypes[0])
+	}
 
 	var createResp struct {
 		Rule notificationRuleResponse `json:"rule"`
@@ -597,6 +600,30 @@ func TestNotificationEngineDispatchesMatchingRulesBestEffort(t *testing.T) {
 		t.Fatalf("create bad rule: %v", err)
 	}
 
+	createAgentRule, err := domain.ParseCreateRule(project.ID, domain.RuleInput{
+		Name:      "Agent Failures",
+		EventType: "agent.failed",
+		ChannelID: goodChannelID.String(),
+	})
+	if err != nil {
+		t.Fatalf("parse agent rule: %v", err)
+	}
+	if _, err := service.CreateRule(ctx, createAgentRule); err != nil {
+		t.Fatalf("create agent rule: %v", err)
+	}
+
+	createHookRule, err := domain.ParseCreateRule(project.ID, domain.RuleInput{
+		Name:      "Hook Failures",
+		EventType: "hook.failed",
+		ChannelID: goodChannelID.String(),
+	})
+	if err != nil {
+		t.Fatalf("parse hook rule: %v", err)
+	}
+	if _, err := service.CreateRule(ctx, createHookRule); err != nil {
+		t.Fatalf("create hook rule: %v", err)
+	}
+
 	event, err := provider.NewJSONEvent(
 		provider.MustParseTopic("ticket.events"),
 		provider.MustParseEventType("ticket.created"),
@@ -628,5 +655,72 @@ func TestNotificationEngineDispatchesMatchingRulesBestEffort(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for event-driven notification")
+	}
+
+	agentCurrentTicketID := uuid.NewString()
+	agentEvent, err := provider.NewJSONEvent(
+		provider.MustParseTopic("agent.events"),
+		provider.MustParseEventType("agent.failed"),
+		map[string]any{
+			"agent": map[string]any{
+				"id":                uuid.NewString(),
+				"project_id":        project.ID.String(),
+				"name":              "worker-1",
+				"status":            "errored",
+				"current_ticket_id": agentCurrentTicketID,
+			},
+		},
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("build agent event: %v", err)
+	}
+	if err := bus.Publish(ctx, agentEvent); err != nil {
+		t.Fatalf("publish agent event: %v", err)
+	}
+
+	select {
+	case payload := <-webhookRequests:
+		if payload["title"] != "Agent worker-1 failed ticket "+agentCurrentTicketID {
+			t.Fatalf("unexpected agent notification payload: %+v", payload)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for agent notification")
+	}
+
+	hookEvent, err := provider.NewJSONEvent(
+		provider.MustParseTopic("activity.events"),
+		provider.MustParseEventType("hook.failed"),
+		map[string]any{
+			"event": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": project.ID.String(),
+				"ticket_id":  uuid.NewString(),
+				"event_type": "hook.failed",
+				"message":    "ASE-68 hook on_done failed",
+				"metadata": map[string]any{
+					"ticket_identifier": "ASE-68",
+					"hook_name":         "on_done",
+					"error":             "exit status 1",
+				},
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		},
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("build hook event: %v", err)
+	}
+	if err := bus.Publish(ctx, hookEvent); err != nil {
+		t.Fatalf("publish hook event: %v", err)
+	}
+
+	select {
+	case payload := <-webhookRequests:
+		if payload["title"] != "ASE-68 hook on_done failed" {
+			t.Fatalf("unexpected hook notification payload: %+v", payload)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for hook notification")
 	}
 }

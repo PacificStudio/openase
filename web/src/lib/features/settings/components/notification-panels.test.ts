@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import NotificationChannelPanel from './notification-channel-panel.svelte'
-import NotificationRulePanel from './notification-rule-panel.svelte'
+import NotificationEventTogglePanel from './notification-event-toggle-panel.svelte'
 
 const { toastStore } = vi.hoisted(() => ({
   toastStore: {
@@ -58,8 +58,8 @@ describe('Notification settings panels', () => {
     })
   })
 
-  it('surfaces rule action failures inline', async () => {
-    const { getByText } = render(NotificationRulePanel, {
+  it('surfaces grouped toggle action failures inline', async () => {
+    const { getByLabelText } = render(NotificationEventTogglePanel, {
       props: {
         channels: [
           {
@@ -76,6 +76,8 @@ describe('Notification settings panels', () => {
           {
             event_type: 'ticket.created',
             label: 'Ticket Created',
+            group: 'Ticket lifecycle',
+            level: 'info',
             default_template: 'Ticket created: {{ ticket.identifier }}',
           },
         ],
@@ -102,14 +104,12 @@ describe('Notification settings panels', () => {
           },
         ],
         onCreate: vi.fn(),
+        onDelete: vi.fn().mockRejectedValue(new Error('Rule toggle failed')),
         onUpdate: vi.fn(),
-        onDelete: vi.fn(),
-        onToggle: vi.fn().mockRejectedValue(new Error('Rule toggle failed')),
       },
     })
 
-    await fireEvent.click(getByText('Created alerts'))
-    await fireEvent.click(getByText('Disable'))
+    await fireEvent.click(getByLabelText('Disable Ticket Created'))
 
     await waitFor(() => {
       expect(toastStore.error).toHaveBeenCalledWith('Rule toggle failed')
