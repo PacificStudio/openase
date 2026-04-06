@@ -4,6 +4,7 @@
   import { LockKeyhole, Users } from '@lucide/svelte'
   import SecuritySettingsHumanAuthAccessCard from './security-settings-human-auth-access-card.svelte'
   import SecuritySettingsHumanAuthBindingSection from './security-settings-human-auth-binding-section.svelte'
+  import SecuritySettingsHumanAuthSessions from './security-settings-human-auth-sessions.svelte'
   import type { BindingDraft, ScopeKind, SubjectKind } from './security-settings-human-auth.model'
 
   type GroupSummary = {
@@ -163,6 +164,8 @@
 {#if error}
   <div class="text-destructive text-sm">{error}</div>
 {/if}
+
+<SecuritySettingsHumanAuthSessions />
 
 <SecuritySettingsHumanAuthBindingSection
   scope="instance"

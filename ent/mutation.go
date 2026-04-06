@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
@@ -83,6 +84,7 @@ const (
 	TypeAgentToken                    = "AgentToken"
 	TypeAgentTraceEvent               = "AgentTraceEvent"
 	TypeApprovalPolicyRule            = "ApprovalPolicyRule"
+	TypeAuthAuditEvent                = "AuthAuditEvent"
 	TypeBrowserSession                = "BrowserSession"
 	TypeChatConversation              = "ChatConversation"
 	TypeChatEntry                     = "ChatEntry"
@@ -11255,6 +11257,703 @@ func (m *ApprovalPolicyRuleMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ApprovalPolicyRule edge %s", name)
 }
 
+// AuthAuditEventMutation represents an operation that mutates the AuthAuditEvent nodes in the graph.
+type AuthAuditEventMutation struct {
+	config
+	op            Op
+	typ           string
+	id            *uuid.UUID
+	user_id       *uuid.UUID
+	session_id    *uuid.UUID
+	actor_id      *string
+	event_type    *string
+	message       *string
+	metadata      *map[string]interface{}
+	created_at    *time.Time
+	clearedFields map[string]struct{}
+	done          bool
+	oldValue      func(context.Context) (*AuthAuditEvent, error)
+	predicates    []predicate.AuthAuditEvent
+}
+
+var _ ent.Mutation = (*AuthAuditEventMutation)(nil)
+
+// authauditeventOption allows management of the mutation configuration using functional options.
+type authauditeventOption func(*AuthAuditEventMutation)
+
+// newAuthAuditEventMutation creates new mutation for the AuthAuditEvent entity.
+func newAuthAuditEventMutation(c config, op Op, opts ...authauditeventOption) *AuthAuditEventMutation {
+	m := &AuthAuditEventMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAuthAuditEvent,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAuthAuditEventID sets the ID field of the mutation.
+func withAuthAuditEventID(id uuid.UUID) authauditeventOption {
+	return func(m *AuthAuditEventMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AuthAuditEvent
+		)
+		m.oldValue = func(ctx context.Context) (*AuthAuditEvent, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AuthAuditEvent.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAuthAuditEvent sets the old AuthAuditEvent of the mutation.
+func withAuthAuditEvent(node *AuthAuditEvent) authauditeventOption {
+	return func(m *AuthAuditEventMutation) {
+		m.oldValue = func(context.Context) (*AuthAuditEvent, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AuthAuditEventMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AuthAuditEventMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of AuthAuditEvent entities.
+func (m *AuthAuditEventMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AuthAuditEventMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AuthAuditEventMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AuthAuditEvent.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetUserID sets the "user_id" field.
+func (m *AuthAuditEventMutation) SetUserID(u uuid.UUID) {
+	m.user_id = &u
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *AuthAuditEventMutation) UserID() (r uuid.UUID, exists bool) {
+	v := m.user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldUserID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (m *AuthAuditEventMutation) ClearUserID() {
+	m.user_id = nil
+	m.clearedFields[authauditevent.FieldUserID] = struct{}{}
+}
+
+// UserIDCleared returns if the "user_id" field was cleared in this mutation.
+func (m *AuthAuditEventMutation) UserIDCleared() bool {
+	_, ok := m.clearedFields[authauditevent.FieldUserID]
+	return ok
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *AuthAuditEventMutation) ResetUserID() {
+	m.user_id = nil
+	delete(m.clearedFields, authauditevent.FieldUserID)
+}
+
+// SetSessionID sets the "session_id" field.
+func (m *AuthAuditEventMutation) SetSessionID(u uuid.UUID) {
+	m.session_id = &u
+}
+
+// SessionID returns the value of the "session_id" field in the mutation.
+func (m *AuthAuditEventMutation) SessionID() (r uuid.UUID, exists bool) {
+	v := m.session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionID returns the old "session_id" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldSessionID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionID: %w", err)
+	}
+	return oldValue.SessionID, nil
+}
+
+// ClearSessionID clears the value of the "session_id" field.
+func (m *AuthAuditEventMutation) ClearSessionID() {
+	m.session_id = nil
+	m.clearedFields[authauditevent.FieldSessionID] = struct{}{}
+}
+
+// SessionIDCleared returns if the "session_id" field was cleared in this mutation.
+func (m *AuthAuditEventMutation) SessionIDCleared() bool {
+	_, ok := m.clearedFields[authauditevent.FieldSessionID]
+	return ok
+}
+
+// ResetSessionID resets all changes to the "session_id" field.
+func (m *AuthAuditEventMutation) ResetSessionID() {
+	m.session_id = nil
+	delete(m.clearedFields, authauditevent.FieldSessionID)
+}
+
+// SetActorID sets the "actor_id" field.
+func (m *AuthAuditEventMutation) SetActorID(s string) {
+	m.actor_id = &s
+}
+
+// ActorID returns the value of the "actor_id" field in the mutation.
+func (m *AuthAuditEventMutation) ActorID() (r string, exists bool) {
+	v := m.actor_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActorID returns the old "actor_id" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldActorID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActorID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActorID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActorID: %w", err)
+	}
+	return oldValue.ActorID, nil
+}
+
+// ResetActorID resets all changes to the "actor_id" field.
+func (m *AuthAuditEventMutation) ResetActorID() {
+	m.actor_id = nil
+}
+
+// SetEventType sets the "event_type" field.
+func (m *AuthAuditEventMutation) SetEventType(s string) {
+	m.event_type = &s
+}
+
+// EventType returns the value of the "event_type" field in the mutation.
+func (m *AuthAuditEventMutation) EventType() (r string, exists bool) {
+	v := m.event_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventType returns the old "event_type" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldEventType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventType: %w", err)
+	}
+	return oldValue.EventType, nil
+}
+
+// ResetEventType resets all changes to the "event_type" field.
+func (m *AuthAuditEventMutation) ResetEventType() {
+	m.event_type = nil
+}
+
+// SetMessage sets the "message" field.
+func (m *AuthAuditEventMutation) SetMessage(s string) {
+	m.message = &s
+}
+
+// Message returns the value of the "message" field in the mutation.
+func (m *AuthAuditEventMutation) Message() (r string, exists bool) {
+	v := m.message
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMessage returns the old "message" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldMessage(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMessage is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMessage requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMessage: %w", err)
+	}
+	return oldValue.Message, nil
+}
+
+// ResetMessage resets all changes to the "message" field.
+func (m *AuthAuditEventMutation) ResetMessage() {
+	m.message = nil
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *AuthAuditEventMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *AuthAuditEventMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *AuthAuditEventMutation) ResetMetadata() {
+	m.metadata = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AuthAuditEventMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AuthAuditEventMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AuthAuditEvent entity.
+// If the AuthAuditEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AuthAuditEventMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AuthAuditEventMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the AuthAuditEventMutation builder.
+func (m *AuthAuditEventMutation) Where(ps ...predicate.AuthAuditEvent) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AuthAuditEventMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AuthAuditEventMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AuthAuditEvent, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AuthAuditEventMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AuthAuditEventMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AuthAuditEvent).
+func (m *AuthAuditEventMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AuthAuditEventMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.user_id != nil {
+		fields = append(fields, authauditevent.FieldUserID)
+	}
+	if m.session_id != nil {
+		fields = append(fields, authauditevent.FieldSessionID)
+	}
+	if m.actor_id != nil {
+		fields = append(fields, authauditevent.FieldActorID)
+	}
+	if m.event_type != nil {
+		fields = append(fields, authauditevent.FieldEventType)
+	}
+	if m.message != nil {
+		fields = append(fields, authauditevent.FieldMessage)
+	}
+	if m.metadata != nil {
+		fields = append(fields, authauditevent.FieldMetadata)
+	}
+	if m.created_at != nil {
+		fields = append(fields, authauditevent.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AuthAuditEventMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case authauditevent.FieldUserID:
+		return m.UserID()
+	case authauditevent.FieldSessionID:
+		return m.SessionID()
+	case authauditevent.FieldActorID:
+		return m.ActorID()
+	case authauditevent.FieldEventType:
+		return m.EventType()
+	case authauditevent.FieldMessage:
+		return m.Message()
+	case authauditevent.FieldMetadata:
+		return m.Metadata()
+	case authauditevent.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AuthAuditEventMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case authauditevent.FieldUserID:
+		return m.OldUserID(ctx)
+	case authauditevent.FieldSessionID:
+		return m.OldSessionID(ctx)
+	case authauditevent.FieldActorID:
+		return m.OldActorID(ctx)
+	case authauditevent.FieldEventType:
+		return m.OldEventType(ctx)
+	case authauditevent.FieldMessage:
+		return m.OldMessage(ctx)
+	case authauditevent.FieldMetadata:
+		return m.OldMetadata(ctx)
+	case authauditevent.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AuthAuditEvent field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AuthAuditEventMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case authauditevent.FieldUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case authauditevent.FieldSessionID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionID(v)
+		return nil
+	case authauditevent.FieldActorID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActorID(v)
+		return nil
+	case authauditevent.FieldEventType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventType(v)
+		return nil
+	case authauditevent.FieldMessage:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMessage(v)
+		return nil
+	case authauditevent.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	case authauditevent.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AuthAuditEvent field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AuthAuditEventMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AuthAuditEventMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AuthAuditEventMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AuthAuditEvent numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AuthAuditEventMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(authauditevent.FieldUserID) {
+		fields = append(fields, authauditevent.FieldUserID)
+	}
+	if m.FieldCleared(authauditevent.FieldSessionID) {
+		fields = append(fields, authauditevent.FieldSessionID)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AuthAuditEventMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AuthAuditEventMutation) ClearField(name string) error {
+	switch name {
+	case authauditevent.FieldUserID:
+		m.ClearUserID()
+		return nil
+	case authauditevent.FieldSessionID:
+		m.ClearSessionID()
+		return nil
+	}
+	return fmt.Errorf("unknown AuthAuditEvent nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AuthAuditEventMutation) ResetField(name string) error {
+	switch name {
+	case authauditevent.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case authauditevent.FieldSessionID:
+		m.ResetSessionID()
+		return nil
+	case authauditevent.FieldActorID:
+		m.ResetActorID()
+		return nil
+	case authauditevent.FieldEventType:
+		m.ResetEventType()
+		return nil
+	case authauditevent.FieldMessage:
+		m.ResetMessage()
+		return nil
+	case authauditevent.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	case authauditevent.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AuthAuditEvent field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AuthAuditEventMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AuthAuditEventMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AuthAuditEventMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AuthAuditEventMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AuthAuditEventMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AuthAuditEventMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AuthAuditEventMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown AuthAuditEvent unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AuthAuditEventMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown AuthAuditEvent edge %s", name)
+}
+
 // BrowserSessionMutation represents an operation that mutates the BrowserSession nodes in the graph.
 type BrowserSessionMutation struct {
 	config
@@ -11263,6 +11962,10 @@ type BrowserSessionMutation struct {
 	id              *uuid.UUID
 	user_id         *uuid.UUID
 	session_hash    *string
+	device_kind     *string
+	device_os       *string
+	device_browser  *string
+	device_label    *string
 	expires_at      *time.Time
 	idle_expires_at *time.Time
 	csrf_secret     *string
@@ -11451,6 +12154,150 @@ func (m *BrowserSessionMutation) OldSessionHash(ctx context.Context) (v string, 
 // ResetSessionHash resets all changes to the "session_hash" field.
 func (m *BrowserSessionMutation) ResetSessionHash() {
 	m.session_hash = nil
+}
+
+// SetDeviceKind sets the "device_kind" field.
+func (m *BrowserSessionMutation) SetDeviceKind(s string) {
+	m.device_kind = &s
+}
+
+// DeviceKind returns the value of the "device_kind" field in the mutation.
+func (m *BrowserSessionMutation) DeviceKind() (r string, exists bool) {
+	v := m.device_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceKind returns the old "device_kind" field's value of the BrowserSession entity.
+// If the BrowserSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BrowserSessionMutation) OldDeviceKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceKind: %w", err)
+	}
+	return oldValue.DeviceKind, nil
+}
+
+// ResetDeviceKind resets all changes to the "device_kind" field.
+func (m *BrowserSessionMutation) ResetDeviceKind() {
+	m.device_kind = nil
+}
+
+// SetDeviceOs sets the "device_os" field.
+func (m *BrowserSessionMutation) SetDeviceOs(s string) {
+	m.device_os = &s
+}
+
+// DeviceOs returns the value of the "device_os" field in the mutation.
+func (m *BrowserSessionMutation) DeviceOs() (r string, exists bool) {
+	v := m.device_os
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceOs returns the old "device_os" field's value of the BrowserSession entity.
+// If the BrowserSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BrowserSessionMutation) OldDeviceOs(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceOs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceOs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceOs: %w", err)
+	}
+	return oldValue.DeviceOs, nil
+}
+
+// ResetDeviceOs resets all changes to the "device_os" field.
+func (m *BrowserSessionMutation) ResetDeviceOs() {
+	m.device_os = nil
+}
+
+// SetDeviceBrowser sets the "device_browser" field.
+func (m *BrowserSessionMutation) SetDeviceBrowser(s string) {
+	m.device_browser = &s
+}
+
+// DeviceBrowser returns the value of the "device_browser" field in the mutation.
+func (m *BrowserSessionMutation) DeviceBrowser() (r string, exists bool) {
+	v := m.device_browser
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceBrowser returns the old "device_browser" field's value of the BrowserSession entity.
+// If the BrowserSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BrowserSessionMutation) OldDeviceBrowser(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceBrowser is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceBrowser requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceBrowser: %w", err)
+	}
+	return oldValue.DeviceBrowser, nil
+}
+
+// ResetDeviceBrowser resets all changes to the "device_browser" field.
+func (m *BrowserSessionMutation) ResetDeviceBrowser() {
+	m.device_browser = nil
+}
+
+// SetDeviceLabel sets the "device_label" field.
+func (m *BrowserSessionMutation) SetDeviceLabel(s string) {
+	m.device_label = &s
+}
+
+// DeviceLabel returns the value of the "device_label" field in the mutation.
+func (m *BrowserSessionMutation) DeviceLabel() (r string, exists bool) {
+	v := m.device_label
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDeviceLabel returns the old "device_label" field's value of the BrowserSession entity.
+// If the BrowserSession object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *BrowserSessionMutation) OldDeviceLabel(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDeviceLabel is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDeviceLabel requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDeviceLabel: %w", err)
+	}
+	return oldValue.DeviceLabel, nil
+}
+
+// ResetDeviceLabel resets all changes to the "device_label" field.
+func (m *BrowserSessionMutation) ResetDeviceLabel() {
+	m.device_label = nil
 }
 
 // SetExpiresAt sets the "expires_at" field.
@@ -11788,12 +12635,24 @@ func (m *BrowserSessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *BrowserSessionMutation) Fields() []string {
-	fields := make([]string, 0, 10)
+	fields := make([]string, 0, 14)
 	if m.user_id != nil {
 		fields = append(fields, browsersession.FieldUserID)
 	}
 	if m.session_hash != nil {
 		fields = append(fields, browsersession.FieldSessionHash)
+	}
+	if m.device_kind != nil {
+		fields = append(fields, browsersession.FieldDeviceKind)
+	}
+	if m.device_os != nil {
+		fields = append(fields, browsersession.FieldDeviceOs)
+	}
+	if m.device_browser != nil {
+		fields = append(fields, browsersession.FieldDeviceBrowser)
+	}
+	if m.device_label != nil {
+		fields = append(fields, browsersession.FieldDeviceLabel)
 	}
 	if m.expires_at != nil {
 		fields = append(fields, browsersession.FieldExpiresAt)
@@ -11831,6 +12690,14 @@ func (m *BrowserSessionMutation) Field(name string) (ent.Value, bool) {
 		return m.UserID()
 	case browsersession.FieldSessionHash:
 		return m.SessionHash()
+	case browsersession.FieldDeviceKind:
+		return m.DeviceKind()
+	case browsersession.FieldDeviceOs:
+		return m.DeviceOs()
+	case browsersession.FieldDeviceBrowser:
+		return m.DeviceBrowser()
+	case browsersession.FieldDeviceLabel:
+		return m.DeviceLabel()
 	case browsersession.FieldExpiresAt:
 		return m.ExpiresAt()
 	case browsersession.FieldIdleExpiresAt:
@@ -11860,6 +12727,14 @@ func (m *BrowserSessionMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldUserID(ctx)
 	case browsersession.FieldSessionHash:
 		return m.OldSessionHash(ctx)
+	case browsersession.FieldDeviceKind:
+		return m.OldDeviceKind(ctx)
+	case browsersession.FieldDeviceOs:
+		return m.OldDeviceOs(ctx)
+	case browsersession.FieldDeviceBrowser:
+		return m.OldDeviceBrowser(ctx)
+	case browsersession.FieldDeviceLabel:
+		return m.OldDeviceLabel(ctx)
 	case browsersession.FieldExpiresAt:
 		return m.OldExpiresAt(ctx)
 	case browsersession.FieldIdleExpiresAt:
@@ -11898,6 +12773,34 @@ func (m *BrowserSessionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSessionHash(v)
+		return nil
+	case browsersession.FieldDeviceKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceKind(v)
+		return nil
+	case browsersession.FieldDeviceOs:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceOs(v)
+		return nil
+	case browsersession.FieldDeviceBrowser:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceBrowser(v)
+		return nil
+	case browsersession.FieldDeviceLabel:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDeviceLabel(v)
 		return nil
 	case browsersession.FieldExpiresAt:
 		v, ok := value.(time.Time)
@@ -12018,6 +12921,18 @@ func (m *BrowserSessionMutation) ResetField(name string) error {
 		return nil
 	case browsersession.FieldSessionHash:
 		m.ResetSessionHash()
+		return nil
+	case browsersession.FieldDeviceKind:
+		m.ResetDeviceKind()
+		return nil
+	case browsersession.FieldDeviceOs:
+		m.ResetDeviceOs()
+		return nil
+	case browsersession.FieldDeviceBrowser:
+		m.ResetDeviceBrowser()
+		return nil
+	case browsersession.FieldDeviceLabel:
+		m.ResetDeviceLabel()
 		return nil
 	case browsersession.FieldExpiresAt:
 		m.ResetExpiresAt()

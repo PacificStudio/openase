@@ -1670,6 +1670,419 @@
         ]
       }
     },
+    "/api/v1/auth/sessions": {
+      "get": {
+        "operationId": "listAuthSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "audit_events": {
+                      "items": {
+                        "properties": {
+                          "actor_id": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "event_type": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "session_id": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "auth_mode": {
+                      "type": "string"
+                    },
+                    "current_session_id": {
+                      "type": "string"
+                    },
+                    "sessions": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "current": {
+                            "type": "boolean"
+                          },
+                          "device": {
+                            "properties": {
+                              "browser": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "os": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "expires_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "idle_expires_at": {
+                            "type": "string"
+                          },
+                          "last_active_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "step_up": {
+                      "properties": {
+                        "status": {
+                          "type": "string"
+                        },
+                        "summary": {
+                          "type": "string"
+                        },
+                        "supported_methods": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List governable browser sessions and auth audit events for the current human principal response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          }
+        },
+        "summary": "List governable browser sessions and auth audit events for the current human principal",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/revoke-all": {
+      "post": {
+        "operationId": "revokeAllOtherAuthSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "revoked_count": {
+                      "type": "integer"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Revoke every other browser session for the current human principal while preserving the current session response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Revoke every other browser session for the current human principal while preserving the current session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/sessions/{id}": {
+      "delete": {
+        "operationId": "revokeAuthSession",
+        "parameters": [
+          {
+            "description": "Browser session ID to revoke.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Browser session revoked."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Revoke a browser session owned by the current human principal",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/users/{userId}/sessions/revoke": {
+      "post": {
+        "operationId": "adminRevokeUserAuthSessions",
+        "parameters": [
+          {
+            "description": "User ID whose browser sessions should be revoked.",
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "revoked_count": {
+                      "type": "integer"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Revoke every browser session that belongs to the target user response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Revoke every browser session that belongs to the target user",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/channels/{channelId}": {
       "delete": {
         "operationId": "deleteNotificationChannel",

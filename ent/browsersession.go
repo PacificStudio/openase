@@ -22,6 +22,14 @@ type BrowserSession struct {
 	UserID uuid.UUID `json:"user_id,omitempty"`
 	// SessionHash holds the value of the "session_hash" field.
 	SessionHash string `json:"-"`
+	// DeviceKind holds the value of the "device_kind" field.
+	DeviceKind string `json:"device_kind,omitempty"`
+	// DeviceOs holds the value of the "device_os" field.
+	DeviceOs string `json:"device_os,omitempty"`
+	// DeviceBrowser holds the value of the "device_browser" field.
+	DeviceBrowser string `json:"device_browser,omitempty"`
+	// DeviceLabel holds the value of the "device_label" field.
+	DeviceLabel string `json:"device_label,omitempty"`
 	// ExpiresAt holds the value of the "expires_at" field.
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	// IdleExpiresAt holds the value of the "idle_expires_at" field.
@@ -46,7 +54,7 @@ func (*BrowserSession) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case browsersession.FieldSessionHash, browsersession.FieldCsrfSecret, browsersession.FieldUserAgentHash, browsersession.FieldIPPrefix:
+		case browsersession.FieldSessionHash, browsersession.FieldDeviceKind, browsersession.FieldDeviceOs, browsersession.FieldDeviceBrowser, browsersession.FieldDeviceLabel, browsersession.FieldCsrfSecret, browsersession.FieldUserAgentHash, browsersession.FieldIPPrefix:
 			values[i] = new(sql.NullString)
 		case browsersession.FieldExpiresAt, browsersession.FieldIdleExpiresAt, browsersession.FieldRevokedAt, browsersession.FieldCreatedAt, browsersession.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -84,6 +92,30 @@ func (_m *BrowserSession) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field session_hash", values[i])
 			} else if value.Valid {
 				_m.SessionHash = value.String
+			}
+		case browsersession.FieldDeviceKind:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field device_kind", values[i])
+			} else if value.Valid {
+				_m.DeviceKind = value.String
+			}
+		case browsersession.FieldDeviceOs:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field device_os", values[i])
+			} else if value.Valid {
+				_m.DeviceOs = value.String
+			}
+		case browsersession.FieldDeviceBrowser:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field device_browser", values[i])
+			} else if value.Valid {
+				_m.DeviceBrowser = value.String
+			}
+		case browsersession.FieldDeviceLabel:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field device_label", values[i])
+			} else if value.Valid {
+				_m.DeviceLabel = value.String
 			}
 		case browsersession.FieldExpiresAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -174,6 +206,18 @@ func (_m *BrowserSession) String() string {
 	builder.WriteString(fmt.Sprintf("%v", _m.UserID))
 	builder.WriteString(", ")
 	builder.WriteString("session_hash=<sensitive>")
+	builder.WriteString(", ")
+	builder.WriteString("device_kind=")
+	builder.WriteString(_m.DeviceKind)
+	builder.WriteString(", ")
+	builder.WriteString("device_os=")
+	builder.WriteString(_m.DeviceOs)
+	builder.WriteString(", ")
+	builder.WriteString("device_browser=")
+	builder.WriteString(_m.DeviceBrowser)
+	builder.WriteString(", ")
+	builder.WriteString("device_label=")
+	builder.WriteString(_m.DeviceLabel)
 	builder.WriteString(", ")
 	builder.WriteString("expires_at=")
 	builder.WriteString(_m.ExpiresAt.Format(time.ANSIC))

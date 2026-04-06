@@ -176,6 +176,74 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/auth/sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List governable browser sessions and auth audit events for the current human principal */
+    get: operations['listAuthSessions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/sessions/revoke-all': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Revoke every other browser session for the current human principal while preserving the current session */
+    post: operations['revokeAllOtherAuthSessions']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/sessions/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke a browser session owned by the current human principal */
+    delete: operations['revokeAuthSession']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/users/{userId}/sessions/revoke': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Revoke every browser session that belongs to the target user */
+    post: operations['adminRevokeUserAuthSessions']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/channels/{channelId}': {
     parameters: {
       query?: never
@@ -3034,6 +3102,261 @@ export interface operations {
               id?: string
               primary_email?: string
             } | null
+          }
+        }
+      }
+    }
+  }
+  listAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List governable browser sessions and auth audit events for the current human principal response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            audit_events?: {
+              actor_id?: string
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              session_id?: string
+            }[]
+            auth_mode?: string
+            current_session_id?: string
+            sessions?: {
+              created_at?: string
+              current?: boolean
+              device?: {
+                browser?: string
+                kind?: string
+                label?: string
+                os?: string
+              }
+              expires_at?: string
+              id?: string
+              idle_expires_at?: string
+              last_active_at?: string
+            }[]
+            step_up?: {
+              status?: string
+              summary?: string
+              supported_methods?: string[]
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  revokeAllOtherAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke every other browser session for the current human principal while preserving the current session response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  revokeAuthSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Browser session ID to revoke. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Browser session revoked. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  adminRevokeUserAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID whose browser sessions should be revoked. */
+        userId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke every browser session that belongs to the target user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
           }
         }
       }

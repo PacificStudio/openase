@@ -13,6 +13,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
@@ -292,30 +293,72 @@ func init() {
 	approvalpolicyruleDescID := approvalpolicyruleFields[0].Descriptor()
 	// approvalpolicyrule.DefaultID holds the default value on creation for the id field.
 	approvalpolicyrule.DefaultID = approvalpolicyruleDescID.Default.(func() uuid.UUID)
+	authauditeventFields := schema.AuthAuditEvent{}.Fields()
+	_ = authauditeventFields
+	// authauditeventDescActorID is the schema descriptor for actor_id field.
+	authauditeventDescActorID := authauditeventFields[3].Descriptor()
+	// authauditevent.DefaultActorID holds the default value on creation for the actor_id field.
+	authauditevent.DefaultActorID = authauditeventDescActorID.Default.(string)
+	// authauditeventDescEventType is the schema descriptor for event_type field.
+	authauditeventDescEventType := authauditeventFields[4].Descriptor()
+	// authauditevent.EventTypeValidator is a validator for the "event_type" field. It is called by the builders before save.
+	authauditevent.EventTypeValidator = authauditeventDescEventType.Validators[0].(func(string) error)
+	// authauditeventDescMessage is the schema descriptor for message field.
+	authauditeventDescMessage := authauditeventFields[5].Descriptor()
+	// authauditevent.DefaultMessage holds the default value on creation for the message field.
+	authauditevent.DefaultMessage = authauditeventDescMessage.Default.(string)
+	// authauditeventDescMetadata is the schema descriptor for metadata field.
+	authauditeventDescMetadata := authauditeventFields[6].Descriptor()
+	// authauditevent.DefaultMetadata holds the default value on creation for the metadata field.
+	authauditevent.DefaultMetadata = authauditeventDescMetadata.Default.(func() map[string]interface{})
+	// authauditeventDescCreatedAt is the schema descriptor for created_at field.
+	authauditeventDescCreatedAt := authauditeventFields[7].Descriptor()
+	// authauditevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	authauditevent.DefaultCreatedAt = authauditeventDescCreatedAt.Default.(func() time.Time)
+	// authauditeventDescID is the schema descriptor for id field.
+	authauditeventDescID := authauditeventFields[0].Descriptor()
+	// authauditevent.DefaultID holds the default value on creation for the id field.
+	authauditevent.DefaultID = authauditeventDescID.Default.(func() uuid.UUID)
 	browsersessionFields := schema.BrowserSession{}.Fields()
 	_ = browsersessionFields
 	// browsersessionDescSessionHash is the schema descriptor for session_hash field.
 	browsersessionDescSessionHash := browsersessionFields[2].Descriptor()
 	// browsersession.SessionHashValidator is a validator for the "session_hash" field. It is called by the builders before save.
 	browsersession.SessionHashValidator = browsersessionDescSessionHash.Validators[0].(func(string) error)
+	// browsersessionDescDeviceKind is the schema descriptor for device_kind field.
+	browsersessionDescDeviceKind := browsersessionFields[3].Descriptor()
+	// browsersession.DefaultDeviceKind holds the default value on creation for the device_kind field.
+	browsersession.DefaultDeviceKind = browsersessionDescDeviceKind.Default.(string)
+	// browsersessionDescDeviceOs is the schema descriptor for device_os field.
+	browsersessionDescDeviceOs := browsersessionFields[4].Descriptor()
+	// browsersession.DefaultDeviceOs holds the default value on creation for the device_os field.
+	browsersession.DefaultDeviceOs = browsersessionDescDeviceOs.Default.(string)
+	// browsersessionDescDeviceBrowser is the schema descriptor for device_browser field.
+	browsersessionDescDeviceBrowser := browsersessionFields[5].Descriptor()
+	// browsersession.DefaultDeviceBrowser holds the default value on creation for the device_browser field.
+	browsersession.DefaultDeviceBrowser = browsersessionDescDeviceBrowser.Default.(string)
+	// browsersessionDescDeviceLabel is the schema descriptor for device_label field.
+	browsersessionDescDeviceLabel := browsersessionFields[6].Descriptor()
+	// browsersession.DefaultDeviceLabel holds the default value on creation for the device_label field.
+	browsersession.DefaultDeviceLabel = browsersessionDescDeviceLabel.Default.(string)
 	// browsersessionDescCsrfSecret is the schema descriptor for csrf_secret field.
-	browsersessionDescCsrfSecret := browsersessionFields[5].Descriptor()
+	browsersessionDescCsrfSecret := browsersessionFields[9].Descriptor()
 	// browsersession.CsrfSecretValidator is a validator for the "csrf_secret" field. It is called by the builders before save.
 	browsersession.CsrfSecretValidator = browsersessionDescCsrfSecret.Validators[0].(func(string) error)
 	// browsersessionDescUserAgentHash is the schema descriptor for user_agent_hash field.
-	browsersessionDescUserAgentHash := browsersessionFields[6].Descriptor()
+	browsersessionDescUserAgentHash := browsersessionFields[10].Descriptor()
 	// browsersession.DefaultUserAgentHash holds the default value on creation for the user_agent_hash field.
 	browsersession.DefaultUserAgentHash = browsersessionDescUserAgentHash.Default.(string)
 	// browsersessionDescIPPrefix is the schema descriptor for ip_prefix field.
-	browsersessionDescIPPrefix := browsersessionFields[7].Descriptor()
+	browsersessionDescIPPrefix := browsersessionFields[11].Descriptor()
 	// browsersession.DefaultIPPrefix holds the default value on creation for the ip_prefix field.
 	browsersession.DefaultIPPrefix = browsersessionDescIPPrefix.Default.(string)
 	// browsersessionDescCreatedAt is the schema descriptor for created_at field.
-	browsersessionDescCreatedAt := browsersessionFields[9].Descriptor()
+	browsersessionDescCreatedAt := browsersessionFields[13].Descriptor()
 	// browsersession.DefaultCreatedAt holds the default value on creation for the created_at field.
 	browsersession.DefaultCreatedAt = browsersessionDescCreatedAt.Default.(func() time.Time)
 	// browsersessionDescUpdatedAt is the schema descriptor for updated_at field.
-	browsersessionDescUpdatedAt := browsersessionFields[10].Descriptor()
+	browsersessionDescUpdatedAt := browsersessionFields[14].Descriptor()
 	// browsersession.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	browsersession.DefaultUpdatedAt = browsersessionDescUpdatedAt.Default.(func() time.Time)
 	// browsersession.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

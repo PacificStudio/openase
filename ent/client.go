@@ -24,6 +24,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
@@ -88,6 +89,8 @@ type Client struct {
 	AgentTraceEvent *AgentTraceEventClient
 	// ApprovalPolicyRule is the client for interacting with the ApprovalPolicyRule builders.
 	ApprovalPolicyRule *ApprovalPolicyRuleClient
+	// AuthAuditEvent is the client for interacting with the AuthAuditEvent builders.
+	AuthAuditEvent *AuthAuditEventClient
 	// BrowserSession is the client for interacting with the BrowserSession builders.
 	BrowserSession *BrowserSessionClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
@@ -189,6 +192,7 @@ func (c *Client) init() {
 	c.AgentToken = NewAgentTokenClient(c.config)
 	c.AgentTraceEvent = NewAgentTraceEventClient(c.config)
 	c.ApprovalPolicyRule = NewApprovalPolicyRuleClient(c.config)
+	c.AuthAuditEvent = NewAuthAuditEventClient(c.config)
 	c.BrowserSession = NewBrowserSessionClient(c.config)
 	c.ChatConversation = NewChatConversationClient(c.config)
 	c.ChatEntry = NewChatEntryClient(c.config)
@@ -330,6 +334,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		AgentToken:                    NewAgentTokenClient(cfg),
 		AgentTraceEvent:               NewAgentTraceEventClient(cfg),
 		ApprovalPolicyRule:            NewApprovalPolicyRuleClient(cfg),
+		AuthAuditEvent:                NewAuthAuditEventClient(cfg),
 		BrowserSession:                NewBrowserSessionClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatEntry:                     NewChatEntryClient(cfg),
@@ -398,6 +403,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		AgentToken:                    NewAgentTokenClient(cfg),
 		AgentTraceEvent:               NewAgentTraceEventClient(cfg),
 		ApprovalPolicyRule:            NewApprovalPolicyRuleClient(cfg),
+		AuthAuditEvent:                NewAuthAuditEventClient(cfg),
 		BrowserSession:                NewBrowserSessionClient(cfg),
 		ChatConversation:              NewChatConversationClient(cfg),
 		ChatEntry:                     NewChatEntryClient(cfg),
@@ -469,10 +475,10 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
-		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.BrowserSession,
-		c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt, c.ChatTurn, c.Machine,
-		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
-		c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
+		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
+		c.ChatTurn, c.Machine, c.MachineChannelToken, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
 		c.ProjectConversationPrincipal, c.ProjectConversationRun,
 		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
 		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
@@ -492,10 +498,10 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
-		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.BrowserSession,
-		c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt, c.ChatTurn, c.Machine,
-		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
-		c.Organization, c.OrganizationDailyTokenUsage, c.Project,
+		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
+		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
+		c.ChatTurn, c.Machine, c.MachineChannelToken, c.NotificationChannel,
+		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage, c.Project,
 		c.ProjectConversationPrincipal, c.ProjectConversationRun,
 		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
 		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
@@ -529,6 +535,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AgentTraceEvent.mutate(ctx, m)
 	case *ApprovalPolicyRuleMutation:
 		return c.ApprovalPolicyRule.mutate(ctx, m)
+	case *AuthAuditEventMutation:
+		return c.AuthAuditEvent.mutate(ctx, m)
 	case *BrowserSessionMutation:
 		return c.BrowserSession.mutate(ctx, m)
 	case *ChatConversationMutation:
@@ -2285,6 +2293,139 @@ func (c *ApprovalPolicyRuleClient) mutate(ctx context.Context, m *ApprovalPolicy
 		return (&ApprovalPolicyRuleDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ApprovalPolicyRule mutation op: %q", m.Op())
+	}
+}
+
+// AuthAuditEventClient is a client for the AuthAuditEvent schema.
+type AuthAuditEventClient struct {
+	config
+}
+
+// NewAuthAuditEventClient returns a client for the AuthAuditEvent from the given config.
+func NewAuthAuditEventClient(c config) *AuthAuditEventClient {
+	return &AuthAuditEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `authauditevent.Hooks(f(g(h())))`.
+func (c *AuthAuditEventClient) Use(hooks ...Hook) {
+	c.hooks.AuthAuditEvent = append(c.hooks.AuthAuditEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `authauditevent.Intercept(f(g(h())))`.
+func (c *AuthAuditEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.AuthAuditEvent = append(c.inters.AuthAuditEvent, interceptors...)
+}
+
+// Create returns a builder for creating a AuthAuditEvent entity.
+func (c *AuthAuditEventClient) Create() *AuthAuditEventCreate {
+	mutation := newAuthAuditEventMutation(c.config, OpCreate)
+	return &AuthAuditEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of AuthAuditEvent entities.
+func (c *AuthAuditEventClient) CreateBulk(builders ...*AuthAuditEventCreate) *AuthAuditEventCreateBulk {
+	return &AuthAuditEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *AuthAuditEventClient) MapCreateBulk(slice any, setFunc func(*AuthAuditEventCreate, int)) *AuthAuditEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &AuthAuditEventCreateBulk{err: fmt.Errorf("calling to AuthAuditEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*AuthAuditEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &AuthAuditEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for AuthAuditEvent.
+func (c *AuthAuditEventClient) Update() *AuthAuditEventUpdate {
+	mutation := newAuthAuditEventMutation(c.config, OpUpdate)
+	return &AuthAuditEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *AuthAuditEventClient) UpdateOne(_m *AuthAuditEvent) *AuthAuditEventUpdateOne {
+	mutation := newAuthAuditEventMutation(c.config, OpUpdateOne, withAuthAuditEvent(_m))
+	return &AuthAuditEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *AuthAuditEventClient) UpdateOneID(id uuid.UUID) *AuthAuditEventUpdateOne {
+	mutation := newAuthAuditEventMutation(c.config, OpUpdateOne, withAuthAuditEventID(id))
+	return &AuthAuditEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for AuthAuditEvent.
+func (c *AuthAuditEventClient) Delete() *AuthAuditEventDelete {
+	mutation := newAuthAuditEventMutation(c.config, OpDelete)
+	return &AuthAuditEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *AuthAuditEventClient) DeleteOne(_m *AuthAuditEvent) *AuthAuditEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *AuthAuditEventClient) DeleteOneID(id uuid.UUID) *AuthAuditEventDeleteOne {
+	builder := c.Delete().Where(authauditevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &AuthAuditEventDeleteOne{builder}
+}
+
+// Query returns a query builder for AuthAuditEvent.
+func (c *AuthAuditEventClient) Query() *AuthAuditEventQuery {
+	return &AuthAuditEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAuthAuditEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a AuthAuditEvent entity by its id.
+func (c *AuthAuditEventClient) Get(ctx context.Context, id uuid.UUID) (*AuthAuditEvent, error) {
+	return c.Query().Where(authauditevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *AuthAuditEventClient) GetX(ctx context.Context, id uuid.UUID) *AuthAuditEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *AuthAuditEventClient) Hooks() []Hook {
+	return c.hooks.AuthAuditEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *AuthAuditEventClient) Interceptors() []Interceptor {
+	return c.inters.AuthAuditEvent
+}
+
+func (c *AuthAuditEventClient) mutate(ctx context.Context, m *AuthAuditEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&AuthAuditEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&AuthAuditEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&AuthAuditEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&AuthAuditEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown AuthAuditEvent mutation op: %q", m.Op())
 	}
 }
 
@@ -9569,9 +9710,9 @@ func (c *WorkflowVersionClient) mutate(ctx context.Context, m *WorkflowVersionMu
 type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
-		AgentTraceEvent, ApprovalPolicyRule, BrowserSession, ChatConversation,
-		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, MachineChannelToken,
-		NotificationChannel, NotificationRule, Organization,
+		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
+		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn, Machine,
+		MachineChannelToken, NotificationChannel, NotificationRule, Organization,
 		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
 		ProjectConversationRun, ProjectConversationStepEvent,
 		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,
@@ -9584,9 +9725,9 @@ type (
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
-		AgentTraceEvent, ApprovalPolicyRule, BrowserSession, ChatConversation,
-		ChatEntry, ChatPendingInterrupt, ChatTurn, Machine, MachineChannelToken,
-		NotificationChannel, NotificationRule, Organization,
+		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
+		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn, Machine,
+		MachineChannelToken, NotificationChannel, NotificationRule, Organization,
 		OrganizationDailyTokenUsage, Project, ProjectConversationPrincipal,
 		ProjectConversationRun, ProjectConversationStepEvent,
 		ProjectConversationTraceEvent, ProjectRepo, ProjectUpdateComment,

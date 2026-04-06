@@ -7,6 +7,7 @@ import SecuritySettings from './security-settings.svelte'
 import {
   createdOrganizationUserBinding,
   configuredSecurity,
+  configuredSessionGovernance,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
@@ -19,13 +20,19 @@ import {
 const {
   deleteGitHubOutboundCredential,
   getSecuritySettings,
+  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
+  revokeAllOtherAuthSessions,
+  revokeAuthSession,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
   deleteGitHubOutboundCredential: vi.fn(),
   getSecuritySettings: vi.fn(),
+  getSessionGovernance: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  revokeAllOtherAuthSessions: vi.fn(),
+  revokeAuthSession: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
 }))
@@ -41,6 +48,7 @@ const {
   listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
+  logoutHumanSession,
 } = vi.hoisted(() => ({
   createInstanceRoleBinding: vi.fn(),
   createOrganizationRoleBinding: vi.fn(),
@@ -52,12 +60,24 @@ const {
   listInstanceRoleBindings: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
+  logoutHumanSession: vi.fn(),
+}))
+
+const { goto } = vi.hoisted(() => ({
+  goto: vi.fn(),
+}))
+
+vi.mock('$app/navigation', () => ({
+  goto,
 }))
 
 vi.mock('$lib/api/openase', () => ({
   deleteGitHubOutboundCredential,
   getSecuritySettings,
+  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
+  revokeAllOtherAuthSessions,
+  revokeAuthSession,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 }))
@@ -73,6 +93,8 @@ vi.mock('$lib/api/auth', () => ({
   listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
+  logoutHumanSession,
+  normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
 }))
 
 describe('Security settings', () => {
@@ -177,9 +199,10 @@ describe('Security settings', () => {
     listInstanceRoleBindings.mockResolvedValue([])
     listOrganizationRoleBindings.mockResolvedValue([organizationGroupBinding()])
     listProjectRoleBindings.mockResolvedValue([])
+    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
     createOrganizationRoleBinding.mockResolvedValue(createdOrganizationUserBinding())
 
-    const { findAllByPlaceholderText, findByText } = render(SecuritySettings)
+    const { findAllByPlaceholderText, findAllByText, findByText } = render(SecuritySettings)
 
     expect(await findByText('Human access and RBAC')).toBeTruthy()
     expect(await findByText('Alice Control Plane')).toBeTruthy()
@@ -189,6 +212,9 @@ describe('Security settings', () => {
     expect(await findByText('org_admin')).toBeTruthy()
     expect(await findByText('project_admin')).toBeTruthy()
     expect(await findByText('Approval boundary')).toBeTruthy()
+    expect(await findByText('Session governance')).toBeTruthy()
+    expect((await findAllByText('Firefox on Linux')).length).toBeGreaterThan(0)
+    expect(await findByText('Login succeeded')).toBeTruthy()
     expect(await findByText('Stored rules')).toBeTruthy()
     expect(await findByText('reserved')).toBeTruthy()
     expect(

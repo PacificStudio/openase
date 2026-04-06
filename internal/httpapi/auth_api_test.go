@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entauthauditevent "github.com/BetterAndBetterII/openase/ent/authauditevent"
+	entbrowsersession "github.com/BetterAndBetterII/openase/ent/browsersession"
 	entrolebinding "github.com/BetterAndBetterII/openase/ent/rolebinding"
 	entuser "github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -414,6 +416,360 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 	}
 }
 
+func TestListSessionsReturnsInventoryAndAuditTrail(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "alice@example.com",
+		displayName:     "Alice Control Plane",
+		deviceKind:      "desktop",
+		deviceOS:        "Linux",
+		deviceBrowser:   "Firefox",
+		deviceLabel:     "Firefox on Linux",
+		instanceRoleKey: "instance_admin",
+	})
+	userID := fixture.userIDByEmail(t, "alice@example.com")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-laptop", "Chrome on macOS")
+	otherSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
+	if err != nil {
+		t.Fatalf("load additional session: %v", err)
+	}
+	if _, err := fixture.repo.CreateAuthAuditEvent(context.Background(), humanauthrepo.CreateAuthAuditEventInput{
+		UserID:    &userID,
+		SessionID: &otherSession.ID,
+		ActorID:   "user:" + userID.String(),
+		EventType: humanauthdomain.AuthAuditSessionRevoked,
+		Message:   "Seeded audit event.",
+		Metadata:  map[string]any{"reason": "seeded"},
+		CreatedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("create auth audit event: %v", err)
+	}
+
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/sessions", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "InventoryTest/1.0",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		AuthMode         string `json:"auth_mode"`
+		CurrentSessionID string `json:"current_session_id"`
+		Sessions         []struct {
+			ID      string `json:"id"`
+			Current bool   `json:"current"`
+			Device  struct {
+				Label string `json:"label"`
+			} `json:"device"`
+		} `json:"sessions"`
+		AuditEvents []struct {
+			EventType string `json:"event_type"`
+		} `json:"audit_events"`
+		StepUp struct {
+			Status string `json:"status"`
+		} `json:"step_up"`
+	}
+	decodeResponse(t, rec, &payload)
+
+	if payload.AuthMode != "oidc" {
+		t.Fatalf("auth_mode = %q, want oidc", payload.AuthMode)
+	}
+	if payload.StepUp.Status != "reserved" {
+		t.Fatalf("step_up.status = %q, want reserved", payload.StepUp.Status)
+	}
+	if len(payload.Sessions) != 2 {
+		t.Fatalf("expected 2 sessions, got %+v", payload.Sessions)
+	}
+	currentCount := 0
+	deviceLabels := map[string]bool{}
+	for _, session := range payload.Sessions {
+		if session.Current {
+			currentCount++
+			if payload.CurrentSessionID != session.ID {
+				t.Fatalf("current session id mismatch: current_session_id=%q row=%q", payload.CurrentSessionID, session.ID)
+			}
+		}
+		deviceLabels[session.Device.Label] = true
+	}
+	if currentCount != 1 {
+		t.Fatalf("expected exactly 1 current session, got %d", currentCount)
+	}
+	if !deviceLabels["Firefox on Linux"] || !deviceLabels["Chrome on macOS"] {
+		t.Fatalf("unexpected device labels: %+v", deviceLabels)
+	}
+	if len(payload.AuditEvents) != 1 || payload.AuditEvents[0].EventType != "session.revoked" {
+		t.Fatalf("unexpected audit events: %+v", payload.AuditEvents)
+	}
+}
+
+func TestDeleteSessionRevokesTargetSessionAndBlocksFutureRequests(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "alice@example.com",
+		displayName:     "Alice Control Plane",
+		instanceRoleKey: "instance_admin",
+	})
+	userID := fixture.userIDByEmail(t, "alice@example.com")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-phone", "Safari on iPhone")
+	otherSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
+	if err != nil {
+		t.Fatalf("load additional session: %v", err)
+	}
+
+	rec := fixture.request(t, http.MethodDelete, "/api/v1/auth/sessions/"+otherSession.ID.String(), map[string]string{
+		"Cookie":         humanSessionCookieName + "=" + sessionToken,
+		"Origin":         "http://example.com",
+		"X-OpenASE-CSRF": csrfToken,
+		"User-Agent":     "RevokeSessionTest/1.0",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	revokedSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
+	if err != nil {
+		t.Fatalf("reload revoked session: %v", err)
+	}
+	if revokedSession.RevokedAt == nil {
+		t.Fatal("expected revoked session to have revoked_at set")
+	}
+
+	denied := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + otherToken,
+		"User-Agent": "RevokeSessionTest/1.0",
+	})
+	assertAPIErrorResponse(t, denied, http.StatusUnauthorized, "HUMAN_SESSION_INVALID", "invalid browser session")
+}
+
+func TestRevokeAllSessionsKeepsCurrentSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "alice@example.com",
+		displayName:     "Alice Control Plane",
+		instanceRoleKey: "instance_admin",
+	})
+	userID := fixture.userIDByEmail(t, "alice@example.com")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-tablet", "Chrome on Android")
+
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/sessions/revoke-all", map[string]string{
+		"Cookie":         humanSessionCookieName + "=" + sessionToken,
+		"Origin":         "http://example.com",
+		"X-OpenASE-CSRF": csrfToken,
+		"User-Agent":     "RevokeAllTest/1.0",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		RevokedCount int `json:"revoked_count"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.RevokedCount != 1 {
+		t.Fatalf("revoked_count = %d, want 1", payload.RevokedCount)
+	}
+
+	currentSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(sessionToken))
+	if err != nil {
+		t.Fatalf("reload current session: %v", err)
+	}
+	if currentSession.RevokedAt != nil {
+		t.Fatal("expected current session to remain active")
+	}
+	otherSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
+	if err != nil {
+		t.Fatalf("reload other session: %v", err)
+	}
+	if otherSession.RevokedAt == nil {
+		t.Fatal("expected other session to be revoked")
+	}
+}
+
+func TestAdminCanForceRevokeUserSessions(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "member@example.com",
+		displayName: "Member",
+	})
+	memberUserID := fixture.userIDByEmail(t, "member@example.com")
+	memberToken := fixture.createAdditionalSession(t, memberUserID, "member-laptop", "Chrome on Windows")
+
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/users/"+memberUserID.String()+"/sessions/revoke", map[string]string{
+		"Cookie":         humanSessionCookieName + "=" + adminToken,
+		"Origin":         "http://example.com",
+		"X-OpenASE-CSRF": adminCSRF,
+		"User-Agent":     "AdminRevokeTest/1.0",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		RevokedCount int    `json:"revoked_count"`
+		UserID       string `json:"user_id"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.RevokedCount != 2 {
+		t.Fatalf("revoked_count = %d, want 2", payload.RevokedCount)
+	}
+	if payload.UserID != memberUserID.String() {
+		t.Fatalf("user_id = %q, want %q", payload.UserID, memberUserID.String())
+	}
+
+	memberSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(memberToken))
+	if err != nil {
+		t.Fatalf("reload member session: %v", err)
+	}
+	if memberSession.RevokedAt == nil {
+		t.Fatal("expected member session to be revoked")
+	}
+}
+
+func TestListSessionsReturnsLightweightDisabledModeResponse(t *testing.T) {
+	t.Parallel()
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/auth/sessions", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		AuthMode    string `json:"auth_mode"`
+		Sessions    []any  `json:"sessions"`
+		AuditEvents []any  `json:"audit_events"`
+		StepUp      struct {
+			Status string `json:"status"`
+		} `json:"step_up"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.AuthMode != "disabled" {
+		t.Fatalf("auth_mode = %q, want disabled", payload.AuthMode)
+	}
+	if len(payload.Sessions) != 0 || len(payload.AuditEvents) != 0 {
+		t.Fatalf("expected no session governance payload in disabled mode, got %+v", payload)
+	}
+	if payload.StepUp.Status != "reserved" {
+		t.Fatalf("step_up.status = %q, want reserved", payload.StepUp.Status)
+	}
+}
+
+func TestExpiredSessionRecordsAuditEvent(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "alice@example.com",
+		displayName: "Alice Control Plane",
+	})
+	session, err := fixture.client.BrowserSession.Query().
+		Where(entbrowsersession.SessionHashEQ(humanFixtureHashToken(sessionToken))).
+		Only(context.Background())
+	if err != nil {
+		t.Fatalf("load session: %v", err)
+	}
+	if _, err := fixture.client.BrowserSession.UpdateOneID(session.ID).
+		SetExpiresAt(time.Now().UTC().Add(-1 * time.Minute)).
+		Save(context.Background()); err != nil {
+		t.Fatalf("expire session: %v", err)
+	}
+
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/session", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "ExpiredSessionTest/1.0",
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	events, err := fixture.client.AuthAuditEvent.Query().
+		Where(entauthauditevent.EventTypeEQ(string(humanauthdomain.AuthAuditSessionExpired))).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query auth audit events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 session.expired event, got %+v", events)
+	}
+}
+
+func TestOIDCCallbackFailureRecordsAuditEvent(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/oidc/callback?code=bad&state=bad", map[string]string{
+		"Cookie": "openase_oidc_flow=invalid",
+	})
+	assertAPIErrorResponse(t, rec, http.StatusUnauthorized, "OIDC_CALLBACK_FAILED", "invalid oidc login flow state")
+
+	events, err := fixture.client.AuthAuditEvent.Query().
+		Where(entauthauditevent.EventTypeEQ(string(humanauthdomain.AuthAuditLoginFailed))).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query auth audit events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 login.failed event, got %+v", events)
+	}
+}
+
+func TestDisabledUserAfterLoginRecordsAuditEvent(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "alice@example.com",
+		displayName: "Alice Control Plane",
+	})
+	userID := fixture.userIDByEmail(t, "alice@example.com")
+	if _, err := fixture.client.User.UpdateOneID(userID).
+		SetStatus(entuser.StatusDisabled).
+		Save(context.Background()); err != nil {
+		t.Fatalf("disable user: %v", err)
+	}
+
+	rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "DisabledSessionTest/1.0",
+	})
+	assertAPIErrorResponse(t, rec, http.StatusUnauthorized, "HUMAN_USER_DISABLED", "user is disabled")
+
+	events, err := fixture.client.AuthAuditEvent.Query().
+		Where(entauthauditevent.EventTypeEQ(string(humanauthdomain.AuthAuditUserDisabledAfterLogin))).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query auth audit events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 user.disabled_after_login event, got %+v", events)
+	}
+}
+
 func TestCreateProjectRoleBindingRejectsInvalidScopeRoleCombination(t *testing.T) {
 	t.Parallel()
 
@@ -591,6 +947,10 @@ type humanFixtureSessionInput struct {
 	displayName     string
 	groupKey        string
 	groupName       string
+	deviceKind      string
+	deviceOS        string
+	deviceBrowser   string
+	deviceLabel     string
 	instanceRoleKey string
 	orgID           uuid.UUID
 	projectID       uuid.UUID
@@ -748,6 +1108,10 @@ func (f humanAuthFixture) createSession(t *testing.T, input humanFixtureSessionI
 	if _, err := f.repo.CreateBrowserSession(ctx, humanauthrepo.CreateBrowserSessionInput{
 		UserID:        user.ID,
 		SessionHash:   humanFixtureHashToken(sessionToken),
+		DeviceKind:    humanauthdomain.SessionDeviceKind(input.deviceKind),
+		DeviceOS:      input.deviceOS,
+		DeviceBrowser: input.deviceBrowser,
+		DeviceLabel:   input.deviceLabel,
 		ExpiresAt:     now.Add(2 * time.Hour),
 		IdleExpiresAt: now.Add(30 * time.Minute),
 		CSRFSecret:    csrfToken,
@@ -770,6 +1134,44 @@ func (f humanAuthFixture) request(
 	}
 	headers["Host"] = "example.com"
 	return performJSONRequestWithHeaders(t, f.server, method, target, "", headers)
+}
+
+func (f humanAuthFixture) userIDByEmail(t *testing.T, email string) uuid.UUID {
+	t.Helper()
+
+	item, err := f.client.User.Query().
+		Where(entuser.PrimaryEmailEQ(email)).
+		Only(context.Background())
+	if err != nil {
+		t.Fatalf("lookup user by email: %v", err)
+	}
+	return item.ID
+}
+
+func (f humanAuthFixture) createAdditionalSession(
+	t *testing.T,
+	userID uuid.UUID,
+	tokenSuffix string,
+	deviceLabel string,
+) string {
+	t.Helper()
+
+	now := time.Now().UTC()
+	sessionToken := "session-" + tokenSuffix
+	if _, err := f.repo.CreateBrowserSession(context.Background(), humanauthrepo.CreateBrowserSessionInput{
+		UserID:        userID,
+		SessionHash:   humanFixtureHashToken(sessionToken),
+		DeviceKind:    humanauthdomain.SessionDeviceKindDesktop,
+		DeviceOS:      "macOS",
+		DeviceBrowser: "Chrome",
+		DeviceLabel:   deviceLabel,
+		ExpiresAt:     now.Add(2 * time.Hour),
+		IdleExpiresAt: now.Add(30 * time.Minute),
+		CSRFSecret:    "csrf-" + tokenSuffix,
+	}); err != nil {
+		t.Fatalf("create additional browser session: %v", err)
+	}
+	return sessionToken
 }
 
 func (f humanAuthFixture) requestJSON(

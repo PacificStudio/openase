@@ -177,6 +177,39 @@ export function effectivePermissionsMock(scope: MockScope, id = '') {
   }
 }
 
+export function configuredSessionGovernance() {
+  return {
+    authMode: 'oidc' as const,
+    currentSessionID: 'session-current',
+    sessions: [
+      {
+        id: 'session-current',
+        current: true,
+        device: { kind: 'desktop', os: 'Linux', browser: 'Firefox', label: 'Firefox on Linux' },
+        createdAt: '2026-04-04T10:00:00Z',
+        lastActiveAt: '2026-04-04T10:30:00Z',
+        expiresAt: '2026-04-04T18:00:00Z',
+        idleExpiresAt: '2026-04-04T11:00:00Z',
+      },
+    ],
+    auditEvents: [
+      {
+        id: 'audit-1',
+        eventType: 'login.success',
+        actorID: 'user:user-1',
+        message: 'Signed in via OIDC.',
+        metadata: {},
+        createdAt: '2026-04-04T10:00:00Z',
+      },
+    ],
+    stepUp: {
+      status: 'reserved',
+      summary: 'Reserved for future high-risk actions.',
+      supportedMethods: [],
+    },
+  }
+}
+
 export async function mockEffectivePermissionsByScope({
   orgId,
   projectId,

@@ -120,10 +120,16 @@ func (s *Server) requiredScopeAndPermission(
 
 func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAuthorizationRule, bool) {
 	switch path {
-	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions", "/api/v1/roles/builtin", "/api/v1/roles/builtin/:roleSlug", "/api/v1/harness/variables", "/api/v1/harness/validate", "/api/v1/notification-event-types", "/api/v1/chat", "/api/v1/chat/:sessionId", "/api/v1/chat/conversations":
+	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions", "/api/v1/auth/sessions", "/api/v1/auth/sessions/:id", "/api/v1/auth/sessions/revoke-all", "/api/v1/roles/builtin", "/api/v1/roles/builtin/:roleSlug", "/api/v1/harness/variables", "/api/v1/harness/validate", "/api/v1/notification-event-types", "/api/v1/chat", "/api/v1/chat/:sessionId", "/api/v1/chat/conversations":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,
 			checkRequired: false,
+		}, true
+	case "/api/v1/auth/users/:userId/sessions/revoke":
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverInstance,
+			permission:    humanauthdomain.PermissionSecurityManage,
+			checkRequired: true,
 		}, true
 	case "/api/v1/instance/role-bindings", "/api/v1/instance/role-bindings/:bindingId":
 		return humanRouteAuthorizationRule{

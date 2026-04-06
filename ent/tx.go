@@ -28,6 +28,8 @@ type Tx struct {
 	AgentTraceEvent *AgentTraceEventClient
 	// ApprovalPolicyRule is the client for interacting with the ApprovalPolicyRule builders.
 	ApprovalPolicyRule *ApprovalPolicyRuleClient
+	// AuthAuditEvent is the client for interacting with the AuthAuditEvent builders.
+	AuthAuditEvent *AuthAuditEventClient
 	// BrowserSession is the client for interacting with the BrowserSession builders.
 	BrowserSession *BrowserSessionClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
@@ -249,6 +251,7 @@ func (tx *Tx) init() {
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
 	tx.ApprovalPolicyRule = NewApprovalPolicyRuleClient(tx.config)
+	tx.AuthAuditEvent = NewAuthAuditEventClient(tx.config)
 	tx.BrowserSession = NewBrowserSessionClient(tx.config)
 	tx.ChatConversation = NewChatConversationClient(tx.config)
 	tx.ChatEntry = NewChatEntryClient(tx.config)

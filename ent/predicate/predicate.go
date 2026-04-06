@@ -30,6 +30,9 @@ type AgentTraceEvent func(*sql.Selector)
 // ApprovalPolicyRule is the predicate function for approvalpolicyrule builders.
 type ApprovalPolicyRule func(*sql.Selector)
 
+// AuthAuditEvent is the predicate function for authauditevent builders.
+type AuthAuditEvent func(*sql.Selector)
+
 // BrowserSession is the predicate function for browsersession builders.
 type BrowserSession func(*sql.Selector)
 

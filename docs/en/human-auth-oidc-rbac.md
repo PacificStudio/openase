@@ -69,6 +69,7 @@ Anonymous access is intentionally limited to setup, health checks, and auth entr
 
 Browser sessions are stored in the `browser_sessions` table with:
 
+- device metadata for inventory views
 - absolute expiry
 - idle expiry
 - revoke state
@@ -81,8 +82,21 @@ OpenASE refreshes the idle deadline on active use. Disabling a user in the OpenA
 Relevant routes:
 
 - `GET /auth/session`: returns auth mode, current user, CSRF token, effective instance roles, and permissions.
+- `GET /auth/sessions`: returns the current user's active browser session inventory, auth audit timeline, and reserved step-up metadata.
+- `DELETE /auth/sessions/:id`: revokes one browser session, including the current session when needed.
+- `POST /auth/sessions/revoke-all`: revokes every other browser session while preserving the current one.
+- `POST /auth/users/:userId/sessions/revoke`: lets an instance-level administrator force-revoke all sessions for a specific user.
 - `POST /auth/logout`: revokes the current session and clears the session cookie.
 - `GET /api/v1/auth/me/permissions`: evaluates effective roles and permissions for instance, org, or project scope.
+
+Auth audit events capture:
+
+- login success
+- login failure
+- logout
+- session revocation
+- session expiry
+- user-disabled-after-login enforcement
 
 ## CSRF Protection
 
@@ -206,6 +220,8 @@ The control plane Settings view exposes the human auth state, including:
 - current auth mode
 - issuer URL
 - current authenticated user
+- session inventory with current-device detection and revoke actions
+- auth audit timeline for browser access events
 - stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
 - effective roles and permissions
 - the distinction between human permissions and mintable agent scopes

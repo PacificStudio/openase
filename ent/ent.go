@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
@@ -129,6 +130,7 @@ func checkColumn(t, c string) error {
 			agenttoken.Table:                    agenttoken.ValidColumn,
 			agenttraceevent.Table:               agenttraceevent.ValidColumn,
 			approvalpolicyrule.Table:            approvalpolicyrule.ValidColumn,
+			authauditevent.Table:                authauditevent.ValidColumn,
 			browsersession.Table:                browsersession.ValidColumn,
 			chatconversation.Table:              chatconversation.ValidColumn,
 			chatentry.Table:                     chatentry.ValidColumn,

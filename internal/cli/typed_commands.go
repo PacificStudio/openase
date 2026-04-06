@@ -233,6 +233,66 @@ func newActivityCommand() *cobra.Command {
 	return command
 }
 
+func newAuthCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "auth",
+		Short: "Inspect and govern browser-auth sessions through the OpenASE API.",
+	}
+
+	sessions := &cobra.Command{
+		Use:   "sessions",
+		Short: "List and revoke browser sessions for the current human principal.",
+	}
+	sessions.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "list",
+		Short:  "List active browser sessions and recent auth audit events.",
+		Method: http.MethodGet,
+		Path:   "/api/v1/auth/sessions",
+		HelpNotes: []string{
+			"This reads the current browser-session inventory, including the current device marker and recent auth audit events.",
+		},
+		Example: "openase auth sessions list",
+	}))
+	sessions.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "revoke [id]",
+		Short:            "Revoke one browser session owned by the current human principal.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/auth/sessions/{id}",
+		PositionalParams: []string{"id"},
+		Example:          "openase auth sessions revoke $OPENASE_SESSION_ID",
+	}))
+	sessions.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "revoke-all",
+		Short:  "Revoke all other browser sessions while keeping the current one.",
+		Method: http.MethodPost,
+		Path:   "/api/v1/auth/sessions/revoke-all",
+		HelpNotes: []string{
+			"This keeps the current browser session active and revokes the remaining sessions owned by the authenticated user.",
+		},
+		Example: "openase auth sessions revoke-all",
+	}))
+	command.AddCommand(sessions)
+
+	users := &cobra.Command{
+		Use:   "users",
+		Short: "Administrative auth-session actions for specific users.",
+	}
+	users.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "revoke-sessions [userId]",
+		Short:            "Revoke all browser sessions for a specific user.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/auth/users/{userId}/sessions/revoke",
+		PositionalParams: []string{"userId"},
+		HelpNotes: []string{
+			"This administrative action forces a full browser-session logout for the target user across devices.",
+		},
+		Example: "openase auth users revoke-sessions $OPENASE_USER_ID",
+	}))
+	command.AddCommand(users)
+
+	return command
+}
+
 func newStatusCommand() *cobra.Command {
 	command := &cobra.Command{
 		Use:   "status",
@@ -2026,6 +2086,10 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "get [projectId] [ticketId] [runId]", Short: "Get a ticket run.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", PositionalParams: []string{"projectId", "ticketId", "runId"}},
 		{Use: "list [projectId]", Short: "List ticket statuses.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
 		{Use: "list [projectId]", Short: "List project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity", PositionalParams: []string{"projectId"}},
+		{Use: "list", Short: "List active browser sessions and recent auth audit events.", Method: http.MethodGet, Path: "/api/v1/auth/sessions"},
+		{Use: "revoke [id]", Short: "Revoke one browser session owned by the current human principal.", Method: http.MethodDelete, Path: "/api/v1/auth/sessions/{id}", PositionalParams: []string{"id"}},
+		{Use: "revoke-all", Short: "Revoke all other browser sessions while keeping the current one.", Method: http.MethodPost, Path: "/api/v1/auth/sessions/revoke-all"},
+		{Use: "revoke-sessions [userId]", Short: "Revoke all browser sessions for a specific user.", Method: http.MethodPost, Path: "/api/v1/auth/users/{userId}/sessions/revoke", PositionalParams: []string{"userId"}},
 		{Use: "create [projectId]", Short: "Create a ticket status.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
 		{Use: "update [statusId]", Short: "Update a ticket status.", Method: http.MethodPatch, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},
 		{Use: "delete [statusId]", Short: "Delete a ticket status.", Method: http.MethodDelete, Path: "/api/v1/statuses/{statusId}", PositionalParams: []string{"statusId"}},

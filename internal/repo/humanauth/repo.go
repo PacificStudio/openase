@@ -10,6 +10,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagent "github.com/BetterAndBetterII/openase/ent/agent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
+	entauthauditevent "github.com/BetterAndBetterII/openase/ent/authauditevent"
 	entbrowsersession "github.com/BetterAndBetterII/openase/ent/browsersession"
 	entchatconversation "github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entmachine "github.com/BetterAndBetterII/openase/ent/machine"
@@ -48,11 +49,25 @@ type ListRoleBindingsFilter struct {
 type CreateBrowserSessionInput struct {
 	UserID        uuid.UUID
 	SessionHash   string
+	DeviceKind    domain.SessionDeviceKind
+	DeviceOS      string
+	DeviceBrowser string
+	DeviceLabel   string
 	ExpiresAt     time.Time
 	IdleExpiresAt time.Time
 	CSRFSecret    string
 	UserAgentHash string
 	IPPrefix      string
+}
+
+type CreateAuthAuditEventInput struct {
+	UserID    *uuid.UUID
+	SessionID *uuid.UUID
+	ActorID   string
+	EventType domain.AuthAuditEventType
+	Message   string
+	Metadata  map[string]any
+	CreatedAt time.Time
 }
 
 func NewEntRepository(client *ent.Client) *Repository {
@@ -174,9 +189,17 @@ func (r *Repository) UpsertUserFromOIDC(
 }
 
 func (r *Repository) CreateBrowserSession(ctx context.Context, input CreateBrowserSessionInput) (domain.BrowserSession, error) {
+	deviceKind := strings.TrimSpace(string(input.DeviceKind))
+	if deviceKind == "" {
+		deviceKind = string(domain.SessionDeviceKindUnknown)
+	}
 	item, err := r.client.BrowserSession.Create().
 		SetUserID(input.UserID).
 		SetSessionHash(strings.TrimSpace(input.SessionHash)).
+		SetDeviceKind(deviceKind).
+		SetDeviceOs(strings.TrimSpace(input.DeviceOS)).
+		SetDeviceBrowser(strings.TrimSpace(input.DeviceBrowser)).
+		SetDeviceLabel(strings.TrimSpace(input.DeviceLabel)).
 		SetExpiresAt(input.ExpiresAt.UTC()).
 		SetIdleExpiresAt(input.IdleExpiresAt.UTC()).
 		SetCsrfSecret(strings.TrimSpace(input.CSRFSecret)).
@@ -189,6 +212,14 @@ func (r *Repository) CreateBrowserSession(ctx context.Context, input CreateBrows
 	return mapBrowserSession(item), nil
 }
 
+func (r *Repository) GetBrowserSession(ctx context.Context, id uuid.UUID) (domain.BrowserSession, error) {
+	item, err := r.client.BrowserSession.Get(ctx, id)
+	if err != nil {
+		return domain.BrowserSession{}, fmt.Errorf("get browser session: %w", err)
+	}
+	return mapBrowserSession(item), nil
+}
+
 func (r *Repository) GetBrowserSessionByHash(ctx context.Context, sessionHash string) (domain.BrowserSession, error) {
 	item, err := r.client.BrowserSession.Query().
 		Where(entbrowsersession.SessionHashEQ(strings.TrimSpace(sessionHash))).
@@ -197,6 +228,24 @@ func (r *Repository) GetBrowserSessionByHash(ctx context.Context, sessionHash st
 		return domain.BrowserSession{}, fmt.Errorf("get browser session: %w", err)
 	}
 	return mapBrowserSession(item), nil
+}
+
+func (r *Repository) ListBrowserSessionsByUser(ctx context.Context, userID uuid.UUID) ([]domain.BrowserSession, error) {
+	items, err := r.client.BrowserSession.Query().
+		Where(entbrowsersession.UserIDEQ(userID)).
+		Order(
+			ent.Desc(entbrowsersession.FieldUpdatedAt),
+			ent.Desc(entbrowsersession.FieldCreatedAt),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list browser sessions: %w", err)
+	}
+	result := make([]domain.BrowserSession, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapBrowserSession(item))
+	}
+	return result, nil
 }
 
 func (r *Repository) TouchBrowserSession(ctx context.Context, id uuid.UUID, idleExpiresAt time.Time) (domain.BrowserSession, error) {
@@ -216,6 +265,93 @@ func (r *Repository) RevokeBrowserSession(ctx context.Context, id uuid.UUID, rev
 		return fmt.Errorf("revoke browser session: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) RevokeBrowserSessionsByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	excludeSessionID *uuid.UUID,
+	revokedAt time.Time,
+) ([]domain.BrowserSession, error) {
+	query := r.client.BrowserSession.Query().
+		Where(
+			entbrowsersession.UserIDEQ(userID),
+			entbrowsersession.RevokedAtIsNil(),
+		)
+	if excludeSessionID != nil {
+		query = query.Where(entbrowsersession.IDNEQ(*excludeSessionID))
+	}
+
+	items, err := query.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list browser sessions to revoke: %w", err)
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]uuid.UUID, 0, len(items))
+	result := make([]domain.BrowserSession, 0, len(items))
+	for _, item := range items {
+		ids = append(ids, item.ID)
+		mapped := mapBrowserSession(item)
+		revokedAtUTC := revokedAt.UTC()
+		mapped.RevokedAt = &revokedAtUTC
+		result = append(result, mapped)
+	}
+
+	if _, err := r.client.BrowserSession.Update().
+		Where(entbrowsersession.IDIn(ids...)).
+		SetRevokedAt(revokedAt.UTC()).
+		Save(ctx); err != nil {
+		return nil, fmt.Errorf("revoke browser sessions: %w", err)
+	}
+	return result, nil
+}
+
+func (r *Repository) CreateAuthAuditEvent(ctx context.Context, input CreateAuthAuditEventInput) (domain.AuthAuditEvent, error) {
+	builder := r.client.AuthAuditEvent.Create().
+		SetActorID(strings.TrimSpace(input.ActorID)).
+		SetEventType(strings.TrimSpace(string(input.EventType))).
+		SetMessage(strings.TrimSpace(input.Message)).
+		SetMetadata(input.Metadata)
+	if !input.CreatedAt.IsZero() {
+		builder.SetCreatedAt(input.CreatedAt.UTC())
+	}
+	if input.UserID != nil {
+		builder.SetUserID(*input.UserID)
+	}
+	if input.SessionID != nil {
+		builder.SetSessionID(*input.SessionID)
+	}
+	item, err := builder.Save(ctx)
+	if err != nil {
+		return domain.AuthAuditEvent{}, fmt.Errorf("create auth audit event: %w", err)
+	}
+	return mapAuthAuditEvent(item), nil
+}
+
+func (r *Repository) ListAuthAuditEventsByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit int,
+) ([]domain.AuthAuditEvent, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	items, err := r.client.AuthAuditEvent.Query().
+		Where(entauthauditevent.UserIDEQ(userID)).
+		Order(ent.Desc(entauthauditevent.FieldCreatedAt)).
+		Limit(limit).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list auth audit events: %w", err)
+	}
+	result := make([]domain.AuthAuditEvent, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapAuthAuditEvent(item))
+	}
+	return result, nil
 }
 
 func (r *Repository) GetUser(ctx context.Context, userID uuid.UUID) (domain.User, error) {
@@ -750,6 +886,10 @@ func mapBrowserSession(item *ent.BrowserSession) domain.BrowserSession {
 		ID:            item.ID,
 		UserID:        item.UserID,
 		SessionHash:   item.SessionHash,
+		DeviceKind:    domain.SessionDeviceKind(item.DeviceKind),
+		DeviceOS:      item.DeviceOs,
+		DeviceBrowser: item.DeviceBrowser,
+		DeviceLabel:   item.DeviceLabel,
 		ExpiresAt:     item.ExpiresAt,
 		IdleExpiresAt: item.IdleExpiresAt,
 		CSRFSecret:    item.CsrfSecret,
@@ -758,6 +898,19 @@ func mapBrowserSession(item *ent.BrowserSession) domain.BrowserSession {
 		RevokedAt:     item.RevokedAt,
 		CreatedAt:     item.CreatedAt,
 		UpdatedAt:     item.UpdatedAt,
+	}
+}
+
+func mapAuthAuditEvent(item *ent.AuthAuditEvent) domain.AuthAuditEvent {
+	return domain.AuthAuditEvent{
+		ID:        item.ID,
+		UserID:    item.UserID,
+		SessionID: item.SessionID,
+		ActorID:   item.ActorID,
+		EventType: domain.AuthAuditEventType(item.EventType),
+		Message:   item.Message,
+		Metadata:  item.Metadata,
+		CreatedAt: item.CreatedAt,
 	}
 }
 

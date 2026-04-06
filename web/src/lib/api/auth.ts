@@ -49,6 +49,45 @@ export type RoleBinding = {
   createdAt: string
 }
 
+export type ManagedAuthSession = {
+  id: string
+  current: boolean
+  device: {
+    kind: string
+    os: string
+    browser: string
+    label: string
+  }
+  createdAt: string
+  lastActiveAt: string
+  expiresAt: string
+  idleExpiresAt: string
+}
+
+export type AuthAuditEvent = {
+  id: string
+  eventType: string
+  actorID: string
+  sessionID?: string
+  message: string
+  metadata: Record<string, unknown>
+  createdAt: string
+}
+
+export type AuthStepUpCapability = {
+  status: string
+  summary: string
+  supportedMethods: string[]
+}
+
+export type SessionGovernanceResponse = {
+  authMode: string
+  currentSessionID: string
+  sessions: ManagedAuthSession[]
+  auditEvents: AuthAuditEvent[]
+  stepUp: AuthStepUpCapability
+}
+
 type RawRoleBinding = {
   id?: string
   scope_kind?: string
@@ -59,6 +98,43 @@ type RawRoleBinding = {
   granted_by?: string
   expires_at?: string
   created_at?: string
+}
+
+type RawManagedAuthSession = {
+  id?: string
+  current?: boolean
+  device?: {
+    kind?: string
+    os?: string
+    browser?: string
+    label?: string
+  }
+  created_at?: string
+  last_active_at?: string
+  expires_at?: string
+  idle_expires_at?: string
+}
+
+type RawAuthAuditEvent = {
+  id?: string
+  event_type?: string
+  actor_id?: string
+  session_id?: string
+  message?: string
+  metadata?: Record<string, unknown>
+  created_at?: string
+}
+
+type RawSessionGovernanceResponse = {
+  auth_mode?: string
+  current_session_id?: string
+  sessions?: RawManagedAuthSession[]
+  audit_events?: RawAuthAuditEvent[]
+  step_up?: {
+    status?: string
+    summary?: string
+    supported_methods?: string[]
+  }
 }
 
 function parseUser(raw?: RawAuthSessionResponse['user']): HumanAuthUser | undefined {
@@ -135,6 +211,35 @@ function parseRoleBinding(raw: RawRoleBinding): RoleBinding {
     roleKey: raw.role_key ?? '',
     grantedBy: raw.granted_by ?? '',
     expiresAt: raw.expires_at ?? undefined,
+    createdAt: raw.created_at ?? '',
+  }
+}
+
+function parseManagedAuthSession(raw: RawManagedAuthSession): ManagedAuthSession {
+  return {
+    id: raw.id ?? '',
+    current: raw.current === true,
+    device: {
+      kind: raw.device?.kind ?? 'unknown',
+      os: raw.device?.os ?? '',
+      browser: raw.device?.browser ?? '',
+      label: raw.device?.label ?? 'Unknown device',
+    },
+    createdAt: raw.created_at ?? '',
+    lastActiveAt: raw.last_active_at ?? '',
+    expiresAt: raw.expires_at ?? '',
+    idleExpiresAt: raw.idle_expires_at ?? '',
+  }
+}
+
+function parseAuthAuditEvent(raw: RawAuthAuditEvent): AuthAuditEvent {
+  return {
+    id: raw.id ?? '',
+    eventType: raw.event_type ?? '',
+    actorID: raw.actor_id ?? '',
+    sessionID: raw.session_id ?? undefined,
+    message: raw.message ?? '',
+    metadata: raw.metadata ?? {},
     createdAt: raw.created_at ?? '',
   }
 }
@@ -223,4 +328,37 @@ export async function createProjectRoleBinding(
 
 export function deleteProjectRoleBinding(projectId: string, bindingId: string) {
   return api.delete<void>(`/api/v1/projects/${projectId}/role-bindings/${bindingId}`)
+}
+
+export async function getSessionGovernance() {
+  const payload = await api.get<RawSessionGovernanceResponse>('/api/v1/auth/sessions')
+  return {
+    authMode: payload.auth_mode?.trim() || 'disabled',
+    currentSessionID: payload.current_session_id?.trim() || '',
+    sessions: Array.isArray(payload.sessions) ? payload.sessions.map(parseManagedAuthSession) : [],
+    auditEvents: Array.isArray(payload.audit_events)
+      ? payload.audit_events.map(parseAuthAuditEvent)
+      : [],
+    stepUp: {
+      status: payload.step_up?.status?.trim() || 'reserved',
+      summary: payload.step_up?.summary?.trim() || '',
+      supportedMethods: Array.isArray(payload.step_up?.supported_methods)
+        ? payload.step_up?.supported_methods.filter((value) => value.trim() !== '')
+        : [],
+    },
+  } satisfies SessionGovernanceResponse
+}
+
+export function revokeAuthSession(id: string) {
+  return api.delete<void>(`/api/v1/auth/sessions/${id}`)
+}
+
+export function revokeAllOtherAuthSessions() {
+  return api.post<{ revoked_count: number }>('/api/v1/auth/sessions/revoke-all')
+}
+
+export function adminRevokeUserAuthSessions(userId: string) {
+  return api.post<{ revoked_count: number; user_id: string }>(
+    `/api/v1/auth/users/${userId}/sessions/revoke`,
+  )
 }

@@ -30,6 +30,7 @@ var (
 	ErrInvalidFlowState    = errors.New("invalid oidc login flow state")
 	ErrInvalidSession      = errors.New("invalid browser session")
 	ErrSessionExpired      = errors.New("browser session expired")
+	ErrSessionNotFound     = errors.New("browser session not found")
 	ErrUserDisabled        = errors.New("user is disabled")
 	ErrPermissionDenied    = errors.New("permission denied")
 	ErrUnauthorized        = errors.New("human session required")
@@ -148,10 +149,29 @@ func (s *Service) HandleCallback(
 	flowCookieValue string,
 	userAgent string,
 	ip string,
-) (CallbackResult, error) {
+) (result CallbackResult, err error) {
 	if s.cfg.Mode != config.AuthModeOIDC {
 		return CallbackResult{}, ErrAuthDisabled
 	}
+	var auditUserID *uuid.UUID
+	defer func() {
+		if err == nil {
+			return
+		}
+		_ = s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
+			UserID:    auditUserID,
+			ActorID:   "",
+			EventType: domain.AuthAuditLoginFailed,
+			Message:   "OIDC sign-in failed.",
+			Metadata: map[string]any{
+				"error":      err.Error(),
+				"ip_prefix":  ipPrefix(ip),
+				"user_agent": sessionDeviceMetadata(userAgent),
+			},
+			CreatedAt: time.Now().UTC(),
+		})
+	}()
+
 	flow, err := s.decodeFlowState(flowCookieValue)
 	if err != nil {
 		return CallbackResult{}, err
@@ -194,7 +214,17 @@ func (s *Service) HandleCallback(
 	if err != nil {
 		return CallbackResult{}, err
 	}
+	auditUserID = &user.ID
 	if user.Status == domain.UserStatusDisabled {
+		now := time.Now().UTC()
+		_ = s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
+			UserID:    &user.ID,
+			ActorID:   auditActorForUser(user.ID),
+			EventType: domain.AuthAuditUserDisabledAfterLogin,
+			Message:   "Blocked sign-in because the user is disabled.",
+			Metadata:  map[string]any{"reason": "user_disabled_before_session_created"},
+			CreatedAt: now,
+		})
 		return CallbackResult{}, ErrUserDisabled
 	}
 	if s.shouldBootstrapAdmin(user) {
@@ -210,9 +240,14 @@ func (s *Service) HandleCallback(
 	if err != nil {
 		return CallbackResult{}, fmt.Errorf("generate csrf token: %w", err)
 	}
+	device := parseRawSessionDevice(userAgent)
 	session, err := s.repo.CreateBrowserSession(ctx, repo.CreateBrowserSessionInput{
 		UserID:        user.ID,
 		SessionHash:   hashToken(sessionToken),
+		DeviceKind:    device.Kind,
+		DeviceOS:      device.OS,
+		DeviceBrowser: device.Browser,
+		DeviceLabel:   device.Label,
 		ExpiresAt:     time.Now().Add(s.cfg.OIDC.SessionTTL),
 		IdleExpiresAt: time.Now().Add(s.cfg.OIDC.SessionIdleTTL),
 		CSRFSecret:    csrfToken,
@@ -224,6 +259,20 @@ func (s *Service) HandleCallback(
 	}
 	principal, err := s.buildPrincipal(ctx, session, user, identity, groups)
 	if err != nil {
+		return CallbackResult{}, err
+	}
+	if err := s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
+		UserID:    &user.ID,
+		SessionID: &session.ID,
+		ActorID:   auditActorForUser(user.ID),
+		EventType: domain.AuthAuditLoginSucceeded,
+		Message:   "Signed in via OIDC.",
+		Metadata: map[string]any{
+			"device":    sessionDeviceMetadata(userAgent),
+			"ip_prefix": ipPrefix(ip),
+		},
+		CreatedAt: time.Now().UTC(),
+	}); err != nil {
 		return CallbackResult{}, err
 	}
 	return CallbackResult{
@@ -253,6 +302,7 @@ func (s *Service) AuthenticateSession(
 		return domain.AuthenticatedPrincipal{}, ErrInvalidSession
 	}
 	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+		_ = s.expireSession(ctx, session, now)
 		return domain.AuthenticatedPrincipal{}, ErrSessionExpired
 	}
 	if session.UserAgentHash != "" && session.UserAgentHash != hashValue(userAgent) {
@@ -266,6 +316,7 @@ func (s *Service) AuthenticateSession(
 		return domain.AuthenticatedPrincipal{}, ErrInvalidSession
 	}
 	if user.Status == domain.UserStatusDisabled {
+		_ = s.handleDisabledUserSession(ctx, session, now)
 		return domain.AuthenticatedPrincipal{}, ErrUserDisabled
 	}
 	identity, err := s.repo.GetPrimaryIdentity(ctx, user.ID)
@@ -293,7 +344,22 @@ func (s *Service) Logout(ctx context.Context, sessionToken string) error {
 	if err != nil {
 		return nil
 	}
-	return s.repo.RevokeBrowserSession(ctx, session.ID, time.Now().UTC())
+	if session.RevokedAt != nil {
+		return nil
+	}
+	now := time.Now().UTC()
+	if err := s.repo.RevokeBrowserSession(ctx, session.ID, now); err != nil {
+		return err
+	}
+	return s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
+		UserID:    &session.UserID,
+		SessionID: &session.ID,
+		ActorID:   auditActorForUser(session.UserID),
+		EventType: domain.AuthAuditLogout,
+		Message:   "Signed out of the current browser session.",
+		Metadata:  map[string]any{"reason": "user_logout"},
+		CreatedAt: now,
+	})
 }
 
 func (s *Service) ListRoleBindings(

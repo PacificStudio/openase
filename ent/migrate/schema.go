@@ -480,11 +480,49 @@ var (
 			},
 		},
 	}
+	// AuthAuditEventsColumns holds the columns for the "auth_audit_events" table.
+	AuthAuditEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "session_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "actor_id", Type: field.TypeString, Default: ""},
+		{Name: "event_type", Type: field.TypeString},
+		{Name: "message", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "metadata", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// AuthAuditEventsTable holds the schema information for the "auth_audit_events" table.
+	AuthAuditEventsTable = &schema.Table{
+		Name:       "auth_audit_events",
+		Columns:    AuthAuditEventsColumns,
+		PrimaryKey: []*schema.Column{AuthAuditEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "authauditevent_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[1], AuthAuditEventsColumns[7]},
+			},
+			{
+				Name:    "authauditevent_session_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[2], AuthAuditEventsColumns[7]},
+			},
+			{
+				Name:    "authauditevent_event_type_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[4], AuthAuditEventsColumns[7]},
+			},
+		},
+	}
 	// BrowserSessionsColumns holds the columns for the "browser_sessions" table.
 	BrowserSessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
 		{Name: "session_hash", Type: field.TypeString},
+		{Name: "device_kind", Type: field.TypeString, Default: "unknown"},
+		{Name: "device_os", Type: field.TypeString, Default: ""},
+		{Name: "device_browser", Type: field.TypeString, Default: ""},
+		{Name: "device_label", Type: field.TypeString, Default: ""},
 		{Name: "expires_at", Type: field.TypeTime},
 		{Name: "idle_expires_at", Type: field.TypeTime},
 		{Name: "csrf_secret", Type: field.TypeString},
@@ -513,7 +551,7 @@ var (
 			{
 				Name:    "browsersession_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{BrowserSessionsColumns[3]},
+				Columns: []*schema.Column{BrowserSessionsColumns[7]},
 			},
 		},
 	}
@@ -2291,6 +2329,7 @@ var (
 		AgentTokensTable,
 		AgentTraceEventsTable,
 		ApprovalPolicyRulesTable,
+		AuthAuditEventsTable,
 		BrowserSessionsTable,
 		ChatConversationsTable,
 		ChatEntriesTable,

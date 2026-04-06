@@ -1632,6 +1632,52 @@ type OpenAPIAuthSessionResponse struct {
 	Permissions   []string                `json:"permissions,omitempty"`
 }
 
+type OpenAPIAuthSessionDevice struct {
+	Kind    string `json:"kind"`
+	OS      string `json:"os,omitempty"`
+	Browser string `json:"browser,omitempty"`
+	Label   string `json:"label"`
+}
+
+type OpenAPIManagedAuthSession struct {
+	ID            string                   `json:"id"`
+	Current       bool                     `json:"current"`
+	Device        OpenAPIAuthSessionDevice `json:"device"`
+	CreatedAt     string                   `json:"created_at"`
+	LastActiveAt  string                   `json:"last_active_at"`
+	ExpiresAt     string                   `json:"expires_at"`
+	IdleExpiresAt string                   `json:"idle_expires_at"`
+}
+
+type OpenAPIAuthAuditEvent struct {
+	ID        string         `json:"id"`
+	EventType string         `json:"event_type"`
+	ActorID   string         `json:"actor_id,omitempty"`
+	SessionID string         `json:"session_id,omitempty"`
+	Message   string         `json:"message"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	CreatedAt string         `json:"created_at"`
+}
+
+type OpenAPIAuthStepUpCapability struct {
+	Status           string   `json:"status"`
+	Summary          string   `json:"summary"`
+	SupportedMethods []string `json:"supported_methods"`
+}
+
+type OpenAPIAuthSessionsResponse struct {
+	AuthMode         string                      `json:"auth_mode"`
+	CurrentSessionID string                      `json:"current_session_id,omitempty"`
+	Sessions         []OpenAPIManagedAuthSession `json:"sessions"`
+	AuditEvents      []OpenAPIAuthAuditEvent     `json:"audit_events"`
+	StepUp           OpenAPIAuthStepUpCapability `json:"step_up"`
+}
+
+type OpenAPIAuthRevokeSessionsResponse struct {
+	RevokedCount int    `json:"revoked_count"`
+	UserID       string `json:"user_id,omitempty"`
+}
+
 type OpenAPIHumanScope struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
@@ -2336,6 +2382,69 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	}
 	authLogout.AddResponse(http.StatusForbidden, errorResponse)
 	b.doc.AddOperation("/api/v1/auth/logout", http.MethodPost, authLogout)
+
+	authSessions, err := b.jsonOperation(
+		"listAuthSessions",
+		"List governable browser sessions and auth audit events for the current human principal",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthSessionsResponse{},
+		nil,
+		http.StatusUnauthorized,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/auth/sessions", http.MethodGet, authSessions)
+
+	revokeAuthSession := openapi3.NewOperation()
+	revokeAuthSession.OperationID = "revokeAuthSession"
+	revokeAuthSession.Summary = "Revoke a browser session owned by the current human principal"
+	revokeAuthSession.Tags = []string{"auth"}
+	revokeAuthSession.Responses = openapi3.NewResponsesWithCapacity(4)
+	revokeAuthSession.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Browser session revoked."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusNotFound, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		revokeAuthSession.AddResponse(code, errorResponse)
+	}
+	revokeAuthSession.AddParameter(uuidPathParameter("id", "Browser session ID to revoke."))
+	b.doc.AddOperation("/api/v1/auth/sessions/{id}", http.MethodDelete, revokeAuthSession)
+
+	revokeAllAuthSessions, err := b.jsonOperation(
+		"revokeAllOtherAuthSessions",
+		"Revoke every other browser session for the current human principal while preserving the current session",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthRevokeSessionsResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/auth/sessions/revoke-all", http.MethodPost, revokeAllAuthSessions)
+
+	adminRevokeSessions, err := b.jsonOperation(
+		"adminRevokeUserAuthSessions",
+		"Revoke every browser session that belongs to the target user",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthRevokeSessionsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	adminRevokeSessions.AddParameter(uuidPathParameter("userId", "User ID whose browser sessions should be revoked."))
+	b.doc.AddOperation("/api/v1/auth/users/{userId}/sessions/revoke", http.MethodPost, adminRevokeSessions)
 
 	myPermissions, err := b.jsonOperation(
 		"getMyEffectivePermissions",

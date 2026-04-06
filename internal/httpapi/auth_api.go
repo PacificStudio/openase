@@ -1,12 +1,15 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -27,6 +30,52 @@ type authSessionResponse struct {
 	Permissions   []string                 `json:"permissions,omitempty"`
 }
 
+type authSessionDeviceResponse struct {
+	Kind    string `json:"kind"`
+	OS      string `json:"os,omitempty"`
+	Browser string `json:"browser,omitempty"`
+	Label   string `json:"label"`
+}
+
+type authManagedSessionResponse struct {
+	ID            string                    `json:"id"`
+	Current       bool                      `json:"current"`
+	Device        authSessionDeviceResponse `json:"device"`
+	CreatedAt     string                    `json:"created_at"`
+	LastActiveAt  string                    `json:"last_active_at"`
+	ExpiresAt     string                    `json:"expires_at"`
+	IdleExpiresAt string                    `json:"idle_expires_at"`
+}
+
+type authAuditEventResponse struct {
+	ID        string         `json:"id"`
+	EventType string         `json:"event_type"`
+	ActorID   string         `json:"actor_id,omitempty"`
+	SessionID string         `json:"session_id,omitempty"`
+	Message   string         `json:"message"`
+	Metadata  map[string]any `json:"metadata,omitempty"`
+	CreatedAt string         `json:"created_at"`
+}
+
+type authStepUpCapabilityResponse struct {
+	Status           string   `json:"status"`
+	Summary          string   `json:"summary"`
+	SupportedMethods []string `json:"supported_methods"`
+}
+
+type authSessionsResponse struct {
+	AuthMode         string                       `json:"auth_mode"`
+	CurrentSessionID string                       `json:"current_session_id,omitempty"`
+	Sessions         []authManagedSessionResponse `json:"sessions"`
+	AuditEvents      []authAuditEventResponse     `json:"audit_events"`
+	StepUp           authStepUpCapabilityResponse `json:"step_up"`
+}
+
+type authRevokeSessionsResponse struct {
+	RevokedCount int    `json:"revoked_count"`
+	UserID       string `json:"user_id,omitempty"`
+}
+
 func (s *Server) registerAuthRoutes(api *echo.Group) {
 	api.GET("/auth/oidc/start", s.handleOIDCStart)
 	api.GET("/auth/oidc/callback", s.handleOIDCCallback)
@@ -36,6 +85,10 @@ func (s *Server) registerAuthRoutes(api *echo.Group) {
 
 func (s *Server) registerProtectedAuthRoutes(api *echo.Group) {
 	api.GET("/auth/me/permissions", s.handleGetMyPermissions)
+	api.GET("/auth/sessions", s.handleListSessions)
+	api.DELETE("/auth/sessions/:id", s.handleDeleteSession)
+	api.POST("/auth/sessions/revoke-all", s.handleRevokeAllSessions)
+	api.POST("/auth/users/:userId/sessions/revoke", s.handleAdminRevokeUserSessions)
 }
 
 func (s *Server) handleOIDCStart(c echo.Context) error {
@@ -136,6 +189,104 @@ func (s *Server) handleLogout(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (s *Server) handleListSessions(c echo.Context) error {
+	response := authSessionsResponse{
+		AuthMode:    string(s.auth.Mode),
+		Sessions:    []authManagedSessionResponse{},
+		AuditEvents: []authAuditEventResponse{},
+		StepUp:      mapStepUpCapability(humanauthservice.ReservedStepUpCapability()),
+	}
+	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		return c.JSON(http.StatusOK, response)
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+	}
+	snapshot, err := s.humanAuthService.ListSessionGovernance(c.Request().Context(), principal)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SESSION_GOVERNANCE_FAILED", err.Error())
+	}
+	response.CurrentSessionID = principal.Session.ID.String()
+	response.StepUp = mapStepUpCapability(snapshot.StepUp)
+	for _, session := range snapshot.Sessions {
+		response.Sessions = append(response.Sessions, mapManagedSessionResponse(session, principal.Session.ID))
+	}
+	for _, event := range snapshot.AuditEvents {
+		response.AuditEvents = append(response.AuditEvents, mapAuthAuditEventResponse(event))
+	}
+	return c.JSON(http.StatusOK, response)
+}
+
+func (s *Server) handleDeleteSession(c echo.Context) error {
+	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+	}
+	sessionID, err := parseUUIDPathParamValue(c, "id")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
+	}
+	_, isCurrent, err := s.humanAuthService.RevokeSession(c.Request().Context(), principal, sessionID)
+	if err != nil {
+		switch {
+		case errors.Is(err, humanauthservice.ErrSessionNotFound), errors.Is(err, humanauthservice.ErrPermissionDenied):
+			return writeAPIError(c, http.StatusNotFound, "SESSION_NOT_FOUND", "browser session not found")
+		default:
+			return writeAPIError(c, http.StatusInternalServerError, "SESSION_REVOKE_FAILED", err.Error())
+		}
+	}
+	if isCurrent {
+		s.clearHumanSessionCookies(c)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) handleRevokeAllSessions(c echo.Context) error {
+	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+	}
+	sessions, err := s.humanAuthService.RevokeOtherSessions(c.Request().Context(), principal)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SESSION_REVOKE_FAILED", err.Error())
+	}
+	return c.JSON(http.StatusOK, authRevokeSessionsResponse{
+		RevokedCount: len(sessions),
+	})
+}
+
+func (s *Server) handleAdminRevokeUserSessions(c echo.Context) error {
+	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+	}
+	userID, err := parseUUIDPathParamValue(c, "userId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_USER_ID", err.Error())
+	}
+	sessions, err := s.humanAuthService.ForceRevokeUserSessions(c.Request().Context(), principal, userID)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SESSION_REVOKE_FAILED", err.Error())
+	}
+	if userID == principal.User.ID {
+		s.clearHumanSessionCookies(c)
+	}
+	return c.JSON(http.StatusOK, authRevokeSessionsResponse{
+		RevokedCount: len(sessions),
+		UserID:       userID.String(),
+	})
+}
+
 func (s *Server) setHumanSessionCookie(c echo.Context, sessionToken string) {
 	c.SetCookie(&http.Cookie{
 		Name:     humanSessionCookieName,
@@ -185,4 +336,44 @@ func (s *Server) clearOIDCFlowCookie(c echo.Context) {
 
 func cookieSecure(c echo.Context) bool {
 	return c.Request().TLS != nil || strings.EqualFold(c.Request().Header.Get("X-Forwarded-Proto"), "https")
+}
+
+func mapManagedSessionResponse(session humanauthdomain.BrowserSession, currentSessionID uuid.UUID) authManagedSessionResponse {
+	return authManagedSessionResponse{
+		ID:      session.ID.String(),
+		Current: session.ID == currentSessionID,
+		Device: authSessionDeviceResponse{
+			Kind:    string(session.DeviceKind),
+			OS:      session.DeviceOS,
+			Browser: session.DeviceBrowser,
+			Label:   session.DeviceLabel,
+		},
+		CreatedAt:     session.CreatedAt.UTC().Format(time.RFC3339),
+		LastActiveAt:  session.UpdatedAt.UTC().Format(time.RFC3339),
+		ExpiresAt:     session.ExpiresAt.UTC().Format(time.RFC3339),
+		IdleExpiresAt: session.IdleExpiresAt.UTC().Format(time.RFC3339),
+	}
+}
+
+func mapAuthAuditEventResponse(event humanauthdomain.AuthAuditEvent) authAuditEventResponse {
+	response := authAuditEventResponse{
+		ID:        event.ID.String(),
+		EventType: string(event.EventType),
+		ActorID:   event.ActorID,
+		Message:   event.Message,
+		Metadata:  event.Metadata,
+		CreatedAt: event.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	if event.SessionID != nil {
+		response.SessionID = event.SessionID.String()
+	}
+	return response
+}
+
+func mapStepUpCapability(capability humanauthservice.StepUpCapability) authStepUpCapabilityResponse {
+	return authStepUpCapabilityResponse{
+		Status:           capability.Status,
+		Summary:          capability.Summary,
+		SupportedMethods: capability.SupportedMethods,
+	}
 }

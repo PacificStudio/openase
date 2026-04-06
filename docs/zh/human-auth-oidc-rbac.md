@@ -68,6 +68,7 @@ OpenASE 使用授权码 + PKCE：
 
 浏览器会话存储在 `browser_sessions` 表中，包含：
 
+- 设备元数据，供 session inventory 展示
 - 绝对过期时间
 - 空闲过期时间
 - 撤销状态
@@ -80,8 +81,21 @@ OpenASE 在活跃使用时刷新空闲截止时间。在 OpenASE 数据库中禁
 相关路由：
 
 - `GET /auth/session`：返回认证模式、当前用户、CSRF Token、有效实例角色和权限。
+- `GET /auth/sessions`：返回当前用户的活跃浏览器 session inventory、auth 审计时间线，以及预留的 step-up 元数据。
+- `DELETE /auth/sessions/:id`：撤销单个浏览器 session，必要时也可用于当前 session。
+- `POST /auth/sessions/revoke-all`：在保留当前 session 的前提下，撤销其它所有浏览器 session。
+- `POST /auth/users/:userId/sessions/revoke`：允许实例级管理员强制撤销指定用户的全部 session。
 - `POST /auth/logout`：撤销当前会话并清除会话 Cookie。
 - `GET /api/v1/auth/me/permissions`：评估实例、组织或项目范围的有效角色和权限。
+
+Auth 审计事件会记录：
+
+- 登录成功
+- 登录失败
+- 注销
+- session 撤销
+- session 过期
+- 登录后用户被禁用的强制拦截
 
 ## CSRF 保护
 
@@ -203,6 +217,8 @@ AI 会话归属始终派生自服务端定义的主体：
 - 当前认证模式
 - Issuer URL
 - 当前已认证用户
+- session inventory，包括当前设备识别与撤销动作
+- 浏览器访问相关的 auth 审计时间线
 - 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
 - 有效角色和权限
 - 人类权限与可 mint agent scopes 的区别
