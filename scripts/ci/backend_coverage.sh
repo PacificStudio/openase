@@ -42,7 +42,7 @@ if [[ -n "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}" ]]; then
   fi
   GO_TEST_HEARTBEAT_INTERVAL_SECONDS="${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}"
 elif [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  GO_TEST_HEARTBEAT_INTERVAL_SECONDS=30
+  GO_TEST_HEARTBEAT_INTERVAL_SECONDS=10
 fi
 
 tmp_dir="$(mktemp -d)"
@@ -129,6 +129,33 @@ run_go_test() {
   "${TEST_ENV_WRAPPER}" "${GO_BIN}" test "$@"
 }
 
+run_with_ci_heartbeat() {
+  if [[ "${GITHUB_ACTIONS:-}" != "true" || -z "${OPENASE_GO_CACHE_ROOT:-}" || ${GO_TEST_HEARTBEAT_INTERVAL_SECONDS} -le 0 ]]; then
+    "$@"
+    return
+  fi
+
+  local heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
+  local heartbeat_pid=""
+  local status=0
+
+  mkdir -p "$(dirname "${heartbeat_file}")"
+  (
+    while true; do
+      now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+      printf '%s\n' "${now}" > "${heartbeat_file}"
+      sleep "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS}"
+    done
+  ) &
+  heartbeat_pid=$!
+
+  "$@" || status=$?
+
+  kill "${heartbeat_pid}" 2>/dev/null || true
+  wait "${heartbeat_pid}" 2>/dev/null || true
+  return "${status}"
+}
+
 run_go_test_quiet_success() {
   local output_file="${tmp_dir}/go-test-$RANDOM.log"
   local test_pid=""
@@ -183,7 +210,7 @@ run_go_test_quiet_success() {
 
 run_go_test_ci_visible() {
   if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    run_go_test "$@"
+    run_with_ci_heartbeat run_go_test "$@"
     return
   fi
 
