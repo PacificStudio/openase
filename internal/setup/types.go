@@ -159,10 +159,6 @@ type CompleteRequest struct {
 	AllowOverwrite bool
 }
 
-type DatabaseTestResult struct {
-	Message string `json:"message"`
-}
-
 type PreparedDatabase struct {
 	Source DatabaseSourceType
 	Config DatabaseConfig

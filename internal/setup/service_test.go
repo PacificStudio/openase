@@ -2,9 +2,6 @@ package setup
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,7 +205,7 @@ func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
 	}
 }
 
-func TestBootstrapAndServerRoutesReflectTerminalFirstSetup(t *testing.T) {
+func TestBootstrapReflectsTerminalFirstSetup(t *testing.T) {
 	homeDir := t.TempDir()
 	service, err := NewService(Options{
 		HomeDir:    homeDir,
@@ -235,31 +232,7 @@ func TestBootstrapAndServerRoutesReflectTerminalFirstSetup(t *testing.T) {
 		t.Fatalf("expected codex to be detected, got %+v", bootstrap.Agents[1])
 	}
 
-	server := NewServer(ServerOptions{
-		Host:    "127.0.0.1",
-		Port:    19836,
-		Service: service,
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
-	rec := httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected /setup to return 200, got %d", rec.Code)
-	}
-
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/bootstrap", nil)
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected bootstrap route to return 200, got %d", rec.Code)
-	}
-
-	var payload Bootstrap
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("expected bootstrap JSON: %v", err)
-	}
-	if len(payload.Sources) != 2 || payload.Defaults.DockerDatabase.Port == 0 {
-		t.Fatalf("bootstrap payload = %+v", payload)
+	if len(bootstrap.Sources) != 2 || bootstrap.Defaults.DockerDatabase.Port == 0 {
+		t.Fatalf("bootstrap payload = %+v", bootstrap)
 	}
 }

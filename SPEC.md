@@ -345,7 +345,7 @@ The OpenASE backend uses a four-layer DDD (Domain-Driven Design) architecture, c
 - `cmd/openase`: CLI entry point, responsible for startup commands, parameter wiring, and exit code handling
 - `internal/httpapi`: Echo HTTP API handlers, route registration, request binding, error mapping, SSE/HTTP entry points; server/runtime wiring remains separated from route/handler registration
 - `internal/cli`: CLI subcommands and terminal interaction
-- `internal/setup`, `internal/webui`: current terminal setup, legacy web bootstrap, and Web UI entry points
+- `internal/setup`, `internal/webui`: terminal setup helpers and Web UI entry points
 
 ### 5.6 Provider Cross-Cutting Architecture
 
@@ -455,7 +455,7 @@ openase/
 │   ├── cli/                     # CLI subcommands
 │   ├── orchestrator/            # scheduling and runtime orchestration
 │   ├── runtime/                 # runtime support (DB, observability)
-│   ├── setup/                   # terminal setup + legacy web bootstrap
+│   ├── setup/                   # terminal setup helpers
 │   └── webui/                   # embedded Web UI handler
 │
 ├── web/                         # Svelte frontend (embedded after build)
@@ -3117,22 +3117,14 @@ Current setup **no longer** requires or defaults to the following actions:
 - Does not collect repo URL, default branch, collaboration mode, or “individual / team / enterprise” mode cards during setup.
 - Does not generate a repo-local `.openase/` scaffold in the repository root.
 
-### 14.2 Compatibility Path: Legacy Web Setup and `openase up`
+### 14.2 Compatibility Path: `openase up`
 
-The code still keeps a legacy browser troubleshooting path:
-
-```bash
-openase setup --web --host 127.0.0.1 --port 19836
-```
-
-This entrypoint starts a lightweight HTTP server, exposes `/setup`, and attempts to open a browser; but it is a **hidden and deprecated compatibility path**, used only for troubleshooting or transition, and should no longer be described in PRD as the current default onboarding.
-
-Similarly, `openase up` also needs to be described with two-phase semantics:
+The remaining compatibility behavior in this area is `openase up`, which still has two-phase semantics:
 
 1. If `~/.openase/config.yaml` does not exist, it enters terminal setup.
 2. If configuration already exists, it is only responsible for installing or refreshing the current-user service definition and is not equivalent to re-entering a multi-step Setup Wizard.
 
-Therefore, `/setup`, automatic browser opening, and automatic post-completion redirection are all compatibility/transitional surface behaviors, not part of the core contract for current local setup.
+There is no supported Web Setup Wizard, no `/setup` setup page, and no setup-specific HTTP bootstrap/test/complete API in the current local setup contract.
 
 ### 14.3 Current Service Management Contract: Config-only + Current-user Managed Service
 
@@ -3168,11 +3160,10 @@ To prevent setup/service onboarding from drifting again, this chapter defines bo
   - `config-only` / current-user managed service runtime options (`systemd --user` on Linux, `launchd` on macOS)
   - initialization of config, logs, workspace, and default control plane data under `~/.openase/`
 - Compatibility paths:
-  - `openase setup --web` legacy browser flow
   - `openase up` dual-mode behavior of entering setup when no config exists / installing service when config exists
   - cross-platform fallback from managed service installation to `config-only` when the local login session cannot support the expected service manager
 - Non-goals / not-yet-delivered commitments:
-  - Using Web Setup Wizard as the current primary path
+  - reintroducing a Web Setup Wizard or `/setup` browser bootstrap flow
   - automatic browser redirect after setup completion
   - repo binding, project template selection, or persona routing during setup
   - mixing broader team/enterprise onboarding into local runtime bootstrap
@@ -10908,7 +10899,7 @@ Layer 11 (enterprise + open ecosystem)
 
 | ID | Task | Effort | Dependencies | PRD section |
 |----|------|--------|--------------|--------------|
-| F28 | **terminal-first local setup** (database preparation/check + CLI checks + auth/runtime selection + default control plane data initialization; keep legacy web compatibility entrypoint) | 5d | F04, F10 | 14 |
+| F28 | **terminal-first local setup** (database preparation/check + CLI checks + auth/runtime selection + default control plane data initialization) | 5d | F04, F10 | 14 |
 | F29 | current-user service management (`systemd --user` on Linux, `launchd` on macOS, shared `openase up/down/restart/logs`) | 3d | F01 | 14 |
 | F30 | `openase up` startup flow (detect config → enter setup if absent / update services if present) | 2d | F28, F29 | 14 |
 | F31 | openase doctor environment diagnosis | 2d | F01, F10 | 14 |
