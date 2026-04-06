@@ -238,7 +238,11 @@ Setup generates the PostgreSQL password automatically, validates the container-b
 
 If Docker is unavailable to your user account, setup does not fall back to another local database mode. In that case, bring your own PostgreSQL first and choose the manual connection path.
 
-If you choose OIDC mode during setup, the flow points to [`docs/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md) and is intended for standard OIDC providers such as Auth0 or Azure Entra ID.
+If you choose OIDC mode during setup, the flow points to the dual-mode IAM
+contract ([`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md))
+and the OIDC setup guide ([`docs/en/human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)).
+The runtime is intended for standard OIDC providers such as Auth0 or Azure
+Entra ID.
 
 ## 5. Start OpenASE
 

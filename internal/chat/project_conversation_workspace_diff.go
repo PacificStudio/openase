@@ -224,14 +224,15 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	machine catalogdomain.Machine,
 	repo projectConversationWorkspaceRepoLocation,
 ) (ProjectConversationWorkspaceRepoDiff, error) {
-	branchOutput, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repo.repoPath, "rev-parse", "--abbrev-ref", "HEAD"},
-		false,
-	)
+	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, repo.repoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
-		if isMissingGitWorkspace(branchOutput) {
+		if errors.Is(err, workspaceinfra.ErrGitWorkspaceUnavailable) {
 			return ProjectConversationWorkspaceRepoDiff{}, nil
 		}
 		return ProjectConversationWorkspaceRepoDiff{}, fmt.Errorf("read workspace branch for %s: %w", repo.name, err)
@@ -253,12 +254,13 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 		return ProjectConversationWorkspaceRepoDiff{}, nil
 	}
 
-	numstatOutput, err := s.runProjectConversationGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repo.repoPath, "diff", "--numstat", "-z", "-M", "HEAD", "--"},
-		false,
-	)
+	numstatOutput, err := workspaceinfra.ReadWorkspaceGitNumstat(ctx, repo.repoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return s.runProjectConversationGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
 		return ProjectConversationWorkspaceRepoDiff{}, fmt.Errorf("read workspace diff stats for %s: %w", repo.name, err)
 	}
@@ -275,7 +277,7 @@ func (s *ProjectConversationService) summarizeConversationWorkspaceRepo(
 	repoSummary := ProjectConversationWorkspaceRepoDiff{
 		Name:   repo.name,
 		Path:   repo.relativePath,
-		Branch: strings.TrimSpace(string(branchOutput)),
+		Branch: branch,
 		Dirty:  true,
 	}
 	for _, status := range statuses {
@@ -470,13 +472,6 @@ func mapProjectConversationWorkspaceFileStatus(code string) ProjectConversationW
 	default:
 		return ProjectConversationWorkspaceFileStatusModified
 	}
-}
-
-func isMissingGitWorkspace(output []byte) bool {
-	trimmed := strings.ToLower(strings.TrimSpace(string(output)))
-	return strings.Contains(trimmed, "not a git repository") ||
-		strings.Contains(trimmed, "cannot change to") ||
-		strings.Contains(trimmed, "no such file or directory")
 }
 
 func projectConversationCommandExitedWithCode(err error, code int) bool {
