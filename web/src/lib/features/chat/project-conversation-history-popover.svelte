@@ -1,6 +1,5 @@
 <script lang="ts">
   import { formatRelativeTime } from '$lib/utils'
-  import { ScrollArea } from '$ui/scroll-area'
   import { MessageSquare } from '@lucide/svelte'
   import type { ProjectConversation } from '$lib/api/chat'
 
@@ -41,7 +40,10 @@
     <span>No conversations yet</span>
   </div>
 {:else}
-  <ScrollArea class="max-h-80">
+  <div
+    class="max-h-80 overflow-y-auto overscroll-contain"
+    data-testid="conversation-history-scroll"
+  >
     <div class="flex flex-col py-0.5">
       {#each conversations as conversation (conversation.id)}
         {@const isOpen = openSet.has(conversation.id)}
@@ -67,5 +69,5 @@
         </button>
       {/each}
     </div>
-  </ScrollArea>
+  </div>
 {/if}
