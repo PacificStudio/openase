@@ -1263,7 +1263,7 @@ function createInitialState(): MockState {
       ssh_helper_enabled: true,
       ssh_user: 'openase',
       ssh_key_path: '~/.ssh/openase_rsa',
-      advertised_endpoint: null,
+      advertised_endpoint: 'ws://10.0.0.42:19840/runtime',
       daemon_status: {
         registered: false,
         last_registered_at: null,

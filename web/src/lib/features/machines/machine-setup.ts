@@ -1,6 +1,6 @@
 import type { Machine } from '$lib/api/contracts'
 import type { MachineDraft, MachineSnapshot } from './types'
-import { normalizeExecutionMode, normalizeReachabilityMode } from './machine-guidance'
+import { normalizeReachabilityMode } from './machine-guidance'
 import {
   buildSSHHelperPreview,
   humanizeSessionState,
@@ -115,11 +115,11 @@ function buildDirectConnectGuide(input: {
   const nextSteps: string[] = []
   const commands: MachineSetupCommand[] = []
 
-  let runtimeLabel = 'Listener runtime'
-  let runtimeSummary =
+  const runtimeLabel = 'Listener runtime'
+  const runtimeSummary =
     'The control plane opens a websocket connection to the machine’s advertised listener endpoint.'
-  let helperLabel = sshPreview ? 'SSH helper available' : 'No SSH helper saved'
-  let helperSummary = sshPreview
+  const helperLabel = sshPreview ? 'SSH helper available' : 'No SSH helper saved'
+  const helperSummary = sshPreview
     ? 'Use SSH only for quick bootstrap, diagnostics, or emergency repair.'
     : 'Add an SSH user and key path if you want a helper lane for bootstrap or diagnostics.'
   let stateLabel = 'Waiting for listener'
