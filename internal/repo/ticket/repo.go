@@ -1928,7 +1928,7 @@ func mapStoredTicketMachineConnectionMode(item *ent.Machine) catalogdomain.Machi
 	}
 	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
 	if err != nil {
-		return catalogdomain.MachineConnectionModeSSH
+		return catalogdomain.MachineConnectionModeWSListener
 	}
 	return mode
 }

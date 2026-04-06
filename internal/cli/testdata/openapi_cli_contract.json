@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "f44e55aabd6fefc4ae586ca4c0ede159d9010a52936e7e0fb6a7178c2deef94b",
+  "openapi_sha256": "d5bd6f739a8455138c42130da491ad0611b1d8fa04d40d5d7d78beda0c0d6bd9",
   "commands": [
     {
       "use": "list [projectId]",
@@ -2188,11 +2188,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2219,7 +2214,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2261,11 +2256,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -2302,11 +2292,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2333,7 +2318,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2375,11 +2360,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",

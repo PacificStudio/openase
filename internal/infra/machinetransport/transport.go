@@ -810,7 +810,7 @@ func effectiveConnectionMode(machine domain.Machine) domain.MachineConnectionMod
 	if machine.Host == domain.LocalMachineHost || machine.Name == domain.LocalMachineName {
 		return domain.MachineConnectionModeLocal
 	}
-	return domain.MachineConnectionModeSSH
+	return domain.MachineConnectionModeWSListener
 }
 
 func removeLocalPath(target string) error {

@@ -192,10 +192,18 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.needsHydration = false
       activeTab.unread = false
       activeTab.phase = 'submitting_turn'
-      await startProjectConversationTurn(activeTab.conversationId, {
+      const turnResponse = await startProjectConversationTurn(activeTab.conversationId, {
         message: trimmed,
         focus: focus ?? undefined,
       } satisfies ProjectConversationTurnRequest)
+      input.setConversations(
+        input.sortProjectConversations([
+          turnResponse.conversation,
+          ...input
+            .getConversations()
+            .filter((conversation) => conversation.id !== turnResponse.conversation.id),
+        ]),
+      )
       if (!isCurrentProjectConversationOperation(activeTab, currentOperationId)) return false
       input.touchConversation(activeTab.conversationId)
       if (projectConversationHasPendingInterrupt(activeTab.entries)) {

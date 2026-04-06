@@ -49,9 +49,6 @@ type machineResponse struct {
 	ExecutionMode         string                           `json:"execution_mode"`
 	ExecutionCapabilities []string                         `json:"execution_capabilities,omitempty"`
 	SSHHelperEnabled      bool                             `json:"ssh_helper_enabled"`
-	SSHHelperRequired     bool                             `json:"ssh_helper_required"`
-	ConnectionMode        string                           `json:"connection_mode"`
-	TransportCapabilities []string                         `json:"transport_capabilities,omitempty"`
 	SSHUser               *string                          `json:"ssh_user,omitempty"`
 	SSHKeyPath            *string                          `json:"ssh_key_path,omitempty"`
 	AdvertisedEndpoint    *string                          `json:"advertised_endpoint,omitempty"`
@@ -339,9 +336,6 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		ExecutionMode:         item.ExecutionMode.String(),
 		ExecutionCapabilities: executionCapabilities,
 		SSHHelperEnabled:      sshHelperEnabled,
-		SSHHelperRequired:     item.ConnectionMode.RequiresSSHHelper(),
-		ConnectionMode:        item.ConnectionMode.String(),
-		TransportCapabilities: executionCapabilities,
 		SSHUser:               item.SSHUser,
 		SSHKeyPath:            item.SSHKeyPath,
 		AdvertisedEndpoint:    item.AdvertisedEndpoint,

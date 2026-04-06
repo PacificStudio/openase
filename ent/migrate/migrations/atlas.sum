@@ -1,3 +1,4 @@
-h1:yHsGGrcpjF0fA7OGyi0DrNkWjgyOARPGIIvwlLOEsQ4=
-20260401000000_202604010001_bootstrap_schema.sql h1:L5+2Kr7DoKeSxuEKt7+CuJ9gT7arhCnv8zDJl6hDyKI=
-20260403173000_add_ticket_archived_flag.sql h1:Zr0TP5ZNMs2ziA4azGm+ZOBBsh5UR5Cd/w/QSOGmsP4=
+h1:sqOIVJQCVp6962Bgz8KAR/GYlKHRrSAQSbnd0f2EYik=
+20260401000000_202604010001_bootstrap_schema.sql h1:FTuqI+NaFMHRu7EKc6mVsTXIP0FgeyK1/4KGS5RX8cg=
+20260403173000_add_ticket_archived_flag.sql h1:bQJ+v6uTLIbRqXp1DMN/H8wXJm7szbUUdPwVdM5Re+w=
+20260404105000_machine_transport_refactor.sql h1:Wis6vISnKgyqpwqYnse7Xc4DBFgyKLW8e+Wko1d7WmI=

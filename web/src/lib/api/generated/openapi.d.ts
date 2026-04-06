@@ -3394,6 +3394,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }[]
@@ -3478,6 +3479,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -3574,6 +3576,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -4137,6 +4140,19 @@ export interface operations {
         }
         content: {
           'application/json': {
+            conversation?: {
+              created_at?: string
+              id?: string
+              last_activity_at?: string
+              project_id?: string
+              provider_id?: string
+              rolling_summary?: string
+              source?: string
+              status?: string
+              title?: string
+              updated_at?: string
+              user_id?: string
+            }
             turn?: {
               id?: string
               status?: string
@@ -4580,7 +4596,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4607,11 +4622,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4682,7 +4695,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4709,11 +4721,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4796,8 +4806,6 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
-          connection_mode?: string | null
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
             /** @description Current daemon transport session identifier, when one is active. */
@@ -4819,7 +4827,7 @@ export interface operations {
           detection_status?: string | null
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[] | null
-          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
+          /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string | null
           /** @description Hostname or address used to reach the machine. */
           host?: string | null
@@ -4837,8 +4845,6 @@ export interface operations {
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string | null
-          /** @description Legacy compatibility alias for execution_capabilities. */
-          transport_capabilities?: string[] | null
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -4860,7 +4866,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4887,11 +4892,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4974,7 +4977,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -5001,11 +5003,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -5173,7 +5173,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -5200,11 +5199,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
             probe?: {
@@ -6209,7 +6206,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -6236,11 +6232,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }[]
           }
@@ -6311,8 +6305,6 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
-          connection_mode?: string
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
             /** @description Current daemon transport session identifier, when one is active. */
@@ -6334,7 +6326,7 @@ export interface operations {
           detection_status?: string
           /** @description Environment variable entries exported when work runs on the machine. */
           env_vars?: string[]
-          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
+          /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string
           /** @description Hostname or address used to reach the machine. */
           host?: string
@@ -6352,8 +6344,6 @@ export interface operations {
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string
-          /** @description Legacy compatibility alias for execution_capabilities. */
-          transport_capabilities?: string[]
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -6375,7 +6365,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -6402,11 +6391,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }

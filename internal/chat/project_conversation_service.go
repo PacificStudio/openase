@@ -1793,6 +1793,12 @@ func mergeConversationSessionPayload(
 			payload["provider_turn_supported"] = false
 		}
 	}
+	if title := conversation.Title.String(); title != "" {
+		payload["title"] = title
+	}
+	if summary := strings.TrimSpace(conversation.RollingSummary); summary != "" {
+		payload["rolling_summary"] = summary
+	}
 	if conversation.ProviderThreadID != nil && strings.TrimSpace(*conversation.ProviderThreadID) != "" {
 		anchorID := strings.TrimSpace(*conversation.ProviderThreadID)
 		payload["provider_thread_id"] = anchorID

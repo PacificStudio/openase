@@ -1812,7 +1812,7 @@ func mapStoredRuntimeConnectionMode(item *ent.Machine) catalogdomain.MachineConn
 	}
 	mode, err := catalogdomain.ParseStoredMachineConnectionMode(string(item.ConnectionMode), item.Host)
 	if err != nil {
-		return catalogdomain.MachineConnectionModeSSH
+		return catalogdomain.MachineConnectionModeWSListener
 	}
 	return mode
 }

@@ -432,7 +432,7 @@ func parseStoredMachineConnectionMode(raw string, host string) domain.MachineCon
 		if host == domain.LocalMachineHost {
 			return domain.MachineConnectionModeLocal
 		}
-		return domain.MachineConnectionModeSSH
+		return domain.MachineConnectionModeWSListener
 	}
 	return mode
 }

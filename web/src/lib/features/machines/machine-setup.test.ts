@@ -11,12 +11,9 @@ function machineFixture(overrides: Partial<Machine> = {}): Machine {
     host: 'builder.internal',
     port: 22,
     reachability_mode: 'direct_connect',
-    execution_mode: 'ssh_compat',
+    execution_mode: 'websocket',
     execution_capabilities: ['probe'],
     ssh_helper_enabled: true,
-    ssh_helper_required: true,
-    connection_mode: 'ssh',
-    transport_capabilities: ['probe'],
     ssh_user: 'ubuntu',
     ssh_key_path: '/keys/id_ed25519',
     advertised_endpoint: null,
@@ -50,15 +47,17 @@ function machineFixture(overrides: Partial<Machine> = {}): Machine {
 }
 
 describe('machine setup guidance', () => {
-  it('surfaces legacy ssh migration and helper quick setup for direct-connect records', () => {
+  it('surfaces listener setup and helper quick setup for direct-connect records', () => {
     const guide = buildMachineSetupGuide({
       machine: machineFixture(),
     })
 
-    expect(guide.runtimeLabel).toBe('Legacy SSH runtime')
-    expect(guide.helperLabel).toBe('SSH helper required')
-    expect(guide.stateLabel).toBe('Migration needed')
-    expect(guide.nextSteps).toContain('Expose the machine listener endpoint and save it here.')
+    expect(guide.runtimeLabel).toBe('Listener runtime')
+    expect(guide.helperLabel).toBe('SSH helper available')
+    expect(guide.stateLabel).toBe('Waiting for listener')
+    expect(guide.nextSteps).toContain(
+      'Add the direct-connect listener endpoint before running connection checks.',
+    )
     expect(guide.commands).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -78,8 +77,6 @@ describe('machine setup guidance', () => {
       machine: machineFixture({
         reachability_mode: 'reverse_connect',
         execution_mode: 'websocket',
-        connection_mode: 'ws_reverse',
-        ssh_helper_required: false,
         daemon_status: {
           registered: false,
           last_registered_at: null,

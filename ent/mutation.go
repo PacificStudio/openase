@@ -12105,6 +12105,7 @@ type ChatConversationMutation struct {
 	source                             *string
 	provider_id                        *uuid.UUID
 	status                             *string
+	title                              *string
 	provider_thread_id                 *string
 	last_turn_id                       *string
 	provider_thread_status             *string
@@ -12416,6 +12417,55 @@ func (m *ChatConversationMutation) OldStatus(ctx context.Context) (v string, err
 // ResetStatus resets all changes to the "status" field.
 func (m *ChatConversationMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetTitle sets the "title" field.
+func (m *ChatConversationMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *ChatConversationMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the ChatConversation entity.
+// If the ChatConversation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ChatConversationMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ClearTitle clears the value of the "title" field.
+func (m *ChatConversationMutation) ClearTitle() {
+	m.title = nil
+	m.clearedFields[chatconversation.FieldTitle] = struct{}{}
+}
+
+// TitleCleared returns if the "title" field was cleared in this mutation.
+func (m *ChatConversationMutation) TitleCleared() bool {
+	_, ok := m.clearedFields[chatconversation.FieldTitle]
+	return ok
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *ChatConversationMutation) ResetTitle() {
+	m.title = nil
+	delete(m.clearedFields, chatconversation.FieldTitle)
 }
 
 // SetProviderThreadID sets the "provider_thread_id" field.
@@ -13064,7 +13114,7 @@ func (m *ChatConversationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ChatConversationMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.project != nil {
 		fields = append(fields, chatconversation.FieldProjectID)
 	}
@@ -13079,6 +13129,9 @@ func (m *ChatConversationMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, chatconversation.FieldStatus)
+	}
+	if m.title != nil {
+		fields = append(fields, chatconversation.FieldTitle)
 	}
 	if m.provider_thread_id != nil {
 		fields = append(fields, chatconversation.FieldProviderThreadID)
@@ -13122,6 +13175,8 @@ func (m *ChatConversationMutation) Field(name string) (ent.Value, bool) {
 		return m.ProviderID()
 	case chatconversation.FieldStatus:
 		return m.Status()
+	case chatconversation.FieldTitle:
+		return m.Title()
 	case chatconversation.FieldProviderThreadID:
 		return m.ProviderThreadID()
 	case chatconversation.FieldLastTurnID:
@@ -13157,6 +13212,8 @@ func (m *ChatConversationMutation) OldField(ctx context.Context, name string) (e
 		return m.OldProviderID(ctx)
 	case chatconversation.FieldStatus:
 		return m.OldStatus(ctx)
+	case chatconversation.FieldTitle:
+		return m.OldTitle(ctx)
 	case chatconversation.FieldProviderThreadID:
 		return m.OldProviderThreadID(ctx)
 	case chatconversation.FieldLastTurnID:
@@ -13216,6 +13273,13 @@ func (m *ChatConversationMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case chatconversation.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
 		return nil
 	case chatconversation.FieldProviderThreadID:
 		v, ok := value.(string)
@@ -13303,6 +13367,9 @@ func (m *ChatConversationMutation) AddField(name string, value ent.Value) error 
 // mutation.
 func (m *ChatConversationMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(chatconversation.FieldTitle) {
+		fields = append(fields, chatconversation.FieldTitle)
+	}
 	if m.FieldCleared(chatconversation.FieldProviderThreadID) {
 		fields = append(fields, chatconversation.FieldProviderThreadID)
 	}
@@ -13332,6 +13399,9 @@ func (m *ChatConversationMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *ChatConversationMutation) ClearField(name string) error {
 	switch name {
+	case chatconversation.FieldTitle:
+		m.ClearTitle()
+		return nil
 	case chatconversation.FieldProviderThreadID:
 		m.ClearProviderThreadID()
 		return nil
@@ -13369,6 +13439,9 @@ func (m *ChatConversationMutation) ResetField(name string) error {
 		return nil
 	case chatconversation.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case chatconversation.FieldTitle:
+		m.ResetTitle()
 		return nil
 	case chatconversation.FieldProviderThreadID:
 		m.ResetProviderThreadID()

@@ -2243,6 +2243,9 @@
                           "status": {
                             "type": "string"
                           },
+                          "title": {
+                            "type": "string"
+                          },
                           "updated_at": {
                             "type": "string"
                           },
@@ -2384,6 +2387,9 @@
                           "type": "string"
                         },
                         "status": {
+                          "type": "string"
+                        },
+                        "title": {
                           "type": "string"
                         },
                         "updated_at": {
@@ -2544,6 +2550,9 @@
                           "type": "string"
                         },
                         "status": {
+                          "type": "string"
+                        },
+                        "title": {
                           "type": "string"
                         },
                         "updated_at": {
@@ -3571,6 +3580,44 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "conversation": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_activity_at": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "provider_id": {
+                          "type": "string"
+                        },
+                        "rolling_summary": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "user_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "turn": {
                       "properties": {
                         "id": {
@@ -4294,9 +4341,6 @@
                           },
                           "type": "object"
                         },
-                        "connection_mode": {
-                          "type": "string"
-                        },
                         "daemon_status": {
                           "properties": {
                             "current_session_id": {
@@ -4381,9 +4425,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -4394,12 +4435,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4539,9 +4574,6 @@
                           },
                           "type": "object"
                         },
-                        "connection_mode": {
-                          "type": "string"
-                        },
                         "daemon_status": {
                           "properties": {
                             "current_session_id": {
@@ -4626,9 +4658,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -4639,12 +4668,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -4770,11 +4793,6 @@
                     },
                     "type": "object"
                   },
-                  "connection_mode": {
-                    "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "daemon_status": {
                     "description": "Daemon registration and session metadata for websocket-capable machine transports.",
                     "nullable": true,
@@ -4830,7 +4848,7 @@
                     "type": "array"
                   },
                   "execution_mode": {
-                    "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+                    "description": "Execution path currently used by this record: local_process or websocket.",
                     "nullable": true,
                     "type": "string"
                   },
@@ -4877,14 +4895,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "transport_capabilities": {
-                    "description": "Legacy compatibility alias for execution_capabilities.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "nullable": true,
-                    "type": "array"
-                  },
                   "workspace_root": {
                     "description": "Filesystem root directory where ticket workspaces are created on the machine.",
                     "nullable": true,
@@ -4929,9 +4939,6 @@
                             }
                           },
                           "type": "object"
-                        },
-                        "connection_mode": {
-                          "type": "string"
                         },
                         "daemon_status": {
                           "properties": {
@@ -5017,9 +5024,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -5030,12 +5034,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -5177,9 +5175,6 @@
                           },
                           "type": "object"
                         },
-                        "connection_mode": {
-                          "type": "string"
-                        },
                         "daemon_status": {
                           "properties": {
                             "current_session_id": {
@@ -5264,9 +5259,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -5277,12 +5269,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -5592,9 +5578,6 @@
                           },
                           "type": "object"
                         },
-                        "connection_mode": {
-                          "type": "string"
-                        },
                         "daemon_status": {
                           "properties": {
                             "current_session_id": {
@@ -5679,9 +5662,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -5692,12 +5672,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,
@@ -7381,9 +7355,6 @@
                             },
                             "type": "object"
                           },
-                          "connection_mode": {
-                            "type": "string"
-                          },
                           "daemon_status": {
                             "properties": {
                               "current_session_id": {
@@ -7468,9 +7439,6 @@
                           "ssh_helper_enabled": {
                             "type": "boolean"
                           },
-                          "ssh_helper_required": {
-                            "type": "boolean"
-                          },
                           "ssh_key_path": {
                             "nullable": true,
                             "type": "string"
@@ -7481,12 +7449,6 @@
                           },
                           "status": {
                             "type": "string"
-                          },
-                          "transport_capabilities": {
-                            "items": {
-                              "type": "string"
-                            },
-                            "type": "array"
                           },
                           "workspace_root": {
                             "nullable": true,
@@ -7614,10 +7576,6 @@
                     },
                     "type": "object"
                   },
-                  "connection_mode": {
-                    "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-                    "type": "string"
-                  },
                   "daemon_status": {
                     "description": "Daemon registration and session metadata for websocket-capable machine transports.",
                     "properties": {
@@ -7667,7 +7625,7 @@
                     "type": "array"
                   },
                   "execution_mode": {
-                    "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+                    "description": "Execution path currently used by this record: local_process or websocket.",
                     "type": "string"
                   },
                   "host": {
@@ -7707,13 +7665,6 @@
                   "status": {
                     "description": "Machine lifecycle status value.",
                     "type": "string"
-                  },
-                  "transport_capabilities": {
-                    "description": "Legacy compatibility alias for execution_capabilities.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
                   },
                   "workspace_root": {
                     "description": "Filesystem root directory where ticket workspaces are created on the machine.",
@@ -7759,9 +7710,6 @@
                             }
                           },
                           "type": "object"
-                        },
-                        "connection_mode": {
-                          "type": "string"
                         },
                         "daemon_status": {
                           "properties": {
@@ -7847,9 +7795,6 @@
                         "ssh_helper_enabled": {
                           "type": "boolean"
                         },
-                        "ssh_helper_required": {
-                          "type": "boolean"
-                        },
                         "ssh_key_path": {
                           "nullable": true,
                           "type": "string"
@@ -7860,12 +7805,6 @@
                         },
                         "status": {
                           "type": "string"
-                        },
-                        "transport_capabilities": {
-                          "items": {
-                            "type": "string"
-                          },
-                          "type": "array"
                         },
                         "workspace_root": {
                           "nullable": true,

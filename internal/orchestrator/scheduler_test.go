@@ -792,13 +792,16 @@ func TestSchedulerRunTickResolvesExecutionMachineFromBoundProvider(t *testing.T)
 
 	repo := catalogrepo.NewEntRepository(client)
 	remoteMachineInput, err := domaincatalog.ParseCreateMachine(fixture.orgID, domaincatalog.MachineInput{
-		Name:          "gpu-01",
-		Host:          "10.0.1.10",
-		SSHUser:       stringPointer("openase"),
-		SSHKeyPath:    stringPointer("/tmp/gpu-01.pem"),
-		Labels:        []string{"gpu", "a100"},
-		WorkspaceRoot: stringPointer("/srv/openase/workspaces"),
-		Status:        entmachine.StatusOnline.String(),
+		Name:               "gpu-01",
+		Host:               "10.0.1.10",
+		ReachabilityMode:   domaincatalog.MachineReachabilityModeDirectConnect.String(),
+		ExecutionMode:      domaincatalog.MachineExecutionModeWebsocket.String(),
+		AdvertisedEndpoint: stringPointer("ws://10.0.1.10:19840/runtime"),
+		SSHUser:            stringPointer("openase"),
+		SSHKeyPath:         stringPointer("/tmp/gpu-01.pem"),
+		Labels:             []string{"gpu", "a100"},
+		WorkspaceRoot:      stringPointer("/srv/openase/workspaces"),
+		Status:             entmachine.StatusOnline.String(),
 	})
 	if err != nil {
 		t.Fatalf("parse remote machine: %v", err)
@@ -888,13 +891,16 @@ func TestSchedulerRunTickIgnoresTicketTargetMachineAndUsesProviderBinding(t *tes
 
 	repo := catalogrepo.NewEntRepository(client)
 	explicitMachineInput, err := domaincatalog.ParseCreateMachine(fixture.orgID, domaincatalog.MachineInput{
-		Name:          "cpu-01",
-		Host:          "10.0.2.10",
-		SSHUser:       stringPointer("openase"),
-		SSHKeyPath:    stringPointer("/tmp/cpu-01.pem"),
-		Labels:        []string{"cpu"},
-		WorkspaceRoot: stringPointer("/srv/openase/workspaces"),
-		Status:        entmachine.StatusOnline.String(),
+		Name:               "cpu-01",
+		Host:               "10.0.2.10",
+		ReachabilityMode:   domaincatalog.MachineReachabilityModeDirectConnect.String(),
+		ExecutionMode:      domaincatalog.MachineExecutionModeWebsocket.String(),
+		AdvertisedEndpoint: stringPointer("ws://10.0.2.10:19840/runtime"),
+		SSHUser:            stringPointer("openase"),
+		SSHKeyPath:         stringPointer("/tmp/cpu-01.pem"),
+		Labels:             []string{"cpu"},
+		WorkspaceRoot:      stringPointer("/srv/openase/workspaces"),
+		Status:             entmachine.StatusOnline.String(),
 	})
 	if err != nil {
 		t.Fatalf("parse explicit machine: %v", err)

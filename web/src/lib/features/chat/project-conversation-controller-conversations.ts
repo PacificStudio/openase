@@ -62,6 +62,7 @@ export function createProjectConversationControllerConversations(
       userId: existing?.userId ?? '',
       source: 'project_sidebar',
       providerId: existing?.providerId ?? input.getProviderId(),
+      title: payload.title ?? existing?.title ?? '',
       providerAnchorKind: payload.providerAnchorKind ?? existing?.providerAnchorKind,
       providerAnchorId: payload.providerAnchorId ?? existing?.providerAnchorId,
       providerTurnId: payload.providerTurnId ?? existing?.providerTurnId,
@@ -72,7 +73,7 @@ export function createProjectConversationControllerConversations(
           ? [...payload.providerActiveFlags]
           : [...(existing?.providerActiveFlags ?? [])],
       status: existing?.status ?? '',
-      rollingSummary: existing?.rollingSummary ?? '',
+      rollingSummary: payload.rollingSummary ?? existing?.rollingSummary ?? '',
       lastActivityAt: now,
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,

@@ -3254,7 +3254,7 @@ Exercise failing ticket hook lifecycle.
 	}
 }
 
-func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordWithoutListenerEndpoint(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -3364,8 +3364,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime guidance in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
+		t.Fatalf("expected listener endpoint guidance in last error, got %q", runAfter.LastError)
 	}
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
@@ -3373,8 +3373,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 0 {
-		t.Fatalf("expected no repo workspace to be prepared for ssh runtime, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 1 {
+		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
 	}
 }
 
@@ -4469,7 +4469,7 @@ func waitForReverseRuntimeMachineReady(t *testing.T, client *ent.Client, machine
 	t.Fatalf("reverse runtime machine did not become ready: %+v", machineItem)
 }
 
-func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordBeforeCodexPreflight(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -4569,8 +4569,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "codex environment not ready") {
+		t.Fatalf("expected codex preflight rejection in last error, got %q", runAfter.LastError)
 	}
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -4584,7 +4584,7 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.
 	}
 }
 
-func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t *testing.T) {
+func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForLegacyDirectConnectRecord(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -4682,8 +4682,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
 
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
+		t.Fatalf("expected listener endpoint rejection in last error, got %q", runAfter.LastError)
 	}
 
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
@@ -4692,8 +4692,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 0 {
-		t.Fatalf("expected no repo workspace for ssh runtime rejection, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 1 {
+		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
 	}
 }
 

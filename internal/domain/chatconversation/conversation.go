@@ -68,6 +68,7 @@ type Conversation struct {
 	Source                    Source
 	ProviderID                uuid.UUID
 	Status                    ConversationStatus
+	Title                     ConversationTitle
 	ProviderThreadID          *string
 	LastTurnID                *string
 	ProviderThreadStatus      *string

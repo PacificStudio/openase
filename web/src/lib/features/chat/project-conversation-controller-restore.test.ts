@@ -43,6 +43,7 @@ vi.mock('$lib/api/chat', () => ({
 
 import { createProjectConversationController } from './project-conversation-controller.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
+import { formatProjectConversationLabel } from './project-conversation-panel-labels'
 
 function createWorkspaceDiff(conversationId: string, dirty = true) {
   return {
@@ -128,7 +129,7 @@ describe('createProjectConversationController restore flows', () => {
   })
 
   it('refreshes workspace diff on turn completion and preserves it after runtime reset', async () => {
-    const streamHandlers: Array<{
+    const muxHandlers: Array<{
       onFrame: (frame: {
         conversationId: string
         sentAt: string
@@ -137,16 +138,30 @@ describe('createProjectConversationController restore flows', () => {
     }> = []
 
     createProjectConversation.mockResolvedValue({
-      conversation: { id: 'conversation-1' },
+      conversation: { id: 'conversation-1', title: '', providerId: 'provider-1' },
     })
     getProjectConversationWorkspaceDiff
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
     mockLiveMuxStream((handlers) => {
-      streamHandlers.push(handlers)
+      muxHandlers.push(handlers)
     })
     startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+      turn: { id: 'turn-1', turnIndex: 1, status: 'started' },
+      conversation: {
+        id: 'conversation-1',
+        projectId: 'project-1',
+        userId: 'user-1',
+        source: 'project_sidebar',
+        providerId: 'provider-1',
+        title: 'Race test',
+        providerActiveFlags: [],
+        status: 'active',
+        rollingSummary: '',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+        createdAt: '2026-04-01T10:00:00Z',
+        updatedAt: '2026-04-01T10:00:00Z',
+      },
     })
     closeProjectConversationRuntime.mockResolvedValue(undefined)
 
@@ -157,9 +172,9 @@ describe('createProjectConversationController restore flows', () => {
     controller.syncProviders(providerFixtures, 'provider-1')
 
     await controller.sendTurn('Race test')
-    streamHandlers[0]?.onFrame({
+    muxHandlers[0]?.onFrame({
       conversationId: 'conversation-1',
-      sentAt: '2026-04-01T10:05:00Z',
+      sentAt: '2026-04-01T10:00:01Z',
       event: {
         kind: 'turn_done',
         payload: {
@@ -172,9 +187,9 @@ describe('createProjectConversationController restore flows', () => {
 
     await controller.resetConversation()
 
-    streamHandlers[0]?.onFrame({
+    muxHandlers[0]?.onFrame({
       conversationId: 'conversation-1',
-      sentAt: '2026-04-01T10:06:00Z',
+      sentAt: '2026-04-01T10:00:02Z',
       event: {
         kind: 'message',
         payload: {
@@ -256,7 +271,21 @@ describe('createProjectConversationController restore flows', () => {
     }))
     mockLiveMuxStream()
     startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-3', turn_index: 2, status: 'started' },
+      turn: { id: 'turn-3', turnIndex: 2, status: 'started' },
+      conversation: {
+        id: 'conversation-2',
+        projectId: 'project-1',
+        userId: 'user-1',
+        source: 'project_sidebar',
+        providerId: 'provider-1',
+        title: 'Older discussion',
+        providerActiveFlags: [],
+        status: 'active',
+        rollingSummary: 'Older discussion',
+        lastActivityAt: '2026-03-31T09:00:00Z',
+        createdAt: '2026-03-31T09:00:00Z',
+        updatedAt: '2026-03-31T09:00:00Z',
+      },
     })
 
     const controller = createProjectConversationController({
@@ -309,6 +338,86 @@ describe('createProjectConversationController restore flows', () => {
     ])
 
     controller.dispose()
+  })
+
+  it('keeps the restored tab label anchored to the stable title when session summaries change', async () => {
+    const muxHandlers: Array<{
+      onFrame: (frame: {
+        conversationId: string
+        sentAt: string
+        event: { kind: string; payload: Record<string, unknown> }
+      }) => void
+    }> = []
+
+    seedProjectConversationTabsStorage(
+      [{ conversationId: 'conversation-1', providerId: 'provider-1' }],
+      0,
+    )
+
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          title: 'Keep the first title stable',
+          rollingSummary: 'Initial recovery summary',
+          providerId: 'provider-1',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(
+      createWorkspaceDiff('conversation-1', false),
+    )
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Keep the first title stable' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    watchProjectConversationMuxStream.mockImplementation(async (_projectId, handlers) => {
+      handlers.onOpen?.()
+      muxHandlers.push(handlers)
+      await new Promise(() => {})
+    })
+
+    const controller = createProjectConversationController({
+      getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.restore()
+
+    expect(formatProjectConversationLabel(controller.tabs[0], controller.conversations)).toBe(
+      'Keep the first title stable',
+    )
+
+    muxHandlers[0]?.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-01T10:00:01Z',
+      event: {
+        kind: 'session',
+        payload: {
+          conversationId: 'conversation-1',
+          runtimeState: 'executing',
+          title: 'Keep the first title stable',
+          rollingSummary: 'A newer summary should not replace the title',
+          providerActiveFlags: [],
+        },
+      },
+    })
+    await Promise.resolve()
+
+    expect(formatProjectConversationLabel(controller.tabs[0], controller.conversations)).toBe(
+      'Keep the first title stable',
+    )
   })
 
   it('does not stay in restoring when workspace diff loading hangs', async () => {
