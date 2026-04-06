@@ -201,19 +201,6 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	}, nil
 }
 
-func (s *Service) TestDatabase(ctx context.Context, raw RawDatabaseInput) (DatabaseTestResult, error) {
-	databaseConfig, err := parseDatabaseInput(raw)
-	if err != nil {
-		return DatabaseTestResult{}, err
-	}
-
-	if err := s.connector.Ping(ctx, databaseConfig.DSN()); err != nil {
-		return DatabaseTestResult{}, fmt.Errorf("test database connection: %w", err)
-	}
-
-	return DatabaseTestResult{Message: "Database connection succeeded."}, nil
-}
-
 func (s *Service) PrepareDatabase(ctx context.Context, raw RawDatabaseSourceInput) (PreparedDatabase, error) {
 	source, err := parseDatabaseSourceInput(raw)
 	if err != nil {
