@@ -14,6 +14,7 @@ jobs:
     outputs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
+      desktop_changed: ${{ steps.detect.outputs.desktop_changed }}
       openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
       frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
 
@@ -52,6 +53,7 @@ jobs:
 
           go_changed=false
           web_changed=false
+          desktop_changed=false
           openapi_check_changed=false
           frontend_api_audit_changed=false
 
@@ -60,22 +62,30 @@ jobs:
               .github/workflows/*)
                 go_changed=true
                 web_changed=true
+                desktop_changed=true
                 openapi_check_changed=true
                 ;;
               *.go|go.mod|go.sum|api/*)
                 go_changed=true
+                desktop_changed=true
                 openapi_check_changed=true
                 ;;
               Makefile)
                 go_changed=true
+                desktop_changed=true
                 openapi_check_changed=true
                 ;;
               scripts/ci/*)
                 go_changed=true
+                desktop_changed=true
                 ;;
               web/*)
                 web_changed=true
+                desktop_changed=true
                 frontend_api_audit_changed=true
+                ;;
+              desktop/*)
+                desktop_changed=true
                 ;;
               scripts/dev/audit_frontend_api_usage.py|scripts/dev/frontend_api_audit_ignores.json)
                 frontend_api_audit_changed=true
@@ -88,6 +98,7 @@ jobs:
 
           printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
           printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'desktop_changed=%s\n' "${desktop_changed}" >> "${GITHUB_OUTPUT}"
           printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
           printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
 
@@ -253,6 +264,60 @@ jobs:
         if: always()
         run: rm -rf test-results ../.playwright-artifacts
 
+  desktop:
+    name: Desktop Checks
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 60
+    needs: changes
+    if: needs.changes.outputs.desktop_changed == 'true'
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            desktop/pnpm-lock.yaml
+            web/pnpm-lock.yaml
+
+      - name: Configure Isolated Go Cache Directories
+        run: |
+          job_cache_root="${GITHUB_WORKSPACE}/.cache/openase-go/${GITHUB_JOB}"
+          echo "OPENASE_GO_CACHE_ROOT=${job_cache_root}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${job_cache_root}/pkg/mod" >> "${GITHUB_ENV}"
+          echo "GOCACHE=${job_cache_root}/build" >> "${GITHUB_ENV}"
+
+      - name: Prepare Isolated Go Cache Directories
+        run: |
+          mkdir -p "${OPENASE_GO_CACHE_ROOT}" "${GOMODCACHE}" "${GOCACHE}"
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Install Desktop Dependencies
+        run: make desktop-install
+
+      - name: Install Desktop Playwright Browser
+        run: make desktop-install-browsers
+
+      - name: Run Desktop Validation
+        run: make desktop-validate
+
   backend:
     name: Backend Checks
     runs-on: [self-hosted, Linux, X64]
@@ -262,11 +327,13 @@ jobs:
       - openapi-check
       - frontend-api-audit-check
       - frontend
+      - desktop
     if: |
       always() &&
       needs.changes.result == 'success' &&
       (needs['openapi-check'].result == 'success' || needs['openapi-check'].result == 'skipped') &&
       (needs['frontend-api-audit-check'].result == 'success' || needs['frontend-api-audit-check'].result == 'skipped') &&
+      (needs.desktop.result == 'success' || needs.desktop.result == 'skipped') &&
       needs.changes.outputs.go_changed == 'true' &&
       (needs.frontend.result == 'success' || needs.frontend.result == 'skipped')
 

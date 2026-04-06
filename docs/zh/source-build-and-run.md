@@ -4,6 +4,8 @@
 
 关于 Remote Runtime v1 的拓扑选择、迁移、守护进程安装和故障排查，请参见 [`docs/zh/remote-websocket-rollout.md`](./remote-websocket-rollout.md)。
 
+关于 Electron 桌面壳的开发/打包命令、测试分层，以及桌面端 PostgreSQL v1 策略，请参见 [`docs/zh/desktop-v1.md`](./desktop-v1.md)。
+
 ## 环境要求
 
 - Go `1.26.1`，已添加到 `PATH`

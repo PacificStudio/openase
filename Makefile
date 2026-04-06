@@ -1,6 +1,7 @@
 SHELL := /bin/sh
 
 WEB_DIR := web
+DESKTOP_DIR := desktop
 GO ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/go" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/go"; elif command -v go >/dev/null 2>&1; then command -v go; else printf '%s' "go"; fi)
 GOFMT ?= $(shell if [ -x "$(CURDIR)/.tooling/go/bin/gofmt" ]; then printf '%s' "$(CURDIR)/.tooling/go/bin/gofmt"; elif command -v gofmt >/dev/null 2>&1; then command -v gofmt; else printf '%s' "gofmt"; fi)
 PNPM ?= corepack pnpm
@@ -11,7 +12,7 @@ VERSION ?= dev
 
 .DEFAULT_GOAL := help
 
-.PHONY: help format fmt-check test test-backend-coverage remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build build build-web run doctor lint lint-all lint-depguard lint-architecture
+.PHONY: help format fmt-check test test-backend-coverage remote-runtime-container check hooks-install hooks-run openapi-generate openapi-check openapi-check-ci frontend-api-audit-check web-install web-lint web-format-check web-check web-validate web-build desktop-install desktop-install-browsers desktop-test desktop-build desktop-package desktop-package-smoke desktop-validate build build-web run doctor lint lint-all lint-depguard lint-architecture
 
 help:
 	@printf '%s\n' \
@@ -34,6 +35,13 @@ help:
 		'  make web-check     Run the Svelte type checks' \
 		'  make web-validate  Run frontend format, lint, and type checks' \
 		'  make web-build     Rebuild embedded frontend assets' \
+		'  make desktop-install Install desktop shell dependencies' \
+		'  make desktop-install-browsers Install the desktop Playwright Chromium browser' \
+		'  make desktop-test  Run desktop unit and integration tests' \
+		'  make desktop-build Build the desktop bundle and packaged OpenASE binary' \
+		'  make desktop-package Build desktop distributables for the current OS' \
+		'  make desktop-package-smoke Run the desktop packaging smoke check' \
+		'  make desktop-validate Run desktop unit/integration/E2E/package smoke validation' \
 		'  make build         Build openase from the current embedded frontend output' \
 		'  make build-web     Rebuild frontend assets, then build openase' \
 		'  make run           Run the API server with the current embedded frontend output' \
@@ -146,6 +154,27 @@ web-validate: web-format-check web-lint web-check
 
 web-build: web-install
 	$(PNPM) --dir $(WEB_DIR) run build
+
+desktop-install:
+	$(PNPM) --dir $(DESKTOP_DIR) install --frozen-lockfile --reporter=append-only
+
+desktop-install-browsers: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) exec playwright install chromium
+
+desktop-test: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) run test:unit
+
+desktop-build: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) run build
+
+desktop-package: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) run package
+
+desktop-package-smoke: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) run package:smoke
+
+desktop-validate: desktop-install
+	$(PNPM) --dir $(DESKTOP_DIR) run validate
 
 build:
 	@mkdir -p $(dir $(OPENASE_BIN))

@@ -1,0 +1,30 @@
+appId: io.pacificstudio.openase.desktop
+productName: OpenASE
+asar: true
+directories:
+  output: dist/packages
+  buildResources: packaging
+files:
+  - main/**/*
+  - preload/**/*
+  - renderer-shell/**/*
+  - package.json
+extraResources:
+  - from: .bundle/bin/
+    to: bin
+  - from: .bundle/config/
+    to: config
+  - from: .bundle/docs/
+    to: docs
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+  artifactName: OpenASE-Desktop-${version}-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  artifactName: OpenASE-Desktop-${version}-${arch}.${ext}

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenASE Desktop</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body data-view="loading">
+    <main class="shell">
+      <section class="panel">
+        <span class="eyebrow">OpenASE Desktop v1</span>
+        <h1>Starting local workspace</h1>
+        <p id="message">Booting the OpenASE service...</p>
+        <div class="pulse-row" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <dl class="meta-grid">
+          <div>
+            <dt>Database</dt>
+            <dd>manual PostgreSQL or Docker PostgreSQL</dd>
+          </div>
+          <div>
+            <dt>Bind host</dt>
+            <dd>127.0.0.1 only</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+    <script src="./shell.js"></script>
+  </body>
+</html>
