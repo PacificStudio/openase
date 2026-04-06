@@ -544,11 +544,6 @@ type OpenAPIProjectConversationInterruptEnvelope struct {
 	Interrupt OpenAPIProjectConversationInterruptResponse `json:"interrupt"`
 }
 
-type OpenAPIProjectConversationActionProposalExecutionResponse struct {
-	ResultEntry OpenAPIProjectConversationEntry `json:"result_entry"`
-	Results     []map[string]any                `json:"results"`
-}
-
 type OpenAPIAgentOutputEntry struct {
 	ID         string  `json:"id"`
 	ProjectID  string  `json:"project_id"`

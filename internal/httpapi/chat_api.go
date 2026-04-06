@@ -878,54 +878,6 @@ func optionalConversationTime(value *time.Time) any {
 	}
 	return value.UTC().Format(time.RFC3339)
 }
-
-func httpStringValue(value any) string {
-	typed, _ := value.(string)
-	return typed
-}
-
-func projectConversationConfirmedActionActor(userID chatservice.UserID, conversationID uuid.UUID) string {
-	return fmt.Sprintf("user:%s via project-conversation:%s", strings.TrimSpace(string(userID)), conversationID.String())
-}
-
-func prepareProjectConversationActionBody(method string, path string, body map[string]any, _ string) (map[string]any, error) {
-	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
-	normalizedPath := strings.TrimSpace(path)
-	if normalizedMethod == "" || normalizedPath == "" {
-		return nil, fmt.Errorf("action proposal requires method and path")
-	}
-	prepared := cloneHTTPActionBody(body)
-	switch {
-	case normalizedMethod == http.MethodPost && projectConversationTicketCreatePath(normalizedPath):
-	case normalizedMethod == http.MethodPatch && projectConversationTicketPatchPath(normalizedPath):
-	case normalizedMethod == http.MethodPost && projectConversationTicketCommentCreatePath(normalizedPath):
-	case normalizedMethod == http.MethodPatch && projectConversationTicketCommentPatchPath(normalizedPath):
-	case normalizedMethod == http.MethodPost && projectConversationUpdateThreadCreatePath(normalizedPath):
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateThreadPatchPath(normalizedPath):
-	case normalizedMethod == http.MethodPost && projectConversationUpdateCommentCreatePath(normalizedPath):
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
-	case normalizedMethod == http.MethodPost && projectConversationWorkflowCreatePath(normalizedPath):
-	case normalizedMethod == http.MethodPatch && projectConversationWorkflowPatchPath(normalizedPath):
-	case normalizedMethod == http.MethodPut && projectConversationWorkflowHarnessUpdatePath(normalizedPath):
-	case normalizedMethod == http.MethodGet:
-		return prepared, nil
-	default:
-		return nil, fmt.Errorf("%s %s is not allowed because its audit actor is not explicit for project conversation confirmation", normalizedMethod, normalizedPath)
-	}
-	return prepared, nil
-}
-
-func cloneHTTPActionBody(body map[string]any) map[string]any {
-	if len(body) == 0 {
-		return map[string]any{}
-	}
-	cloned := make(map[string]any, len(body))
-	for key, value := range body {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 func projectConversationTicketCreatePath(path string) bool {
 	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/tickets")
 }

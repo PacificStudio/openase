@@ -895,15 +895,6 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
     }
   }
 
-  if (type === 'action_proposal' || type === 'platform_command_proposal') {
-    return {
-      type: 'text',
-      content:
-        readOptionalString(object, 'summary') ??
-        'Legacy proposal payload omitted. Ask the assistant to perform the action directly.',
-    }
-  }
-
   if (type === 'diff') {
     return {
       type,

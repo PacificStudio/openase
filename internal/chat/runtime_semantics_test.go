@@ -13,13 +13,13 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 )
 
-func TestMapCodexAssistantOutputLeavesActionProposalAsTextFromSnapshot(t *testing.T) {
+func TestMapCodexAssistantOutputLeavesUnsupportedStructuredPayloadAsTextFromSnapshot(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID: "item-1",
 		Stream: "assistant",
-		Text:   "```json\n{\"type\":\"action_proposal\",",
+		Text:   "```json\n{\"type\":\"custom_structured_payload\",",
 	}, items)
 	if len(events) != 0 {
 		t.Fatalf("first assistant delta should be buffered, got %+v", events)
@@ -28,7 +28,7 @@ func TestMapCodexAssistantOutputLeavesActionProposalAsTextFromSnapshot(t *testin
 	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID:   "item-1",
 		Stream:   "assistant",
-		Text:     "\"summary\":\"Create child ticket\",\"actions\":[{\"method\":\"POST\",\"path\":\"/api/v1/projects/p/tickets\"}]}\n```",
+		Text:     "\"summary\":\"Create child ticket\",\"items\":[{\"name\":\"child-ticket\"}]}\n```",
 		Snapshot: true,
 	}, items)
 	if len(events) != 1 {
@@ -39,18 +39,18 @@ func TestMapCodexAssistantOutputLeavesActionProposalAsTextFromSnapshot(t *testin
 	if !ok {
 		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create child ticket") {
-		t.Fatalf("unexpected action proposal text payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"custom_structured_payload\"") || !strings.Contains(payload.Content, "Create child ticket") {
+		t.Fatalf("unexpected structured text payload: %#v", payload)
 	}
 }
 
-func TestMapCodexAssistantOutputLeavesPlatformCommandProposalAsTextFromSnapshot(t *testing.T) {
+func TestMapCodexAssistantOutputLeavesUnsupportedCommandDSLAsTextFromSnapshot(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID: "item-1",
 		Stream: "assistant",
-		Text:   "```json\n{\"type\":\"platform_command_proposal\",",
+		Text:   "```json\n{\"type\":\"custom_command_dsl\",",
 	}, items)
 	if len(events) != 0 {
 		t.Fatalf("first assistant delta should be buffered, got %+v", events)
@@ -70,18 +70,18 @@ func TestMapCodexAssistantOutputLeavesPlatformCommandProposalAsTextFromSnapshot(
 	if !ok {
 		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if !strings.Contains(payload.Content, "\"type\":\"platform_command_proposal\"") || !strings.Contains(payload.Content, "Update ticket") {
-		t.Fatalf("unexpected platform command text payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"custom_command_dsl\"") || !strings.Contains(payload.Content, "Update ticket") {
+		t.Fatalf("unexpected structured command text payload: %#v", payload)
 	}
 }
 
-func TestMapCodexAssistantOutputKeepsProposalJSONAsTextForSnapshots(t *testing.T) {
+func TestMapCodexAssistantOutputKeepsUnsupportedStructuredJSONAsTextForSnapshots(t *testing.T) {
 	items := make(map[string]*codexAssistantItemState)
 
 	events := mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID: "item-1",
 		Stream: "assistant",
-		Text:   "{\"type\":\"action_proposal\",\"summary\":\"Create child ticket\",\"actions\":[{\"method\":\"POST\",\"path\":\"/api/v1/projects/p/tickets\"}]}",
+		Text:   "{\"type\":\"custom_structured_payload\",\"summary\":\"Create child ticket\",\"items\":[{\"name\":\"child-ticket\"}]}",
 	}, items)
 	if len(events) != 0 {
 		t.Fatalf("first assistant delta should be buffered, got %+v", events)
@@ -90,7 +90,7 @@ func TestMapCodexAssistantOutputKeepsProposalJSONAsTextForSnapshots(t *testing.T
 	events = mapCodexAssistantOutput(&codexadapter.OutputEvent{
 		ItemID:   "item-1",
 		Stream:   "assistant",
-		Text:     "{\"type\":\"action_proposal\",\"summary\":\"Create child ticket\",\"actions\":[{\"method\":\"POST\",\"path\":\"/api/v1/projects/p/tickets\"}]}",
+		Text:     "{\"type\":\"custom_structured_payload\",\"summary\":\"Create child ticket\",\"items\":[{\"name\":\"child-ticket\"}]}",
 		Snapshot: true,
 	}, items)
 	if len(events) != 1 {
@@ -101,8 +101,8 @@ func TestMapCodexAssistantOutputKeepsProposalJSONAsTextForSnapshots(t *testing.T
 	if !ok {
 		t.Fatalf("payload = %#v, want text payload", events[0].Payload)
 	}
-	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create child ticket") {
-		t.Fatalf("unexpected proposal text payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"custom_structured_payload\"") || !strings.Contains(payload.Content, "Create child ticket") {
+		t.Fatalf("unexpected structured text payload: %#v", payload)
 	}
 }
 
@@ -221,14 +221,14 @@ func TestMapCodexAssistantOutputLeavesMalformedDuplicatedTrailingDiffAfterProseA
 	}
 }
 
-func TestGeminiRuntimeStartTurnLeavesActionProposalJSONAsText(t *testing.T) {
+func TestGeminiRuntimeStartTurnLeavesUnsupportedStructuredJSONAsText(t *testing.T) {
 	stdin := &trackingWriteCloser{}
 	manager := &fakeAgentCLIProcessManager{
 		process: &fakeAgentCLIProcess{
 			stdin: stdin,
 			stdout: strings.Join([]string{
 				`{"type":"init","timestamp":"2026-04-03T06:00:00Z","session_id":"gemini-session-1","model":"gemini-2.5-pro"}`,
-				"{\"type\":\"message\",\"timestamp\":\"2026-04-03T06:00:01Z\",\"role\":\"assistant\",\"content\":\"```json\\n{\\\"type\\\":\\\"action_proposal\\\",\\\"summary\\\":\\\"Create 2 tickets\\\",\\\"actions\\\":[{\\\"method\\\":\\\"POST\\\",\\\"path\\\":\\\"/api/v1/projects/p/tickets\\\"}]}\\n```\",\"delta\":true}",
+				"{\"type\":\"message\",\"timestamp\":\"2026-04-03T06:00:01Z\",\"role\":\"assistant\",\"content\":\"```json\\n{\\\"type\\\":\\\"custom_structured_payload\\\",\\\"summary\\\":\\\"Create 2 tickets\\\",\\\"items\\\":[{\\\"name\\\":\\\"ticket-a\\\"},{\\\"name\\\":\\\"ticket-b\\\"}]}\\n```\",\"delta\":true}",
 				`{"type":"result","timestamp":"2026-04-03T06:00:02Z","status":"success","stats":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7,"duration_ms":120,"tool_calls":0,"models":{"gemini-2.5-pro":{"total_tokens":10,"input_tokens":7,"output_tokens":3,"cached":0,"input":7}}}}`,
 			}, "\n"),
 		},
@@ -267,8 +267,8 @@ func TestGeminiRuntimeStartTurnLeavesActionProposalJSONAsText(t *testing.T) {
 	if events[1].Event != "message" || !ok {
 		t.Fatalf("second event = %+v, want text message", events[1])
 	}
-	if !strings.Contains(payload.Content, "\"type\":\"action_proposal\"") || !strings.Contains(payload.Content, "Create 2 tickets") {
-		t.Fatalf("unexpected action proposal text payload: %#v", payload)
+	if !strings.Contains(payload.Content, "\"type\":\"custom_structured_payload\"") || !strings.Contains(payload.Content, "Create 2 tickets") {
+		t.Fatalf("unexpected structured text payload: %#v", payload)
 	}
 
 	usage, ok := events[2].Payload.(runtimeTokenUsagePayload)

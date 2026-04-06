@@ -3423,7 +3423,7 @@ Project AI onboarding requirements:
 - First prefilled question suggestions:
   - `Based on the current project and existing Tickets, help me break down 3 more follow-up tickets`
   - `What should I do next?`
-- After user confirmation, Project AI can help create follow-up tickets via `platform_command_proposal`; compatibility with legacy `action_proposal` is still maintained during migration.
+- After the user confirms intent, Project AI can help create follow-up tickets by using the runtime tools, CLI, and skills available in Project Conversation directly.
 - Workflow editing remains part of the normal workflow editor experience; onboarding no longer requires a separate Harness AI step or hidden AI sidebar.
 
 Completion rules:
@@ -8699,7 +8699,7 @@ A new Claude Code requirement: when using `-p/--print` with `--output-format str
 | Transcript | Not persisted by default | Persisted |
 | After UI close | Session ends | Conversation retained after UI close |
 | Resume method | `session_id` within the same live session | Resume transcript by `conversation_id`; continue on same thread if live runtime exists, otherwise rebuild by resume strategy |
-| Approval | User confirmation only for `action_proposal` | `platform_command_proposal` (compatibility with `action_proposal` during migration) + Codex native tool approval / user input interrupt |
+| Approval | Provider-native tool approval / user input interrupt when needed | Provider-native tool approval / user input interrupt with persisted recovery |
 | API | Single-turn SSE is sufficient | Requires conversation + turn + stream + interrupt response interfaces |
 
 ### 31.2.2 Multiple CLI Providers
@@ -8790,98 +8790,42 @@ Injection rules:
 Common constraints:
 
 - AI must not claim that platform write operations were already executed unless it receives a confirmed execution result event
-- `project_sidebar` / ticket-focused Project Conversation platform write operations should prefer `platform_command_proposal`; other direct chat entry points can still use `action_proposal`
-- During migration, backend must remain compatible with legacy `action_proposal` until Project Conversation migration is complete
+- `project_sidebar` / ticket-focused Project Conversation platform write operations must execute through runtime skills / CLI / tools directly, without proposal JSON compatibility paths
 - When recovering Project Conversation, Turn 1 does not need verbatim replay of full history; prioritize injecting rolling summary + recent entries
 
 ### 31.4 Platform Operations and Approval
 
-Direct Chat has two completely different kinds of “approval/confirmation,” and they must be strictly separated:
+Direct Chat now has only one formal execution model for platform operations: the assistant uses the runtime tools, CLI, and skills that are actually available in the current session. There is no separate proposal JSON protocol.
 
-- **Platform write operation confirmation**
-  - `Project Conversation` should primarily propose via `platform_command_proposal`; other entry points or migration fallback can still use `action_proposal`
-  - Platform API executes only after user confirmation
+- **Runtime execution**
+  - `Project Conversation` and other chat entry points perform platform writes through runtime-available skills / CLI / tools when the request is actionable
+  - If the context is insufficient, AI asks the smallest focused clarification question first
+  - Frontend must not introduce proposal-card confirmation UX for platform mutations
 - **CLI native tool approval / user input**
   - Initiated by provider during the current turn
   - For example, Codex command execution approval, file change approval, requestUserInput
   - Continue the same turn after handling
 
-These two mechanisms must not be mixed.
+These provider-native pauses must not be confused with the removed proposal JSON compatibility flow.
 
-### 31.4.1 Platform operations: Project Conversation prioritizes `platform_command_proposal`
+### 31.4.1 Platform operations execute through runtime tools / CLI / skills
 
-When users in `Project Conversation` request platform write operations such as creating/updating tickets, adding project progress, adjusting workflows, or updating project configuration, AI must primarily output structured `platform_command_proposal` and wait for user confirmation. This protocol must be a restricted command DSL rather than raw REST path + body.
-
-```json
-{
-  "type": "platform_command_proposal",
-  "commands": [
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement user registration API",
-        "parent_ticket": "ASE-42"
-      }
-    },
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement user login API"
-      }
-    },
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement RBAC permission model"
-      }
-    }
-  ],
-  "summary": "Create 3 subtickets"
-}
-```
-
-Initial restricted command set:
-
-- `project_update.create`
-- `ticket.update`
-- `ticket.create`
-
-Command arguments may reference human-readable identifiers, for example:
-
-- `project`: project name / slug / UUID
-- `ticket`: ticket identifier / UUID
-- `status`: status name / UUID
-- `workflow`: workflow name / UUID
-
-Backend must complete parsing before execution:
-
-1. Parse proposal JSON into typed domain command
-2. Resolve human-readable references like `project` / `ticket` / `status` / `workflow` into UUIDs
-3. Call existing service-layer mutations to execute, rather than replaying handwritten internal HTTP requests
-4. Write structured per-command execution results back into conversation transcript
+When users in `Project Conversation` request platform write operations such as creating/updating tickets, adding project progress, adjusting workflows, or updating project configuration, AI must use the runtime-available skill / CLI / tool directly instead of emitting structured proposal JSON or a restricted command DSL.
 
 Execution flow:
 
-1. AI outputs `platform_command_proposal`
-2. Frontend renders confirmation UI
-3. User clicks confirm
-4. Backend parses commands, resolves references, executes existing service mutation, and writes structured results back as conversation entries
-5. Actual platform write operations continue through standard API, audit, and ActivityEvent
+1. AI checks whether the current context is sufficient to execute safely
+2. If not, AI asks a focused clarification question instead of guessing IDs or mutable fields
+3. If sufficient, AI invokes the runtime skill / CLI / tool directly
+4. Existing platform APIs and service-layer mutations perform the write, audit logging, and ActivityEvent recording normally
+5. Conversation transcript records the resulting assistant text, tool/runtime events, diffs, and interrupts rather than proposal entries
 
-It is recommended that backend executes the proposal instead of having the frontend call business APIs one by one. Reasons:
+Requirements:
 
-- Execution state is not lost on page refresh
-- Execution results can be stably written back to conversation transcript
-- Audit boundaries are clearer
-
-Compatibility requirements:
-
-- Continue accepting legacy `action_proposal` during migration
-- New prompt / UI / executor default to `platform_command_proposal`
-- If a reference cannot be uniquely resolved, AI should ask for clarification first, rather than guessing UUIDs or REST fields
+- Do not emit or accept legacy proposal entry kinds
+- Do not keep migration fallback that downgrades chat mutations back into proposal JSON
+- Keep audit attribution explicit through the runtime principal and executed platform mutation path
+- If a target cannot be resolved uniquely, ask before mutating
 
 ### 31.4.2 Codex Native Tool Approval and User Input
 
@@ -8919,7 +8863,7 @@ Project Conversation turn interrupt flow:
 Note:
 
 - This type of interrupt is a pause point in conversation runtime, not a replacement for ticket state approval in section 7.5
-- Platform write operations must still go through `platform_command_proposal` or migration-period compatible `action_proposal`; they cannot be allowed through Codex tool approval alone
+- Platform write operations requested from chat still happen through runtime tools / CLI / skills inside the active turn; tool approval only gates provider-native execution steps
 
 ### 31.5 Frontend Entry Points
 
@@ -8969,7 +8913,7 @@ Requirements:
 
 - When user requests Harness edits, return structured `diff` first
 - Clicking “Apply to Editor” should apply the patch directly to editor content and support undo
-- Normal Harness suggestions should avoid outputting `action_proposal`
+- Normal Harness suggestions should avoid outputting proposal JSON and should stay focused on actionable diffs or concise guidance
 
 ### 31.7 Conversation Management and Persistence
 
@@ -8995,7 +8939,7 @@ Project Conversation needs a minimal persistence model:
 | `project_conversation_step_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | Step-level event stream for conversation runtime |
 | `project_conversation_trace_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | Trace/output/token/interrupt event stream for conversation runtime |
 | `chat_turns` | `id`, `conversation_id`, `turn_index`, `provider_turn_id`, `status`, `started_at`, `completed_at` | One user message corresponds to one turn |
-| `chat_entries` | `id`, `conversation_id`, `turn_id`, `seq`, `kind`, `payload_json` | Append-only transcript covering text / diff / platform_command_proposal / action_proposal / interrupt / result |
+| `chat_entries` | `id`, `conversation_id`, `turn_id`, `seq`, `kind`, `payload_json` | Append-only transcript covering user text / assistant text / diff / runtime system events / interrupts |
 | `chat_pending_interrupts` | `id`, `conversation_id`, `turn_id`, `provider_request_id`, `kind`, `payload_json`, `status`, `resolved_at` | Persisted Codex-native approval / user-input interruptions |
 
 Field semantics:
@@ -9106,7 +9050,6 @@ Request body:
 | POST | `/api/v1/chat/conversations/:conversationId/turns` | Send one user turn |
 | GET | `/api/v1/chat/conversations/:conversationId/stream` | Watch real-time events for current conversation |
 | POST | `/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond` | Submit decision / answer for Codex interrupt |
-| POST | `/api/v1/chat/conversations/:conversationId/action-proposals/:entryId/execute` | Confirm and execute action proposal |
 | DELETE | `/api/v1/chat/conversations/:conversationId/runtime` | Close live runtime while preserving conversation and transcript |
 
 Create conversation request example:
@@ -9158,7 +9101,7 @@ event: message
 data: {"type":"diff","file":"harness content","hunks":[...]}
 
 event: message
-data: {"type":"platform_command_proposal","summary":"Create 3 subtickets","commands":[...]}
+data: {"type":"task_notification","raw":{"tool":"functions.exec_command","arguments":{"cmd":"git status"}}}
 
 event: interrupt_requested
 data: {
@@ -9184,6 +9127,7 @@ Constraints:
 - `project_sidebar` one assistant turn corresponds to one assistant transcript block
 - Provider deltas can only be merged into the current block, and chunk boundaries must not appear as multiple bubbles
 - `interrupt_requested` is not `turn_done`
+- Structured runtime events should be represented as typed system/runtime payloads, not proposal entries
 
 Besides transcript stream, backend must also keep separate runtime observability:
 
@@ -9192,14 +9136,14 @@ Besides transcript stream, backend must also keep separate runtime observability
 - `ProjectConversationTraceEvent` records model output, trace, tool / token / session events
 - UI recovery and debugging should first read typed runtime state rather than reverse-parse transcript payload
 
-#### 31.8.4 Audit Semantics for Proposal Execution
+#### 31.8.4 Audit Semantics for Runtime-Executed Platform Mutations
 
-Platform write operations in Project Conversation default to `platform_command_proposal` + human confirmation; compatibility with `action_proposal` remains during migration. Final audit semantics must explicitly distinguish origin:
+Platform write operations initiated from Project Conversation happen through runtime tools / CLI / skills during the active turn. Audit semantics must explicitly distinguish that origin:
 
-- For platform changes executed after user confirms a proposal in conversation UI, audit actor should be `user:<id> via project-conversation:<conversation_id>`
-- If certain `project_conversation` direct mutation scopes are opened in the future, allowed scope, principal attribution, and test coverage must be defined separately; user confirmation semantics cannot be silently reused
+- Platform changes executed from the conversation runtime must retain explicit attribution to the runtime principal and initiating user context
+- If certain `project_conversation` direct mutation scopes are opened in the future, allowed scope, principal attribution, and test coverage must be defined separately
 - Do not silently attribute conversation-initiated changes to synthetic ticket agent
-- Whether invoking service-layer mutation directly or replaying internal API during migration, the above audited origin must be explicitly written into mutation payload or equivalent audit field
+- Existing service-layer or API-layer mutation paths must keep audit fields explicit when invoked from the conversation runtime
 
 ### 31.9 Difference from Ticket Agent
 
@@ -9212,7 +9156,7 @@ Platform write operations in Project Conversation default to `platform_command_p
 | Hook | on_claim / on_complete / on_done | None |
 | Cost tracking | Recorded in ticket `cost_amount` | Recorded in project-level direct chat / conversation cost |
 | Runtime identity | `Ticket Agent` / `agent_id` | `ProjectConversationPrincipal` / `conversation_id` |
-| Platform operations | `ticket_agent` principal token executes directly | Default `platform_command_proposal` with user confirmation before execution; migration compatibility with `action_proposal`; token principal is `project_conversation` principal |
+| Platform operations | `ticket_agent` principal token executes directly | `project_conversation` principal executes through runtime tools / CLI / skills during the active turn |
 | Tool approval | Orchestrator run is default unattended | Project Conversation supports Codex native interrupt |
 | Persistence | Layered persistence with `AgentTraceEvent + AgentStepEvent + ActivityEvent` | Ephemeral Chat not persisted by default; Project Conversation uses `ProjectConversationPrincipal + Run + StepEvent + TraceEvent + transcript` layered persistence |
 | Concurrency | Multiple Agent definitions can execute tickets in parallel; same Agent definition may drive multiple AgentRuns concurrently when concurrency limit allows | Live runtime concurrency is limited by user/project/provider dimensions |
@@ -10343,14 +10287,14 @@ AI assistant (Ephemeral Chat):
 
    [One-click project configuration]"
 
-User clicks → AI calls Platform API via action_proposal:
+User clicks → AI uses the available runtime tools / CLI / platform skills directly:
   → Register backend repo + frontend repo
   → Activate architect role (Harness: roles/architect.md, pickup: "Backlog")
   → Activate coding role (Harness: roles/fullstack-developer.md, pickup: "Todo")
   → Create the first ticket: "Design technical architecture for Todo App", place it in Backlog
 ```
 
-- Dependency: Chapter 31 Ephemeral Chat (AI assistant), Chapter 27 Agent Autonomous Loop (action_proposal), Chapter 26 Role System (role library)
+- Dependency: Chapter 31 Ephemeral Chat (AI assistant), Chapter 27 Agent Autonomous Loop, Chapter 26 Role System (role library)
 - **Fully supported** ✅
 
 **Step 3: Design Assistant Takes Over**
@@ -10914,7 +10858,7 @@ Layer 11 (enterprise + open ecosystem)
 
 | ID | Task | Effort | Dependencies | PRD section |
 |----|------|--------|--------------|--------------|
-| F51 | **Ephemeral Chat** (embedded AI assistant + context injection + action_proposal) | 5d | F13, F06 | 31 |
+| F51 | **Ephemeral Chat** (embedded AI assistant + context injection + direct runtime tool usage) | 5d | F13, F06 | 31 |
 | F52 | Harness editor AI assistance (side-panel chat + diff application) | 3d | F51, F27 | 31 |
 | F53 | Harness variable dictionary API + editor autocomplete + live preview | 3d | F20, F27 | 30 |
 | F56 | ScheduledJob timed tasks (robfig/cron + ticket templates + UI) | 3d | F06, F09 | 6 |
