@@ -9,11 +9,14 @@
     Cog,
     Loader,
     CircleX,
+    Ellipsis,
   } from '@lucide/svelte'
   import * as Tooltip from '$ui/tooltip'
   import type { BoardStatusOption, BoardTicket } from '../types'
+  import type { BoardPriority } from '../priority'
   import StatusPicker from './status-picker.svelte'
   import PriorityPicker from './priority-picker.svelte'
+  import TicketCardContextMenu from './ticket-card-context-menu.svelte'
 
   let {
     ticket,
@@ -24,6 +27,7 @@
     ondragendticket,
     onStatusChange,
     onPriorityChange,
+    onArchiveTicket,
     isDragging = false,
     isPendingMove = false,
   }: {
@@ -35,6 +39,7 @@
     ondragendticket?: () => void
     onStatusChange?: (ticketId: string, statusId: string) => void
     onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
+    onArchiveTicket?: (ticketId: string) => void
     isDragging?: boolean
     isPendingMove?: boolean
   } = $props()
@@ -57,9 +62,10 @@
   }
 
   let suppressClickUntil = 0
+  let contextMenuOpen = $state(false)
 
   function handleClick() {
-    if (Date.now() < suppressClickUntil || isDragging) {
+    if (Date.now() < suppressClickUntil || isDragging || contextMenuOpen) {
       return
     }
     onclick?.(ticket)
@@ -70,10 +76,25 @@
       e.preventDefault()
       handleClick()
     }
+    if (e.shiftKey && e.key === 'F10') {
+      e.preventDefault()
+      contextMenuOpen = true
+    }
+    if (e.key === 'ContextMenu') {
+      e.preventDefault()
+      contextMenuOpen = true
+    }
+  }
+
+  function handleContextMenu(e: MouseEvent) {
+    if (isDragging) return
+    e.preventDefault()
+    e.stopPropagation()
+    contextMenuOpen = true
   }
 
   function handleDragStart(event: DragEvent) {
-    if (isPendingMove) {
+    if (isPendingMove || contextMenuOpen) {
       event.preventDefault()
       return
     }
@@ -91,11 +112,19 @@
     suppressClickUntil = Date.now() + 250
     ondragendticket?.()
   }
+
+  function handleOpenDetails(t: BoardTicket) {
+    onclick?.(t)
+  }
+
+  function handleContextPriorityChange(ticketId: string, priority: BoardPriority) {
+    onPriorityChange?.(ticketId, priority)
+  }
 </script>
 
 <button
   type="button"
-  draggable={!isPendingMove}
+  draggable={!isPendingMove && !contextMenuOpen}
   class={cn(
     'border-border bg-card w-full shrink-0 rounded-md border p-2.5 text-left',
     'cursor-grab active:cursor-grabbing',
@@ -109,6 +138,7 @@
   disabled={isPendingMove}
   onclick={handleClick}
   onkeydown={handleKeydown}
+  oncontextmenu={handleContextMenu}
   ondragstart={handleDragStart}
   ondragend={handleDragEnd}
 >
@@ -133,7 +163,28 @@
         {#if isPendingMove}
           <span class="text-muted-foreground text-[10px]">Moving…</span>
         {/if}
-        <GripVertical class="text-muted-foreground/50 ml-auto size-3.5 shrink-0" />
+        <div class="ml-auto flex items-center gap-0.5">
+          <span
+            role="button"
+            tabindex={0}
+            class="text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted inline-flex size-5 items-center justify-center rounded transition-colors"
+            aria-label="Ticket actions"
+            onclick={(e: MouseEvent) => {
+              e.stopPropagation()
+              contextMenuOpen = true
+            }}
+            onkeydown={(e: KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                e.stopPropagation()
+                contextMenuOpen = true
+              }
+            }}
+          >
+            <Ellipsis class="size-3" />
+          </span>
+          <GripVertical class="text-muted-foreground/50 size-3.5 shrink-0" />
+        </div>
       </div>
       <p class="text-foreground mt-0.5 text-sm leading-snug font-medium">
         {truncate(ticket.title, 60)}
@@ -206,3 +257,14 @@
     {formatRelativeTime(ticket.updatedAt)}
   </div>
 </button>
+
+<TicketCardContextMenu
+  {ticket}
+  {statuses}
+  {isPendingMove}
+  bind:open={contextMenuOpen}
+  onOpenDetails={handleOpenDetails}
+  {onStatusChange}
+  onPriorityChange={handleContextPriorityChange}
+  onArchive={onArchiveTicket}
+/>

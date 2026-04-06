@@ -35,6 +35,7 @@ import {
   handleTicketDragOverColumn as dragOverTicketColumn,
   handleTicketDragStart as startTicketDrag,
   handleTicketDrop as dropTicket,
+  handleTicketArchive as archiveTicket,
 } from './tickets-page-controller-actions'
 import { createTicketsPageControllerApi } from './tickets-page-controller-api'
 import { createTicketsPageControllerState } from './tickets-page-controller-state'
@@ -252,30 +253,6 @@ export function createTicketsPageController() {
     appStore.openRightPanel({ type: 'ticket', id: ticket.id })
   }
 
-  function handleTicketDragStart(ticket: BoardTicket) {
-    startTicketDrag(controllerState, ticket)
-  }
-
-  function handleTicketDragEnd() {
-    endTicketDrag(controllerState)
-  }
-
-  function handleTicketDragOverColumn(columnId: string) {
-    dragOverTicketColumn(controllerState, columnId)
-  }
-
-  async function handlePriorityChange(ticketId: string, priority: string) {
-    await runPriorityChange(controllerState, ticketId, priority)
-  }
-
-  async function handleTicketDrop(ticketId: string, targetColumnId: string) {
-    await dropTicket(controllerState, ticketId, targetColumnId)
-  }
-
-  async function handleColumnAction(columnId: string, action: string) {
-    await runColumnAction(controllerState, columnId, action)
-  }
-
   return createTicketsPageControllerApi({
     getLoading: () => loading,
     getError: () => error,
@@ -289,11 +266,16 @@ export function createTicketsPageController() {
     getFilteredGroups: () => filteredGroups,
     getHiddenColumns: () => hiddenColumns,
     handleTicketClick,
-    handleTicketDragStart,
-    handleTicketDragEnd,
-    handleTicketDragOverColumn,
-    handleTicketDrop,
-    handlePriorityChange,
-    handleColumnAction,
+    handleTicketDragStart: (ticket: BoardTicket) => startTicketDrag(controllerState, ticket),
+    handleTicketDragEnd: () => endTicketDrag(controllerState),
+    handleTicketDragOverColumn: (columnId: string) =>
+      dragOverTicketColumn(controllerState, columnId),
+    handleTicketDrop: (ticketId: string, targetColumnId: string) =>
+      dropTicket(controllerState, ticketId, targetColumnId),
+    handlePriorityChange: (ticketId: string, priority: string) =>
+      runPriorityChange(controllerState, ticketId, priority),
+    handleColumnAction: (columnId: string, action: string) =>
+      runColumnAction(controllerState, columnId, action),
+    handleTicketArchive: (ticketId: string) => archiveTicket(controllerState, ticketId),
   })
 }
