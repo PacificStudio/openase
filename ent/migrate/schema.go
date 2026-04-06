@@ -984,6 +984,120 @@ var (
 			},
 		},
 	}
+	// OrganizationInvitationsColumns holds the columns for the "organization_invitations" table.
+	OrganizationInvitationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "email", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "admin", "member"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "accepted", "canceled", "expired"}, Default: "pending"},
+		{Name: "invited_by", Type: field.TypeString, Default: ""},
+		{Name: "invite_token_hash", Type: field.TypeString},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "sent_at", Type: field.TypeTime},
+		{Name: "accepted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "canceled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "membership_id", Type: field.TypeUUID},
+		{Name: "accepted_by_user_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// OrganizationInvitationsTable holds the schema information for the "organization_invitations" table.
+	OrganizationInvitationsTable = &schema.Table{
+		Name:       "organization_invitations",
+		Columns:    OrganizationInvitationsColumns,
+		PrimaryKey: []*schema.Column{OrganizationInvitationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_invitations_organizations_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[12]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_invitations_organization_memberships_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[13]},
+				RefColumns: []*schema.Column{OrganizationMembershipsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_invitations_users_accepted_organization_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[14]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationinvitation_invite_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[5]},
+			},
+			{
+				Name:    "organizationinvitation_organization_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[12], OrganizationInvitationsColumns[3]},
+			},
+			{
+				Name:    "organizationinvitation_membership_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[13], OrganizationInvitationsColumns[3]},
+			},
+		},
+	}
+	// OrganizationMembershipsColumns holds the columns for the "organization_memberships" table.
+	OrganizationMembershipsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "email", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "admin", "member"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"invited", "active", "suspended", "removed"}, Default: "invited"},
+		{Name: "invited_by", Type: field.TypeString, Default: ""},
+		{Name: "invited_at", Type: field.TypeTime},
+		{Name: "accepted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "suspended_at", Type: field.TypeTime, Nullable: true},
+		{Name: "removed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// OrganizationMembershipsTable holds the schema information for the "organization_memberships" table.
+	OrganizationMembershipsTable = &schema.Table{
+		Name:       "organization_memberships",
+		Columns:    OrganizationMembershipsColumns,
+		PrimaryKey: []*schema.Column{OrganizationMembershipsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_memberships_organizations_memberships",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[11]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_memberships_users_organization_memberships",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationmembership_organization_id_email",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[11], OrganizationMembershipsColumns[1]},
+			},
+			{
+				Name:    "organizationmembership_organization_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[11], OrganizationMembershipsColumns[3]},
+			},
+			{
+				Name:    "organizationmembership_user_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[12], OrganizationMembershipsColumns[3]},
+			},
+		},
+	}
 	// ProjectsColumns holds the columns for the "projects" table.
 	ProjectsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2341,6 +2455,8 @@ var (
 		NotificationRulesTable,
 		OrganizationsTable,
 		OrganizationDailyTokenUsagesTable,
+		OrganizationInvitationsTable,
+		OrganizationMembershipsTable,
 		ProjectsTable,
 		ProjectConversationPrincipalsTable,
 		ProjectConversationRunsTable,
@@ -2415,6 +2531,11 @@ func init() {
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	OrganizationDailyTokenUsagesTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationInvitationsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationInvitationsTable.ForeignKeys[1].RefTable = OrganizationMembershipsTable
+	OrganizationInvitationsTable.ForeignKeys[2].RefTable = UsersTable
+	OrganizationMembershipsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable

@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
+	entorganizationmembership "github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
@@ -59,6 +61,22 @@ func (r *EntRepository) CreateOrganization(ctx context.Context, input domain.Cre
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.Organization{}, mapWriteError("create organization", err)
+	}
+
+	if input.CreatorUserID != nil && *input.CreatorUserID != uuid.Nil && strings.TrimSpace(input.CreatorEmail) != "" {
+		now := time.Now().UTC()
+		if _, err := tx.OrganizationMembership.Create().
+			SetOrganizationID(item.ID).
+			SetUserID(*input.CreatorUserID).
+			SetEmail(strings.ToLower(strings.TrimSpace(input.CreatorEmail))).
+			SetRole(entorganizationmembership.RoleOwner).
+			SetStatus(entorganizationmembership.StatusActive).
+			SetInvitedBy("system:organization-create").
+			SetInvitedAt(now).
+			SetAcceptedAt(now).
+			Save(ctx); err != nil {
+			return domain.Organization{}, mapWriteError("create organization owner membership", err)
+		}
 	}
 
 	localMachine, err := createLocalMachine(ctx, tx, item.ID)

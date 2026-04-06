@@ -66,6 +66,12 @@ type Organization func(*sql.Selector)
 // OrganizationDailyTokenUsage is the predicate function for organizationdailytokenusage builders.
 type OrganizationDailyTokenUsage func(*sql.Selector)
 
+// OrganizationInvitation is the predicate function for organizationinvitation builders.
+type OrganizationInvitation func(*sql.Selector)
+
+// OrganizationMembership is the predicate function for organizationmembership builders.
+type OrganizationMembership func(*sql.Selector)
+
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
 

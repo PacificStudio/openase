@@ -31,8 +31,40 @@ type User struct {
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the UserQuery when eager-loading is set.
+	Edges        UserEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// UserEdges holds the relations/edges for other nodes in the graph.
+type UserEdges struct {
+	// OrganizationMemberships holds the value of the organization_memberships edge.
+	OrganizationMemberships []*OrganizationMembership `json:"organization_memberships,omitempty"`
+	// AcceptedOrganizationInvitations holds the value of the accepted_organization_invitations edge.
+	AcceptedOrganizationInvitations []*OrganizationInvitation `json:"accepted_organization_invitations,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// OrganizationMembershipsOrErr returns the OrganizationMemberships value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) OrganizationMembershipsOrErr() ([]*OrganizationMembership, error) {
+	if e.loadedTypes[0] {
+		return e.OrganizationMemberships, nil
+	}
+	return nil, &NotLoadedError{edge: "organization_memberships"}
+}
+
+// AcceptedOrganizationInvitationsOrErr returns the AcceptedOrganizationInvitations value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) AcceptedOrganizationInvitationsOrErr() ([]*OrganizationInvitation, error) {
+	if e.loadedTypes[1] {
+		return e.AcceptedOrganizationInvitations, nil
+	}
+	return nil, &NotLoadedError{edge: "accepted_organization_invitations"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -121,6 +153,16 @@ func (_m *User) assignValues(columns []string, values []any) error {
 // This includes values selected through modifiers, order, etc.
 func (_m *User) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
+}
+
+// QueryOrganizationMemberships queries the "organization_memberships" edge of the User entity.
+func (_m *User) QueryOrganizationMemberships() *OrganizationMembershipQuery {
+	return NewUserClient(_m.config).QueryOrganizationMemberships(_m)
+}
+
+// QueryAcceptedOrganizationInvitations queries the "accepted_organization_invitations" edge of the User entity.
+func (_m *User) QueryAcceptedOrganizationInvitations() *OrganizationInvitationQuery {
+	return NewUserClient(_m.config).QueryAcceptedOrganizationInvitations(_m)
 }
 
 // Update returns a builder for updating this User.

@@ -113,6 +113,12 @@ func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization,
 }
 
 func (s *service) CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error) {
+	if principal, ok := humanauthdomain.PrincipalFromContext(ctx); ok && principal.User.ID != uuid.Nil {
+		userID := principal.User.ID
+		input.CreatorUserID = &userID
+		input.CreatorEmail = strings.ToLower(strings.TrimSpace(principal.User.PrimaryEmail))
+	}
+
 	item, err := s.repo.CreateOrganization(ctx, input)
 	if err != nil {
 		return domain.Organization{}, err

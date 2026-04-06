@@ -37,6 +37,49 @@ export type EffectivePermissionsResponse = {
   }>
 }
 
+export type OrganizationMembershipUser = {
+  id: string
+  primaryEmail: string
+  displayName: string
+  avatarURL?: string
+}
+
+export type OrganizationInvitation = {
+  id: string
+  status: string
+  email: string
+  role: string
+  invitedBy: string
+  sentAt: string
+  expiresAt: string
+  acceptedAt?: string
+  canceledAt?: string
+}
+
+export type OrganizationMembership = {
+  id: string
+  organizationID: string
+  userID?: string
+  email: string
+  role: string
+  status: string
+  invitedBy: string
+  invitedAt: string
+  acceptedAt?: string
+  suspendedAt?: string
+  removedAt?: string
+  createdAt: string
+  updatedAt: string
+  user?: OrganizationMembershipUser
+  activeInvitation?: OrganizationInvitation
+}
+
+export type OrganizationInvitationMutationResult = {
+  membership: OrganizationMembership
+  invitation: OrganizationInvitation | null
+  acceptToken: string
+}
+
 export type RoleBinding = {
   id: string
   scopeKind: string
@@ -159,6 +202,43 @@ type RawRoleBinding = {
   granted_by?: string
   expires_at?: string
   created_at?: string
+}
+
+type RawOrganizationMembershipUser = {
+  id?: string
+  primary_email?: string
+  display_name?: string
+  avatar_url?: string
+}
+
+type RawOrganizationInvitation = {
+  id?: string
+  status?: string
+  email?: string
+  role?: string
+  invited_by?: string
+  sent_at?: string
+  expires_at?: string
+  accepted_at?: string
+  canceled_at?: string
+}
+
+type RawOrganizationMembership = {
+  id?: string
+  organization_id?: string
+  user_id?: string
+  email?: string
+  role?: string
+  status?: string
+  invited_by?: string
+  invited_at?: string
+  accepted_at?: string
+  suspended_at?: string
+  removed_at?: string
+  created_at?: string
+  updated_at?: string
+  user?: RawOrganizationMembershipUser
+  active_invitation?: RawOrganizationInvitation
 }
 
 type RawManagedAuthSession = {
@@ -337,6 +417,59 @@ function parseRoleBinding(raw: RawRoleBinding): RoleBinding {
   }
 }
 
+function parseOrganizationMembershipUser(
+  raw?: RawOrganizationMembershipUser,
+): OrganizationMembershipUser | undefined {
+  if (!raw?.id || !raw.primary_email || !raw.display_name) {
+    return undefined
+  }
+  return {
+    id: raw.id,
+    primaryEmail: raw.primary_email,
+    displayName: raw.display_name,
+    avatarURL: raw.avatar_url ?? undefined,
+  }
+}
+
+function parseOrganizationInvitation(
+  raw?: RawOrganizationInvitation,
+): OrganizationInvitation | null {
+  if (!raw?.id) {
+    return null
+  }
+  return {
+    id: raw.id,
+    status: raw.status ?? '',
+    email: raw.email ?? '',
+    role: raw.role ?? '',
+    invitedBy: raw.invited_by ?? '',
+    sentAt: raw.sent_at ?? '',
+    expiresAt: raw.expires_at ?? '',
+    acceptedAt: raw.accepted_at ?? undefined,
+    canceledAt: raw.canceled_at ?? undefined,
+  }
+}
+
+function parseOrganizationMembership(raw: RawOrganizationMembership): OrganizationMembership {
+  return {
+    id: raw.id ?? '',
+    organizationID: raw.organization_id ?? '',
+    userID: raw.user_id ?? undefined,
+    email: raw.email ?? '',
+    role: raw.role ?? '',
+    status: raw.status ?? '',
+    invitedBy: raw.invited_by ?? '',
+    invitedAt: raw.invited_at ?? '',
+    acceptedAt: raw.accepted_at ?? undefined,
+    suspendedAt: raw.suspended_at ?? undefined,
+    removedAt: raw.removed_at ?? undefined,
+    createdAt: raw.created_at ?? '',
+    updatedAt: raw.updated_at ?? '',
+    user: parseOrganizationMembershipUser(raw.user),
+    activeInvitation: parseOrganizationInvitation(raw.active_invitation) ?? undefined,
+  }
+}
+
 function parseManagedAuthSession(raw: RawManagedAuthSession): ManagedAuthSession {
   return {
     id: raw.id ?? '',
@@ -449,6 +582,99 @@ export async function listOrganizationRoleBindings(orgId: string) {
     `/api/v1/organizations/${orgId}/role-bindings`,
   )
   return parseRoleBindingList(payload)
+}
+
+export async function listOrganizationMemberships(orgId: string, opts?: { signal?: AbortSignal }) {
+  const payload = await api.get<{ memberships?: RawOrganizationMembership[] }>(
+    `/api/v1/orgs/${orgId}/members`,
+    opts,
+  )
+  return Array.isArray(payload.memberships)
+    ? payload.memberships.map((item) => parseOrganizationMembership(item))
+    : []
+}
+
+export async function inviteOrganizationMember(
+  orgId: string,
+  body: {
+    email: string
+    role: 'owner' | 'admin' | 'member'
+  },
+): Promise<OrganizationInvitationMutationResult> {
+  const payload = await api.post<{
+    membership?: RawOrganizationMembership
+    invitation?: RawOrganizationInvitation
+    accept_token?: string
+  }>(`/api/v1/orgs/${orgId}/invitations`, { body })
+  return {
+    membership: parseOrganizationMembership(payload.membership ?? {}),
+    invitation: parseOrganizationInvitation(payload.invitation),
+    acceptToken: payload.accept_token ?? '',
+  }
+}
+
+export async function resendOrganizationInvitation(
+  orgId: string,
+  invitationId: string,
+): Promise<OrganizationInvitationMutationResult> {
+  const payload = await api.post<{
+    membership?: RawOrganizationMembership
+    invitation?: RawOrganizationInvitation
+    accept_token?: string
+  }>(`/api/v1/orgs/${orgId}/invitations/${invitationId}/resend`)
+  return {
+    membership: parseOrganizationMembership(payload.membership ?? {}),
+    invitation: parseOrganizationInvitation(payload.invitation),
+    acceptToken: payload.accept_token ?? '',
+  }
+}
+
+export async function cancelOrganizationInvitation(orgId: string, invitationId: string) {
+  const payload = await api.post<{ membership?: RawOrganizationMembership }>(
+    `/api/v1/orgs/${orgId}/invitations/${invitationId}/cancel`,
+  )
+  return parseOrganizationMembership(payload.membership ?? {})
+}
+
+export async function acceptOrganizationInvitation(token: string) {
+  const payload = await api.post<{ membership?: RawOrganizationMembership }>(
+    '/api/v1/org-invitations/accept',
+    {
+      body: { token },
+    },
+  )
+  return parseOrganizationMembership(payload.membership ?? {})
+}
+
+export async function updateOrganizationMembership(
+  orgId: string,
+  membershipId: string,
+  body: {
+    role?: 'owner' | 'admin' | 'member'
+    status?: 'invited' | 'active' | 'suspended' | 'removed'
+  },
+) {
+  const payload = await api.patch<{ membership?: RawOrganizationMembership }>(
+    `/api/v1/orgs/${orgId}/members/${membershipId}`,
+    { body },
+  )
+  return parseOrganizationMembership(payload.membership ?? {})
+}
+
+export async function transferOrganizationOwnership(
+  orgId: string,
+  membershipId: string,
+  body: {
+    previous_owner_role?: 'admin' | 'member'
+  } = {},
+) {
+  const payload = await api.post<{ memberships?: RawOrganizationMembership[] }>(
+    `/api/v1/orgs/${orgId}/members/${membershipId}/transfer-ownership`,
+    { body },
+  )
+  return Array.isArray(payload.memberships)
+    ? payload.memberships.map((item) => parseOrganizationMembership(item))
+    : []
 }
 
 export async function listInstanceRoleBindings() {

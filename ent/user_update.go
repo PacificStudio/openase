@@ -11,8 +11,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/user"
+	"github.com/google/uuid"
 )
 
 // UserUpdate is the builder for updating User entities.
@@ -110,9 +113,81 @@ func (_u *UserUpdate) SetUpdatedAt(v time.Time) *UserUpdate {
 	return _u
 }
 
+// AddOrganizationMembershipIDs adds the "organization_memberships" edge to the OrganizationMembership entity by IDs.
+func (_u *UserUpdate) AddOrganizationMembershipIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddOrganizationMembershipIDs(ids...)
+	return _u
+}
+
+// AddOrganizationMemberships adds the "organization_memberships" edges to the OrganizationMembership entity.
+func (_u *UserUpdate) AddOrganizationMemberships(v ...*OrganizationMembership) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOrganizationMembershipIDs(ids...)
+}
+
+// AddAcceptedOrganizationInvitationIDs adds the "accepted_organization_invitations" edge to the OrganizationInvitation entity by IDs.
+func (_u *UserUpdate) AddAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.AddAcceptedOrganizationInvitationIDs(ids...)
+	return _u
+}
+
+// AddAcceptedOrganizationInvitations adds the "accepted_organization_invitations" edges to the OrganizationInvitation entity.
+func (_u *UserUpdate) AddAcceptedOrganizationInvitations(v ...*OrganizationInvitation) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAcceptedOrganizationInvitationIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearOrganizationMemberships clears all "organization_memberships" edges to the OrganizationMembership entity.
+func (_u *UserUpdate) ClearOrganizationMemberships() *UserUpdate {
+	_u.mutation.ClearOrganizationMemberships()
+	return _u
+}
+
+// RemoveOrganizationMembershipIDs removes the "organization_memberships" edge to OrganizationMembership entities by IDs.
+func (_u *UserUpdate) RemoveOrganizationMembershipIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveOrganizationMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveOrganizationMemberships removes "organization_memberships" edges to OrganizationMembership entities.
+func (_u *UserUpdate) RemoveOrganizationMemberships(v ...*OrganizationMembership) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOrganizationMembershipIDs(ids...)
+}
+
+// ClearAcceptedOrganizationInvitations clears all "accepted_organization_invitations" edges to the OrganizationInvitation entity.
+func (_u *UserUpdate) ClearAcceptedOrganizationInvitations() *UserUpdate {
+	_u.mutation.ClearAcceptedOrganizationInvitations()
+	return _u
+}
+
+// RemoveAcceptedOrganizationInvitationIDs removes the "accepted_organization_invitations" edge to OrganizationInvitation entities by IDs.
+func (_u *UserUpdate) RemoveAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) *UserUpdate {
+	_u.mutation.RemoveAcceptedOrganizationInvitationIDs(ids...)
+	return _u
+}
+
+// RemoveAcceptedOrganizationInvitations removes "accepted_organization_invitations" edges to OrganizationInvitation entities.
+func (_u *UserUpdate) RemoveAcceptedOrganizationInvitations(v ...*OrganizationInvitation) *UserUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAcceptedOrganizationInvitationIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -193,6 +268,96 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.OrganizationMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOrganizationMembershipsIDs(); len(nodes) > 0 && !_u.mutation.OrganizationMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OrganizationMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AcceptedOrganizationInvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAcceptedOrganizationInvitationsIDs(); len(nodes) > 0 && !_u.mutation.AcceptedOrganizationInvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AcceptedOrganizationInvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -296,9 +461,81 @@ func (_u *UserUpdateOne) SetUpdatedAt(v time.Time) *UserUpdateOne {
 	return _u
 }
 
+// AddOrganizationMembershipIDs adds the "organization_memberships" edge to the OrganizationMembership entity by IDs.
+func (_u *UserUpdateOne) AddOrganizationMembershipIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddOrganizationMembershipIDs(ids...)
+	return _u
+}
+
+// AddOrganizationMemberships adds the "organization_memberships" edges to the OrganizationMembership entity.
+func (_u *UserUpdateOne) AddOrganizationMemberships(v ...*OrganizationMembership) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddOrganizationMembershipIDs(ids...)
+}
+
+// AddAcceptedOrganizationInvitationIDs adds the "accepted_organization_invitations" edge to the OrganizationInvitation entity by IDs.
+func (_u *UserUpdateOne) AddAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.AddAcceptedOrganizationInvitationIDs(ids...)
+	return _u
+}
+
+// AddAcceptedOrganizationInvitations adds the "accepted_organization_invitations" edges to the OrganizationInvitation entity.
+func (_u *UserUpdateOne) AddAcceptedOrganizationInvitations(v ...*OrganizationInvitation) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAcceptedOrganizationInvitationIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
+}
+
+// ClearOrganizationMemberships clears all "organization_memberships" edges to the OrganizationMembership entity.
+func (_u *UserUpdateOne) ClearOrganizationMemberships() *UserUpdateOne {
+	_u.mutation.ClearOrganizationMemberships()
+	return _u
+}
+
+// RemoveOrganizationMembershipIDs removes the "organization_memberships" edge to OrganizationMembership entities by IDs.
+func (_u *UserUpdateOne) RemoveOrganizationMembershipIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveOrganizationMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveOrganizationMemberships removes "organization_memberships" edges to OrganizationMembership entities.
+func (_u *UserUpdateOne) RemoveOrganizationMemberships(v ...*OrganizationMembership) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveOrganizationMembershipIDs(ids...)
+}
+
+// ClearAcceptedOrganizationInvitations clears all "accepted_organization_invitations" edges to the OrganizationInvitation entity.
+func (_u *UserUpdateOne) ClearAcceptedOrganizationInvitations() *UserUpdateOne {
+	_u.mutation.ClearAcceptedOrganizationInvitations()
+	return _u
+}
+
+// RemoveAcceptedOrganizationInvitationIDs removes the "accepted_organization_invitations" edge to OrganizationInvitation entities by IDs.
+func (_u *UserUpdateOne) RemoveAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) *UserUpdateOne {
+	_u.mutation.RemoveAcceptedOrganizationInvitationIDs(ids...)
+	return _u
+}
+
+// RemoveAcceptedOrganizationInvitations removes "accepted_organization_invitations" edges to OrganizationInvitation entities.
+func (_u *UserUpdateOne) RemoveAcceptedOrganizationInvitations(v ...*OrganizationInvitation) *UserUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAcceptedOrganizationInvitationIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -409,6 +646,96 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if _u.mutation.OrganizationMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedOrganizationMembershipsIDs(); len(nodes) > 0 && !_u.mutation.OrganizationMembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.OrganizationMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AcceptedOrganizationInvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAcceptedOrganizationInvitationsIDs(); len(nodes) > 0 && !_u.mutation.AcceptedOrganizationInvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AcceptedOrganizationInvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &User{config: _u.config}
 	_spec.Assign = _node.assignValues

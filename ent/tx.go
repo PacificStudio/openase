@@ -52,6 +52,10 @@ type Tx struct {
 	Organization *OrganizationClient
 	// OrganizationDailyTokenUsage is the client for interacting with the OrganizationDailyTokenUsage builders.
 	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
+	// OrganizationInvitation is the client for interacting with the OrganizationInvitation builders.
+	OrganizationInvitation *OrganizationInvitationClient
+	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
+	OrganizationMembership *OrganizationMembershipClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectConversationPrincipal is the client for interacting with the ProjectConversationPrincipal builders.
@@ -263,6 +267,8 @@ func (tx *Tx) init() {
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(tx.config)
+	tx.OrganizationInvitation = NewOrganizationInvitationClient(tx.config)
+	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectConversationPrincipal = NewProjectConversationPrincipalClient(tx.config)
 	tx.ProjectConversationRun = NewProjectConversationRunClient(tx.config)

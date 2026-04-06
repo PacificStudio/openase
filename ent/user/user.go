@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/google/uuid"
 )
 
@@ -29,8 +30,26 @@ const (
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
 	FieldUpdatedAt = "updated_at"
+	// EdgeOrganizationMemberships holds the string denoting the organization_memberships edge name in mutations.
+	EdgeOrganizationMemberships = "organization_memberships"
+	// EdgeAcceptedOrganizationInvitations holds the string denoting the accepted_organization_invitations edge name in mutations.
+	EdgeAcceptedOrganizationInvitations = "accepted_organization_invitations"
 	// Table holds the table name of the user in the database.
 	Table = "users"
+	// OrganizationMembershipsTable is the table that holds the organization_memberships relation/edge.
+	OrganizationMembershipsTable = "organization_memberships"
+	// OrganizationMembershipsInverseTable is the table name for the OrganizationMembership entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationmembership" package.
+	OrganizationMembershipsInverseTable = "organization_memberships"
+	// OrganizationMembershipsColumn is the table column denoting the organization_memberships relation/edge.
+	OrganizationMembershipsColumn = "user_id"
+	// AcceptedOrganizationInvitationsTable is the table that holds the accepted_organization_invitations relation/edge.
+	AcceptedOrganizationInvitationsTable = "organization_invitations"
+	// AcceptedOrganizationInvitationsInverseTable is the table name for the OrganizationInvitation entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationinvitation" package.
+	AcceptedOrganizationInvitationsInverseTable = "organization_invitations"
+	// AcceptedOrganizationInvitationsColumn is the table column denoting the accepted_organization_invitations relation/edge.
+	AcceptedOrganizationInvitationsColumn = "accepted_by_user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -139,4 +158,46 @@ func ByCreatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByUpdatedAt orders the results by the updated_at field.
 func ByUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpdatedAt, opts...).ToFunc()
+}
+
+// ByOrganizationMembershipsCount orders the results by organization_memberships count.
+func ByOrganizationMembershipsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newOrganizationMembershipsStep(), opts...)
+	}
+}
+
+// ByOrganizationMemberships orders the results by organization_memberships terms.
+func ByOrganizationMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newOrganizationMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAcceptedOrganizationInvitationsCount orders the results by accepted_organization_invitations count.
+func ByAcceptedOrganizationInvitationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAcceptedOrganizationInvitationsStep(), opts...)
+	}
+}
+
+// ByAcceptedOrganizationInvitations orders the results by accepted_organization_invitations terms.
+func ByAcceptedOrganizationInvitations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAcceptedOrganizationInvitationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newOrganizationMembershipsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(OrganizationMembershipsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, OrganizationMembershipsTable, OrganizationMembershipsColumn),
+	)
+}
+func newAcceptedOrganizationInvitationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AcceptedOrganizationInvitationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AcceptedOrganizationInvitationsTable, AcceptedOrganizationInvitationsColumn),
+	)
 }

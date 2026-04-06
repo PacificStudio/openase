@@ -1788,6 +1788,61 @@ type OpenAPIRoleBindingResponse struct {
 	RoleBinding OpenAPIRoleBinding `json:"role_binding"`
 }
 
+type OpenAPIOrganizationMembershipUser struct {
+	ID           string  `json:"id"`
+	PrimaryEmail string  `json:"primary_email"`
+	DisplayName  string  `json:"display_name"`
+	AvatarURL    *string `json:"avatar_url,omitempty"`
+}
+
+type OpenAPIOrganizationInvitation struct {
+	ID         string  `json:"id"`
+	Status     string  `json:"status"`
+	Email      string  `json:"email"`
+	Role       string  `json:"role"`
+	InvitedBy  string  `json:"invited_by"`
+	SentAt     string  `json:"sent_at"`
+	ExpiresAt  string  `json:"expires_at"`
+	AcceptedAt *string `json:"accepted_at,omitempty"`
+	CanceledAt *string `json:"canceled_at,omitempty"`
+}
+
+type OpenAPIOrganizationMembership struct {
+	ID               string                             `json:"id"`
+	OrganizationID   string                             `json:"organization_id"`
+	UserID           *string                            `json:"user_id,omitempty"`
+	Email            string                             `json:"email"`
+	Role             string                             `json:"role"`
+	Status           string                             `json:"status"`
+	InvitedBy        string                             `json:"invited_by"`
+	InvitedAt        string                             `json:"invited_at"`
+	AcceptedAt       *string                            `json:"accepted_at,omitempty"`
+	SuspendedAt      *string                            `json:"suspended_at,omitempty"`
+	RemovedAt        *string                            `json:"removed_at,omitempty"`
+	CreatedAt        string                             `json:"created_at"`
+	UpdatedAt        string                             `json:"updated_at"`
+	User             *OpenAPIOrganizationMembershipUser `json:"user,omitempty"`
+	ActiveInvitation *OpenAPIOrganizationInvitation     `json:"active_invitation,omitempty"`
+}
+
+type OpenAPIOrganizationMembershipsResponse struct {
+	Memberships []OpenAPIOrganizationMembership `json:"memberships"`
+}
+
+type OpenAPIOrganizationMembershipResponse struct {
+	Membership OpenAPIOrganizationMembership `json:"membership"`
+}
+
+type OpenAPIOrganizationInvitationMutationResponse struct {
+	Membership  OpenAPIOrganizationMembership `json:"membership"`
+	Invitation  OpenAPIOrganizationInvitation `json:"invitation"`
+	AcceptToken string                        `json:"accept_token"`
+}
+
+type OpenAPIOrganizationOwnershipTransferResponse struct {
+	Memberships []OpenAPIOrganizationMembership `json:"memberships"`
+}
+
 type OpenAPICreateRoleBindingRequest struct {
 	SubjectKind string  `json:"subject_kind"`
 	SubjectKey  string  `json:"subject_key"`
@@ -1795,6 +1850,10 @@ type OpenAPICreateRoleBindingRequest struct {
 	ExpiresAt   *string `json:"expires_at,omitempty"`
 }
 
+type OpenAPIInviteOrganizationMemberRequest inviteOrganizationMemberRequest
+type OpenAPIUpdateOrganizationMembershipRequest updateOrganizationMembershipRequest
+type OpenAPITransferOrganizationOwnershipRequest transferOrganizationOwnershipRequest
+type OpenAPIAcceptOrganizationInvitationRequest acceptOrganizationInvitationRequest
 type OpenAPIUserStatusTransitionRequest rawUserStatusTransitionRequest
 
 type OpenAPITicketDetailResponse struct {
@@ -2172,6 +2231,20 @@ var (
 		"role_key":     "Builtin OpenASE role key valid for the selected scope.",
 		"expires_at":   "Optional RFC3339 timestamp after which the binding automatically expires.",
 	}
+	openAPIOrganizationInvitationDescriptions = map[string]string{
+		"email": "Invitee email address. The accepting user must sign in with this email.",
+		"role":  "Baseline organization role granted after acceptance. Supported values are owner, admin, and member.",
+	}
+	openAPIOrganizationMembershipPatchDescriptions = map[string]string{
+		"role":   "Optional new baseline organization role. Supported values are owner, admin, and member.",
+		"status": "Optional lifecycle status transition. Supported values are invited, active, suspended, and removed.",
+	}
+	openAPIOrganizationInvitationAcceptDescriptions = map[string]string{
+		"token": "Plain invitation accept token returned when the invite was created or resent.",
+	}
+	openAPIOrganizationOwnershipTransferDescriptions = map[string]string{
+		"previous_owner_role": "Optional role assigned to the previous owner after transfer. Supported values are admin and member.",
+	}
 	openAPIUserStatusTransitionDescriptions = map[string]string{
 		"status":          "Target cached-user status. Supported values are active and disabled.",
 		"reason":          "Mandatory audit reason recorded for the enable or disable action.",
@@ -2253,6 +2326,10 @@ var (
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
 		"POST /api/v1/instance/role-bindings":                                                          openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/instance/users/{userId}/status":                                                  openAPIUserStatusTransitionDescriptions,
+		"POST /api/v1/orgs/{orgId}/invitations":                                                        openAPIOrganizationInvitationDescriptions,
+		"POST /api/v1/org-invitations/accept":                                                          openAPIOrganizationInvitationAcceptDescriptions,
+		"PATCH /api/v1/orgs/{orgId}/members/{membershipId}":                                            openAPIOrganizationMembershipPatchDescriptions,
+		"POST /api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership":                          openAPIOrganizationOwnershipTransferDescriptions,
 		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
@@ -2758,6 +2835,141 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	deleteProjectRoleBinding.AddParameter(uuidPathParameter("projectId", "Project ID that owns the role bindings."))
 	deleteProjectRoleBinding.AddParameter(uuidPathParameter("bindingId", "Role binding ID to delete."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/role-bindings/{bindingId}", http.MethodDelete, deleteProjectRoleBinding)
+
+	orgMemberships, err := b.jsonOperation(
+		"listOrganizationMemberships",
+		"List organization memberships and active invitations",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationMembershipsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgMemberships.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/members", http.MethodGet, orgMemberships)
+
+	inviteOrgMember, err := b.jsonOperation(
+		"inviteOrganizationMember",
+		"Invite a user into an organization membership lifecycle",
+		[]string{"auth"},
+		http.StatusCreated,
+		OpenAPIOrganizationInvitationMutationResponse{},
+		OpenAPIInviteOrganizationMemberRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	inviteOrgMember.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/invitations", http.MethodPost, inviteOrgMember)
+
+	resendOrgInvitation, err := b.jsonOperation(
+		"resendOrganizationInvitation",
+		"Resend an organization invitation and rotate its accept token",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationInvitationMutationResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	resendOrgInvitation.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	resendOrgInvitation.AddParameter(uuidPathParameter("invitationId", "Invitation ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/invitations/{invitationId}/resend", http.MethodPost, resendOrgInvitation)
+
+	cancelOrgInvitation, err := b.jsonOperation(
+		"cancelOrganizationInvitation",
+		"Cancel an organization invitation and remove the pending membership",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationMembershipResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	cancelOrgInvitation.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	cancelOrgInvitation.AddParameter(uuidPathParameter("invitationId", "Invitation ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/invitations/{invitationId}/cancel", http.MethodPost, cancelOrgInvitation)
+
+	acceptOrgInvitation, err := b.jsonOperation(
+		"acceptOrganizationInvitation",
+		"Accept an organization invitation for the current signed-in user",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationMembershipResponse{},
+		OpenAPIAcceptOrganizationInvitationRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/org-invitations/accept", http.MethodPost, acceptOrgInvitation)
+
+	updateOrgMembership, err := b.jsonOperation(
+		"updateOrganizationMembership",
+		"Update an organization membership role or lifecycle status",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationMembershipResponse{},
+		OpenAPIUpdateOrganizationMembershipRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	updateOrgMembership.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	updateOrgMembership.AddParameter(uuidPathParameter("membershipId", "Membership ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/members/{membershipId}", http.MethodPatch, updateOrgMembership)
+
+	transferOrgOwnership, err := b.jsonOperation(
+		"transferOrganizationOwnership",
+		"Transfer organization ownership to another active member",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIOrganizationOwnershipTransferResponse{},
+		OpenAPITransferOrganizationOwnershipRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	transferOrgOwnership.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	transferOrgOwnership.AddParameter(uuidPathParameter("membershipId", "Membership ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership", http.MethodPost, transferOrgOwnership)
 
 	return nil
 }
