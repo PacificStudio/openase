@@ -64,12 +64,6 @@ const machineExecutionGuides: Record<MachineExecutionMode, MachineExecutionGuide
     label: 'WebSocket',
     summary: 'Remote runtime execution uses websocket command and process channels.',
   },
-  ssh_compat: {
-    mode: 'ssh_compat',
-    label: 'SSH Compat',
-    summary:
-      'Legacy record only. Migrate this machine to websocket execution and keep SSH only as a helper channel.',
-  },
 }
 
 export type WorkspaceRootContext = {
@@ -78,13 +72,12 @@ export type WorkspaceRootContext = {
 }
 
 export function normalizeConnectionMode(
-  mode: string | null | undefined,
+  _mode: string | null | undefined,
   host: string | null | undefined,
   reachabilityMode?: string | null | undefined,
-  executionMode?: string | null | undefined,
+  _executionMode?: string | null | undefined,
 ): MachineConnectionMode {
-  const normalizedReachability = normalizeReachabilityMode(reachabilityMode, host, mode)
-  const normalizedExecution = normalizeExecutionMode(executionMode, host, mode)
+  const normalizedReachability = normalizeReachabilityMode(reachabilityMode, host)
 
   if (normalizedReachability === 'local') {
     return 'local'
@@ -92,13 +85,12 @@ export function normalizeConnectionMode(
   if (normalizedReachability === 'reverse_connect') {
     return 'ws_reverse'
   }
-  return normalizedExecution === 'ssh_compat' ? 'ssh' : 'ws_listener'
+  return 'ws_listener'
 }
 
 export function normalizeReachabilityMode(
   value: string | null | undefined,
   host: string | null | undefined,
-  connectionMode?: string | null | undefined,
 ): MachineReachabilityMode {
   switch (value) {
     case 'local':
@@ -106,43 +98,19 @@ export function normalizeReachabilityMode(
     case 'reverse_connect':
       return value
   }
-
-  switch (connectionMode) {
-    case 'local':
-      return 'local'
-    case 'ws_reverse':
-      return 'reverse_connect'
-    case 'ssh':
-    case 'ws_listener':
-      return 'direct_connect'
-    default:
-      return (host ?? '').trim().toLowerCase() === 'local' ? 'local' : 'direct_connect'
-  }
+  return (host ?? '').trim().toLowerCase() === 'local' ? 'local' : 'direct_connect'
 }
 
 export function normalizeExecutionMode(
   value: string | null | undefined,
   host: string | null | undefined,
-  connectionMode?: string | null | undefined,
 ): MachineExecutionMode {
   switch (value) {
     case 'local_process':
     case 'websocket':
-    case 'ssh_compat':
       return value
   }
-
-  switch (connectionMode) {
-    case 'local':
-      return 'local_process'
-    case 'ssh':
-      return 'ssh_compat'
-    case 'ws_reverse':
-    case 'ws_listener':
-      return 'websocket'
-    default:
-      return (host ?? '').trim().toLowerCase() === 'local' ? 'local_process' : 'websocket'
-  }
+  return (host ?? '').trim().toLowerCase() === 'local' ? 'local_process' : 'websocket'
 }
 
 export function machineReachabilityLabel(mode: string | null | undefined): string {
@@ -169,19 +137,9 @@ export function machineDetectionMessage(machine: Machine | null, draft?: Machine
   const reachabilityMode = normalizeReachabilityMode(
     draft?.reachabilityMode ?? machine?.reachability_mode,
     draft?.host ?? machine?.host,
-    machine?.connection_mode,
   )
-  const executionMode = normalizeExecutionMode(
-    draft?.executionMode ?? machine?.execution_mode,
-    draft?.host ?? machine?.host,
-    machine?.connection_mode,
-  )
-
   if (reachabilityMode === 'local') {
     return 'Local machines default to the local OpenASE workspace convention. Run a connection test to confirm the platform details.'
-  }
-  if (executionMode === 'ssh_compat') {
-    return 'This machine still stores a legacy SSH compatibility execution mode. Resave it as websocket execution and keep SSH only for bootstrap or diagnostics.'
   }
   return 'Detection is optional. You can keep saving the machine, then confirm the platform and workspace details after websocket checks or daemon registration.'
 }
@@ -192,12 +150,6 @@ export function getWorkspaceRootRecommendation(
   const reachabilityMode = normalizeReachabilityMode(
     input.draft.reachabilityMode || input.machine?.reachability_mode,
     input.draft.host || input.machine?.host,
-    input.machine?.connection_mode,
-  )
-  const executionMode = normalizeExecutionMode(
-    input.draft.executionMode || input.machine?.execution_mode,
-    input.draft.host || input.machine?.host,
-    input.machine?.connection_mode,
   )
   const detectedOS = normalizeDetectedOS(input.machine?.detected_os)
   const sshUser = input.draft.sshUser.trim() || input.machine?.ssh_user || 'openase'
@@ -223,10 +175,7 @@ export function getWorkspaceRootRecommendation(
 
   return {
     value: defaultRemoteWorkspaceRoot,
-    reason:
-      executionMode === 'websocket'
-        ? 'Fallback websocket workspace root until the remote platform is detected.'
-        : 'Fallback remote workspace root while you migrate this legacy machine to websocket execution.',
+    reason: 'Fallback websocket workspace root until the remote platform is detected.',
   }
 }
 

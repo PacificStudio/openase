@@ -4,8 +4,8 @@ export type ResourceMap = Record<string, unknown>
 
 export type MachineStatus = 'online' | 'offline' | 'degraded' | 'maintenance'
 export type MachineReachabilityMode = 'local' | 'direct_connect' | 'reverse_connect'
-export type MachineExecutionMode = 'local_process' | 'websocket' | 'ssh_compat'
-export type MachineConnectionMode = 'local' | 'ssh' | 'ws_reverse' | 'ws_listener'
+export type MachineExecutionMode = 'local_process' | 'websocket'
+export type MachineConnectionMode = 'local' | 'ws_reverse' | 'ws_listener'
 export type MachineDetectedOS = 'darwin' | 'linux' | 'unknown'
 export type MachineDetectedArch = 'amd64' | 'arm64' | 'unknown'
 export type MachineDetectionStatus = 'pending' | 'ok' | 'degraded' | 'unknown'
@@ -33,7 +33,6 @@ export type MachineMutationInput = {
   port: number
   reachability_mode: MachineReachabilityMode
   execution_mode: MachineExecutionMode
-  connection_mode: MachineConnectionMode
   advertised_endpoint: string
   ssh_user: string
   ssh_key_path: string

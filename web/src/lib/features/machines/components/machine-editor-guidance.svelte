@@ -51,9 +51,7 @@
     onSelectReachability?: (mode: MachineReachabilityMode) => void
   } = $props()
 
-  const reachabilityMode = $derived(
-    normalizeReachabilityMode(draft.reachabilityMode, draft.host, machine?.connection_mode),
-  )
+  const reachabilityMode = $derived(normalizeReachabilityMode(draft.reachabilityMode, draft.host))
   const reachabilityGuide = $derived(machineModeGuide(reachabilityMode))
   const detectionStatusLabel = $derived(machineDetectionStatusLabel(machine?.detection_status))
   const detectionBadgeClass = $derived(machineDetectionBadgeClass(machine?.detection_status))
