@@ -290,7 +290,7 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		return fmt.Errorf("run %s is missing completion summary input", runID)
 	}
 
-	workingDirectory, err := c.resolveRunCompletionSummaryWorkingDirectory(summaryCtx.machine)
+	workingDirectory, err := c.resolveRunCompletionSummaryWorkingDirectory(summaryCtx.machine, summaryCtx.project.ID)
 	if err != nil {
 		return err
 	}
@@ -557,12 +557,16 @@ func (c *runtimeCompletionSummaryCoordinator) loadRunCompletionSummaryContext(ct
 	}, nil
 }
 
-func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryWorkingDirectory(machine catalogdomain.Machine) (provider.AbsolutePath, error) {
+func (c *runtimeCompletionSummaryCoordinator) resolveRunCompletionSummaryWorkingDirectory(machine catalogdomain.Machine, projectID uuid.UUID) (provider.AbsolutePath, error) {
 	if machine.WorkspaceRoot != nil && strings.TrimSpace(*machine.WorkspaceRoot) != "" {
 		return provider.ParseAbsolutePath(strings.TrimSpace(*machine.WorkspaceRoot))
 	}
 	if machine.Host == catalogdomain.LocalMachineHost && c != nil && c.workflow != nil {
-		if root := strings.TrimSpace(c.workflow.RepoRoot()); root != "" {
+		root, err := c.workflow.ProjectControlRoot(projectID)
+		if err != nil {
+			return "", fmt.Errorf("resolve project control root for completion summary: %w", err)
+		}
+		if root := strings.TrimSpace(root); root != "" {
 			return provider.ParseAbsolutePath(root)
 		}
 	}

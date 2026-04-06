@@ -21,6 +21,7 @@ import (
 	entskillversion "github.com/BetterAndBetterII/openase/ent/skillversion"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	git "github.com/go-git/go-git/v5"
@@ -36,8 +37,12 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	service := newWorkflowTestService(t, client, repoRoot)
 	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
 
-	activateMarkerPath := filepath.Join(repoRoot, "activate.marker")
-	reloadMarkerPath := filepath.Join(repoRoot, "reload.marker")
+	hooksRoot, err := workspaceinfra.ProjectHooksPath(repoRoot, fixture.projectID.String())
+	if err != nil {
+		t.Fatalf("ProjectHooksPath() error = %v", err)
+	}
+	activateMarkerPath := filepath.Join(hooksRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(hooksRoot, "reload.marker")
 	workflowHooks := map[string]any{
 		"workflow_hooks": map[string]any{
 			"on_activate": []map[string]any{{
@@ -978,16 +983,16 @@ func TestWorkflowServiceErrorsAndRepoHelpers(t *testing.T) {
 	if got := Some("value"); !got.Set || got.Value != "value" {
 		t.Fatalf("Some() = %+v", got)
 	}
-	if service.RepoRoot() != repoRoot {
-		t.Fatalf("RepoRoot() = %q, want %q", service.RepoRoot(), repoRoot)
+	projectControlRoot, err := service.ProjectControlRoot(fixture.projectID)
+	if err != nil {
+		t.Fatalf("ProjectControlRoot() error = %v", err)
 	}
-
-	childDir := filepath.Join(repoRoot, "nested", "child")
-	if err := os.MkdirAll(childDir, 0o750); err != nil {
-		t.Fatalf("mkdir child: %v", err)
+	wantProjectControlRoot, err := workspaceinfra.ProjectStatePath(repoRoot, fixture.projectID.String())
+	if err != nil {
+		t.Fatalf("ProjectStatePath() error = %v", err)
 	}
-	if detected, err := DetectRepoRoot(childDir); err != nil || detected != repoRoot {
-		t.Fatalf("DetectRepoRoot() = %q, %v", detected, err)
+	if projectControlRoot != wantProjectControlRoot {
+		t.Fatalf("ProjectControlRoot() = %q, want %q", projectControlRoot, wantProjectControlRoot)
 	}
 	if _, err := service.List(ctx, uuid.New()); !errors.Is(err, ErrProjectNotFound) {
 		t.Fatalf("List() missing project error = %v, want %v", err, ErrProjectNotFound)
