@@ -41,26 +41,34 @@ const {
   createInstanceRoleBinding,
   createOrganizationRoleBinding,
   createProjectRoleBinding,
+  adminRevokeUserAuthSessions,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
+  getInstanceUserDetail,
   getEffectivePermissions,
   listInstanceRoleBindings,
+  listInstanceUsers,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
+  transitionInstanceUserStatus,
 } = vi.hoisted(() => ({
   createInstanceRoleBinding: vi.fn(),
   createOrganizationRoleBinding: vi.fn(),
   createProjectRoleBinding: vi.fn(),
+  adminRevokeUserAuthSessions: vi.fn(),
   deleteInstanceRoleBinding: vi.fn(),
   deleteOrganizationRoleBinding: vi.fn(),
   deleteProjectRoleBinding: vi.fn(),
+  getInstanceUserDetail: vi.fn(),
   getEffectivePermissions: vi.fn(),
   listInstanceRoleBindings: vi.fn(),
+  listInstanceUsers: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
   logoutHumanSession: vi.fn(),
+  transitionInstanceUserStatus: vi.fn(),
 }))
 
 const { goto } = vi.hoisted(() => ({
@@ -86,14 +94,18 @@ vi.mock('$lib/api/auth', () => ({
   createInstanceRoleBinding,
   createOrganizationRoleBinding,
   createProjectRoleBinding,
+  adminRevokeUserAuthSessions,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
+  getInstanceUserDetail,
   getEffectivePermissions,
+  listInstanceUsers,
   listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
+  transitionInstanceUserStatus,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
 }))
 
@@ -201,6 +213,64 @@ describe('Security settings', () => {
     listProjectRoleBindings.mockResolvedValue([])
     getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
     createOrganizationRoleBinding.mockResolvedValue(createdOrganizationUserBinding())
+    listInstanceUsers.mockResolvedValue([
+      {
+        id: 'user-2',
+        status: 'active',
+        primaryEmail: 'bob@example.com',
+        displayName: 'Bob Reviewer',
+        avatarURL: '',
+        lastLoginAt: '2026-04-05T10:00:00Z',
+        createdAt: '2026-04-05T09:00:00Z',
+        updatedAt: '2026-04-05T10:00:00Z',
+        primaryIdentity: {
+          id: 'identity-1',
+          issuer: 'https://idp.example.com',
+          subject: 'subject-bob',
+          email: 'bob@example.com',
+          emailVerified: true,
+          lastSyncedAt: '2026-04-05T10:00:00Z',
+        },
+      },
+    ])
+    getInstanceUserDetail.mockResolvedValue({
+      user: {
+        id: 'user-2',
+        status: 'active',
+        primaryEmail: 'bob@example.com',
+        displayName: 'Bob Reviewer',
+        avatarURL: '',
+        lastLoginAt: '2026-04-05T10:00:00Z',
+        createdAt: '2026-04-05T09:00:00Z',
+        updatedAt: '2026-04-05T10:00:00Z',
+        primaryIdentity: {
+          id: 'identity-1',
+          issuer: 'https://idp.example.com',
+          subject: 'subject-bob',
+          email: 'bob@example.com',
+          emailVerified: true,
+          lastSyncedAt: '2026-04-05T10:00:00Z',
+        },
+      },
+      identities: [
+        {
+          id: 'identity-1',
+          issuer: 'https://idp.example.com',
+          subject: 'subject-bob',
+          email: 'bob@example.com',
+          emailVerified: true,
+          lastSyncedAt: '2026-04-05T10:00:00Z',
+          claimsVersion: 4,
+          rawClaimsJSON: '{}',
+          createdAt: '2026-04-05T09:00:00Z',
+          updatedAt: '2026-04-05T10:00:00Z',
+        },
+      ],
+      groups: [],
+      activeSessionCount: 1,
+      latestStatusAudit: undefined,
+      recentAuditEvents: [],
+    })
 
     const { findAllByPlaceholderText, findAllByText, findByText } = render(SecuritySettings)
 
@@ -213,6 +283,8 @@ describe('Security settings', () => {
     expect(await findByText('project_admin')).toBeTruthy()
     expect(await findByText('Approval boundary')).toBeTruthy()
     expect(await findByText('Session governance')).toBeTruthy()
+    expect(await findByText('User directory and deprovision')).toBeTruthy()
+    expect(await findByText('Bob Reviewer')).toBeTruthy()
     expect((await findAllByText('Firefox on Linux')).length).toBeGreaterThan(0)
     expect(await findByText('Login succeeded')).toBeTruthy()
     expect(await findByText('Stored rules')).toBeTruthy()
@@ -252,6 +324,22 @@ describe('Security settings', () => {
     listInstanceRoleBindings.mockResolvedValue([])
     listOrganizationRoleBindings.mockResolvedValue([])
     listProjectRoleBindings.mockResolvedValue([])
+    listInstanceUsers.mockResolvedValue([])
+    getInstanceUserDetail.mockResolvedValue({
+      user: {
+        id: '',
+        status: 'active',
+        primaryEmail: '',
+        displayName: '',
+        avatarURL: '',
+        createdAt: '',
+        updatedAt: '',
+      },
+      identities: [],
+      groups: [],
+      activeSessionCount: 0,
+      recentAuditEvents: [],
+    })
 
     const { findByText } = render(SecuritySettings)
 
@@ -290,5 +378,83 @@ describe('Security settings', () => {
       'project_member',
       'project_viewer',
     ])
+  })
+
+  it('disables a cached user from the directory with an audit reason', async () => {
+    hydrateOidcAuth()
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
+    listInstanceRoleBindings.mockResolvedValue([])
+    listOrganizationRoleBindings.mockResolvedValue([])
+    listProjectRoleBindings.mockResolvedValue([])
+    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
+    listInstanceUsers.mockResolvedValue([
+      {
+        id: 'user-2',
+        status: 'active',
+        primaryEmail: 'bob@example.com',
+        displayName: 'Bob Reviewer',
+        avatarURL: '',
+        lastLoginAt: '2026-04-05T10:00:00Z',
+        createdAt: '2026-04-05T09:00:00Z',
+        updatedAt: '2026-04-05T10:00:00Z',
+      },
+    ])
+    getInstanceUserDetail.mockResolvedValue({
+      user: {
+        id: 'user-2',
+        status: 'active',
+        primaryEmail: 'bob@example.com',
+        displayName: 'Bob Reviewer',
+        avatarURL: '',
+        lastLoginAt: '2026-04-05T10:00:00Z',
+        createdAt: '2026-04-05T09:00:00Z',
+        updatedAt: '2026-04-05T10:00:00Z',
+      },
+      identities: [],
+      groups: [],
+      activeSessionCount: 1,
+      recentAuditEvents: [],
+    })
+    transitionInstanceUserStatus.mockResolvedValue({
+      user: {
+        id: 'user-2',
+        status: 'disabled',
+        primaryEmail: 'bob@example.com',
+        displayName: 'Bob Reviewer',
+        avatarURL: '',
+        lastLoginAt: '2026-04-05T10:00:00Z',
+        createdAt: '2026-04-05T09:00:00Z',
+        updatedAt: '2026-04-06T10:00:00Z',
+      },
+      changed: true,
+      revokedSessionCount: 1,
+      latestStatusAudit: {
+        status: 'disabled',
+        reason: 'Left the organization',
+        source: 'admin_manual',
+        actorID: 'user:user-1',
+        changedAt: '2026-04-06T10:00:00Z',
+        revokedSessionCount: 1,
+      },
+    })
+
+    const { findByPlaceholderText, findByRole } = render(SecuritySettings)
+    const reasonInput = await findByPlaceholderText(
+      'Document the lifecycle reason for audit and future review',
+    )
+    await fireEvent.input(reasonInput, { target: { value: 'Left the organization' } })
+
+    const disableButton = await findByRole('button', { name: 'Disable and revoke sessions' })
+    await fireEvent.click(disableButton)
+
+    await waitFor(() => {
+      expect(transitionInstanceUserStatus).toHaveBeenCalledWith('user-2', {
+        status: 'disabled',
+        reason: 'Left the organization',
+      })
+    })
   })
 })

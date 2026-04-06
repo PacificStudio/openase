@@ -478,6 +478,186 @@ func TestAdminCanForceRevokeUserSessions(t *testing.T) {
 	}
 }
 
+func TestUserDirectoryListsSearchesAndLoadsDetail(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	adminToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "member@example.com",
+		displayName: "Member Directory",
+		groupKey:    "platform-admins",
+		groupName:   "Platform Admins",
+	})
+	disabledUserID := fixture.createUser(t, "disabled@example.com", "Disabled Directory")
+	if _, err := fixture.client.User.UpdateOneID(disabledUserID).
+		SetStatus(entuser.StatusDisabled).
+		Save(context.Background()); err != nil {
+		t.Fatalf("disable user for filter coverage: %v", err)
+	}
+
+	listRec := fixture.request(t, http.MethodGet, "/api/v1/instance/users?q=member&status=active&limit=10", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + adminToken,
+		"User-Agent": "UserDirectoryListTest/1.0",
+	})
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+
+	var listPayload struct {
+		Users []struct {
+			ID              string `json:"id"`
+			Status          string `json:"status"`
+			PrimaryEmail    string `json:"primary_email"`
+			DisplayName     string `json:"display_name"`
+			PrimaryIdentity *struct {
+				Issuer  string `json:"issuer"`
+				Subject string `json:"subject"`
+				Email   string `json:"email"`
+			} `json:"primary_identity"`
+		} `json:"users"`
+	}
+	decodeResponse(t, listRec, &listPayload)
+	if len(listPayload.Users) != 1 {
+		t.Fatalf("expected one matching active user, got %+v", listPayload.Users)
+	}
+	if listPayload.Users[0].PrimaryEmail != "member@example.com" {
+		t.Fatalf("primary_email = %q, want member@example.com", listPayload.Users[0].PrimaryEmail)
+	}
+	if listPayload.Users[0].PrimaryIdentity == nil || listPayload.Users[0].PrimaryIdentity.Subject == "" {
+		t.Fatalf("expected primary identity in list payload, got %+v", listPayload.Users[0].PrimaryIdentity)
+	}
+
+	memberUserID := fixture.userIDByEmail(t, "member@example.com")
+	detailRec := fixture.request(t, http.MethodGet, "/api/v1/instance/users/"+memberUserID.String(), map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + adminToken,
+		"User-Agent": "UserDirectoryDetailTest/1.0",
+	})
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", detailRec.Code, detailRec.Body.String())
+	}
+
+	var detailPayload struct {
+		User struct {
+			ID           string `json:"id"`
+			PrimaryEmail string `json:"primary_email"`
+		} `json:"user"`
+		Identities []struct {
+			Subject string `json:"subject"`
+		} `json:"identities"`
+		Groups []struct {
+			GroupKey string `json:"group_key"`
+		} `json:"groups"`
+		ActiveSessionCount int `json:"active_session_count"`
+	}
+	decodeResponse(t, detailRec, &detailPayload)
+	if detailPayload.User.ID != memberUserID.String() {
+		t.Fatalf("user.id = %q, want %q", detailPayload.User.ID, memberUserID.String())
+	}
+	if len(detailPayload.Identities) != 1 || detailPayload.Identities[0].Subject == "" {
+		t.Fatalf("expected one identity in detail payload, got %+v", detailPayload.Identities)
+	}
+	if len(detailPayload.Groups) != 1 || detailPayload.Groups[0].GroupKey != "platform-admins" {
+		t.Fatalf("expected synchronized group in detail payload, got %+v", detailPayload.Groups)
+	}
+	if detailPayload.ActiveSessionCount != 1 {
+		t.Fatalf("active_session_count = %d, want 1", detailPayload.ActiveSessionCount)
+	}
+}
+
+func TestInstanceAdminCanDisableUserViaDirectoryAndRevokeSessions(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	memberToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "member@example.com",
+		displayName: "Member",
+	})
+	memberUserID := fixture.userIDByEmail(t, "member@example.com")
+	memberExtraToken := fixture.createAdditionalSession(t, memberUserID, "member-extra", "Safari on iPad")
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/instance/users/"+memberUserID.String()+"/status",
+		`{"status":"disabled","reason":"offboarding completed"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "UserDisableTest/1.0",
+		},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		User struct {
+			Status string `json:"status"`
+		} `json:"user"`
+		Changed             bool `json:"changed"`
+		RevokedSessionCount int  `json:"revoked_session_count"`
+		LatestStatusAudit   struct {
+			Status string `json:"status"`
+			Reason string `json:"reason"`
+		} `json:"latest_status_audit"`
+	}
+	decodeResponse(t, rec, &payload)
+	if !payload.Changed {
+		t.Fatal("expected changed=true after disabling user")
+	}
+	if payload.User.Status != string(humanauthdomain.UserStatusDisabled) {
+		t.Fatalf("user.status = %q, want disabled", payload.User.Status)
+	}
+	if payload.RevokedSessionCount != 2 {
+		t.Fatalf("revoked_session_count = %d, want 2", payload.RevokedSessionCount)
+	}
+	if payload.LatestStatusAudit.Reason != "offboarding completed" {
+		t.Fatalf("latest_status_audit.reason = %q, want offboarding completed", payload.LatestStatusAudit.Reason)
+	}
+
+	memberRec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + memberToken,
+		"User-Agent": "DisabledMemberTest/1.0",
+	})
+	assertAPIErrorResponse(t, memberRec, http.StatusUnauthorized, "HUMAN_SESSION_INVALID", "invalid browser session")
+
+	memberSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(memberToken))
+	if err != nil {
+		t.Fatalf("reload member session: %v", err)
+	}
+	if memberSession.RevokedAt == nil {
+		t.Fatal("expected original member session to be revoked")
+	}
+	memberExtraSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(memberExtraToken))
+	if err != nil {
+		t.Fatalf("reload extra member session: %v", err)
+	}
+	if memberExtraSession.RevokedAt == nil {
+		t.Fatal("expected extra member session to be revoked")
+	}
+
+	events, err := fixture.client.AuthAuditEvent.Query().
+		Where(entauthauditevent.EventTypeEQ(string(humanauthdomain.AuthAuditUserDisabled))).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query status audit events: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one user.disabled event, got %+v", events)
+	}
+}
+
 func TestListSessionsReturnsLightweightDisabledModeResponse(t *testing.T) {
 	t.Parallel()
 

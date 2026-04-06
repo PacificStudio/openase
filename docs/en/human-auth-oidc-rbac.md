@@ -86,6 +86,9 @@ Relevant routes:
 - `DELETE /auth/sessions/:id`: revokes one browser session, including the current session when needed.
 - `POST /auth/sessions/revoke-all`: revokes every other browser session while preserving the current one.
 - `POST /auth/users/:userId/sessions/revoke`: lets an instance-level administrator force-revoke all sessions for a specific user.
+- `GET /api/v1/instance/users`: lists the cached OIDC user directory with search and status filters.
+- `GET /api/v1/instance/users/:userId`: returns identities, cached groups, active-session count, and recent auth audit for one user.
+- `POST /api/v1/instance/users/:userId/status`: performs an auditable user enable or disable transition and can revoke existing browser sessions immediately.
 - `POST /auth/logout`: revokes the current session and clears the session cookie.
 - `GET /api/v1/auth/me/permissions`: evaluates effective roles and permissions for instance, org, or project scope.
 
@@ -122,6 +125,31 @@ OpenASE stores the local authorization cache and group memberships in its own da
 - profile changes can be refreshed on later logins
 - groups can back OpenASE role bindings
 - disabled users can be blocked by OpenASE regardless of stale upstream browser state
+
+Identity synchronization semantics:
+
+- the canonical upstream identity key is `issuer + subject`
+- email, display name, avatar URL, and group memberships are mutable cached fields and refresh on later login for the same `issuer + subject`
+- email changes must not create a duplicate cached user when the upstream `issuer + subject` stays the same
+- sign-in fails closed if a new upstream `issuer + subject` collides with an existing cached email because automatic link, unlink, and merge are not shipped yet
+
+Current user directory boundaries:
+
+- OpenASE currently supports one canonical upstream identity per cached user
+- manual link, unlink, and merge operations are not supported yet
+- if an administrator or future migration produces multiple identities for one user row, OpenASE treats that as out-of-contract state and does not expose merge automation yet
+
+Group synchronization strategy:
+
+- OpenASE currently ships an OIDC group cache only
+- synchronized groups can back RBAC bindings directly
+- a separate local group catalog is deferred to later IAM follow-up work
+
+Deprovision lifecycle:
+
+- manual admin disable is supported now through the instance user directory
+- disabling a user revokes existing browser sessions immediately and preserves auth audit history
+- future automatic deprovision sources such as upstream sync, webhook callbacks, and SCIM remain reserved follow-up integration points
 
 ## RBAC Model
 

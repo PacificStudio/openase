@@ -32,6 +32,7 @@ var (
 	ErrSessionExpired      = errors.New("browser session expired")
 	ErrSessionNotFound     = errors.New("browser session not found")
 	ErrUserDisabled        = errors.New("user is disabled")
+	ErrUserNotFound        = errors.New("user not found")
 	ErrPermissionDenied    = errors.New("permission denied")
 	ErrUnauthorized        = errors.New("human session required")
 	ErrRoleBindingNotFound = errors.New("role binding not found")

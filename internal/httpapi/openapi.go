@@ -1678,6 +1678,77 @@ type OpenAPIAuthRevokeSessionsResponse struct {
 	UserID       string `json:"user_id,omitempty"`
 }
 
+type OpenAPIUserIdentitySummary struct {
+	ID            string `json:"id"`
+	Issuer        string `json:"issuer"`
+	Subject       string `json:"subject"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	LastSyncedAt  string `json:"last_synced_at"`
+}
+
+type OpenAPIUserDirectoryEntry struct {
+	ID              string                      `json:"id"`
+	Status          string                      `json:"status"`
+	PrimaryEmail    string                      `json:"primary_email"`
+	DisplayName     string                      `json:"display_name"`
+	AvatarURL       string                      `json:"avatar_url,omitempty"`
+	LastLoginAt     *string                     `json:"last_login_at,omitempty"`
+	CreatedAt       string                      `json:"created_at"`
+	UpdatedAt       string                      `json:"updated_at"`
+	PrimaryIdentity *OpenAPIUserIdentitySummary `json:"primary_identity,omitempty"`
+}
+
+type OpenAPIUserDirectoryListResponse struct {
+	Users []OpenAPIUserDirectoryEntry `json:"users"`
+}
+
+type OpenAPIUserStatusAudit struct {
+	Status              string `json:"status"`
+	Reason              string `json:"reason"`
+	Source              string `json:"source"`
+	ActorID             string `json:"actor_id"`
+	ChangedAt           string `json:"changed_at"`
+	RevokedSessionCount int    `json:"revoked_session_count"`
+}
+
+type OpenAPIUserIdentityDetail struct {
+	ID            string `json:"id"`
+	Issuer        string `json:"issuer"`
+	Subject       string `json:"subject"`
+	Email         string `json:"email"`
+	EmailVerified bool   `json:"email_verified"`
+	ClaimsVersion int    `json:"claims_version"`
+	RawClaimsJSON string `json:"raw_claims_json"`
+	LastSyncedAt  string `json:"last_synced_at"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type OpenAPIUserGroupMembership struct {
+	ID           string `json:"id"`
+	Issuer       string `json:"issuer"`
+	GroupKey     string `json:"group_key"`
+	GroupName    string `json:"group_name"`
+	LastSyncedAt string `json:"last_synced_at"`
+}
+
+type OpenAPIUserDirectoryDetailResponse struct {
+	User               OpenAPIUserDirectoryEntry    `json:"user"`
+	Identities         []OpenAPIUserIdentityDetail  `json:"identities"`
+	Groups             []OpenAPIUserGroupMembership `json:"groups"`
+	ActiveSessionCount int                          `json:"active_session_count"`
+	LatestStatusAudit  *OpenAPIUserStatusAudit      `json:"latest_status_audit,omitempty"`
+	RecentAuditEvents  []OpenAPIAuthAuditEvent      `json:"recent_audit_events"`
+}
+
+type OpenAPIUserStatusTransitionResponse struct {
+	User                OpenAPIUserDirectoryEntry `json:"user"`
+	Changed             bool                      `json:"changed"`
+	RevokedSessionCount int                       `json:"revoked_session_count"`
+	LatestStatusAudit   *OpenAPIUserStatusAudit   `json:"latest_status_audit,omitempty"`
+}
+
 type OpenAPIHumanScope struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
@@ -1723,6 +1794,8 @@ type OpenAPICreateRoleBindingRequest struct {
 	RoleKey     string  `json:"role_key"`
 	ExpiresAt   *string `json:"expires_at,omitempty"`
 }
+
+type OpenAPIUserStatusTransitionRequest rawUserStatusTransitionRequest
 
 type OpenAPITicketDetailResponse struct {
 	AssignedAgent   *OpenAPITicketAssignedAgent    `json:"assigned_agent,omitempty"`
@@ -2099,6 +2172,11 @@ var (
 		"role_key":     "Builtin OpenASE role key valid for the selected scope.",
 		"expires_at":   "Optional RFC3339 timestamp after which the binding automatically expires.",
 	}
+	openAPIUserStatusTransitionDescriptions = map[string]string{
+		"status":          "Target cached-user status. Supported values are active and disabled.",
+		"reason":          "Mandatory audit reason recorded for the enable or disable action.",
+		"revoke_sessions": "Whether the transition should revoke all browser sessions for the target user immediately. Defaults to true for disable requests.",
+	}
 	openAPISkillBindingDescriptions = map[string]string{
 		"skills": "Skill names included in this workflow skill binding request.",
 	}
@@ -2174,6 +2252,7 @@ var (
 		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
 		"POST /api/v1/instance/role-bindings":                                                          openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/instance/users/{userId}/status":                                                  openAPIUserStatusTransitionDescriptions,
 		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
@@ -2445,6 +2524,73 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	}
 	adminRevokeSessions.AddParameter(uuidPathParameter("userId", "User ID whose browser sessions should be revoked."))
 	b.doc.AddOperation("/api/v1/auth/users/{userId}/sessions/revoke", http.MethodPost, adminRevokeSessions)
+
+	listUsers, err := b.jsonOperation(
+		"listInstanceUsers",
+		"List cached OIDC users in the instance directory",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIUserDirectoryListResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	listUsers.AddParameter(openapi3.NewQueryParameter("q").
+		WithDescription("Optional case-insensitive search string applied to primary email, display name, issuer, subject, and cached identity email.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	listUsers.AddParameter(openapi3.NewQueryParameter("status").
+		WithDescription("Optional status filter. Supported values are all, active, and disabled.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	listUsers.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Optional positive integer result limit. Defaults to 50 and caps at 200.").
+		WithSchema(openapi3.NewIntegerSchema()),
+	)
+	b.doc.AddOperation("/api/v1/instance/users", http.MethodGet, listUsers)
+
+	getUser, err := b.jsonOperation(
+		"getInstanceUser",
+		"Get cached identity, group, session summary, and audit detail for one user",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIUserDirectoryDetailResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	getUser.AddParameter(uuidPathParameter("userId", "User ID to inspect in the instance directory."))
+	b.doc.AddOperation("/api/v1/instance/users/{userId}", http.MethodGet, getUser)
+
+	transitionUserStatus, err := b.jsonOperation(
+		"transitionInstanceUserStatus",
+		"Enable or disable a cached user and optionally revoke active browser sessions immediately",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIUserStatusTransitionResponse{},
+		OpenAPIUserStatusTransitionRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	transitionUserStatus.AddParameter(uuidPathParameter("userId", "User ID whose cached status should change."))
+	b.doc.AddOperation("/api/v1/instance/users/{userId}/status", http.MethodPost, transitionUserStatus)
 
 	myPermissions, err := b.jsonOperation(
 		"getMyEffectivePermissions",

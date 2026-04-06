@@ -5,6 +5,7 @@
   import SecuritySettingsHumanAuthAccessCard from './security-settings-human-auth-access-card.svelte'
   import SecuritySettingsHumanAuthBindingSection from './security-settings-human-auth-binding-section.svelte'
   import SecuritySettingsHumanAuthSessions from './security-settings-human-auth-sessions.svelte'
+  import SecuritySettingsUserDirectory from './security-settings-user-directory.svelte'
   import type { BindingDraft, ScopeKind, SubjectKind } from './security-settings-human-auth.model'
 
   type GroupSummary = {
@@ -72,6 +73,13 @@
     onCreateBinding?: (scope: ScopeKind) => void
     onDeleteBinding?: (scope: ScopeKind, bindingId: string) => void
   } = $props()
+
+  const canReadUserDirectory = $derived(
+    instancePermissions?.permissions.includes('security.read') ?? false,
+  )
+  const canManageUserDirectory = $derived(
+    instancePermissions?.permissions.includes('security.manage') ?? false,
+  )
 </script>
 
 <div class="grid gap-4 xl:grid-cols-2">
@@ -161,6 +169,8 @@
 {/if}
 
 <SecuritySettingsHumanAuthSessions />
+
+<SecuritySettingsUserDirectory canRead={canReadUserDirectory} canManage={canManageUserDirectory} />
 
 <SecuritySettingsHumanAuthBindingSection
   scope="instance"

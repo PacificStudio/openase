@@ -39,6 +39,8 @@ var (
 	ErrRoleBindingNotFound      = errors.New("role binding not found")
 	ErrRoleBindingUserNotFound  = errors.New("role binding user not found")
 	ErrRoleBindingUserAmbiguous = errors.New("role binding user lookup is ambiguous")
+	ErrUserNotFound             = errors.New("user not found")
+	ErrOIDCIdentityConflict     = errors.New("oidc identity conflicts with existing cached user")
 )
 
 type ListRoleBindingsFilter struct {
@@ -78,6 +80,20 @@ func (r *Repository) UpsertUserFromOIDC(
 	ctx context.Context,
 	profile domain.OIDCProfile,
 ) (domain.User, domain.UserIdentity, []domain.UserGroupMembership, error) {
+	user, identity, memberships, err := r.upsertUserFromOIDC(ctx, profile)
+	if err == nil {
+		return user, identity, memberships, nil
+	}
+	if ent.IsConstraintError(err) {
+		return r.upsertUserFromOIDC(ctx, profile)
+	}
+	return domain.User{}, domain.UserIdentity{}, nil, err
+}
+
+func (r *Repository) upsertUserFromOIDC(
+	ctx context.Context,
+	profile domain.OIDCProfile,
+) (domain.User, domain.UserIdentity, []domain.UserGroupMembership, error) {
 	tx, err := r.client.Tx(ctx)
 	if err != nil {
 		return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("start user sync transaction: %w", err)
@@ -104,6 +120,9 @@ func (r *Repository) UpsertUserFromOIDC(
 	var userItem *ent.User
 	switch {
 	case ent.IsNotFound(err):
+		if err := ensureNoUnsupportedIdentityMerge(ctx, tx, normalizedEmail, strings.TrimSpace(profile.Issuer), strings.TrimSpace(profile.Subject)); err != nil {
+			return domain.User{}, domain.UserIdentity{}, nil, err
+		}
 		userItem, err = tx.User.Create().
 			SetStatus(entuser.StatusActive).
 			SetPrimaryEmail(normalizedEmail).
@@ -134,52 +153,40 @@ func (r *Repository) UpsertUserFromOIDC(
 		if err != nil {
 			return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("load identity user: %w", err)
 		}
-		userItem, err = tx.User.UpdateOneID(userItem.ID).
-			SetPrimaryEmail(normalizedEmail).
-			SetDisplayName(userDisplayName).
-			SetAvatarURL(strings.TrimSpace(profile.AvatarURL)).
-			SetLastLoginAt(now).
-			Save(ctx)
-		if err != nil {
-			return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("update user: %w", err)
+		identityChanged := userItem.PrimaryEmail != normalizedEmail ||
+			userItem.DisplayName != userDisplayName ||
+			userItem.AvatarURL != strings.TrimSpace(profile.AvatarURL) ||
+			identityItem.Email != normalizedEmail ||
+			identityItem.EmailVerified != profile.EmailVerified ||
+			identityItem.RawClaimsJSON != strings.TrimSpace(profile.RawClaimsJSON)
+		if identityChanged || !timestampsEqual(userItem.LastLoginAt, &now) {
+			userItem, err = tx.User.UpdateOneID(userItem.ID).
+				SetPrimaryEmail(normalizedEmail).
+				SetDisplayName(userDisplayName).
+				SetAvatarURL(strings.TrimSpace(profile.AvatarURL)).
+				SetLastLoginAt(now).
+				Save(ctx)
+			if err != nil {
+				return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("update user: %w", err)
+			}
 		}
-		identityItem, err = tx.UserIdentity.UpdateOneID(identityItem.ID).
+		identityBuilder := tx.UserIdentity.UpdateOneID(identityItem.ID).
 			SetEmail(normalizedEmail).
 			SetEmailVerified(profile.EmailVerified).
 			SetRawClaimsJSON(strings.TrimSpace(profile.RawClaimsJSON)).
-			SetLastSyncedAt(now).
-			AddClaimsVersion(1).
-			Save(ctx)
+			SetLastSyncedAt(now)
+		if identityChanged {
+			identityBuilder = identityBuilder.AddClaimsVersion(1)
+		}
+		identityItem, err = identityBuilder.Save(ctx)
 		if err != nil {
 			return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("update user identity: %w", err)
 		}
 	}
 
-	if _, err := tx.UserGroupMembership.Delete().
-		Where(
-			entusergroupmembership.UserIDEQ(userItem.ID),
-			entusergroupmembership.IssuerEQ(strings.TrimSpace(profile.Issuer)),
-		).
-		Exec(ctx); err != nil {
-		return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("replace group memberships: %w", err)
-	}
-
-	memberships := make([]domain.UserGroupMembership, 0, len(profile.Groups))
-	for _, group := range profile.Groups {
-		if strings.TrimSpace(group.Key) == "" {
-			continue
-		}
-		item, err := tx.UserGroupMembership.Create().
-			SetUserID(userItem.ID).
-			SetIssuer(strings.TrimSpace(profile.Issuer)).
-			SetGroupKey(strings.ToLower(strings.TrimSpace(group.Key))).
-			SetGroupName(strings.TrimSpace(group.Name)).
-			SetLastSyncedAt(now).
-			Save(ctx)
-		if err != nil {
-			return domain.User{}, domain.UserIdentity{}, nil, fmt.Errorf("create group membership: %w", err)
-		}
-		memberships = append(memberships, mapGroupMembership(item))
+	memberships, err := syncUserGroupMemberships(ctx, tx, userItem.ID, strings.TrimSpace(profile.Issuer), profile.Groups, now)
+	if err != nil {
+		return domain.User{}, domain.UserIdentity{}, nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -356,10 +363,14 @@ func (r *Repository) ListAuthAuditEventsByUser(
 
 func (r *Repository) GetUser(ctx context.Context, userID uuid.UUID) (domain.User, error) {
 	item, err := r.client.User.Get(ctx, userID)
-	if err != nil {
+	switch {
+	case ent.IsNotFound(err):
+		return domain.User{}, ErrUserNotFound
+	case err != nil:
 		return domain.User{}, fmt.Errorf("get user: %w", err)
+	default:
+		return mapUser(item), nil
 	}
-	return mapUser(item), nil
 }
 
 func (r *Repository) GetPrimaryIdentity(ctx context.Context, userID uuid.UUID) (domain.UserIdentity, error) {
@@ -371,6 +382,69 @@ func (r *Repository) GetPrimaryIdentity(ctx context.Context, userID uuid.UUID) (
 		return domain.UserIdentity{}, fmt.Errorf("get primary identity: %w", err)
 	}
 	return mapUserIdentity(item), nil
+}
+
+func (r *Repository) ListUserIdentities(ctx context.Context, userID uuid.UUID) ([]domain.UserIdentity, error) {
+	items, err := r.client.UserIdentity.Query().
+		Where(entuseridentity.UserIDEQ(userID)).
+		Order(ent.Asc(entuseridentity.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list user identities: %w", err)
+	}
+	result := make([]domain.UserIdentity, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapUserIdentity(item))
+	}
+	return result, nil
+}
+
+func (r *Repository) ListUsers(ctx context.Context, filter domain.UserDirectoryFilter) ([]domain.User, error) {
+	query := r.client.User.Query()
+	switch filter.Status {
+	case domain.UserDirectoryStatusActive:
+		query = query.Where(entuser.StatusEQ(entuser.StatusActive))
+	case domain.UserDirectoryStatusDisabled:
+		query = query.Where(entuser.StatusEQ(entuser.StatusDisabled))
+	}
+
+	if trimmed := strings.TrimSpace(filter.Query); trimmed != "" {
+		userIDs, err := r.searchUserIDs(ctx, trimmed)
+		if err != nil {
+			return nil, err
+		}
+		if len(userIDs) == 0 {
+			return []domain.User{}, nil
+		}
+		query = query.Where(entuser.IDIn(userIDs...))
+	}
+
+	items, err := query.
+		Order(ent.Desc(entuser.FieldLastLoginAt), ent.Desc(entuser.FieldUpdatedAt)).
+		Limit(filter.Limit).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	result := make([]domain.User, 0, len(items))
+	for _, item := range items {
+		result = append(result, mapUser(item))
+	}
+	return result, nil
+}
+
+func (r *Repository) UpdateUserStatus(ctx context.Context, userID uuid.UUID, status domain.UserStatus) (domain.User, error) {
+	item, err := r.client.User.UpdateOneID(userID).
+		SetStatus(entuser.Status(status)).
+		Save(ctx)
+	switch {
+	case ent.IsNotFound(err):
+		return domain.User{}, ErrUserNotFound
+	case err != nil:
+		return domain.User{}, fmt.Errorf("update user status: %w", err)
+	default:
+		return mapUser(item), nil
+	}
 }
 
 func (r *Repository) ListUserGroups(ctx context.Context, userID uuid.UUID) ([]domain.UserGroupMembership, error) {
@@ -837,6 +911,142 @@ func (r *Repository) CountApprovalPolicies(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("count approval policies: %w", err)
 	}
 	return count, nil
+}
+
+func (r *Repository) searchUserIDs(ctx context.Context, query string) ([]uuid.UUID, error) {
+	normalized := strings.TrimSpace(query)
+	if normalized == "" {
+		return nil, nil
+	}
+
+	userIDs := map[uuid.UUID]struct{}{}
+	if parsedID, err := uuid.Parse(normalized); err == nil {
+		userIDs[parsedID] = struct{}{}
+	}
+
+	userMatches, err := r.client.User.Query().
+		Where(
+			entuser.Or(
+				entuser.PrimaryEmailContainsFold(normalized),
+				entuser.DisplayNameContainsFold(normalized),
+			),
+		).
+		IDs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("search users by primary fields: %w", err)
+	}
+	for _, id := range userMatches {
+		userIDs[id] = struct{}{}
+	}
+
+	identityMatches, err := r.client.UserIdentity.Query().
+		Where(
+			entuseridentity.Or(
+				entuseridentity.EmailContainsFold(normalized),
+				entuseridentity.IssuerContainsFold(normalized),
+				entuseridentity.SubjectContainsFold(normalized),
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("search users by identity fields: %w", err)
+	}
+	for _, item := range identityMatches {
+		userIDs[item.UserID] = struct{}{}
+	}
+
+	result := make([]uuid.UUID, 0, len(userIDs))
+	for id := range userIDs {
+		result = append(result, id)
+	}
+	return result, nil
+}
+
+func ensureNoUnsupportedIdentityMerge(
+	ctx context.Context,
+	tx *ent.Tx,
+	normalizedEmail string,
+	issuer string,
+	subject string,
+) error {
+	if normalizedEmail == "" {
+		return nil
+	}
+
+	existingByPrimaryEmail, err := tx.User.Query().
+		Where(entuser.PrimaryEmailEQ(normalizedEmail)).
+		All(ctx)
+	if err != nil {
+		return fmt.Errorf("check existing user email: %w", err)
+	}
+	if len(existingByPrimaryEmail) > 0 {
+		return fmt.Errorf("%w: matching primary email %q already belongs to another user; automatic link/unlink/merge is not supported", ErrOIDCIdentityConflict, normalizedEmail)
+	}
+
+	existingIdentity, err := tx.UserIdentity.Query().
+		Where(
+			entuseridentity.EmailEQ(normalizedEmail),
+			entuseridentity.Or(
+				entuseridentity.IssuerNEQ(strings.TrimSpace(issuer)),
+				entuseridentity.SubjectNEQ(strings.TrimSpace(subject)),
+			),
+		).
+		Exist(ctx)
+	if err != nil {
+		return fmt.Errorf("check existing identity email: %w", err)
+	}
+	if existingIdentity {
+		return fmt.Errorf("%w: matching identity email %q already belongs to another subject; automatic link/unlink/merge is not supported", ErrOIDCIdentityConflict, normalizedEmail)
+	}
+	return nil
+}
+
+func syncUserGroupMemberships(
+	ctx context.Context,
+	tx *ent.Tx,
+	userID uuid.UUID,
+	issuer string,
+	groups []domain.Group,
+	now time.Time,
+) ([]domain.UserGroupMembership, error) {
+	if _, err := tx.UserGroupMembership.Delete().
+		Where(
+			entusergroupmembership.UserIDEQ(userID),
+			entusergroupmembership.IssuerEQ(strings.TrimSpace(issuer)),
+		).
+		Exec(ctx); err != nil {
+		return nil, fmt.Errorf("replace group memberships: %w", err)
+	}
+
+	memberships := make([]domain.UserGroupMembership, 0, len(groups))
+	for _, group := range groups {
+		if strings.TrimSpace(group.Key) == "" {
+			continue
+		}
+		item, err := tx.UserGroupMembership.Create().
+			SetUserID(userID).
+			SetIssuer(strings.TrimSpace(issuer)).
+			SetGroupKey(strings.ToLower(strings.TrimSpace(group.Key))).
+			SetGroupName(strings.TrimSpace(group.Name)).
+			SetLastSyncedAt(now).
+			Save(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("create group membership: %w", err)
+		}
+		memberships = append(memberships, mapGroupMembership(item))
+	}
+	return memberships, nil
+}
+
+func timestampsEqual(left *time.Time, right *time.Time) bool {
+	switch {
+	case left == nil && right == nil:
+		return true
+	case left == nil || right == nil:
+		return false
+	default:
+		return left.UTC().Equal(right.UTC())
+	}
 }
 
 func mapUser(item *ent.User) domain.User {

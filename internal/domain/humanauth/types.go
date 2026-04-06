@@ -143,6 +143,8 @@ const (
 	AuthAuditLogout                 AuthAuditEventType = "logout"
 	AuthAuditSessionRevoked         AuthAuditEventType = "session.revoked"
 	AuthAuditSessionExpired         AuthAuditEventType = "session.expired"
+	AuthAuditUserEnabled            AuthAuditEventType = "user.enabled"
+	AuthAuditUserDisabled           AuthAuditEventType = "user.disabled"
 	AuthAuditUserDisabledAfterLogin AuthAuditEventType = "user.disabled_after_login"
 )
 

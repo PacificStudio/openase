@@ -115,6 +115,124 @@ func TestUpdateProjectRoleBindingStaysWithinScope(t *testing.T) {
 	}
 }
 
+func TestUpsertUserFromOIDCUpdatesExistingIdentityWithoutDuplicates(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := NewEntRepository(client)
+
+	initialProfile := domain.OIDCProfile{
+		Issuer:        "https://idp.example.com",
+		Subject:       "subject-1",
+		Email:         "alice@example.com",
+		EmailVerified: true,
+		DisplayName:   "Alice Control Plane",
+		AvatarURL:     "https://cdn.example.com/alice-1.png",
+		RawClaimsJSON: `{"sub":"subject-1","email":"alice@example.com"}`,
+		Groups: []domain.Group{
+			{Key: "platform-admins", Name: "Platform Admins"},
+		},
+	}
+
+	user, identity, groups, err := repo.UpsertUserFromOIDC(ctx, initialProfile)
+	if err != nil {
+		t.Fatalf("initial UpsertUserFromOIDC() error = %v", err)
+	}
+	if len(groups) != 1 {
+		t.Fatalf("expected one initial group, got %+v", groups)
+	}
+
+	updatedProfile := initialProfile
+	updatedProfile.Email = "alice.renamed@example.com"
+	updatedProfile.DisplayName = "Alice Renamed"
+	updatedProfile.AvatarURL = "https://cdn.example.com/alice-2.png"
+	updatedProfile.RawClaimsJSON = `{"sub":"subject-1","email":"alice.renamed@example.com"}`
+	updatedProfile.Groups = []domain.Group{{Key: "incident-responders", Name: "Incident Responders"}}
+
+	updatedUser, updatedIdentity, updatedGroups, err := repo.UpsertUserFromOIDC(ctx, updatedProfile)
+	if err != nil {
+		t.Fatalf("updated UpsertUserFromOIDC() error = %v", err)
+	}
+
+	if updatedUser.ID != user.ID {
+		t.Fatalf("expected same user id, got %s then %s", user.ID, updatedUser.ID)
+	}
+	if updatedIdentity.ID != identity.ID {
+		t.Fatalf("expected same identity id, got %s then %s", identity.ID, updatedIdentity.ID)
+	}
+	if updatedUser.PrimaryEmail != "alice.renamed@example.com" {
+		t.Fatalf("primary_email = %q, want updated value", updatedUser.PrimaryEmail)
+	}
+	if updatedUser.DisplayName != "Alice Renamed" {
+		t.Fatalf("display_name = %q, want updated value", updatedUser.DisplayName)
+	}
+	if updatedUser.AvatarURL != "https://cdn.example.com/alice-2.png" {
+		t.Fatalf("avatar_url = %q, want updated value", updatedUser.AvatarURL)
+	}
+	if updatedIdentity.ClaimsVersion != identity.ClaimsVersion+1 {
+		t.Fatalf("claims_version = %d, want %d", updatedIdentity.ClaimsVersion, identity.ClaimsVersion+1)
+	}
+	if len(updatedGroups) != 1 || updatedGroups[0].GroupKey != "incident-responders" {
+		t.Fatalf("updatedGroups = %+v, want incident-responders", updatedGroups)
+	}
+
+	userCount, err := client.User.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+	if userCount != 1 {
+		t.Fatalf("user count = %d, want 1", userCount)
+	}
+	identityCount, err := client.UserIdentity.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count identities: %v", err)
+	}
+	if identityCount != 1 {
+		t.Fatalf("identity count = %d, want 1", identityCount)
+	}
+}
+
+func TestUpsertUserFromOIDCRejectsAutomaticEmailBasedMerge(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := NewEntRepository(client)
+
+	_, _, _, err := repo.UpsertUserFromOIDC(ctx, domain.OIDCProfile{
+		Issuer:        "https://idp.example.com",
+		Subject:       "subject-1",
+		Email:         "alice@example.com",
+		EmailVerified: true,
+		DisplayName:   "Alice",
+		RawClaimsJSON: `{"sub":"subject-1","email":"alice@example.com"}`,
+	})
+	if err != nil {
+		t.Fatalf("seed UpsertUserFromOIDC() error = %v", err)
+	}
+
+	_, _, _, err = repo.UpsertUserFromOIDC(ctx, domain.OIDCProfile{
+		Issuer:        "https://idp.example.com",
+		Subject:       "subject-2",
+		Email:         "alice@example.com",
+		EmailVerified: true,
+		DisplayName:   "Alice Alias",
+		RawClaimsJSON: `{"sub":"subject-2","email":"alice@example.com"}`,
+	})
+	if !errors.Is(err, ErrOIDCIdentityConflict) {
+		t.Fatalf("UpsertUserFromOIDC() err = %v, want ErrOIDCIdentityConflict", err)
+	}
+
+	userCount, err := client.User.Query().Count(ctx)
+	if err != nil {
+		t.Fatalf("count users: %v", err)
+	}
+	if userCount != 1 {
+		t.Fatalf("user count = %d, want 1", userCount)
+	}
+}
+
 func createTestOrganization(ctx context.Context, t *testing.T, client *ent.Client, slug string) uuid.UUID {
 	t.Helper()
 
