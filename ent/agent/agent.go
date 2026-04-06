@@ -143,10 +143,11 @@ const DefaultRuntimeControlState = RuntimeControlStateActive
 
 // RuntimeControlState values.
 const (
-	RuntimeControlStateActive         RuntimeControlState = "active"
-	RuntimeControlStatePauseRequested RuntimeControlState = "pause_requested"
-	RuntimeControlStatePaused         RuntimeControlState = "paused"
-	RuntimeControlStateRetired        RuntimeControlState = "retired"
+	RuntimeControlStateActive             RuntimeControlState = "active"
+	RuntimeControlStateInterruptRequested RuntimeControlState = "interrupt_requested"
+	RuntimeControlStatePauseRequested     RuntimeControlState = "pause_requested"
+	RuntimeControlStatePaused             RuntimeControlState = "paused"
+	RuntimeControlStateRetired            RuntimeControlState = "retired"
 )
 
 func (rcs RuntimeControlState) String() string {
@@ -156,7 +157,7 @@ func (rcs RuntimeControlState) String() string {
 // RuntimeControlStateValidator is a validator for the "runtime_control_state" field enum values. It is called by the builders before save.
 func RuntimeControlStateValidator(rcs RuntimeControlState) error {
 	switch rcs {
-	case RuntimeControlStateActive, RuntimeControlStatePauseRequested, RuntimeControlStatePaused, RuntimeControlStateRetired:
+	case RuntimeControlStateActive, RuntimeControlStateInterruptRequested, RuntimeControlStatePauseRequested, RuntimeControlStatePaused, RuntimeControlStateRetired:
 		return nil
 	default:
 		return fmt.Errorf("agent: invalid enum value for runtime_control_state field: %q", rcs)

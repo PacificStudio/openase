@@ -27,6 +27,7 @@ var ErrNotFound = errors.New("agent platform record not found")
 type Scope string
 
 const (
+	ScopeAgentsInterrupt               Scope = "agents.interrupt"
 	ScopeTicketsCreate                 Scope = "tickets.create"
 	ScopeTicketsList                   Scope = "tickets.list"
 	ScopeTicketsUpdate                 Scope = "tickets.update"
@@ -106,6 +107,7 @@ func DefaultAgentScopes() []string {
 
 func SupportedAgentScopes() []string {
 	return []string{
+		string(ScopeAgentsInterrupt),
 		string(ScopeActivityRead),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),

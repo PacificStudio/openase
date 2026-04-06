@@ -20,6 +20,7 @@ import (
 const TokenPrefix = domain.TokenPrefix
 
 const (
+	ScopeAgentsInterrupt               = domain.ScopeAgentsInterrupt
 	ScopeTicketsCreate                 = domain.ScopeTicketsCreate
 	ScopeTicketsList                   = domain.ScopeTicketsList
 	ScopeTicketsUpdate                 = domain.ScopeTicketsUpdate
@@ -92,6 +93,7 @@ var (
 		ScopeTicketsUpdateSelf,
 	}
 	supportedAgentScopes = []Scope{
+		ScopeAgentsInterrupt,
 		ScopeActivityRead,
 		ScopeProjectsAddRepo,
 		ScopeProjectsUpdate,

@@ -86,6 +86,23 @@ func (s *service) GetAgentRun(ctx context.Context, id uuid.UUID) (domain.AgentRu
 	return s.repo.GetAgentRun(ctx, id)
 }
 
+func (s *service) RequestAgentInterrupt(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
+	current, err := s.repo.GetAgent(ctx, id)
+	if err != nil {
+		return domain.Agent{}, err
+	}
+
+	nextState, err := domain.ResolveInterruptRuntimeControlState(current)
+	if err != nil {
+		return domain.Agent{}, fmt.Errorf("%w: %v", ErrConflict, err)
+	}
+
+	return s.repo.UpdateAgentRuntimeControlState(ctx, domain.UpdateAgentRuntimeControlState{
+		ID:                  id,
+		RuntimeControlState: nextState,
+	})
+}
+
 func (s *service) RequestAgentPause(ctx context.Context, id uuid.UUID) (domain.Agent, error) {
 	current, err := s.repo.GetAgent(ctx, id)
 	if err != nil {

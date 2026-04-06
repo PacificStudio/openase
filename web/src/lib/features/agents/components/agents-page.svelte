@@ -184,7 +184,7 @@
     resetRegistrationDraft()
   }
 
-  async function handleRuntimeAction(action: 'pause' | 'resume', agentId: string) {
+  async function handleRuntimeAction(action: 'interrupt' | 'pause' | 'resume', agentId: string) {
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
@@ -248,6 +248,7 @@
     agentDrawerOpen = true
   }}
   onSelectTicket={(ticketId) => appStore.openRightPanel({ type: 'ticket', id: ticketId })}
+  onInterruptAgent={(agentId) => handleRuntimeAction('interrupt', agentId)}
   onPauseAgent={(agentId) => handleRuntimeAction('pause', agentId)}
   onResumeAgent={(agentId) => handleRuntimeAction('resume', agentId)}
   {providerItems}

@@ -2,16 +2,18 @@
   import { formatCurrency, formatRelativeTime } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Archive, Pause, Play, Trash2 } from '@lucide/svelte'
+  import { Archive, Hand, Pause, Play, Trash2 } from '@lucide/svelte'
 
   import type { AgentInstance } from '../types'
 
   let {
     agent,
     actionBusy = false,
+    canInterrupt = false,
     canPause = false,
     canResume = false,
     canRetire = false,
+    onInterrupt,
     onPause,
     onResume,
     onRetire,
@@ -19,9 +21,11 @@
   }: {
     agent: AgentInstance
     actionBusy?: boolean
+    canInterrupt?: boolean
     canPause?: boolean
     canResume?: boolean
     canRetire?: boolean
+    onInterrupt?: () => void
     onPause?: () => void
     onResume?: () => void
     onRetire?: () => void
@@ -118,6 +122,12 @@
   {/if}
 
   <div class="border-border flex items-center gap-2 border-t pt-4">
+    {#if canInterrupt}
+      <Button variant="outline" size="sm" disabled={actionBusy} onclick={onInterrupt}>
+        <Hand class="size-3.5" />
+        Interrupt
+      </Button>
+    {/if}
     {#if canResume}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onResume}>
         <Play class="size-3.5" />

@@ -118,5 +118,7 @@ function readBlockTimestamp(block: TicketRunTranscriptState['blocks'][number]): 
 }
 
 function isTerminalStatus(status: TicketRun['status']): boolean {
-  return status === 'completed' || status === 'failed' || status === 'ended'
+  return (
+    status === 'completed' || status === 'failed' || status === 'interrupted' || status === 'ended'
+  )
 }

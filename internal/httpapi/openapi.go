@@ -3382,6 +3382,24 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	agentPause.AddParameter(uuidPathParameter("agentId", "Agent ID."))
 	b.doc.AddOperation("/api/v1/agents/{agentId}/pause", http.MethodPost, agentPause)
 
+	agentInterrupt, err := b.jsonOperation(
+		"interruptAgent",
+		"Interrupt an agent runtime",
+		[]string{"catalog"},
+		http.StatusOK,
+		OpenAPIAgentResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	agentInterrupt.AddParameter(uuidPathParameter("agentId", "Agent ID."))
+	b.doc.AddOperation("/api/v1/agents/{agentId}/interrupt", http.MethodPost, agentInterrupt)
+
 	agentResume, err := b.jsonOperation(
 		"resumeAgent",
 		"Resume an agent runtime",

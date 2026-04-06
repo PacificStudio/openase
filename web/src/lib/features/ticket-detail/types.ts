@@ -204,7 +204,7 @@ export type TicketRun = {
   adapterType: string
   modelName: string
   usage: TicketRunUsage
-  status: 'launching' | 'ready' | 'executing' | 'ended' | 'failed' | 'completed'
+  status: 'launching' | 'ready' | 'executing' | 'ended' | 'failed' | 'interrupted' | 'completed'
   currentStepStatus?: string
   currentStepSummary?: string
   createdAt: string

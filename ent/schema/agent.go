@@ -20,7 +20,7 @@ func (Agent) Fields() []ent.Field {
 		field.UUID("project_id", uuidZero()),
 		field.String("name").NotEmpty(),
 		field.Enum("runtime_control_state").
-			Values("active", "pause_requested", "paused", "retired").
+			Values("active", "interrupt_requested", "pause_requested", "paused", "retired").
 			Default("active"),
 		field.Int64("total_tokens_used").Default(0),
 		field.Int("total_tickets_completed").Default(0),

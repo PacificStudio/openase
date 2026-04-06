@@ -20,6 +20,8 @@
     providerCount = 0,
     statusMessage = '',
     focusCard = null,
+    focusActionLabel = '',
+    focusActionDisabled = false,
     queuedTurns = [],
     hasPendingInterrupt = false,
     draft = '',
@@ -27,6 +29,7 @@
     inputDisabled = false,
     sendDisabled = false,
     canQueueTurn = false,
+    onFocusAction = undefined,
     onDismissFocus,
     onCancelQueuedTurn,
     onDraftChange,
@@ -37,6 +40,8 @@
     providerCount?: number
     statusMessage?: string
     focusCard?: FocusCard | null
+    focusActionLabel?: string
+    focusActionDisabled?: boolean
     queuedTurns?: QueuedTurn[]
     hasPendingInterrupt?: boolean
     draft?: string
@@ -44,6 +49,7 @@
     inputDisabled?: boolean
     sendDisabled?: boolean
     canQueueTurn?: boolean
+    onFocusAction?: () => void
     onDismissFocus: () => void
     onCancelQueuedTurn?: (queuedTurnId: string) => void
     onDraftChange?: (value: string) => void
@@ -84,6 +90,9 @@
       label={focusCard.label}
       title={focusCard.title}
       detail={focusCard.detail}
+      actionLabel={focusActionLabel}
+      actionDisabled={focusActionDisabled}
+      onAction={onFocusAction}
       onDismiss={onDismissFocus}
     />
   {/if}

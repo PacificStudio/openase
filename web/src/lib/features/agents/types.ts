@@ -6,9 +6,9 @@ export type AgentInstance = {
   modelName: string
   adapterType: string
   permissionProfile: ProviderPermissionProfile
-  status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'terminated'
+  status: 'idle' | 'claimed' | 'running' | 'paused' | 'failed' | 'interrupted' | 'terminated'
   runtimePhase: 'none' | 'launching' | 'ready' | 'executing' | 'failed'
-  runtimeControlState: 'active' | 'pause_requested' | 'paused' | 'retired'
+  runtimeControlState: 'active' | 'interrupt_requested' | 'pause_requested' | 'paused' | 'retired'
   activeRunCount: number
   currentTicket?: { id: string; identifier: string; title: string }
   lastHeartbeat?: string | null
@@ -31,7 +31,14 @@ export type AgentRunInstance = {
   modelName: string
   workflowId: string
   workflowName: string
-  status: 'launching' | 'ready' | 'executing' | 'completed' | 'errored' | 'terminated'
+  status:
+    | 'launching'
+    | 'ready'
+    | 'executing'
+    | 'completed'
+    | 'errored'
+    | 'interrupted'
+    | 'terminated'
   ticket: { id: string; identifier: string; title: string }
   lastHeartbeat: string | null
   runtimeStartedAt: string | null

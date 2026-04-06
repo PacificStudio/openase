@@ -25,7 +25,7 @@ func (AgentRun) Fields() []ent.Field {
 		field.UUID("provider_id", uuidZero()),
 		textArrayField("skill_version_ids"),
 		field.Enum("status").
-			Values("launching", "ready", "executing", "completed", "errored", "terminated"),
+			Values("launching", "ready", "executing", "completed", "errored", "interrupted", "terminated"),
 		field.String("session_id").Optional(),
 		field.Time("runtime_started_at").Optional().Nillable(),
 		field.Time("terminal_at").Optional().Nillable(),

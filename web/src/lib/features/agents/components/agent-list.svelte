@@ -2,7 +2,7 @@
   import { cn, formatRelativeTime, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Terminal, Pause, Play } from '@lucide/svelte'
+  import { Hand, Terminal, Pause, Play } from '@lucide/svelte'
   import type { AgentInstance } from '../types'
 
   let {
@@ -10,6 +10,7 @@
     onSelectTicket,
     runtimeActionAgentId = null,
     onViewOutput,
+    onInterruptAgent,
     onPauseAgent,
     onResumeAgent,
   }: {
@@ -17,6 +18,7 @@
     onSelectTicket?: (ticketId: string) => void
     runtimeActionAgentId?: string | null
     onViewOutput?: (agentId: string) => void
+    onInterruptAgent?: (agentId: string) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
   } = $props()
@@ -27,6 +29,7 @@
     running: 'bg-blue-500',
     paused: 'bg-orange-500',
     failed: 'bg-red-500',
+    interrupted: 'bg-rose-500',
     terminated: 'bg-slate-500',
   }
 
@@ -36,11 +39,13 @@
     running: 'Running',
     paused: 'Paused',
     failed: 'Failed',
+    interrupted: 'Interrupted',
     terminated: 'Terminated',
   }
 
   const runtimeControlLabels: Record<AgentInstance['runtimeControlState'], string> = {
     active: 'Active',
+    interrupt_requested: 'Interrupt Requested',
     pause_requested: 'Pause Requested',
     paused: 'Paused',
     retired: 'Retired',
@@ -48,6 +53,7 @@
 
   const runtimeControlClasses: Record<AgentInstance['runtimeControlState'], string> = {
     active: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+    interrupt_requested: 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300',
     pause_requested: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
     paused: 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
     retired: 'border-zinc-500/30 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300',
@@ -61,8 +67,35 @@
     )
   }
 
+  function canInterrupt(agent: AgentInstance) {
+    return (
+      agent.runtimeControlState === 'active' &&
+      agent.activeRunCount > 0 &&
+      (agent.status === 'claimed' || agent.status === 'running')
+    )
+  }
+
   function canResume(agent: AgentInstance) {
     return agent.runtimeControlState === 'paused'
+  }
+
+  function interruptTitle(agent: AgentInstance) {
+    if (runtimeActionAgentId === agent.id) return 'Updating runtime control...'
+    if (agent.runtimeControlState === 'interrupt_requested') {
+      return 'Interrupt requested. Waiting for the runtime to stop.'
+    }
+    if (agent.runtimeControlState === 'pause_requested') {
+      return 'Wait for the pause request to settle before interrupting this agent.'
+    }
+    if (agent.runtimeControlState === 'paused') {
+      return 'Paused agents no longer have a running session to interrupt.'
+    }
+    if (agent.activeRunCount === 0)
+      return 'This agent definition has no active AgentRuns to interrupt.'
+    if (agent.status !== 'claimed' && agent.status !== 'running') {
+      return 'Only claimed or running agents can be interrupted.'
+    }
+    return 'Interrupt this agent run'
   }
 
   function pauseTitle(agent: AgentInstance) {
@@ -174,6 +207,16 @@
                 onclick={() => onViewOutput?.(agent.id)}
               >
                 <Terminal class="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Interrupt agent"
+                disabled={!canInterrupt(agent) || runtimeActionAgentId === agent.id}
+                title={interruptTitle(agent)}
+                onclick={() => onInterruptAgent?.(agent.id)}
+              >
+                <Hand class="size-3.5" />
               </Button>
               {#if agent.runtimeControlState === 'paused'}
                 <Button

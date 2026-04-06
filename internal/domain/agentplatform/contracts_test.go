@@ -237,6 +237,7 @@ func TestDefaultAgentScopes(t *testing.T) {
 func TestSupportedAgentScopes(t *testing.T) {
 	got := SupportedAgentScopes()
 	want := []string{
+		string(ScopeAgentsInterrupt),
 		string(ScopeActivityRead),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),

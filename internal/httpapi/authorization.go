@@ -243,7 +243,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionProjectUpdate,
 			checkRequired: true,
 		}, true
-	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
+	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/interrupt", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "agent",
@@ -508,7 +508,10 @@ func workflowPermissionForPath(path, method string) humanauthdomain.PermissionKe
 }
 
 func agentPermissionForPath(path, method string) humanauthdomain.PermissionKey {
-	if method == http.MethodGet && !strings.HasSuffix(path, "/pause") && !strings.HasSuffix(path, "/resume") {
+	if method == http.MethodGet &&
+		!strings.HasSuffix(path, "/interrupt") &&
+		!strings.HasSuffix(path, "/pause") &&
+		!strings.HasSuffix(path, "/resume") {
 		return humanauthdomain.PermissionAgentRead
 	}
 	return humanauthdomain.PermissionAgentManage

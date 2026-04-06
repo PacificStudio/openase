@@ -191,6 +191,9 @@ func (l *RuntimeLauncher) RunTick(ctx context.Context) error {
 		return fmt.Errorf("runtime launcher process manager unavailable")
 	}
 
+	if err := l.reconcileInterruptRequests(ctx); err != nil {
+		return err
+	}
 	if err := l.reconcilePauseRequests(ctx); err != nil {
 		return err
 	}
@@ -628,6 +631,28 @@ func (l *RuntimeLauncher) reconcilePauseRequests(ctx context.Context) error {
 	return nil
 }
 
+func (l *RuntimeLauncher) reconcileInterruptRequests(ctx context.Context) error {
+	assignments, err := l.listAssignments(ctx,
+		entticket.CurrentRunIDNotNil(),
+		entticket.HasCurrentRunWith(
+			entagentrun.HasAgentWith(
+				entagent.RuntimeControlStateEQ(entagent.RuntimeControlStateInterruptRequested),
+			),
+			entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("list interrupt requests: %w", err)
+	}
+
+	for _, assignment := range assignments {
+		if err := l.interruptAgent(ctx, assignment); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (l *RuntimeLauncher) refreshHeartbeats(ctx context.Context) error {
 	runIDs := l.sessionRunIDs()
 
@@ -831,6 +856,100 @@ func (l *RuntimeLauncher) pauseAgent(ctx context.Context, assignment runtimeAssi
 		runtimeEventMetadataForState(pausedAgent),
 		pausedAt,
 	)
+	return nil
+}
+
+func (l *RuntimeLauncher) interruptAgent(ctx context.Context, assignment runtimeAssignment) error {
+	if assignment.agent == nil || assignment.run == nil || assignment.ticket == nil {
+		return nil
+	}
+
+	session := l.loadSession(assignment.run.ID)
+	if session != nil {
+		stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		stopErr := session.Stop(stopCtx)
+		cancel()
+		if stopErr != nil {
+			return fmt.Errorf("interrupt runtime session for run %s: %w", assignment.run.ID, stopErr)
+		}
+		l.deleteSession(assignment.run.ID)
+	}
+	l.runtime.delete(assignment.run.ID)
+
+	interruptedAt := l.now().UTC()
+	tx, err := l.client.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("start interrupt tx for run %s: %w", assignment.run.ID, err)
+	}
+	defer rollback(tx)
+
+	runCount, err := clearRuntimeState(
+		tx.AgentRun.Update().
+			Where(
+				entagentrun.IDEQ(assignment.run.ID),
+				entagentrun.StatusIn(entagentrun.StatusLaunching, entagentrun.StatusReady, entagentrun.StatusExecuting),
+			).
+			SetStatus(entagentrun.StatusInterrupted).
+			SetTerminalAt(interruptedAt),
+	).Save(ctx)
+	if err != nil {
+		return fmt.Errorf("mark agent %s interrupted: %w", assignment.agent.ID, err)
+	}
+
+	ticketUpdate := ticketrepo.ResetRetryBaseline(tx.Ticket.UpdateOneID(assignment.ticket.ID), assignment.ticket)
+	if assignment.ticket.CurrentRunID != nil && *assignment.ticket.CurrentRunID == assignment.run.ID {
+		ticketUpdate.ClearCurrentRunID()
+	}
+	ticketUpdate.
+		SetRetryPaused(true).
+		SetPauseReason(ticketingdomain.PauseReasonUserInterrupted.String())
+	ticketUpdate.ClearNextRetryAt()
+	if _, err := ticketUpdate.Save(ctx); err != nil {
+		return fmt.Errorf("pause ticket %s after interrupt: %w", assignment.ticket.ID, err)
+	}
+
+	if _, err := tx.Agent.UpdateOneID(assignment.agent.ID).
+		SetRuntimeControlState(entagent.RuntimeControlStateActive).
+		Save(ctx); err != nil {
+		return fmt.Errorf("reset agent %s control after interrupt: %w", assignment.agent.ID, err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit interrupt tx for run %s: %w", assignment.run.ID, err)
+	}
+	if runCount == 0 {
+		return nil
+	}
+	if err := catalogrepo.MaterializeAgentRunDailyUsage(ctx, l.client, assignment.run.ID, interruptedAt); err != nil {
+		return err
+	}
+	if err := l.recordAgentStep(
+		ctx,
+		assignment.agent.ProjectID,
+		assignment.agent.ID,
+		assignment.ticket.ID,
+		assignment.run.ID,
+		"interrupted",
+		"Interrupted by operator request.",
+		nil,
+	); err != nil {
+		return fmt.Errorf("record interrupt step for run %s: %w", assignment.run.ID, err)
+	}
+
+	interruptedAgent, err := loadAgentLifecycleState(ctx, l.client, assignment.agent.ID, &assignment.run.ID)
+	if err != nil {
+		return err
+	}
+	l.publishLifecycleEvent(
+		ctx,
+		agentInterruptedType,
+		interruptedAgent,
+		lifecycleMessage(agentInterruptedType, interruptedAgent.agent.Name),
+		runtimeEventMetadataForState(interruptedAgent),
+		interruptedAt,
+	)
+	l.prepareRunCompletionSummaryBestEffort(ctx, assignment.run.ID)
+	l.scheduleRunCompletionSummary(assignment.run.ID)
 	return nil
 }
 

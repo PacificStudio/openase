@@ -23,6 +23,23 @@ export interface paths {
     patch: operations['updateAgent']
     trace?: never
   }
+  '/api/v1/agents/{agentId}/interrupt': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Interrupt an agent runtime */
+    post: operations['interruptAgent']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/agents/{agentId}/pause': {
     parameters: {
       query?: never
@@ -2320,6 +2337,102 @@ export interface operations {
     }
     responses: {
       /** @description Update an agent definition response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            agent?: {
+              id?: string
+              name?: string
+              project_id?: string
+              provider_id?: string
+              runtime?: {
+                active_run_count?: number
+                current_run_id?: string | null
+                current_step_changed_at?: string | null
+                current_step_status?: string | null
+                current_step_summary?: string | null
+                current_ticket_id?: string | null
+                last_error?: string
+                last_heartbeat_at?: string | null
+                runtime_phase?: string
+                runtime_started_at?: string | null
+                session_id?: string
+                status?: string
+              } | null
+              runtime_control_state?: string
+              total_tickets_completed?: number
+              /** Format: int64 */
+              total_tokens_used?: number
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  interruptAgent: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Agent ID. */
+        agentId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Interrupt an agent runtime response. */
       200: {
         headers: {
           [name: string]: unknown

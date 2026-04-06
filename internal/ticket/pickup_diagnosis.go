@@ -18,12 +18,14 @@ const (
 	PickupDiagnosisReasonRetryBackoff              = domain.PickupDiagnosisReasonRetryBackoff
 	PickupDiagnosisReasonRetryPausedRepeatedStalls = domain.PickupDiagnosisReasonRetryPausedRepeatedStalls
 	PickupDiagnosisReasonRetryPausedBudget         = domain.PickupDiagnosisReasonRetryPausedBudget
+	PickupDiagnosisReasonRetryPausedInterrupted    = domain.PickupDiagnosisReasonRetryPausedInterrupted
 	PickupDiagnosisReasonRetryPausedUser           = domain.PickupDiagnosisReasonRetryPausedUser
 	PickupDiagnosisReasonBlockedDependency         = domain.PickupDiagnosisReasonBlockedDependency
 	PickupDiagnosisReasonNoMatchingActiveWorkflow  = domain.PickupDiagnosisReasonNoMatchingActiveWorkflow
 	PickupDiagnosisReasonWorkflowInactive          = domain.PickupDiagnosisReasonWorkflowInactive
 	PickupDiagnosisReasonWorkflowMissingAgent      = domain.PickupDiagnosisReasonWorkflowMissingAgent
 	PickupDiagnosisReasonAgentMissing              = domain.PickupDiagnosisReasonAgentMissing
+	PickupDiagnosisReasonAgentInterruptRequested   = domain.PickupDiagnosisReasonAgentInterruptRequested
 	PickupDiagnosisReasonAgentPaused               = domain.PickupDiagnosisReasonAgentPaused
 	PickupDiagnosisReasonAgentPauseRequested       = domain.PickupDiagnosisReasonAgentPauseRequested
 	PickupDiagnosisReasonProviderMissing           = domain.PickupDiagnosisReasonProviderMissing

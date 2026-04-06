@@ -7,6 +7,7 @@ export function normalizeAgentStatus(status: string): AgentInstance['status'] {
     status === 'running' ||
     status === 'paused' ||
     status === 'failed' ||
+    status === 'interrupted' ||
     status === 'terminated'
   ) {
     return status
@@ -34,6 +35,7 @@ export function normalizeRuntimeControlState(
 ): AgentInstance['runtimeControlState'] {
   if (
     runtimeControlState === 'active' ||
+    runtimeControlState === 'interrupt_requested' ||
     runtimeControlState === 'pause_requested' ||
     runtimeControlState === 'paused' ||
     runtimeControlState === 'retired'

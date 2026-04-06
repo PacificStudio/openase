@@ -20,6 +20,7 @@
     onOpenRegister,
     onSelectAgent,
     onSelectTicket,
+    onInterruptAgent,
     onPauseAgent,
     onResumeAgent,
     providerItems,
@@ -42,6 +43,7 @@
     onOpenRegister?: () => void
     onSelectAgent?: (agentId: string) => void
     onSelectTicket?: (ticketId: string) => void
+    onInterruptAgent?: (agentId: string) => void
     onPauseAgent?: (agentId: string) => void
     onResumeAgent?: (agentId: string) => void
     providerItems: AgentProvider[]
@@ -80,6 +82,7 @@
     {runtimeActionAgentId}
     {onSelectAgent}
     {onSelectTicket}
+    {onInterruptAgent}
     {onPauseAgent}
     {onResumeAgent}
   />

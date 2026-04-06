@@ -557,6 +557,189 @@
         ]
       }
     },
+    "/api/v1/agents/{agentId}/interrupt": {
+      "post": {
+        "operationId": "interruptAgent",
+        "parameters": [
+          {
+            "description": "Agent ID.",
+            "in": "path",
+            "name": "agentId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "agent": {
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "provider_id": {
+                          "type": "string"
+                        },
+                        "runtime": {
+                          "nullable": true,
+                          "properties": {
+                            "active_run_count": {
+                              "type": "integer"
+                            },
+                            "current_run_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_changed_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_status": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_step_summary": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "current_ticket_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "last_error": {
+                              "type": "string"
+                            },
+                            "last_heartbeat_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "runtime_phase": {
+                              "type": "string"
+                            },
+                            "runtime_started_at": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "session_id": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "runtime_control_state": {
+                          "type": "string"
+                        },
+                        "total_tickets_completed": {
+                          "type": "integer"
+                        },
+                        "total_tokens_used": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Interrupt an agent runtime response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Interrupt an agent runtime",
+        "tags": [
+          "catalog"
+        ]
+      }
+    },
     "/api/v1/agents/{agentId}/pause": {
       "post": {
         "operationId": "pauseAgent",

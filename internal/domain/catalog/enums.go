@@ -178,12 +178,13 @@ const (
 	DefaultAgentTotalTokensUsed       int64       = 0
 	DefaultAgentTotalTicketsCompleted             = 0
 
-	AgentStatusIdle       AgentStatus = "idle"
-	AgentStatusClaimed    AgentStatus = "claimed"
-	AgentStatusRunning    AgentStatus = "running"
-	AgentStatusPaused     AgentStatus = "paused"
-	AgentStatusFailed     AgentStatus = "failed"
-	AgentStatusTerminated AgentStatus = "terminated"
+	AgentStatusIdle        AgentStatus = "idle"
+	AgentStatusClaimed     AgentStatus = "claimed"
+	AgentStatusRunning     AgentStatus = "running"
+	AgentStatusPaused      AgentStatus = "paused"
+	AgentStatusFailed      AgentStatus = "failed"
+	AgentStatusInterrupted AgentStatus = "interrupted"
+	AgentStatusTerminated  AgentStatus = "terminated"
 )
 
 func (s AgentStatus) String() string {
@@ -215,7 +216,7 @@ func (s AgentRunCompletionSummaryStatus) IsValid() bool {
 
 func (s AgentStatus) IsValid() bool {
 	switch s {
-	case AgentStatusIdle, AgentStatusClaimed, AgentStatusRunning, AgentStatusPaused, AgentStatusFailed, AgentStatusTerminated:
+	case AgentStatusIdle, AgentStatusClaimed, AgentStatusRunning, AgentStatusPaused, AgentStatusFailed, AgentStatusInterrupted, AgentStatusTerminated:
 		return true
 	default:
 		return false
@@ -249,12 +250,13 @@ func (s AgentRuntimePhase) IsValid() bool {
 type AgentRunStatus string
 
 const (
-	AgentRunStatusLaunching  AgentRunStatus = "launching"
-	AgentRunStatusReady      AgentRunStatus = "ready"
-	AgentRunStatusExecuting  AgentRunStatus = "executing"
-	AgentRunStatusCompleted  AgentRunStatus = "completed"
-	AgentRunStatusErrored    AgentRunStatus = "errored"
-	AgentRunStatusTerminated AgentRunStatus = "terminated"
+	AgentRunStatusLaunching   AgentRunStatus = "launching"
+	AgentRunStatusReady       AgentRunStatus = "ready"
+	AgentRunStatusExecuting   AgentRunStatus = "executing"
+	AgentRunStatusCompleted   AgentRunStatus = "completed"
+	AgentRunStatusErrored     AgentRunStatus = "errored"
+	AgentRunStatusInterrupted AgentRunStatus = "interrupted"
+	AgentRunStatusTerminated  AgentRunStatus = "terminated"
 )
 
 func (s AgentRunStatus) String() string {
@@ -263,7 +265,7 @@ func (s AgentRunStatus) String() string {
 
 func (s AgentRunStatus) IsValid() bool {
 	switch s {
-	case AgentRunStatusLaunching, AgentRunStatusReady, AgentRunStatusExecuting, AgentRunStatusCompleted, AgentRunStatusErrored, AgentRunStatusTerminated:
+	case AgentRunStatusLaunching, AgentRunStatusReady, AgentRunStatusExecuting, AgentRunStatusCompleted, AgentRunStatusErrored, AgentRunStatusInterrupted, AgentRunStatusTerminated:
 		return true
 	default:
 		return false
@@ -273,11 +275,12 @@ func (s AgentRunStatus) IsValid() bool {
 type AgentRuntimeControlState string
 
 const (
-	DefaultAgentRuntimeControlState        AgentRuntimeControlState = AgentRuntimeControlStateActive
-	AgentRuntimeControlStateActive         AgentRuntimeControlState = "active"
-	AgentRuntimeControlStatePauseRequested AgentRuntimeControlState = "pause_requested"
-	AgentRuntimeControlStatePaused         AgentRuntimeControlState = "paused"
-	AgentRuntimeControlStateRetired        AgentRuntimeControlState = "retired"
+	DefaultAgentRuntimeControlState            AgentRuntimeControlState = AgentRuntimeControlStateActive
+	AgentRuntimeControlStateActive             AgentRuntimeControlState = "active"
+	AgentRuntimeControlStateInterruptRequested AgentRuntimeControlState = "interrupt_requested"
+	AgentRuntimeControlStatePauseRequested     AgentRuntimeControlState = "pause_requested"
+	AgentRuntimeControlStatePaused             AgentRuntimeControlState = "paused"
+	AgentRuntimeControlStateRetired            AgentRuntimeControlState = "retired"
 )
 
 func (s AgentRuntimeControlState) String() string {
@@ -286,7 +289,7 @@ func (s AgentRuntimeControlState) String() string {
 
 func (s AgentRuntimeControlState) IsValid() bool {
 	switch s {
-	case AgentRuntimeControlStateActive, AgentRuntimeControlStatePauseRequested, AgentRuntimeControlStatePaused, AgentRuntimeControlStateRetired:
+	case AgentRuntimeControlStateActive, AgentRuntimeControlStateInterruptRequested, AgentRuntimeControlStatePauseRequested, AgentRuntimeControlStatePaused, AgentRuntimeControlStateRetired:
 		return true
 	default:
 		return false

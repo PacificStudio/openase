@@ -1927,6 +1927,7 @@ func (l *RuntimeLauncher) shouldSuppressExecutionFailure(ctx context.Context, ru
 	}
 	if runItem.Status == entagentrun.StatusCompleted ||
 		runItem.Status == entagentrun.StatusErrored ||
+		runItem.Status == entagentrun.StatusInterrupted ||
 		runItem.Status == entagentrun.StatusTerminated {
 		return true, nil
 	}

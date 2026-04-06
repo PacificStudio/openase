@@ -6,6 +6,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
+	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -14,6 +15,7 @@ import (
 
 func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/activity", s.handleAgentListActivityEvents)
+	api.POST("/projects/:projectId/agents/:agentId/interrupt", s.handleAgentInterruptProjectAgent)
 	api.GET("/projects/:projectId/statuses", s.handleAgentListTicketStatuses)
 	api.POST("/projects/:projectId/statuses", s.handleAgentCreateTicketStatus)
 	api.POST("/projects/:projectId/statuses/reset", s.handleAgentResetTicketStatuses)
@@ -75,6 +77,51 @@ func requireAgentProjectAnyScope(c echo.Context, scopes ...agentplatform.Scope) 
 		return false
 	}
 	return true
+}
+
+func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) (domain.Agent, bool) {
+	if s.catalog.AgentService == nil {
+		_ = writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+		return domain.Agent{}, false
+	}
+
+	claims, ok := requireAgentAnyScope(c, scopes...)
+	if !ok {
+		return domain.Agent{}, false
+	}
+
+	projectID, err := parseProjectID(c)
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
+		return domain.Agent{}, false
+	}
+	if claims.ProjectID != projectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return domain.Agent{}, false
+	}
+
+	agentID, err := parseUUIDPathParamValue(c, "agentId")
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_AGENT_ID", err.Error())
+		return domain.Agent{}, false
+	}
+	item, err := s.catalog.GetAgent(c.Request().Context(), agentID)
+	if err != nil {
+		_ = writeCatalogError(c, err)
+		return domain.Agent{}, false
+	}
+	if item.ProjectID != projectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return domain.Agent{}, false
+	}
+	return item, true
+}
+
+func (s *Server) handleAgentInterruptProjectAgent(c echo.Context) error {
+	if _, ok := s.requireAgentProjectAgentAnyScope(c, agentplatform.ScopeAgentsInterrupt); !ok {
+		return nil
+	}
+	return s.interruptAgent(c)
 }
 
 func (s *Server) requireAgentWorkflowAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {

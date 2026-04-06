@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "24b1c6a54ade9d4746161ffb453eeb75a964693c5bc56383aa302e23b8718959",
+  "openapi_sha256": "f12b214f4de060ba590e81abba170c6d6e34c4d296d6f93cb50f95e282cd6210",
   "commands": [
     {
       "use": "list [projectId]",
@@ -94,6 +94,11 @@
       ],
       "body_fields": [
         {
+          "name": "archived",
+          "description": "Whether the ticket is archived and excluded from active board and pickup views.",
+          "kind": "bool"
+        },
+        {
           "name": "budget_usd",
           "description": "Optional budget limit for the ticket in USD.",
           "kind": "float64"
@@ -162,6 +167,11 @@
         }
       ],
       "body_fields": [
+        {
+          "name": "archived",
+          "description": "Whether the ticket is archived and excluded from active board and pickup views.",
+          "kind": "bool"
+        },
         {
           "name": "budget_usd",
           "description": "Optional budget limit for the ticket in USD.",
@@ -568,6 +578,23 @@
           "description": "Ticket ID.",
           "required": true,
           "kind": "string"
+        }
+      ],
+      "query_params": [
+        {
+          "name": "after",
+          "description": "Load transcript items newer than this cursor.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "before",
+          "description": "Load transcript items older than this cursor.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "limit",
+          "description": "Transcript page size. Defaults to the latest page size.",
+          "kind": "int64"
         }
       ]
     },
@@ -1159,6 +1186,161 @@
         {
           "name": "projectId",
           "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/updates",
+      "operation_id": "listProjectUpdates",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/updates",
+      "operation_id": "createProjectUpdateThread",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "body",
+          "description": "Markdown body content for the project update thread.",
+          "kind": "string"
+        },
+        {
+          "name": "created_by",
+          "description": "Actor identifier recorded as the creator of the update thread.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
+          "kind": "string"
+        },
+        {
+          "name": "title",
+          "description": "Human-readable project update title.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId] [threadId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}/updates/{threadId}",
+      "operation_id": "updateProjectUpdateThread",
+      "positional_params": [
+        "projectId",
+        "threadId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "threadId",
+          "description": "Project update thread ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "body",
+          "description": "Updated markdown body content for the project update thread.",
+          "kind": "string"
+        },
+        {
+          "name": "edit_reason",
+          "description": "Reason recorded for editing the update thread.",
+          "kind": "string"
+        },
+        {
+          "name": "edited_by",
+          "description": "Actor identifier recorded as the editor of the update thread.",
+          "kind": "string"
+        },
+        {
+          "name": "status",
+          "description": "Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
+          "kind": "string"
+        },
+        {
+          "name": "title",
+          "description": "Updated human-readable project update title.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [threadId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/updates/{threadId}",
+      "operation_id": "deleteProjectUpdateThread",
+      "positional_params": [
+        "projectId",
+        "threadId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "threadId",
+          "description": "Project update thread ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "revisions [projectId] [threadId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/updates/{threadId}/revisions",
+      "operation_id": "listProjectUpdateThreadRevisions",
+      "positional_params": [
+        "projectId",
+        "threadId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "threadId",
+          "description": "Project update thread ID.",
           "required": true,
           "kind": "string"
         }
@@ -2041,8 +2223,18 @@
       ],
       "body_fields": [
         {
+          "name": "advertised_endpoint",
+          "description": "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",
+          "kind": "string"
+        },
+        {
           "name": "agent_cli_path",
           "description": "Absolute path to the agent CLI executable on the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "connection_mode",
+          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
           "kind": "string"
         },
         {
@@ -2051,9 +2243,29 @@
           "kind": "string"
         },
         {
+          "name": "detected_arch",
+          "description": "Detected CPU architecture reported for the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "detected_os",
+          "description": "Detected operating system reported for the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "detection_status",
+          "description": "Status of machine OS and architecture detection.",
+          "kind": "string"
+        },
+        {
           "name": "env_vars",
           "description": "Environment variable entries exported when work runs on the machine.",
           "kind": "string_slice"
+        },
+        {
+          "name": "execution_mode",
+          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "kind": "string"
         },
         {
           "name": "host",
@@ -2072,23 +2284,33 @@
         },
         {
           "name": "port",
-          "description": "SSH port used to connect to the machine.",
+          "description": "Transport-specific port used to connect to the machine.",
           "kind": "int64"
         },
         {
+          "name": "reachability_mode",
+          "description": "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
+          "kind": "string"
+        },
+        {
           "name": "ssh_key_path",
-          "description": "Path to the SSH private key used for machine access.",
+          "description": "Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access.",
           "kind": "string"
         },
         {
           "name": "ssh_user",
-          "description": "SSH username used for machine access.",
+          "description": "SSH helper username used for bootstrap, diagnostics, or emergency repair access.",
           "kind": "string"
         },
         {
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
+        },
+        {
+          "name": "transport_capabilities",
+          "description": "Legacy compatibility alias for execution_capabilities.",
+          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -2115,8 +2337,18 @@
       ],
       "body_fields": [
         {
+          "name": "advertised_endpoint",
+          "description": "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",
+          "kind": "string"
+        },
+        {
           "name": "agent_cli_path",
           "description": "Absolute path to the agent CLI executable on the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "connection_mode",
+          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
           "kind": "string"
         },
         {
@@ -2125,9 +2357,29 @@
           "kind": "string"
         },
         {
+          "name": "detected_arch",
+          "description": "Detected CPU architecture reported for the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "detected_os",
+          "description": "Detected operating system reported for the machine.",
+          "kind": "string"
+        },
+        {
+          "name": "detection_status",
+          "description": "Status of machine OS and architecture detection.",
+          "kind": "string"
+        },
+        {
           "name": "env_vars",
           "description": "Environment variable entries exported when work runs on the machine.",
           "kind": "string_slice"
+        },
+        {
+          "name": "execution_mode",
+          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "kind": "string"
         },
         {
           "name": "host",
@@ -2146,23 +2398,33 @@
         },
         {
           "name": "port",
-          "description": "SSH port used to connect to the machine.",
+          "description": "Transport-specific port used to connect to the machine.",
           "kind": "int64"
         },
         {
+          "name": "reachability_mode",
+          "description": "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
+          "kind": "string"
+        },
+        {
           "name": "ssh_key_path",
-          "description": "Path to the SSH private key used for machine access.",
+          "description": "Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access.",
           "kind": "string"
         },
         {
           "name": "ssh_user",
-          "description": "SSH username used for machine access.",
+          "description": "SSH helper username used for bootstrap, diagnostics, or emergency repair access.",
           "kind": "string"
         },
         {
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
+        },
+        {
+          "name": "transport_capabilities",
+          "description": "Legacy compatibility alias for execution_capabilities.",
+          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -2528,6 +2790,23 @@
       "method": "DELETE",
       "path": "/api/v1/agents/{agentId}",
       "operation_id": "deleteAgent",
+      "positional_params": [
+        "agentId"
+      ],
+      "path_params": [
+        {
+          "name": "agentId",
+          "description": "Agent ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "interrupt [agentId]",
+      "method": "POST",
+      "path": "/api/v1/agents/{agentId}/interrupt",
+      "operation_id": "interruptAgent",
       "positional_params": [
         "agentId"
       ],

@@ -254,6 +254,7 @@ function normalizeRunStatus(status: string): TicketRun['status'] {
     status === 'executing' ||
     status === 'ended' ||
     status === 'failed' ||
+    status === 'interrupted' ||
     status === 'completed'
   ) {
     return status
