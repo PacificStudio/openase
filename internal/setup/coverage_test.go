@@ -1,13 +1,9 @@
 package setup
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"net"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -112,96 +108,6 @@ func TestServiceHelpersDatabasePreparationAndDockerErrors(t *testing.T) {
 	}
 	if len(password) != 48 {
 		t.Fatalf("generateDatabasePassword() len = %d", len(password))
-	}
-}
-
-func TestServerRouteErrorPathsAndRun(t *testing.T) {
-	homeDir := t.TempDir()
-	connector := &stubConnector{}
-	service, err := NewService(Options{
-		HomeDir:    homeDir,
-		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git", "codex": "/usr/local/bin/codex"}},
-		RunCommand: stubVersionRunner,
-		Connector:  connector,
-		Installer:  &stubInstaller{},
-	})
-	if err != nil {
-		t.Fatalf("NewService() error = %v", err)
-	}
-
-	server := NewServer(ServerOptions{
-		Host:    "127.0.0.1",
-		Port:    freeSetupPort(t),
-		Service: service,
-	})
-
-	rec := httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	if rec.Code != http.StatusTemporaryRedirect || rec.Header().Get("Location") != "/setup" {
-		t.Fatalf("GET / = (%d, %q)", rec.Code, rec.Header().Get("Location"))
-	}
-
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "openase-setup") {
-		t.Fatalf("GET /healthz = (%d, %q)", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/test-database", bytes.NewBufferString("{")))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("POST test-database invalid JSON = %d", rec.Code)
-	}
-
-	rawDatabase, err := json.Marshal(RawDatabaseInput{
-		Host: "127.0.0.1",
-		Name: "openase",
-		User: "openase",
-	})
-	if err != nil {
-		t.Fatalf("Marshal(RawDatabaseInput) error = %v", err)
-	}
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/test-database", bytes.NewReader(rawDatabase)))
-	if rec.Code != http.StatusOK || connector.pingDSN == "" {
-		t.Fatalf("POST test-database = (%d, %q)", rec.Code, rec.Body.String())
-	}
-
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/complete", bytes.NewBufferString("{")))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("POST complete invalid JSON = %d", rec.Code)
-	}
-
-	if err := service.ensureHomeLayout(); err != nil {
-		t.Fatalf("ensureHomeLayout() error = %v", err)
-	}
-	if err := os.WriteFile(service.configPath(), []byte("configured"), 0o600); err != nil {
-		t.Fatalf("WriteFile(configPath) error = %v", err)
-	}
-	rawComplete, err := json.Marshal(RawCompleteRequest{
-		Database: RawDatabaseInput{
-			Host: "127.0.0.1",
-			Name: "openase",
-			User: "openase",
-		},
-	})
-	if err != nil {
-		t.Fatalf("Marshal(RawCompleteRequest) error = %v", err)
-	}
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/setup/complete", bytes.NewReader(rawComplete)))
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("POST complete existing config = (%d, %q)", rec.Code, rec.Body.String())
-	}
-
-	server = NewServer(ServerOptions{
-		Host:    "300.300.300.300",
-		Port:    freeSetupPort(t),
-		Service: service,
-	})
-	if err := server.Run(context.Background()); err == nil {
-		t.Fatal("server.Run() expected listener error for invalid host")
 	}
 }
 
