@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -114,6 +115,50 @@ func TestUpCommandAppliesManagedServiceWhenConfigExists(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "openase service applied via test-platform") {
 		t.Fatalf("expected service apply message, got %q", stdout.String())
+	}
+}
+
+func TestUpCommandSyncsManagedServiceEnvironmentFile(t *testing.T) {
+	rootOptions := &rootOptions{}
+	manager := &stubUserServiceManager{platform: "test-platform"}
+	tempDir := t.TempDir()
+	configPath := provider.MustParseAbsolutePath(filepath.Join(tempDir, "config.yaml"))
+	envPath := filepath.Join(tempDir, ".env")
+	if err := os.WriteFile(envPath, []byte("OPENASE_AUTH_TOKEN=token-1\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile(env) error = %v", err)
+	}
+	t.Setenv("PATH", strings.Join([]string{"/usr/bin", "/custom/bin", "/usr/bin"}, string(os.PathListSeparator)))
+
+	command := newUpCommandWithDeps(rootOptions, upCommandDeps{
+		resolveConfigPath: func(string) (provider.AbsolutePath, error) {
+			return configPath, nil
+		},
+		buildUserServiceManager: func() (provider.UserServiceManager, error) {
+			return manager, nil
+		},
+		buildManagedServiceInstallSpec: func(string) (provider.UserServiceInstallSpec, error) {
+			return provider.UserServiceInstallSpec{
+				Name:            managedServiceName,
+				EnvironmentFile: provider.MustParseAbsolutePath(envPath),
+			}, nil
+		},
+		syncManagedServiceEnvironment: syncManagedServiceEnvironment,
+	})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	content, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("ReadFile(env) error = %v", err)
+	}
+	got := string(content)
+	if !strings.Contains(got, "OPENASE_AUTH_TOKEN=token-1\n") {
+		t.Fatalf("expected auth token preserved, got %q", got)
+	}
+	if !strings.Contains(got, "PATH=/usr/bin:/custom/bin\n") {
+		t.Fatalf("expected normalized PATH written, got %q", got)
 	}
 }
 

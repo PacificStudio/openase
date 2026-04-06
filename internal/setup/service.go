@@ -16,6 +16,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/envfile"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/localdiag"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -461,8 +462,13 @@ func (s *Service) writeConfigFile(request CompleteRequest, agents []AgentOption)
 }
 
 func (s *Service) writeEnvFile(authToken string) error {
-	content := fmt.Sprintf("OPENASE_AUTH_TOKEN=%s\n", authToken)
-	if err := os.WriteFile(s.envPath(), []byte(content), 0o600); err != nil {
+	updates := map[string]string{
+		"OPENASE_AUTH_TOKEN": authToken,
+	}
+	if normalizedPath := envfile.NormalizePath(os.Getenv("PATH")); normalizedPath != "" {
+		updates["PATH"] = normalizedPath
+	}
+	if err := envfile.Upsert(s.envPath(), updates); err != nil {
 		return fmt.Errorf("write setup env file: %w", err)
 	}
 

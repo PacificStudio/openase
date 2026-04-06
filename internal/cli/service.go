@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/BetterAndBetterII/openase/internal/envfile"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/spf13/cobra"
 )
@@ -21,6 +22,7 @@ type upCommandDeps struct {
 	runSetupWizard                 func(context.Context, io.Writer) error
 	buildUserServiceManager        func() (provider.UserServiceManager, error)
 	buildManagedServiceInstallSpec func(string) (provider.UserServiceInstallSpec, error)
+	syncManagedServiceEnvironment  func(string) error
 }
 
 func newUpCommand(options *rootOptions) *cobra.Command {
@@ -29,10 +31,14 @@ func newUpCommand(options *rootOptions) *cobra.Command {
 		runSetupWizard:                 runDefaultSetupWizard,
 		buildUserServiceManager:        buildUserServiceManager,
 		buildManagedServiceInstallSpec: buildManagedServiceInstallSpec,
+		syncManagedServiceEnvironment:  syncManagedServiceEnvironment,
 	})
 }
 
 func newUpCommandWithDeps(options *rootOptions, deps upCommandDeps) *cobra.Command {
+	if deps.syncManagedServiceEnvironment == nil {
+		deps.syncManagedServiceEnvironment = func(string) error { return nil }
+	}
 	return &cobra.Command{
 		Use:   "up",
 		Short: "Run first-time setup on an empty machine, otherwise install or update the user service.",
@@ -63,6 +69,9 @@ service definition for the current platform.
 				return err
 			}
 
+			if err := deps.syncManagedServiceEnvironment(spec.EnvironmentFile.String()); err != nil {
+				return err
+			}
 			if err := manager.Apply(cmd.Context(), spec); err != nil {
 				return err
 			}
@@ -196,6 +205,20 @@ func buildManagedServiceInstallSpec(configFile string) (provider.UserServiceInst
 	}
 
 	return spec, nil
+}
+
+func syncManagedServiceEnvironment(envFile string) error {
+	updates := map[string]string{}
+	if normalizedPath := envfile.NormalizePath(os.Getenv("PATH")); normalizedPath != "" {
+		updates["PATH"] = normalizedPath
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	if err := envfile.Upsert(envFile, updates); err != nil {
+		return fmt.Errorf("sync managed service environment: %w", err)
+	}
+	return nil
 }
 
 func resolveManagedServiceConfigPath(configFile string) (provider.AbsolutePath, error) {
