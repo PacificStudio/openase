@@ -56,25 +56,25 @@ type MachineProbe struct {
 }
 
 type MachineInput struct {
-	Name                  string                         `json:"name"`
-	Host                  string                         `json:"host"`
-	Port                  *int                           `json:"port"`
-	ReachabilityMode      string                         `json:"reachability_mode"`
-	ExecutionMode         string                         `json:"execution_mode"`
-	SSHUser               *string                        `json:"ssh_user"`
-	SSHKeyPath            *string                        `json:"ssh_key_path"`
-	AdvertisedEndpoint    *string                        `json:"advertised_endpoint"`
-	DaemonStatus          MachineDaemonStatusInput       `json:"daemon_status"`
-	DetectedOS            string                         `json:"detected_os"`
-	DetectedArch          string                         `json:"detected_arch"`
-	DetectionStatus       string                         `json:"detection_status"`
-	ChannelCredential     *MachineChannelCredentialInput `json:"channel_credential"`
-	Description           string                         `json:"description"`
-	Labels                []string                       `json:"labels"`
-	Status                string                         `json:"status"`
-	WorkspaceRoot         *string                        `json:"workspace_root"`
-	AgentCLIPath          *string                        `json:"agent_cli_path"`
-	EnvVars               []string                       `json:"env_vars"`
+	Name               string                         `json:"name"`
+	Host               string                         `json:"host"`
+	Port               *int                           `json:"port"`
+	ReachabilityMode   string                         `json:"reachability_mode"`
+	ExecutionMode      string                         `json:"execution_mode"`
+	SSHUser            *string                        `json:"ssh_user"`
+	SSHKeyPath         *string                        `json:"ssh_key_path"`
+	AdvertisedEndpoint *string                        `json:"advertised_endpoint"`
+	DaemonStatus       MachineDaemonStatusInput       `json:"daemon_status"`
+	DetectedOS         string                         `json:"detected_os"`
+	DetectedArch       string                         `json:"detected_arch"`
+	DetectionStatus    string                         `json:"detection_status"`
+	ChannelCredential  *MachineChannelCredentialInput `json:"channel_credential"`
+	Description        string                         `json:"description"`
+	Labels             []string                       `json:"labels"`
+	Status             string                         `json:"status"`
+	WorkspaceRoot      *string                        `json:"workspace_root"`
+	AgentCLIPath       *string                        `json:"agent_cli_path"`
+	EnvVars            []string                       `json:"env_vars"`
 }
 
 type CreateMachine struct {

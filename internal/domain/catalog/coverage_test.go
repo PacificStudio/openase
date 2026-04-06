@@ -927,18 +927,18 @@ func TestCatalogMachineParsers(t *testing.T) {
 	endpoint := " wss://builder.example.com/openase "
 
 	createMachine, err := ParseCreateMachine(orgID, MachineInput{
-		Name:          " Builder 01 ",
-		Host:          " 10.0.1.8 ",
-		Port:          &port,
+		Name:               " Builder 01 ",
+		Host:               " 10.0.1.8 ",
+		Port:               &port,
 		AdvertisedEndpoint: &endpoint,
-		SSHUser:       &sshUser,
-		SSHKeyPath:    &sshKeyPath,
-		Description:   " Primary builder ",
-		Labels:        []string{" linux ", "linux", " gpu "},
-		Status:        " online ",
-		WorkspaceRoot: &workspaceRoot,
-		AgentCLIPath:  &agentCLIPath,
-		EnvVars:       []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
+		SSHUser:            &sshUser,
+		SSHKeyPath:         &sshKeyPath,
+		Description:        " Primary builder ",
+		Labels:             []string{" linux ", "linux", " gpu "},
+		Status:             " online ",
+		WorkspaceRoot:      &workspaceRoot,
+		AgentCLIPath:       &agentCLIPath,
+		EnvVars:            []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateMachine() error = %v", err)
@@ -974,10 +974,10 @@ func TestCatalogMachineParsers(t *testing.T) {
 	endpoint = " wss://machines.example.com/connect "
 	tokenID := " machine-token-01 "
 	websocketMachine, err := ParseCreateMachine(orgID, MachineInput{
-		Name:              " listener-01 ",
-		Host:              " listener.example.com ",
-		ReachabilityMode:  " direct_connect ",
-		ExecutionMode:     " websocket ",
+		Name:               " listener-01 ",
+		Host:               " listener.example.com ",
+		ReachabilityMode:   " direct_connect ",
+		ExecutionMode:      " websocket ",
 		AdvertisedEndpoint: &endpoint,
 		DaemonStatus: MachineDaemonStatusInput{
 			Registered:       &registered,
@@ -1049,10 +1049,10 @@ func TestCatalogMachineParsers(t *testing.T) {
 	}
 	relativeWorkspaceRoot := "relative/workspace"
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:          "remote",
-		Host:          "10.0.0.1",
+		Name:               "remote",
+		Host:               "10.0.0.1",
 		AdvertisedEndpoint: &endpoint,
-		WorkspaceRoot: &relativeWorkspaceRoot,
+		WorkspaceRoot:      &relativeWorkspaceRoot,
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected workspace_root validation error")
 	}
