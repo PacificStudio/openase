@@ -722,13 +722,8 @@ func TestChatHelperCoverageAndRegistry(t *testing.T) {
 		t.Fatal("isHookActivityEvent() should be false for non-hook event types")
 	}
 
-	if _, err := NewService(nil, nil, nil, nil, nil, nil, "").StartTurn(context.Background(), AnonymousUserID, StartInput{}); !errors.Is(err, ErrUnavailable) {
+	if _, err := NewService(nil, nil, nil, nil, nil, nil, "").StartTurn(context.Background(), UserID("browser-session:test"), StartInput{}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("StartTurn() unavailable error = %v, want %v", err, ErrUnavailable)
-	}
-
-	parsedUserID, err := ParseRequestUserID("")
-	if err != nil || parsedUserID != AnonymousUserID {
-		t.Fatalf("ParseRequestUserID(blank) = %q, %v", parsedUserID, err)
 	}
 
 	var registry sessionRegistry

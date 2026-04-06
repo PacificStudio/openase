@@ -591,7 +591,7 @@ describe('project conversation REST mapping', () => {
     })
   })
 
-  it('sends chat user headers when responding to project conversation interrupts', async () => {
+  it('relies on server-defined principals when responding to project conversation interrupts', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -617,7 +617,6 @@ describe('project conversation REST mapping', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'X-OpenASE-Chat-User': expect.any(String),
         }),
         body: JSON.stringify({
           decision: 'approve_once',
@@ -625,9 +624,11 @@ describe('project conversation REST mapping', () => {
         }),
       }),
     )
+    const requestOptions = vi.mocked(fetch).mock.calls[0]?.[1]
+    expect(new Headers(requestOptions?.headers).get('X-OpenASE-Chat-User')).toBeNull()
   })
 
-  it('sends chat user headers when opening the project conversation mux stream', async () => {
+  it('relies on server-defined principals when opening the project conversation mux stream', async () => {
     consumeEventStream.mockImplementation(async () => {})
     vi.stubGlobal(
       'fetch',
@@ -648,10 +649,11 @@ describe('project conversation REST mapping', () => {
         method: 'GET',
         headers: expect.objectContaining({
           accept: 'text/event-stream',
-          'X-OpenASE-Chat-User': expect.any(String),
         }),
       }),
     )
+    const requestOptions = vi.mocked(fetch).mock.calls[0]?.[1]
+    expect(new Headers(requestOptions?.headers).get('X-OpenASE-Chat-User')).toBeNull()
   })
 })
 
