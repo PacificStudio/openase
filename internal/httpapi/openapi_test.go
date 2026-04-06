@@ -30,6 +30,8 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/auth/sessions/revoke-all",
 		"/api/v1/auth/users/{userId}/sessions/revoke",
 		"/api/v1/auth/me/permissions",
+		"/api/v1/instance/role-bindings",
+		"/api/v1/instance/role-bindings/{bindingId}",
 		"/api/v1/system/dashboard",
 		"/api/v1/workspace/summary",
 		"/api/v1/orgs",

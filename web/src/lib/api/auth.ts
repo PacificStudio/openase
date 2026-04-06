@@ -257,6 +257,32 @@ export async function listOrganizationRoleBindings(orgId: string) {
   return parseRoleBindingList(payload)
 }
 
+export async function listInstanceRoleBindings() {
+  const payload = await api.get<{ role_bindings?: RawRoleBinding[] }>(
+    '/api/v1/instance/role-bindings',
+  )
+  return parseRoleBindingList(payload)
+}
+
+export async function createInstanceRoleBinding(body: {
+  subject_kind: string
+  subject_key: string
+  role_key: string
+  expires_at?: string
+}) {
+  const payload = await api.post<{ role_binding?: RawRoleBinding }>(
+    '/api/v1/instance/role-bindings',
+    {
+      body,
+    },
+  )
+  return payload.role_binding ? parseRoleBinding(payload.role_binding) : null
+}
+
+export function deleteInstanceRoleBinding(bindingId: string) {
+  return api.delete<void>(`/api/v1/instance/role-bindings/${bindingId}`)
+}
+
 export async function createOrganizationRoleBinding(
   orgId: string,
   body: {

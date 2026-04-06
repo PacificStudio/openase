@@ -1,3 +1,5 @@
+import { authStore } from '$lib/stores/auth.svelte'
+
 export function currentProject() {
   return {
     id: '9f34ff64-f08b-4a06-b555-f47b34957860',
@@ -134,35 +136,43 @@ export function configuredSecurityWithNullPermissions() {
   }
 }
 
-export function configuredOidcAuthState() {
+export function oidcUser() {
   return {
-    authMode: 'oidc' as const,
-    authenticated: true,
-    issuerURL: 'https://idp.example.com',
-    csrfToken: 'csrf-token',
-    user: {
-      id: 'user-1',
-      primaryEmail: 'alice@example.com',
-      displayName: 'Alice Control Plane',
-    },
-    roles: ['instance_admin'],
-    permissions: ['org.update'],
+    id: 'user-1',
+    primaryEmail: 'alice@example.com',
+    displayName: 'Alice Control Plane',
   }
 }
 
-export function configuredEffectivePermissions(
-  scopeKind: 'organization' | 'project',
-  scopeID: string,
-) {
+export function hydrateOidcAuth() {
+  authStore.hydrate({
+    authMode: 'oidc',
+    authenticated: true,
+    issuerURL: 'https://idp.example.com',
+    csrfToken: 'csrf-token',
+    user: oidcUser(),
+    roles: ['instance_admin'],
+    permissions: ['org.update'],
+  })
+}
+
+type MockScope = 'instance' | 'organization' | 'project'
+
+export function effectivePermissionsMock(scope: MockScope, id = '') {
   return {
     user: {
-      id: 'user-1',
-      primary_email: 'alice@example.com',
-      display_name: 'Alice Control Plane',
+      id: oidcUser().id,
+      primary_email: oidcUser().primaryEmail,
+      display_name: oidcUser().displayName,
     },
-    scope: { kind: scopeKind, id: scopeID },
-    roles: [scopeKind === 'organization' ? 'org_admin' : 'project_admin'],
-    permissions: [scopeKind === 'organization' ? 'org.read' : 'project.read', 'rbac.manage'],
+    scope: { kind: scope, id },
+    roles:
+      scope === 'instance'
+        ? ['instance_admin']
+        : scope === 'organization'
+          ? ['org_admin']
+          : ['project_admin'],
+    permissions: scope === 'instance' ? ['rbac.manage'] : [`${scope}.read`, 'rbac.manage'],
     groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
   }
 }
@@ -197,5 +207,47 @@ export function configuredSessionGovernance() {
       summary: 'Reserved for future high-risk actions.',
       supportedMethods: [],
     },
+  }
+}
+
+export async function mockEffectivePermissionsByScope({
+  orgId,
+  projectId,
+}: {
+  orgId?: string
+  projectId?: string
+}) {
+  if (!orgId && !projectId) {
+    return effectivePermissionsMock('instance')
+  }
+  if (orgId) {
+    return effectivePermissionsMock('organization', orgId)
+  }
+  return effectivePermissionsMock('project', projectId ?? '')
+}
+
+export function organizationGroupBinding() {
+  return {
+    id: 'binding-1',
+    scopeKind: 'organization',
+    scopeID: currentOrg().id,
+    subjectKind: 'group',
+    subjectKey: 'platform-admins',
+    roleKey: 'org_admin',
+    grantedBy: 'user:user-1',
+    createdAt: '2026-04-04T09:00:00Z',
+  }
+}
+
+export function createdOrganizationUserBinding() {
+  return {
+    id: 'binding-2',
+    scopeKind: 'organization',
+    scopeID: currentOrg().id,
+    subjectKind: 'user',
+    subjectKey: 'bob@example.com',
+    roleKey: 'org_member',
+    grantedBy: 'user:user-1',
+    createdAt: '2026-04-04T10:00:00Z',
   }
 }
