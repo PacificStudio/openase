@@ -30,13 +30,11 @@ type rawCreateSkillRequest struct {
 	Name        string `json:"name"`
 	Content     string `json:"content"`
 	Description string `json:"description"`
-	CreatedBy   string `json:"created_by"`
 	IsEnabled   *bool  `json:"is_enabled"`
 }
 
 type rawImportSkillBundleRequest struct {
 	Name      string                      `json:"name"`
-	CreatedBy string                      `json:"created_by"`
 	IsEnabled *bool                       `json:"is_enabled"`
 	Files     []rawSkillBundleFileRequest `json:"files"`
 }
@@ -88,7 +86,7 @@ func parseUpdateWorkflowSkillsRequest(workflowID uuid.UUID, raw rawUpdateWorkflo
 	}, nil
 }
 
-func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (workflowservice.CreateSkillInput, error) {
+func parseCreateSkillRequest(projectID uuid.UUID, auditActor string, raw rawCreateSkillRequest) (workflowservice.CreateSkillInput, error) {
 	name := strings.TrimSpace(raw.Name)
 	if name == "" {
 		return workflowservice.CreateSkillInput{}, fmt.Errorf("name must not be empty")
@@ -102,13 +100,14 @@ func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (wo
 		Name:        name,
 		Content:     raw.Content,
 		Description: strings.TrimSpace(raw.Description),
-		CreatedBy:   strings.TrimSpace(raw.CreatedBy),
+		CreatedBy:   strings.TrimSpace(auditActor),
 		Enabled:     raw.IsEnabled,
 	}, nil
 }
 
 func parseImportSkillBundleRequest(
 	projectID uuid.UUID,
+	auditActor string,
 	raw rawImportSkillBundleRequest,
 ) (workflowservice.CreateSkillBundleInput, error) {
 	name := strings.TrimSpace(raw.Name)
@@ -141,7 +140,7 @@ func parseImportSkillBundleRequest(
 		ProjectID: projectID,
 		Name:      name,
 		Files:     files,
-		CreatedBy: strings.TrimSpace(raw.CreatedBy),
+		CreatedBy: strings.TrimSpace(auditActor),
 		Enabled:   raw.IsEnabled,
 	}, nil
 }

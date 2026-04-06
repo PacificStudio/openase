@@ -106,8 +106,7 @@ func (s *Server) handleCreateProjectUpdateThread(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
-	input, err := parseCreateProjectUpdateThreadRequest(projectID, raw)
+	input, err := parseCreateProjectUpdateThreadRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -136,8 +135,7 @@ func (s *Server) handleUpdateProjectUpdateThread(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
-	input, err := parseUpdateProjectUpdateThreadRequest(projectID, threadID, raw)
+	input, err := parseUpdateProjectUpdateThreadRequest(projectID, threadID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -208,8 +206,7 @@ func (s *Server) handleCreateProjectUpdateComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
-	input, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, raw)
+	input, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -242,8 +239,7 @@ func (s *Server) handleUpdateProjectUpdateComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
-	input, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, raw)
+	input, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}

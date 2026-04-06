@@ -16356,10 +16356,6 @@
                     "description": "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
                     "type": "string"
                   },
-                  "created_by": {
-                    "description": "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
-                    "type": "string"
-                  },
                   "description": {
                     "description": "Optional description used when the input content does not declare one.",
                     "type": "string"
@@ -17485,11 +17481,6 @@
                     "format": "double",
                     "nullable": true,
                     "type": "number"
-                  },
-                  "created_by": {
-                    "description": "Actor identifier recorded as the creator of the ticket.",
-                    "nullable": true,
-                    "type": "string"
                   },
                   "description": {
                     "description": "Ticket description or problem statement.",
@@ -20606,11 +20597,6 @@
                     "description": "Required markdown body content for the project update thread.",
                     "type": "string"
                   },
-                  "created_by": {
-                    "description": "Actor identifier recorded as the creator of the update thread.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "status": {
                     "description": "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
                     "type": "string"
@@ -20982,11 +20968,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "edited_by": {
-                    "description": "Actor identifier recorded as the editor of the update thread.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "status": {
                     "description": "Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
                     "type": "string"
@@ -21233,11 +21214,6 @@
                 "properties": {
                   "body": {
                     "description": "Markdown body content for the project update comment.",
-                    "type": "string"
-                  },
-                  "created_by": {
-                    "description": "Actor identifier recorded as the creator of the update comment.",
-                    "nullable": true,
                     "type": "string"
                   }
                 },
@@ -21559,11 +21535,6 @@
                   },
                   "edit_reason": {
                     "description": "Reason recorded for editing the update comment.",
-                    "nullable": true,
-                    "type": "string"
-                  },
-                  "edited_by": {
-                    "description": "Actor identifier recorded as the editor of the update comment.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -22217,11 +22188,6 @@
                 "properties": {
                   "agent_id": {
                     "description": "Agent ID assigned to execute this workflow.",
-                    "type": "string"
-                  },
-                  "created_by": {
-                    "description": "Optional creator descriptor recorded on the initial workflow harness version.",
-                    "nullable": true,
                     "type": "string"
                   },
                   "finish_status_ids": {
@@ -26861,11 +26827,6 @@
                     "nullable": true,
                     "type": "number"
                   },
-                  "created_by": {
-                    "description": "Actor identifier recorded as the creator of the ticket.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "description": {
                     "description": "Ticket description or problem statement.",
                     "nullable": true,
@@ -27378,11 +27339,6 @@
                   "body": {
                     "description": "Markdown body content for the ticket comment.",
                     "type": "string"
-                  },
-                  "created_by": {
-                    "description": "Actor identifier recorded as the creator of the comment.",
-                    "nullable": true,
-                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -27651,11 +27607,6 @@
                   },
                   "edit_reason": {
                     "description": "Reason recorded for editing the comment.",
-                    "nullable": true,
-                    "type": "string"
-                  },
-                  "edited_by": {
-                    "description": "Actor identifier recorded as the editor of the comment.",
                     "nullable": true,
                     "type": "string"
                   }
@@ -29286,11 +29237,6 @@
                     "nullable": true,
                     "type": "string"
                   },
-                  "edited_by": {
-                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "finish_status_ids": {
                     "description": "Ticket status IDs that mark workflow completion.",
                     "items": {
@@ -29685,11 +29631,6 @@
                 "properties": {
                   "content": {
                     "description": "Harness content to write or validate.",
-                    "type": "string"
-                  },
-                  "edited_by": {
-                    "description": "Optional editor descriptor recorded on the published workflow harness version.",
-                    "nullable": true,
                     "type": "string"
                   }
                 },
@@ -30158,11 +30099,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "edited_by": {
-                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "replacement_workflow_id": {
                     "description": "Workflow ID that should receive replaceable scheduled job and active ticket references.",
                     "type": "string"
@@ -30339,16 +30275,7 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": {
-                "properties": {
-                  "edited_by": {
-                    "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
-                    "nullable": true,
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
+              "schema": {}
             }
           },
           "description": "Retire a workflow by deactivating it request body.",

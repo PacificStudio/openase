@@ -105,7 +105,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	parentCreateResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
@@ -116,9 +116,9 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 			"priority":    "high",
 			"type":        "epic",
 			"workflow_id": workflowItem.ID.String(),
-			"created_by":  "user:gary",
 			"budget_usd":  3.5,
 		},
+		"user:gary",
 		http.StatusCreated,
 		&parentCreateResp,
 	)
@@ -346,15 +346,13 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	commentCreateResp := struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/comments", parentCreateResp.Ticket.ID),
-		map[string]any{
-			"body":       "Needs a second pass on the API response shape.",
-			"created_by": "user:reviewer",
-		},
+		map[string]any{"body": "Needs a second pass on the API response shape."},
+		"user:reviewer",
 		http.StatusCreated,
 		&commentCreateResp,
 	)
@@ -1370,9 +1368,9 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "detail unavailable", method: http.MethodGet, target: "/api/v1/projects/" + project.ID.String() + "/tickets/" + ticketItem.ID.String() + "/detail", wantStatus: http.StatusServiceUnavailable, wantBody: "SERVICE_UNAVAILABLE", server: detailServer},
 		{name: "update invalid ticket", method: http.MethodPatch, target: "/api/v1/tickets/not-a-uuid", body: `{"title":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
 		{name: "update invalid json", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String(), body: `{"title":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
-		{name: "create comment invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
-		{name: "create comment invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments", body: `{"body":"x","created_by":"user:codex","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
-		{name: "create comment missing ticket", method: http.MethodPost, target: "/api/v1/tickets/" + uuid.NewString() + "/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
+		{name: "create comment invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/comments", body: `{"body":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "create comment invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments", body: `{"body":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "create comment missing ticket", method: http.MethodPost, target: "/api/v1/tickets/" + uuid.NewString() + "/comments", body: `{"body":"x"}`, wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
 		{name: "update comment invalid comment", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", body: `{"body":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
 		{name: "update comment missing", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/" + uuid.NewString(), body: `{"body":"x"}`, wantStatus: http.StatusNotFound, wantBody: "COMMENT_NOT_FOUND", server: server},
 		{name: "delete comment invalid comment", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
@@ -1512,7 +1510,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		createResp := struct {
 			Ticket ticketResponse `json:"ticket"`
 		}{}
-		executeJSON(
+		executeJSONWithWriteActor(
 			t,
 			server,
 			http.MethodPost,
@@ -1521,8 +1519,8 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 				"title":       fmt.Sprintf("Ticket %d", index+1),
 				"priority":    "high",
 				"workflow_id": workflowResp.Workflow.ID,
-				"created_by":  "user:blackbox",
 			},
+			"user:blackbox",
 			http.StatusCreated,
 			&createResp,
 		)
@@ -1981,15 +1979,13 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	var createPayload struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/comments", ticketItem.ID),
-		map[string]any{
-			"body":       "First comment",
-			"created_by": "user:reviewer",
-		},
+		map[string]any{"body": "First comment"},
+		"user:reviewer",
 		http.StatusCreated,
 		&createPayload,
 	)
@@ -2018,16 +2014,16 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	var updatePayload struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s/comments/%s", ticketItem.ID, createPayload.Comment.ID),
 		map[string]any{
 			"body":        "Updated comment body",
-			"edited_by":   "agent:codex",
 			"edit_reason": "clarified scope",
 		},
+		"agent:codex",
 		http.StatusOK,
 		&updatePayload,
 	)

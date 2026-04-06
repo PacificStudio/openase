@@ -10721,8 +10721,6 @@ export interface operations {
         'application/json': {
           /** @description Skill markdown content. Frontmatter is optional on input and will be normalized on write. */
           content?: string
-          /** @description Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42. */
-          created_by?: string
           /** @description Optional description used when the input content does not declare one. */
           description?: string
           /** @description Whether the new skill should be enabled for runtime injection immediately. */
@@ -11299,8 +11297,6 @@ export interface operations {
            * @description Optional budget limit for the ticket in USD.
            */
           budget_usd?: number | null
-          /** @description Actor identifier recorded as the creator of the ticket. */
-          created_by?: string | null
           /** @description Ticket description or problem statement. */
           description?: string
           /** @description Optional external reference string associated with the ticket. */
@@ -12708,8 +12704,6 @@ export interface operations {
         'application/json': {
           /** @description Required markdown body content for the project update thread. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the update thread. */
-          created_by?: string | null
           /** @description Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
           /** @description Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
@@ -12905,8 +12899,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the update thread. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the update thread. */
-          edited_by?: string | null
           /** @description Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
           /** @description Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
@@ -13025,8 +13017,6 @@ export interface operations {
         'application/json': {
           /** @description Markdown body content for the project update comment. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the update comment. */
-          created_by?: string | null
         }
       }
     }
@@ -13204,8 +13194,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the update comment. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the update comment. */
-          edited_by?: string | null
         }
       }
     }
@@ -13557,8 +13545,6 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string
-          /** @description Optional creator descriptor recorded on the initial workflow harness version. */
-          created_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
           /** @description Initial pure Markdown or Gonja harness body written into the versioned control-plane workflow record. */
@@ -15837,8 +15823,6 @@ export interface operations {
            * @description Optional budget limit for the ticket in USD.
            */
           budget_usd?: number | null
-          /** @description Actor identifier recorded as the creator of the ticket. */
-          created_by?: string | null
           /** @description Ticket description or problem statement. */
           description?: string | null
           /** @description Optional external reference string associated with the ticket. */
@@ -16080,8 +16064,6 @@ export interface operations {
         'application/json': {
           /** @description Markdown body content for the ticket comment. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the comment. */
-          created_by?: string | null
         }
       }
     }
@@ -16232,8 +16214,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the comment. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the comment. */
-          edited_by?: string | null
         }
       }
     }
@@ -17120,8 +17100,6 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string | null
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[] | null
           /** @description Logical harness path tracked by the control plane for this workflow. */
@@ -17327,8 +17305,6 @@ export interface operations {
         'application/json': {
           /** @description Harness content to write or validate. */
           content?: string
-          /** @description Optional editor descriptor recorded on the published workflow harness version. */
-          edited_by?: string | null
         }
       }
     }
@@ -17588,8 +17564,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
           /** @description Workflow ID that should receive replaceable scheduled job and active ticket references. */
           replacement_workflow_id?: string
         }
@@ -17688,10 +17662,7 @@ export interface operations {
     /** @description Retire a workflow by deactivating it request body. */
     requestBody: {
       content: {
-        'application/json': {
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
-        }
+        'application/json': unknown
       }
     }
     responses: {

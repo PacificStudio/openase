@@ -22,7 +22,6 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	statusID := "44444444-4444-4444-4444-444444444444"
 	workflowID := "55555555-5555-5555-5555-555555555555"
 	parentID := "66666666-6666-6666-6666-666666666666"
-	createdBy := " codex "
 	externalRef := " GH-42 "
 	title := " Updated Title "
 	description := " Updated description "
@@ -32,14 +31,13 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	negativeBudget := -1.0
 	budget := 12.5
 
-	createInput, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{
+	createInput, err := parseCreateTicketRequest(projectID, "codex", rawCreateTicketRequest{
 		Title:          "  Ticket title  ",
 		Description:    "  Ticket description  ",
 		StatusID:       &statusID,
 		Priority:       &priority,
 		Type:           &ticketType,
 		WorkflowID:     &workflowID,
-		CreatedBy:      &createdBy,
 		ParentTicketID: &parentID,
 		ExternalRef:    &externalRef,
 		BudgetUSD:      &budget,
@@ -53,7 +51,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if createInput.CreatedBy != "codex" || createInput.ExternalRef != "GH-42" || createInput.BudgetUSD != 12.5 {
 		t.Fatalf("parseCreateTicketRequest() = %+v", createInput)
 	}
-	createInput, err = parseCreateTicketRequest(projectID, rawCreateTicketRequest{
+	createInput, err = parseCreateTicketRequest(projectID, "", rawCreateTicketRequest{
 		Title:    "  Ticket title  ",
 		Priority: strPtr(" "),
 	})
@@ -63,24 +61,23 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if createInput.Priority != nil {
 		t.Fatalf("parseCreateTicketRequest(blank priority) = %+v", createInput)
 	}
-	if _, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
+	if _, err := parseCreateTicketRequest(projectID, "", rawCreateTicketRequest{}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
 		t.Fatalf("parseCreateTicketRequest(empty title) error = %v", err)
 	}
-	if _, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{Title: "ok", StatusID: strPtr("bad-uuid")}); err == nil || !strings.Contains(err.Error(), "status_id must be a valid UUID") {
+	if _, err := parseCreateTicketRequest(projectID, "", rawCreateTicketRequest{Title: "ok", StatusID: strPtr("bad-uuid")}); err == nil || !strings.Contains(err.Error(), "status_id must be a valid UUID") {
 		t.Fatalf("parseCreateTicketRequest(bad status) error = %v", err)
 	}
-	if _, err := parseCreateTicketRequest(projectID, rawCreateTicketRequest{Title: "ok", BudgetUSD: &negativeBudget}); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
+	if _, err := parseCreateTicketRequest(projectID, "", rawCreateTicketRequest{Title: "ok", BudgetUSD: &negativeBudget}); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
 		t.Fatalf("parseCreateTicketRequest(negative budget) error = %v", err)
 	}
 
-	updateInput, err := parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{
+	updateInput, err := parseUpdateTicketRequest(ticketID, "codex", rawUpdateTicketRequest{
 		Title:          &title,
 		Description:    &description,
 		StatusID:       &statusID,
 		Priority:       &priority,
 		Type:           &ticketType,
 		WorkflowID:     strPtr(" "),
-		CreatedBy:      &createdBy,
 		ParentTicketID: &parentID,
 		ExternalRef:    &externalRef,
 		BudgetUSD:      &budget,
@@ -94,17 +91,17 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if !updateInput.WorkflowID.Set || updateInput.WorkflowID.Value != nil {
 		t.Fatalf("parseUpdateTicketRequest().WorkflowID = %+v", updateInput.WorkflowID)
 	}
-	updateInput, err = parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{Priority: strPtr(" ")})
+	updateInput, err = parseUpdateTicketRequest(ticketID, "", rawUpdateTicketRequest{Priority: strPtr(" ")})
 	if err != nil {
 		t.Fatalf("parseUpdateTicketRequest(blank priority) error = %v", err)
 	}
 	if !updateInput.Priority.Set || updateInput.Priority.Value != nil {
 		t.Fatalf("parseUpdateTicketRequest(blank priority) = %+v", updateInput)
 	}
-	if _, err := parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{Title: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
+	if _, err := parseUpdateTicketRequest(ticketID, "", rawUpdateTicketRequest{Title: strPtr("  ")}); err == nil || !strings.Contains(err.Error(), "title must not be empty") {
 		t.Fatalf("parseUpdateTicketRequest(blank title) error = %v", err)
 	}
-	if _, err := parseUpdateTicketRequest(ticketID, rawUpdateTicketRequest{BudgetUSD: &negativeBudget}); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
+	if _, err := parseUpdateTicketRequest(ticketID, "", rawUpdateTicketRequest{BudgetUSD: &negativeBudget}); err == nil || !strings.Contains(err.Error(), "budget_usd must be greater than or equal to zero") {
 		t.Fatalf("parseUpdateTicketRequest(negative budget) error = %v", err)
 	}
 
@@ -208,20 +205,19 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 		t.Fatalf("parseAddExternalLinkRequest(blank external_id) error = %v", err)
 	}
 
-	createCommentInput, err := parseCreateTicketCommentRequest(ticketID, rawCreateTicketCommentRequest{Body: " hello ", CreatedBy: &createdBy})
+	createCommentInput, err := parseCreateTicketCommentRequest(ticketID, "codex", rawCreateTicketCommentRequest{Body: " hello "})
 	if err != nil {
 		t.Fatalf("parseCreateTicketCommentRequest() error = %v", err)
 	}
 	if createCommentInput.Body != "hello" || createCommentInput.CreatedBy != "codex" {
 		t.Fatalf("parseCreateTicketCommentRequest() = %+v", createCommentInput)
 	}
-	if _, err := parseCreateTicketCommentRequest(ticketID, rawCreateTicketCommentRequest{}); err == nil || !strings.Contains(err.Error(), "body must not be empty") {
+	if _, err := parseCreateTicketCommentRequest(ticketID, "", rawCreateTicketCommentRequest{}); err == nil || !strings.Contains(err.Error(), "body must not be empty") {
 		t.Fatalf("parseCreateTicketCommentRequest(blank body) error = %v", err)
 	}
 
-	updateCommentInput, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{
+	updateCommentInput, err := parseUpdateTicketCommentRequest(ticketID, commentID, "codex", rawUpdateTicketCommentRequest{
 		Body:       " updated ",
-		EditedBy:   &createdBy,
 		EditReason: &editReason,
 	})
 	if err != nil {
@@ -230,7 +226,7 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if updateCommentInput.Body != "updated" || updateCommentInput.EditedBy != "codex" || updateCommentInput.EditReason != "demo workflow" {
 		t.Fatalf("parseUpdateTicketCommentRequest() = %+v", updateCommentInput)
 	}
-	if _, err := parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{}); err == nil || !strings.Contains(err.Error(), "body must not be empty") {
+	if _, err := parseUpdateTicketCommentRequest(ticketID, commentID, "", rawUpdateTicketCommentRequest{}); err == nil || !strings.Contains(err.Error(), "body must not be empty") {
 		t.Fatalf("parseUpdateTicketCommentRequest(blank body) error = %v", err)
 	}
 
@@ -344,11 +340,10 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 		t.Fatal("isJSONNull() mismatch")
 	}
 
-	createWorkflowInput, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{
+	createWorkflowInput, err := parseCreateWorkflowRequest(projectID, "user:creator", rawCreateWorkflowRequest{
 		AgentID:             agentID.String(),
 		Name:                " CI ",
 		Type:                " Fullstack Developer ",
-		CreatedBy:           strPtr(" user:creator "),
 		HarnessPath:         strPtr(" ./harness.md "),
 		HarnessContent:      "content",
 		Hooks:               map[string]any{"pre": true},
@@ -369,15 +364,14 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if createWorkflowInput.CreatedBy != "user:creator" {
 		t.Fatalf("parseCreateWorkflowRequest().CreatedBy = %q", createWorkflowInput.CreatedBy)
 	}
-	if _, err := parseCreateWorkflowRequest(projectID, rawCreateWorkflowRequest{Name: "ok", Type: "Fullstack Developer", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
+	if _, err := parseCreateWorkflowRequest(projectID, "", rawCreateWorkflowRequest{Name: "ok", Type: "Fullstack Developer", AgentID: "bad"}); err == nil || !strings.Contains(err.Error(), "agent_id must be a valid UUID") {
 		t.Fatalf("parseCreateWorkflowRequest(bad agent) error = %v", err)
 	}
 
-	updateWorkflowInput, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{
+	updateWorkflowInput, err := parseUpdateWorkflowRequest(workflowID, "user:editor", rawUpdateWorkflowRequest{
 		AgentID:             strPtr(agentID.String()),
 		Name:                strPtr(" Updated "),
 		Type:                strPtr("QA Engineer"),
-		EditedBy:            strPtr(" user:editor "),
 		HarnessPath:         strPtr(" ./new.md "),
 		Hooks:               &map[string]any{"post": true},
 		MaxConcurrent:       &maxConcurrent,
@@ -397,24 +391,21 @@ func TestTicketStatusAndWorkflowRequestParserCoverage(t *testing.T) {
 	if updateWorkflowInput.EditedBy != "user:editor" {
 		t.Fatalf("parseUpdateWorkflowRequest().EditedBy = %q", updateWorkflowInput.EditedBy)
 	}
-	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{RoleSlug: strPtr("qa-engineer")}); err == nil || !strings.Contains(err.Error(), "role_slug cannot be updated") {
+	if _, err := parseUpdateWorkflowRequest(workflowID, "", rawUpdateWorkflowRequest{RoleSlug: strPtr("qa-engineer")}); err == nil || !strings.Contains(err.Error(), "role_slug cannot be updated") {
 		t.Fatalf("parseUpdateWorkflowRequest(role slug) error = %v", err)
 	}
-	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{MaxRetryAttempts: intPtr(-1)}); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
+	if _, err := parseUpdateWorkflowRequest(workflowID, "", rawUpdateWorkflowRequest{MaxRetryAttempts: intPtr(-1)}); err == nil || !strings.Contains(err.Error(), "greater than or equal to zero") {
 		t.Fatalf("parseUpdateWorkflowRequest(negative retry) error = %v", err)
 	}
 
-	harnessInput, err := parseUpdateHarnessRequest(workflowID, rawUpdateHarnessRequest{
-		Content:  "body",
-		EditedBy: strPtr(" user:harness "),
-	})
+	harnessInput, err := parseUpdateHarnessRequest(workflowID, "user:harness", rawUpdateHarnessRequest{Content: "body"})
 	if err != nil || harnessInput.Content != "body" {
 		t.Fatalf("parseUpdateHarnessRequest() = (%+v, %v)", harnessInput, err)
 	}
 	if harnessInput.EditedBy != "user:harness" {
 		t.Fatalf("parseUpdateHarnessRequest().EditedBy = %q", harnessInput.EditedBy)
 	}
-	if _, err := parseUpdateHarnessRequest(workflowID, rawUpdateHarnessRequest{}); err == nil || !strings.Contains(err.Error(), "content must not be empty") {
+	if _, err := parseUpdateHarnessRequest(workflowID, "", rawUpdateHarnessRequest{}); err == nil || !strings.Contains(err.Error(), "content must not be empty") {
 		t.Fatalf("parseUpdateHarnessRequest(blank) error = %v", err)
 	}
 

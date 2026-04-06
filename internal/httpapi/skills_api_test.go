@@ -406,14 +406,13 @@ func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
 	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
 
 	importResp := skillDetailResponse{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/skills/import", project.ID),
 		map[string]any{
-			"name":       "deploy-openase",
-			"created_by": "user:cli",
+			"name": "deploy-openase",
 			"files": []map[string]any{
 				{
 					"path":           "SKILL.md",
@@ -433,6 +432,7 @@ func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
 				},
 			},
 		},
+		"user:cli",
 		http.StatusCreated,
 		&importResp,
 	)

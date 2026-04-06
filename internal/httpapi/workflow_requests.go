@@ -17,7 +17,6 @@ type rawCreateWorkflowRequest struct {
 	RoleDescription       *string        `json:"role_description"`
 	PlatformAccessAllowed []string       `json:"platform_access_allowed"`
 	SkillNames            []string       `json:"skill_names"`
-	CreatedBy             *string        `json:"created_by"`
 	HarnessPath           *string        `json:"harness_path"`
 	HarnessContent        string         `json:"harness_content"`
 	Hooks                 map[string]any `json:"hooks"`
@@ -38,7 +37,6 @@ type rawUpdateWorkflowRequest struct {
 	RoleName              *string         `json:"role_name"`
 	RoleDescription       *string         `json:"role_description"`
 	PlatformAccessAllowed *[]string       `json:"platform_access_allowed"`
-	EditedBy              *string         `json:"edited_by"`
 	HarnessPath           *string         `json:"harness_path"`
 	Hooks                 *map[string]any `json:"hooks"`
 	MaxConcurrent         *int            `json:"max_concurrent"`
@@ -51,24 +49,20 @@ type rawUpdateWorkflowRequest struct {
 }
 
 type rawUpdateHarnessRequest struct {
-	Content  string  `json:"content"`
-	EditedBy *string `json:"edited_by"`
+	Content string `json:"content"`
 }
 
-type rawRetireWorkflowRequest struct {
-	EditedBy *string `json:"edited_by"`
-}
+type rawRetireWorkflowRequest struct{}
 
 type rawReplaceWorkflowReferencesRequest struct {
-	ReplacementWorkflowID string  `json:"replacement_workflow_id"`
-	EditedBy              *string `json:"edited_by"`
+	ReplacementWorkflowID string `json:"replacement_workflow_id"`
 }
 
 type rawValidateHarnessRequest struct {
 	Content string `json:"content"`
 }
 
-func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowRequest) (workflowservice.CreateInput, error) {
+func parseCreateWorkflowRequest(projectID uuid.UUID, auditActor string, raw rawCreateWorkflowRequest) (workflowservice.CreateInput, error) {
 	name := strings.TrimSpace(raw.Name)
 	if name == "" {
 		return workflowservice.CreateInput{}, fmt.Errorf("name must not be empty")
@@ -127,6 +121,9 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 		PickupStatusIDs:       pickupStatusIDs,
 		FinishStatusIDs:       finishStatusIDs,
 	}
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = strings.TrimSpace(auditActor)
+	}
 	if raw.RoleSlug != nil {
 		input.RoleSlug = strings.TrimSpace(*raw.RoleSlug)
 	}
@@ -135,9 +132,6 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	}
 	if raw.RoleDescription != nil {
 		input.RoleDescription = strings.TrimSpace(*raw.RoleDescription)
-	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
 	}
 	if raw.HarnessPath != nil {
 		path := strings.TrimSpace(*raw.HarnessPath)
@@ -150,10 +144,10 @@ func parseCreateWorkflowRequest(projectID uuid.UUID, raw rawCreateWorkflowReques
 	return input, nil
 }
 
-func parseUpdateWorkflowRequest(workflowID uuid.UUID, raw rawUpdateWorkflowRequest) (workflowservice.UpdateInput, error) {
+func parseUpdateWorkflowRequest(workflowID uuid.UUID, auditActor string, raw rawUpdateWorkflowRequest) (workflowservice.UpdateInput, error) {
 	input := workflowservice.UpdateInput{WorkflowID: workflowID}
-	if raw.EditedBy != nil {
-		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.EditedBy = strings.TrimSpace(auditActor)
 	}
 
 	if raw.AgentID != nil {
@@ -271,33 +265,29 @@ func parseNormalizedStringList(raw []string) []string {
 	return normalized
 }
 
-func parseRetireWorkflowRequest(workflowID uuid.UUID, raw rawRetireWorkflowRequest) string {
+func parseRetireWorkflowRequest(workflowID uuid.UUID, auditActor string, raw rawRetireWorkflowRequest) string {
 	_ = workflowID
-	if raw.EditedBy == nil {
-		return ""
-	}
-	return strings.TrimSpace(*raw.EditedBy)
+	_ = raw
+	return strings.TrimSpace(auditActor)
 }
 
 func parseReplaceWorkflowReferencesRequest(
 	workflowID uuid.UUID,
+	auditActor string,
 	raw rawReplaceWorkflowReferencesRequest,
 ) (workflowservice.ReplaceWorkflowReferencesInput, string, error) {
 	replacementWorkflowID, err := parseUUIDString("replacement_workflow_id", raw.ReplacementWorkflowID)
 	if err != nil {
 		return workflowservice.ReplaceWorkflowReferencesInput{}, "", err
 	}
-	editedBy := ""
-	if raw.EditedBy != nil {
-		editedBy = strings.TrimSpace(*raw.EditedBy)
-	}
+	editedBy := strings.TrimSpace(auditActor)
 	return workflowservice.ReplaceWorkflowReferencesInput{
 		WorkflowID:            workflowID,
 		ReplacementWorkflowID: replacementWorkflowID,
 	}, editedBy, nil
 }
 
-func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest) (workflowservice.UpdateHarnessInput, error) {
+func parseUpdateHarnessRequest(workflowID uuid.UUID, auditActor string, raw rawUpdateHarnessRequest) (workflowservice.UpdateHarnessInput, error) {
 	if strings.TrimSpace(raw.Content) == "" {
 		return workflowservice.UpdateHarnessInput{}, fmt.Errorf("content must not be empty")
 	}
@@ -306,8 +296,8 @@ func parseUpdateHarnessRequest(workflowID uuid.UUID, raw rawUpdateHarnessRequest
 		WorkflowID: workflowID,
 		Content:    raw.Content,
 	}
-	if raw.EditedBy != nil {
-		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.EditedBy = strings.TrimSpace(auditActor)
 	}
 	return input, nil
 }

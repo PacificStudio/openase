@@ -878,7 +878,6 @@ func optionalConversationTime(value *time.Time) any {
 	}
 	return value.UTC().Format(time.RFC3339)
 }
-
 func projectConversationTicketCreatePath(path string) bool {
 	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/tickets")
 }

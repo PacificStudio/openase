@@ -167,7 +167,6 @@ func TestCurrentProjectConversationUserIDUsesStableLocalPrincipalWhenAuthDisable
 		t.Fatalf("currentProjectConversationUserID() = %q, want %q", got, chatservice.LocalProjectConversationUserID)
 	}
 }
-
 func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) {
 	projectConversationService := chatservice.NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
 	server := NewServer(

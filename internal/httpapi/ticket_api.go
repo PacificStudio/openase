@@ -337,9 +337,8 @@ func (s *Server) handleCreateTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseCreateTicketRequest(projectID, raw)
+	input, err := parseCreateTicketRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -465,9 +464,8 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseUpdateTicketRequest(ticketID, raw)
+	input, err := parseUpdateTicketRequest(ticketID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -583,9 +581,8 @@ func (s *Server) handleCreateTicketComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseCreateTicketCommentRequest(ticketID, raw)
+	input, err := parseCreateTicketCommentRequest(ticketID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -635,9 +632,8 @@ func (s *Server) handleUpdateTicketComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseUpdateTicketCommentRequest(ticketID, commentID, raw)
+	input, err := parseUpdateTicketCommentRequest(ticketID, commentID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}

@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "8592900682a5382106539c98985d6885f28bc3f983a8875e2a1510d1dd3d087e",
+  "openapi_sha256": "d5bd6f739a8455138c42130da491ad0611b1d8fa04d40d5d7d78beda0c0d6bd9",
   "commands": [
     {
       "use": "list [projectId]",
@@ -104,11 +104,6 @@
           "kind": "float64"
         },
         {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the ticket.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Ticket description or problem statement.",
           "kind": "string"
@@ -176,11 +171,6 @@
           "name": "budget_usd",
           "description": "Optional budget limit for the ticket in USD.",
           "kind": "float64"
-        },
-        {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the ticket.",
-          "kind": "string"
         },
         {
           "name": "description",
@@ -303,11 +293,6 @@
           "name": "body",
           "description": "Markdown body content for the ticket comment.",
           "kind": "string"
-        },
-        {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the comment.",
-          "kind": "string"
         }
       ]
     },
@@ -343,11 +328,6 @@
         {
           "name": "edit_reason",
           "description": "Reason recorded for editing the comment.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Actor identifier recorded as the editor of the comment.",
           "kind": "string"
         }
       ]
@@ -1231,11 +1211,6 @@
           "kind": "string"
         },
         {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the update thread.",
-          "kind": "string"
-        },
-        {
           "name": "status",
           "description": "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
           "kind": "string"
@@ -1279,11 +1254,6 @@
         {
           "name": "edit_reason",
           "description": "Reason recorded for editing the update thread.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Actor identifier recorded as the editor of the update thread.",
           "kind": "string"
         },
         {
@@ -1768,11 +1738,6 @@
           "kind": "string"
         },
         {
-          "name": "created_by",
-          "description": "Optional creator descriptor recorded on the initial workflow harness version.",
-          "kind": "string"
-        },
-        {
           "name": "finish_status_ids",
           "description": "Ticket status IDs that mark workflow completion.",
           "kind": "string_slice"
@@ -1874,11 +1839,6 @@
         {
           "name": "agent_id",
           "description": "Agent ID assigned to execute this workflow.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
           "kind": "string"
         },
         {
@@ -2024,11 +1984,6 @@
         {
           "name": "content",
           "description": "Harness content to write or validate.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Optional editor descriptor recorded on the published workflow harness version.",
           "kind": "string"
         }
       ]
@@ -3183,11 +3138,6 @@
         {
           "name": "content",
           "description": "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
-          "kind": "string"
-        },
-        {
-          "name": "created_by",
-          "description": "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
           "kind": "string"
         },
         {
