@@ -9,12 +9,12 @@ import {
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
-  effectivePermissionsMock,
-  hydrateOidcAuth,
 } from './security-settings.test-helpers'
+import { effectivePermissionsMock, hydrateOidcAuth } from './security-settings-human-auth.fixtures'
 
 const {
   deleteGitHubOutboundCredential,
+  getSessionGovernance,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
   revokeAllOtherAuthSessions,
@@ -23,6 +23,7 @@ const {
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
   deleteGitHubOutboundCredential: vi.fn(),
+  getSessionGovernance: vi.fn(),
   getSecuritySettings: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
   revokeAllOtherAuthSessions: vi.fn(),
@@ -33,42 +34,59 @@ const {
 
 const {
   createInstanceRoleBinding,
+  createOrganizationRoleBinding,
   createProjectRoleBinding,
+  inviteOrganizationMember,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getInstanceUserDetail,
   getEffectivePermissions,
+  listOrganizationMemberships,
   listInstanceRoleBindings,
   listInstanceUsers,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
+  cancelOrganizationInvitation,
+  resendOrganizationInvitation,
+  transferOrganizationOwnership,
+  updateOrganizationMembership,
 } = vi.hoisted(() => ({
   createInstanceRoleBinding: vi.fn(),
+  createOrganizationRoleBinding: vi.fn(),
   createProjectRoleBinding: vi.fn(),
+  inviteOrganizationMember: vi.fn(),
   deleteInstanceRoleBinding: vi.fn(),
   deleteOrganizationRoleBinding: vi.fn(),
   deleteProjectRoleBinding: vi.fn(),
   getInstanceUserDetail: vi.fn(),
   getEffectivePermissions: vi.fn(),
+  listOrganizationMemberships: vi.fn(),
   listInstanceRoleBindings: vi.fn(),
   listInstanceUsers: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
   logoutHumanSession: vi.fn(),
+  cancelOrganizationInvitation: vi.fn(),
+  resendOrganizationInvitation: vi.fn(),
+  transferOrganizationOwnership: vi.fn(),
+  updateOrganizationMembership: vi.fn(),
 }))
 
-const { goto } = vi.hoisted(() => ({
+const { goto, invalidateAll } = vi.hoisted(() => ({
   goto: vi.fn(),
+  invalidateAll: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('$app/navigation', () => ({
   goto,
+  invalidateAll,
 }))
 
 vi.mock('$lib/api/openase', () => ({
   deleteGitHubOutboundCredential,
+  getSessionGovernance,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
   revokeAllOtherAuthSessions,
@@ -79,18 +97,25 @@ vi.mock('$lib/api/openase', () => ({
 
 vi.mock('$lib/api/auth', () => ({
   createInstanceRoleBinding,
+  createOrganizationRoleBinding,
   createProjectRoleBinding,
+  inviteOrganizationMember,
   deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getInstanceUserDetail,
   getEffectivePermissions,
+  listOrganizationMemberships,
   listInstanceUsers,
   listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
+  cancelOrganizationInvitation,
+  resendOrganizationInvitation,
+  transferOrganizationOwnership,
+  updateOrganizationMembership,
 }))
 
 describe('Security settings', () => {
@@ -100,6 +125,7 @@ describe('Security settings', () => {
     appStore.currentOrg = null
     appStore.currentProject = null
     vi.clearAllMocks()
+    invalidateAll.mockClear()
   })
 
   it('renders the GitHub control plane alongside runtime boundaries', async () => {
@@ -191,6 +217,17 @@ describe('Security settings', () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    getSessionGovernance.mockResolvedValue({
+      authMode: 'oidc',
+      currentSessionID: 'session-current',
+      sessions: [],
+      auditEvents: [],
+      stepUp: {
+        status: 'reserved',
+        summary: 'Reserved for future high-risk actions.',
+        supportedMethods: [],
+      },
+    })
     getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) =>
       effectivePermissionsMock(
         orgId ? 'organization' : projectId ? 'project' : 'instance',
@@ -201,6 +238,7 @@ describe('Security settings', () => {
     listOrganizationRoleBindings.mockResolvedValue([])
     listProjectRoleBindings.mockResolvedValue([])
     listInstanceUsers.mockResolvedValue([])
+    listOrganizationMemberships.mockResolvedValue([])
     getInstanceUserDetail.mockResolvedValue({
       user: {
         id: '',

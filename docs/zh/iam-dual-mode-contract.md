@@ -14,7 +14,7 @@
 1. `disabled` 不是“弱化版 OIDC”，它不依赖 OIDC，也不要求浏览器登录。
 2. `disabled` 使用服务端定义的本地引导主体 `local_instance_admin:default`；它的 effective permissions 等同于 `instance_admin`，但不是一个真实 OIDC 用户。
 3. `oidc` 使用真实的人类主体和浏览器会话；`instance_admin` 是 OIDC 模式里的最高实例角色，而不是 disabled 模式的替代品。
-4. 从 `disabled` 切换到 `oidc` 必须是显式的管理流程：配置草稿、测试、校验、启用；失败时必须保留或恢复 disabled 体验。
+4. 从 `disabled` 切换到 `oidc` 必须是显式的管理流程：配置草稿、测试、启用；失败时必须保留或恢复 disabled 体验。
 
 ## 认证模式契约
 
@@ -101,20 +101,16 @@ Disabled 模式的规范主体是 `local_instance_admin:default`。
    - 拉取 discovery metadata 与 JWKS。
    - 检查 redirect URL 是否与当前 OpenASE base URL 语义匹配。
    - 不创建 user、identity、session 或 role binding。
-4. 执行 `Validate OIDC`。
-   - 用草稿配置初始化 OIDC client。
-   - 验证当前进程确实可以初始化 OIDC provider。
-   - 持久化与当前配置版本绑定的校验结果。
-   - 校验过程中仍保持 `auth.mode=disabled` 生效。
-5. 点击 `Enable OIDC`。
-   - 必须要求当前配置版本已有成功校验结果。
-   - 原子化持久化 `auth.mode=oidc`，并 reload / restart auth runtime。
-   - 如果 reload 失败，继续保持 disabled 运行态并向界面返回错误。
-6. 如果后续上线失败，可显式把 `auth.mode` 改回 `disabled`。OIDC 草稿配置可以保留，供后续重试。
+4. 点击 `Enable OIDC`。
+   - 在改变存储模式前，必须再次使用当前草稿配置完成 provider 初始化校验。
+   - 只有校验成功后，才持久化 `auth.mode=oidc`。
+   - 如果当前版本仍需要重启服务才能激活新模式，界面必须返回明确的后续步骤。
+   - 如果启用失败，继续保持 disabled 运行态并向界面返回错误。
+5. 如果后续上线失败，可显式把 `auth.mode` 改回 `disabled`。OIDC 草稿配置可以保留，供后续重试。
 
 ### 失败与回退规则
 
-- Test / Validate 失败都不会改变 active mode。
+- Test 失败不会改变 active mode。
 - Enable 失败时，系统保持最后一个已知正常模式。
 - Disabled 模式必须永久存在，作为回退目标。
 - 任何迁移步骤都不能要求先创建一个“本地 OIDC 用户”才能重新获得管理权限。
@@ -227,4 +223,4 @@ Parse 规则：
 - ASE-80 使用这里的 session device 与 audit actor 契约。
 - ASE-81 使用这里的 identity 与 deprovision 模型。
 - ASE-82 使用这里的 membership 与 invitation 模型。
-- ASE-83 使用这里的 settings、diagnostics、validation 与 rollout 流程。
+- ASE-83 使用这里的 settings、diagnostics、enablement 与 rollout 流程。

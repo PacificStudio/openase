@@ -42,6 +42,8 @@ import (
 type Server struct {
 	cfg                        config.ServerConfig
 	auth                       config.AuthConfig
+	configFilePath             string
+	homeDir                    string
 	github                     config.GitHubConfig
 	logger                     *slog.Logger
 	events                     provider.EventProvider
@@ -122,6 +124,18 @@ func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 func WithHumanAuthConfig(cfg config.AuthConfig) ServerOption {
 	return func(server *Server) {
 		server.auth = cfg
+	}
+}
+
+func WithRuntimeConfigFile(path string) ServerOption {
+	return func(server *Server) {
+		server.configFilePath = strings.TrimSpace(path)
+	}
+}
+
+func WithHomeDir(path string) ServerOption {
+	return func(server *Server) {
+		server.homeDir = strings.TrimSpace(path)
 	}
 }
 

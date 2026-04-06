@@ -14,7 +14,7 @@ This document defines the long-term IAM contract introduced by ASE-77. It is the
 1. `disabled` is not a weakened OIDC mode. It is a stable single-user product mode with no OIDC dependency and no browser login requirement.
 2. `disabled` mode uses a server-defined local bootstrap principal, `local_instance_admin:default`, whose effective permissions equal `instance_admin` without pretending to be a real OIDC user.
 3. `oidc` mode uses real human subjects and browser sessions. `instance_admin` remains the highest instance role, but it is an authorization role inside OIDC mode, not a replacement for disabled mode.
-4. Switching from `disabled` to `oidc` is an explicit admin workflow: configure draft OIDC settings, test, validate, and then enable. Failure must preserve or restore the disabled-mode experience.
+4. Switching from `disabled` to `oidc` is an explicit admin workflow: configure draft OIDC settings, test, and then enable. Failure must preserve or restore the disabled-mode experience.
 
 ## Auth Mode Contract
 
@@ -101,20 +101,16 @@ The mode switch is a configuration workflow, not a login side effect.
    - Fetch discovery metadata and JWKS.
    - Confirm the redirect URL is syntactically valid for the current OpenASE base URL.
    - Do not create users, identities, sessions, or role bindings.
-4. Run `Validate OIDC`.
-   - Instantiate the OIDC client from the draft config.
-   - Verify the current process can initialize the OIDC provider.
-   - Persist a validation result tied to the current config version.
-   - Keep `auth.mode=disabled` active during validation.
-5. Click `Enable OIDC`.
-   - Require a successful validation result for the same config version.
-   - Atomically persist `auth.mode=oidc` and reload or restart the auth runtime.
-   - If reload fails, keep the previous disabled-mode runtime active and surface the error.
-6. If production rollout fails later, explicitly set `auth.mode=disabled` again. The draft OIDC config may remain stored for later retry.
+4. Click `Enable OIDC`.
+   - Re-run provider initialization against the current draft config before changing the stored mode.
+   - Persist `auth.mode=oidc` only after that validation succeeds.
+   - Return explicit next steps when a service restart is still required to activate the new configured mode.
+   - If activation fails, keep the previous disabled-mode runtime active and surface the error.
+5. If production rollout fails later, explicitly set `auth.mode=disabled` again. The draft OIDC config may remain stored for later retry.
 
 ### Failure And Rollback Rules
 
-- Failed test or validation never changes the active mode.
+- Failed test never changes the active mode.
 - Failed enable keeps the last known good mode active.
 - Disabled mode remains permanently supported as the rollback target.
 - No migration step may require creating a fake local OIDC user just to recover admin access.
@@ -227,4 +223,4 @@ These flags should gate storage and API rollout, not the long-term existence of 
 - ASE-80 consumes the session device and audit actor contract.
 - ASE-81 consumes the identity and deprovision model.
 - ASE-82 consumes the membership and invitation model.
-- ASE-83 consumes the settings, diagnostics, validation, and rollout workflow.
+- ASE-83 consumes the settings, diagnostics, enablement, and rollout workflow.

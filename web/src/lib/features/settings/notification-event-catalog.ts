@@ -59,7 +59,10 @@ export function buildEventCatalog(eventTypes: NotificationRuleEventType[]): Even
   }))
 }
 
-export function getSeverity(eventType: string, eventTypes: NotificationRuleEventType[]): EventSeverity {
+export function getSeverity(
+  eventType: string,
+  eventTypes: NotificationRuleEventType[],
+): EventSeverity {
   const et = eventTypes.find((e) => e.event_type === eventType)
   return normalizeSeverity(et?.level)
 }

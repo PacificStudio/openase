@@ -27,6 +27,64 @@ export function currentOrg() {
 export function configuredSecurity() {
   return {
     project_id: currentProject().id,
+    auth: {
+      active_mode: authStore.authMode || 'disabled',
+      configured_mode: authStore.authMode || 'disabled',
+      issuer_url: authStore.issuerURL || '',
+      local_principal: 'local_instance_admin:default',
+      mode_summary:
+        authStore.authMode === 'oidc'
+          ? 'OIDC is active. Browser sessions, RBAC, cached users, memberships, invitations, and auth audit diagnostics are enforced from this control plane.'
+          : 'Disabled mode keeps OpenASE in local single-user operation. The current user keeps local highest privilege without browser login or OIDC dependency.',
+      recommended_mode:
+        authStore.authMode === 'oidc'
+          ? 'Use OIDC for multi-user or networked deployments, then keep bootstrap admin emails narrow after first login.'
+          : 'Keep disabled mode for personal or local-only use. Move to OIDC + instance_admin when you need real multi-user browser access control.',
+      public_exposure_risk: 'local_only',
+      warnings: [
+        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+      ],
+      next_steps: [
+        'You can keep disabled mode for local single-user use with no extra IAM overhead.',
+        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+      ],
+      config_path: '/home/test/.openase/config.yaml',
+      bootstrap_state: {
+        status: 'configured',
+        admin_emails: ['admin@example.com'],
+        summary:
+          '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
+      },
+      oidc_draft: {
+        issuer_url: 'https://idp.example.com',
+        client_id: 'openase',
+        client_secret_configured: true,
+        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        scopes: ['openid', 'profile', 'email', 'groups'],
+        allowed_email_domains: ['example.com'],
+        bootstrap_admin_emails: ['admin@example.com'],
+      },
+      docs: [
+        {
+          title: 'Mode selection guide',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
+          summary:
+            'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+        },
+        {
+          title: 'Dual-mode contract',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
+          summary:
+            'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+        },
+        {
+          title: 'IAM rollout checklist',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
+          summary:
+            'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+        },
+      ],
+    },
     agent_tokens: {
       transport: 'Bearer token',
       environment_variable: 'OPENASE_AGENT_TOKEN',
@@ -105,6 +163,21 @@ export function configuredSecurity() {
   }
 }
 
+export function disabledSecurity() {
+  return {
+    ...configuredSecurity(),
+    auth: {
+      ...configuredSecurity().auth,
+      active_mode: 'disabled',
+      configured_mode: 'disabled',
+      issuer_url: '',
+      warnings: [
+        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+      ],
+    },
+  }
+}
+
 export function configuredSecurityWithNullPermissions() {
   const security = configuredSecurity()
   return {
@@ -133,124 +206,5 @@ export function configuredSecurityWithNullPermissions() {
         },
       },
     },
-  }
-}
-
-export function oidcUser() {
-  return {
-    id: 'user-1',
-    primaryEmail: 'alice@example.com',
-    displayName: 'Alice Control Plane',
-  }
-}
-
-export function hydrateOidcAuth() {
-  authStore.hydrate({
-    authMode: 'oidc',
-    authenticated: true,
-    issuerURL: 'https://idp.example.com',
-    csrfToken: 'csrf-token',
-    user: oidcUser(),
-    roles: ['instance_admin'],
-    permissions: ['org.update'],
-  })
-}
-
-type MockScope = 'instance' | 'organization' | 'project'
-
-export function effectivePermissionsMock(scope: MockScope, id = '') {
-  return {
-    user: {
-      id: oidcUser().id,
-      primary_email: oidcUser().primaryEmail,
-      display_name: oidcUser().displayName,
-    },
-    scope: { kind: scope, id },
-    roles:
-      scope === 'instance'
-        ? ['instance_admin']
-        : scope === 'organization'
-          ? ['org_admin']
-          : ['project_admin'],
-    permissions:
-      scope === 'instance'
-        ? ['rbac.manage', 'security.read', 'security.manage']
-        : [`${scope}.read`, 'rbac.manage'],
-    groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-  }
-}
-
-export function configuredSessionGovernance() {
-  return {
-    authMode: 'oidc' as const,
-    currentSessionID: 'session-current',
-    sessions: [
-      {
-        id: 'session-current',
-        current: true,
-        device: { kind: 'desktop', os: 'Linux', browser: 'Firefox', label: 'Firefox on Linux' },
-        createdAt: '2026-04-04T10:00:00Z',
-        lastActiveAt: '2026-04-04T10:30:00Z',
-        expiresAt: '2026-04-04T18:00:00Z',
-        idleExpiresAt: '2026-04-04T11:00:00Z',
-      },
-    ],
-    auditEvents: [
-      {
-        id: 'audit-1',
-        eventType: 'login.success',
-        actorID: 'user:user-1',
-        message: 'Signed in via OIDC.',
-        metadata: {},
-        createdAt: '2026-04-04T10:00:00Z',
-      },
-    ],
-    stepUp: {
-      status: 'reserved',
-      summary: 'Reserved for future high-risk actions.',
-      supportedMethods: [],
-    },
-  }
-}
-
-export async function mockEffectivePermissionsByScope({
-  orgId,
-  projectId,
-}: {
-  orgId?: string
-  projectId?: string
-}) {
-  if (!orgId && !projectId) {
-    return effectivePermissionsMock('instance')
-  }
-  if (orgId) {
-    return effectivePermissionsMock('organization', orgId)
-  }
-  return effectivePermissionsMock('project', projectId ?? '')
-}
-
-export function organizationGroupBinding() {
-  return {
-    id: 'binding-1',
-    scopeKind: 'organization',
-    scopeID: currentOrg().id,
-    subjectKind: 'group',
-    subjectKey: 'platform-admins',
-    roleKey: 'org_admin',
-    grantedBy: 'user:user-1',
-    createdAt: '2026-04-04T09:00:00Z',
-  }
-}
-
-export function createdOrganizationUserBinding() {
-  return {
-    id: 'binding-2',
-    scopeKind: 'organization',
-    scopeID: currentOrg().id,
-    subjectKind: 'user',
-    subjectKey: 'bob@example.com',
-    roleKey: 'org_member',
-    grantedBy: 'user:user-1',
-    createdAt: '2026-04-04T10:00:00Z',
   }
 }

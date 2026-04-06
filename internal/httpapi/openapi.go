@@ -1555,12 +1555,56 @@ type OpenAPISecurityDeferredCapability struct {
 	Summary string `json:"summary"`
 }
 
+type OpenAPISecurityScopeGroup struct {
+	Category string   `json:"category"`
+	Scopes   []string `json:"scopes"`
+}
+
 type OpenAPISecurityAgentTokens struct {
-	Transport              string   `json:"transport"`
-	EnvironmentVariable    string   `json:"environment_variable"`
-	TokenPrefix            string   `json:"token_prefix"`
-	DefaultScopes          []string `json:"default_scopes"`
-	SupportedProjectScopes []string `json:"supported_project_scopes"`
+	Transport              string                      `json:"transport"`
+	EnvironmentVariable    string                      `json:"environment_variable"`
+	TokenPrefix            string                      `json:"token_prefix"`
+	DefaultScopes          []string                    `json:"default_scopes"`
+	SupportedProjectScopes []string                    `json:"supported_project_scopes"`
+	SupportedScopeGroups   []OpenAPISecurityScopeGroup `json:"supported_scope_groups"`
+}
+
+type OpenAPISecurityAuthBootstrapState struct {
+	Status      string   `json:"status"`
+	AdminEmails []string `json:"admin_emails"`
+	Summary     string   `json:"summary"`
+}
+
+type OpenAPISecurityOIDCDraft struct {
+	IssuerURL              string   `json:"issuer_url"`
+	ClientID               string   `json:"client_id"`
+	ClientSecretConfigured bool     `json:"client_secret_configured"`
+	RedirectURL            string   `json:"redirect_url"`
+	Scopes                 []string `json:"scopes"`
+	AllowedEmailDomains    []string `json:"allowed_email_domains"`
+	BootstrapAdminEmails   []string `json:"bootstrap_admin_emails"`
+}
+
+type OpenAPISecurityDocumentationLink struct {
+	Title   string `json:"title"`
+	Href    string `json:"href"`
+	Summary string `json:"summary"`
+}
+
+type OpenAPISecurityAuthSettings struct {
+	ActiveMode         string                             `json:"active_mode"`
+	ConfiguredMode     string                             `json:"configured_mode"`
+	IssuerURL          string                             `json:"issuer_url,omitempty"`
+	LocalPrincipal     string                             `json:"local_principal"`
+	ModeSummary        string                             `json:"mode_summary"`
+	RecommendedMode    string                             `json:"recommended_mode"`
+	PublicExposureRisk string                             `json:"public_exposure_risk"`
+	Warnings           []string                           `json:"warnings"`
+	NextSteps          []string                           `json:"next_steps"`
+	ConfigPath         string                             `json:"config_path,omitempty"`
+	BootstrapState     OpenAPISecurityAuthBootstrapState  `json:"bootstrap_state"`
+	OIDCDraft          OpenAPISecurityOIDCDraft           `json:"oidc_draft"`
+	Docs               []OpenAPISecurityDocumentationLink `json:"docs"`
 }
 
 type OpenAPISecurityWebhooks struct {
@@ -1581,6 +1625,7 @@ type OpenAPIGitHubTokenProbe struct {
 	State       string   `json:"state"`
 	Configured  bool     `json:"configured"`
 	Valid       bool     `json:"valid"`
+	Login       string   `json:"login,omitempty"`
 	Permissions []string `json:"permissions"`
 	RepoAccess  string   `json:"repo_access"`
 	CheckedAt   *string  `json:"checked_at,omitempty"`
@@ -1603,6 +1648,7 @@ type OpenAPIGitHubOutboundCredential struct {
 
 type OpenAPISecuritySettings struct {
 	ProjectID        string                              `json:"project_id"`
+	Auth             OpenAPISecurityAuthSettings         `json:"auth"`
 	AgentTokens      OpenAPISecurityAgentTokens          `json:"agent_tokens"`
 	GitHub           OpenAPIGitHubOutboundCredential     `json:"github"`
 	Webhooks         OpenAPISecurityWebhooks             `json:"webhooks"`
@@ -1613,6 +1659,28 @@ type OpenAPISecuritySettings struct {
 
 type OpenAPISecuritySettingsResponse struct {
 	Security OpenAPISecuritySettings `json:"security"`
+}
+
+type OpenAPISecurityOIDCTestResponse struct {
+	Status                string   `json:"status"`
+	Message               string   `json:"message"`
+	IssuerURL             string   `json:"issuer_url"`
+	AuthorizationEndpoint string   `json:"authorization_endpoint"`
+	TokenEndpoint         string   `json:"token_endpoint"`
+	RedirectURL           string   `json:"redirect_url"`
+	Warnings              []string `json:"warnings"`
+}
+
+type OpenAPISecurityOIDCActivation struct {
+	Status          string   `json:"status"`
+	Message         string   `json:"message"`
+	RestartRequired bool     `json:"restart_required"`
+	NextSteps       []string `json:"next_steps"`
+}
+
+type OpenAPISecurityOIDCEnableResponse struct {
+	Activation OpenAPISecurityOIDCActivation `json:"activation"`
+	Security   OpenAPISecuritySettings       `json:"security"`
 }
 
 type OpenAPIAuthSessionUser struct {
@@ -1881,6 +1949,7 @@ type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
+type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -2021,6 +2090,16 @@ var (
 	openAPIGitHubCredentialDescriptions = map[string]string{
 		"scope": "Credential scope to mutate. Supported values are organization and project.",
 		"token": "GitHub token value copied into platform-managed secret storage.",
+	}
+	// #nosec G101 -- "client_secret" is an OpenAPI field name/description, not a credential literal.
+	openAPIOIDCDraftDescriptions = map[string]string{
+		"issuer_url":             "OIDC issuer discovery URL used to resolve the provider metadata document.",
+		"client_id":              "OAuth client ID registered for the OpenASE browser login application.",
+		"client_secret":          "OAuth client secret stored server-side for the configured OIDC client.",
+		"redirect_url":           "Browser callback URL that must match the OIDC provider client registration.",
+		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
+		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
+		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
 	}
 	openAPIAgentRequestDescriptions = map[string]string{
 		"name":        "Human-readable agent name.",
@@ -2293,6 +2372,9 @@ var (
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential":                openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
+		"PUT /api/v1/projects/{projectId}/security-settings/oidc-draft":                                openAPIOIDCDraftDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/oidc-draft/test":                          openAPIOIDCDraftDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/oidc-enable":                              openAPIOIDCDraftDescriptions,
 		"POST /api/v1/projects/{projectId}/agents":                                                     openAPIAgentRequestDescriptions,
 		"PATCH /api/v1/agents/{agentId}":                                                               openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
@@ -5337,6 +5419,63 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	securityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings", http.MethodGet, securityGet)
+
+	oidcDraftPut, err := b.jsonOperation(
+		"saveOIDCDraft",
+		"Save an OIDC draft configuration without changing the active auth mode",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecuritySettingsResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	oidcDraftPut.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/oidc-draft", http.MethodPut, oidcDraftPut)
+
+	oidcDraftTest, err := b.jsonOperation(
+		"testOIDCDraft",
+		"Test OIDC discovery using the provided draft configuration",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecurityOIDCTestResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	oidcDraftTest.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/oidc-draft/test", http.MethodPost, oidcDraftTest)
+
+	oidcEnable, err := b.jsonOperation(
+		"enableOIDC",
+		"Persist the OIDC draft and switch the configured auth mode to oidc",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecurityOIDCEnableResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	oidcEnable.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/oidc-enable", http.MethodPost, oidcEnable)
 
 	securityPut, err := b.jsonOperation(
 		"saveGitHubOutboundCredential",

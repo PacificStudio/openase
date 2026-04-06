@@ -4,14 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appStore } from '$lib/stores/app.svelte'
 import { authStore } from '$lib/stores/auth.svelte'
 import SecuritySettings from './security-settings.svelte'
+import { configuredSecurity, currentOrg, currentProject } from './security-settings.test-helpers'
 import {
-  configuredSecurity,
   configuredSessionGovernance,
-  currentOrg,
-  currentProject,
   hydrateOidcAuth,
   mockEffectivePermissionsByScope,
-} from './security-settings.test-helpers'
+} from './security-settings-human-auth.fixtures'
 
 const { getSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
   getSecuritySettings: vi.fn(),
@@ -19,21 +17,33 @@ const { getSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
 }))
 
 const {
+  cancelOrganizationInvitation,
   getEffectivePermissions,
   getInstanceUserDetail,
+  inviteOrganizationMember,
   listInstanceRoleBindings,
   listInstanceUsers,
+  listOrganizationMemberships,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
+  resendOrganizationInvitation,
+  transferOrganizationOwnership,
   transitionInstanceUserStatus,
+  updateOrganizationMembership,
 } = vi.hoisted(() => ({
+  cancelOrganizationInvitation: vi.fn(),
   getEffectivePermissions: vi.fn(),
   getInstanceUserDetail: vi.fn(),
+  inviteOrganizationMember: vi.fn(),
   listInstanceRoleBindings: vi.fn(),
   listInstanceUsers: vi.fn(),
+  listOrganizationMemberships: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
+  resendOrganizationInvitation: vi.fn(),
+  transferOrganizationOwnership: vi.fn(),
   transitionInstanceUserStatus: vi.fn(),
+  updateOrganizationMembership: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
@@ -42,14 +52,20 @@ vi.mock('$lib/api/openase', () => ({
 }))
 
 vi.mock('$lib/api/auth', () => ({
+  cancelOrganizationInvitation,
   getEffectivePermissions,
   getInstanceUserDetail,
+  inviteOrganizationMember,
   listInstanceRoleBindings,
   listInstanceUsers,
+  listOrganizationMemberships,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
+  resendOrganizationInvitation,
+  transferOrganizationOwnership,
   transitionInstanceUserStatus,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
+  updateOrganizationMembership,
 }))
 
 function seedUserDirectory() {
@@ -59,6 +75,7 @@ function seedUserDirectory() {
   getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
   getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
   listInstanceRoleBindings.mockResolvedValue([])
+  listOrganizationMemberships.mockResolvedValue([])
   listOrganizationRoleBindings.mockResolvedValue([])
   listProjectRoleBindings.mockResolvedValue([])
   getSessionGovernance.mockResolvedValue(configuredSessionGovernance())

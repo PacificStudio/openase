@@ -37,6 +37,8 @@ import type {
   NotificationRuleEventTypesPayload,
   NotificationRulePayload,
   NotificationRuleResponse,
+  OIDCDraftTestResponse,
+  OIDCEnableResponse,
   ProjectRepoPayload,
   ProjectArchiveResponse,
   ProjectUpdateCommentCreateResponse,
@@ -285,6 +287,64 @@ export function getProject(projectId: string) {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function saveOIDCDraft(
+  projectId: string,
+  body: {
+    issuer_url: string
+    client_id: string
+    client_secret?: string
+    redirect_url: string
+    scopes: string[]
+    allowed_email_domains: string[]
+    bootstrap_admin_emails: string[]
+  },
+) {
+  return api.put<SecuritySettingsResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
+    {
+      body,
+    },
+  )
+}
+
+export function testOIDCDraft(
+  projectId: string,
+  body: {
+    issuer_url: string
+    client_id: string
+    client_secret?: string
+    redirect_url: string
+    scopes: string[]
+    allowed_email_domains: string[]
+    bootstrap_admin_emails: string[]
+  },
+) {
+  return api.post<OIDCDraftTestResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
+    { body },
+  )
+}
+
+export function enableOIDC(
+  projectId: string,
+  body: {
+    issuer_url: string
+    client_id: string
+    client_secret?: string
+    redirect_url: string
+    scopes: string[]
+    allowed_email_domains: string[]
+    bootstrap_admin_emails: string[]
+  },
+) {
+  return api.post<OIDCEnableResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
+    {
+      body,
+    },
+  )
 }
 
 export function getSessionGovernance() {

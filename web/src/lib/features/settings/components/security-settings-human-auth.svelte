@@ -5,6 +5,9 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Shield } from '@lucide/svelte'
   import SecuritySettingsHumanAuthAuthenticatedView from './security-settings-human-auth-authenticated-view.svelte'
+  import SecuritySettingsHumanAuthGuideLinks from './security-settings-human-auth-guide-links.svelte'
+  import SecuritySettingsHumanAuthSignInHint from './security-settings-human-auth-sign-in-hint.svelte'
+  import SecuritySettingsHumanAuthSetupPanel from './security-settings-human-auth-setup-panel.svelte'
   import SecuritySettingsHumanAuthSummary from './security-settings-human-auth-summary.svelte'
   import {
     createRoleBindingForScope,
@@ -19,14 +22,12 @@
     type BindingDraft,
     type ScopeKind,
   } from './security-settings-human-auth.model'
+  import {
+    type ApprovalPoliciesSummary,
+    type SecuritySettingsSecurity,
+  } from './security-settings-human-auth.types'
 
-  type ApprovalPoliciesSummary = {
-    status: string
-    rules_count: number
-    summary: string
-  }
-
-  let { approvalPolicies = null }: { approvalPolicies?: ApprovalPoliciesSummary | null } = $props()
+  let { security = null }: { security?: SecuritySettingsSecurity | null } = $props()
 
   let loading = $state(false)
   let error = $state('')
@@ -40,7 +41,10 @@
   let instanceDraft = $state<BindingDraft>(defaultBindingDraftForScope('instance'))
   let orgDraft = $state<BindingDraft>(defaultBindingDraftForScope('organization'))
   let projectDraft = $state<BindingDraft>(defaultBindingDraftForScope('project'))
-
+  const approvalPolicies = $derived<ApprovalPoliciesSummary | null>(
+    security?.approval_policies ?? null,
+  )
+  const authSummary = $derived(security?.auth ?? null)
   const currentOrgId = $derived(appStore.currentOrg?.id ?? '')
   const currentProjectId = $derived(appStore.currentProject?.id ?? '')
   const currentGroups = $derived(projectPermissions?.groups ?? orgPermissions?.groups ?? [])
@@ -229,32 +233,38 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <Shield class="text-muted-foreground size-4" />
-    <h3 class="text-sm font-semibold">Human access and RBAC</h3>
+    <h3 class="text-sm font-semibold">Human access and IAM</h3>
   </div>
 
-  <SecuritySettingsHumanAuthSummary
-    authMode={authStore.authMode}
-    issuerURL={authStore.issuerURL}
-    user={authStore.user}
-  />
-  {#if authStore.authMode !== 'oidc'}
-    <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-      Human auth is disabled. Persistent Project Conversation ownership falls back to the stable
-      local principal <code>local-user:default</code>. Enable <code>auth.mode=oidc</code> to enforce browser
-      login and RBAC.
-    </div>
-  {:else if !authStore.authenticated}
-    <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-      Sign in to inspect effective permissions and manage role bindings.
-    </div>
+  {#if authSummary}
+    <SecuritySettingsHumanAuthSummary
+      authMode={authSummary.active_mode}
+      configuredMode={authSummary.configured_mode}
+      issuerURL={authSummary.issuer_url ?? ''}
+      user={authStore.user}
+      bootstrapSummary={authSummary.bootstrap_state.summary}
+      publicExposureRisk={authSummary.public_exposure_risk}
+      localPrincipal={authSummary.local_principal}
+    />
+  {/if}
+
+  {#if authSummary && authStore.authMode !== 'oidc'}
+    <SecuritySettingsHumanAuthSetupPanel
+      auth={authSummary}
+      projectId={currentProjectId}
+      onSecurityChange={(nextSecurity) => (security = nextSecurity)}
+    />
+  {:else if authStore.authMode === 'oidc' && !authStore.authenticated}
+    <SecuritySettingsHumanAuthSignInHint />
   {:else if loading}
     <div class="space-y-3">
       <div class="bg-muted h-16 animate-pulse rounded-lg"></div>
       <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
     </div>
-  {:else}
+  {:else if authStore.authMode === 'oidc'}
     <SecuritySettingsHumanAuthAuthenticatedView
       user={authStore.user}
+      {currentOrgId}
       currentOrgName={appStore.currentOrg?.name ?? ''}
       currentProjectName={appStore.currentProject?.name ?? ''}
       {currentGroups}
@@ -280,5 +290,9 @@
       onCreateBinding={(scope) => void handleCreateBinding(scope)}
       onDeleteBinding={(scope, bindingId) => void handleDeleteBinding(scope, bindingId)}
     />
+  {/if}
+
+  {#if authSummary}
+    <SecuritySettingsHumanAuthGuideLinks docs={authSummary.docs} />
   {/if}
 </div>

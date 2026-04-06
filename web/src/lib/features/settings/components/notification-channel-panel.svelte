@@ -189,7 +189,7 @@
     <div class="grid gap-3 sm:grid-cols-2">
       {#each channels as channel (channel.id)}
         <div
-          class="border-border bg-card group rounded-lg border px-4 py-3 transition-colors hover:border-border"
+          class="border-border bg-card group hover:border-border rounded-lg border px-4 py-3 transition-colors"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
@@ -209,8 +209,13 @@
               onCheckedChange={() => handleToggle(channel)}
             />
           </div>
-          <div class="mt-3 flex items-center gap-1.5 border-t border-border/50 pt-3">
-            <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={() => openEdit(channel)}>
+          <div class="border-border/50 mt-3 flex items-center gap-1.5 border-t pt-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              class="h-7 px-2 text-xs"
+              onclick={() => openEdit(channel)}
+            >
               Edit
             </Button>
             <Button
@@ -230,7 +235,7 @@
 
   {#if creatingNew}
     <div class="border-border bg-card rounded-lg border">
-      <div class="flex items-center justify-between border-b border-border/50 px-5 py-3">
+      <div class="border-border/50 flex items-center justify-between border-b px-5 py-3">
         <h4 class="text-sm font-medium">
           {editingChannel ? `Edit: ${editingChannel.name}` : 'New channel'}
         </h4>

@@ -1440,6 +1440,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security-settings/oidc-draft': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Save an OIDC draft configuration without changing the active auth mode */
+    put: operations['saveOIDCDraft']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/oidc-draft/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Test OIDC discovery using the provided draft configuration */
+    post: operations['testOIDCDraft']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/oidc-enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Persist the OIDC draft and switch the configured auth mode to oidc */
+    post: operations['enableOIDC']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/skills': {
     parameters: {
       query?: never
@@ -11836,6 +11887,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -11843,6 +11898,37 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -11856,6 +11942,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -11871,6 +11958,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -11886,6 +11974,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12003,6 +12092,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -12010,6 +12103,37 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -12023,6 +12147,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12038,6 +12163,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12053,6 +12179,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12163,6 +12290,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -12170,6 +12301,37 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -12183,6 +12345,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12198,6 +12361,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12213,6 +12377,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12328,6 +12493,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -12335,6 +12504,37 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -12348,6 +12548,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12363,6 +12564,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12378,6 +12580,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12493,6 +12696,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -12500,6 +12707,37 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -12513,6 +12751,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12528,6 +12767,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -12543,6 +12783,554 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Save an OIDC draft configuration without changing the active auth mode request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Save an OIDC draft configuration without changing the active auth mode response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                token_prefix?: string
+                transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                notification_channel_configs_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Test OIDC discovery using the provided draft configuration request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Test OIDC discovery using the provided draft configuration response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            authorization_endpoint?: string
+            issuer_url?: string
+            message?: string
+            redirect_url?: string
+            status?: string
+            token_endpoint?: string
+            warnings?: string[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  enableOIDC: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Persist the OIDC draft and switch the configured auth mode to oidc request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Persist the OIDC draft and switch the configured auth mode to oidc response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            activation?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                token_prefix?: string
+                transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  issuer_url?: string
+                  redirect_url?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                warnings?: string[]
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string

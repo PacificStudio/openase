@@ -62,6 +62,12 @@ type CallbackResult struct {
 	Principal    domain.AuthenticatedPrincipal
 }
 
+type OIDCProviderDiagnostics struct {
+	IssuerURL             string
+	AuthorizationEndpoint string
+	TokenEndpoint         string
+}
+
 type CreateRoleBindingInput struct {
 	SubjectKind string
 	SubjectKey  string
@@ -95,6 +101,22 @@ func NewService(cfg config.AuthConfig, repository *repo.Repository, httpClient *
 		repo:       repository,
 		httpClient: httpClient,
 	}
+}
+
+func InspectOIDCProvider(
+	ctx context.Context,
+	cfg config.AuthConfig,
+	httpClient *http.Client,
+) (OIDCProviderDiagnostics, error) {
+	service := NewService(cfg, nil, httpClient)
+	if _, err := service.oauthConfig(ctx); err != nil {
+		return OIDCProviderDiagnostics{}, err
+	}
+	return OIDCProviderDiagnostics{
+		IssuerURL:             strings.TrimSpace(cfg.OIDC.IssuerURL),
+		AuthorizationEndpoint: service.provider.Endpoint().AuthURL,
+		TokenEndpoint:         service.provider.Endpoint().TokenURL,
+	}, nil
 }
 
 func (s *Service) Mode() config.AuthMode {

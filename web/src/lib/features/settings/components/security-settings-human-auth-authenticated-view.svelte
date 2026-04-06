@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { EffectivePermissionsResponse, RoleBinding } from '$lib/api/auth'
+  import { OrganizationMembersSection } from '$lib/features/organizations'
   import type { HumanAuthUser } from '$lib/stores/auth.svelte'
   import { LockKeyhole, Users } from '@lucide/svelte'
   import SecuritySettingsHumanAuthAccessCard from './security-settings-human-auth-access-card.svelte'
@@ -22,6 +23,7 @@
 
   let {
     user = null,
+    currentOrgId = '',
     currentOrgName = '',
     currentProjectName = '',
     currentGroups = [],
@@ -48,6 +50,7 @@
     onDeleteBinding,
   }: {
     user?: HumanAuthUser | null
+    currentOrgId?: string
     currentOrgName?: string
     currentProjectName?: string
     currentGroups?: GroupSummary[]
@@ -218,3 +221,7 @@
   onCreate={onCreateBinding}
   onDelete={onDeleteBinding}
 />
+
+{#if currentOrgId}
+  <OrganizationMembersSection organizationId={currentOrgId} />
+{/if}

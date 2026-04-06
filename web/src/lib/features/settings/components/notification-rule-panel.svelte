@@ -226,7 +226,7 @@
 
   {#if creatingNew && canCreateRule}
     <div class="border-border bg-card rounded-lg border">
-      <div class="flex items-center justify-between border-b border-border/50 px-5 py-3">
+      <div class="border-border/50 flex items-center justify-between border-b px-5 py-3">
         <h4 class="text-sm font-medium">
           {editingRule ? `Edit: ${editingRule.name}` : 'New rule'}
         </h4>

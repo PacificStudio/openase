@@ -62,9 +62,14 @@ Set up notification rules for project events:
 
 Manage project security credentials:
 
+- Human auth / IAM overview for disabled and OIDC modes
+- Disabled-mode auth setup with explicit OIDC draft save, discovery test, and enable actions
+- Effective access, role bindings, session inventory, user directory, and organization member diagnostics
 - GitHub credential management
 - SSH key management
 - Outbound credential testing
+
+Security now doubles as the operator console for IAM rollout. In local single-user deployments, you can stay on `auth.mode=disabled` with the built-in local admin principal. When you need multi-user browser access, configure OIDC here, test the provider, and then enable it explicitly.
 
 ### Archived Tickets
 
@@ -81,6 +86,8 @@ When setting up a project for the first time, configure in this order:
 3. **Repositories** — Connect code repositories and test the connection
 4. **Security** — Configure necessary credentials
 5. **Notifications** — (Optional) Set up notification rules
+
+If you plan to expose the instance beyond loopback, move Security configuration earlier and decide whether `auth.mode=disabled` is still acceptable before inviting additional users.
 
 ## Tips
 
