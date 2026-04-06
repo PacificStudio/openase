@@ -2091,6 +2091,7 @@ var (
 		"scope": "Credential scope to mutate. Supported values are organization and project.",
 		"token": "GitHub token value copied into platform-managed secret storage.",
 	}
+	// #nosec G101 -- "client_secret" is an OpenAPI field name/description, not a credential literal.
 	openAPIOIDCDraftDescriptions = map[string]string{
 		"issuer_url":             "OIDC issuer discovery URL used to resolve the provider metadata document.",
 		"client_id":              "OAuth client ID registered for the OpenASE browser login application.",

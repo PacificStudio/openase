@@ -128,7 +128,7 @@
 
   <Separator />
 
-  <SecuritySettingsHumanAuth security={security} />
+  <SecuritySettingsHumanAuth {security} />
 
   <Separator />
 

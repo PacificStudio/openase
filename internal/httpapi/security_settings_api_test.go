@@ -347,6 +347,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 		t.Fatal("expected saved oidc client secret to be marked as configured")
 	}
 
+	// #nosec G304 -- configPath is created inside this test's TempDir.
 	written, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read config file: %v", err)
@@ -447,6 +448,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 		t.Fatalf("configured mode = %q, want oidc", payload.Security.Auth.ConfiguredMode)
 	}
 
+	// #nosec G304 -- configPath is created inside this test's TempDir.
 	written, err := os.ReadFile(configPath)
 	if err != nil {
 		t.Fatalf("read config file: %v", err)

@@ -159,7 +159,9 @@
           id="oidc-client-secret"
           type="password"
           value={form.clientSecret}
-          placeholder={auth.oidc_draft.client_secret_configured ? 'Leave blank to keep the saved secret' : 'Paste the current client secret'}
+          placeholder={auth.oidc_draft.client_secret_configured
+            ? 'Leave blank to keep the saved secret'
+            : 'Paste the current client secret'}
           oninput={(event) => onClientSecret((event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-[11px]">
@@ -232,7 +234,9 @@
     {/if}
 
     {#if testResult}
-      <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+      <div
+        class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+      >
         <div class="flex items-start gap-2">
           <CheckCircle2 class="mt-0.5 size-4 shrink-0" />
           <div class="space-y-2">
@@ -268,13 +272,15 @@
     {/if}
 
     {#if enableResult}
-      <div class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
+      <div
+        class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950"
+      >
         <div class="flex items-start gap-2">
           <CheckCircle2 class="mt-0.5 size-4 shrink-0" />
           <div class="space-y-2">
             <div class="font-medium">{enableResult.message}</div>
             {#if enableResult.restart_required}
-              <div class="text-xs font-medium uppercase tracking-wide text-indigo-700">
+              <div class="text-xs font-medium tracking-wide text-indigo-700 uppercase">
                 Restart required
               </div>
             {/if}

@@ -301,9 +301,12 @@ export function saveOIDCDraft(
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api.put<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings/oidc-draft`, {
-    body,
-  })
+  return api.put<SecuritySettingsResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
+    {
+      body,
+    },
+  )
 }
 
 export function testOIDCDraft(
@@ -336,9 +339,12 @@ export function enableOIDC(
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api.post<OIDCEnableResponse>(`/api/v1/projects/${projectId}/security-settings/oidc-enable`, {
-    body,
-  })
+  return api.post<OIDCEnableResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
+    {
+      body,
+    },
+  )
 }
 
 export function getSessionGovernance() {

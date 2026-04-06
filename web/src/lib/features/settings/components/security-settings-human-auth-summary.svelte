@@ -34,7 +34,9 @@
   </div>
   <div>
     <div class="text-muted-foreground">{user ? 'Current user' : 'Local principal'}</div>
-    <div class="text-foreground mt-1 font-medium">{user?.displayName || localPrincipal || 'Anonymous'}</div>
+    <div class="text-foreground mt-1 font-medium">
+      {user?.displayName || localPrincipal || 'Anonymous'}
+    </div>
     {#if user?.primaryEmail}
       <div class="text-muted-foreground break-all">{user.primaryEmail}</div>
     {:else if localPrincipal}
