@@ -1,13 +1,7 @@
 <script lang="ts">
   import { DropdownMenu as DropdownMenuPrimitive } from 'bits-ui'
   import * as DropdownMenu from '$ui/dropdown-menu'
-  import {
-    ExternalLink,
-    Archive,
-    Copy,
-    CircleDot,
-    Signal,
-  } from '@lucide/svelte'
+  import { ExternalLink, Archive, Copy, CircleDot, Signal } from '@lucide/svelte'
   import { cn } from '$lib/utils'
   import { formatBoardPriorityLabel, type BoardPriority } from '../priority'
   import type { BoardStatusOption, BoardTicket } from '../types'
@@ -72,10 +66,7 @@
     aria-hidden="true"
   />
   <DropdownMenu.Content class="w-48">
-    <DropdownMenu.Item
-      class="gap-2 text-xs"
-      onclick={() => onOpenDetails?.(ticket)}
-    >
+    <DropdownMenu.Item class="gap-2 text-xs" onclick={() => onOpenDetails?.(ticket)}>
       <ExternalLink class="size-3.5" />
       Open details
     </DropdownMenu.Item>
@@ -126,10 +117,7 @@
 
     <DropdownMenu.Separator />
 
-    <DropdownMenu.Item
-      class="gap-2 text-xs"
-      onclick={handleCopyTicketId}
-    >
+    <DropdownMenu.Item class="gap-2 text-xs" onclick={handleCopyTicketId}>
       <Copy class="size-3.5" />
       Copy ticket ID
     </DropdownMenu.Item>

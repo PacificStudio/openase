@@ -232,7 +232,10 @@ async function handleColumnArchiveAll(
 }
 
 export async function handleTicketArchive(
-  state: Pick<TicketsPageControllerActionsState, 'allColumns' | 'persistBoardSnapshot' | 'requestReload'>,
+  state: Pick<
+    TicketsPageControllerActionsState,
+    'allColumns' | 'persistBoardSnapshot' | 'requestReload'
+  >,
   ticketId: string,
 ) {
   const projectId = appStore.currentProject?.id
