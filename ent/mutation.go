@@ -31,6 +31,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
@@ -96,6 +98,8 @@ const (
 	TypeNotificationRule              = "NotificationRule"
 	TypeOrganization                  = "Organization"
 	TypeOrganizationDailyTokenUsage   = "OrganizationDailyTokenUsage"
+	TypeOrganizationInvitation        = "OrganizationInvitation"
+	TypeOrganizationMembership        = "OrganizationMembership"
 	TypeProject                       = "Project"
 	TypeProjectConversationPrincipal  = "ProjectConversationPrincipal"
 	TypeProjectConversationRun        = "ProjectConversationRun"
@@ -22064,6 +22068,12 @@ type OrganizationMutation struct {
 	daily_token_usage             map[uuid.UUID]struct{}
 	removeddaily_token_usage      map[uuid.UUID]struct{}
 	cleareddaily_token_usage      bool
+	memberships                   map[uuid.UUID]struct{}
+	removedmemberships            map[uuid.UUID]struct{}
+	clearedmemberships            bool
+	invitations                   map[uuid.UUID]struct{}
+	removedinvitations            map[uuid.UUID]struct{}
+	clearedinvitations            bool
 	default_agent_provider        *uuid.UUID
 	cleareddefault_agent_provider bool
 	done                          bool
@@ -22700,6 +22710,114 @@ func (m *OrganizationMutation) ResetDailyTokenUsage() {
 	m.removeddaily_token_usage = nil
 }
 
+// AddMembershipIDs adds the "memberships" edge to the OrganizationMembership entity by ids.
+func (m *OrganizationMutation) AddMembershipIDs(ids ...uuid.UUID) {
+	if m.memberships == nil {
+		m.memberships = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.memberships[ids[i]] = struct{}{}
+	}
+}
+
+// ClearMemberships clears the "memberships" edge to the OrganizationMembership entity.
+func (m *OrganizationMutation) ClearMemberships() {
+	m.clearedmemberships = true
+}
+
+// MembershipsCleared reports if the "memberships" edge to the OrganizationMembership entity was cleared.
+func (m *OrganizationMutation) MembershipsCleared() bool {
+	return m.clearedmemberships
+}
+
+// RemoveMembershipIDs removes the "memberships" edge to the OrganizationMembership entity by IDs.
+func (m *OrganizationMutation) RemoveMembershipIDs(ids ...uuid.UUID) {
+	if m.removedmemberships == nil {
+		m.removedmemberships = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.memberships, ids[i])
+		m.removedmemberships[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedMemberships returns the removed IDs of the "memberships" edge to the OrganizationMembership entity.
+func (m *OrganizationMutation) RemovedMembershipsIDs() (ids []uuid.UUID) {
+	for id := range m.removedmemberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// MembershipsIDs returns the "memberships" edge IDs in the mutation.
+func (m *OrganizationMutation) MembershipsIDs() (ids []uuid.UUID) {
+	for id := range m.memberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetMemberships resets all changes to the "memberships" edge.
+func (m *OrganizationMutation) ResetMemberships() {
+	m.memberships = nil
+	m.clearedmemberships = false
+	m.removedmemberships = nil
+}
+
+// AddInvitationIDs adds the "invitations" edge to the OrganizationInvitation entity by ids.
+func (m *OrganizationMutation) AddInvitationIDs(ids ...uuid.UUID) {
+	if m.invitations == nil {
+		m.invitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.invitations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearInvitations clears the "invitations" edge to the OrganizationInvitation entity.
+func (m *OrganizationMutation) ClearInvitations() {
+	m.clearedinvitations = true
+}
+
+// InvitationsCleared reports if the "invitations" edge to the OrganizationInvitation entity was cleared.
+func (m *OrganizationMutation) InvitationsCleared() bool {
+	return m.clearedinvitations
+}
+
+// RemoveInvitationIDs removes the "invitations" edge to the OrganizationInvitation entity by IDs.
+func (m *OrganizationMutation) RemoveInvitationIDs(ids ...uuid.UUID) {
+	if m.removedinvitations == nil {
+		m.removedinvitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.invitations, ids[i])
+		m.removedinvitations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedInvitations returns the removed IDs of the "invitations" edge to the OrganizationInvitation entity.
+func (m *OrganizationMutation) RemovedInvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.removedinvitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// InvitationsIDs returns the "invitations" edge IDs in the mutation.
+func (m *OrganizationMutation) InvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.invitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetInvitations resets all changes to the "invitations" edge.
+func (m *OrganizationMutation) ResetInvitations() {
+	m.invitations = nil
+	m.clearedinvitations = false
+	m.removedinvitations = nil
+}
+
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
 func (m *OrganizationMutation) ClearDefaultAgentProvider() {
 	m.cleareddefault_agent_provider = true
@@ -22966,7 +23084,7 @@ func (m *OrganizationMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *OrganizationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.projects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -22981,6 +23099,12 @@ func (m *OrganizationMutation) AddedEdges() []string {
 	}
 	if m.daily_token_usage != nil {
 		edges = append(edges, organization.EdgeDailyTokenUsage)
+	}
+	if m.memberships != nil {
+		edges = append(edges, organization.EdgeMemberships)
+	}
+	if m.invitations != nil {
+		edges = append(edges, organization.EdgeInvitations)
 	}
 	if m.default_agent_provider != nil {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -23022,6 +23146,18 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeMemberships:
+		ids := make([]ent.Value, 0, len(m.memberships))
+		for id := range m.memberships {
+			ids = append(ids, id)
+		}
+		return ids
+	case organization.EdgeInvitations:
+		ids := make([]ent.Value, 0, len(m.invitations))
+		for id := range m.invitations {
+			ids = append(ids, id)
+		}
+		return ids
 	case organization.EdgeDefaultAgentProvider:
 		if id := m.default_agent_provider; id != nil {
 			return []ent.Value{*id}
@@ -23032,7 +23168,7 @@ func (m *OrganizationMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *OrganizationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.removedprojects != nil {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -23047,6 +23183,12 @@ func (m *OrganizationMutation) RemovedEdges() []string {
 	}
 	if m.removeddaily_token_usage != nil {
 		edges = append(edges, organization.EdgeDailyTokenUsage)
+	}
+	if m.removedmemberships != nil {
+		edges = append(edges, organization.EdgeMemberships)
+	}
+	if m.removedinvitations != nil {
+		edges = append(edges, organization.EdgeInvitations)
 	}
 	return edges
 }
@@ -23085,13 +23227,25 @@ func (m *OrganizationMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case organization.EdgeMemberships:
+		ids := make([]ent.Value, 0, len(m.removedmemberships))
+		for id := range m.removedmemberships {
+			ids = append(ids, id)
+		}
+		return ids
+	case organization.EdgeInvitations:
+		ids := make([]ent.Value, 0, len(m.removedinvitations))
+		for id := range m.removedinvitations {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *OrganizationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 8)
 	if m.clearedprojects {
 		edges = append(edges, organization.EdgeProjects)
 	}
@@ -23106,6 +23260,12 @@ func (m *OrganizationMutation) ClearedEdges() []string {
 	}
 	if m.cleareddaily_token_usage {
 		edges = append(edges, organization.EdgeDailyTokenUsage)
+	}
+	if m.clearedmemberships {
+		edges = append(edges, organization.EdgeMemberships)
+	}
+	if m.clearedinvitations {
+		edges = append(edges, organization.EdgeInvitations)
 	}
 	if m.cleareddefault_agent_provider {
 		edges = append(edges, organization.EdgeDefaultAgentProvider)
@@ -23127,6 +23287,10 @@ func (m *OrganizationMutation) EdgeCleared(name string) bool {
 		return m.clearednotification_channels
 	case organization.EdgeDailyTokenUsage:
 		return m.cleareddaily_token_usage
+	case organization.EdgeMemberships:
+		return m.clearedmemberships
+	case organization.EdgeInvitations:
+		return m.clearedinvitations
 	case organization.EdgeDefaultAgentProvider:
 		return m.cleareddefault_agent_provider
 	}
@@ -23162,6 +23326,12 @@ func (m *OrganizationMutation) ResetEdge(name string) error {
 		return nil
 	case organization.EdgeDailyTokenUsage:
 		m.ResetDailyTokenUsage()
+		return nil
+	case organization.EdgeMemberships:
+		m.ResetMemberships()
+		return nil
+	case organization.EdgeInvitations:
+		m.ResetInvitations()
 		return nil
 	case organization.EdgeDefaultAgentProvider:
 		m.ResetDefaultAgentProvider()
@@ -24241,6 +24411,2436 @@ func (m *OrganizationDailyTokenUsageMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown OrganizationDailyTokenUsage edge %s", name)
+}
+
+// OrganizationInvitationMutation represents an operation that mutates the OrganizationInvitation nodes in the graph.
+type OrganizationInvitationMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *uuid.UUID
+	email                   *string
+	role                    *organizationinvitation.Role
+	status                  *organizationinvitation.Status
+	invited_by              *string
+	invite_token_hash       *string
+	expires_at              *time.Time
+	sent_at                 *time.Time
+	accepted_at             *time.Time
+	canceled_at             *time.Time
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	organization            *uuid.UUID
+	clearedorganization     bool
+	membership              *uuid.UUID
+	clearedmembership       bool
+	accepted_by_user        *uuid.UUID
+	clearedaccepted_by_user bool
+	done                    bool
+	oldValue                func(context.Context) (*OrganizationInvitation, error)
+	predicates              []predicate.OrganizationInvitation
+}
+
+var _ ent.Mutation = (*OrganizationInvitationMutation)(nil)
+
+// organizationinvitationOption allows management of the mutation configuration using functional options.
+type organizationinvitationOption func(*OrganizationInvitationMutation)
+
+// newOrganizationInvitationMutation creates new mutation for the OrganizationInvitation entity.
+func newOrganizationInvitationMutation(c config, op Op, opts ...organizationinvitationOption) *OrganizationInvitationMutation {
+	m := &OrganizationInvitationMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeOrganizationInvitation,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withOrganizationInvitationID sets the ID field of the mutation.
+func withOrganizationInvitationID(id uuid.UUID) organizationinvitationOption {
+	return func(m *OrganizationInvitationMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *OrganizationInvitation
+		)
+		m.oldValue = func(ctx context.Context) (*OrganizationInvitation, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().OrganizationInvitation.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withOrganizationInvitation sets the old OrganizationInvitation of the mutation.
+func withOrganizationInvitation(node *OrganizationInvitation) organizationinvitationOption {
+	return func(m *OrganizationInvitationMutation) {
+		m.oldValue = func(context.Context) (*OrganizationInvitation, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m OrganizationInvitationMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m OrganizationInvitationMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of OrganizationInvitation entities.
+func (m *OrganizationInvitationMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *OrganizationInvitationMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *OrganizationInvitationMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().OrganizationInvitation.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *OrganizationInvitationMutation) SetOrganizationID(u uuid.UUID) {
+	m.organization = &u
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *OrganizationInvitationMutation) OrganizationID() (r uuid.UUID, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldOrganizationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *OrganizationInvitationMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetMembershipID sets the "membership_id" field.
+func (m *OrganizationInvitationMutation) SetMembershipID(u uuid.UUID) {
+	m.membership = &u
+}
+
+// MembershipID returns the value of the "membership_id" field in the mutation.
+func (m *OrganizationInvitationMutation) MembershipID() (r uuid.UUID, exists bool) {
+	v := m.membership
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMembershipID returns the old "membership_id" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldMembershipID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMembershipID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMembershipID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMembershipID: %w", err)
+	}
+	return oldValue.MembershipID, nil
+}
+
+// ResetMembershipID resets all changes to the "membership_id" field.
+func (m *OrganizationInvitationMutation) ResetMembershipID() {
+	m.membership = nil
+}
+
+// SetAcceptedByUserID sets the "accepted_by_user_id" field.
+func (m *OrganizationInvitationMutation) SetAcceptedByUserID(u uuid.UUID) {
+	m.accepted_by_user = &u
+}
+
+// AcceptedByUserID returns the value of the "accepted_by_user_id" field in the mutation.
+func (m *OrganizationInvitationMutation) AcceptedByUserID() (r uuid.UUID, exists bool) {
+	v := m.accepted_by_user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcceptedByUserID returns the old "accepted_by_user_id" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldAcceptedByUserID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcceptedByUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcceptedByUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcceptedByUserID: %w", err)
+	}
+	return oldValue.AcceptedByUserID, nil
+}
+
+// ClearAcceptedByUserID clears the value of the "accepted_by_user_id" field.
+func (m *OrganizationInvitationMutation) ClearAcceptedByUserID() {
+	m.accepted_by_user = nil
+	m.clearedFields[organizationinvitation.FieldAcceptedByUserID] = struct{}{}
+}
+
+// AcceptedByUserIDCleared returns if the "accepted_by_user_id" field was cleared in this mutation.
+func (m *OrganizationInvitationMutation) AcceptedByUserIDCleared() bool {
+	_, ok := m.clearedFields[organizationinvitation.FieldAcceptedByUserID]
+	return ok
+}
+
+// ResetAcceptedByUserID resets all changes to the "accepted_by_user_id" field.
+func (m *OrganizationInvitationMutation) ResetAcceptedByUserID() {
+	m.accepted_by_user = nil
+	delete(m.clearedFields, organizationinvitation.FieldAcceptedByUserID)
+}
+
+// SetEmail sets the "email" field.
+func (m *OrganizationInvitationMutation) SetEmail(s string) {
+	m.email = &s
+}
+
+// Email returns the value of the "email" field in the mutation.
+func (m *OrganizationInvitationMutation) Email() (r string, exists bool) {
+	v := m.email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmail returns the old "email" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmail: %w", err)
+	}
+	return oldValue.Email, nil
+}
+
+// ResetEmail resets all changes to the "email" field.
+func (m *OrganizationInvitationMutation) ResetEmail() {
+	m.email = nil
+}
+
+// SetRole sets the "role" field.
+func (m *OrganizationInvitationMutation) SetRole(o organizationinvitation.Role) {
+	m.role = &o
+}
+
+// Role returns the value of the "role" field in the mutation.
+func (m *OrganizationInvitationMutation) Role() (r organizationinvitation.Role, exists bool) {
+	v := m.role
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRole returns the old "role" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldRole(ctx context.Context) (v organizationinvitation.Role, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRole is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRole requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRole: %w", err)
+	}
+	return oldValue.Role, nil
+}
+
+// ResetRole resets all changes to the "role" field.
+func (m *OrganizationInvitationMutation) ResetRole() {
+	m.role = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *OrganizationInvitationMutation) SetStatus(o organizationinvitation.Status) {
+	m.status = &o
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *OrganizationInvitationMutation) Status() (r organizationinvitation.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldStatus(ctx context.Context) (v organizationinvitation.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *OrganizationInvitationMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetInvitedBy sets the "invited_by" field.
+func (m *OrganizationInvitationMutation) SetInvitedBy(s string) {
+	m.invited_by = &s
+}
+
+// InvitedBy returns the value of the "invited_by" field in the mutation.
+func (m *OrganizationInvitationMutation) InvitedBy() (r string, exists bool) {
+	v := m.invited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInvitedBy returns the old "invited_by" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldInvitedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInvitedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInvitedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInvitedBy: %w", err)
+	}
+	return oldValue.InvitedBy, nil
+}
+
+// ResetInvitedBy resets all changes to the "invited_by" field.
+func (m *OrganizationInvitationMutation) ResetInvitedBy() {
+	m.invited_by = nil
+}
+
+// SetInviteTokenHash sets the "invite_token_hash" field.
+func (m *OrganizationInvitationMutation) SetInviteTokenHash(s string) {
+	m.invite_token_hash = &s
+}
+
+// InviteTokenHash returns the value of the "invite_token_hash" field in the mutation.
+func (m *OrganizationInvitationMutation) InviteTokenHash() (r string, exists bool) {
+	v := m.invite_token_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInviteTokenHash returns the old "invite_token_hash" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldInviteTokenHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInviteTokenHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInviteTokenHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInviteTokenHash: %w", err)
+	}
+	return oldValue.InviteTokenHash, nil
+}
+
+// ResetInviteTokenHash resets all changes to the "invite_token_hash" field.
+func (m *OrganizationInvitationMutation) ResetInviteTokenHash() {
+	m.invite_token_hash = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *OrganizationInvitationMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *OrganizationInvitationMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *OrganizationInvitationMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetSentAt sets the "sent_at" field.
+func (m *OrganizationInvitationMutation) SetSentAt(t time.Time) {
+	m.sent_at = &t
+}
+
+// SentAt returns the value of the "sent_at" field in the mutation.
+func (m *OrganizationInvitationMutation) SentAt() (r time.Time, exists bool) {
+	v := m.sent_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSentAt returns the old "sent_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldSentAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSentAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSentAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSentAt: %w", err)
+	}
+	return oldValue.SentAt, nil
+}
+
+// ResetSentAt resets all changes to the "sent_at" field.
+func (m *OrganizationInvitationMutation) ResetSentAt() {
+	m.sent_at = nil
+}
+
+// SetAcceptedAt sets the "accepted_at" field.
+func (m *OrganizationInvitationMutation) SetAcceptedAt(t time.Time) {
+	m.accepted_at = &t
+}
+
+// AcceptedAt returns the value of the "accepted_at" field in the mutation.
+func (m *OrganizationInvitationMutation) AcceptedAt() (r time.Time, exists bool) {
+	v := m.accepted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcceptedAt returns the old "accepted_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldAcceptedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcceptedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcceptedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcceptedAt: %w", err)
+	}
+	return oldValue.AcceptedAt, nil
+}
+
+// ClearAcceptedAt clears the value of the "accepted_at" field.
+func (m *OrganizationInvitationMutation) ClearAcceptedAt() {
+	m.accepted_at = nil
+	m.clearedFields[organizationinvitation.FieldAcceptedAt] = struct{}{}
+}
+
+// AcceptedAtCleared returns if the "accepted_at" field was cleared in this mutation.
+func (m *OrganizationInvitationMutation) AcceptedAtCleared() bool {
+	_, ok := m.clearedFields[organizationinvitation.FieldAcceptedAt]
+	return ok
+}
+
+// ResetAcceptedAt resets all changes to the "accepted_at" field.
+func (m *OrganizationInvitationMutation) ResetAcceptedAt() {
+	m.accepted_at = nil
+	delete(m.clearedFields, organizationinvitation.FieldAcceptedAt)
+}
+
+// SetCanceledAt sets the "canceled_at" field.
+func (m *OrganizationInvitationMutation) SetCanceledAt(t time.Time) {
+	m.canceled_at = &t
+}
+
+// CanceledAt returns the value of the "canceled_at" field in the mutation.
+func (m *OrganizationInvitationMutation) CanceledAt() (r time.Time, exists bool) {
+	v := m.canceled_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCanceledAt returns the old "canceled_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldCanceledAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCanceledAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCanceledAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCanceledAt: %w", err)
+	}
+	return oldValue.CanceledAt, nil
+}
+
+// ClearCanceledAt clears the value of the "canceled_at" field.
+func (m *OrganizationInvitationMutation) ClearCanceledAt() {
+	m.canceled_at = nil
+	m.clearedFields[organizationinvitation.FieldCanceledAt] = struct{}{}
+}
+
+// CanceledAtCleared returns if the "canceled_at" field was cleared in this mutation.
+func (m *OrganizationInvitationMutation) CanceledAtCleared() bool {
+	_, ok := m.clearedFields[organizationinvitation.FieldCanceledAt]
+	return ok
+}
+
+// ResetCanceledAt resets all changes to the "canceled_at" field.
+func (m *OrganizationInvitationMutation) ResetCanceledAt() {
+	m.canceled_at = nil
+	delete(m.clearedFields, organizationinvitation.FieldCanceledAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *OrganizationInvitationMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *OrganizationInvitationMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *OrganizationInvitationMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *OrganizationInvitationMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *OrganizationInvitationMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the OrganizationInvitation entity.
+// If the OrganizationInvitation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationInvitationMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *OrganizationInvitationMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearOrganization clears the "organization" edge to the Organization entity.
+func (m *OrganizationInvitationMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[organizationinvitation.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the Organization entity was cleared.
+func (m *OrganizationInvitationMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *OrganizationInvitationMutation) OrganizationIDs() (ids []uuid.UUID) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *OrganizationInvitationMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// ClearMembership clears the "membership" edge to the OrganizationMembership entity.
+func (m *OrganizationInvitationMutation) ClearMembership() {
+	m.clearedmembership = true
+	m.clearedFields[organizationinvitation.FieldMembershipID] = struct{}{}
+}
+
+// MembershipCleared reports if the "membership" edge to the OrganizationMembership entity was cleared.
+func (m *OrganizationInvitationMutation) MembershipCleared() bool {
+	return m.clearedmembership
+}
+
+// MembershipIDs returns the "membership" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// MembershipID instead. It exists only for internal usage by the builders.
+func (m *OrganizationInvitationMutation) MembershipIDs() (ids []uuid.UUID) {
+	if id := m.membership; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetMembership resets all changes to the "membership" edge.
+func (m *OrganizationInvitationMutation) ResetMembership() {
+	m.membership = nil
+	m.clearedmembership = false
+}
+
+// ClearAcceptedByUser clears the "accepted_by_user" edge to the User entity.
+func (m *OrganizationInvitationMutation) ClearAcceptedByUser() {
+	m.clearedaccepted_by_user = true
+	m.clearedFields[organizationinvitation.FieldAcceptedByUserID] = struct{}{}
+}
+
+// AcceptedByUserCleared reports if the "accepted_by_user" edge to the User entity was cleared.
+func (m *OrganizationInvitationMutation) AcceptedByUserCleared() bool {
+	return m.AcceptedByUserIDCleared() || m.clearedaccepted_by_user
+}
+
+// AcceptedByUserIDs returns the "accepted_by_user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AcceptedByUserID instead. It exists only for internal usage by the builders.
+func (m *OrganizationInvitationMutation) AcceptedByUserIDs() (ids []uuid.UUID) {
+	if id := m.accepted_by_user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAcceptedByUser resets all changes to the "accepted_by_user" edge.
+func (m *OrganizationInvitationMutation) ResetAcceptedByUser() {
+	m.accepted_by_user = nil
+	m.clearedaccepted_by_user = false
+}
+
+// Where appends a list predicates to the OrganizationInvitationMutation builder.
+func (m *OrganizationInvitationMutation) Where(ps ...predicate.OrganizationInvitation) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the OrganizationInvitationMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *OrganizationInvitationMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.OrganizationInvitation, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *OrganizationInvitationMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *OrganizationInvitationMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (OrganizationInvitation).
+func (m *OrganizationInvitationMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *OrganizationInvitationMutation) Fields() []string {
+	fields := make([]string, 0, 14)
+	if m.organization != nil {
+		fields = append(fields, organizationinvitation.FieldOrganizationID)
+	}
+	if m.membership != nil {
+		fields = append(fields, organizationinvitation.FieldMembershipID)
+	}
+	if m.accepted_by_user != nil {
+		fields = append(fields, organizationinvitation.FieldAcceptedByUserID)
+	}
+	if m.email != nil {
+		fields = append(fields, organizationinvitation.FieldEmail)
+	}
+	if m.role != nil {
+		fields = append(fields, organizationinvitation.FieldRole)
+	}
+	if m.status != nil {
+		fields = append(fields, organizationinvitation.FieldStatus)
+	}
+	if m.invited_by != nil {
+		fields = append(fields, organizationinvitation.FieldInvitedBy)
+	}
+	if m.invite_token_hash != nil {
+		fields = append(fields, organizationinvitation.FieldInviteTokenHash)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, organizationinvitation.FieldExpiresAt)
+	}
+	if m.sent_at != nil {
+		fields = append(fields, organizationinvitation.FieldSentAt)
+	}
+	if m.accepted_at != nil {
+		fields = append(fields, organizationinvitation.FieldAcceptedAt)
+	}
+	if m.canceled_at != nil {
+		fields = append(fields, organizationinvitation.FieldCanceledAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, organizationinvitation.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, organizationinvitation.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *OrganizationInvitationMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case organizationinvitation.FieldOrganizationID:
+		return m.OrganizationID()
+	case organizationinvitation.FieldMembershipID:
+		return m.MembershipID()
+	case organizationinvitation.FieldAcceptedByUserID:
+		return m.AcceptedByUserID()
+	case organizationinvitation.FieldEmail:
+		return m.Email()
+	case organizationinvitation.FieldRole:
+		return m.Role()
+	case organizationinvitation.FieldStatus:
+		return m.Status()
+	case organizationinvitation.FieldInvitedBy:
+		return m.InvitedBy()
+	case organizationinvitation.FieldInviteTokenHash:
+		return m.InviteTokenHash()
+	case organizationinvitation.FieldExpiresAt:
+		return m.ExpiresAt()
+	case organizationinvitation.FieldSentAt:
+		return m.SentAt()
+	case organizationinvitation.FieldAcceptedAt:
+		return m.AcceptedAt()
+	case organizationinvitation.FieldCanceledAt:
+		return m.CanceledAt()
+	case organizationinvitation.FieldCreatedAt:
+		return m.CreatedAt()
+	case organizationinvitation.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *OrganizationInvitationMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case organizationinvitation.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case organizationinvitation.FieldMembershipID:
+		return m.OldMembershipID(ctx)
+	case organizationinvitation.FieldAcceptedByUserID:
+		return m.OldAcceptedByUserID(ctx)
+	case organizationinvitation.FieldEmail:
+		return m.OldEmail(ctx)
+	case organizationinvitation.FieldRole:
+		return m.OldRole(ctx)
+	case organizationinvitation.FieldStatus:
+		return m.OldStatus(ctx)
+	case organizationinvitation.FieldInvitedBy:
+		return m.OldInvitedBy(ctx)
+	case organizationinvitation.FieldInviteTokenHash:
+		return m.OldInviteTokenHash(ctx)
+	case organizationinvitation.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case organizationinvitation.FieldSentAt:
+		return m.OldSentAt(ctx)
+	case organizationinvitation.FieldAcceptedAt:
+		return m.OldAcceptedAt(ctx)
+	case organizationinvitation.FieldCanceledAt:
+		return m.OldCanceledAt(ctx)
+	case organizationinvitation.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case organizationinvitation.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown OrganizationInvitation field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationInvitationMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case organizationinvitation.FieldOrganizationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case organizationinvitation.FieldMembershipID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMembershipID(v)
+		return nil
+	case organizationinvitation.FieldAcceptedByUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcceptedByUserID(v)
+		return nil
+	case organizationinvitation.FieldEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmail(v)
+		return nil
+	case organizationinvitation.FieldRole:
+		v, ok := value.(organizationinvitation.Role)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRole(v)
+		return nil
+	case organizationinvitation.FieldStatus:
+		v, ok := value.(organizationinvitation.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case organizationinvitation.FieldInvitedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInvitedBy(v)
+		return nil
+	case organizationinvitation.FieldInviteTokenHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInviteTokenHash(v)
+		return nil
+	case organizationinvitation.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case organizationinvitation.FieldSentAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSentAt(v)
+		return nil
+	case organizationinvitation.FieldAcceptedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcceptedAt(v)
+		return nil
+	case organizationinvitation.FieldCanceledAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCanceledAt(v)
+		return nil
+	case organizationinvitation.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case organizationinvitation.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationInvitation field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *OrganizationInvitationMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *OrganizationInvitationMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationInvitationMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown OrganizationInvitation numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *OrganizationInvitationMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(organizationinvitation.FieldAcceptedByUserID) {
+		fields = append(fields, organizationinvitation.FieldAcceptedByUserID)
+	}
+	if m.FieldCleared(organizationinvitation.FieldAcceptedAt) {
+		fields = append(fields, organizationinvitation.FieldAcceptedAt)
+	}
+	if m.FieldCleared(organizationinvitation.FieldCanceledAt) {
+		fields = append(fields, organizationinvitation.FieldCanceledAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *OrganizationInvitationMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *OrganizationInvitationMutation) ClearField(name string) error {
+	switch name {
+	case organizationinvitation.FieldAcceptedByUserID:
+		m.ClearAcceptedByUserID()
+		return nil
+	case organizationinvitation.FieldAcceptedAt:
+		m.ClearAcceptedAt()
+		return nil
+	case organizationinvitation.FieldCanceledAt:
+		m.ClearCanceledAt()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationInvitation nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *OrganizationInvitationMutation) ResetField(name string) error {
+	switch name {
+	case organizationinvitation.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case organizationinvitation.FieldMembershipID:
+		m.ResetMembershipID()
+		return nil
+	case organizationinvitation.FieldAcceptedByUserID:
+		m.ResetAcceptedByUserID()
+		return nil
+	case organizationinvitation.FieldEmail:
+		m.ResetEmail()
+		return nil
+	case organizationinvitation.FieldRole:
+		m.ResetRole()
+		return nil
+	case organizationinvitation.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case organizationinvitation.FieldInvitedBy:
+		m.ResetInvitedBy()
+		return nil
+	case organizationinvitation.FieldInviteTokenHash:
+		m.ResetInviteTokenHash()
+		return nil
+	case organizationinvitation.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case organizationinvitation.FieldSentAt:
+		m.ResetSentAt()
+		return nil
+	case organizationinvitation.FieldAcceptedAt:
+		m.ResetAcceptedAt()
+		return nil
+	case organizationinvitation.FieldCanceledAt:
+		m.ResetCanceledAt()
+		return nil
+	case organizationinvitation.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case organizationinvitation.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationInvitation field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *OrganizationInvitationMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.organization != nil {
+		edges = append(edges, organizationinvitation.EdgeOrganization)
+	}
+	if m.membership != nil {
+		edges = append(edges, organizationinvitation.EdgeMembership)
+	}
+	if m.accepted_by_user != nil {
+		edges = append(edges, organizationinvitation.EdgeAcceptedByUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *OrganizationInvitationMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case organizationinvitation.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case organizationinvitation.EdgeMembership:
+		if id := m.membership; id != nil {
+			return []ent.Value{*id}
+		}
+	case organizationinvitation.EdgeAcceptedByUser:
+		if id := m.accepted_by_user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *OrganizationInvitationMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *OrganizationInvitationMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *OrganizationInvitationMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedorganization {
+		edges = append(edges, organizationinvitation.EdgeOrganization)
+	}
+	if m.clearedmembership {
+		edges = append(edges, organizationinvitation.EdgeMembership)
+	}
+	if m.clearedaccepted_by_user {
+		edges = append(edges, organizationinvitation.EdgeAcceptedByUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *OrganizationInvitationMutation) EdgeCleared(name string) bool {
+	switch name {
+	case organizationinvitation.EdgeOrganization:
+		return m.clearedorganization
+	case organizationinvitation.EdgeMembership:
+		return m.clearedmembership
+	case organizationinvitation.EdgeAcceptedByUser:
+		return m.clearedaccepted_by_user
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *OrganizationInvitationMutation) ClearEdge(name string) error {
+	switch name {
+	case organizationinvitation.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	case organizationinvitation.EdgeMembership:
+		m.ClearMembership()
+		return nil
+	case organizationinvitation.EdgeAcceptedByUser:
+		m.ClearAcceptedByUser()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationInvitation unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *OrganizationInvitationMutation) ResetEdge(name string) error {
+	switch name {
+	case organizationinvitation.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	case organizationinvitation.EdgeMembership:
+		m.ResetMembership()
+		return nil
+	case organizationinvitation.EdgeAcceptedByUser:
+		m.ResetAcceptedByUser()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationInvitation edge %s", name)
+}
+
+// OrganizationMembershipMutation represents an operation that mutates the OrganizationMembership nodes in the graph.
+type OrganizationMembershipMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	email               *string
+	role                *organizationmembership.Role
+	status              *organizationmembership.Status
+	invited_by          *string
+	invited_at          *time.Time
+	accepted_at         *time.Time
+	suspended_at        *time.Time
+	removed_at          *time.Time
+	created_at          *time.Time
+	updated_at          *time.Time
+	clearedFields       map[string]struct{}
+	organization        *uuid.UUID
+	clearedorganization bool
+	user                *uuid.UUID
+	cleareduser         bool
+	invitations         map[uuid.UUID]struct{}
+	removedinvitations  map[uuid.UUID]struct{}
+	clearedinvitations  bool
+	done                bool
+	oldValue            func(context.Context) (*OrganizationMembership, error)
+	predicates          []predicate.OrganizationMembership
+}
+
+var _ ent.Mutation = (*OrganizationMembershipMutation)(nil)
+
+// organizationmembershipOption allows management of the mutation configuration using functional options.
+type organizationmembershipOption func(*OrganizationMembershipMutation)
+
+// newOrganizationMembershipMutation creates new mutation for the OrganizationMembership entity.
+func newOrganizationMembershipMutation(c config, op Op, opts ...organizationmembershipOption) *OrganizationMembershipMutation {
+	m := &OrganizationMembershipMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeOrganizationMembership,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withOrganizationMembershipID sets the ID field of the mutation.
+func withOrganizationMembershipID(id uuid.UUID) organizationmembershipOption {
+	return func(m *OrganizationMembershipMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *OrganizationMembership
+		)
+		m.oldValue = func(ctx context.Context) (*OrganizationMembership, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().OrganizationMembership.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withOrganizationMembership sets the old OrganizationMembership of the mutation.
+func withOrganizationMembership(node *OrganizationMembership) organizationmembershipOption {
+	return func(m *OrganizationMembershipMutation) {
+		m.oldValue = func(context.Context) (*OrganizationMembership, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m OrganizationMembershipMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m OrganizationMembershipMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of OrganizationMembership entities.
+func (m *OrganizationMembershipMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *OrganizationMembershipMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *OrganizationMembershipMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().OrganizationMembership.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetOrganizationID sets the "organization_id" field.
+func (m *OrganizationMembershipMutation) SetOrganizationID(u uuid.UUID) {
+	m.organization = &u
+}
+
+// OrganizationID returns the value of the "organization_id" field in the mutation.
+func (m *OrganizationMembershipMutation) OrganizationID() (r uuid.UUID, exists bool) {
+	v := m.organization
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrganizationID returns the old "organization_id" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldOrganizationID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrganizationID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrganizationID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrganizationID: %w", err)
+	}
+	return oldValue.OrganizationID, nil
+}
+
+// ResetOrganizationID resets all changes to the "organization_id" field.
+func (m *OrganizationMembershipMutation) ResetOrganizationID() {
+	m.organization = nil
+}
+
+// SetUserID sets the "user_id" field.
+func (m *OrganizationMembershipMutation) SetUserID(u uuid.UUID) {
+	m.user = &u
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *OrganizationMembershipMutation) UserID() (r uuid.UUID, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldUserID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ClearUserID clears the value of the "user_id" field.
+func (m *OrganizationMembershipMutation) ClearUserID() {
+	m.user = nil
+	m.clearedFields[organizationmembership.FieldUserID] = struct{}{}
+}
+
+// UserIDCleared returns if the "user_id" field was cleared in this mutation.
+func (m *OrganizationMembershipMutation) UserIDCleared() bool {
+	_, ok := m.clearedFields[organizationmembership.FieldUserID]
+	return ok
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *OrganizationMembershipMutation) ResetUserID() {
+	m.user = nil
+	delete(m.clearedFields, organizationmembership.FieldUserID)
+}
+
+// SetEmail sets the "email" field.
+func (m *OrganizationMembershipMutation) SetEmail(s string) {
+	m.email = &s
+}
+
+// Email returns the value of the "email" field in the mutation.
+func (m *OrganizationMembershipMutation) Email() (r string, exists bool) {
+	v := m.email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmail returns the old "email" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmail: %w", err)
+	}
+	return oldValue.Email, nil
+}
+
+// ResetEmail resets all changes to the "email" field.
+func (m *OrganizationMembershipMutation) ResetEmail() {
+	m.email = nil
+}
+
+// SetRole sets the "role" field.
+func (m *OrganizationMembershipMutation) SetRole(o organizationmembership.Role) {
+	m.role = &o
+}
+
+// Role returns the value of the "role" field in the mutation.
+func (m *OrganizationMembershipMutation) Role() (r organizationmembership.Role, exists bool) {
+	v := m.role
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRole returns the old "role" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldRole(ctx context.Context) (v organizationmembership.Role, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRole is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRole requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRole: %w", err)
+	}
+	return oldValue.Role, nil
+}
+
+// ResetRole resets all changes to the "role" field.
+func (m *OrganizationMembershipMutation) ResetRole() {
+	m.role = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *OrganizationMembershipMutation) SetStatus(o organizationmembership.Status) {
+	m.status = &o
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *OrganizationMembershipMutation) Status() (r organizationmembership.Status, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldStatus(ctx context.Context) (v organizationmembership.Status, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *OrganizationMembershipMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetInvitedBy sets the "invited_by" field.
+func (m *OrganizationMembershipMutation) SetInvitedBy(s string) {
+	m.invited_by = &s
+}
+
+// InvitedBy returns the value of the "invited_by" field in the mutation.
+func (m *OrganizationMembershipMutation) InvitedBy() (r string, exists bool) {
+	v := m.invited_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInvitedBy returns the old "invited_by" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldInvitedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInvitedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInvitedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInvitedBy: %w", err)
+	}
+	return oldValue.InvitedBy, nil
+}
+
+// ResetInvitedBy resets all changes to the "invited_by" field.
+func (m *OrganizationMembershipMutation) ResetInvitedBy() {
+	m.invited_by = nil
+}
+
+// SetInvitedAt sets the "invited_at" field.
+func (m *OrganizationMembershipMutation) SetInvitedAt(t time.Time) {
+	m.invited_at = &t
+}
+
+// InvitedAt returns the value of the "invited_at" field in the mutation.
+func (m *OrganizationMembershipMutation) InvitedAt() (r time.Time, exists bool) {
+	v := m.invited_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInvitedAt returns the old "invited_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldInvitedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInvitedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInvitedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInvitedAt: %w", err)
+	}
+	return oldValue.InvitedAt, nil
+}
+
+// ResetInvitedAt resets all changes to the "invited_at" field.
+func (m *OrganizationMembershipMutation) ResetInvitedAt() {
+	m.invited_at = nil
+}
+
+// SetAcceptedAt sets the "accepted_at" field.
+func (m *OrganizationMembershipMutation) SetAcceptedAt(t time.Time) {
+	m.accepted_at = &t
+}
+
+// AcceptedAt returns the value of the "accepted_at" field in the mutation.
+func (m *OrganizationMembershipMutation) AcceptedAt() (r time.Time, exists bool) {
+	v := m.accepted_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAcceptedAt returns the old "accepted_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldAcceptedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAcceptedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAcceptedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAcceptedAt: %w", err)
+	}
+	return oldValue.AcceptedAt, nil
+}
+
+// ClearAcceptedAt clears the value of the "accepted_at" field.
+func (m *OrganizationMembershipMutation) ClearAcceptedAt() {
+	m.accepted_at = nil
+	m.clearedFields[organizationmembership.FieldAcceptedAt] = struct{}{}
+}
+
+// AcceptedAtCleared returns if the "accepted_at" field was cleared in this mutation.
+func (m *OrganizationMembershipMutation) AcceptedAtCleared() bool {
+	_, ok := m.clearedFields[organizationmembership.FieldAcceptedAt]
+	return ok
+}
+
+// ResetAcceptedAt resets all changes to the "accepted_at" field.
+func (m *OrganizationMembershipMutation) ResetAcceptedAt() {
+	m.accepted_at = nil
+	delete(m.clearedFields, organizationmembership.FieldAcceptedAt)
+}
+
+// SetSuspendedAt sets the "suspended_at" field.
+func (m *OrganizationMembershipMutation) SetSuspendedAt(t time.Time) {
+	m.suspended_at = &t
+}
+
+// SuspendedAt returns the value of the "suspended_at" field in the mutation.
+func (m *OrganizationMembershipMutation) SuspendedAt() (r time.Time, exists bool) {
+	v := m.suspended_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSuspendedAt returns the old "suspended_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldSuspendedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSuspendedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSuspendedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSuspendedAt: %w", err)
+	}
+	return oldValue.SuspendedAt, nil
+}
+
+// ClearSuspendedAt clears the value of the "suspended_at" field.
+func (m *OrganizationMembershipMutation) ClearSuspendedAt() {
+	m.suspended_at = nil
+	m.clearedFields[organizationmembership.FieldSuspendedAt] = struct{}{}
+}
+
+// SuspendedAtCleared returns if the "suspended_at" field was cleared in this mutation.
+func (m *OrganizationMembershipMutation) SuspendedAtCleared() bool {
+	_, ok := m.clearedFields[organizationmembership.FieldSuspendedAt]
+	return ok
+}
+
+// ResetSuspendedAt resets all changes to the "suspended_at" field.
+func (m *OrganizationMembershipMutation) ResetSuspendedAt() {
+	m.suspended_at = nil
+	delete(m.clearedFields, organizationmembership.FieldSuspendedAt)
+}
+
+// SetRemovedAt sets the "removed_at" field.
+func (m *OrganizationMembershipMutation) SetRemovedAt(t time.Time) {
+	m.removed_at = &t
+}
+
+// RemovedAt returns the value of the "removed_at" field in the mutation.
+func (m *OrganizationMembershipMutation) RemovedAt() (r time.Time, exists bool) {
+	v := m.removed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRemovedAt returns the old "removed_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldRemovedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRemovedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRemovedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRemovedAt: %w", err)
+	}
+	return oldValue.RemovedAt, nil
+}
+
+// ClearRemovedAt clears the value of the "removed_at" field.
+func (m *OrganizationMembershipMutation) ClearRemovedAt() {
+	m.removed_at = nil
+	m.clearedFields[organizationmembership.FieldRemovedAt] = struct{}{}
+}
+
+// RemovedAtCleared returns if the "removed_at" field was cleared in this mutation.
+func (m *OrganizationMembershipMutation) RemovedAtCleared() bool {
+	_, ok := m.clearedFields[organizationmembership.FieldRemovedAt]
+	return ok
+}
+
+// ResetRemovedAt resets all changes to the "removed_at" field.
+func (m *OrganizationMembershipMutation) ResetRemovedAt() {
+	m.removed_at = nil
+	delete(m.clearedFields, organizationmembership.FieldRemovedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *OrganizationMembershipMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *OrganizationMembershipMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *OrganizationMembershipMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *OrganizationMembershipMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *OrganizationMembershipMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the OrganizationMembership entity.
+// If the OrganizationMembership object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *OrganizationMembershipMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *OrganizationMembershipMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearOrganization clears the "organization" edge to the Organization entity.
+func (m *OrganizationMembershipMutation) ClearOrganization() {
+	m.clearedorganization = true
+	m.clearedFields[organizationmembership.FieldOrganizationID] = struct{}{}
+}
+
+// OrganizationCleared reports if the "organization" edge to the Organization entity was cleared.
+func (m *OrganizationMembershipMutation) OrganizationCleared() bool {
+	return m.clearedorganization
+}
+
+// OrganizationIDs returns the "organization" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrganizationID instead. It exists only for internal usage by the builders.
+func (m *OrganizationMembershipMutation) OrganizationIDs() (ids []uuid.UUID) {
+	if id := m.organization; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrganization resets all changes to the "organization" edge.
+func (m *OrganizationMembershipMutation) ResetOrganization() {
+	m.organization = nil
+	m.clearedorganization = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *OrganizationMembershipMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[organizationmembership.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *OrganizationMembershipMutation) UserCleared() bool {
+	return m.UserIDCleared() || m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *OrganizationMembershipMutation) UserIDs() (ids []uuid.UUID) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *OrganizationMembershipMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// AddInvitationIDs adds the "invitations" edge to the OrganizationInvitation entity by ids.
+func (m *OrganizationMembershipMutation) AddInvitationIDs(ids ...uuid.UUID) {
+	if m.invitations == nil {
+		m.invitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.invitations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearInvitations clears the "invitations" edge to the OrganizationInvitation entity.
+func (m *OrganizationMembershipMutation) ClearInvitations() {
+	m.clearedinvitations = true
+}
+
+// InvitationsCleared reports if the "invitations" edge to the OrganizationInvitation entity was cleared.
+func (m *OrganizationMembershipMutation) InvitationsCleared() bool {
+	return m.clearedinvitations
+}
+
+// RemoveInvitationIDs removes the "invitations" edge to the OrganizationInvitation entity by IDs.
+func (m *OrganizationMembershipMutation) RemoveInvitationIDs(ids ...uuid.UUID) {
+	if m.removedinvitations == nil {
+		m.removedinvitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.invitations, ids[i])
+		m.removedinvitations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedInvitations returns the removed IDs of the "invitations" edge to the OrganizationInvitation entity.
+func (m *OrganizationMembershipMutation) RemovedInvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.removedinvitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// InvitationsIDs returns the "invitations" edge IDs in the mutation.
+func (m *OrganizationMembershipMutation) InvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.invitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetInvitations resets all changes to the "invitations" edge.
+func (m *OrganizationMembershipMutation) ResetInvitations() {
+	m.invitations = nil
+	m.clearedinvitations = false
+	m.removedinvitations = nil
+}
+
+// Where appends a list predicates to the OrganizationMembershipMutation builder.
+func (m *OrganizationMembershipMutation) Where(ps ...predicate.OrganizationMembership) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the OrganizationMembershipMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *OrganizationMembershipMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.OrganizationMembership, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *OrganizationMembershipMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *OrganizationMembershipMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (OrganizationMembership).
+func (m *OrganizationMembershipMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *OrganizationMembershipMutation) Fields() []string {
+	fields := make([]string, 0, 12)
+	if m.organization != nil {
+		fields = append(fields, organizationmembership.FieldOrganizationID)
+	}
+	if m.user != nil {
+		fields = append(fields, organizationmembership.FieldUserID)
+	}
+	if m.email != nil {
+		fields = append(fields, organizationmembership.FieldEmail)
+	}
+	if m.role != nil {
+		fields = append(fields, organizationmembership.FieldRole)
+	}
+	if m.status != nil {
+		fields = append(fields, organizationmembership.FieldStatus)
+	}
+	if m.invited_by != nil {
+		fields = append(fields, organizationmembership.FieldInvitedBy)
+	}
+	if m.invited_at != nil {
+		fields = append(fields, organizationmembership.FieldInvitedAt)
+	}
+	if m.accepted_at != nil {
+		fields = append(fields, organizationmembership.FieldAcceptedAt)
+	}
+	if m.suspended_at != nil {
+		fields = append(fields, organizationmembership.FieldSuspendedAt)
+	}
+	if m.removed_at != nil {
+		fields = append(fields, organizationmembership.FieldRemovedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, organizationmembership.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, organizationmembership.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *OrganizationMembershipMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case organizationmembership.FieldOrganizationID:
+		return m.OrganizationID()
+	case organizationmembership.FieldUserID:
+		return m.UserID()
+	case organizationmembership.FieldEmail:
+		return m.Email()
+	case organizationmembership.FieldRole:
+		return m.Role()
+	case organizationmembership.FieldStatus:
+		return m.Status()
+	case organizationmembership.FieldInvitedBy:
+		return m.InvitedBy()
+	case organizationmembership.FieldInvitedAt:
+		return m.InvitedAt()
+	case organizationmembership.FieldAcceptedAt:
+		return m.AcceptedAt()
+	case organizationmembership.FieldSuspendedAt:
+		return m.SuspendedAt()
+	case organizationmembership.FieldRemovedAt:
+		return m.RemovedAt()
+	case organizationmembership.FieldCreatedAt:
+		return m.CreatedAt()
+	case organizationmembership.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *OrganizationMembershipMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case organizationmembership.FieldOrganizationID:
+		return m.OldOrganizationID(ctx)
+	case organizationmembership.FieldUserID:
+		return m.OldUserID(ctx)
+	case organizationmembership.FieldEmail:
+		return m.OldEmail(ctx)
+	case organizationmembership.FieldRole:
+		return m.OldRole(ctx)
+	case organizationmembership.FieldStatus:
+		return m.OldStatus(ctx)
+	case organizationmembership.FieldInvitedBy:
+		return m.OldInvitedBy(ctx)
+	case organizationmembership.FieldInvitedAt:
+		return m.OldInvitedAt(ctx)
+	case organizationmembership.FieldAcceptedAt:
+		return m.OldAcceptedAt(ctx)
+	case organizationmembership.FieldSuspendedAt:
+		return m.OldSuspendedAt(ctx)
+	case organizationmembership.FieldRemovedAt:
+		return m.OldRemovedAt(ctx)
+	case organizationmembership.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case organizationmembership.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown OrganizationMembership field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationMembershipMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case organizationmembership.FieldOrganizationID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrganizationID(v)
+		return nil
+	case organizationmembership.FieldUserID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case organizationmembership.FieldEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmail(v)
+		return nil
+	case organizationmembership.FieldRole:
+		v, ok := value.(organizationmembership.Role)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRole(v)
+		return nil
+	case organizationmembership.FieldStatus:
+		v, ok := value.(organizationmembership.Status)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case organizationmembership.FieldInvitedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInvitedBy(v)
+		return nil
+	case organizationmembership.FieldInvitedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInvitedAt(v)
+		return nil
+	case organizationmembership.FieldAcceptedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAcceptedAt(v)
+		return nil
+	case organizationmembership.FieldSuspendedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSuspendedAt(v)
+		return nil
+	case organizationmembership.FieldRemovedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRemovedAt(v)
+		return nil
+	case organizationmembership.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case organizationmembership.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationMembership field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *OrganizationMembershipMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *OrganizationMembershipMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *OrganizationMembershipMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown OrganizationMembership numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *OrganizationMembershipMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(organizationmembership.FieldUserID) {
+		fields = append(fields, organizationmembership.FieldUserID)
+	}
+	if m.FieldCleared(organizationmembership.FieldAcceptedAt) {
+		fields = append(fields, organizationmembership.FieldAcceptedAt)
+	}
+	if m.FieldCleared(organizationmembership.FieldSuspendedAt) {
+		fields = append(fields, organizationmembership.FieldSuspendedAt)
+	}
+	if m.FieldCleared(organizationmembership.FieldRemovedAt) {
+		fields = append(fields, organizationmembership.FieldRemovedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *OrganizationMembershipMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *OrganizationMembershipMutation) ClearField(name string) error {
+	switch name {
+	case organizationmembership.FieldUserID:
+		m.ClearUserID()
+		return nil
+	case organizationmembership.FieldAcceptedAt:
+		m.ClearAcceptedAt()
+		return nil
+	case organizationmembership.FieldSuspendedAt:
+		m.ClearSuspendedAt()
+		return nil
+	case organizationmembership.FieldRemovedAt:
+		m.ClearRemovedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationMembership nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *OrganizationMembershipMutation) ResetField(name string) error {
+	switch name {
+	case organizationmembership.FieldOrganizationID:
+		m.ResetOrganizationID()
+		return nil
+	case organizationmembership.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case organizationmembership.FieldEmail:
+		m.ResetEmail()
+		return nil
+	case organizationmembership.FieldRole:
+		m.ResetRole()
+		return nil
+	case organizationmembership.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case organizationmembership.FieldInvitedBy:
+		m.ResetInvitedBy()
+		return nil
+	case organizationmembership.FieldInvitedAt:
+		m.ResetInvitedAt()
+		return nil
+	case organizationmembership.FieldAcceptedAt:
+		m.ResetAcceptedAt()
+		return nil
+	case organizationmembership.FieldSuspendedAt:
+		m.ResetSuspendedAt()
+		return nil
+	case organizationmembership.FieldRemovedAt:
+		m.ResetRemovedAt()
+		return nil
+	case organizationmembership.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case organizationmembership.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationMembership field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *OrganizationMembershipMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.organization != nil {
+		edges = append(edges, organizationmembership.EdgeOrganization)
+	}
+	if m.user != nil {
+		edges = append(edges, organizationmembership.EdgeUser)
+	}
+	if m.invitations != nil {
+		edges = append(edges, organizationmembership.EdgeInvitations)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *OrganizationMembershipMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case organizationmembership.EdgeOrganization:
+		if id := m.organization; id != nil {
+			return []ent.Value{*id}
+		}
+	case organizationmembership.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case organizationmembership.EdgeInvitations:
+		ids := make([]ent.Value, 0, len(m.invitations))
+		for id := range m.invitations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *OrganizationMembershipMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedinvitations != nil {
+		edges = append(edges, organizationmembership.EdgeInvitations)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *OrganizationMembershipMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case organizationmembership.EdgeInvitations:
+		ids := make([]ent.Value, 0, len(m.removedinvitations))
+		for id := range m.removedinvitations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *OrganizationMembershipMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedorganization {
+		edges = append(edges, organizationmembership.EdgeOrganization)
+	}
+	if m.cleareduser {
+		edges = append(edges, organizationmembership.EdgeUser)
+	}
+	if m.clearedinvitations {
+		edges = append(edges, organizationmembership.EdgeInvitations)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *OrganizationMembershipMutation) EdgeCleared(name string) bool {
+	switch name {
+	case organizationmembership.EdgeOrganization:
+		return m.clearedorganization
+	case organizationmembership.EdgeUser:
+		return m.cleareduser
+	case organizationmembership.EdgeInvitations:
+		return m.clearedinvitations
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *OrganizationMembershipMutation) ClearEdge(name string) error {
+	switch name {
+	case organizationmembership.EdgeOrganization:
+		m.ClearOrganization()
+		return nil
+	case organizationmembership.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationMembership unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *OrganizationMembershipMutation) ResetEdge(name string) error {
+	switch name {
+	case organizationmembership.EdgeOrganization:
+		m.ResetOrganization()
+		return nil
+	case organizationmembership.EdgeUser:
+		m.ResetUser()
+		return nil
+	case organizationmembership.EdgeInvitations:
+		m.ResetInvitations()
+		return nil
+	}
+	return fmt.Errorf("unknown OrganizationMembership edge %s", name)
 }
 
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
@@ -52412,20 +55012,26 @@ func (m *TicketStatusMutation) ResetEdge(name string) error {
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
 	config
-	op            Op
-	typ           string
-	id            *uuid.UUID
-	status        *user.Status
-	primary_email *string
-	display_name  *string
-	avatar_url    *string
-	last_login_at *time.Time
-	created_at    *time.Time
-	updated_at    *time.Time
-	clearedFields map[string]struct{}
-	done          bool
-	oldValue      func(context.Context) (*User, error)
-	predicates    []predicate.User
+	op                                       Op
+	typ                                      string
+	id                                       *uuid.UUID
+	status                                   *user.Status
+	primary_email                            *string
+	display_name                             *string
+	avatar_url                               *string
+	last_login_at                            *time.Time
+	created_at                               *time.Time
+	updated_at                               *time.Time
+	clearedFields                            map[string]struct{}
+	organization_memberships                 map[uuid.UUID]struct{}
+	removedorganization_memberships          map[uuid.UUID]struct{}
+	clearedorganization_memberships          bool
+	accepted_organization_invitations        map[uuid.UUID]struct{}
+	removedaccepted_organization_invitations map[uuid.UUID]struct{}
+	clearedaccepted_organization_invitations bool
+	done                                     bool
+	oldValue                                 func(context.Context) (*User, error)
+	predicates                               []predicate.User
 }
 
 var _ ent.Mutation = (*UserMutation)(nil)
@@ -52797,6 +55403,114 @@ func (m *UserMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// AddOrganizationMembershipIDs adds the "organization_memberships" edge to the OrganizationMembership entity by ids.
+func (m *UserMutation) AddOrganizationMembershipIDs(ids ...uuid.UUID) {
+	if m.organization_memberships == nil {
+		m.organization_memberships = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.organization_memberships[ids[i]] = struct{}{}
+	}
+}
+
+// ClearOrganizationMemberships clears the "organization_memberships" edge to the OrganizationMembership entity.
+func (m *UserMutation) ClearOrganizationMemberships() {
+	m.clearedorganization_memberships = true
+}
+
+// OrganizationMembershipsCleared reports if the "organization_memberships" edge to the OrganizationMembership entity was cleared.
+func (m *UserMutation) OrganizationMembershipsCleared() bool {
+	return m.clearedorganization_memberships
+}
+
+// RemoveOrganizationMembershipIDs removes the "organization_memberships" edge to the OrganizationMembership entity by IDs.
+func (m *UserMutation) RemoveOrganizationMembershipIDs(ids ...uuid.UUID) {
+	if m.removedorganization_memberships == nil {
+		m.removedorganization_memberships = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.organization_memberships, ids[i])
+		m.removedorganization_memberships[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedOrganizationMemberships returns the removed IDs of the "organization_memberships" edge to the OrganizationMembership entity.
+func (m *UserMutation) RemovedOrganizationMembershipsIDs() (ids []uuid.UUID) {
+	for id := range m.removedorganization_memberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// OrganizationMembershipsIDs returns the "organization_memberships" edge IDs in the mutation.
+func (m *UserMutation) OrganizationMembershipsIDs() (ids []uuid.UUID) {
+	for id := range m.organization_memberships {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetOrganizationMemberships resets all changes to the "organization_memberships" edge.
+func (m *UserMutation) ResetOrganizationMemberships() {
+	m.organization_memberships = nil
+	m.clearedorganization_memberships = false
+	m.removedorganization_memberships = nil
+}
+
+// AddAcceptedOrganizationInvitationIDs adds the "accepted_organization_invitations" edge to the OrganizationInvitation entity by ids.
+func (m *UserMutation) AddAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) {
+	if m.accepted_organization_invitations == nil {
+		m.accepted_organization_invitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.accepted_organization_invitations[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAcceptedOrganizationInvitations clears the "accepted_organization_invitations" edge to the OrganizationInvitation entity.
+func (m *UserMutation) ClearAcceptedOrganizationInvitations() {
+	m.clearedaccepted_organization_invitations = true
+}
+
+// AcceptedOrganizationInvitationsCleared reports if the "accepted_organization_invitations" edge to the OrganizationInvitation entity was cleared.
+func (m *UserMutation) AcceptedOrganizationInvitationsCleared() bool {
+	return m.clearedaccepted_organization_invitations
+}
+
+// RemoveAcceptedOrganizationInvitationIDs removes the "accepted_organization_invitations" edge to the OrganizationInvitation entity by IDs.
+func (m *UserMutation) RemoveAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) {
+	if m.removedaccepted_organization_invitations == nil {
+		m.removedaccepted_organization_invitations = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.accepted_organization_invitations, ids[i])
+		m.removedaccepted_organization_invitations[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAcceptedOrganizationInvitations returns the removed IDs of the "accepted_organization_invitations" edge to the OrganizationInvitation entity.
+func (m *UserMutation) RemovedAcceptedOrganizationInvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.removedaccepted_organization_invitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AcceptedOrganizationInvitationsIDs returns the "accepted_organization_invitations" edge IDs in the mutation.
+func (m *UserMutation) AcceptedOrganizationInvitationsIDs() (ids []uuid.UUID) {
+	for id := range m.accepted_organization_invitations {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAcceptedOrganizationInvitations resets all changes to the "accepted_organization_invitations" edge.
+func (m *UserMutation) ResetAcceptedOrganizationInvitations() {
+	m.accepted_organization_invitations = nil
+	m.clearedaccepted_organization_invitations = false
+	m.removedaccepted_organization_invitations = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -53041,49 +55755,111 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.organization_memberships != nil {
+		edges = append(edges, user.EdgeOrganizationMemberships)
+	}
+	if m.accepted_organization_invitations != nil {
+		edges = append(edges, user.EdgeAcceptedOrganizationInvitations)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeOrganizationMemberships:
+		ids := make([]ent.Value, 0, len(m.organization_memberships))
+		for id := range m.organization_memberships {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeAcceptedOrganizationInvitations:
+		ids := make([]ent.Value, 0, len(m.accepted_organization_invitations))
+		for id := range m.accepted_organization_invitations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.removedorganization_memberships != nil {
+		edges = append(edges, user.EdgeOrganizationMemberships)
+	}
+	if m.removedaccepted_organization_invitations != nil {
+		edges = append(edges, user.EdgeAcceptedOrganizationInvitations)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeOrganizationMemberships:
+		ids := make([]ent.Value, 0, len(m.removedorganization_memberships))
+		for id := range m.removedorganization_memberships {
+			ids = append(ids, id)
+		}
+		return ids
+	case user.EdgeAcceptedOrganizationInvitations:
+		ids := make([]ent.Value, 0, len(m.removedaccepted_organization_invitations))
+		for id := range m.removedaccepted_organization_invitations {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 2)
+	if m.clearedorganization_memberships {
+		edges = append(edges, user.EdgeOrganizationMemberships)
+	}
+	if m.clearedaccepted_organization_invitations {
+		edges = append(edges, user.EdgeAcceptedOrganizationInvitations)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
+	switch name {
+	case user.EdgeOrganizationMemberships:
+		return m.clearedorganization_memberships
+	case user.EdgeAcceptedOrganizationInvitations:
+		return m.clearedaccepted_organization_invitations
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
+	switch name {
+	case user.EdgeOrganizationMemberships:
+		m.ResetOrganizationMemberships()
+		return nil
+	case user.EdgeAcceptedOrganizationInvitations:
+		m.ResetAcceptedOrganizationInvitations()
+		return nil
+	}
 	return fmt.Errorf("unknown User edge %s", name)
 }
 

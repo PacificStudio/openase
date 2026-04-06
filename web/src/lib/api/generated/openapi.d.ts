@@ -709,6 +709,23 @@ export interface paths {
     patch: operations['updateNotificationRule']
     trace?: never
   }
+  '/api/v1/org-invitations/accept': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Accept an organization invitation for the current signed-in user */
+    post: operations['acceptOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/organizations/{orgId}/role-bindings': {
     parameters: {
       query?: never
@@ -798,6 +815,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/invitations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Invite a user into an organization membership lifecycle */
+    post: operations['inviteOrganizationMember']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/invitations/{invitationId}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Cancel an organization invitation and remove the pending membership */
+    post: operations['cancelOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/invitations/{invitationId}/resend': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resend an organization invitation and rotate its accept token */
+    post: operations['resendOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/machines': {
     parameters: {
       query?: never
@@ -827,6 +895,57 @@ export interface paths {
     get: operations['streamOrganizationMachines']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization memberships and active invitations */
+    get: operations['listOrganizationMemberships']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members/{membershipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update an organization membership role or lifecycle status */
+    patch: operations['updateOrganizationMembership']
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Transfer organization ownership to another active member */
+    post: operations['transferOrganizationOwnership']
     delete?: never
     options?: never
     head?: never
@@ -6463,6 +6582,127 @@ export interface operations {
       }
     }
   }
+  acceptOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Accept an organization invitation for the current signed-in user request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Plain invitation accept token returned when the invite was created or resent. */
+          token?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Accept an organization invitation for the current signed-in user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listOrganizationRoleBindings: {
     parameters: {
       query?: never
@@ -7146,6 +7386,392 @@ export interface operations {
       }
     }
   }
+  inviteOrganizationMember: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Invite a user into an organization membership lifecycle request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Invitee email address. The accepting user must sign in with this email. */
+          email?: string
+          /** @description Baseline organization role granted after acceptance. Supported values are owner, admin, and member. */
+          role?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Invite a user into an organization membership lifecycle response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            accept_token?: string
+            invitation?: {
+              accepted_at?: string | null
+              canceled_at?: string | null
+              email?: string
+              expires_at?: string
+              id?: string
+              invited_by?: string
+              role?: string
+              sent_at?: string
+              status?: string
+            }
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  cancelOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Invitation ID. */
+        invitationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Cancel an organization invitation and remove the pending membership response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resendOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Invitation ID. */
+        invitationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resend an organization invitation and rotate its accept token response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            accept_token?: string
+            invitation?: {
+              accepted_at?: string | null
+              canceled_at?: string | null
+              email?: string
+              expires_at?: string
+              id?: string
+              invited_by?: string
+              role?: string
+              sent_at?: string
+              status?: string
+            }
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listMachines: {
     parameters: {
       query?: never
@@ -7427,6 +8053,364 @@ export interface operations {
       }
       /** @description Bad Request response. */
       400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizationMemberships: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization memberships and active invitations response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memberships?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateOrganizationMembership: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Membership ID. */
+        membershipId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an organization membership role or lifecycle status request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional new baseline organization role. Supported values are owner, admin, and member. */
+          role?: string | null
+          /** @description Optional lifecycle status transition. Supported values are invited, active, suspended, and removed. */
+          status?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an organization membership role or lifecycle status response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  transferOrganizationOwnership: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Membership ID. */
+        membershipId: string
+      }
+      cookie?: never
+    }
+    /** @description Transfer organization ownership to another active member request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional role assigned to the previous owner after transfer. Supported values are admin and member. */
+          previous_owner_role?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Transfer organization ownership to another active member response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memberships?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }

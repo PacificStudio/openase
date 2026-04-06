@@ -19,6 +19,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Ticket as TicketIcon } from '@lucide/svelte'
+  import OrganizationMembersSection from './organization-members-section.svelte'
 
   const currentOrg = $derived(appStore.currentOrg),
     projects = $derived(appStore.projects),
@@ -195,6 +196,10 @@
       </button>
     {/if}
   </section>
+
+  {#if currentOrg}
+    <OrganizationMembersSection organizationId={currentOrg.id} />
+  {/if}
 </div>
 
 {#if currentOrg}

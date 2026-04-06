@@ -85,6 +85,8 @@ type CreateOrganization struct {
 	Name                   string
 	Slug                   string
 	DefaultAgentProviderID *uuid.UUID
+	CreatorUserID          *uuid.UUID
+	CreatorEmail           string
 }
 
 type UpdateOrganization struct {

@@ -14,6 +14,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entauthauditevent "github.com/BetterAndBetterII/openase/ent/authauditevent"
 	entbrowsersession "github.com/BetterAndBetterII/openase/ent/browsersession"
+	entorganizationmembership "github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	entrolebinding "github.com/BetterAndBetterII/openase/ent/rolebinding"
 	entuser "github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -224,7 +225,7 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 	if payload.Scope.Kind != "project" || payload.Scope.ID != projectID.String() {
 		t.Fatalf("unexpected scope: %+v", payload.Scope)
 	}
-	assertStringSet(t, payload.Roles, "org_admin", "project_viewer")
+	assertStringSet(t, payload.Roles, "org_admin", "org_member", "project_viewer")
 	assertStringSet(t, payload.Permissions,
 		"agent.control",
 		"agent.create",
@@ -346,9 +347,15 @@ func TestHumanVisibilityFiltersOrganizationAndProjectLists(t *testing.T) {
 		} `json:"projects"`
 	}
 	decodeResponse(t, projectRec, &projectPayload)
-	if len(projectPayload.Projects) != 1 || projectPayload.Projects[0].ID != projectA.String() {
+	if len(projectPayload.Projects) != 2 {
 		t.Fatalf("unexpected projects payload: %+v", projectPayload.Projects)
 	}
+	assertStringSet(
+		t,
+		[]string{projectPayload.Projects[0].ID, projectPayload.Projects[1].ID},
+		projectA.String(),
+		projectA2.ID.String(),
+	)
 
 	hiddenOrgRec := fixture.request(t, http.MethodGet, "/api/v1/orgs/"+orgB.String()+"/projects", map[string]string{
 		"Cookie":     humanSessionCookieName + "=" + sessionToken,
@@ -1280,6 +1287,28 @@ func (f humanAuthFixture) createSession(t *testing.T, input humanFixtureSessionI
 			SetGrantedBy("system:test").
 			Save(ctx); err != nil {
 			t.Fatalf("create org group role binding: %v", err)
+		}
+	}
+	membershipOrgID := input.orgID
+	if membershipOrgID == uuid.Nil && input.projectID != uuid.Nil {
+		project, err := f.client.Project.Get(ctx, input.projectID)
+		if err != nil {
+			t.Fatalf("load project for membership scope: %v", err)
+		}
+		membershipOrgID = project.OrganizationID
+	}
+	if membershipOrgID != uuid.Nil {
+		if _, err := f.client.OrganizationMembership.Create().
+			SetOrganizationID(membershipOrgID).
+			SetUserID(user.ID).
+			SetEmail(input.userEmail).
+			SetRole(entorganizationmembership.RoleMember).
+			SetStatus(entorganizationmembership.StatusActive).
+			SetInvitedBy("system:test").
+			SetInvitedAt(now).
+			SetAcceptedAt(now).
+			Save(ctx); err != nil {
+			t.Fatalf("create organization membership: %v", err)
 		}
 	}
 

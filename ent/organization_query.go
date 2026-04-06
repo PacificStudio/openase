@@ -17,6 +17,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/google/uuid"
@@ -34,6 +36,8 @@ type OrganizationQuery struct {
 	withMachines             *MachineQuery
 	withNotificationChannels *NotificationChannelQuery
 	withDailyTokenUsage      *OrganizationDailyTokenUsageQuery
+	withMemberships          *OrganizationMembershipQuery
+	withInvitations          *OrganizationInvitationQuery
 	withDefaultAgentProvider *AgentProviderQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -174,6 +178,50 @@ func (_q *OrganizationQuery) QueryDailyTokenUsage() *OrganizationDailyTokenUsage
 			sqlgraph.From(organization.Table, organization.FieldID, selector),
 			sqlgraph.To(organizationdailytokenusage.Table, organizationdailytokenusage.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, organization.DailyTokenUsageTable, organization.DailyTokenUsageColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryMemberships chains the current query on the "memberships" edge.
+func (_q *OrganizationQuery) QueryMemberships() *OrganizationMembershipQuery {
+	query := (&OrganizationMembershipClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, selector),
+			sqlgraph.To(organizationmembership.Table, organizationmembership.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.MembershipsTable, organization.MembershipsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryInvitations chains the current query on the "invitations" edge.
+func (_q *OrganizationQuery) QueryInvitations() *OrganizationInvitationQuery {
+	query := (&OrganizationInvitationClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(organization.Table, organization.FieldID, selector),
+			sqlgraph.To(organizationinvitation.Table, organizationinvitation.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, organization.InvitationsTable, organization.InvitationsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -400,6 +448,8 @@ func (_q *OrganizationQuery) Clone() *OrganizationQuery {
 		withMachines:             _q.withMachines.Clone(),
 		withNotificationChannels: _q.withNotificationChannels.Clone(),
 		withDailyTokenUsage:      _q.withDailyTokenUsage.Clone(),
+		withMemberships:          _q.withMemberships.Clone(),
+		withInvitations:          _q.withInvitations.Clone(),
 		withDefaultAgentProvider: _q.withDefaultAgentProvider.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -459,6 +509,28 @@ func (_q *OrganizationQuery) WithDailyTokenUsage(opts ...func(*OrganizationDaily
 		opt(query)
 	}
 	_q.withDailyTokenUsage = query
+	return _q
+}
+
+// WithMemberships tells the query-builder to eager-load the nodes that are connected to
+// the "memberships" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *OrganizationQuery) WithMemberships(opts ...func(*OrganizationMembershipQuery)) *OrganizationQuery {
+	query := (&OrganizationMembershipClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withMemberships = query
+	return _q
+}
+
+// WithInvitations tells the query-builder to eager-load the nodes that are connected to
+// the "invitations" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *OrganizationQuery) WithInvitations(opts ...func(*OrganizationInvitationQuery)) *OrganizationQuery {
+	query := (&OrganizationInvitationClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withInvitations = query
 	return _q
 }
 
@@ -551,12 +623,14 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Organization{}
 		_spec       = _q.querySpec()
-		loadedTypes = [6]bool{
+		loadedTypes = [8]bool{
 			_q.withProjects != nil,
 			_q.withProviders != nil,
 			_q.withMachines != nil,
 			_q.withNotificationChannels != nil,
 			_q.withDailyTokenUsage != nil,
+			_q.withMemberships != nil,
+			_q.withInvitations != nil,
 			_q.withDefaultAgentProvider != nil,
 		}
 	)
@@ -614,6 +688,20 @@ func (_q *OrganizationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 			func(n *Organization, e *OrganizationDailyTokenUsage) {
 				n.Edges.DailyTokenUsage = append(n.Edges.DailyTokenUsage, e)
 			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withMemberships; query != nil {
+		if err := _q.loadMemberships(ctx, query, nodes,
+			func(n *Organization) { n.Edges.Memberships = []*OrganizationMembership{} },
+			func(n *Organization, e *OrganizationMembership) { n.Edges.Memberships = append(n.Edges.Memberships, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withInvitations; query != nil {
+		if err := _q.loadInvitations(ctx, query, nodes,
+			func(n *Organization) { n.Edges.Invitations = []*OrganizationInvitation{} },
+			func(n *Organization, e *OrganizationInvitation) { n.Edges.Invitations = append(n.Edges.Invitations, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -761,6 +849,66 @@ func (_q *OrganizationQuery) loadDailyTokenUsage(ctx context.Context, query *Org
 	}
 	query.Where(predicate.OrganizationDailyTokenUsage(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(organization.DailyTokenUsageColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrganizationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "organization_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *OrganizationQuery) loadMemberships(ctx context.Context, query *OrganizationMembershipQuery, nodes []*Organization, init func(*Organization), assign func(*Organization, *OrganizationMembership)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Organization)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(organizationmembership.FieldOrganizationID)
+	}
+	query.Where(predicate.OrganizationMembership(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(organization.MembershipsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrganizationID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "organization_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *OrganizationQuery) loadInvitations(ctx context.Context, query *OrganizationInvitationQuery, nodes []*Organization, init func(*Organization), assign func(*Organization, *OrganizationInvitation)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Organization)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(organizationinvitation.FieldOrganizationID)
+	}
+	query.Where(predicate.OrganizationInvitation(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(organization.InvitationsColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

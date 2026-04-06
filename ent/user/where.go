@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/google/uuid"
 )
@@ -428,6 +429,52 @@ func UpdatedAtLT(v time.Time) predicate.User {
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
 func UpdatedAtLTE(v time.Time) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldUpdatedAt, v))
+}
+
+// HasOrganizationMemberships applies the HasEdge predicate on the "organization_memberships" edge.
+func HasOrganizationMemberships() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, OrganizationMembershipsTable, OrganizationMembershipsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasOrganizationMembershipsWith applies the HasEdge predicate on the "organization_memberships" edge with a given conditions (other predicates).
+func HasOrganizationMembershipsWith(preds ...predicate.OrganizationMembership) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newOrganizationMembershipsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAcceptedOrganizationInvitations applies the HasEdge predicate on the "accepted_organization_invitations" edge.
+func HasAcceptedOrganizationInvitations() predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AcceptedOrganizationInvitationsTable, AcceptedOrganizationInvitationsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAcceptedOrganizationInvitationsWith applies the HasEdge predicate on the "accepted_organization_invitations" edge with a given conditions (other predicates).
+func HasAcceptedOrganizationInvitationsWith(preds ...predicate.OrganizationInvitation) predicate.User {
+	return predicate.User(func(s *sql.Selector) {
+		step := newAcceptedOrganizationInvitationsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

@@ -46,7 +46,12 @@ func (a *Authorizer) Evaluate(
 	if err != nil {
 		return nil, nil, err
 	}
-	roles := make([]domain.RoleKey, 0, len(bindings))
+	memberships, err := a.repo.ListActiveOrganizationMembershipsByUser(ctx, user.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	roles := make([]domain.RoleKey, 0, len(bindings)+len(memberships))
 	now := time.Now().UTC()
 	projectOrgID := ""
 	if scope.Kind == domain.ScopeKindProject && strings.TrimSpace(scope.ID) != "" {
@@ -56,24 +61,50 @@ func (a *Authorizer) Evaluate(
 			}
 		}
 	}
+	membershipRoles := map[string]domain.OrganizationMembershipRole{}
+	for _, membership := range memberships {
+		membershipRoles[membership.OrganizationID.String()] = membership.Role
+	}
 	roleSet := map[domain.RoleKey]struct{}{}
 	for _, binding := range bindings {
 		if binding.ExpiresAt != nil && now.After(binding.ExpiresAt.UTC()) {
 			continue
 		}
-		switch binding.ScopeKind {
-		case domain.ScopeKindInstance:
+		if binding.ScopeKind == domain.ScopeKindInstance {
 			roleSet[binding.RoleKey] = struct{}{}
+		}
+	}
+	if scope.Kind == domain.ScopeKindOrganization {
+		if role, ok := membershipRoles[scope.ID]; ok {
+			roleSet[role.RoleKey()] = struct{}{}
+		}
+	}
+	if scope.Kind == domain.ScopeKindProject {
+		if role, ok := membershipRoles[projectOrgID]; ok {
+			roleSet[role.RoleKey()] = struct{}{}
+		}
+	}
+	for _, binding := range bindings {
+		if binding.ExpiresAt != nil && now.After(binding.ExpiresAt.UTC()) {
+			continue
+		}
+		switch binding.ScopeKind {
 		case domain.ScopeKindOrganization:
 			if scope.Kind == domain.ScopeKindOrganization && binding.ScopeID == scope.ID {
-				roleSet[binding.RoleKey] = struct{}{}
+				if _, ok := membershipRoles[binding.ScopeID]; ok {
+					roleSet[binding.RoleKey] = struct{}{}
+				}
 			}
 			if scope.Kind == domain.ScopeKindProject && binding.ScopeID == projectOrgID {
-				roleSet[binding.RoleKey] = struct{}{}
+				if _, ok := membershipRoles[binding.ScopeID]; ok {
+					roleSet[binding.RoleKey] = struct{}{}
+				}
 			}
 		case domain.ScopeKindProject:
 			if scope.Kind == domain.ScopeKindProject && binding.ScopeID == scope.ID {
-				roleSet[binding.RoleKey] = struct{}{}
+				if _, ok := membershipRoles[projectOrgID]; ok {
+					roleSet[binding.RoleKey] = struct{}{}
+				}
 			}
 		}
 	}

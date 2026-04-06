@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entorganizationmembership "github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -325,6 +326,52 @@ func TestEntRepositoryOrganizationProjectRepoAndScopeLifecycle(t *testing.T) {
 	}
 	if archivedOrg.Status != domain.OrganizationStatusArchived {
 		t.Fatalf("ArchiveOrganization() = %+v", archivedOrg)
+	}
+}
+
+func TestCreateOrganizationSeedsCreatorOwnerMembership(t *testing.T) {
+	client := openRepoCatalogTestEntClient(t)
+	ctx := context.Background()
+	repo := NewEntRepository(client)
+
+	creator, err := client.User.Create().
+		SetPrimaryEmail("owner@example.com").
+		SetDisplayName("Owner").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create creator user: %v", err)
+	}
+	suffix := uuid.NewString()[:8]
+	org, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
+		Name:          "Ownerful Org " + suffix,
+		Slug:          "ownerful-org-" + suffix,
+		CreatorUserID: &creator.ID,
+		CreatorEmail:  "owner@example.com",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrganization() error = %v", err)
+	}
+
+	membership, err := client.OrganizationMembership.Query().
+		Where(
+			entorganizationmembership.OrganizationIDEQ(org.ID),
+			entorganizationmembership.UserID(creator.ID),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load creator membership: %v", err)
+	}
+	if membership.Role != entorganizationmembership.RoleOwner {
+		t.Fatalf("membership.role = %q, want owner", membership.Role)
+	}
+	if membership.Status != entorganizationmembership.StatusActive {
+		t.Fatalf("membership.status = %q, want active", membership.Status)
+	}
+	if membership.Email != "owner@example.com" {
+		t.Fatalf("membership.email = %q, want owner@example.com", membership.Email)
+	}
+	if membership.AcceptedAt == nil {
+		t.Fatal("expected creator membership accepted_at to be populated")
 	}
 }
 

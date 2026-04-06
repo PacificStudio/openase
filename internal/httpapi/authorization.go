@@ -120,7 +120,7 @@ func (s *Server) requiredScopeAndPermission(
 
 func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAuthorizationRule, bool) {
 	switch path {
-	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions", "/api/v1/auth/sessions", "/api/v1/auth/sessions/:id", "/api/v1/auth/sessions/revoke-all", "/api/v1/roles/builtin", "/api/v1/roles/builtin/:roleSlug", "/api/v1/harness/variables", "/api/v1/harness/validate", "/api/v1/notification-event-types", "/api/v1/chat", "/api/v1/chat/:sessionId", "/api/v1/chat/conversations":
+	case "/api/v1/app-context", "/api/v1/system/dashboard", "/api/v1/system/metrics", "/api/v1/workspace/summary", "/api/v1/provider-model-options", "/api/v1/openapi.json", "/api/v1/auth/me/permissions", "/api/v1/auth/sessions", "/api/v1/auth/sessions/:id", "/api/v1/auth/sessions/revoke-all", "/api/v1/roles/builtin", "/api/v1/roles/builtin/:roleSlug", "/api/v1/harness/variables", "/api/v1/harness/validate", "/api/v1/notification-event-types", "/api/v1/chat", "/api/v1/chat/:sessionId", "/api/v1/chat/conversations", "/api/v1/org-invitations/accept":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,
 			checkRequired: false,
@@ -175,7 +175,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionProjectCreate,
 			checkRequired: true,
 		}, true
-	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId":
+	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId", "/api/v1/orgs/:orgId/members", "/api/v1/orgs/:orgId/members/:membershipId", "/api/v1/orgs/:orgId/members/:membershipId/transfer-ownership", "/api/v1/orgs/:orgId/invitations", "/api/v1/orgs/:orgId/invitations/:invitationId/resend", "/api/v1/orgs/:orgId/invitations/:invitationId/cancel":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "organization",

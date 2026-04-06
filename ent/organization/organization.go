@@ -37,6 +37,10 @@ const (
 	EdgeNotificationChannels = "notification_channels"
 	// EdgeDailyTokenUsage holds the string denoting the daily_token_usage edge name in mutations.
 	EdgeDailyTokenUsage = "daily_token_usage"
+	// EdgeMemberships holds the string denoting the memberships edge name in mutations.
+	EdgeMemberships = "memberships"
+	// EdgeInvitations holds the string denoting the invitations edge name in mutations.
+	EdgeInvitations = "invitations"
 	// EdgeDefaultAgentProvider holds the string denoting the default_agent_provider edge name in mutations.
 	EdgeDefaultAgentProvider = "default_agent_provider"
 	// Table holds the table name of the organization in the database.
@@ -76,6 +80,20 @@ const (
 	DailyTokenUsageInverseTable = "organization_daily_token_usages"
 	// DailyTokenUsageColumn is the table column denoting the daily_token_usage relation/edge.
 	DailyTokenUsageColumn = "organization_id"
+	// MembershipsTable is the table that holds the memberships relation/edge.
+	MembershipsTable = "organization_memberships"
+	// MembershipsInverseTable is the table name for the OrganizationMembership entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationmembership" package.
+	MembershipsInverseTable = "organization_memberships"
+	// MembershipsColumn is the table column denoting the memberships relation/edge.
+	MembershipsColumn = "organization_id"
+	// InvitationsTable is the table that holds the invitations relation/edge.
+	InvitationsTable = "organization_invitations"
+	// InvitationsInverseTable is the table name for the OrganizationInvitation entity.
+	// It exists in this package in order to avoid circular dependency with the "organizationinvitation" package.
+	InvitationsInverseTable = "organization_invitations"
+	// InvitationsColumn is the table column denoting the invitations relation/edge.
+	InvitationsColumn = "organization_id"
 	// DefaultAgentProviderTable is the table that holds the default_agent_provider relation/edge.
 	DefaultAgentProviderTable = "organizations"
 	// DefaultAgentProviderInverseTable is the table name for the AgentProvider entity.
@@ -239,6 +257,34 @@ func ByDailyTokenUsage(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByMembershipsCount orders the results by memberships count.
+func ByMembershipsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newMembershipsStep(), opts...)
+	}
+}
+
+// ByMemberships orders the results by memberships terms.
+func ByMemberships(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newMembershipsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByInvitationsCount orders the results by invitations count.
+func ByInvitationsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newInvitationsStep(), opts...)
+	}
+}
+
+// ByInvitations orders the results by invitations terms.
+func ByInvitations(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newInvitationsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDefaultAgentProviderField orders the results by default_agent_provider field.
 func ByDefaultAgentProviderField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -278,6 +324,20 @@ func newDailyTokenUsageStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DailyTokenUsageInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
+	)
+}
+func newMembershipsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(MembershipsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, MembershipsTable, MembershipsColumn),
+	)
+}
+func newInvitationsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(InvitationsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, InvitationsTable, InvitationsColumn),
 	)
 }
 func newDefaultAgentProviderStep() *sqlgraph.Step {

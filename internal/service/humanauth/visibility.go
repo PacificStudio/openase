@@ -32,44 +32,32 @@ func (r *VisibilityResolver) EffectiveVisibility(
 	if err != nil {
 		return domain.EffectiveVisibility{}, err
 	}
+	memberships, err := r.repo.ListActiveOrganizationMembershipsByUser(ctx, principal.User.ID)
+	if err != nil {
+		return domain.EffectiveVisibility{}, err
+	}
 
 	now := time.Now().UTC()
 	organizationIDs := map[uuid.UUID]struct{}{}
 	organizationScopeIDs := map[uuid.UUID]struct{}{}
-	projectIDs := map[uuid.UUID]struct{}{}
 	visibility := domain.EffectiveVisibility{}
 
 	for _, binding := range bindings {
 		if binding.ExpiresAt != nil && now.After(binding.ExpiresAt.UTC()) {
 			continue
 		}
-		switch binding.ScopeKind {
-		case domain.ScopeKindInstance:
+		if binding.ScopeKind == domain.ScopeKindInstance {
 			visibility.Instance = true
-		case domain.ScopeKindOrganization:
-			orgID, err := uuid.Parse(strings.TrimSpace(binding.ScopeID))
-			if err != nil {
-				continue
-			}
-			organizationIDs[orgID] = struct{}{}
-			organizationScopeIDs[orgID] = struct{}{}
-		case domain.ScopeKindProject:
-			projectID, err := uuid.Parse(strings.TrimSpace(binding.ScopeID))
-			if err != nil {
-				continue
-			}
-			projectIDs[projectID] = struct{}{}
-			projectOrgID, err := r.repo.ResolveProjectOrganization(ctx, projectID)
-			if err != nil {
-				continue
-			}
-			organizationIDs[projectOrgID] = struct{}{}
 		}
+	}
+	for _, membership := range memberships {
+		organizationIDs[membership.OrganizationID] = struct{}{}
+		organizationScopeIDs[membership.OrganizationID] = struct{}{}
 	}
 
 	visibility.OrganizationIDs = sortedUUIDKeys(organizationIDs)
 	visibility.OrganizationScopeIDs = sortedUUIDKeys(organizationScopeIDs)
-	visibility.ProjectIDs = sortedUUIDKeys(projectIDs)
+	visibility.ProjectIDs = []uuid.UUID{}
 	return visibility, nil
 }
 

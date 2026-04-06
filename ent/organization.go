@@ -50,11 +50,15 @@ type OrganizationEdges struct {
 	NotificationChannels []*NotificationChannel `json:"notification_channels,omitempty"`
 	// DailyTokenUsage holds the value of the daily_token_usage edge.
 	DailyTokenUsage []*OrganizationDailyTokenUsage `json:"daily_token_usage,omitempty"`
+	// Memberships holds the value of the memberships edge.
+	Memberships []*OrganizationMembership `json:"memberships,omitempty"`
+	// Invitations holds the value of the invitations edge.
+	Invitations []*OrganizationInvitation `json:"invitations,omitempty"`
 	// DefaultAgentProvider holds the value of the default_agent_provider edge.
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [8]bool
 }
 
 // ProjectsOrErr returns the Projects value or an error if the edge
@@ -102,12 +106,30 @@ func (e OrganizationEdges) DailyTokenUsageOrErr() ([]*OrganizationDailyTokenUsag
 	return nil, &NotLoadedError{edge: "daily_token_usage"}
 }
 
+// MembershipsOrErr returns the Memberships value or an error if the edge
+// was not loaded in eager-loading.
+func (e OrganizationEdges) MembershipsOrErr() ([]*OrganizationMembership, error) {
+	if e.loadedTypes[5] {
+		return e.Memberships, nil
+	}
+	return nil, &NotLoadedError{edge: "memberships"}
+}
+
+// InvitationsOrErr returns the Invitations value or an error if the edge
+// was not loaded in eager-loading.
+func (e OrganizationEdges) InvitationsOrErr() ([]*OrganizationInvitation, error) {
+	if e.loadedTypes[6] {
+		return e.Invitations, nil
+	}
+	return nil, &NotLoadedError{edge: "invitations"}
+}
+
 // DefaultAgentProviderOrErr returns the DefaultAgentProvider value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e OrganizationEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[5] {
+	} else if e.loadedTypes[7] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -224,6 +246,16 @@ func (_m *Organization) QueryNotificationChannels() *NotificationChannelQuery {
 // QueryDailyTokenUsage queries the "daily_token_usage" edge of the Organization entity.
 func (_m *Organization) QueryDailyTokenUsage() *OrganizationDailyTokenUsageQuery {
 	return NewOrganizationClient(_m.config).QueryDailyTokenUsage(_m)
+}
+
+// QueryMemberships queries the "memberships" edge of the Organization entity.
+func (_m *Organization) QueryMemberships() *OrganizationMembershipQuery {
+	return NewOrganizationClient(_m.config).QueryMemberships(_m)
+}
+
+// QueryInvitations queries the "invitations" edge of the Organization entity.
+func (_m *Organization) QueryInvitations() *OrganizationInvitationQuery {
+	return NewOrganizationClient(_m.config).QueryInvitations(_m)
 }
 
 // QueryDefaultAgentProvider queries the "default_agent_provider" edge of the Organization entity.

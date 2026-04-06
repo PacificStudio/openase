@@ -25,6 +25,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
@@ -623,6 +625,66 @@ func init() {
 	organizationdailytokenusageDescID := organizationdailytokenusageFields[0].Descriptor()
 	// organizationdailytokenusage.DefaultID holds the default value on creation for the id field.
 	organizationdailytokenusage.DefaultID = organizationdailytokenusageDescID.Default.(func() uuid.UUID)
+	organizationinvitationFields := schema.OrganizationInvitation{}.Fields()
+	_ = organizationinvitationFields
+	// organizationinvitationDescEmail is the schema descriptor for email field.
+	organizationinvitationDescEmail := organizationinvitationFields[4].Descriptor()
+	// organizationinvitation.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	organizationinvitation.EmailValidator = organizationinvitationDescEmail.Validators[0].(func(string) error)
+	// organizationinvitationDescInvitedBy is the schema descriptor for invited_by field.
+	organizationinvitationDescInvitedBy := organizationinvitationFields[7].Descriptor()
+	// organizationinvitation.DefaultInvitedBy holds the default value on creation for the invited_by field.
+	organizationinvitation.DefaultInvitedBy = organizationinvitationDescInvitedBy.Default.(string)
+	// organizationinvitationDescInviteTokenHash is the schema descriptor for invite_token_hash field.
+	organizationinvitationDescInviteTokenHash := organizationinvitationFields[8].Descriptor()
+	// organizationinvitation.InviteTokenHashValidator is a validator for the "invite_token_hash" field. It is called by the builders before save.
+	organizationinvitation.InviteTokenHashValidator = organizationinvitationDescInviteTokenHash.Validators[0].(func(string) error)
+	// organizationinvitationDescSentAt is the schema descriptor for sent_at field.
+	organizationinvitationDescSentAt := organizationinvitationFields[10].Descriptor()
+	// organizationinvitation.DefaultSentAt holds the default value on creation for the sent_at field.
+	organizationinvitation.DefaultSentAt = organizationinvitationDescSentAt.Default.(func() time.Time)
+	// organizationinvitationDescCreatedAt is the schema descriptor for created_at field.
+	organizationinvitationDescCreatedAt := organizationinvitationFields[13].Descriptor()
+	// organizationinvitation.DefaultCreatedAt holds the default value on creation for the created_at field.
+	organizationinvitation.DefaultCreatedAt = organizationinvitationDescCreatedAt.Default.(func() time.Time)
+	// organizationinvitationDescUpdatedAt is the schema descriptor for updated_at field.
+	organizationinvitationDescUpdatedAt := organizationinvitationFields[14].Descriptor()
+	// organizationinvitation.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	organizationinvitation.DefaultUpdatedAt = organizationinvitationDescUpdatedAt.Default.(func() time.Time)
+	// organizationinvitation.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	organizationinvitation.UpdateDefaultUpdatedAt = organizationinvitationDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// organizationinvitationDescID is the schema descriptor for id field.
+	organizationinvitationDescID := organizationinvitationFields[0].Descriptor()
+	// organizationinvitation.DefaultID holds the default value on creation for the id field.
+	organizationinvitation.DefaultID = organizationinvitationDescID.Default.(func() uuid.UUID)
+	organizationmembershipFields := schema.OrganizationMembership{}.Fields()
+	_ = organizationmembershipFields
+	// organizationmembershipDescEmail is the schema descriptor for email field.
+	organizationmembershipDescEmail := organizationmembershipFields[3].Descriptor()
+	// organizationmembership.EmailValidator is a validator for the "email" field. It is called by the builders before save.
+	organizationmembership.EmailValidator = organizationmembershipDescEmail.Validators[0].(func(string) error)
+	// organizationmembershipDescInvitedBy is the schema descriptor for invited_by field.
+	organizationmembershipDescInvitedBy := organizationmembershipFields[6].Descriptor()
+	// organizationmembership.DefaultInvitedBy holds the default value on creation for the invited_by field.
+	organizationmembership.DefaultInvitedBy = organizationmembershipDescInvitedBy.Default.(string)
+	// organizationmembershipDescInvitedAt is the schema descriptor for invited_at field.
+	organizationmembershipDescInvitedAt := organizationmembershipFields[7].Descriptor()
+	// organizationmembership.DefaultInvitedAt holds the default value on creation for the invited_at field.
+	organizationmembership.DefaultInvitedAt = organizationmembershipDescInvitedAt.Default.(func() time.Time)
+	// organizationmembershipDescCreatedAt is the schema descriptor for created_at field.
+	organizationmembershipDescCreatedAt := organizationmembershipFields[11].Descriptor()
+	// organizationmembership.DefaultCreatedAt holds the default value on creation for the created_at field.
+	organizationmembership.DefaultCreatedAt = organizationmembershipDescCreatedAt.Default.(func() time.Time)
+	// organizationmembershipDescUpdatedAt is the schema descriptor for updated_at field.
+	organizationmembershipDescUpdatedAt := organizationmembershipFields[12].Descriptor()
+	// organizationmembership.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	organizationmembership.DefaultUpdatedAt = organizationmembershipDescUpdatedAt.Default.(func() time.Time)
+	// organizationmembership.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	organizationmembership.UpdateDefaultUpdatedAt = organizationmembershipDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// organizationmembershipDescID is the schema descriptor for id field.
+	organizationmembershipDescID := organizationmembershipFields[0].Descriptor()
+	// organizationmembership.DefaultID holds the default value on creation for the id field.
+	organizationmembership.DefaultID = organizationmembershipDescID.Default.(func() uuid.UUID)
 	projectFields := schema.Project{}.Fields()
 	_ = projectFields
 	// projectDescName is the schema descriptor for name field.
