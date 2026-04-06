@@ -24,6 +24,21 @@
 
     status = 'on_track'
     body = ''
+    if (textareaRef) {
+      textareaRef.style.height = '20px'
+      textareaRef.style.overflowY = 'hidden'
+    }
+  }
+
+  let textareaRef = $state<HTMLTextAreaElement | null>(null)
+
+  function autoResize() {
+    if (!textareaRef) return
+    textareaRef.style.height = 'auto'
+    const lineHeight = 20
+    const maxHeight = lineHeight * 4
+    textareaRef.style.height = `${Math.min(textareaRef.scrollHeight, maxHeight)}px`
+    textareaRef.style.overflowY = textareaRef.scrollHeight > maxHeight ? 'auto' : 'hidden'
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -51,7 +66,7 @@
 </script>
 
 <div class="border-border bg-background rounded-xl border">
-  <div class="flex items-center gap-2 px-3 py-2.5">
+  <div class="flex items-end gap-2 px-3 py-2.5">
     <Select.Root
       type="single"
       value={status}
@@ -79,14 +94,17 @@
         {/each}
       </Select.Content>
     </Select.Root>
-    <input
-      type="text"
+    <textarea
+      bind:this={textareaRef}
       bind:value={body}
       onkeydown={handleKeydown}
-      placeholder="Post an update..."
+      oninput={autoResize}
+      placeholder="Write an update..."
       aria-label="New update body"
-      class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
-    />
+      rows="1"
+      class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none bg-transparent text-sm leading-5 outline-none"
+      style="height: 20px; overflow-y: hidden;"
+    ></textarea>
     <button
       type="button"
       class={cn(
