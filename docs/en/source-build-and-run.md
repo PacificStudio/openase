@@ -4,6 +4,8 @@ This guide covers the current repository state for building OpenASE from source,
 
 For Remote Runtime v1 topology selection, migration, daemon install, and troubleshooting, see [`docs/remote-websocket-rollout.md`](./remote-websocket-rollout.md).
 
+For the Electron desktop shell workflow, packaging commands, test layers, and PostgreSQL v1 desktop strategy, see [`docs/en/desktop-v1.md`](./desktop-v1.md).
+
 ## What You Need
 
 - Go `1.26.1` on `PATH`
