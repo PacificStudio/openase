@@ -1,4 +1,5 @@
 import { api } from './client'
+import type { SessionGovernanceResponse } from './auth'
 import type {
   ActivityPayload,
   AgentPayload,
@@ -284,6 +285,24 @@ export function getProject(projectId: string) {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function getSessionGovernance() {
+  return api.get<SessionGovernanceResponse>('/api/v1/auth/sessions')
+}
+
+export function revokeAuthSession(id: string) {
+  return api.delete<void>(`/api/v1/auth/sessions/${id}`)
+}
+
+export function revokeAllOtherAuthSessions() {
+  return api.post<{ revoked_count: number }>('/api/v1/auth/sessions/revoke-all')
+}
+
+export function adminRevokeUserAuthSessions(userId: string) {
+  return api.post<{ revoked_count: number; user_id: string }>(
+    `/api/v1/auth/users/${userId}/sessions/revoke`,
+  )
 }
 
 export type ScopeGroupsResponse = {

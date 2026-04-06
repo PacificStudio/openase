@@ -8,18 +8,15 @@ const { goto } = vi.hoisted(() => ({
   goto: vi.fn(),
 }))
 
-const {
-  getSessionGovernance,
-  logoutHumanSession,
-  normalizeReturnTo,
-  revokeAllOtherAuthSessions,
-  revokeAuthSession,
-} = vi.hoisted(() => ({
+const { getSessionGovernance, revokeAllOtherAuthSessions, revokeAuthSession } = vi.hoisted(() => ({
   getSessionGovernance: vi.fn(),
-  logoutHumanSession: vi.fn(),
-  normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
   revokeAllOtherAuthSessions: vi.fn(),
   revokeAuthSession: vi.fn(),
+}))
+
+const { logoutHumanSession, normalizeReturnTo } = vi.hoisted(() => ({
+  logoutHumanSession: vi.fn(),
+  normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
 }))
 
 vi.mock('$app/navigation', () => ({
@@ -27,9 +24,12 @@ vi.mock('$app/navigation', () => ({
 }))
 
 vi.mock('$lib/api/auth', () => ({
-  getSessionGovernance,
   logoutHumanSession,
   normalizeReturnTo,
+}))
+
+vi.mock('$lib/api/openase', () => ({
+  getSessionGovernance,
   revokeAllOtherAuthSessions,
   revokeAuthSession,
 }))

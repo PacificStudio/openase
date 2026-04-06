@@ -14,13 +14,19 @@ import {
 const {
   deleteGitHubOutboundCredential,
   getSecuritySettings,
+  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
+  revokeAllOtherAuthSessions,
+  revokeAuthSession,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
   deleteGitHubOutboundCredential: vi.fn(),
   getSecuritySettings: vi.fn(),
+  getSessionGovernance: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  revokeAllOtherAuthSessions: vi.fn(),
+  revokeAuthSession: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
 }))
@@ -31,24 +37,18 @@ const {
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getEffectivePermissions,
-  getSessionGovernance,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
-  revokeAllOtherAuthSessions,
-  revokeAuthSession,
 } = vi.hoisted(() => ({
   createOrganizationRoleBinding: vi.fn(),
   createProjectRoleBinding: vi.fn(),
   deleteOrganizationRoleBinding: vi.fn(),
   deleteProjectRoleBinding: vi.fn(),
   getEffectivePermissions: vi.fn(),
-  getSessionGovernance: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
   logoutHumanSession: vi.fn(),
-  revokeAllOtherAuthSessions: vi.fn(),
-  revokeAuthSession: vi.fn(),
 }))
 
 const { goto } = vi.hoisted(() => ({
@@ -62,7 +62,10 @@ vi.mock('$app/navigation', () => ({
 vi.mock('$lib/api/openase', () => ({
   deleteGitHubOutboundCredential,
   getSecuritySettings,
+  getSessionGovernance,
   importGitHubOutboundCredentialFromGHCLI,
+  revokeAllOtherAuthSessions,
+  revokeAuthSession,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 }))
@@ -73,13 +76,10 @@ vi.mock('$lib/api/auth', () => ({
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getEffectivePermissions,
-  getSessionGovernance,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
   logoutHumanSession,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
-  revokeAllOtherAuthSessions,
-  revokeAuthSession,
 }))
 
 describe('Security settings', () => {

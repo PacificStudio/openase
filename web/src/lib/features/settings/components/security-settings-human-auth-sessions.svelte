@@ -2,15 +2,17 @@
   import { goto } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import {
-    getSessionGovernance,
     logoutHumanSession,
     normalizeReturnTo,
-    revokeAllOtherAuthSessions,
-    revokeAuthSession,
     type AuthAuditEvent,
     type ManagedAuthSession,
     type SessionGovernanceResponse,
   } from '$lib/api/auth'
+  import {
+    getSessionGovernance,
+    revokeAllOtherAuthSessions,
+    revokeAuthSession,
+  } from '$lib/api/openase'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import {

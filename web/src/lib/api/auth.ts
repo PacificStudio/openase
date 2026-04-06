@@ -323,8 +323,8 @@ export async function getSessionGovernance() {
   } satisfies SessionGovernanceResponse
 }
 
-export function revokeAuthSession(sessionId: string) {
-  return api.delete<void>(`/api/v1/auth/sessions/${sessionId}`)
+export function revokeAuthSession(id: string) {
+  return api.delete<void>(`/api/v1/auth/sessions/${id}`)
 }
 
 export function revokeAllOtherAuthSessions() {
