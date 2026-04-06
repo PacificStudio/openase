@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
+  import { interruptAgent } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { createProjectConversationController } from './project-conversation-controller.svelte'
   import ProjectConversationComposer from './project-conversation-composer.svelte'
@@ -82,6 +84,24 @@
     effectiveFocus && suppressedFocusKey !== effectiveFocusKey ? effectiveFocus : null,
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
+  const focusInterruptTarget = $derived.by(() => {
+    if (focusForSend?.kind !== 'ticket') {
+      return null
+    }
+    const agent = focusForSend.ticketAssignedAgent
+    const run = focusForSend.ticketCurrentRun
+    if (
+      !agent?.id ||
+      agent.runtimeControlState !== 'active' ||
+      (run?.status !== 'launching' && run?.status !== 'ready' && run?.status !== 'executing')
+    ) {
+      return null
+    }
+    return {
+      agentId: agent.id,
+      agentName: agent.name || focusForSend.ticketIdentifier,
+    }
+  })
 
   $effect(() =>
     watchProjectConversationProviders({
@@ -215,6 +235,28 @@
     await controller.sendTurn(message, nextFocus)
     suppressedFocusKey = ''
   }
+
+  async function handleInterruptFocusedAgent() {
+    if (!focusInterruptTarget) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      `Interrupt "${focusInterruptTarget.agentName}"? This stops the current agent run. Use Close Runtime separately if you want to stop Project AI itself.`,
+    )
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await interruptAgent(focusInterruptTarget.agentId)
+      toastStore.success(`Interrupt requested for "${focusInterruptTarget.agentName}".`)
+    } catch (error) {
+      toastStore.error(
+        error instanceof ApiError ? error.detail : 'Failed to interrupt the focused agent.',
+      )
+    }
+  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -254,6 +296,8 @@
     providerCount={chatProviders.length}
     statusMessage={statusMessage ?? undefined}
     {focusCard}
+    focusActionLabel={focusInterruptTarget ? 'Interrupt Agent' : ''}
+    focusActionDisabled={!focusInterruptTarget}
     {queuedTurns}
     hasPendingInterrupt={controller.hasPendingInterrupt}
     {draft}
@@ -261,6 +305,7 @@
     {inputDisabled}
     {sendDisabled}
     {canQueueTurn}
+    onFocusAction={handleInterruptFocusedAgent}
     onDismissFocus={() => {
       suppressedFocusKey = effectiveFocusKey
     }}

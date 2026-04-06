@@ -529,6 +529,10 @@ export function pauseAgent(agentId: string) {
   return api.post<AgentResponse>(`/api/v1/agents/${agentId}/pause`)
 }
 
+export function interruptAgent(agentId: string) {
+  return api.post<AgentResponse>(`/api/v1/agents/${agentId}/interrupt`)
+}
+
 export function resumeAgent(agentId: string) {
   return api.post<AgentResponse>(`/api/v1/agents/${agentId}/resume`)
 }

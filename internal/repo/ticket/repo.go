@@ -2446,6 +2446,11 @@ func buildPickupDiagnosis(ctx pickupDiagnosisBuildContext) domain.PickupDiagnosi
 			diagnosis.PrimaryReasonMessage = "Retries are paused because the ticket budget is exhausted."
 			diagnosis.NextActionHint = "Increase the budget or reduce runtime cost before retrying."
 			diagnosis.Reasons = diagnosisSummary(ctx, domain.PickupDiagnosisReasonRetryPausedBudget, domain.PickupDiagnosisReasonSeverityWarning, "Budget exhaustion paused further retries.")
+		case ticketing.PauseReasonUserInterrupted:
+			diagnosis.PrimaryReasonCode = domain.PickupDiagnosisReasonRetryPausedInterrupted
+			diagnosis.PrimaryReasonMessage = "Retries are paused because the current run was interrupted."
+			diagnosis.NextActionHint = "Resume retries when you want the agent to pick the ticket up again."
+			diagnosis.Reasons = diagnosisSummary(ctx, domain.PickupDiagnosisReasonRetryPausedInterrupted, domain.PickupDiagnosisReasonSeverityWarning, "The last active run was interrupted by an operator.")
 		default:
 			diagnosis.PrimaryReasonCode = domain.PickupDiagnosisReasonRetryPausedUser
 			diagnosis.PrimaryReasonMessage = "Retries are paused manually."
@@ -2512,6 +2517,13 @@ func buildPickupDiagnosis(ctx pickupDiagnosisBuildContext) domain.PickupDiagnosi
 	}
 
 	switch ctx.agent.RuntimeControlState {
+	case entagent.RuntimeControlStateInterruptRequested:
+		diagnosis.State = domain.PickupDiagnosisStateUnavailable
+		diagnosis.PrimaryReasonCode = domain.PickupDiagnosisReasonAgentInterruptRequested
+		diagnosis.PrimaryReasonMessage = "Agent interrupt has been requested."
+		diagnosis.NextActionHint = "Wait for the active runtime to stop before retrying or reassigning work."
+		diagnosis.Reasons = diagnosisSummary(ctx, domain.PickupDiagnosisReasonAgentInterruptRequested, domain.PickupDiagnosisReasonSeverityWarning, "Agent "+ctx.agent.Name+" is being interrupted.")
+		return diagnosis
 	case entagent.RuntimeControlStatePauseRequested:
 		diagnosis.State = domain.PickupDiagnosisStateUnavailable
 		diagnosis.PrimaryReasonCode = domain.PickupDiagnosisReasonAgentPauseRequested

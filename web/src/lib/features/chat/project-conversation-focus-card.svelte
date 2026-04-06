@@ -6,11 +6,17 @@
     label,
     title,
     detail = '',
+    actionLabel = '',
+    actionDisabled = false,
+    onAction,
     onDismiss,
   }: {
     label: string
     title: string
     detail?: string
+    actionLabel?: string
+    actionDisabled?: boolean
+    onAction?: () => void
     onDismiss: () => void
   } = $props()
 </script>
@@ -23,6 +29,16 @@
   {#if detail}
     <span class="text-muted-foreground hidden shrink-0 sm:inline">·</span>
     <span class="text-muted-foreground hidden min-w-0 truncate sm:inline">{detail}</span>
+  {/if}
+  {#if actionLabel}
+    <button
+      type="button"
+      class="border-border bg-background text-foreground hover:bg-muted rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+      disabled={actionDisabled}
+      onclick={onAction}
+    >
+      {actionLabel}
+    </button>
   {/if}
   <button
     type="button"

@@ -21,6 +21,7 @@
     executing: 'bg-blue-500',
     completed: 'bg-emerald-500',
     errored: 'bg-red-500',
+    interrupted: 'bg-orange-500',
     terminated: 'bg-slate-500',
   }
 
@@ -30,6 +31,7 @@
     executing: 'Executing',
     completed: 'Completed',
     errored: 'Errored',
+    interrupted: 'Interrupted',
     terminated: 'Terminated',
   }
 

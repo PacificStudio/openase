@@ -30,6 +30,7 @@ var (
 	agentReadyType      = provider.MustParseEventType("agent.ready")
 	agentExecutingType  = provider.MustParseEventType("agent.executing")
 	agentHeartbeatType  = provider.MustParseEventType("agent.heartbeat")
+	agentInterruptedType = provider.MustParseEventType("agent.interrupted")
 	agentPausedType     = provider.MustParseEventType("agent.paused")
 	agentFailedType     = provider.MustParseEventType("agent.failed")
 	agentTerminatedType = provider.MustParseEventType("agent.terminated")
@@ -537,6 +538,8 @@ func lifecycleMessage(eventType provider.EventType, agentName string) string {
 		return fmt.Sprintf("Agent %s is executing work in its Codex session.", agentName)
 	case agentHeartbeatType:
 		return fmt.Sprintf("Agent %s reported a runtime heartbeat.", agentName)
+	case agentInterruptedType:
+		return fmt.Sprintf("Agent %s interrupted its runtime session on operator request.", agentName)
 	case agentPausedType:
 		return fmt.Sprintf("Agent %s paused its runtime session.", agentName)
 	case agentFailedType:
@@ -695,6 +698,8 @@ func lifecycleAgentStatus(state agentLifecycleState) string {
 		return "running"
 	case entagentrun.StatusErrored:
 		return "failed"
+	case entagentrun.StatusInterrupted:
+		return "interrupted"
 	case entagentrun.StatusTerminated:
 		return "terminated"
 	default:
@@ -716,6 +721,8 @@ func lifecycleAgentRuntimePhase(state agentLifecycleState) string {
 		return "executing"
 	case entagentrun.StatusErrored:
 		return "failed"
+	case entagentrun.StatusInterrupted:
+		return "none"
 	default:
 		return "none"
 	}

@@ -555,6 +555,37 @@ func TestRequestAgentPausePersistsPauseRequestedState(t *testing.T) {
 	}
 }
 
+func TestRequestAgentInterruptPersistsInterruptRequestedState(t *testing.T) {
+	agentID := uuid.New()
+	runID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStateActive,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusRunning,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseExecuting,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	item, err := svc.RequestAgentInterrupt(context.Background(), agentID)
+	if err != nil {
+		t.Fatalf("RequestAgentInterrupt returned error: %v", err)
+	}
+	if item.RuntimeControlState != domain.AgentRuntimeControlStateInterruptRequested {
+		t.Fatalf("expected interrupt_requested state, got %+v", item)
+	}
+	if repo.updatedRuntimeControl == nil || repo.updatedRuntimeControl.RuntimeControlState != domain.AgentRuntimeControlStateInterruptRequested {
+		t.Fatalf("expected repo runtime control update, got %+v", repo.updatedRuntimeControl)
+	}
+}
+
 func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 	agentID := uuid.New()
 	runID := uuid.New()
@@ -575,6 +606,31 @@ func TestRequestAgentResumeRejectsPauseRequestedState(t *testing.T) {
 	svc := New(repo, stubExecutableResolver{}, nil)
 
 	_, err := svc.RequestAgentResume(context.Background(), agentID)
+	if !errors.Is(err, ErrConflict) {
+		t.Fatalf("expected runtime control conflict, got %v", err)
+	}
+}
+
+func TestRequestAgentInterruptRejectsPauseRequestedState(t *testing.T) {
+	agentID := uuid.New()
+	runID := uuid.New()
+	ticketID := uuid.New()
+	repo := &stubRepository{
+		agent: domain.Agent{
+			ID:                  agentID,
+			Name:                "worker-1",
+			RuntimeControlState: domain.AgentRuntimeControlStatePauseRequested,
+			Runtime: &domain.AgentRuntime{
+				CurrentRunID:    &runID,
+				Status:          domain.AgentStatusClaimed,
+				CurrentTicketID: &ticketID,
+				RuntimePhase:    domain.AgentRuntimePhaseNone,
+			},
+		},
+	}
+	svc := New(repo, stubExecutableResolver{}, nil)
+
+	_, err := svc.RequestAgentInterrupt(context.Background(), agentID)
 	if !errors.Is(err, ErrConflict) {
 		t.Fatalf("expected runtime control conflict, got %v", err)
 	}

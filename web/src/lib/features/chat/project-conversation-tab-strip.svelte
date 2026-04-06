@@ -139,7 +139,7 @@
     <Dialog.Header>
       <Dialog.Title class="text-sm">Close active conversation?</Dialog.Title>
       <Dialog.Description class="text-muted-foreground text-xs">
-        This conversation is still running. Closing the tab may interrupt the current operation.
+        This conversation is still running. Closing the tab may stop the Project AI runtime.
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="gap-2">

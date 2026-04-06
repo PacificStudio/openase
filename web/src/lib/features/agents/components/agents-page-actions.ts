@@ -37,7 +37,7 @@ export async function registerAgentPageAction(
 }
 
 export async function runAgentRuntimePageAction(input: {
-  action: 'pause' | 'resume'
+  action: 'interrupt' | 'pause' | 'resume'
   agentId: string
   projectId: string
   orgId: string

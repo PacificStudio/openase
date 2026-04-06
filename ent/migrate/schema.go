@@ -62,7 +62,7 @@ var (
 	AgentsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "name", Type: field.TypeString},
-		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "pause_requested", "paused", "retired"}, Default: "active"},
+		{Name: "runtime_control_state", Type: field.TypeEnum, Enums: []string{"active", "interrupt_requested", "pause_requested", "paused", "retired"}, Default: "active"},
 		{Name: "total_tokens_used", Type: field.TypeInt64, Default: 0},
 		{Name: "total_tickets_completed", Type: field.TypeInt, Default: 0},
 		{Name: "provider_id", Type: field.TypeUUID},
@@ -152,7 +152,7 @@ var (
 	AgentRunsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "skill_version_ids", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
-		{Name: "status", Type: field.TypeEnum, Enums: []string{"launching", "ready", "executing", "completed", "errored", "terminated"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"launching", "ready", "executing", "completed", "errored", "interrupted", "terminated"}},
 		{Name: "session_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "terminal_at", Type: field.TypeTime, Nullable: true},

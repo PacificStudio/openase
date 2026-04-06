@@ -60,6 +60,8 @@ export type ProjectAIFocus =
         provider?: string
         runtimeControlState?: string
         runtimePhase?: string
+        status?: string
+        activeRunCount?: number
       }
       ticketCurrentRun?: {
         id?: string

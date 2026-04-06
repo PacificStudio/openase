@@ -242,12 +242,13 @@ type Status string
 
 // Status values.
 const (
-	StatusLaunching  Status = "launching"
-	StatusReady      Status = "ready"
-	StatusExecuting  Status = "executing"
-	StatusCompleted  Status = "completed"
-	StatusErrored    Status = "errored"
-	StatusTerminated Status = "terminated"
+	StatusLaunching   Status = "launching"
+	StatusReady       Status = "ready"
+	StatusExecuting   Status = "executing"
+	StatusCompleted   Status = "completed"
+	StatusErrored     Status = "errored"
+	StatusInterrupted Status = "interrupted"
+	StatusTerminated  Status = "terminated"
 )
 
 func (s Status) String() string {
@@ -257,7 +258,7 @@ func (s Status) String() string {
 // StatusValidator is a validator for the "status" field enum values. It is called by the builders before save.
 func StatusValidator(s Status) error {
 	switch s {
-	case StatusLaunching, StatusReady, StatusExecuting, StatusCompleted, StatusErrored, StatusTerminated:
+	case StatusLaunching, StatusReady, StatusExecuting, StatusCompleted, StatusErrored, StatusInterrupted, StatusTerminated:
 		return nil
 	default:
 		return fmt.Errorf("agentrun: invalid enum value for status field: %q", s)

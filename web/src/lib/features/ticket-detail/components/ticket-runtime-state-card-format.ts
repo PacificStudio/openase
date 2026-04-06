@@ -29,6 +29,7 @@ export function diagnosisTone(
   if (
     reasonCode === 'retry_paused_repeated_stalls' ||
     reasonCode === 'retry_paused_budget' ||
+    reasonCode === 'retry_paused_interrupted' ||
     reasonCode === 'retry_paused_user' ||
     reasonCode === 'blocked_dependency'
   ) {
@@ -39,6 +40,8 @@ export function diagnosisTone(
 
 export function humanizeControlState(value: string) {
   switch (value) {
+    case 'interrupt_requested':
+      return 'Interrupt requested'
     case 'pause_requested':
       return 'Pause requested'
     case 'paused':
@@ -67,6 +70,8 @@ export function humanizePauseReason(reason: string) {
       return 'Manual retry required after repeated stalls.'
     case 'budget_exhausted':
       return 'Retries are paused because the budget is exhausted.'
+    case 'user_interrupted':
+      return 'Retries are paused because the last agent run was interrupted.'
     case 'user_paused':
       return 'Retries are paused manually.'
     default:
