@@ -6,14 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
 	userserviceinfra "github.com/BetterAndBetterII/openase/internal/infra/userservice"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -23,8 +21,6 @@ import (
 )
 
 const (
-	defaultSetupHost       = "127.0.0.1"
-	defaultSetupPort       = 19836
 	defaultSetupURL        = "http://127.0.0.1:19836"
 	defaultSetupConfigPath = "~/.openase/config.yaml"
 	oidcGuideURL           = "https://github.com/PacificStudio/openase/blob/main/docs/human-auth-oidc-rbac.md"
@@ -73,9 +69,6 @@ type setupPrompter struct {
 }
 
 func newSetupCommand() *cobra.Command {
-	var host string
-	var port int
-	var web bool
 	var force bool
 
 	command := &cobra.Command{
@@ -87,13 +80,10 @@ Run the interactive local setup flow for OpenASE.
 The default flow stays inside the terminal, prepares a PostgreSQL connection,
 checks key local CLIs, configures auth mode, optionally installs the current-
 user managed service, and writes a runnable ~/.openase/config.yaml plus
-~/.openase/.env. Use --web only for legacy browser-based troubleshooting.
+~/.openase/.env.
 `),
-		Example: "openase setup\nopenase setup --force\nopenase setup --web --host 127.0.0.1 --port 19836",
+		Example: "openase setup\nopenase setup --force",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if web {
-				return runSetupWebWizard(cmd.Context(), cmd.OutOrStdout(), host, port)
-			}
 			return runSetupFlowCommand(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), setupFlowOptions{
 				allowOverwrite: force,
 			})
@@ -101,12 +91,6 @@ user managed service, and writes a runnable ~/.openase/config.yaml plus
 	}
 
 	command.Flags().BoolVar(&force, "force", false, "Overwrite an existing ~/.openase/config.yaml without prompting.")
-	command.Flags().BoolVar(&web, "web", false, "Use the legacy browser-based setup flow.")
-	command.Flags().StringVar(&host, "host", defaultSetupHost, "HTTP listen host for --web mode.")
-	command.Flags().IntVar(&port, "port", defaultSetupPort, "HTTP listen port for --web mode.")
-	_ = command.Flags().MarkHidden("web")
-	_ = command.Flags().MarkHidden("host")
-	_ = command.Flags().MarkHidden("port")
 
 	return command
 }
@@ -1043,52 +1027,4 @@ func runSystemctlUser(ctx context.Context, args ...string) error {
 	default:
 		return fmt.Errorf("systemctl --user %s failed: %s", strings.Join(args, " "), strings.TrimSpace(string(output)))
 	}
-}
-
-func runSetupWebWizard(ctx context.Context, out io.Writer, host string, port int) error {
-	service, err := setup.NewService(setup.Options{})
-	if err != nil {
-		return err
-	}
-
-	server := setup.NewServer(setup.ServerOptions{
-		Host:    host,
-		Port:    port,
-		Service: service,
-	})
-	address := "http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "/setup"
-
-	printSetupWebBanner(out, address)
-	_ = openBrowser(address)
-
-	return server.Run(ctx)
-}
-
-func printSetupWebBanner(out io.Writer, address string) {
-	_, _ = fmt.Fprintln(out)
-	_, _ = fmt.Fprintln(out, "  OpenASE legacy web setup")
-	_, _ = fmt.Fprintln(out)
-	_, _ = fmt.Fprintf(out, "  Browser flow: %s\n", address)
-	_, _ = fmt.Fprintln(out, "  This path is deprecated; prefer `openase setup` without --web.")
-	_, _ = fmt.Fprintln(out)
-}
-
-func openBrowser(url string) error {
-	var name string
-	var args []string
-
-	switch runtime.GOOS {
-	case "darwin":
-		name = "open"
-		args = []string{url}
-	default:
-		name = "xdg-open"
-		args = []string{url}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	//nolint:gosec // setup intentionally launches the platform-specific browser opener
-	return exec.CommandContext(ctx, name, args...).Start()
 }

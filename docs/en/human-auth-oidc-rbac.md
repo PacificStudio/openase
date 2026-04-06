@@ -159,7 +159,12 @@ After bootstrap is complete, you can narrow or clear the bootstrap list.
 
 ## Chat, Conversations, And Audit Actors
 
-Project chat and project conversations derive user identity from the authenticated human principal instead of browser-local random ids.
+AI session ownership is always derived from a server-defined principal:
+
+- in `auth.mode=oidc`, project chat, project conversations, and other browser-driven AI flows use the authenticated human principal
+- in `auth.mode=disabled`, the server issues and reuses an `openase_ai_principal` browser cookie whose value is a stable `browser-session:<uuid>` principal
+
+Browser-local random ids and `X-OpenASE-Chat-User` request headers are no longer authoritative owner inputs.
 
 When `auth.mode=disabled`, persistent project conversations switch to a server-defined local principal: `local-user:default`.
 

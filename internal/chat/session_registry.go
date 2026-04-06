@@ -25,15 +25,6 @@ func ParseUserID(raw string) (UserID, error) {
 	return UserID(trimmed), nil
 }
 
-func ParseRequestUserID(raw string) (UserID, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return AnonymousUserID, nil
-	}
-
-	return ParseUserID(trimmed)
-}
-
 func (u UserID) String() string {
 	return string(u)
 }

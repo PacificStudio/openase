@@ -375,7 +375,7 @@ func (s *Server) handleStartSkillRefinement(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		if errors.Is(err, humanauthservice.ErrUnauthorized) {
 			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
@@ -440,7 +440,7 @@ func (s *Server) handleDeleteSkillRefinementSession(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		if errors.Is(err, humanauthservice.ErrUnauthorized) {
 			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())

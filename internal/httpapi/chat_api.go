@@ -26,8 +26,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const chatUserHeader = "X-OpenASE-Chat-User"
-
 var chatSSEKeepaliveInterval = 5 * time.Second
 
 func (s *Server) registerChatRoutes(api *echo.Group) {
@@ -64,7 +62,7 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return err
 	}
 
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -181,7 +179,7 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
 
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -333,16 +331,6 @@ func optionalChatSessionIDString(value *chatservice.SessionID) string {
 		return ""
 	}
 	return value.String()
-}
-
-func (s *Server) currentRequestChatUserID(c echo.Context) (chatservice.UserID, error) {
-	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
-		return chatservice.ParseUserID(actor)
-	}
-	if s != nil && s.auth.Mode == config.AuthModeOIDC {
-		return "", humanauthservice.ErrUnauthorized
-	}
-	return chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
 }
 
 func (s *Server) currentProjectConversationUserID(c echo.Context) (chatservice.UserID, error) {
