@@ -120,55 +120,59 @@
 </script>
 
 {#if editingThread}
-  <div class="flex items-start gap-2 rounded-md px-2.5 py-1.5">
-    <Select.Root
-      type="single"
-      value={editingStatus}
-      onValueChange={(value) => {
-        if (value) editingStatus = value as ProjectUpdateStatus
-      }}
-    >
-      <Select.Trigger
-        size="sm"
-        class={cn(
-          'w-auto shrink-0 gap-1 border-none px-1.5 text-xs font-medium shadow-none',
-          currentEditStatusOption.textClass,
-        )}
+  <div class="space-y-2 rounded-md px-2.5 py-1.5">
+    <div class="flex items-center gap-2">
+      <Select.Root
+        type="single"
+        value={editingStatus}
+        onValueChange={(value) => {
+          if (value) editingStatus = value as ProjectUpdateStatus
+        }}
       >
-        <CurrentEditStatusIcon class="size-3" />
-        {currentEditStatusOption.label}
-      </Select.Trigger>
-      <Select.Content>
-        {#each projectUpdateStatusOptions as opt (opt.value)}
-          {@const Icon = opt.icon}
-          <Select.Item value={opt.value}>
-            <Icon class={cn('size-3', opt.textClass)} />
-            {opt.label}
-          </Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
+        <Select.Trigger
+          size="sm"
+          class={cn(
+            'w-auto shrink-0 gap-1 border-none px-1.5 text-xs font-medium shadow-none',
+            currentEditStatusOption.textClass,
+          )}
+        >
+          <CurrentEditStatusIcon class="size-3" />
+          {currentEditStatusOption.label}
+        </Select.Trigger>
+        <Select.Content>
+          {#each projectUpdateStatusOptions as opt (opt.value)}
+            {@const Icon = opt.icon}
+            <Select.Item value={opt.value}>
+              <Icon class={cn('size-3', opt.textClass)} />
+              {opt.label}
+            </Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
+      <div class="ml-auto flex items-center gap-1">
+        <Button
+          size="sm"
+          class="h-6 px-2 text-xs"
+          onclick={handleSaveThread}
+          disabled={!editingBody.trim() || savingThread}
+        >
+          {savingThread ? 'Saving...' : 'Save'}
+        </Button>
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground transition-colors"
+          onclick={cancelThreadEdit}
+        >
+          <X class="size-3.5" />
+        </button>
+      </div>
+    </div>
     <Textarea
       bind:value={editingBody}
-      class="min-h-7 flex-1 resize-none border-none bg-transparent px-1 py-1 text-sm shadow-none focus-visible:ring-0"
+      class="min-h-7 w-full resize-none border-none bg-transparent px-1 py-1 text-sm shadow-none focus-visible:ring-0"
       aria-label={`Edit update body`}
       rows={2}
     />
-    <Button
-      size="sm"
-      class="h-6 px-2 text-xs"
-      onclick={handleSaveThread}
-      disabled={!editingBody.trim() || savingThread}
-    >
-      {savingThread ? 'Saving...' : 'Save'}
-    </Button>
-    <button
-      type="button"
-      class="text-muted-foreground hover:text-foreground transition-colors"
-      onclick={cancelThreadEdit}
-    >
-      <X class="size-3.5" />
-    </button>
   </div>
 {:else}
   <div
@@ -180,9 +184,9 @@
     <div class="flex items-start gap-2">
       <ThreadStatusIcon class={cn('mt-0.5 size-3.5 shrink-0', threadStatusCfg.dotClass)} />
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <div class="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-[11px]">
-            <span class="font-medium">{thread.createdBy}</span>
+            <span class="max-w-[8rem] truncate font-medium">{thread.createdBy}</span>
             <span class="opacity-40">&middot;</span>
             <span>{formatRelativeTime(thread.createdAt)}</span>
             {#if isProjectUpdateEdited(thread.createdAt, thread.updatedAt, thread.editedAt)}
@@ -234,7 +238,7 @@
               >
             {/if}
             <div
-              class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
+              class="flex items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100"
             >
               {#if !thread.isDeleted}
                 <button

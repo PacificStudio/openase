@@ -68,7 +68,7 @@
 
 <Sheet bind:open>
   <SheetContent side="right" class="w-full sm:max-w-xl">
-    <SheetHeader class="space-y-1 px-6 py-6">
+    <SheetHeader class="space-y-1 px-4 py-4 sm:px-6 sm:py-6">
       <SheetTitle>Register agent</SheetTitle>
       <SheetDescription>
         Create a runnable agent instance for the current project using an existing provider.
@@ -76,7 +76,7 @@
     </SheetHeader>
 
     <form class="flex min-h-0 flex-1 flex-col" onsubmit={handleSubmit}>
-      <SheetBody class="space-y-4 px-6">
+      <SheetBody class="space-y-4 px-4 sm:px-6">
         {#if providers.length === 0}
           <div
             class="border-border bg-muted/40 text-muted-foreground rounded-md border px-4 py-3 text-sm"

@@ -160,8 +160,8 @@
 
 <PageScaffold title="Activity" description="Runtime events and agent lifecycle updates.">
   <div class="w-full space-y-4">
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="relative min-w-48 flex-1">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div class="relative min-w-0 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input placeholder="Search events..." class="pl-9" bind:value={searchQuery} />
       </div>
@@ -171,7 +171,7 @@
           selectedType = v || 'all'
         }}
       >
-        <Select.Trigger class="w-44">
+        <Select.Trigger class="w-full sm:w-44">
           {activityEventFilterOptions.find((t) => t.value === selectedType)?.label ?? 'All events'}
         </Select.Trigger>
         <Select.Content class="max-h-72">

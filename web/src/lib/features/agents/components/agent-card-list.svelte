@@ -134,7 +134,7 @@
       {@const hasRuns = runs.length > 0}
 
       <div class="border-border/60 bg-card/60 rounded-xl border">
-        <div class="flex items-center gap-3 px-4 py-2.5">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-4">
           <button
             type="button"
             class="flex shrink-0 items-center"
@@ -192,7 +192,7 @@
             </span>
           {/if}
 
-          <span class="flex-1"></span>
+          <span class="hidden flex-1 sm:block"></span>
 
           {#if agent.lastHeartbeat}
             <span class="text-muted-foreground hidden text-[11px] whitespace-nowrap sm:inline">
@@ -200,7 +200,7 @@
             </span>
           {/if}
 
-          <div class="flex shrink-0 items-center gap-0.5">
+          <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
             <Button
               variant="ghost"
               size="icon-xs"
@@ -247,10 +247,10 @@
         </div>
 
         {#if expanded && hasRuns}
-          <div class="border-border border-t px-4 py-2">
+          <div class="border-border border-t px-3 py-2 sm:px-4">
             <div class="space-y-1.5">
               {#each runs as run (run.id)}
-                <div class="flex items-center gap-2 text-xs">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                   <span class={cn('size-2 shrink-0 rounded-full', runStatusColors[run.status])}
                   ></span>
                   <button
