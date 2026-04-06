@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -165,39 +164,15 @@ func TestCLIWireBuilders(t *testing.T) {
 	}
 }
 
-func TestCLISetupHelpers(t *testing.T) {
-	var banner bytes.Buffer
-	printSetupWebBanner(&banner, "http://127.0.0.1:19836/setup")
-	if !strings.Contains(banner.String(), "http://127.0.0.1:19836/setup") {
-		t.Fatalf("printSetupWebBanner() = %q", banner.String())
-	}
+func TestSetupCommandRejectsRemovedLegacyWebFlags(t *testing.T) {
+	command := newSetupCommand()
+	command.SetArgs([]string{"--web"})
 
-	t.Setenv("PATH", t.TempDir())
-	if err := openBrowser("http://127.0.0.1:19836/setup"); err == nil {
-		t.Fatal("openBrowser() expected error when browser launcher is missing")
-	}
-
-	var wizard bytes.Buffer
-	err := runSetupWebWizard(context.Background(), &wizard, "300.300.300.300", freeCLIPort(t))
+	err := command.Execute()
 	if err == nil {
-		t.Fatal("runSetupWebWizard() expected listener error for invalid host")
+		t.Fatal("Execute() expected unknown flag error for removed --web flag")
 	}
-	if !strings.Contains(wizard.String(), "legacy web setup") {
-		t.Fatalf("runSetupWebWizard() output = %q", wizard.String())
+	if !strings.Contains(err.Error(), "unknown flag: --web") {
+		t.Fatalf("Execute() error = %v", err)
 	}
-}
-
-func freeCLIPort(t *testing.T) int {
-	t.Helper()
-
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("Listen() error = %v", err)
-	}
-	tcpAddr := listener.Addr().(*net.TCPAddr)
-	if err := listener.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
-
-	return tcpAddr.Port
 }
