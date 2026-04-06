@@ -24,6 +24,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	machinechannelservice "github.com/BetterAndBetterII/openase/internal/machinechannel"
 	notificationservice "github.com/BetterAndBetterII/openase/internal/notification"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
@@ -122,6 +123,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("resolve user home directory: %w", err)
 	}
+	projectsRoot, err := workspaceinfra.LocalProjectStateRoot()
+	if err != nil {
+		return err
+	}
 	sshPool := sshinfra.NewPool(filepath.Join(homeDir, ".openase"))
 	transportResolver := machinetransport.NewResolver(agentcli.NewManager(agentcli.ManagerOptions{}), sshPool).
 		WithReverseRuntimeRelay(a.reverseRuntimeRelay)
@@ -157,7 +162,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err := notificationservice.NewEngine(notificationSvc, a.events, a.logger).Start(ctx); err != nil {
 		return err
 	}
-	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, "")
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, projectsRoot)
 	if err != nil {
 		return err
 	}
@@ -167,10 +172,6 @@ func (a *App) RunServe(ctx context.Context) error {
 			a.logger.Error("close workflow service", "error", closeErr)
 		}
 	}()
-	chatWorkingDirectory, err := provider.ParseAbsolutePath(workflowSvc.RepoRoot())
-	if err != nil {
-		return fmt.Errorf("resolve chat working directory: %w", err)
-	}
 	chatProcessManager := agentcli.NewManager(agentcli.ManagerOptions{})
 	codexRuntimeAdapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: chatProcessManager})
 	if err != nil {
@@ -188,7 +189,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		ticketSvc,
 		workflowSvc,
 		ticketStatusSvc,
-		chatWorkingDirectory,
+		provider.MustParseAbsolutePath(projectsRoot),
 	)
 	chatSvc.EnableDurableSessions(filepath.Join(homeDir, ".openase", "chat", "ephemeral-sessions.json"))
 	skillRefinementSvc := chatservice.NewSkillRefinementService(
@@ -265,7 +266,12 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
-	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, "")
+	projectsRoot, err := workspaceinfra.LocalProjectStateRoot()
+	if err != nil {
+		return err
+	}
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), a.logger, projectsRoot)
 	if err != nil {
 		return err
 	}

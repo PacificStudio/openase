@@ -21,6 +21,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
@@ -223,8 +224,6 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	}
 	todoID := findStatusIDByName(t, statuses, "Todo")
 	doneID := findStatusIDByName(t, statuses, "Done")
-	activateMarkerPath := filepath.Join(serviceRepoRoot, "activate.marker")
-	reloadMarkerPath := filepath.Join(serviceRepoRoot, "reload.marker")
 	provider, err := client.AgentProvider.Create().
 		SetOrganizationID(org.ID).
 		SetMachineID(localMachine.ID).
@@ -244,6 +243,12 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create agent: %v", err)
 	}
+	hooksRoot, err := workspaceinfra.ProjectHooksPath(serviceRepoRoot, project.ID.String())
+	if err != nil {
+		t.Fatalf("ProjectHooksPath() error = %v", err)
+	}
+	activateMarkerPath := filepath.Join(hooksRoot, "activate.marker")
+	reloadMarkerPath := filepath.Join(hooksRoot, "reload.marker")
 
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
@@ -284,7 +289,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 		t.Fatalf("expected harness content in create response, got %+v", createResp.Workflow)
 	}
 	if createResp.Workflow.HarnessPath != ".openase/harnesses/coding-workflow.md" {
-		t.Fatalf("expected default harness path under service repo root, got %q", createResp.Workflow.HarnessPath)
+		t.Fatalf("expected default control-plane harness path, got %q", createResp.Workflow.HarnessPath)
 	}
 	//nolint:gosec // test reads files from a controlled temp repository
 	activateMarker, err := os.ReadFile(activateMarkerPath)
