@@ -25,6 +25,8 @@ const (
 	FieldProviderID = "provider_id"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldTitle holds the string denoting the title field in the database.
+	FieldTitle = "title"
 	// FieldProviderThreadID holds the string denoting the provider_thread_id field in the database.
 	FieldProviderThreadID = "provider_thread_id"
 	// FieldLastTurnID holds the string denoting the last_turn_id field in the database.
@@ -98,6 +100,7 @@ var Columns = []string{
 	FieldSource,
 	FieldProviderID,
 	FieldStatus,
+	FieldTitle,
 	FieldProviderThreadID,
 	FieldLastTurnID,
 	FieldProviderThreadStatus,
@@ -125,6 +128,8 @@ var (
 	SourceValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
+	// DefaultTitle holds the default value on creation for the "title" field.
+	DefaultTitle string
 	// DefaultLastActivityAt holds the default value on creation for the "last_activity_at" field.
 	DefaultLastActivityAt func() time.Time
 	// UpdateDefaultLastActivityAt holds the default value on update for the "last_activity_at" field.
@@ -170,6 +175,11 @@ func ByProviderID(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByTitle orders the results by the title field.
+func ByTitle(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTitle, opts...).ToFunc()
 }
 
 // ByProviderThreadID orders the results by the provider_thread_id field.

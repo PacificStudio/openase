@@ -3394,6 +3394,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }[]
@@ -3478,6 +3479,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -3574,6 +3576,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -4137,6 +4140,19 @@ export interface operations {
         }
         content: {
           'application/json': {
+            conversation?: {
+              created_at?: string
+              id?: string
+              last_activity_at?: string
+              project_id?: string
+              provider_id?: string
+              rolling_summary?: string
+              source?: string
+              status?: string
+              title?: string
+              updated_at?: string
+              user_id?: string
+            }
             turn?: {
               id?: string
               status?: string

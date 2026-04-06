@@ -811,6 +811,120 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 	}
 }
 
+func TestProjectConversationRoutesReturnStableTitleAndBackfillLegacyConversations(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-chat-routes").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-chat-routes").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	legacyConversation, err := client.ChatConversation.Create().
+		SetProjectID(project.ID).
+		SetUserID("user:conversation").
+		SetSource(string(chatdomain.SourceProjectSidebar)).
+		SetProviderID(uuid.New()).
+		SetStatus(string(chatdomain.ConversationStatusActive)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create legacy conversation: %v", err)
+	}
+	legacyTurn, err := client.ChatTurn.Create().
+		SetConversationID(legacyConversation.ID).
+		SetTurnIndex(1).
+		SetStatus(string(chatdomain.TurnStatusCompleted)).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create legacy turn: %v", err)
+	}
+	if _, err := client.ChatEntry.Create().
+		SetConversationID(legacyConversation.ID).
+		SetTurnID(legacyTurn.ID).
+		SetSeq(0).
+		SetKind(string(chatdomain.EntryKindUserMessage)).
+		SetPayloadJSON(map[string]any{
+			"role":    "user",
+			"content": "固定这个对话标题。后面的 summary 只保留摘要语义。",
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("create legacy entry: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	listReq := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/chat/conversations?project_id="+project.ID.String(),
+		nil,
+	)
+	listReq.Header.Set(chatUserHeader, "user:conversation")
+	listRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(listRec, listReq)
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+	if !strings.Contains(listRec.Body.String(), `"title":"固定这个对话标题。"`) {
+		t.Fatalf("expected list response to include stable title, got %s", listRec.Body.String())
+	}
+
+	getReq := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+legacyConversation.ID.String(),
+		nil,
+	)
+	getReq.Header.Set(chatUserHeader, "user:conversation")
+	getRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("expected get status 200, got %d: %s", getRec.Code, getRec.Body.String())
+	}
+	if !strings.Contains(getRec.Body.String(), `"title":"固定这个对话标题。"`) {
+		t.Fatalf("expected get response to include stable title, got %s", getRec.Body.String())
+	}
+
+	reloadedConversation, err := client.ChatConversation.Get(ctx, legacyConversation.ID)
+	if err != nil {
+		t.Fatalf("reload legacy conversation: %v", err)
+	}
+	if got, want := reloadedConversation.Title, "固定这个对话标题。"; got != want {
+		t.Fatalf("persisted title = %q, want %q", got, want)
+	}
+}
+
 func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProject(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()

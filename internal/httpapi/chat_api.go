@@ -560,13 +560,23 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusAccepted, map[string]any{
+	response := map[string]any{
 		"turn": map[string]any{
 			"id":         turn.ID.String(),
 			"turn_index": turn.TurnIndex,
 			"status":     string(turn.Status),
 		},
-	})
+	}
+	conversation, err := s.projectConversationService.GetConversation(
+		c.Request().Context(),
+		userID,
+		conversationID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	response["conversation"] = s.mapProjectConversationResponse(c.Request().Context(), conversation)
+	return c.JSON(http.StatusAccepted, response)
 }
 
 func (s *Server) handleProjectConversationStream(c echo.Context) error {
@@ -707,6 +717,7 @@ func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdo
 		"source":           string(item.Source),
 		"provider_id":      item.ProviderID.String(),
 		"status":           string(item.Status),
+		"title":            item.Title.String(),
 		"rolling_summary":  item.RollingSummary,
 		"last_activity_at": item.LastActivityAt.UTC().Format(time.RFC3339),
 		"created_at":       item.CreatedAt.UTC().Format(time.RFC3339),

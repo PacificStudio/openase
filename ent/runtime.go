@@ -338,18 +338,22 @@ func init() {
 	chatconversationDescStatus := chatconversationFields[5].Descriptor()
 	// chatconversation.DefaultStatus holds the default value on creation for the status field.
 	chatconversation.DefaultStatus = chatconversationDescStatus.Default.(string)
+	// chatconversationDescTitle is the schema descriptor for title field.
+	chatconversationDescTitle := chatconversationFields[6].Descriptor()
+	// chatconversation.DefaultTitle holds the default value on creation for the title field.
+	chatconversation.DefaultTitle = chatconversationDescTitle.Default.(string)
 	// chatconversationDescLastActivityAt is the schema descriptor for last_activity_at field.
-	chatconversationDescLastActivityAt := chatconversationFields[11].Descriptor()
+	chatconversationDescLastActivityAt := chatconversationFields[12].Descriptor()
 	// chatconversation.DefaultLastActivityAt holds the default value on creation for the last_activity_at field.
 	chatconversation.DefaultLastActivityAt = chatconversationDescLastActivityAt.Default.(func() time.Time)
 	// chatconversation.UpdateDefaultLastActivityAt holds the default value on update for the last_activity_at field.
 	chatconversation.UpdateDefaultLastActivityAt = chatconversationDescLastActivityAt.UpdateDefault.(func() time.Time)
 	// chatconversationDescCreatedAt is the schema descriptor for created_at field.
-	chatconversationDescCreatedAt := chatconversationFields[12].Descriptor()
+	chatconversationDescCreatedAt := chatconversationFields[13].Descriptor()
 	// chatconversation.DefaultCreatedAt holds the default value on creation for the created_at field.
 	chatconversation.DefaultCreatedAt = chatconversationDescCreatedAt.Default.(func() time.Time)
 	// chatconversationDescUpdatedAt is the schema descriptor for updated_at field.
-	chatconversationDescUpdatedAt := chatconversationFields[13].Descriptor()
+	chatconversationDescUpdatedAt := chatconversationFields[14].Descriptor()
 	// chatconversation.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	chatconversation.DefaultUpdatedAt = chatconversationDescUpdatedAt.Default.(func() time.Time)
 	// chatconversation.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

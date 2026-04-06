@@ -2,6 +2,10 @@
   import { formatRelativeTime } from '$lib/utils'
   import { MessageSquare } from '@lucide/svelte'
   import type { ProjectConversation } from '$lib/api/chat'
+  import {
+    getProjectConversationDisplayTitle,
+    getProjectConversationSummary,
+  } from './project-conversation-panel-labels'
 
   let {
     conversations = [],
@@ -15,11 +19,23 @@
 
   const openSet = $derived(new Set(openConversationIds))
 
-  function summaryText(conversation: ProjectConversation) {
-    if (conversation.rollingSummary?.trim()) {
-      return conversation.rollingSummary.trim()
+  function titleText(conversation: ProjectConversation) {
+    const title = getProjectConversationDisplayTitle(conversation)
+    if (title) {
+      return title
     }
     return 'New conversation'
+  }
+
+  function secondarySummaryText(conversation: ProjectConversation) {
+    const summary = getProjectConversationSummary(conversation)
+    if (!summary) {
+      return ''
+    }
+    if (summary === titleText(conversation)) {
+      return ''
+    }
+    return summary
   }
 
   function statusDot(conversation: ProjectConversation) {
@@ -53,8 +69,15 @@
           onclick={() => onSelect?.(conversation.id)}
         >
           <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
-          <span class="text-foreground min-w-0 flex-1 truncate text-[11px] leading-tight">
-            {summaryText(conversation)}
+          <span class="min-w-0 flex-1">
+            <span class="text-foreground block truncate text-[11px] leading-tight">
+              {titleText(conversation)}
+            </span>
+            {#if secondarySummaryText(conversation)}
+              <span class="text-muted-foreground block truncate text-[10px] leading-tight">
+                {secondarySummaryText(conversation)}
+              </span>
+            {/if}
           </span>
           {#if isOpen}
             <span

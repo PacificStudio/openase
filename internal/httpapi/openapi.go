@@ -460,6 +460,7 @@ type OpenAPIProjectConversation struct {
 	Source         string `json:"source"`
 	ProviderID     string `json:"provider_id"`
 	Status         string `json:"status"`
+	Title          string `json:"title"`
 	RollingSummary string `json:"rolling_summary"`
 	LastActivityAt string `json:"last_activity_at"`
 	CreatedAt      string `json:"created_at"`
@@ -528,7 +529,8 @@ type OpenAPIProjectConversationTurn struct {
 }
 
 type OpenAPIProjectConversationTurnResponse struct {
-	Turn OpenAPIProjectConversationTurn `json:"turn"`
+	Turn         OpenAPIProjectConversationTurn `json:"turn"`
+	Conversation OpenAPIProjectConversation     `json:"conversation"`
 }
 
 type OpenAPIProjectConversationInterruptResponse struct {

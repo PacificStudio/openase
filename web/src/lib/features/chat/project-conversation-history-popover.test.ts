@@ -11,8 +11,9 @@ const conversationFixtures: ProjectConversation[] = [
     userId: 'user-1',
     source: 'project_sidebar',
     providerId: 'provider-1',
+    title: 'Keep the first question stable',
     status: 'active',
-    rollingSummary: 'First conversation',
+    rollingSummary: 'Latest recovery summary',
     lastActivityAt: '2026-04-06T11:55:00Z',
     createdAt: '2026-04-06T11:50:00Z',
     updatedAt: '2026-04-06T11:55:00Z',
@@ -23,6 +24,7 @@ const conversationFixtures: ProjectConversation[] = [
     userId: 'user-1',
     source: 'project_sidebar',
     providerId: 'provider-1',
+    title: '',
     status: 'idle',
     rollingSummary: '',
     lastActivityAt: '2026-04-06T10:00:00Z',
@@ -54,7 +56,8 @@ describe('ProjectConversationHistoryPopover', () => {
 
     expect(scrollContainer.className).toContain('max-h-80')
     expect(scrollContainer.className).toContain('overflow-y-auto')
-    expect(getByText('First conversation')).toBeTruthy()
+    expect(getByText('Keep the first question stable')).toBeTruthy()
+    expect(getByText('Latest recovery summary')).toBeTruthy()
     expect(getByText('New conversation')).toBeTruthy()
     expect(getByText('open')).toBeTruthy()
   })
@@ -68,7 +71,7 @@ describe('ProjectConversationHistoryPopover', () => {
       },
     })
 
-    await fireEvent.click(getByRole('button', { name: /First conversation/i }))
+    await fireEvent.click(getByRole('button', { name: /Keep the first question stable/i }))
 
     expect(onSelect).toHaveBeenCalledWith('conversation-1')
   })

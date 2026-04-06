@@ -2243,6 +2243,9 @@
                           "status": {
                             "type": "string"
                           },
+                          "title": {
+                            "type": "string"
+                          },
                           "updated_at": {
                             "type": "string"
                           },
@@ -2384,6 +2387,9 @@
                           "type": "string"
                         },
                         "status": {
+                          "type": "string"
+                        },
+                        "title": {
                           "type": "string"
                         },
                         "updated_at": {
@@ -2544,6 +2550,9 @@
                           "type": "string"
                         },
                         "status": {
+                          "type": "string"
+                        },
+                        "title": {
                           "type": "string"
                         },
                         "updated_at": {
@@ -3571,6 +3580,44 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "conversation": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_activity_at": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "provider_id": {
+                          "type": "string"
+                        },
+                        "rolling_summary": {
+                          "type": "string"
+                        },
+                        "source": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "user_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "turn": {
                       "properties": {
                         "id": {
