@@ -88,6 +88,67 @@ export type SessionGovernanceResponse = {
   stepUp: AuthStepUpCapability
 }
 
+export type UserDirectoryIdentitySummary = {
+  id: string
+  issuer: string
+  subject: string
+  email: string
+  emailVerified: boolean
+  lastSyncedAt: string
+}
+
+export type UserDirectoryEntry = {
+  id: string
+  status: string
+  primaryEmail: string
+  displayName: string
+  avatarURL: string
+  lastLoginAt?: string
+  createdAt: string
+  updatedAt: string
+  primaryIdentity?: UserDirectoryIdentitySummary
+}
+
+export type UserDirectoryIdentityDetail = UserDirectoryIdentitySummary & {
+  claimsVersion: number
+  rawClaimsJSON: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type UserDirectoryGroup = {
+  id: string
+  issuer: string
+  groupKey: string
+  groupName: string
+  lastSyncedAt: string
+}
+
+export type UserStatusAudit = {
+  status: string
+  reason: string
+  source: string
+  actorID: string
+  changedAt: string
+  revokedSessionCount: number
+}
+
+export type UserDirectoryDetail = {
+  user: UserDirectoryEntry
+  identities: UserDirectoryIdentityDetail[]
+  groups: UserDirectoryGroup[]
+  activeSessionCount: number
+  latestStatusAudit?: UserStatusAudit
+  recentAuditEvents: AuthAuditEvent[]
+}
+
+export type UserStatusTransitionResult = {
+  user: UserDirectoryEntry
+  changed: boolean
+  revokedSessionCount: number
+  latestStatusAudit?: UserStatusAudit
+}
+
 type RawRoleBinding = {
   id?: string
   scope_kind?: string
@@ -135,6 +196,67 @@ type RawSessionGovernanceResponse = {
     summary?: string
     supported_methods?: string[]
   }
+}
+
+type RawUserDirectoryIdentitySummary = {
+  id?: string
+  issuer?: string
+  subject?: string
+  email?: string
+  email_verified?: boolean
+  last_synced_at?: string
+}
+
+type RawUserDirectoryEntry = {
+  id?: string
+  status?: string
+  primary_email?: string
+  display_name?: string
+  avatar_url?: string
+  last_login_at?: string
+  created_at?: string
+  updated_at?: string
+  primary_identity?: RawUserDirectoryIdentitySummary
+}
+
+type RawUserDirectoryIdentityDetail = RawUserDirectoryIdentitySummary & {
+  claims_version?: number
+  raw_claims_json?: string
+  created_at?: string
+  updated_at?: string
+}
+
+type RawUserDirectoryGroup = {
+  id?: string
+  issuer?: string
+  group_key?: string
+  group_name?: string
+  last_synced_at?: string
+}
+
+type RawUserStatusAudit = {
+  status?: string
+  reason?: string
+  source?: string
+  actor_id?: string
+  changed_at?: string
+  revoked_session_count?: number
+}
+
+type RawUserDirectoryDetail = {
+  user?: RawUserDirectoryEntry
+  identities?: RawUserDirectoryIdentityDetail[]
+  groups?: RawUserDirectoryGroup[]
+  active_session_count?: number
+  latest_status_audit?: RawUserStatusAudit
+  recent_audit_events?: RawAuthAuditEvent[]
+}
+
+type RawUserStatusTransitionResult = {
+  user?: RawUserDirectoryEntry
+  changed?: boolean
+  revoked_session_count?: number
+  latest_status_audit?: RawUserStatusAudit
 }
 
 function parseUser(raw?: RawAuthSessionResponse['user']): HumanAuthUser | undefined {
@@ -244,6 +366,78 @@ function parseAuthAuditEvent(raw: RawAuthAuditEvent): AuthAuditEvent {
   }
 }
 
+function parseUserDirectoryIdentitySummary(
+  raw?: RawUserDirectoryIdentitySummary,
+): UserDirectoryIdentitySummary | undefined {
+  if (!raw?.id || !raw.issuer || !raw.subject) {
+    return undefined
+  }
+  return {
+    id: raw.id,
+    issuer: raw.issuer,
+    subject: raw.subject,
+    email: raw.email ?? '',
+    emailVerified: raw.email_verified === true,
+    lastSyncedAt: raw.last_synced_at ?? '',
+  }
+}
+
+function parseUserDirectoryEntry(raw: RawUserDirectoryEntry): UserDirectoryEntry {
+  return {
+    id: raw.id ?? '',
+    status: raw.status ?? 'active',
+    primaryEmail: raw.primary_email ?? '',
+    displayName: raw.display_name ?? '',
+    avatarURL: raw.avatar_url ?? '',
+    lastLoginAt: raw.last_login_at ?? undefined,
+    createdAt: raw.created_at ?? '',
+    updatedAt: raw.updated_at ?? '',
+    primaryIdentity: parseUserDirectoryIdentitySummary(raw.primary_identity),
+  }
+}
+
+function parseUserDirectoryIdentityDetail(
+  raw: RawUserDirectoryIdentityDetail,
+): UserDirectoryIdentityDetail {
+  const summary = parseUserDirectoryIdentitySummary(raw)
+  return {
+    id: summary?.id ?? '',
+    issuer: summary?.issuer ?? '',
+    subject: summary?.subject ?? '',
+    email: summary?.email ?? '',
+    emailVerified: summary?.emailVerified ?? false,
+    lastSyncedAt: summary?.lastSyncedAt ?? '',
+    claimsVersion: raw.claims_version ?? 0,
+    rawClaimsJSON: raw.raw_claims_json ?? '',
+    createdAt: raw.created_at ?? '',
+    updatedAt: raw.updated_at ?? '',
+  }
+}
+
+function parseUserDirectoryGroup(raw: RawUserDirectoryGroup): UserDirectoryGroup {
+  return {
+    id: raw.id ?? '',
+    issuer: raw.issuer ?? '',
+    groupKey: raw.group_key ?? '',
+    groupName: raw.group_name ?? '',
+    lastSyncedAt: raw.last_synced_at ?? '',
+  }
+}
+
+function parseUserStatusAudit(raw?: RawUserStatusAudit): UserStatusAudit | undefined {
+  if (!raw?.status) {
+    return undefined
+  }
+  return {
+    status: raw.status,
+    reason: raw.reason ?? '',
+    source: raw.source ?? '',
+    actorID: raw.actor_id ?? '',
+    changedAt: raw.changed_at ?? '',
+    revokedSessionCount: raw.revoked_session_count ?? 0,
+  }
+}
+
 function parseRoleBindingList(payload: { role_bindings?: RawRoleBinding[] }) {
   return Array.isArray(payload.role_bindings)
     ? payload.role_bindings.map((item) => parseRoleBinding(item))
@@ -308,6 +502,63 @@ export async function listProjectRoleBindings(projectId: string) {
     `/api/v1/projects/${projectId}/role-bindings`,
   )
   return parseRoleBindingList(payload)
+}
+
+export async function listInstanceUsers(params: {
+  query?: string
+  status?: 'all' | 'active' | 'disabled'
+  limit?: number
+}) {
+  const payload = await api.get<{ users?: RawUserDirectoryEntry[] }>('/api/v1/instance/users', {
+    params: {
+      q: params.query,
+      status: params.status,
+      limit: params.limit,
+    },
+  })
+  return Array.isArray(payload.users)
+    ? payload.users.map((item) => parseUserDirectoryEntry(item))
+    : []
+}
+
+export async function getInstanceUserDetail(userId: string): Promise<UserDirectoryDetail> {
+  const payload = await api.get<RawUserDirectoryDetail>(`/api/v1/instance/users/${userId}`)
+  return {
+    user: parseUserDirectoryEntry(payload.user ?? {}),
+    identities: Array.isArray(payload.identities)
+      ? payload.identities.map((item) => parseUserDirectoryIdentityDetail(item))
+      : [],
+    groups: Array.isArray(payload.groups)
+      ? payload.groups.map((item) => parseUserDirectoryGroup(item))
+      : [],
+    activeSessionCount: payload.active_session_count ?? 0,
+    latestStatusAudit: parseUserStatusAudit(payload.latest_status_audit),
+    recentAuditEvents: Array.isArray(payload.recent_audit_events)
+      ? payload.recent_audit_events.map((item) => parseAuthAuditEvent(item))
+      : [],
+  }
+}
+
+export async function transitionInstanceUserStatus(
+  userId: string,
+  body: {
+    status: 'active' | 'disabled'
+    reason: string
+    revoke_sessions?: boolean
+  },
+): Promise<UserStatusTransitionResult> {
+  const payload = await api.post<RawUserStatusTransitionResult>(
+    `/api/v1/instance/users/${userId}/status`,
+    {
+      body,
+    },
+  )
+  return {
+    user: parseUserDirectoryEntry(payload.user ?? {}),
+    changed: payload.changed === true,
+    revokedSessionCount: payload.revoked_session_count ?? 0,
+    latestStatusAudit: parseUserStatusAudit(payload.latest_status_audit),
+  }
 }
 
 export async function createProjectRoleBinding(

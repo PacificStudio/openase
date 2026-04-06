@@ -131,6 +131,16 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionSecurityUpdate,
 			checkRequired: true,
 		}, true
+	case "/api/v1/instance/users", "/api/v1/instance/users/:userId", "/api/v1/instance/users/:userId/status":
+		permission := humanauthdomain.PermissionSecurityUpdate
+		if method == http.MethodGet {
+			permission = humanauthdomain.PermissionSecurityRead
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverInstance,
+			permission:    permission,
+			checkRequired: true,
+		}, true
 	case "/api/v1/instance/role-bindings", "/api/v1/instance/role-bindings/:bindingId":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,

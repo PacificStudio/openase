@@ -92,6 +92,7 @@ func (r routeRegistrar) registerProtectedAPIRoutes(protected *echo.Group) {
 	r.server.registerHRAdvisorRoutes(protected)
 	r.server.registerTicketStatusRoutes(protected)
 	r.server.registerRoleBindingRoutes(protected)
+	r.server.registerUserDirectoryRoutes(protected)
 }
 
 func (r routeRegistrar) registerUIRoutes() {

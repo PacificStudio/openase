@@ -172,7 +172,10 @@ export function effectivePermissionsMock(scope: MockScope, id = '') {
         : scope === 'organization'
           ? ['org_admin']
           : ['project_admin'],
-    permissions: scope === 'instance' ? ['rbac.manage'] : [`${scope}.read`, 'rbac.manage'],
+    permissions:
+      scope === 'instance'
+        ? ['rbac.manage', 'security.read', 'security.manage']
+        : [`${scope}.read`, 'rbac.manage'],
     groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
   }
 }

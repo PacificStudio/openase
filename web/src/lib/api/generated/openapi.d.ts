@@ -553,6 +553,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/instance/users': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List cached OIDC users in the instance directory */
+    get: operations['listInstanceUsers']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/users/{userId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get cached identity, group, session summary, and audit detail for one user */
+    get: operations['getInstanceUser']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/users/{userId}/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Enable or disable a cached user and optionally revoke active browser sessions immediately */
+    post: operations['transitionInstanceUserStatus']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}': {
     parameters: {
       query?: never
@@ -5100,6 +5151,365 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listInstanceUsers: {
+    parameters: {
+      query?: {
+        /** @description Optional case-insensitive search string applied to primary email, display name, issuer, subject, and cached identity email. */
+        q?: string
+        /** @description Optional status filter. Supported values are all, active, and disabled. */
+        status?: string
+        /** @description Optional positive integer result limit. Defaults to 50 and caps at 200. */
+        limit?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List cached OIDC users in the instance directory response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            users?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getInstanceUser: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID to inspect in the instance directory. */
+        userId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get cached identity, group, session summary, and audit detail for one user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            active_session_count?: number
+            groups?: {
+              group_key?: string
+              group_name?: string
+              id?: string
+              issuer?: string
+              last_synced_at?: string
+            }[]
+            identities?: {
+              claims_version?: number
+              created_at?: string
+              email?: string
+              email_verified?: boolean
+              id?: string
+              issuer?: string
+              last_synced_at?: string
+              raw_claims_json?: string
+              subject?: string
+              updated_at?: string
+            }[]
+            latest_status_audit?: {
+              actor_id?: string
+              changed_at?: string
+              reason?: string
+              revoked_session_count?: number
+              source?: string
+              status?: string
+            } | null
+            recent_audit_events?: {
+              actor_id?: string
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              session_id?: string
+            }[]
+            user?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  transitionInstanceUserStatus: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID whose cached status should change. */
+        userId: string
+      }
+      cookie?: never
+    }
+    /** @description Enable or disable a cached user and optionally revoke active browser sessions immediately request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Mandatory audit reason recorded for the enable or disable action. */
+          reason?: string
+          /** @description Whether the transition should revoke all browser sessions for the target user immediately. Defaults to true for disable requests. */
+          revoke_sessions?: boolean | null
+          /** @description Target cached-user status. Supported values are active and disabled. */
+          status?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Enable or disable a cached user and optionally revoke active browser sessions immediately response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            changed?: boolean
+            latest_status_audit?: {
+              actor_id?: string
+              changed_at?: string
+              reason?: string
+              revoked_session_count?: number
+              source?: string
+              status?: string
+            } | null
+            revoked_session_count?: number
+            user?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }

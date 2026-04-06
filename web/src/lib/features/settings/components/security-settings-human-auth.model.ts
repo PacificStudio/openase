@@ -118,6 +118,8 @@ const authAuditEventLabels: Record<string, string> = {
   logout: 'Logged out',
   'session.revoked': 'Session revoked',
   'session.expired': 'Session expired',
+  'user.enabled': 'User enabled',
+  'user.disabled': 'User disabled',
   'user.disabled_after_login': 'User disabled after login',
 }
 

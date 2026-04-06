@@ -85,6 +85,9 @@ OpenASE 在活跃使用时刷新空闲截止时间。在 OpenASE 数据库中禁
 - `DELETE /auth/sessions/:id`：撤销单个浏览器 session，必要时也可用于当前 session。
 - `POST /auth/sessions/revoke-all`：在保留当前 session 的前提下，撤销其它所有浏览器 session。
 - `POST /auth/users/:userId/sessions/revoke`：允许实例级管理员强制撤销指定用户的全部 session。
+- `GET /api/v1/instance/users`：返回缓存的 OIDC 用户目录，支持搜索与状态过滤。
+- `GET /api/v1/instance/users/:userId`：返回单个用户的 identities、缓存 groups、活跃 session 数和最近 auth 审计。
+- `POST /api/v1/instance/users/:userId/status`：执行带审计原因的用户启用 / 停用迁移，并可立即撤销现有浏览器 session。
 - `POST /auth/logout`：撤销当前会话并清除会话 Cookie。
 - `GET /api/v1/auth/me/permissions`：评估实例、组织或项目范围的有效角色和权限。
 
@@ -121,6 +124,31 @@ OpenASE 将本地授权缓存和组成员关系存储在自己的数据库中，
 - 后续登录时可以刷新个人信息变更
 - 组可以支撑 OpenASE 角色绑定
 - 禁用的用户可以被 OpenASE 阻止，无论上游浏览器状态是否过期
+
+Identity 同步语义：
+
+- 规范的上游 identity 主键是 `issuer + subject`
+- email、display name、avatar URL 和 group memberships 都是可变缓存字段，会在同一 `issuer + subject` 的后续登录中刷新
+- 当上游 `issuer + subject` 不变时，email 变化不会创建重复本地用户
+- 如果一个新的 `issuer + subject` 与已缓存邮箱冲突，登录会直接失败；当前不会自动 link、unlink 或 merge
+
+当前用户目录边界：
+
+- OpenASE 当前只支持一个缓存用户对应一个规范上游 identity
+- 手动 link、unlink、merge 暂不支持
+- 如果管理员操作或未来迁移造成一个用户拥有多个 identities，这属于当前契约之外状态，系统不会提供自动合并
+
+Group 同步策略：
+
+- 当前只提供 OIDC group cache
+- 同步后的 groups 可以直接参与 RBAC 绑定评估
+- 独立的本地 group catalog 延后到后续 IAM 工单
+
+去配 / 离职生命周期：
+
+- 当前已支持管理员手动停用用户
+- 停用用户会立即撤销其现有浏览器 session，并保留 auth 审计历史
+- 上游自动同步、webhook 回调、SCIM 等自动去配入口仍然作为后续集成点保留
 
 ## RBAC 模型
 
