@@ -26,13 +26,14 @@ import (
 )
 
 var (
-	ErrAuthDisabled     = errors.New("human auth is disabled")
-	ErrInvalidFlowState = errors.New("invalid oidc login flow state")
-	ErrInvalidSession   = errors.New("invalid browser session")
-	ErrSessionExpired   = errors.New("browser session expired")
-	ErrUserDisabled     = errors.New("user is disabled")
-	ErrPermissionDenied = errors.New("permission denied")
-	ErrUnauthorized     = errors.New("human session required")
+	ErrAuthDisabled        = errors.New("human auth is disabled")
+	ErrInvalidFlowState    = errors.New("invalid oidc login flow state")
+	ErrInvalidSession      = errors.New("invalid browser session")
+	ErrSessionExpired      = errors.New("browser session expired")
+	ErrUserDisabled        = errors.New("user is disabled")
+	ErrPermissionDenied    = errors.New("permission denied")
+	ErrUnauthorized        = errors.New("human session required")
+	ErrRoleBindingNotFound = errors.New("role binding not found")
 )
 
 const flowCookieTTL = 10 * time.Minute
@@ -57,6 +58,22 @@ type CallbackResult struct {
 	CSRFToken    string
 	ReturnTo     string
 	Principal    domain.AuthenticatedPrincipal
+}
+
+type CreateRoleBindingInput struct {
+	SubjectKind string
+	SubjectKey  string
+	RoleKey     string
+	GrantedBy   string
+	ExpiresAt   *time.Time
+}
+
+type UpdateRoleBindingInput struct {
+	SubjectKind string
+	SubjectKey  string
+	RoleKey     string
+	GrantedBy   string
+	ExpiresAt   *time.Time
 }
 
 type flowState struct {
@@ -284,18 +301,210 @@ func (s *Service) ListRoleBindings(
 	scope domain.ScopeKind,
 	scopeID string,
 ) ([]domain.RoleBinding, error) {
-	return s.repo.ListRoleBindings(ctx, repo.ListRoleBindingsFilter{
-		ScopeKind: &scope,
-		ScopeID:   stringPointer(strings.TrimSpace(scopeID)),
+	switch scope {
+	case domain.ScopeKindInstance:
+		items, err := s.repo.ListInstanceRoleBindings(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return mapGenericRoleBindings(items), nil
+	case domain.ScopeKindOrganization:
+		parsed, err := uuid.Parse(strings.TrimSpace(scopeID))
+		if err != nil {
+			return nil, fmt.Errorf("organization id must be a UUID")
+		}
+		items, err := s.repo.ListOrganizationRoleBindings(ctx, parsed)
+		if err != nil {
+			return nil, err
+		}
+		return mapGenericRoleBindings(items), nil
+	case domain.ScopeKindProject:
+		parsed, err := uuid.Parse(strings.TrimSpace(scopeID))
+		if err != nil {
+			return nil, fmt.Errorf("project id must be a UUID")
+		}
+		items, err := s.repo.ListProjectRoleBindings(ctx, parsed)
+		if err != nil {
+			return nil, err
+		}
+		return mapGenericRoleBindings(items), nil
+	default:
+		return nil, fmt.Errorf("unsupported scope kind %q", scope)
+	}
+}
+
+func (s *Service) CreateInstanceRoleBinding(ctx context.Context, input CreateRoleBindingInput) (domain.InstanceRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseInstanceRole(input.RoleKey)
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	return s.repo.CreateInstanceRoleBinding(ctx, domain.InstanceRoleBinding{
+		RoleBindingMetadata: domain.RoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		RoleKey: roleKey,
 	})
 }
 
-func (s *Service) CreateRoleBinding(ctx context.Context, input domain.RoleBinding) (domain.RoleBinding, error) {
-	return s.repo.CreateRoleBinding(ctx, input)
+func (s *Service) CreateOrganizationRoleBinding(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	input CreateRoleBindingInput,
+) (domain.OrganizationRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseOrganizationRole(input.RoleKey)
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	return s.repo.CreateOrganizationRoleBinding(ctx, domain.OrganizationRoleBinding{
+		RoleBindingMetadata: domain.RoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		OrganizationID: organizationID.String(),
+		RoleKey:        roleKey,
+	})
 }
 
-func (s *Service) DeleteRoleBinding(ctx context.Context, id uuid.UUID) error {
-	return s.repo.DeleteRoleBinding(ctx, id)
+func (s *Service) CreateProjectRoleBinding(
+	ctx context.Context,
+	projectID uuid.UUID,
+	input CreateRoleBindingInput,
+) (domain.ProjectRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseProjectRole(input.RoleKey)
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	return s.repo.CreateProjectRoleBinding(ctx, domain.ProjectRoleBinding{
+		RoleBindingMetadata: domain.RoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		ProjectID: projectID.String(),
+		RoleKey:   roleKey,
+	})
+}
+
+func (s *Service) UpdateInstanceRoleBinding(
+	ctx context.Context,
+	id uuid.UUID,
+	input UpdateRoleBindingInput,
+) (domain.InstanceRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseInstanceRole(input.RoleKey)
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	item, err := s.repo.UpdateInstanceRoleBinding(ctx, id, domain.UpdateInstanceRoleBinding{
+		UpdateRoleBindingMetadata: domain.UpdateRoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		RoleKey: roleKey,
+	})
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return domain.InstanceRoleBinding{}, ErrRoleBindingNotFound
+	}
+	return item, err
+}
+
+func (s *Service) UpdateOrganizationRoleBinding(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	id uuid.UUID,
+	input UpdateRoleBindingInput,
+) (domain.OrganizationRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseOrganizationRole(input.RoleKey)
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	item, err := s.repo.UpdateOrganizationRoleBinding(ctx, organizationID, id, domain.UpdateOrganizationRoleBinding{
+		UpdateRoleBindingMetadata: domain.UpdateRoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		RoleKey: roleKey,
+	})
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return domain.OrganizationRoleBinding{}, ErrRoleBindingNotFound
+	}
+	return item, err
+}
+
+func (s *Service) UpdateProjectRoleBinding(
+	ctx context.Context,
+	projectID uuid.UUID,
+	id uuid.UUID,
+	input UpdateRoleBindingInput,
+) (domain.ProjectRoleBinding, error) {
+	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	roleKey, err := domain.ParseProjectRole(input.RoleKey)
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	item, err := s.repo.UpdateProjectRoleBinding(ctx, projectID, id, domain.UpdateProjectRoleBinding{
+		UpdateRoleBindingMetadata: domain.UpdateRoleBindingMetadata{
+			Subject:   subject,
+			GrantedBy: strings.TrimSpace(input.GrantedBy),
+			ExpiresAt: input.ExpiresAt,
+		},
+		RoleKey: roleKey,
+	})
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return domain.ProjectRoleBinding{}, ErrRoleBindingNotFound
+	}
+	return item, err
+}
+
+func (s *Service) DeleteInstanceRoleBinding(ctx context.Context, id uuid.UUID) error {
+	err := s.repo.DeleteInstanceRoleBinding(ctx, id)
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return ErrRoleBindingNotFound
+	}
+	return err
+}
+
+func (s *Service) DeleteOrganizationRoleBinding(ctx context.Context, organizationID uuid.UUID, id uuid.UUID) error {
+	err := s.repo.DeleteOrganizationRoleBinding(ctx, organizationID, id)
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return ErrRoleBindingNotFound
+	}
+	return err
+}
+
+func (s *Service) DeleteProjectRoleBinding(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
+	err := s.repo.DeleteProjectRoleBinding(ctx, projectID, id)
+	if errors.Is(err, repo.ErrRoleBindingNotFound) {
+		return ErrRoleBindingNotFound
+	}
+	return err
 }
 
 func (s *Service) CountApprovalPolicies(ctx context.Context) (int, error) {
@@ -303,6 +512,48 @@ func (s *Service) CountApprovalPolicies(ctx context.Context) (int, error) {
 		return 0, ErrAuthDisabled
 	}
 	return s.repo.CountApprovalPolicies(ctx)
+}
+
+type genericRoleBinding interface {
+	Generic() domain.RoleBinding
+}
+
+func mapGenericRoleBindings[T genericRoleBinding](items []T) []domain.RoleBinding {
+	result := make([]domain.RoleBinding, 0, len(items))
+	for _, item := range items {
+		result = append(result, item.Generic())
+	}
+	return result
+}
+
+func (s *Service) resolveRoleBindingSubject(
+	ctx context.Context,
+	subjectKind string,
+	subjectKey string,
+) (domain.SubjectRef, error) {
+	kind, err := domain.ParseSubjectKind(subjectKind)
+	if err != nil {
+		return domain.SubjectRef{}, err
+	}
+	switch kind {
+	case domain.SubjectKindUser:
+		user, resolveErr := s.repo.ResolveRoleBindingUser(ctx, subjectKey)
+		if resolveErr != nil {
+			switch {
+			case errors.Is(resolveErr, repo.ErrRoleBindingUserNotFound):
+				return domain.SubjectRef{}, fmt.Errorf("user binding subject must reference an existing user id or email")
+			case errors.Is(resolveErr, repo.ErrRoleBindingUserAmbiguous):
+				return domain.SubjectRef{}, fmt.Errorf("user binding subject matches multiple users; use a user id")
+			default:
+				return domain.SubjectRef{}, resolveErr
+			}
+		}
+		return domain.NewUserSubjectRef(user.ID), nil
+	case domain.SubjectKindGroup:
+		return domain.ParseGroupSubjectRef(subjectKey)
+	default:
+		return domain.SubjectRef{}, fmt.Errorf("unsupported subject kind %q", subjectKind)
+	}
 }
 
 func (s *Service) buildPrincipal(

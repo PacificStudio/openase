@@ -4294,6 +4294,355 @@
         ]
       }
     },
+    "/api/v1/instance/role-bindings": {
+      "get": {
+        "operationId": "listInstanceRoleBindings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_bindings": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "expires_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "granted_by": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "role_key": {
+                            "type": "string"
+                          },
+                          "scope_id": {
+                            "type": "string"
+                          },
+                          "scope_kind": {
+                            "type": "string"
+                          },
+                          "subject_key": {
+                            "type": "string"
+                          },
+                          "subject_kind": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List instance-scoped role bindings response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List instance-scoped role bindings",
+        "tags": [
+          "auth"
+        ]
+      },
+      "post": {
+        "operationId": "createInstanceRoleBinding",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "expires_at": {
+                    "description": "Optional RFC3339 timestamp after which the binding automatically expires.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "role_key": {
+                    "description": "Builtin OpenASE role key valid for the selected scope.",
+                    "type": "string"
+                  },
+                  "subject_key": {
+                    "description": "For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key.",
+                    "type": "string"
+                  },
+                  "subject_kind": {
+                    "description": "Binding subject kind. Supported values are user and group.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create an instance-scoped role binding request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "role_binding": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "expires_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "granted_by": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "role_key": {
+                          "type": "string"
+                        },
+                        "scope_id": {
+                          "type": "string"
+                        },
+                        "scope_kind": {
+                          "type": "string"
+                        },
+                        "subject_key": {
+                          "type": "string"
+                        },
+                        "subject_kind": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create an instance-scoped role binding response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          }
+        },
+        "summary": "Create an instance-scoped role binding",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/instance/role-bindings/{bindingId}": {
+      "delete": {
+        "operationId": "deleteInstanceRoleBinding",
+        "parameters": [
+          {
+            "description": "Role binding ID to delete.",
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Role binding deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          }
+        },
+        "summary": "Delete an instance-scoped role binding",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/machines/{machineId}": {
       "delete": {
         "operationId": "deleteMachine",
@@ -6346,11 +6695,11 @@
                     "type": "string"
                   },
                   "role_key": {
-                    "description": "Builtin OpenASE role key to grant on the selected scope.",
+                    "description": "Builtin OpenASE role key valid for the selected scope.",
                     "type": "string"
                   },
                   "subject_key": {
-                    "description": "Stable user identifier/email or synchronized OIDC group key that receives the role.",
+                    "description": "For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key.",
                     "type": "string"
                   },
                   "subject_kind": {
@@ -6554,6 +6903,24 @@
               }
             },
             "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
           }
         },
         "summary": "Delete an organization-scoped role binding",
@@ -13841,11 +14208,11 @@
                     "type": "string"
                   },
                   "role_key": {
-                    "description": "Builtin OpenASE role key to grant on the selected scope.",
+                    "description": "Builtin OpenASE role key valid for the selected scope.",
                     "type": "string"
                   },
                   "subject_key": {
-                    "description": "Stable user identifier/email or synchronized OIDC group key that receives the role.",
+                    "description": "For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key.",
                     "type": "string"
                   },
                   "subject_kind": {
@@ -14049,6 +14416,24 @@
               }
             },
             "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
           }
         },
         "summary": "Delete a project-scoped role binding",

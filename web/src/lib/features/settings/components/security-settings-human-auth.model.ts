@@ -1,6 +1,6 @@
 import { ApiError } from '$lib/api/client'
 
-export type ScopeKind = 'organization' | 'project'
+export type ScopeKind = 'instance' | 'organization' | 'project'
 export type SubjectKind = 'user' | 'group'
 
 export type RoleOption = {
@@ -64,6 +64,22 @@ export const roleOptions: RoleOption[] = [
   },
 ]
 
+const defaultRoleByScope: Record<ScopeKind, string> = {
+  instance: 'instance_admin',
+  organization: 'org_member',
+  project: 'project_member',
+}
+
+export function roleOptionsForScope(scope: ScopeKind) {
+  if (scope === 'instance') {
+    return roleOptions.filter((option) => option.key === 'instance_admin')
+  }
+  if (scope === 'organization') {
+    return roleOptions.filter((option) => option.key.startsWith('org_'))
+  }
+  return roleOptions.filter((option) => option.key.startsWith('project_'))
+}
+
 export function defaultBindingDraft(roleKey = 'project_member'): BindingDraft {
   return {
     subjectKind: 'user',
@@ -71,6 +87,10 @@ export function defaultBindingDraft(roleKey = 'project_member'): BindingDraft {
     roleKey,
     expiresAtLocal: '',
   }
+}
+
+export function defaultBindingDraftForScope(scope: ScopeKind): BindingDraft {
+  return defaultBindingDraft(defaultRoleByScope[scope])
 }
 
 export function formatError(caughtError: unknown, fallback: string) {
@@ -97,6 +117,9 @@ export function bindingPlaceholder(subjectKind: SubjectKind) {
 }
 
 export function scopeTitle(scope: ScopeKind) {
+  if (scope === 'instance') {
+    return 'Instance RBAC'
+  }
   return scope === 'organization' ? 'Organization RBAC' : 'Project RBAC'
 }
 
@@ -118,7 +141,7 @@ export function createBindingPayload(scope: ScopeKind, draft: BindingDraft) {
   return {
     subject_kind: draft.subjectKind,
     subject_key: subjectKey,
-    role_key: draft.roleKey.trim() || (scope === 'organization' ? 'org_member' : 'project_member'),
+    role_key: draft.roleKey.trim() || defaultRoleByScope[scope],
     expires_at: expiresAt,
   }
 }

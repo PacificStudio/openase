@@ -26,6 +26,8 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/auth/session",
 		"/api/v1/auth/logout",
 		"/api/v1/auth/me/permissions",
+		"/api/v1/instance/role-bindings",
+		"/api/v1/instance/role-bindings/{bindingId}",
 		"/api/v1/system/dashboard",
 		"/api/v1/workspace/summary",
 		"/api/v1/orgs",

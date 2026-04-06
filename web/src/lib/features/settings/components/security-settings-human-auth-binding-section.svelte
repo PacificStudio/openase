@@ -6,7 +6,7 @@
     bindingPlaceholder,
     formatTimestamp,
     resolveRoleOption,
-    roleOptions,
+    roleOptionsForScope,
     scopeTitle,
     type BindingDraft,
     type ScopeKind,
@@ -45,9 +45,11 @@
     <div>
       <h4 class="text-sm font-semibold">{scopeTitle(scope)}</h4>
       <p class="text-muted-foreground text-xs">
-        {scope === 'organization'
-          ? 'Bindings here inherit into descendant projects.'
-          : 'Project-scoped roles stack with direct and group bindings.'}
+        {scope === 'instance'
+          ? 'Instance-scoped grants apply everywhere and should stay tightly controlled.'
+          : scope === 'organization'
+            ? 'Bindings here inherit into descendant projects.'
+            : 'Project-scoped roles stack with direct and group bindings.'}
       </p>
     </div>
     <div class="text-muted-foreground text-xs">{canManage ? 'Editable' : 'Read only'}</div>
@@ -85,7 +87,7 @@
           value={draft.roleKey}
           onchange={(event) => onRoleKey?.(scope, (event.currentTarget as HTMLSelectElement).value)}
         >
-          {#each roleOptions as roleOption (roleOption.key)}
+          {#each roleOptionsForScope(scope) as roleOption (roleOption.key)}
             <option value={roleOption.key}>{roleOption.label}</option>
           {/each}
         </select>

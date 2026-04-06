@@ -2,6 +2,7 @@ package humanauth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -32,6 +33,12 @@ import (
 type Repository struct {
 	client *ent.Client
 }
+
+var (
+	ErrRoleBindingNotFound      = errors.New("role binding not found")
+	ErrRoleBindingUserNotFound  = errors.New("role binding user not found")
+	ErrRoleBindingUserAmbiguous = errors.New("role binding user lookup is ambiguous")
+)
 
 type ListRoleBindingsFilter struct {
 	ScopeKind *domain.ScopeKind
@@ -299,6 +306,10 @@ func (r *Repository) ListRoleBindings(ctx context.Context, filter ListRoleBindin
 }
 
 func (r *Repository) CreateRoleBinding(ctx context.Context, input domain.RoleBinding) (domain.RoleBinding, error) {
+	return r.createRoleBinding(ctx, input)
+}
+
+func (r *Repository) createRoleBinding(ctx context.Context, input domain.RoleBinding) (domain.RoleBinding, error) {
 	builder := r.client.RoleBinding.Create().
 		SetScopeKind(entrolebinding.ScopeKind(input.ScopeKind)).
 		SetScopeID(strings.TrimSpace(input.ScopeID)).
@@ -321,6 +332,239 @@ func (r *Repository) DeleteRoleBinding(ctx context.Context, id uuid.UUID) error 
 		return fmt.Errorf("delete role binding: %w", err)
 	}
 	return nil
+}
+
+func (r *Repository) ResolveRoleBindingUser(ctx context.Context, raw string) (domain.User, error) {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if normalized == "" {
+		return domain.User{}, ErrRoleBindingUserNotFound
+	}
+	if parsed, err := uuid.Parse(normalized); err == nil {
+		item, getErr := r.client.User.Query().Where(entuser.IDEQ(parsed)).Only(ctx)
+		switch {
+		case ent.IsNotFound(getErr):
+			return domain.User{}, ErrRoleBindingUserNotFound
+		case getErr != nil:
+			return domain.User{}, fmt.Errorf("resolve role binding user by id: %w", getErr)
+		default:
+			return mapUser(item), nil
+		}
+	}
+
+	primaryMatches, err := r.client.User.Query().
+		Where(entuser.PrimaryEmailEQ(normalized)).
+		All(ctx)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("resolve role binding user by primary email: %w", err)
+	}
+	if len(primaryMatches) == 1 {
+		return mapUser(primaryMatches[0]), nil
+	}
+	if len(primaryMatches) > 1 {
+		return domain.User{}, ErrRoleBindingUserAmbiguous
+	}
+
+	identityMatches, err := r.client.UserIdentity.Query().
+		Where(entuseridentity.EmailEQ(normalized)).
+		All(ctx)
+	if err != nil {
+		return domain.User{}, fmt.Errorf("resolve role binding user by identity email: %w", err)
+	}
+	if len(identityMatches) == 0 {
+		return domain.User{}, ErrRoleBindingUserNotFound
+	}
+	userIDs := make(map[uuid.UUID]struct{}, len(identityMatches))
+	for _, match := range identityMatches {
+		userIDs[match.UserID] = struct{}{}
+	}
+	if len(userIDs) != 1 {
+		return domain.User{}, ErrRoleBindingUserAmbiguous
+	}
+	for userID := range userIDs {
+		item, getErr := r.client.User.Query().Where(entuser.IDEQ(userID)).Only(ctx)
+		switch {
+		case ent.IsNotFound(getErr):
+			return domain.User{}, ErrRoleBindingUserNotFound
+		case getErr != nil:
+			return domain.User{}, fmt.Errorf("load role binding user from identity: %w", getErr)
+		default:
+			return mapUser(item), nil
+		}
+	}
+	return domain.User{}, ErrRoleBindingUserNotFound
+}
+
+func (r *Repository) ListInstanceRoleBindings(ctx context.Context) ([]domain.InstanceRoleBinding, error) {
+	items, err := r.ListRoleBindings(ctx, ListRoleBindingsFilter{
+		ScopeKind: scopeKindPointer(domain.ScopeKindInstance),
+		ScopeID:   stringPointer(""),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.InstanceRoleBinding, 0, len(items))
+	for _, item := range items {
+		parsed, parseErr := domain.ParseInstanceRoleBinding(item)
+		if parseErr != nil {
+			return nil, fmt.Errorf("list instance role bindings: %w", parseErr)
+		}
+		result = append(result, parsed)
+	}
+	return result, nil
+}
+
+func (r *Repository) ListOrganizationRoleBindings(
+	ctx context.Context,
+	organizationID uuid.UUID,
+) ([]domain.OrganizationRoleBinding, error) {
+	items, err := r.ListRoleBindings(ctx, ListRoleBindingsFilter{
+		ScopeKind: scopeKindPointer(domain.ScopeKindOrganization),
+		ScopeID:   stringPointer(organizationID.String()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.OrganizationRoleBinding, 0, len(items))
+	for _, item := range items {
+		parsed, parseErr := domain.ParseOrganizationRoleBinding(item)
+		if parseErr != nil {
+			return nil, fmt.Errorf("list organization role bindings: %w", parseErr)
+		}
+		result = append(result, parsed)
+	}
+	return result, nil
+}
+
+func (r *Repository) ListProjectRoleBindings(ctx context.Context, projectID uuid.UUID) ([]domain.ProjectRoleBinding, error) {
+	items, err := r.ListRoleBindings(ctx, ListRoleBindingsFilter{
+		ScopeKind: scopeKindPointer(domain.ScopeKindProject),
+		ScopeID:   stringPointer(projectID.String()),
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := make([]domain.ProjectRoleBinding, 0, len(items))
+	for _, item := range items {
+		parsed, parseErr := domain.ParseProjectRoleBinding(item)
+		if parseErr != nil {
+			return nil, fmt.Errorf("list project role bindings: %w", parseErr)
+		}
+		result = append(result, parsed)
+	}
+	return result, nil
+}
+
+func (r *Repository) CreateInstanceRoleBinding(
+	ctx context.Context,
+	input domain.InstanceRoleBinding,
+) (domain.InstanceRoleBinding, error) {
+	item, err := r.createRoleBinding(ctx, input.Generic())
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	return domain.ParseInstanceRoleBinding(item)
+}
+
+func (r *Repository) CreateOrganizationRoleBinding(
+	ctx context.Context,
+	input domain.OrganizationRoleBinding,
+) (domain.OrganizationRoleBinding, error) {
+	item, err := r.createRoleBinding(ctx, input.Generic())
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	return domain.ParseOrganizationRoleBinding(item)
+}
+
+func (r *Repository) CreateProjectRoleBinding(
+	ctx context.Context,
+	input domain.ProjectRoleBinding,
+) (domain.ProjectRoleBinding, error) {
+	item, err := r.createRoleBinding(ctx, input.Generic())
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	return domain.ParseProjectRoleBinding(item)
+}
+
+func (r *Repository) UpdateInstanceRoleBinding(
+	ctx context.Context,
+	id uuid.UUID,
+	input domain.UpdateInstanceRoleBinding,
+) (domain.InstanceRoleBinding, error) {
+	item, err := r.updateRoleBinding(
+		ctx,
+		id,
+		domain.ScopeKindInstance,
+		"",
+		string(input.Subject.Kind),
+		input.Subject.Key,
+		string(input.RoleKey),
+		input.GrantedBy,
+		input.ExpiresAt,
+	)
+	if err != nil {
+		return domain.InstanceRoleBinding{}, err
+	}
+	return domain.ParseInstanceRoleBinding(item)
+}
+
+func (r *Repository) UpdateOrganizationRoleBinding(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	id uuid.UUID,
+	input domain.UpdateOrganizationRoleBinding,
+) (domain.OrganizationRoleBinding, error) {
+	item, err := r.updateRoleBinding(
+		ctx,
+		id,
+		domain.ScopeKindOrganization,
+		organizationID.String(),
+		string(input.Subject.Kind),
+		input.Subject.Key,
+		string(input.RoleKey),
+		input.GrantedBy,
+		input.ExpiresAt,
+	)
+	if err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
+	return domain.ParseOrganizationRoleBinding(item)
+}
+
+func (r *Repository) UpdateProjectRoleBinding(
+	ctx context.Context,
+	projectID uuid.UUID,
+	id uuid.UUID,
+	input domain.UpdateProjectRoleBinding,
+) (domain.ProjectRoleBinding, error) {
+	item, err := r.updateRoleBinding(
+		ctx,
+		id,
+		domain.ScopeKindProject,
+		projectID.String(),
+		string(input.Subject.Kind),
+		input.Subject.Key,
+		string(input.RoleKey),
+		input.GrantedBy,
+		input.ExpiresAt,
+	)
+	if err != nil {
+		return domain.ProjectRoleBinding{}, err
+	}
+	return domain.ParseProjectRoleBinding(item)
+}
+
+func (r *Repository) DeleteInstanceRoleBinding(ctx context.Context, id uuid.UUID) error {
+	return r.deleteRoleBindingInScope(ctx, id, domain.ScopeKindInstance, "")
+}
+
+func (r *Repository) DeleteOrganizationRoleBinding(ctx context.Context, organizationID uuid.UUID, id uuid.UUID) error {
+	return r.deleteRoleBindingInScope(ctx, id, domain.ScopeKindOrganization, organizationID.String())
+}
+
+func (r *Repository) DeleteProjectRoleBinding(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
+	return r.deleteRoleBindingInScope(ctx, id, domain.ScopeKindProject, projectID.String())
 }
 
 func (r *Repository) EnsureBootstrapRoleBinding(
@@ -530,4 +774,70 @@ func mapRoleBinding(item *ent.RoleBinding) domain.RoleBinding {
 		CreatedAt:   item.CreatedAt,
 		UpdatedAt:   item.UpdatedAt,
 	}
+}
+
+func (r *Repository) updateRoleBinding(
+	ctx context.Context,
+	id uuid.UUID,
+	scopeKind domain.ScopeKind,
+	scopeID string,
+	subjectKind string,
+	subjectKey string,
+	roleKey string,
+	grantedBy string,
+	expiresAt *time.Time,
+) (domain.RoleBinding, error) {
+	builder := r.client.RoleBinding.UpdateOneID(id).
+		Where(
+			entrolebinding.ScopeKindEQ(entrolebinding.ScopeKind(scopeKind)),
+			entrolebinding.ScopeIDEQ(strings.TrimSpace(scopeID)),
+		).
+		SetSubjectKind(entrolebinding.SubjectKind(subjectKind)).
+		SetSubjectKey(strings.ToLower(strings.TrimSpace(subjectKey))).
+		SetRoleKey(strings.TrimSpace(roleKey)).
+		SetGrantedBy(strings.TrimSpace(grantedBy))
+	if expiresAt != nil {
+		builder = builder.SetExpiresAt(expiresAt.UTC())
+	} else {
+		builder = builder.ClearExpiresAt()
+	}
+	item, err := builder.Save(ctx)
+	switch {
+	case ent.IsNotFound(err):
+		return domain.RoleBinding{}, ErrRoleBindingNotFound
+	case err != nil:
+		return domain.RoleBinding{}, fmt.Errorf("update role binding: %w", err)
+	default:
+		return mapRoleBinding(item), nil
+	}
+}
+
+func (r *Repository) deleteRoleBindingInScope(
+	ctx context.Context,
+	id uuid.UUID,
+	scopeKind domain.ScopeKind,
+	scopeID string,
+) error {
+	affected, err := r.client.RoleBinding.Delete().
+		Where(
+			entrolebinding.IDEQ(id),
+			entrolebinding.ScopeKindEQ(entrolebinding.ScopeKind(scopeKind)),
+			entrolebinding.ScopeIDEQ(strings.TrimSpace(scopeID)),
+		).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("delete role binding: %w", err)
+	}
+	if affected == 0 {
+		return ErrRoleBindingNotFound
+	}
+	return nil
+}
+
+func scopeKindPointer(value domain.ScopeKind) *domain.ScopeKind {
+	return &value
+}
+
+func stringPointer(value string) *string {
+	return &value
 }

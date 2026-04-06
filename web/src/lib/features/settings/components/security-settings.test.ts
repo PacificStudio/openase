@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { authStore } from '$lib/stores/auth.svelte'
@@ -26,19 +26,25 @@ const {
 }))
 
 const {
+  createInstanceRoleBinding,
   createOrganizationRoleBinding,
   createProjectRoleBinding,
+  deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getEffectivePermissions,
+  listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
 } = vi.hoisted(() => ({
+  createInstanceRoleBinding: vi.fn(),
   createOrganizationRoleBinding: vi.fn(),
   createProjectRoleBinding: vi.fn(),
+  deleteInstanceRoleBinding: vi.fn(),
   deleteOrganizationRoleBinding: vi.fn(),
   deleteProjectRoleBinding: vi.fn(),
   getEffectivePermissions: vi.fn(),
+  listInstanceRoleBindings: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
   listProjectRoleBindings: vi.fn(),
 }))
@@ -52,11 +58,14 @@ vi.mock('$lib/api/openase', () => ({
 }))
 
 vi.mock('$lib/api/auth', () => ({
+  createInstanceRoleBinding,
   createOrganizationRoleBinding,
   createProjectRoleBinding,
+  deleteInstanceRoleBinding,
   deleteOrganizationRoleBinding,
   deleteProjectRoleBinding,
   getEffectivePermissions,
+  listInstanceRoleBindings,
   listOrganizationRoleBindings,
   listProjectRoleBindings,
 }))
@@ -172,6 +181,19 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => {
+      if (!orgId && !projectId) {
+        return {
+          user: {
+            id: 'user-1',
+            primary_email: 'alice@example.com',
+            display_name: 'Alice Control Plane',
+          },
+          scope: { kind: 'instance', id: '' },
+          roles: ['instance_admin'],
+          permissions: ['rbac.manage'],
+          groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
+        }
+      }
       if (orgId) {
         return {
           user: {
@@ -197,6 +219,7 @@ describe('Security settings', () => {
         groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
       }
     })
+    listInstanceRoleBindings.mockResolvedValue([])
     listOrganizationRoleBindings.mockResolvedValue([
       {
         id: 'binding-1',
@@ -221,11 +244,12 @@ describe('Security settings', () => {
       createdAt: '2026-04-04T10:00:00Z',
     })
 
-    const { findAllByPlaceholderText, findAllByRole, findByText } = render(SecuritySettings)
+    const { findAllByPlaceholderText, findByText } = render(SecuritySettings)
 
     expect(await findByText('Human access and RBAC')).toBeTruthy()
     expect(await findByText('Alice Control Plane')).toBeTruthy()
     expect(await findByText('alice@example.com')).toBeTruthy()
+    expect(await findByText('Instance effective access')).toBeTruthy()
     expect(await findByText('Platform Admins')).toBeTruthy()
     expect(await findByText('org_admin')).toBeTruthy()
     expect(await findByText('project_admin')).toBeTruthy()
@@ -233,11 +257,15 @@ describe('Security settings', () => {
     expect(await findByText('Stored rules')).toBeTruthy()
     expect(await findByText('reserved')).toBeTruthy()
 
+    const orgSectionTitle = await findByText('Organization RBAC')
+    const orgSection = orgSectionTitle.closest('.border-border') as HTMLElement
     const subjectInputs = await findAllByPlaceholderText('user@example.com')
-    await fireEvent.input(subjectInputs[0], { target: { value: 'bob@example.com' } })
+    const orgInput = subjectInputs.find((element) => orgSection.contains(element as Node))
+    expect(orgInput).toBeTruthy()
+    await fireEvent.input(orgInput as HTMLElement, { target: { value: 'bob@example.com' } })
 
-    const addButtons = await findAllByRole('button', { name: 'Add binding' })
-    await fireEvent.click(addButtons[0])
+    const addButton = within(orgSection).getByRole('button', { name: 'Add binding' })
+    await fireEvent.click(addButton)
 
     await waitFor(() => {
       expect(createOrganizationRoleBinding).toHaveBeenCalledWith(currentOrg().id, {
@@ -247,5 +275,62 @@ describe('Security settings', () => {
         expires_at: undefined,
       })
     })
+  })
+
+  it('filters role picker options by scope, including instance bindings', async () => {
+    authStore.hydrate({
+      authMode: 'oidc',
+      authenticated: true,
+      issuerURL: 'https://idp.example.com',
+      csrfToken: 'csrf-token',
+      user: {
+        id: 'user-1',
+        primaryEmail: 'alice@example.com',
+        displayName: 'Alice Control Plane',
+      },
+      roles: ['instance_admin'],
+      permissions: ['org.update'],
+    })
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => ({
+      user: {
+        id: 'user-1',
+        primary_email: 'alice@example.com',
+        display_name: 'Alice Control Plane',
+      },
+      scope: { kind: orgId ? 'organization' : projectId ? 'project' : 'instance', id: orgId ?? projectId ?? '' },
+      roles: ['instance_admin'],
+      permissions: ['rbac.manage'],
+      groups: [],
+    }))
+    listInstanceRoleBindings.mockResolvedValue([])
+    listOrganizationRoleBindings.mockResolvedValue([])
+    listProjectRoleBindings.mockResolvedValue([])
+
+    const { findByText } = render(SecuritySettings)
+
+    const instanceSection = (await findByText('Instance RBAC')).closest('.border-border') as HTMLElement
+    const organizationSection = (await findByText('Organization RBAC')).closest('.border-border') as HTMLElement
+    const projectSection = (await findByText('Project RBAC')).closest('.border-border') as HTMLElement
+
+    const instanceRoleSelect = within(instanceSection).getAllByRole('combobox')[1] as HTMLSelectElement
+    const organizationRoleSelect = within(organizationSection).getAllByRole('combobox')[1] as HTMLSelectElement
+    const projectRoleSelect = within(projectSection).getAllByRole('combobox')[1] as HTMLSelectElement
+
+    const instanceRoleOptions = Array.from(instanceRoleSelect.options).map((option) => option.value)
+    const organizationRoleOptions = Array.from(organizationRoleSelect.options).map((option) => option.value)
+    const projectRoleOptions = Array.from(projectRoleSelect.options).map((option) => option.value)
+
+    expect(instanceRoleOptions).toEqual(['instance_admin'])
+    expect(organizationRoleOptions).toEqual(['org_owner', 'org_admin', 'org_member'])
+    expect(projectRoleOptions).toEqual([
+      'project_admin',
+      'project_operator',
+      'project_reviewer',
+      'project_member',
+      'project_viewer',
+    ])
   })
 })

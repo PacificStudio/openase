@@ -2049,8 +2049,8 @@ var (
 	}
 	openAPIRoleBindingRequestDescriptions = map[string]string{
 		"subject_kind": "Binding subject kind. Supported values are user and group.",
-		"subject_key":  "Stable user identifier/email or synchronized OIDC group key that receives the role.",
-		"role_key":     "Builtin OpenASE role key to grant on the selected scope.",
+		"subject_key":  "For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key.",
+		"role_key":     "Builtin OpenASE role key valid for the selected scope.",
 		"expires_at":   "Optional RFC3339 timestamp after which the binding automatically expires.",
 	}
 	openAPISkillBindingDescriptions = map[string]string{
@@ -2127,6 +2127,7 @@ var (
 		"POST /api/v1/chat/conversations":                                                              openAPIProjectConversationCreateDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/instance/role-bindings":                                                          openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
@@ -2353,6 +2354,54 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	myPermissions.AddParameter(uuidQueryParameter("org_id", "Optional organization scope to evaluate."))
 	b.doc.AddOperation("/api/v1/auth/me/permissions", http.MethodGet, myPermissions)
 
+	instanceRoleBindings, err := b.jsonOperation(
+		"listInstanceRoleBindings",
+		"List instance-scoped role bindings",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIRoleBindingsResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/instance/role-bindings", http.MethodGet, instanceRoleBindings)
+
+	createInstanceRoleBinding, err := b.jsonOperation(
+		"createInstanceRoleBinding",
+		"Create an instance-scoped role binding",
+		[]string{"auth"},
+		http.StatusCreated,
+		OpenAPIRoleBindingResponse{},
+		OpenAPICreateRoleBindingRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/instance/role-bindings", http.MethodPost, createInstanceRoleBinding)
+
+	deleteInstanceRoleBinding := openapi3.NewOperation()
+	deleteInstanceRoleBinding.OperationID = "deleteInstanceRoleBinding"
+	deleteInstanceRoleBinding.Summary = "Delete an instance-scoped role binding"
+	deleteInstanceRoleBinding.Tags = []string{"auth"}
+	deleteInstanceRoleBinding.Responses = openapi3.NewResponsesWithCapacity(5)
+	deleteInstanceRoleBinding.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Role binding deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		deleteInstanceRoleBinding.AddResponse(code, errorResponse)
+	}
+	deleteInstanceRoleBinding.AddParameter(uuidPathParameter("bindingId", "Role binding ID to delete."))
+	b.doc.AddOperation("/api/v1/instance/role-bindings/{bindingId}", http.MethodDelete, deleteInstanceRoleBinding)
+
 	orgRoleBindings, err := b.jsonOperation(
 		"listOrganizationRoleBindings",
 		"List organization-scoped role bindings",
@@ -2391,9 +2440,9 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	deleteOrgRoleBinding.OperationID = "deleteOrganizationRoleBinding"
 	deleteOrgRoleBinding.Summary = "Delete an organization-scoped role binding"
 	deleteOrgRoleBinding.Tags = []string{"auth"}
-	deleteOrgRoleBinding.Responses = openapi3.NewResponsesWithCapacity(4)
+	deleteOrgRoleBinding.Responses = openapi3.NewResponsesWithCapacity(5)
 	deleteOrgRoleBinding.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Role binding deleted."))
-	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden} {
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound} {
 		errorResponse, err := b.errorResponse(code)
 		if err != nil {
 			return err
@@ -2442,9 +2491,9 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	deleteProjectRoleBinding.OperationID = "deleteProjectRoleBinding"
 	deleteProjectRoleBinding.Summary = "Delete a project-scoped role binding"
 	deleteProjectRoleBinding.Tags = []string{"auth"}
-	deleteProjectRoleBinding.Responses = openapi3.NewResponsesWithCapacity(4)
+	deleteProjectRoleBinding.Responses = openapi3.NewResponsesWithCapacity(5)
 	deleteProjectRoleBinding.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Role binding deleted."))
-	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden} {
+	for _, code := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound} {
 		errorResponse, err := b.errorResponse(code)
 		if err != nil {
 			return err

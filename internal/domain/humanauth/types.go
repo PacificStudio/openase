@@ -121,19 +121,6 @@ type BrowserSession struct {
 	UpdatedAt     time.Time
 }
 
-type RoleBinding struct {
-	ID          uuid.UUID
-	ScopeKind   ScopeKind
-	ScopeID     string
-	SubjectKind SubjectKind
-	SubjectKey  string
-	RoleKey     RoleKey
-	GrantedBy   string
-	ExpiresAt   *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
 type ApprovalPolicyRule struct {
 	ID                  uuid.UUID
 	ScopeKind           ScopeKind

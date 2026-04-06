@@ -450,6 +450,41 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/instance/role-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List instance-scoped role bindings */
+    get: operations['listInstanceRoleBindings']
+    put?: never
+    /** Create an instance-scoped role binding */
+    post: operations['createInstanceRoleBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/role-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an instance-scoped role binding */
+    delete: operations['deleteInstanceRoleBinding']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}': {
     parameters: {
       query?: never
@@ -4535,6 +4570,225 @@ export interface operations {
       }
     }
   }
+  listInstanceRoleBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List instance-scoped role bindings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_bindings?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }[]
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createInstanceRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Create an instance-scoped role binding request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
+          expires_at?: string | null
+          /** @description Builtin OpenASE role key valid for the selected scope. */
+          role_key?: string
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
+          subject_key?: string
+          /** @description Binding subject kind. Supported values are user and group. */
+          subject_kind?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create an instance-scoped role binding response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_binding?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteInstanceRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Role binding ID to delete. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Role binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getMachine: {
     parameters: {
       query?: never
@@ -5563,9 +5817,9 @@ export interface operations {
         'application/json': {
           /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
           expires_at?: string | null
-          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          /** @description Builtin OpenASE role key valid for the selected scope. */
           role_key?: string
-          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
           subject_key?: string
           /** @description Binding subject kind. Supported values are user and group. */
           subject_kind?: string
@@ -5679,6 +5933,18 @@ export interface operations {
       }
       /** @description Forbidden response. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -9515,9 +9781,9 @@ export interface operations {
         'application/json': {
           /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
           expires_at?: string | null
-          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          /** @description Builtin OpenASE role key valid for the selected scope. */
           role_key?: string
-          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
           subject_key?: string
           /** @description Binding subject kind. Supported values are user and group. */
           subject_kind?: string
@@ -9631,6 +9897,18 @@ export interface operations {
       }
       /** @description Forbidden response. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }

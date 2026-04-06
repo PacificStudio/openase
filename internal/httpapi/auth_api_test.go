@@ -15,6 +15,7 @@ import (
 	entrolebinding "github.com/BetterAndBetterII/openase/ent/rolebinding"
 	entuser "github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
@@ -252,6 +253,172 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 	}
 }
 
+func TestCreateProjectRoleBindingRejectsInvalidScopeRoleCombination(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, projectID := fixture.createOrganizationProject(t)
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	targetUserID := fixture.createUser(t, "target@example.com", "Target User")
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/role-bindings",
+		`{"subject_kind":"user","subject_key":"target@example.com","role_key":"instance_admin"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + sessionToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": csrfToken,
+			"User-Agent":     "ProjectRoleBindingTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(t, rec, http.StatusBadRequest, "ROLE_BINDING_CREATE_FAILED", `unsupported project role "instance_admin"`)
+
+	items, err := fixture.repo.ListRoleBindings(context.Background(), humanauthrepo.ListRoleBindingsFilter{
+		ScopeKind: scopeKindPointer(humanauthdomain.ScopeKindProject),
+		ScopeID:   stringPtr(projectID.String()),
+	})
+	if err != nil {
+		t.Fatalf("ListRoleBindings() error = %v", err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected no project bindings after rejected create, got %+v", items)
+	}
+	if targetUserID == uuid.Nil || orgID == uuid.Nil {
+		t.Fatal("fixture ids must be non-nil")
+	}
+}
+
+func TestDeleteOrganizationRoleBindingStaysWithinScope(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgA, _ := fixture.createOrganizationProject(t)
+	orgB, _ := fixture.createOrganizationProject(t)
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	targetUserID := fixture.createUser(t, "scope-test@example.com", "Scope Test")
+	ctx := context.Background()
+
+	binding, err := fixture.client.RoleBinding.Create().
+		SetScopeKind(entrolebinding.ScopeKindOrganization).
+		SetScopeID(orgB.String()).
+		SetSubjectKind(entrolebinding.SubjectKindUser).
+		SetSubjectKey(targetUserID.String()).
+		SetRoleKey(string(humanauthdomain.RoleOrgAdmin)).
+		SetGrantedBy("system:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create role binding: %v", err)
+	}
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodDelete,
+		"/api/v1/organizations/"+orgA.String()+"/role-bindings/"+binding.ID.String(),
+		"",
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + sessionToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": csrfToken,
+			"User-Agent":     "DeleteScopeTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(t, rec, http.StatusNotFound, "ROLE_BINDING_NOT_FOUND", "role binding not found")
+
+	if _, err := fixture.client.RoleBinding.Get(ctx, binding.ID); err != nil {
+		t.Fatalf("binding should still exist after scoped delete rejection: %v", err)
+	}
+}
+
+func TestInstanceRoleBindingRoutesCanonicalizeDirectUserSubject(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	targetUserID := fixture.createUser(t, "canonical@example.com", "Canonical User")
+
+	createRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/instance/role-bindings",
+		`{"subject_kind":"user","subject_key":"canonical@example.com","role_key":"instance_admin"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + sessionToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": csrfToken,
+			"User-Agent":     "InstanceRoleBindingTest/1.0",
+		},
+	)
+	if createRec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	var createPayload struct {
+		RoleBinding struct {
+			ID         string `json:"id"`
+			ScopeKind  string `json:"scope_kind"`
+			SubjectKey string `json:"subject_key"`
+			RoleKey    string `json:"role_key"`
+		} `json:"role_binding"`
+	}
+	decodeResponse(t, createRec, &createPayload)
+	if createPayload.RoleBinding.ScopeKind != "instance" {
+		t.Fatalf("scope_kind = %q, want instance", createPayload.RoleBinding.ScopeKind)
+	}
+	if createPayload.RoleBinding.SubjectKey != targetUserID.String() {
+		t.Fatalf("subject_key = %q, want canonical user id %q", createPayload.RoleBinding.SubjectKey, targetUserID.String())
+	}
+	if createPayload.RoleBinding.RoleKey != "instance_admin" {
+		t.Fatalf("role_key = %q, want instance_admin", createPayload.RoleBinding.RoleKey)
+	}
+
+	listRec := fixture.request(t, http.MethodGet, "/api/v1/instance/role-bindings", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "InstanceRoleBindingTest/1.0",
+	})
+	if listRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", listRec.Code, listRec.Body.String())
+	}
+	var listPayload struct {
+		RoleBindings []struct {
+			ID         string `json:"id"`
+			SubjectKey string `json:"subject_key"`
+		} `json:"role_bindings"`
+	}
+	decodeResponse(t, listRec, &listPayload)
+	if len(listPayload.RoleBindings) != 2 {
+		t.Fatalf("expected bootstrap admin + new binding, got %+v", listPayload.RoleBindings)
+	}
+
+	deleteRec := fixture.requestJSON(
+		t,
+		http.MethodDelete,
+		"/api/v1/instance/role-bindings/"+createPayload.RoleBinding.ID,
+		"",
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + sessionToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": csrfToken,
+			"User-Agent":     "InstanceRoleBindingTest/1.0",
+		},
+	)
+	if deleteRec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d: %s", deleteRec.Code, deleteRec.Body.String())
+	}
+}
+
 type humanAuthFixture struct {
 	client *ent.Client
 	repo   *humanauthrepo.Repository
@@ -316,17 +483,18 @@ func (f humanAuthFixture) createOrganizationProject(t *testing.T) (uuid.UUID, uu
 	t.Helper()
 
 	ctx := context.Background()
+	suffix := uuid.NewString()[:8]
 	org, err := f.client.Organization.Create().
-		SetName("Acme").
-		SetSlug("acme").
+		SetName("Acme " + suffix).
+		SetSlug("acme-" + suffix).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create organization: %v", err)
 	}
 	project, err := f.client.Project.Create().
 		SetOrganizationID(org.ID).
-		SetName("Atlas").
-		SetSlug("atlas").
+		SetName("Atlas " + suffix).
+		SetSlug("atlas-" + suffix).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create project: %v", err)
@@ -435,6 +603,54 @@ func (f humanAuthFixture) request(
 	}
 	headers["Host"] = "example.com"
 	return performJSONRequestWithHeaders(t, f.server, method, target, "", headers)
+}
+
+func (f humanAuthFixture) requestJSON(
+	t *testing.T,
+	method string,
+	target string,
+	body string,
+	headers map[string]string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	if headers == nil {
+		headers = map[string]string{}
+	}
+	headers["Host"] = "example.com"
+	return performJSONRequestWithHeaders(t, f.server, method, target, body, headers)
+}
+
+func (f humanAuthFixture) createUser(t *testing.T, email string, displayName string) uuid.UUID {
+	t.Helper()
+
+	now := time.Now().UTC()
+	user, err := f.client.User.Create().
+		SetStatus(entuser.StatusActive).
+		SetPrimaryEmail(email).
+		SetDisplayName(displayName).
+		SetLastLoginAt(now).
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if _, err := f.client.UserIdentity.Create().
+		SetUserID(user.ID).
+		SetIssuer("https://idp.example.com").
+		SetSubject("subject-" + user.ID.String()).
+		SetEmail(email).
+		SetEmailVerified(true).
+		SetClaimsVersion(1).
+		SetRawClaimsJSON(`{"sub":"` + user.ID.String() + `"}`).
+		SetLastSyncedAt(now).
+		Save(context.Background()); err != nil {
+		t.Fatalf("create user identity: %v", err)
+	}
+	return user.ID
+}
+
+func scopeKindPointer(value humanauthdomain.ScopeKind) *humanauthdomain.ScopeKind {
+	return &value
 }
 
 func humanFixtureHashToken(token string) string {

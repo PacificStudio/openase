@@ -25,12 +25,16 @@
     currentGroups = [],
     approvalPolicies = null,
     error = '',
+    instancePermissions = null,
     orgPermissions = null,
     projectPermissions = null,
+    instanceBindings = [],
     orgBindings = [],
     projectBindings = [],
+    canManageInstanceBindings = false,
     canManageOrgBindings = false,
     canManageProjectBindings = false,
+    instanceDraft,
     orgDraft,
     projectDraft,
     mutationKey = '',
@@ -47,12 +51,16 @@
     currentGroups?: GroupSummary[]
     approvalPolicies?: ApprovalPoliciesSummary | null
     error?: string
+    instancePermissions?: EffectivePermissionsResponse | null
     orgPermissions?: EffectivePermissionsResponse | null
     projectPermissions?: EffectivePermissionsResponse | null
+    instanceBindings?: RoleBinding[]
     orgBindings?: RoleBinding[]
     projectBindings?: RoleBinding[]
+    canManageInstanceBindings?: boolean
     canManageOrgBindings?: boolean
     canManageProjectBindings?: boolean
+    instanceDraft: BindingDraft
     orgDraft: BindingDraft
     projectDraft: BindingDraft
     mutationKey?: string
@@ -118,7 +126,16 @@
   </div>
 </div>
 
-<div class="grid gap-4 xl:grid-cols-2">
+<div class="grid gap-4 xl:grid-cols-3">
+  <SecuritySettingsHumanAuthAccessCard
+    title="Instance effective access"
+    subtitle="Control plane"
+    roles={instancePermissions?.roles ?? []}
+    permissions={instancePermissions?.permissions ?? []}
+    emptyRoles="No instance roles"
+    emptyPermissions="No instance permissions"
+  />
+
   <SecuritySettingsHumanAuthAccessCard
     title="Organization effective access"
     subtitle={currentOrgName}
@@ -141,6 +158,20 @@
 {#if error}
   <div class="text-destructive text-sm">{error}</div>
 {/if}
+
+<SecuritySettingsHumanAuthBindingSection
+  scope="instance"
+  bindings={instanceBindings}
+  canManage={canManageInstanceBindings}
+  draft={instanceDraft}
+  {mutationKey}
+  onSubjectKind={onDraftSubjectKind}
+  onSubjectKey={onDraftSubjectKey}
+  onRoleKey={onDraftRoleKey}
+  onExpiresAt={onDraftExpiresAt}
+  onCreate={onCreateBinding}
+  onDelete={onDeleteBinding}
+/>
 
 <SecuritySettingsHumanAuthBindingSection
   scope="organization"
