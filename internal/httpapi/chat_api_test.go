@@ -32,11 +32,22 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func TestCurrentRequestChatUserIDUsesHumanPrincipalInOIDCMode(t *testing.T) {
+func addAIPrincipalCookie(req *http.Request, principal chatservice.UserID) {
+	req.AddCookie(&http.Cookie{
+		Name:  aiPrincipalCookieName,
+		Value: principal.String(),
+		Path:  "/",
+	})
+}
+
+func testBrowserSessionAIPrincipal() chatservice.UserID {
+	return chatservice.UserID(aiPrincipalCookiePrefix + uuid.NewString())
+}
+
+func TestCurrentRequestAIPrincipalUsesHumanPrincipalInOIDCMode(t *testing.T) {
 	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set(chatUserHeader, "browser-user-1")
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 	userID := uuid.MustParse("8db7261e-e16d-458e-8926-cd01550686a5")
@@ -44,43 +55,116 @@ func TestCurrentRequestChatUserIDUsesHumanPrincipalInOIDCMode(t *testing.T) {
 		User: humanauthdomain.User{ID: userID},
 	})
 
-	got, err := server.currentRequestChatUserID(ctx)
+	got, err := server.currentRequestAIPrincipal(ctx)
 	if err != nil {
-		t.Fatalf("currentRequestChatUserID() error = %v", err)
+		t.Fatalf("currentRequestAIPrincipal() error = %v", err)
 	}
 	if got != chatservice.UserID("user:"+userID.String()) {
-		t.Fatalf("currentRequestChatUserID() = %q, want %q", got, "user:"+userID.String())
+		t.Fatalf("currentRequestAIPrincipal() = %q, want %q", got, "user:"+userID.String())
 	}
 }
 
-func TestCurrentRequestChatUserIDRejectsHeaderFallbackInOIDCMode(t *testing.T) {
+func TestCurrentRequestAIPrincipalRequiresHumanSessionInOIDCMode(t *testing.T) {
 	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set(chatUserHeader, "browser-user-1")
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	_, err := server.currentRequestChatUserID(ctx)
+	_, err := server.currentRequestAIPrincipal(ctx)
 	if !errors.Is(err, humanauthservice.ErrUnauthorized) {
-		t.Fatalf("currentRequestChatUserID() error = %v, want %v", err, humanauthservice.ErrUnauthorized)
+		t.Fatalf("currentRequestAIPrincipal() error = %v, want %v", err, humanauthservice.ErrUnauthorized)
 	}
 }
 
-func TestCurrentRequestChatUserIDAllowsHeaderFallbackWhenAuthDisabled(t *testing.T) {
+func TestCurrentRequestAIPrincipalUsesServerDefinedCookieWhenAuthDisabled(t *testing.T) {
 	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeDisabled}}
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.Header.Set(chatUserHeader, "browser-user-1")
+	want := testBrowserSessionAIPrincipal()
+	addAIPrincipalCookie(req, want)
 	rec := httptest.NewRecorder()
 	ctx := e.NewContext(req, rec)
 
-	got, err := server.currentRequestChatUserID(ctx)
+	got, err := server.currentRequestAIPrincipal(ctx)
 	if err != nil {
-		t.Fatalf("currentRequestChatUserID() error = %v", err)
+		t.Fatalf("currentRequestAIPrincipal() error = %v", err)
 	}
-	if got != "browser-user-1" {
-		t.Fatalf("currentRequestChatUserID() = %q, want %q", got, "browser-user-1")
+	if got != want {
+		t.Fatalf("currentRequestAIPrincipal() = %q, want %q", got, want)
+	}
+}
+
+func TestCurrentRequestAIPrincipalIssuesServerDefinedCookieWhenAuthDisabled(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeDisabled}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	got, err := server.currentRequestAIPrincipal(ctx)
+	if err != nil {
+		t.Fatalf("currentRequestAIPrincipal() error = %v", err)
+	}
+	if !strings.HasPrefix(got.String(), aiPrincipalCookiePrefix) {
+		t.Fatalf("currentRequestAIPrincipal() = %q, want prefix %q", got, aiPrincipalCookiePrefix)
+	}
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one ai principal cookie, got %d", len(cookies))
+	}
+	if cookies[0].Name != aiPrincipalCookieName || cookies[0].Value != got.String() {
+		t.Fatalf("ai principal cookie = %#v, want name %q value %q", cookies[0], aiPrincipalCookieName, got)
+	}
+}
+
+func TestCurrentProjectConversationUserIDUsesHumanPrincipalInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+	userID := uuid.MustParse("8db7261e-e16d-458e-8926-cd01550686a5")
+	setHumanPrincipal(ctx, humanauthdomain.AuthenticatedPrincipal{
+		User: humanauthdomain.User{ID: userID},
+	})
+
+	got, err := server.currentProjectConversationUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentProjectConversationUserID() error = %v", err)
+	}
+	if got != chatservice.UserID("user:"+userID.String()) {
+		t.Fatalf("currentProjectConversationUserID() = %q, want %q", got, "user:"+userID.String())
+	}
+}
+
+func TestCurrentProjectConversationUserIDRejectsMissingHumanSessionInOIDCMode(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeOIDC}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	_, err := server.currentProjectConversationUserID(ctx)
+	if !errors.Is(err, humanauthservice.ErrUnauthorized) {
+		t.Fatalf("currentProjectConversationUserID() error = %v, want %v", err, humanauthservice.ErrUnauthorized)
+	}
+}
+
+func TestCurrentProjectConversationUserIDUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	server := &Server{auth: config.AuthConfig{Mode: config.AuthModeDisabled}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ctx := e.NewContext(req, rec)
+
+	got, err := server.currentProjectConversationUserID(ctx)
+	if err != nil {
+		t.Fatalf("currentProjectConversationUserID() error = %v", err)
+	}
+	if got != chatservice.LocalProjectConversationUserID {
+		t.Fatalf("currentProjectConversationUserID() = %q, want %q", got, chatservice.LocalProjectConversationUserID)
 	}
 }
 
@@ -175,6 +259,32 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 		body   string
 	}{
 		{
+			name:   "stream conversation",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/stream",
+		},
+		{
+			name:   "get conversation",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID,
+		},
+		{
+			name:   "list entries",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/entries",
+		},
+		{
+			name:   "workspace diff",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace-diff",
+		},
+		{
+			name:   "start turn",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/turns",
+			body:   `{"message":"continue"}`,
+		},
+		{
 			name:   "close runtime",
 			method: http.MethodDelete,
 			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",
@@ -184,6 +294,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			method: http.MethodPost,
 			target: "/api/v1/chat/conversations/" + conversationID + "/interrupts/" + interruptID + "/respond",
 			body:   `{"decision":"approve"}`,
+		},
+		{
+			name:   "project mux stream",
+			method: http.MethodGet,
+			target: "/api/v1/chat/projects/" + uuid.NewString() + "/conversations/stream",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -607,7 +722,8 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(chatUserHeader, "browser-user-1")
+	principal := testBrowserSessionAIPrincipal()
+	addAIPrincipalCookie(req, principal)
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -624,7 +740,7 @@ func TestChatRouteLogsStructuredStartFailures(t *testing.T) {
 		"chat_project_id=" + projectID.String(),
 		"chat_provider_id=" + providerID.String(),
 		"chat_session_id=",
-		"chat_user_id=browser-user-1",
+		"chat_user_id=" + principal.String(),
 	} {
 		if !strings.Contains(logOutput, want) {
 			t.Fatalf("expected log output to contain %q, got %q", want, logOutput)
@@ -681,11 +797,12 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	principal := testBrowserSessionAIPrincipal()
 
 	repoStore := chatrepo.NewEntRepository(client)
 	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
-		UserID:     "user:conversation",
+		UserID:     principal.String(),
 		Source:     chatdomain.SourceProjectSidebar,
 		ProviderID: uuid.New(),
 	})
@@ -694,7 +811,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 	}
 	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
-		UserID:     "user:conversation",
+		UserID:     principal.String(),
 		Source:     chatdomain.SourceProjectSidebar,
 		ProviderID: uuid.New(),
 	})
@@ -748,6 +865,8 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 	if err != nil {
 		t.Fatalf("new second stream request: %v", err)
 	}
+	addAIPrincipalCookie(firstReq, principal)
+	addAIPrincipalCookie(secondReq, principal)
 
 	firstResp, err := http.DefaultClient.Do(firstReq)
 	if err != nil {
@@ -778,7 +897,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		chatservice.UserID("user:conversation"),
+		chatservice.LocalProjectConversationUserID,
 		firstConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-1"},
@@ -795,7 +914,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		chatservice.UserID("user:conversation"),
+		chatservice.LocalProjectConversationUserID,
 		secondConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-2"},
@@ -831,11 +950,12 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
+	principal := testBrowserSessionAIPrincipal()
 
 	repoStore := chatrepo.NewEntRepository(client)
 	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
-		UserID:     "user:conversation",
+		UserID:     principal.String(),
 		Source:     chatdomain.SourceProjectSidebar,
 		ProviderID: uuid.New(),
 	})
@@ -844,7 +964,7 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	}
 	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
 		ProjectID:  project.ID,
-		UserID:     "user:conversation",
+		UserID:     principal.String(),
 		Source:     chatdomain.SourceProjectSidebar,
 		ProviderID: uuid.New(),
 	})
@@ -889,7 +1009,6 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	if err != nil {
 		t.Fatalf("new mux stream request: %v", err)
 	}
-	req.Header.Set(chatUserHeader, "user:conversation")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -916,7 +1035,7 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		chatservice.UserID("user:conversation"),
+		chatservice.LocalProjectConversationUserID,
 		firstConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-1"},
@@ -932,7 +1051,7 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 
 	if _, err := projectConversationService.AppendActionExecutionResult(
 		ctx,
-		chatservice.UserID("user:conversation"),
+		chatservice.LocalProjectConversationUserID,
 		secondConversation.ID,
 		nil,
 		map[string]any{"marker": "conversation-2"},
@@ -944,6 +1063,172 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 		!strings.Contains(secondMessage.Data, "\"conversation_id\":\""+secondConversation.ID.String()+"\"") ||
 		!strings.Contains(secondMessage.Data, "\"marker\":\"conversation-2\"") {
 		t.Fatalf("second mux message frame = %+v", secondMessage)
+	}
+}
+
+func TestProjectConversationListRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-local-principal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Local Principal").
+		SetSlug("openase-local-principal").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	_, err = repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	_, err = repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-b",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations?project_id="+project.ID.String(),
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if got := strings.Count(rec.Body.String(), `"user_id":"`+chatservice.LocalProjectConversationUserID.String()+`"`); got != 2 {
+		t.Fatalf("expected both conversations to normalize to the stable local principal, got body %s", rec.Body.String())
+	}
+}
+
+func TestProjectConversationStreamRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-local-stream").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Local Stream").
+		SetSlug("openase-local-stream").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/conversations/"+conversation.ID.String()+"/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new stream request: %v", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open stream: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	frame := readProjectConversationSSEFrame(t, bufio.NewReader(resp.Body))
+	if frame.Event != "session" || !strings.Contains(frame.Data, conversation.ID.String()) {
+		t.Fatalf("expected initial session frame for the legacy conversation, got %+v", frame)
 	}
 }
 
@@ -1019,7 +1304,7 @@ func TestChatRouteStreamsPeriodicKeepalives(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(chatUserHeader, "browser-user-keepalive")
+	addAIPrincipalCookie(req, testBrowserSessionAIPrincipal())
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -1097,7 +1382,8 @@ func TestChatRouteLogsUnexpectedStreamTermination(t *testing.T) {
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(chatUserHeader, "browser-user-stream")
+	principal := testBrowserSessionAIPrincipal()
+	addAIPrincipalCookie(req, principal)
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -1112,7 +1398,7 @@ func TestChatRouteLogsUnexpectedStreamTermination(t *testing.T) {
 		"chat_source=project_sidebar",
 		"chat_project_id=" + projectID.String(),
 		"chat_provider_id=" + providerID.String(),
-		"chat_user_id=browser-user-stream",
+		"chat_user_id=" + principal.String(),
 		"last_event=message",
 		"terminal_event_seen=false",
 	} {

@@ -159,7 +159,18 @@ After bootstrap is complete, you can narrow or clear the bootstrap list.
 
 ## Chat, Conversations, And Audit Actors
 
-Project chat and project conversations derive user identity from the authenticated human principal instead of browser-local random ids.
+AI session ownership is always derived from a server-defined principal:
+
+- in `auth.mode=oidc`, project chat, project conversations, and other browser-driven AI flows use the authenticated human principal
+- in `auth.mode=disabled`, the server issues and reuses an `openase_ai_principal` browser cookie whose value is a stable `browser-session:<uuid>` principal
+
+Browser-local random ids and `X-OpenASE-Chat-User` request headers are no longer authoritative owner inputs.
+
+When `auth.mode=disabled`, persistent project conversations switch to a server-defined local principal: `local-user:default`.
+
+- this keeps conversation ownership stable across frontend dev-server ports and browser-local storage resets
+- `localStorage` remains UI-only for tab layout and drafts; it is no longer the source of truth for persistent conversation ownership
+- this mode is intentionally a local single-user / shared-instance fallback, not a multi-user isolation model
 
 Audit semantics:
 
@@ -175,6 +186,7 @@ The control plane Settings view exposes the human auth state, including:
 - current auth mode
 - issuer URL
 - current authenticated user
+- stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
 - effective roles and permissions
 - org/project role binding management
 

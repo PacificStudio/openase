@@ -1670,7 +1670,10 @@ func TestProjectConversationConsumeTurnAutoReleasesCompletedRuntime(t *testing.T
 			},
 		},
 	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
-	watched, cleanup := service.WatchConversation(ctx, conversation.ID)
+	watched, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 	initial := requireProjectConversationStreamEvent(t, watched)
 	if initial.Event != "session" {
 		t.Fatalf("initial event = %q, want session", initial.Event)
@@ -2153,7 +2156,10 @@ func TestProjectConversationWatchConversationSessionIncludesProviderAnchors(t *t
 	}
 
 	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
-	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	events, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 	defer cleanup()
 
 	first := <-events
@@ -2218,7 +2224,10 @@ func TestProjectConversationWatchConversationSessionDistinguishesClaudeSessionAn
 			},
 		},
 	}, nil, nil, nil, nil)
-	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	events, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 	defer cleanup()
 
 	first := <-events
@@ -2272,9 +2281,15 @@ func TestProjectConversationWatchConversationIsolatesEventsPerConversation(t *te
 	}
 
 	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
-	firstEvents, cleanupFirst := service.WatchConversation(ctx, firstConversation.ID)
+	firstEvents, cleanupFirst, err := service.WatchConversation(ctx, UserID("user:conversation"), firstConversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(first) error = %v", err)
+	}
 	defer cleanupFirst()
-	secondEvents, cleanupSecond := service.WatchConversation(ctx, secondConversation.ID)
+	secondEvents, cleanupSecond, err := service.WatchConversation(ctx, UserID("user:conversation"), secondConversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(second) error = %v", err)
+	}
 	defer cleanupSecond()
 
 	if event := requireProjectConversationStreamEvent(t, firstEvents); event.Event != "session" {
@@ -2333,8 +2348,14 @@ func TestProjectConversationWatchConversationFansOutToAllWatchers(t *testing.T) 
 	}
 
 	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
-	firstWatcher, cleanupFirst := service.WatchConversation(ctx, conversation.ID)
-	secondWatcher, cleanupSecond := service.WatchConversation(ctx, conversation.ID)
+	firstWatcher, cleanupFirst, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(first) error = %v", err)
+	}
+	secondWatcher, cleanupSecond, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(second) error = %v", err)
+	}
 	defer cleanupSecond()
 	defer func() {
 		if cleanupFirst != nil {
@@ -2430,11 +2451,20 @@ func TestProjectConversationWatchConversationBlockedWatcherDoesNotBlockOthers(t 
 	}
 
 	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
-	blockedWatcher, cleanupBlocked := service.WatchConversation(ctx, firstConversation.ID)
+	blockedWatcher, cleanupBlocked, err := service.WatchConversation(ctx, UserID("user:conversation"), firstConversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(blocked) error = %v", err)
+	}
 	defer cleanupBlocked()
-	activeWatcher, cleanupActive := service.WatchConversation(ctx, firstConversation.ID)
+	activeWatcher, cleanupActive, err := service.WatchConversation(ctx, UserID("user:conversation"), firstConversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(active) error = %v", err)
+	}
 	defer cleanupActive()
-	otherConversationWatcher, cleanupOther := service.WatchConversation(ctx, secondConversation.ID)
+	otherConversationWatcher, cleanupOther, err := service.WatchConversation(ctx, UserID("user:conversation"), secondConversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation(other) error = %v", err)
+	}
 	defer cleanupOther()
 
 	requireProjectConversationStreamEvent(t, blockedWatcher)
@@ -2771,7 +2801,10 @@ func TestProjectConversationConsumeTurnPersistsThreadStatusAndProtocolEvents(t *
 			},
 		},
 	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
-	watched, cleanup := service.WatchConversation(ctx, conversation.ID)
+	watched, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 
 	streamEvents := make(chan StreamEvent, 5)
 	streamEvents <- StreamEvent{
@@ -2916,7 +2949,10 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	}
 
 	service := NewProjectConversationService(nil, repo, nil, nil, nil, nil, nil)
-	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	events, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 
 	streamEvents := make(chan StreamEvent, 3)
 	streamEvents <- StreamEvent{
@@ -3220,7 +3256,10 @@ func TestProjectConversationRespondInterruptRoutesExactRequestID(t *testing.T) {
 	service := NewProjectConversationService(nil, repo, nil, nil, nil, nil, nil)
 	codexRuntime := &fakeProjectConversationCodexRuntime{}
 	service.runtimeManager.live[conversation.ID] = &liveProjectConversation{codex: codexRuntime}
-	events, cleanup := service.WatchConversation(ctx, conversation.ID)
+	events, cleanup, err := service.WatchConversation(ctx, UserID("user:conversation"), conversation.ID)
+	if err != nil {
+		t.Fatalf("WatchConversation() error = %v", err)
+	}
 
 	resolved, err := service.RespondInterrupt(
 		ctx,
@@ -4757,6 +4796,91 @@ type projectConversationWorkspaceRepoFixture struct {
 	name             string
 	workspaceDirname string
 	files            map[string]string
+}
+
+func TestProjectConversationServiceListConversationsUsesStableLocalPrincipal(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	firstConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create first conversation: %v", err)
+	}
+	secondConversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-b",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create second conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	items, err := service.ListConversations(ctx, LocalProjectConversationUserID, project.ID, nil)
+	if err != nil {
+		t.Fatalf("ListConversations() error = %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("ListConversations() returned %d conversations, want 2", len(items))
+	}
+	for _, item := range items {
+		if item.UserID != LocalProjectConversationUserID.String() {
+			t.Fatalf("conversation %s user_id = %q, want %q", item.ID, item.UserID, LocalProjectConversationUserID)
+		}
+	}
+
+	reloadedFirst, err := repoStore.GetConversation(ctx, firstConversation.ID)
+	if err != nil {
+		t.Fatalf("GetConversation(first) error = %v", err)
+	}
+	if reloadedFirst.UserID != LocalProjectConversationUserID.String() {
+		t.Fatalf("first conversation user_id = %q, want %q", reloadedFirst.UserID, LocalProjectConversationUserID)
+	}
+	reloadedSecond, err := repoStore.GetConversation(ctx, secondConversation.ID)
+	if err != nil {
+		t.Fatalf("GetConversation(second) error = %v", err)
+	}
+	if reloadedSecond.UserID != LocalProjectConversationUserID.String() {
+		t.Fatalf("second conversation user_id = %q, want %q", reloadedSecond.UserID, LocalProjectConversationUserID)
+	}
+}
+
+func TestProjectConversationServiceGetConversationUsesStableLocalPrincipal(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	_, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "browser-user-a",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, nil, nil, nil, nil, nil)
+	got, err := service.GetConversation(ctx, LocalProjectConversationUserID, conversation.ID)
+	if err != nil {
+		t.Fatalf("GetConversation() error = %v", err)
+	}
+	if got.UserID != LocalProjectConversationUserID.String() {
+		t.Fatalf("GetConversation().UserID = %q, want %q", got.UserID, LocalProjectConversationUserID)
+	}
 }
 
 type projectConversationWorkspaceDiffFixture struct {
