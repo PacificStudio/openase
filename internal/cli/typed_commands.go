@@ -549,7 +549,7 @@ project scope fall back to OPENASE_PROJECT_ID.
 		HelpNotes: []string{
 			"If [projectId] is omitted, the command falls back to --project-id and then OPENASE_PROJECT_ID.",
 		},
-		Example: "openase project updates create --status on_track --title \"CLI parity\" --body \"Implemented runtime-safe project and machine commands.\"",
+		Example: "openase project updates create --status on_track --body \"Implemented runtime-safe project and machine commands.\"",
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
 		Use:              "update [projectId] [threadId]",
@@ -560,7 +560,7 @@ project scope fall back to OPENASE_PROJECT_ID.
 		HelpNotes: []string{
 			"You can pass --thread-id together with OPENASE_PROJECT_ID when you only want to provide the thread identifier explicitly.",
 		},
-		Example: "openase project updates update --thread-id $OPENASE_THREAD_ID --status at_risk --title \"CLI parity\" --body \"Waiting on review.\"",
+		Example: "openase project updates update --thread-id $OPENASE_THREAD_ID --status at_risk --body \"Waiting on review.\"",
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
 		Use:              "delete [projectId] [threadId]",

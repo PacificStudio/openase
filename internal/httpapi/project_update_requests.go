@@ -10,14 +10,14 @@ import (
 
 type rawCreateProjectUpdateThreadRequest struct {
 	Status    string  `json:"status"`
-	Title     string  `json:"title"`
+	Title     *string `json:"title"`
 	Body      string  `json:"body"`
 	CreatedBy *string `json:"created_by"`
 }
 
 type rawUpdateProjectUpdateThreadRequest struct {
 	Status     string  `json:"status"`
-	Title      string  `json:"title"`
+	Title      *string `json:"title"`
 	Body       string  `json:"body"`
 	EditedBy   *string `json:"edited_by"`
 	EditReason *string `json:"edit_reason"`
@@ -42,10 +42,6 @@ func parseCreateProjectUpdateThreadRequest(
 	if err != nil {
 		return projectupdateservice.AddThreadInput{}, err
 	}
-	title := strings.TrimSpace(raw.Title)
-	if title == "" {
-		return projectupdateservice.AddThreadInput{}, fmt.Errorf("title must not be empty")
-	}
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
 		return projectupdateservice.AddThreadInput{}, fmt.Errorf("body must not be empty")
@@ -54,8 +50,10 @@ func parseCreateProjectUpdateThreadRequest(
 	input := projectupdateservice.AddThreadInput{
 		ProjectID: projectID,
 		Status:    status,
-		Title:     title,
 		Body:      body,
+	}
+	if raw.Title != nil {
+		input.Title = strings.TrimSpace(*raw.Title)
 	}
 	if raw.CreatedBy != nil {
 		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
@@ -72,10 +70,6 @@ func parseUpdateProjectUpdateThreadRequest(
 	if err != nil {
 		return projectupdateservice.UpdateThreadInput{}, err
 	}
-	title := strings.TrimSpace(raw.Title)
-	if title == "" {
-		return projectupdateservice.UpdateThreadInput{}, fmt.Errorf("title must not be empty")
-	}
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
 		return projectupdateservice.UpdateThreadInput{}, fmt.Errorf("body must not be empty")
@@ -85,8 +79,10 @@ func parseUpdateProjectUpdateThreadRequest(
 		ProjectID: projectID,
 		ThreadID:  threadID,
 		Status:    status,
-		Title:     title,
 		Body:      body,
+	}
+	if raw.Title != nil {
+		input.Title = strings.TrimSpace(*raw.Title)
 	}
 	if raw.EditedBy != nil {
 		input.EditedBy = strings.TrimSpace(*raw.EditedBy)

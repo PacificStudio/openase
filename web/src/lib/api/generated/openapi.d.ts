@@ -12769,14 +12769,14 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Markdown body content for the project update thread. */
+          /** @description Required markdown body content for the project update thread. */
           body?: string
           /** @description Actor identifier recorded as the creator of the update thread. */
           created_by?: string | null
           /** @description Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
-          /** @description Human-readable project update title. */
-          title?: string
+          /** @description Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
+          title?: string | null
         }
       }
     }
@@ -12964,7 +12964,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Updated markdown body content for the project update thread. */
+          /** @description Required updated markdown body content for the project update thread. */
           body?: string
           /** @description Reason recorded for editing the update thread. */
           edit_reason?: string | null
@@ -12972,8 +12972,8 @@ export interface operations {
           edited_by?: string | null
           /** @description Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
-          /** @description Updated human-readable project update title. */
-          title?: string
+          /** @description Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
+          title?: string | null
         }
       }
     }

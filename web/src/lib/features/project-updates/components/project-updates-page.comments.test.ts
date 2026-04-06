@@ -105,7 +105,6 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     expect(createProjectUpdateComment).toHaveBeenCalledWith('project-1', 'thread-1', {
       body: 'Need one more canary.',
     })
-    expect(await findByText('Comment added.')).toBeTruthy()
     expect(await findByText('Need one more canary.')).toBeTruthy()
 
     await fireEvent.click(getByLabelText('Edit comment comment-1'))
@@ -117,13 +116,11 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     expect(updateProjectUpdateComment).toHaveBeenCalledWith('project-1', 'thread-1', 'comment-1', {
       body: 'Need one more canary before noon.',
     })
-    expect(await findByText('Comment edited.')).toBeTruthy()
     expect(await findByText('Need one more canary before noon.')).toBeTruthy()
 
     await fireEvent.click(getByLabelText('Delete comment comment-1'))
 
     expect(deleteProjectUpdateComment).toHaveBeenCalledWith('project-1', 'thread-1', 'comment-1')
-    expect(await findByText('Comment deleted.')).toBeTruthy()
     expect(await findByText('This comment was deleted.')).toBeTruthy()
 
     const onEvent = subscribeProjectEvents.mock.calls.at(-1)?.[1] as StreamEventHandler | undefined

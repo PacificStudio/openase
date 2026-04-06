@@ -55,7 +55,6 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 		fmt.Sprintf("/api/v1/projects/%s/updates", projectID),
 		map[string]any{
 			"status":     "on_track",
-			"title":      "Sprint 2 rollout",
 			"body":       "Initial launch window is green.",
 			"created_by": " user:codex ",
 		},
@@ -64,6 +63,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	)
 	if createThreadResp.Thread.Status != "on_track" || createThreadResp.Thread.CreatedBy != "user:codex" {
 		t.Fatalf("create thread response = %+v", createThreadResp.Thread)
+	}
+	if createThreadResp.Thread.Title != "Initial launch window is green." || createThreadResp.Thread.BodyMarkdown != "Initial launch window is green." {
+		t.Fatalf("create thread derived title response = %+v", createThreadResp.Thread)
 	}
 
 	secondThreadResp := struct {
@@ -112,7 +114,6 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 		fmt.Sprintf("/api/v1/projects/%s/updates/%s", projectID, createThreadResp.Thread.ID),
 		map[string]any{
 			"status":      "at_risk",
-			"title":       "Sprint 2 rollout",
 			"body":        "Blocked by flaky canary verification.",
 			"edited_by":   "user:reviewer",
 			"edit_reason": "status recalibration",
@@ -122,6 +123,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	)
 	if updateThreadResp.Thread.Status != "at_risk" || updateThreadResp.Thread.EditCount != 1 {
 		t.Fatalf("update thread response = %+v", updateThreadResp.Thread)
+	}
+	if updateThreadResp.Thread.Title != "Blocked by flaky canary verification." || updateThreadResp.Thread.BodyMarkdown != "Blocked by flaky canary verification." {
+		t.Fatalf("update thread derived title response = %+v", updateThreadResp.Thread)
 	}
 
 	updateCommentResp := struct {
@@ -241,6 +245,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	if listResp.Threads[0].ID != secondThreadResp.Thread.ID || !listResp.Threads[0].IsDeleted {
 		t.Fatalf("list threads[0] = %+v", listResp.Threads[0])
 	}
+	if listResp.Threads[0].Title != "Infra migration" || listResp.Threads[0].BodyMarkdown != "Waiting on cleanup work." {
+		t.Fatalf("list threads[0] explicit title/body = %+v", listResp.Threads[0])
+	}
 	if listResp.Threads[1].CommentCount != 0 || len(listResp.Threads[1].Comments) != 1 || !listResp.Threads[1].Comments[0].IsDeleted {
 		t.Fatalf("list threads[1] = %+v", listResp.Threads[1])
 	}
@@ -283,7 +290,7 @@ func TestProjectUpdateCreateEmitsActivityStreamEvent(t *testing.T) {
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/updates", projectID),
-		`{"status":"on_track","title":"Release train","body":"Everything is green."}`,
+		`{"status":"on_track","body":"Everything is green."}`,
 	)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("expected create thread 201, got %d: %s", rec.Code, rec.Body.String())
@@ -296,7 +303,7 @@ func TestProjectUpdateCreateEmitsActivityStreamEvent(t *testing.T) {
 	if !strings.Contains(body, `"type":"project_update_thread.created"`) {
 		t.Fatalf("expected project update create event, got %q", body)
 	}
-	if !strings.Contains(body, `"thread_title":"Release train"`) {
+	if !strings.Contains(body, `"thread_title":"Everything is green."`) {
 		t.Fatalf("expected thread title metadata in stream, got %q", body)
 	}
 }
@@ -311,15 +318,28 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 
 	createInput, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
 		Status:    "at_risk",
-		Title:     "  Delivery  ",
 		Body:      "  Investigating blockers  ",
 		CreatedBy: &createdBy,
 	})
 	if err != nil {
 		t.Fatalf("parseCreateProjectUpdateThreadRequest() error = %v", err)
 	}
-	if createInput.Status != projectupdateservice.StatusAtRisk || createInput.Title != "Delivery" || createInput.Body != "Investigating blockers" || createInput.CreatedBy != "user:codex" {
+	if createInput.Status != projectupdateservice.StatusAtRisk || createInput.Title != "" || createInput.Body != "Investigating blockers" || createInput.CreatedBy != "user:codex" {
 		t.Fatalf("parseCreateProjectUpdateThreadRequest() = %+v", createInput)
+	}
+
+	title := "  Delivery  "
+	createInputWithTitle, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
+		Status:    "at_risk",
+		Title:     &title,
+		Body:      "  Investigating blockers  ",
+		CreatedBy: &createdBy,
+	})
+	if err != nil {
+		t.Fatalf("parseCreateProjectUpdateThreadRequest(with title) error = %v", err)
+	}
+	if createInputWithTitle.Title != "Delivery" {
+		t.Fatalf("parseCreateProjectUpdateThreadRequest(with title) = %+v", createInputWithTitle)
 	}
 
 	updateInput, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, rawUpdateProjectUpdateCommentRequest{
@@ -336,7 +356,6 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 
 	if _, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
 		Status: "bad",
-		Title:  "x",
 		Body:   "y",
 	}); err == nil {
 		t.Fatal("expected invalid status error")

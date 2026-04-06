@@ -750,7 +750,6 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
 		map[string]any{
 			"status": "on_track",
-			"title":  "Cluster utilization",
 			"body":   "Agent is monitoring cross-ticket GPU utilization.",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
@@ -759,6 +758,9 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	)
 	if createThreadResp.Thread.CreatedBy != "agent:coding-01" || createThreadResp.Thread.Status != "on_track" {
 		t.Fatalf("unexpected created thread payload: %+v", createThreadResp.Thread)
+	}
+	if createThreadResp.Thread.Title != "Agent is monitoring cross-ticket GPU utilization." {
+		t.Fatalf("unexpected derived thread title payload: %+v", createThreadResp.Thread)
 	}
 
 	listResp := struct {
@@ -788,7 +790,6 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		fmt.Sprintf("/api/v1/platform/projects/%s/updates/%s", projectID, createThreadResp.Thread.ID),
 		map[string]any{
 			"status":      "at_risk",
-			"title":       "Cluster utilization",
 			"body":        "One queue is backing up on the A100 pool.",
 			"edit_reason": "refined after another measurement window",
 		},
@@ -798,6 +799,9 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 	)
 	if updateThreadResp.Thread.LastEditedBy == nil || *updateThreadResp.Thread.LastEditedBy != "agent:coding-01" || updateThreadResp.Thread.Status != "at_risk" {
 		t.Fatalf("unexpected updated thread payload: %+v", updateThreadResp.Thread)
+	}
+	if updateThreadResp.Thread.Title != "One queue is backing up on the A100 pool." {
+		t.Fatalf("unexpected updated derived thread title payload: %+v", updateThreadResp.Thread)
 	}
 
 	createCommentResp := struct {
@@ -888,7 +892,7 @@ func TestAgentPlatformProjectUpdateRoutesRespectScopesAndBoundaries(t *testing.T
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/platform/projects/%s/updates", projectID),
-		`{"status":"on_track","title":"should fail","body":"no scope"}`,
+		`{"status":"on_track","body":"no scope"}`,
 		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
 	)
 	if forbiddenCreateRec.Code != http.StatusForbidden {

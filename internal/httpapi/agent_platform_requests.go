@@ -60,14 +60,14 @@ type rawAgentProjectPatchRequest struct {
 }
 
 type rawAgentCreateProjectUpdateThreadRequest struct {
-	Status string `json:"status"`
-	Title  string `json:"title"`
-	Body   string `json:"body"`
+	Status string  `json:"status"`
+	Title  *string `json:"title"`
+	Body   string  `json:"body"`
 }
 
 type rawAgentUpdateProjectUpdateThreadRequest struct {
 	Status     string  `json:"status"`
-	Title      string  `json:"title"`
+	Title      *string `json:"title"`
 	Body       string  `json:"body"`
 	EditReason *string `json:"edit_reason"`
 }

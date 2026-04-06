@@ -9,29 +9,25 @@
     onSubmit,
   }: {
     creating?: boolean
-    onSubmit?: (draft: {
-      status: ProjectUpdateStatus
-      title: string
-      body: string
-    }) => Promise<boolean> | boolean
+    onSubmit?: (draft: { status: ProjectUpdateStatus; body: string }) => Promise<boolean> | boolean
   } = $props()
 
   let status = $state<ProjectUpdateStatus>('on_track')
-  let title = $state('')
+  let body = $state('')
 
   async function handleSubmit() {
-    const nextTitle = title.trim()
-    if (!nextTitle || creating) return
+    const nextBody = body.trim()
+    if (!nextBody || creating) return
 
-    const success = (await onSubmit?.({ status, title: nextTitle, body: nextTitle })) ?? false
+    const success = (await onSubmit?.({ status, body: nextBody })) ?? false
     if (!success) return
 
     status = 'on_track'
-    title = ''
+    body = ''
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey && title.trim() && !creating) {
+    if (e.key === 'Enter' && !e.shiftKey && body.trim() && !creating) {
       e.preventDefault()
       void handleSubmit()
     }
@@ -85,21 +81,21 @@
     </Select.Root>
     <input
       type="text"
-      bind:value={title}
+      bind:value={body}
       onkeydown={handleKeydown}
       placeholder="Post an update..."
-      aria-label="New update title"
+      aria-label="New update body"
       class="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-sm outline-none"
     />
     <button
       type="button"
       class={cn(
         'shrink-0 rounded-md p-1.5 transition-colors',
-        title.trim() && !creating
+        body.trim() && !creating
           ? 'text-primary hover:bg-primary/10'
           : 'text-muted-foreground/40 cursor-not-allowed',
       )}
-      disabled={!title.trim() || creating}
+      disabled={!body.trim() || creating}
       onclick={handleSubmit}
       aria-label={creating ? 'Posting...' : 'Post update'}
     >

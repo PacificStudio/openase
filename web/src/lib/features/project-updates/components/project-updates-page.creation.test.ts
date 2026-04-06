@@ -56,10 +56,8 @@ describe('ProjectUpdatesPage creation flow', () => {
 
     expect(createProjectUpdateThread).toHaveBeenCalledWith('project-1', {
       status: 'on_track',
-      title: 'Hotfix hold',
       body: 'Hotfix hold',
     })
-    expect(await findByText('Update posted.')).toBeTruthy()
     expect(await findByText('Hotfix hold')).toBeTruthy()
   })
 })

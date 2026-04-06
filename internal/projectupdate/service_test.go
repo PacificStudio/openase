@@ -56,7 +56,6 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 	threadOne, err := service.AddThread(ctx, AddThreadInput{
 		ProjectID: projectID,
 		Status:    StatusOnTrack,
-		Title:     "Sprint 2 rollout",
 		Body:      "Initial rollout plan",
 		CreatedBy: " user:codex ",
 	})
@@ -65,6 +64,9 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 	}
 	if threadOne.CreatedBy != "user:codex" || threadOne.CommentCount != 0 || threadOne.Status != StatusOnTrack {
 		t.Fatalf("AddThread(threadOne) = %+v", threadOne)
+	}
+	if threadOne.Title != "Initial rollout plan" {
+		t.Fatalf("AddThread(threadOne) title = %q, want derived body title", threadOne.Title)
 	}
 
 	threadTwo, err := service.AddThread(ctx, AddThreadInput{
@@ -81,7 +83,6 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 		ProjectID:  projectID,
 		ThreadID:   threadOne.ID,
 		Status:     StatusAtRisk,
-		Title:      "Sprint 2 rollout",
 		Body:       "Blocked by flaky deploy validation",
 		EditedBy:   " user:reviewer ",
 		EditReason: "status recalibration",
@@ -91,6 +92,9 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 	}
 	if updatedThreadOne.Status != StatusAtRisk || updatedThreadOne.EditCount != 1 || updatedThreadOne.LastEditedBy == nil || *updatedThreadOne.LastEditedBy != "user:reviewer" {
 		t.Fatalf("UpdateThread(threadOne) = %+v", updatedThreadOne)
+	}
+	if updatedThreadOne.Title != "Blocked by flaky deploy validation" {
+		t.Fatalf("UpdateThread(threadOne) title = %q, want derived body title", updatedThreadOne.Title)
 	}
 
 	commentOne, err := service.AddComment(ctx, AddCommentInput{
@@ -147,6 +151,9 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 	if !threads[0].IsDeleted {
 		t.Fatalf("ListThreads() deleted thread = %+v", threads[0])
 	}
+	if threads[0].Title != "Infra migration" || threads[0].BodyMarkdown != "Waiting on upstream cleanup" {
+		t.Fatalf("ListThreads() explicit title/body thread = %+v", threads[0])
+	}
 	if threads[1].CommentCount != 1 || len(threads[1].Comments) != 2 {
 		t.Fatalf("ListThreads() threadOne comments = %+v", threads[1])
 	}
@@ -182,6 +189,42 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 		Body:      "Should not be accepted",
 	}); !errors.Is(err, ErrThreadNotFound) {
 		t.Fatalf("AddComment(deleted thread) error = %v, want %v", err, ErrThreadNotFound)
+	}
+}
+
+func TestDeriveThreadTitleFromBody(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "collapses whitespace",
+			body: "  Ship room\n\nstatus update   is green  ",
+			want: "Ship room status update is green",
+		},
+		{
+			name: "truncates at word boundary",
+			body: "This update body is intentionally longer than one hundred characters so the stored title stops at the last whole word",
+			want: "This update body is intentionally longer than one hundred characters so the stored title stops at",
+		},
+		{
+			name: "hard truncates long token",
+			body: "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+			want: "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuv",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := deriveThreadTitleFromBody(tc.body); got != tc.want {
+				t.Fatalf("deriveThreadTitleFromBody() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

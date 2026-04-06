@@ -132,8 +132,8 @@ func TestProjectUpdatesCRUDUsesRuntimeDefaults(t *testing.T) {
 	}
 
 	run("project", "updates", "list")
-	run("project", "updates", "create", "--status", "on_track", "--title", "CLI parity", "--body", "Created")
-	run("project", "updates", "update", "--thread-id", threadID, "--status", "at_risk", "--title", "CLI parity", "--body", "Updated")
+	run("project", "updates", "create", "--status", "on_track", "--body", "Created")
+	run("project", "updates", "update", "--thread-id", threadID, "--status", "at_risk", "--body", "Updated")
 	run("project", "updates", "delete", "--thread-id", threadID)
 
 	if len(requests) != 4 {
@@ -145,14 +145,20 @@ func TestProjectUpdatesCRUDUsesRuntimeDefaults(t *testing.T) {
 	if requests[1].Method != http.MethodPost || requests[1].Path != "/api/v1/projects/"+projectID+"/updates" {
 		t.Fatalf("create request = %+v", requests[1])
 	}
-	if requests[1].Payload["status"] != "on_track" || requests[1].Payload["title"] != "CLI parity" || requests[1].Payload["body"] != "Created" {
+	if requests[1].Payload["status"] != "on_track" || requests[1].Payload["body"] != "Created" {
 		t.Fatalf("create payload = %+v", requests[1].Payload)
+	}
+	if _, ok := requests[1].Payload["title"]; ok {
+		t.Fatalf("create payload unexpectedly included title: %+v", requests[1].Payload)
 	}
 	if requests[2].Method != http.MethodPatch || requests[2].Path != "/api/v1/projects/"+projectID+"/updates/"+threadID {
 		t.Fatalf("update request = %+v", requests[2])
 	}
 	if requests[2].Payload["status"] != "at_risk" || requests[2].Payload["body"] != "Updated" {
 		t.Fatalf("update payload = %+v", requests[2].Payload)
+	}
+	if _, ok := requests[2].Payload["title"]; ok {
+		t.Fatalf("update payload unexpectedly included title: %+v", requests[2].Payload)
 	}
 	if requests[3].Method != http.MethodDelete || requests[3].Path != "/api/v1/projects/"+projectID+"/updates/"+threadID {
 		t.Fatalf("delete request = %+v", requests[3])
