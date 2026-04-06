@@ -1,7 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
-  import { viewport } from '$lib/stores/viewport.svelte'
   import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
   import { BoardListView, BoardToolbar, BoardView } from '$lib/features/board'
   import { createTicketsPageController } from './tickets-page-controller.svelte'
