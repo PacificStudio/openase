@@ -1055,13 +1055,14 @@ func TestProjectConversationStartTurnResumesClaudeSessionOverSSHWithoutRecoveryP
 				},
 			},
 			machine: catalogdomain.Machine{
-				ID:            machineID,
-				Name:          "builder-01",
-				Host:          "10.0.1.15",
-				Port:          22,
-				SSHUser:       &sshUser,
-				SSHKeyPath:    &sshKeyPath,
-				WorkspaceRoot: stringPointer(workspaceRoot),
+				ID:             machineID,
+				Name:           "builder-01",
+				Host:           "10.0.1.15",
+				Port:           22,
+				ConnectionMode: catalogdomain.MachineConnectionModeSSH,
+				SSHUser:        &sshUser,
+				SSHKeyPath:     &sshKeyPath,
+				WorkspaceRoot:  stringPointer(workspaceRoot),
 			},
 		},
 		fakeTicketReader{},
@@ -1193,13 +1194,14 @@ func TestProjectConversationRespondInterruptRestoresCodexSessionOverSSHWhenRunti
 				},
 			},
 			machine: catalogdomain.Machine{
-				ID:            machineID,
-				Name:          "builder-01",
-				Host:          "10.0.1.15",
-				Port:          22,
-				SSHUser:       &sshUser,
-				SSHKeyPath:    &sshKeyPath,
-				WorkspaceRoot: stringPointer(workspaceRoot),
+				ID:             machineID,
+				Name:           "builder-01",
+				Host:           "10.0.1.15",
+				Port:           22,
+				ConnectionMode: catalogdomain.MachineConnectionModeSSH,
+				SSHUser:        &sshUser,
+				SSHKeyPath:     &sshKeyPath,
+				WorkspaceRoot:  stringPointer(workspaceRoot),
 			},
 		},
 		fakeTicketReader{},
@@ -1446,13 +1448,14 @@ func TestProjectConversationRespondInterruptResumesClaudeSessionOverSSHAndContin
 				},
 			},
 			machine: catalogdomain.Machine{
-				ID:            machineID,
-				Name:          "builder-01",
-				Host:          "10.0.1.15",
-				Port:          22,
-				SSHUser:       &sshUser,
-				SSHKeyPath:    &sshKeyPath,
-				WorkspaceRoot: stringPointer(workspaceRoot),
+				ID:             machineID,
+				Name:           "builder-01",
+				Host:           "10.0.1.15",
+				Port:           22,
+				ConnectionMode: catalogdomain.MachineConnectionModeSSH,
+				SSHUser:        &sshUser,
+				SSHKeyPath:     &sshKeyPath,
+				WorkspaceRoot:  stringPointer(workspaceRoot),
 			},
 		},
 		fakeTicketReader{},
@@ -1588,6 +1591,87 @@ func TestProjectConversationConsumeTurnPersistsProviderTurnIDOnCompletion(t *tes
 	}
 	if reloadedConversation.LastTurnID == nil || *reloadedConversation.LastTurnID != "provider-turn-1" {
 		t.Fatalf("expected conversation last turn anchor to persist, got %+v", reloadedConversation)
+	}
+}
+
+func TestProjectConversationConsumeTurnKeepsStableTitleWhenRollingSummaryUpdates(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	turn, _, err := repoStore.CreateTurnWithUserEntry(
+		ctx,
+		conversation.ID,
+		"Keep this first sentence as the permanent title. Later summaries may change.",
+	)
+	if err != nil {
+		t.Fatalf("create turn: %v", err)
+	}
+	if _, err := repoStore.AppendEntry(ctx, conversation.ID, &turn.ID, chatdomain.EntryKindAssistantTextDelta, map[string]any{
+		"role":    "assistant",
+		"content": "Done. I updated the summary context.",
+	}); err != nil {
+		t.Fatalf("append assistant entry: %v", err)
+	}
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+
+	events := make(chan StreamEvent, 1)
+	events <- StreamEvent{Event: "done", Payload: donePayload{SessionID: conversation.ID.String()}}
+	close(events)
+
+	service.consumeTurn(
+		ctx,
+		conversation,
+		turn,
+		&liveProjectConversation{
+			codex: &fakeProjectConversationCodexRuntime{
+				anchor: RuntimeSessionAnchor{
+					ProviderThreadID:          "thread-1",
+					LastTurnID:                "provider-turn-1",
+					ProviderThreadStatus:      "idle",
+					ProviderThreadActiveFlags: []string{},
+				},
+			},
+		},
+		chatdomain.ProjectConversationRun{},
+		TurnStream{Events: events},
+	)
+
+	reloadedConversation, err := repoStore.GetConversation(ctx, conversation.ID)
+	if err != nil {
+		t.Fatalf("reload conversation: %v", err)
+	}
+	if got, want := reloadedConversation.Title.String(), "Keep this first sentence as the permanent title."; got != want {
+		t.Fatalf("conversation title = %q, want %q", got, want)
+	}
+	if !containsAll(
+		reloadedConversation.RollingSummary,
+		"user: Keep this first sentence as the permanent title. Later summaries may change.",
+		"assistant: Done. I updated the summary context.",
+	) {
+		t.Fatalf("rolling summary = %q", reloadedConversation.RollingSummary)
 	}
 }
 

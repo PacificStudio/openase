@@ -61,11 +61,9 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Help me tighten this harness.',
-        source: 'harness_editor',
+        source: 'project_sidebar',
         context: {
           projectId: 'project-1',
-          workflowId: 'workflow-1',
-          harnessDraft: '---\nworkflow:\n  name: Draft\n---\n',
         },
       },
       {
@@ -101,14 +99,12 @@ describe('streamChatTurn', () => {
       expect.objectContaining({
         body: JSON.stringify({
           message: 'Help me tighten this harness.',
-          source: 'harness_editor',
+          source: 'project_sidebar',
           provider_id: undefined,
           session_id: undefined,
           context: {
             project_id: 'project-1',
-            workflow_id: 'workflow-1',
             ticket_id: undefined,
-            harness_draft: '---\nworkflow:\n  name: Draft\n---\n',
           },
         }),
       }),
@@ -121,14 +117,12 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Tighten this deploy script.',
-        source: 'skill_editor',
+        source: 'ticket_detail',
         providerId: 'provider-1',
         sessionId: 'session-skill-1',
         context: {
           projectId: 'project-1',
-          skillId: 'skill-1',
-          skillFilePath: 'scripts/redeploy.sh',
-          skillFileDraft: '#!/usr/bin/env bash\necho updated\n',
+          ticketId: 'ticket-1',
         },
       },
       {
@@ -141,17 +135,12 @@ describe('streamChatTurn', () => {
       expect.objectContaining({
         body: JSON.stringify({
           message: 'Tighten this deploy script.',
-          source: 'skill_editor',
+          source: 'ticket_detail',
           provider_id: 'provider-1',
           session_id: 'session-skill-1',
           context: {
             project_id: 'project-1',
-            workflow_id: undefined,
-            ticket_id: undefined,
-            harness_draft: undefined,
-            skill_id: 'skill-1',
-            skill_file_path: 'scripts/redeploy.sh',
-            skill_file_draft: '#!/usr/bin/env bash\necho updated\n',
+            ticket_id: 'ticket-1',
           },
         }),
       }),
@@ -201,12 +190,10 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Refactor this skill bundle.',
-        source: 'skill_editor',
+        source: 'ticket_detail',
         context: {
           projectId: 'project-1',
-          skillId: 'skill-1',
-          skillFilePath: 'SKILL.md',
-          skillFileDraft: '---\nname: "deploy"\n---\n',
+          ticketId: 'ticket-1',
         },
       },
       {
@@ -263,7 +250,22 @@ describe('startProjectConversationTurn', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+        json: async () => ({
+          turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+          conversation: {
+            id: 'conversation-1',
+            project_id: 'project-1',
+            user_id: 'user-1',
+            source: 'project_sidebar',
+            provider_id: 'provider-1',
+            status: 'active',
+            title: 'Help me figure out what to change here.',
+            rolling_summary: '',
+            last_activity_at: '2026-04-02T05:00:00Z',
+            created_at: '2026-04-02T04:00:00Z',
+            updated_at: '2026-04-02T05:00:00Z',
+          },
+        }),
       }),
     )
   })
@@ -489,6 +491,7 @@ describe('project conversation REST mapping', () => {
                 source: 'project_sidebar',
                 provider_id: 'provider-1',
                 status: 'active',
+                title: 'Keep title stable',
                 rolling_summary: 'Latest thread',
                 last_activity_at: '2026-04-02T05:00:00Z',
                 created_at: '2026-04-02T04:00:00Z',
@@ -508,6 +511,7 @@ describe('project conversation REST mapping', () => {
               source: 'project_sidebar',
               provider_id: 'provider-2',
               status: 'active',
+              title: '',
               rolling_summary: '',
               last_activity_at: '2026-04-02T06:00:00Z',
               created_at: '2026-04-02T06:00:00Z',
@@ -526,6 +530,7 @@ describe('project conversation REST mapping', () => {
               source: 'project_sidebar',
               provider_id: 'provider-3',
               status: 'active',
+              title: 'Recovered title',
               rolling_summary: 'Recovered thread',
               created_at: '2026-04-02T07:00:00Z',
               updated_at: '2026-04-02T07:05:00Z',
@@ -544,6 +549,7 @@ describe('project conversation REST mapping', () => {
           userId: 'user-1',
           source: 'project_sidebar',
           providerId: 'provider-1',
+          title: 'Keep title stable',
           providerActiveFlags: [],
           status: 'active',
           rollingSummary: 'Latest thread',
@@ -563,6 +569,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-2',
+        title: '',
         providerActiveFlags: [],
         status: 'active',
         rollingSummary: '',
@@ -579,6 +586,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-3',
+        title: 'Recovered title',
         providerActiveFlags: [],
         status: 'active',
         rollingSummary: 'Recovered thread',

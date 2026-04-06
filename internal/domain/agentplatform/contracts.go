@@ -55,7 +55,6 @@ const (
 	ScopeSkillsEnable                  Scope = "skills.enable"
 	ScopeSkillsDisable                 Scope = "skills.disable"
 	ScopeSkillsBind                    Scope = "skills.bind"
-	ScopeSkillsRefine                  Scope = "skills.refine"
 	ScopeStatusesList                  Scope = "statuses.list"
 	ScopeStatusesCreate                Scope = "statuses.create"
 	ScopeStatusesUpdate                Scope = "statuses.update"
@@ -128,7 +127,6 @@ func SupportedAgentScopes() []string {
 		string(ScopeSkillsImport),
 		string(ScopeSkillsList),
 		string(ScopeSkillsRead),
-		string(ScopeSkillsRefine),
 		string(ScopeSkillsRefresh),
 		string(ScopeSkillsUpdate),
 		string(ScopeStatusesCreate),

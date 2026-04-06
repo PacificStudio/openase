@@ -96,18 +96,19 @@ func TestResolverResolveRuntimeSeparatesChannelAndExecutionSurfaces(t *testing.T
 			wantProcess:      true,
 		},
 		{
-			name: "legacy remote machine defaults to ssh mode",
+			name: "legacy remote machine defaults to listener mode",
 			machine: domain.Machine{
 				ID:   uuid.New(),
 				Name: "builder-legacy",
 				Host: "10.0.9.9",
 			},
-			wantMode:           domain.MachineConnectionModeSSH,
+			wantMode:           domain.MachineConnectionModeWSListener,
 			wantProbe:          true,
 			wantWorkspace:      true,
 			wantArtifactSync:   true,
 			wantProcess:        true,
 			wantCommandSession: true,
+			wantRuntime:        true,
 		},
 	}
 

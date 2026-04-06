@@ -56,6 +56,7 @@ vi.mock('$lib/api/openase', () => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({
@@ -104,10 +105,6 @@ const providerFixture: AgentProvider = {
   availability_reason: null,
   capabilities: {
     ephemeral_chat: {
-      state: 'available',
-      reason: null,
-    },
-    harness_ai: {
       state: 'available',
       reason: null,
     },

@@ -100,7 +100,7 @@ describe('ProjectConversationTranscript', () => {
     expect(queryByText('+new line')).toBeNull()
     await fireEvent.click(getByRole('button', { name: /README\.md/i }))
     expect(getByText('+new line')).toBeTruthy()
-    expect(getByText('Command approval required')).toBeTruthy()
+    expect(getByText('Command approval')).toBeTruthy()
     expect(getByText('Approve once')).toBeTruthy()
   })
 

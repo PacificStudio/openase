@@ -108,7 +108,6 @@ import type {
 type MachineMutationBody = {
   advertised_endpoint?: string
   agent_cli_path?: string
-  connection_mode?: string
   description?: string
   execution_mode?: string
   env_vars?: string[]

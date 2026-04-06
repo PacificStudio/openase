@@ -267,7 +267,6 @@ func (s *Server) logChatStartFailure(
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 		"chat_source", strings.TrimSpace(raw.Source),
 		"chat_project_id", input.Context.ProjectID.String(),
-		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
 		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
 		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
 		"chat_session_id", optionalChatSessionIDString(input.SessionID),
@@ -289,7 +288,6 @@ func (s *Server) chatStreamLogger(
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 		"chat_source", string(input.Source),
 		"chat_project_id", input.Context.ProjectID.String(),
-		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
 		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
 		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
 		"chat_session_id", optionalChatSessionIDString(input.SessionID),
@@ -558,13 +556,23 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusAccepted, map[string]any{
+	response := map[string]any{
 		"turn": map[string]any{
 			"id":         turn.ID.String(),
 			"turn_index": turn.TurnIndex,
 			"status":     string(turn.Status),
 		},
-	})
+	}
+	conversation, err := s.projectConversationService.GetConversation(
+		c.Request().Context(),
+		userID,
+		conversationID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	response["conversation"] = s.mapProjectConversationResponse(c.Request().Context(), conversation)
+	return c.JSON(http.StatusAccepted, response)
 }
 
 func (s *Server) handleProjectConversationStream(c echo.Context) error {
@@ -716,6 +724,7 @@ func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdo
 		"source":           string(item.Source),
 		"provider_id":      item.ProviderID.String(),
 		"status":           string(item.Status),
+		"title":            item.Title.String(),
 		"rolling_summary":  item.RollingSummary,
 		"last_activity_at": item.LastActivityAt.UTC().Format(time.RFC3339),
 		"created_at":       item.CreatedAt.UTC().Format(time.RFC3339),

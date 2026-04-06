@@ -8,6 +8,7 @@ const { closeChatSession, streamChatTurn } = vi.hoisted(() => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'
@@ -32,7 +33,7 @@ describe('createEphemeralChatSessionController lifecycle', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      getSource: () => 'harness_editor',
+      getSource: () => 'project_sidebar',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -40,7 +41,6 @@ describe('createEphemeralChatSessionController lifecycle', () => {
       message: 'Help me tighten this harness.',
       context: {
         projectId: 'project-1',
-        workflowId: 'workflow-1',
       },
     })
 
@@ -50,7 +50,7 @@ describe('createEphemeralChatSessionController lifecycle', () => {
       controller.entries.filter((entry) => entry.kind === 'text').map((entry) => entry.content),
     ).toEqual([
       'Help me tighten this harness.',
-      'Session budget: 1/10 turns used, 9 remaining. Spend unavailable for this provider; the chat budget cap remains $2.00.',
+      'Project conversation: 1 turn so far. Spend unavailable for this provider.',
     ])
 
     await controller.selectProvider('provider-2')
@@ -81,7 +81,7 @@ describe('createEphemeralChatSessionController lifecycle', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      getSource: () => 'harness_editor',
+      getSource: () => 'project_sidebar',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -89,7 +89,6 @@ describe('createEphemeralChatSessionController lifecycle', () => {
       message: 'Explain this workflow.',
       context: {
         projectId: 'project-1',
-        workflowId: 'workflow-1',
       },
     })
 
@@ -121,7 +120,7 @@ describe('createEphemeralChatSessionController lifecycle', () => {
     closeChatSession.mockResolvedValue(undefined)
 
     const controller = createEphemeralChatSessionController({
-      getSource: () => 'harness_editor',
+      getSource: () => 'project_sidebar',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -129,7 +128,6 @@ describe('createEphemeralChatSessionController lifecycle', () => {
       message: 'Start a new session.',
       context: {
         projectId: 'project-1',
-        workflowId: 'workflow-1',
       },
     })
 

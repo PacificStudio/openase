@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -50,13 +49,6 @@ type rawUpdateSkillRequest struct {
 
 type rawUpdateSkillBindingsRequest struct {
 	WorkflowIDs []string `json:"workflow_ids"`
-}
-
-type rawSkillRefinementRequest struct {
-	ProjectID  string                      `json:"project_id"`
-	Message    string                      `json:"message"`
-	ProviderID string                      `json:"provider_id"`
-	Files      []rawSkillBundleFileRequest `json:"files"`
 }
 
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
@@ -253,39 +245,4 @@ func parseSkillBundleFileRequests(
 		})
 	}
 	return files, nil
-}
-
-func parseSkillRefinementRequest(
-	skillID uuid.UUID,
-	raw rawSkillRefinementRequest,
-) (chatservice.SkillRefinementInput, error) {
-	projectID, err := uuid.Parse(strings.TrimSpace(raw.ProjectID))
-	if err != nil {
-		return chatservice.SkillRefinementInput{}, fmt.Errorf("project_id must be a UUID")
-	}
-	message := strings.TrimSpace(raw.Message)
-	if message == "" {
-		return chatservice.SkillRefinementInput{}, fmt.Errorf("message must not be empty")
-	}
-	files, err := parseSkillBundleFileRequests(raw.Files)
-	if err != nil {
-		return chatservice.SkillRefinementInput{}, err
-	}
-
-	var providerID *uuid.UUID
-	if trimmed := strings.TrimSpace(raw.ProviderID); trimmed != "" {
-		parsedProviderID, parseErr := uuid.Parse(trimmed)
-		if parseErr != nil {
-			return chatservice.SkillRefinementInput{}, fmt.Errorf("provider_id must be a UUID")
-		}
-		providerID = &parsedProviderID
-	}
-
-	return chatservice.SkillRefinementInput{
-		ProjectID:  projectID,
-		SkillID:    skillID,
-		ProviderID: providerID,
-		Message:    message,
-		DraftFiles: files,
-	}, nil
 }

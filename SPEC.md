@@ -3194,7 +3194,7 @@ The entry behavior must be fixed:
   4. Automatically create the first Agent and Workflow
   5. Create the first Ticket
   6. Observe Agent updates in the Ticket
-  7. Experience Project AI and Harness AI
+  7. Experience Project AI
 
 This panel is not a “suggested list,” but the **main workspace for the empty-state project**. Users may leave the page, but returning to that project Dashboard must resume from the first unfinished step.
 
@@ -3410,14 +3410,11 @@ openase ticket create --title "Add input validation to login form" --workflow co
 openase watch ASE-1
 ```
 
-#### 14.5.7 Step F — Let Users Immediately Experience Project AI and Harness AI
+#### 14.5.7 Step F — Let Users Immediately Experience Project AI
 
-After the first Ticket has started executing, onboarding should not end immediately; it should continue to lead users to two high-value AI entry points in OpenASE:
+After the first Ticket has started executing, onboarding should not end immediately; it should continue to lead users into the main interactive AI surface in OpenASE: `Project AI`.
 
-- `Project AI`
-- `Harness AI`
-
-The goal here is not to explain concepts again, but to let users complete the two most important “next actions” in the same project.
+The goal here is not to explain concepts again, but to let users complete the most important “next action” in the same project.
 
 Project AI onboarding requirements:
 
@@ -3427,18 +3424,11 @@ Project AI onboarding requirements:
   - `Based on the current project and existing Tickets, help me break down 3 more follow-up tickets`
   - `What should I do next?`
 - After the user confirms intent, Project AI can help create follow-up tickets by using the runtime tools, CLI, and skills available in Project Conversation directly.
-
-Harness AI onboarding requirements:
-
-- When a newly created bootstrap Workflow exists, show CTA: `Use Harness AI to adjust how this role works`
-- Clicking opens the newly created Workflow editor and Harness AI sidebar directly
-- First prefilled question suggestions:
-  - `Help me optimize this Workflow so it fits the current project better`
-  - `Help me add clearer acceptance criteria for this role`
+- Workflow editing remains part of the normal workflow editor experience; onboarding no longer requires a separate Harness AI step or hidden AI sidebar.
 
 Completion rules:
 
-- Empty project onboarding can only be marked fully complete when the user completes at least one Project AI interaction and has opened Harness AI at least once.
+- Empty project onboarding can only be marked fully complete when the user completes at least one Project AI interaction.
 - After completion, Dashboard switches from “strong guidance mode” to regular project Dashboard.
 
 #### 14.5.8 Fixed Layout on First Dashboard Entry
@@ -3448,7 +3438,7 @@ In `empty_project_onboarding` mode, project-level Dashboard is not a normal over
 | Area | Content |
 |------|---------|
 | Top welcome strip | Current project name, project status, GitHub connection status, default Provider status |
-| Onboarding Checklist | GitHub Token → Repo → Provider → Agent/Workflow → First Ticket → Observe Ticket → Project AI / Harness AI |
+| Onboarding Checklist | GitHub Token → Repo → Provider → Agent/Workflow → First Ticket → Observe Ticket → Project AI |
 | Board Snapshot | Initial columns are empty, but each column’s purpose is described |
 | Help entry | GitHub token help, CLI installation docs, sample Harness, CLI examples |
 
@@ -8647,9 +8637,8 @@ Direct Chat still reuses the existing Agent adapter, but it is neither an orches
 ┌─────────────────────────────────────────────────────────────┐
 │ Frontend                                                  │
 │                                                           │
-│  Harness AI / Cron AI ─────────────────┐ │                 │
-│  Project Sidebar Ask AI ─────────────┐ │ │                 │
-│  Ticket Drawer AI(ticket-focused) ──┐ │ │                 │
+│  Project Sidebar Ask AI ────────────┐ │                   │
+│  Ticket Drawer AI(ticket-focused) ─┐ │ │                  │
 │                                     ▼ ▼                 │
 │                        Chat API + SSE / watch stream        │
 └──────────────────────────────┬────────────────────────────┘
@@ -8686,17 +8675,13 @@ Core principles:
 - Direct Chat can have a lightweight runtime registry, but it is not a worker and does not participate in ticket claim/retry/health reconciliation
 - `project_sidebar` introduces persisted transcript and interrupt recovery; other entry points remain lightweight
 
-At the current implementation stage, the real product contract for editor-side AI surfaces still needs to be clarified:
+At the current implementation stage, the formal interactive AI product contract is intentionally narrow:
 
-- `Project AI` (`project_sidebar`) is still the mainline machine-aware Direct Chat; the goal is to execute on the machine where the provider is running
-- `Harness AI` is currently a **local-only** editor-side Ephemeral Chat
-  - Only allow selecting Codex / Claude / Gemini providers bound to the OpenASE host machine where the service runs
-  - Remote-machine providers must be treated as unsupported in both UI and API until editor-side machine-aware execution is fully implemented
-- `Skill AI` is currently not a universal Ephemeral Chat; it is the skill refinement loop in Chapter 34
-  - Phase 1 contract is **local Codex-only**
-  - Claude / Gemini providers and remote Codex provider are not in current support scope
+- `Project AI` (`project_sidebar`) is the mainline machine-aware Direct Chat surface; the goal is to execute on the machine where the provider is running
+- `ticket_detail(ticket-focused)` is not a separate Ticket AI product; it opens or reuses a Project AI conversation with ticket focus applied
+- Historical Harness AI and Skill refinement AI surfaces are removed and are not part of the supported product surface
 
-Therefore, `ephemeral_chat` cannot be treated as a single source of truth for all editor-side AI surfaces; `Harness AI` and `Skill AI` must each expose independent, testable provider eligibility contracts.
+Therefore, provider eligibility and runtime behavior should converge on Project AI contracts instead of maintaining separate legacy editor-side AI variants.
 
 Current recommended CLI run modes:
 
@@ -8710,7 +8695,7 @@ A new Claude Code requirement: when using `-p/--print` with `--output-format str
 
 | Dimension | Ephemeral Chat | Project Conversation |
 |------|----------------|----------------------|
-| Typical entry points | Harness AI, Cron AI | `project_sidebar`, `ticket_detail(ticket-focused)` |
+| Typical entry points | Planned lightweight helpers | `project_sidebar`, `ticket_detail(ticket-focused)` |
 | Transcript | Not persisted by default | Persisted |
 | After UI close | Session ends | Conversation retained after UI close |
 | Resume method | `session_id` within the same live session | Resume transcript by `conversation_id`; continue on same thread if live runtime exists, otherwise rebuild by resume strategy |
@@ -8893,8 +8878,7 @@ Note:
 All entry points must include a provider selector consistent with their real runtime contract:
 
 - `Project AI` continues to allow switching the current conversation provider among Claude Code / Codex / Gemini CLI
-- `Harness AI` only shows local providers that can actually execute on this surface
-- `Skill AI` only shows locally supported Codex providers currently supported by the skill refinement flow in Chapter 34
+- Removed legacy Harness AI / Skill refinement surfaces must not keep separate provider-selection contracts in the product or API surface
 
 Additional interaction constraints:
 
@@ -10003,19 +9987,13 @@ Default behavior remains:
 - New runtimes automatically take the latest version
 - Running runtimes do not auto-refresh
 
-### 34.11 Skill Editor fix-and-verify feedback loop
+### 34.11 Skill Editor AI scope
 
-A Skill Editor cannot provide only “unverified suggestions.” For a draft skill bundle, the platform must provide an independent **fix-and-verify refinement loop** separate from project conversation / ticket workspace.
+The historical Skill refinement AI loop is removed.
 
-#### 34.11.1 Independent session
-
-- Each `Fix and verify` creates an independent skill refinement session
-- Session maintains:
-  - selected Provider (Phase 1 supports Codex first)
-  - an isolated temporary workspace
-  - multiple retry turns on the same workspace
-  - explicit runtime session closure and cleanup logic
-- This is not a variant of project conversation; do not reuse ticket workspace or workflow run workspace
+- Skill editing no longer creates an independent AI refinement session
+- The supported interactive AI product surface remains Project AI
+- Any future skill-editing assistant must be re-specified explicitly before reintroduction; do not keep hidden APIs, runtimes, or compatibility flows for the removed refinement loop
 
 Suggested directory:
 

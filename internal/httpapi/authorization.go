@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
@@ -38,7 +37,6 @@ const (
 	humanRouteScopeResolverInstance humanRouteScopeResolver = iota
 	humanRouteScopeResolverOrganization
 	humanRouteScopeResolverProject
-	humanRouteScopeResolverSkillRefinementSession
 )
 
 type humanRouteAuthorizationRule struct {
@@ -108,27 +106,6 @@ func (s *Server) requiredScopeAndPermission(
 		return scope, rule.permission, rule.checkRequired, nil
 	case humanRouteScopeResolverProject:
 		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), rule.resource, parseUUIDStringUnsafe(c.Param(rule.paramName)))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		return scope, rule.permission, rule.checkRequired, nil
-	case humanRouteScopeResolverSkillRefinementSession:
-		if s.skillRefinementService == nil {
-			return humanauthdomain.ScopeRef{}, "", false, humanauthservice.ErrPermissionDenied
-		}
-		userID, err := chatservice.ParseUserID(principal.ActorID())
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		sessionID, err := chatservice.ParseCloseSessionID(c.Param("sessionId"))
-		if err != nil {
-			return humanauthdomain.ScopeRef{}, "", false, err
-		}
-		_, skillID, ok := s.skillRefinementService.ResolveSessionScopeForUser(userID, sessionID)
-		if !ok {
-			return humanauthdomain.ScopeRef{}, "", false, humanauthservice.ErrPermissionDenied
-		}
-		scope, err := s.humanAuthorizer.ResolveProjectScope(c.Request().Context(), "skill", parseUUIDStringUnsafe(skillID.String()))
 		if err != nil {
 			return humanauthdomain.ScopeRef{}, "", false, err
 		}
@@ -213,18 +190,12 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionRepoManage,
 			checkRequired: true,
 		}, true
-	case "/api/v1/skills/:skillId", "/api/v1/skills/:skillId/files", "/api/v1/skills/:skillId/history", "/api/v1/skills/:skillId/enable", "/api/v1/skills/:skillId/disable", "/api/v1/skills/:skillId/bind", "/api/v1/skills/:skillId/unbind", "/api/v1/skills/:skillId/refinement-runs":
+	case "/api/v1/skills/:skillId", "/api/v1/skills/:skillId/files", "/api/v1/skills/:skillId/history", "/api/v1/skills/:skillId/enable", "/api/v1/skills/:skillId/disable", "/api/v1/skills/:skillId/bind", "/api/v1/skills/:skillId/unbind":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "skill",
 			paramName:     "skillId",
 			permission:    skillPermissionForPath(path, method),
-			checkRequired: true,
-		}, true
-	case "/api/v1/skills/refinement-runs/:sessionId":
-		return humanRouteAuthorizationRule{
-			scopeResolver: humanRouteScopeResolverSkillRefinementSession,
-			permission:    humanauthdomain.PermissionSkillManage,
 			checkRequired: true,
 		}, true
 	case "/api/v1/workflows/:workflowId", "/api/v1/workflows/:workflowId/impact", "/api/v1/workflows/:workflowId/harness", "/api/v1/workflows/:workflowId/harness/history", "/api/v1/workflows/:workflowId/retire", "/api/v1/workflows/:workflowId/replace-references", "/api/v1/workflows/:workflowId/skills/bind", "/api/v1/workflows/:workflowId/skills/unbind":

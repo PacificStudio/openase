@@ -23,6 +23,7 @@ func (ChatConversation) Fields() []ent.Field {
 		field.String("source").NotEmpty(),
 		field.UUID("provider_id", uuidZero()),
 		field.String("status").Default("active"),
+		field.String("title").Optional().Default(""),
 		field.String("provider_thread_id").Optional().Nillable(),
 		field.String("last_turn_id").Optional().Nillable(),
 		field.String("provider_thread_status").Optional().Nillable(),

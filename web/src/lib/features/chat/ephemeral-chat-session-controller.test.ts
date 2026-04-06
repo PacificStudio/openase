@@ -8,6 +8,7 @@ const { closeChatSession, streamChatTurn } = vi.hoisted(() => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import { createEphemeralChatSessionController } from './ephemeral-chat-session-controller.svelte'

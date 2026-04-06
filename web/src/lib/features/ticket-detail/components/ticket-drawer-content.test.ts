@@ -145,7 +145,11 @@ describe('TicketDrawerContent project AI integration', () => {
       'Ask about this ticket without restating the basics…',
     ) as HTMLTextAreaElement
     await fireEvent.input(prompt, { target: { value: 'Why is this ticket not running?' } })
-    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+    const sendButton = getByRole('button', { name: 'Send message' })
+    await waitFor(() => {
+      expect((sendButton as HTMLButtonElement).disabled).toBe(false)
+    })
+    await fireEvent.click(sendButton)
 
     await waitFor(() => {
       expect(startProjectConversationTurn).toHaveBeenCalledWith(
@@ -251,5 +255,7 @@ describe('TicketDrawerContent project AI integration', () => {
       expect(queryByText('Create a retry investigation child ticket')).toBeNull()
     })
     expect(queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(queryByRole('button', { name: 'Cancel' })).toBeNull()
+    expect(executeProjectConversationActionProposal).not.toHaveBeenCalled()
   })
 })

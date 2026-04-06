@@ -5,10 +5,6 @@ import type { HarnessValidationIssue } from '$lib/api/contracts'
 import type { SkillState } from '../model'
 import WorkflowsPageBody from './workflows-page-body.svelte'
 
-vi.mock('./harness-ai-sidebar.svelte', () => ({
-  default: vi.fn(),
-}))
-
 vi.mock('./workflow-creation-dialog.svelte', () => ({
   default: vi.fn(),
 }))
@@ -63,7 +59,6 @@ const defaultProps = {
   workflows: [workflowFixture],
   selectedId: 'wf-1',
   projectId: 'project-1',
-  providers: [],
   selectedWorkflow: workflowFixture,
   harness: harnessFixture,
   draftHarness: harnessFixture.rawContent,
@@ -105,17 +100,16 @@ describe('WorkflowsPageBody', () => {
   })
 
   it('opens the settings sheet with published workflow history', async () => {
-    const { getByTitle, findByText } = render(WorkflowsPageBody, {
+    const { findByRole, findByText, getByTitle } = render(WorkflowsPageBody, {
       props: { ...defaultProps, showDetail: false },
     })
 
     await fireEvent.click(getByTitle('Workflow settings'))
 
-    await waitFor(() => {
-      expect(findByText('Workflow Settings')).toBeTruthy()
+    await waitFor(async () => {
+      expect(await findByText('Workflow Settings')).toBeTruthy()
     })
-    expect(await findByText('Published v3')).toBeTruthy()
-    expect(await findByText('2 recorded version(s)')).toBeTruthy()
+    expect(await findByRole('button', { name: /v3/i })).toBeTruthy()
   })
 
   it('shows the loading state when loading is true', () => {

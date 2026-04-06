@@ -340,7 +340,6 @@ func TestAgentPlatformUtilityAndFailurePaths(t *testing.T) {
 			string(ScopeSkillsImport),
 			string(ScopeSkillsList),
 			string(ScopeSkillsRead),
-			string(ScopeSkillsRefine),
 			string(ScopeSkillsRefresh),
 			string(ScopeSkillsUpdate),
 			string(ScopeStatusesCreate),

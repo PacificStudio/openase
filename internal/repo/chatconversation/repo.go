@@ -496,6 +496,10 @@ func (r *Repository) ListConversations(ctx context.Context, filter domain.ListCo
 	if err != nil {
 		return nil, fmt.Errorf("list chat conversations: %w", err)
 	}
+	items, err = r.ensureConversationTitles(ctx, items)
+	if err != nil {
+		return nil, err
+	}
 
 	return mapConversations(items), nil
 }
@@ -518,6 +522,10 @@ func (r *Repository) GetConversation(ctx context.Context, id uuid.UUID) (domain.
 	item, err := r.client.ChatConversation.Get(ctx, id)
 	if err != nil {
 		return domain.Conversation{}, mapReadError("get chat conversation", err)
+	}
+	item, err = r.ensureConversationTitle(ctx, item)
+	if err != nil {
+		return domain.Conversation{}, err
 	}
 	return mapConversation(item), nil
 }
@@ -554,6 +562,11 @@ func (r *Repository) CreateTurnWithUserEntry(
 		)
 	}
 
+	conversationItem, err := tx.ChatConversation.Get(ctx, conversationID)
+	if err != nil {
+		return domain.Turn{}, domain.Entry{}, mapReadError("get chat conversation for turn creation", err)
+	}
+
 	turnCount, err := tx.ChatTurn.Query().Where(entchatturn.ConversationIDEQ(conversationID)).Count(ctx)
 	if err != nil {
 		return domain.Turn{}, domain.Entry{}, fmt.Errorf("count chat turns: %w", err)
@@ -575,10 +588,17 @@ func (r *Repository) CreateTurnWithUserEntry(
 		return domain.Turn{}, domain.Entry{}, err
 	}
 
-	if _, err := tx.ChatConversation.UpdateOneID(conversationID).
+	conversationUpdate := tx.ChatConversation.UpdateOneID(conversationID).
 		SetLastActivityAt(time.Now().UTC()).
-		SetStatus(string(domain.ConversationStatusActive)).
-		Save(ctx); err != nil {
+		SetStatus(string(domain.ConversationStatusActive))
+	if strings.TrimSpace(conversationItem.Title) == "" {
+		title, parseErr := domain.ParseConversationTitleFromFirstUserMessage(message)
+		if parseErr != nil {
+			return domain.Turn{}, domain.Entry{}, parseErr
+		}
+		conversationUpdate.SetTitle(title.String())
+	}
+	if _, err := conversationUpdate.Save(ctx); err != nil {
 		return domain.Turn{}, domain.Entry{}, mapWriteError("touch chat conversation", err)
 	}
 
@@ -931,6 +951,7 @@ func mapConversation(item *ent.ChatConversation) domain.Conversation {
 		Source:                    domain.Source(item.Source),
 		ProviderID:                item.ProviderID,
 		Status:                    domain.ConversationStatus(item.Status),
+		Title:                     domain.ConversationTitle(strings.TrimSpace(item.Title)),
 		ProviderThreadID:          cloneStringPointer(item.ProviderThreadID),
 		LastTurnID:                cloneStringPointer(item.LastTurnID),
 		ProviderThreadStatus:      cloneStringPointer(item.ProviderThreadStatus),
@@ -940,6 +961,72 @@ func mapConversation(item *ent.ChatConversation) domain.Conversation {
 		CreatedAt:                 item.CreatedAt,
 		UpdatedAt:                 item.UpdatedAt,
 	}
+}
+
+func (r *Repository) ensureConversationTitles(
+	ctx context.Context,
+	items []*ent.ChatConversation,
+) ([]*ent.ChatConversation, error) {
+	if len(items) == 0 {
+		return items, nil
+	}
+
+	updated := make([]*ent.ChatConversation, 0, len(items))
+	for _, item := range items {
+		ensured, err := r.ensureConversationTitle(ctx, item)
+		if err != nil {
+			return nil, err
+		}
+		updated = append(updated, ensured)
+	}
+	return updated, nil
+}
+
+func (r *Repository) ensureConversationTitle(
+	ctx context.Context,
+	item *ent.ChatConversation,
+) (*ent.ChatConversation, error) {
+	if item == nil || strings.TrimSpace(item.Title) != "" {
+		return item, nil
+	}
+
+	entry, err := r.client.ChatEntry.Query().
+		Where(
+			entchatentry.ConversationIDEQ(item.ID),
+			entchatentry.KindEQ(string(domain.EntryKindUserMessage)),
+		).
+		Order(ent.Asc(entchatentry.FieldSeq)).
+		First(ctx)
+	switch {
+	case ent.IsNotFound(err):
+		return item, nil
+	case err != nil:
+		return nil, fmt.Errorf("query earliest user chat entry: %w", err)
+	}
+
+	title, err := domain.ParseConversationTitleFromFirstUserMessage(conversationEntryContent(entry.PayloadJSON))
+	if err != nil {
+		return item, nil
+	}
+
+	updated, err := r.client.ChatConversation.UpdateOneID(item.ID).
+		SetTitle(title.String()).
+		Save(ctx)
+	if err != nil {
+		return nil, mapWriteError("backfill chat conversation title", err)
+	}
+	return updated, nil
+}
+
+func conversationEntryContent(payload map[string]any) string {
+	if len(payload) == 0 {
+		return ""
+	}
+	value, ok := payload["content"].(string)
+	if !ok {
+		return ""
+	}
+	return value
 }
 
 func mapTurn(item *ent.ChatTurn) domain.Turn {

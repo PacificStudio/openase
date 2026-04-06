@@ -12,6 +12,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -23,6 +24,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -36,11 +38,44 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
+
+function mockLiveMuxStream() {
+  let handlers:
+    | {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: {
+          conversationId: string
+          sentAt: string
+          event: { kind: string; payload: Record<string, unknown> }
+        }) => void
+      }
+    | undefined
+
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
+    handlers = nextHandlers
+    nextHandlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+
+  return {
+    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
+      handlers?.onFrame({
+        conversationId,
+        sentAt: '2026-04-01T10:00:00Z',
+        event,
+      })
+    },
+  }
+}
 
 async function waitForComposerReady(getByPlaceholderText: (text: string) => HTMLElement) {
   await waitFor(() => {
@@ -69,10 +104,7 @@ describe('ProjectConversationPanel tab behavior', () => {
   })
 
   it('keeps the composer enabled on an idle tab while another tab is waiting on input', async () => {
-    const streamHandlers = new Map<
-      string,
-      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-    >()
+    const mux = mockLiveMuxStream()
 
     listProjectConversations.mockResolvedValue({ conversations: [] })
     createProjectConversation
@@ -93,9 +125,6 @@ describe('ProjectConversationPanel tab behavior', () => {
     getProjectConversationWorkspaceDiff
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
-    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
-      streamHandlers.set(conversationId, handlers)
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -126,7 +155,7 @@ describe('ProjectConversationPanel tab behavior', () => {
       })
     })
 
-    streamHandlers.get('conversation-1')?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'interrupt_requested',
       payload: {
         interruptId: 'interrupt-1',
@@ -165,10 +194,7 @@ describe('ProjectConversationPanel tab behavior', () => {
   })
 
   it('queues a follow-up message while waiting for the assistant reply and auto-sends it after turn completion', async () => {
-    const streamHandlers = new Map<
-      string,
-      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-    >()
+    const mux = mockLiveMuxStream()
 
     createProjectConversation.mockResolvedValue({
       conversation: {
@@ -178,10 +204,6 @@ describe('ProjectConversationPanel tab behavior', () => {
       },
     })
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
-    watchProjectConversation.mockImplementation((conversationId, handlers) => {
-      streamHandlers.set(conversationId, handlers)
-      return new Promise<void>(() => {})
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -221,7 +243,7 @@ describe('ProjectConversationPanel tab behavior', () => {
     await findByText('Queued')
     expect(prompt.value).toBe('')
 
-    streamHandlers.get('conversation-1')?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'turn_done',
       payload: {},
     })
@@ -235,10 +257,7 @@ describe('ProjectConversationPanel tab behavior', () => {
   })
 
   it('cancels a queued message before it is auto-sent', async () => {
-    const streamHandlers = new Map<
-      string,
-      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-    >()
+    const mux = mockLiveMuxStream()
 
     createProjectConversation.mockResolvedValue({
       conversation: {
@@ -248,10 +267,6 @@ describe('ProjectConversationPanel tab behavior', () => {
       },
     })
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
-    watchProjectConversation.mockImplementation((conversationId, handlers) => {
-      streamHandlers.set(conversationId, handlers)
-      return new Promise<void>(() => {})
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -289,7 +304,7 @@ describe('ProjectConversationPanel tab behavior', () => {
     await fireEvent.click(getByRole('button', { name: 'Cancel queued message 1' }))
     expect(queryByText('Queued')).toBeNull()
 
-    streamHandlers.get('conversation-1')?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'turn_done',
       payload: {},
     })

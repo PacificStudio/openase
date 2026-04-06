@@ -192,12 +192,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		provider.MustParseAbsolutePath(projectsRoot),
 	)
 	chatSvc.EnableDurableSessions(filepath.Join(homeDir, ".openase", "chat", "ephemeral-sessions.json"))
-	skillRefinementSvc := chatservice.NewSkillRefinementService(
-		a.logger,
-		codexRuntime,
-		catalogSvc,
-		workflowSvc,
-	)
 	projectConversationSvc := chatservice.NewProjectConversationService(
 		a.logger,
 		chatconversationrepo.NewEntRepository(client),
@@ -240,7 +234,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithNotificationService(notificationSvc),
 		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
-		httpapi.WithSkillRefinementService(skillRefinementSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),

@@ -37,6 +37,7 @@ vi.mock('$lib/api/chat', () => ({
   listProjectConversations,
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('./project-conversation-event-bus', () => ({

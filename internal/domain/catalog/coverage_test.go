@@ -924,19 +924,21 @@ func TestCatalogMachineParsers(t *testing.T) {
 	sshKeyPath := " /home/codex/.ssh/id_ed25519 "
 	workspaceRoot := " /srv/openase "
 	agentCLIPath := " /usr/local/bin/codex "
+	endpoint := " wss://builder.example.com/openase "
 
 	createMachine, err := ParseCreateMachine(orgID, MachineInput{
-		Name:          " Builder 01 ",
-		Host:          " 10.0.1.8 ",
-		Port:          &port,
-		SSHUser:       &sshUser,
-		SSHKeyPath:    &sshKeyPath,
-		Description:   " Primary builder ",
-		Labels:        []string{" linux ", "linux", " gpu "},
-		Status:        " online ",
-		WorkspaceRoot: &workspaceRoot,
-		AgentCLIPath:  &agentCLIPath,
-		EnvVars:       []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
+		Name:               " Builder 01 ",
+		Host:               " 10.0.1.8 ",
+		Port:               &port,
+		AdvertisedEndpoint: &endpoint,
+		SSHUser:            &sshUser,
+		SSHKeyPath:         &sshKeyPath,
+		Description:        " Primary builder ",
+		Labels:             []string{" linux ", "linux", " gpu "},
+		Status:             " online ",
+		WorkspaceRoot:      &workspaceRoot,
+		AgentCLIPath:       &agentCLIPath,
+		EnvVars:            []string{"OPENASE_ENV=prod", " OPENASE_ENV=prod ", "LOG_LEVEL=debug"},
 	})
 	if err != nil {
 		t.Fatalf("ParseCreateMachine() error = %v", err)
@@ -944,8 +946,8 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if createMachine.Port != 2222 || len(createMachine.Labels) != 2 || len(createMachine.EnvVars) != 2 {
 		t.Fatalf("ParseCreateMachine() = %+v", createMachine)
 	}
-	if createMachine.ConnectionMode != MachineConnectionModeSSH {
-		t.Fatalf("ParseCreateMachine() connection mode = %q, want ssh", createMachine.ConnectionMode)
+	if createMachine.ConnectionMode != MachineConnectionModeWSListener {
+		t.Fatalf("ParseCreateMachine() connection mode = %q, want ws_listener", createMachine.ConnectionMode)
 	}
 	if got := len(createMachine.TransportCapabilities); got != 4 {
 		t.Fatalf("ParseCreateMachine() default transport capabilities = %d, want 4", got)
@@ -969,17 +971,13 @@ func TestCatalogMachineParsers(t *testing.T) {
 	registered := true
 	lastRegisteredAt := "2026-04-04T10:15:00Z"
 	currentSessionID := " ws-session-01 "
-	endpoint := " wss://machines.example.com/connect "
+	endpoint = " wss://machines.example.com/connect "
 	tokenID := " machine-token-01 "
 	websocketMachine, err := ParseCreateMachine(orgID, MachineInput{
-		Name:           " listener-01 ",
-		Host:           " listener.example.com ",
-		ConnectionMode: " ws_listener ",
-		TransportCapabilities: []string{
-			" process_streaming ",
-			"artifact_sync",
-			"process_streaming",
-		},
+		Name:               " listener-01 ",
+		Host:               " listener.example.com ",
+		ReachabilityMode:   " direct_connect ",
+		ExecutionMode:      " websocket ",
 		AdvertisedEndpoint: &endpoint,
 		DaemonStatus: MachineDaemonStatusInput{
 			Registered:       &registered,
@@ -1021,8 +1019,8 @@ func TestCatalogMachineParsers(t *testing.T) {
 		*websocketMachine.ChannelCredential.TokenID != "machine-token-01" {
 		t.Fatalf("ParseCreateMachine(ws_listener) channel credential = %+v", websocketMachine.ChannelCredential)
 	}
-	if got := len(websocketMachine.TransportCapabilities); got != 2 {
-		t.Fatalf("ParseCreateMachine(ws_listener) transport capabilities = %d, want 2", got)
+	if got := len(websocketMachine.TransportCapabilities); got != 4 {
+		t.Fatalf("ParseCreateMachine(ws_listener) transport capabilities = %d, want 4", got)
 	}
 
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "local"}); err == nil {
@@ -1031,83 +1029,80 @@ func TestCatalogMachineParsers(t *testing.T) {
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "local", Host: "remote"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected local name/host mismatch error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1"}); err == nil {
-		t.Fatal("ParseCreateMachine() expected remote ssh validation error")
-	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", SSHUser: &sshUser}); err == nil {
-		t.Fatal("ParseCreateMachine() expected ssh_key_path validation error")
-	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: " ", Host: "10.0.0.1"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected name validation error")
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: " "}); err == nil {
 		t.Fatal("ParseCreateMachine() expected host validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", Port: intPtr(70000), SSHUser: &sshUser, SSHKeyPath: &sshKeyPath}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", Port: intPtr(70000), AdvertisedEndpoint: &endpoint}); err == nil {
 		t.Fatal("ParseCreateMachine() expected port validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", SSHUser: &sshUser, SSHKeyPath: &sshKeyPath, Labels: []string{""}}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", AdvertisedEndpoint: &endpoint, Labels: []string{""}}); err == nil {
 		t.Fatal("ParseCreateMachine() expected labels validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", SSHUser: &sshUser, SSHKeyPath: &sshKeyPath, Status: "bad"}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", AdvertisedEndpoint: &endpoint, Status: "bad"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected status validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", SSHUser: &sshUser, SSHKeyPath: &sshKeyPath, EnvVars: []string{"NOPE"}}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", AdvertisedEndpoint: &endpoint, EnvVars: []string{"NOPE"}}); err == nil {
 		t.Fatal("ParseCreateMachine() expected env_vars validation error")
 	}
 	relativeWorkspaceRoot := "relative/workspace"
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:          "remote",
-		Host:          "10.0.0.1",
-		SSHUser:       &sshUser,
-		SSHKeyPath:    &sshKeyPath,
-		WorkspaceRoot: &relativeWorkspaceRoot,
+		Name:               "remote",
+		Host:               "10.0.0.1",
+		AdvertisedEndpoint: &endpoint,
+		WorkspaceRoot:      &relativeWorkspaceRoot,
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected workspace_root validation error")
 	}
 	if _, err := ParseUpdateMachine(uuid.New(), orgID, MachineInput{Name: "remote", Host: "10.0.0.1"}); err == nil {
 		t.Fatal("ParseUpdateMachine() expected validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", ConnectionMode: "telnet"}); err == nil {
-		t.Fatal("ParseCreateMachine() expected connection_mode validation error")
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "remote", Host: "10.0.0.1", ExecutionMode: "ssh_compat"}); err == nil {
+		t.Fatal("ParseCreateMachine() expected execution_mode validation error")
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:                  "remote",
-		Host:                  "10.0.0.1",
-		SSHUser:               &sshUser,
-		SSHKeyPath:            &sshKeyPath,
-		TransportCapabilities: []string{"broken"},
+		Name:             "listener",
+		Host:             "listener.example.com",
+		ReachabilityMode: "direct_connect",
+		ExecutionMode:    "websocket",
 	}); err == nil {
-		t.Fatal("ParseCreateMachine() expected transport_capabilities validation error")
-	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_listener"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected advertised_endpoint validation error")
 	}
 	badEndpoint := "https://machines.example.com/connect"
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_listener", AdvertisedEndpoint: &badEndpoint}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{
+		Name:               "listener",
+		Host:               "listener.example.com",
+		ReachabilityMode:   "direct_connect",
+		ExecutionMode:      "websocket",
+		AdvertisedEndpoint: &badEndpoint,
+	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected advertised_endpoint scheme validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectedOS: "windows"}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ReachabilityMode: "reverse_connect", ExecutionMode: "websocket", DetectedOS: "windows"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected detected_os validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectedArch: "386"}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ReachabilityMode: "reverse_connect", ExecutionMode: "websocket", DetectedArch: "386"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected detected_arch validation error")
 	}
-	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ConnectionMode: "ws_reverse", DetectionStatus: "bad"}); err == nil {
+	if _, err := ParseCreateMachine(orgID, MachineInput{Name: "listener", Host: "listener.example.com", ReachabilityMode: "reverse_connect", ExecutionMode: "websocket", DetectionStatus: "bad"}); err == nil {
 		t.Fatal("ParseCreateMachine() expected detection_status validation error")
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:           "listener",
-		Host:           "listener.example.com",
-		ConnectionMode: "ws_reverse",
-		DaemonStatus:   MachineDaemonStatusInput{SessionState: "broken"},
+		Name:             "listener",
+		Host:             "listener.example.com",
+		ReachabilityMode: "reverse_connect",
+		ExecutionMode:    "websocket",
+		DaemonStatus:     MachineDaemonStatusInput{SessionState: "broken"},
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected daemon_status.session_state validation error")
 	}
 	if _, err := ParseCreateMachine(orgID, MachineInput{
-		Name:           "listener",
-		Host:           "listener.example.com",
-		ConnectionMode: "ws_reverse",
+		Name:             "listener",
+		Host:             "listener.example.com",
+		ReachabilityMode: "reverse_connect",
+		ExecutionMode:    "websocket",
 		ChannelCredential: &MachineChannelCredentialInput{
 			Kind: "token",
 		},
@@ -1179,17 +1174,17 @@ func TestCatalogMachineTransportHelpers(t *testing.T) {
 	}
 
 	mode, err := ParseStoredMachineConnectionMode("", "10.0.0.9")
-	if err != nil || mode != MachineConnectionModeSSH {
+	if err != nil || mode != MachineConnectionModeWSListener {
 		t.Fatalf("ParseStoredMachineConnectionMode(remote default) = %q, %v", mode, err)
 	}
 	if mode, err = ParseStoredMachineConnectionMode("", LocalMachineHost); err != nil || mode != MachineConnectionModeLocal {
 		t.Fatalf("ParseStoredMachineConnectionMode(local default) = %q, %v", mode, err)
 	}
-	capabilities, err := ParseStoredMachineTransportCapabilities(nil, MachineConnectionModeSSH)
+	capabilities, err := ParseStoredMachineTransportCapabilities(nil, MachineConnectionModeWSListener)
 	if err != nil || len(capabilities) != 4 {
 		t.Fatalf("ParseStoredMachineTransportCapabilities(default) = %+v, %v", capabilities, err)
 	}
-	if _, err := ParseStoredMachineTransportCapabilities([]string{"bad"}, MachineConnectionModeSSH); err == nil {
+	if _, err := ParseStoredMachineTransportCapabilities([]string{"bad"}, MachineConnectionModeWSListener); err == nil {
 		t.Fatal("ParseStoredMachineTransportCapabilities() expected validation error")
 	}
 	if detectedOS, err := ParseStoredMachineDetectedOS("linux"); err != nil || detectedOS != MachineDetectedOSLinux {
@@ -1302,18 +1297,20 @@ func TestCatalogMachineTransportHelpers(t *testing.T) {
 	sshUser := "openase"
 	sshKeyPath := "/tmp/id_ed25519"
 	if _, err := ParseCreateMachine(uuid.New(), MachineInput{
-		Name:           "local",
-		Host:           "local",
-		ConnectionMode: "ssh",
-		SSHUser:        &sshUser,
-		SSHKeyPath:     &sshKeyPath,
+		Name:             "local",
+		Host:             "local",
+		ReachabilityMode: "direct_connect",
+		ExecutionMode:    "websocket",
+		SSHUser:          &sshUser,
+		SSHKeyPath:       &sshKeyPath,
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected local host connection_mode validation error")
 	}
 	if _, err := ParseCreateMachine(uuid.New(), MachineInput{
-		Name:           "remote",
-		Host:           "10.0.0.10",
-		ConnectionMode: "local",
+		Name:             "remote",
+		Host:             "10.0.0.10",
+		ReachabilityMode: "local",
+		ExecutionMode:    "local_process",
 	}); err == nil {
 		t.Fatal("ParseCreateMachine() expected remote local-mode validation error")
 	}

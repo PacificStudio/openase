@@ -32,51 +32,6 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 	}
 }
 
-func TestParseStartInputPreservesHarnessDraft(t *testing.T) {
-	draft := "---\nworkflow:\n  name: Draft\n---\n"
-	input, err := ParseStartInput(RawStartInput{
-		Message: "Refine this harness",
-		Source:  string(SourceHarnessEditor),
-		Context: RawChatContext{
-			ProjectID:    stringPointer("550e8400-e29b-41d4-a716-446655440000"),
-			WorkflowID:   stringPointer("660e8400-e29b-41d4-a716-446655440000"),
-			HarnessDraft: &draft,
-		},
-	})
-	if err != nil {
-		t.Fatalf("ParseStartInput() error = %v", err)
-	}
-	if input.Context.HarnessDraft == nil || *input.Context.HarnessDraft != draft {
-		t.Fatalf("expected harness draft to round-trip, got %#v", input.Context.HarnessDraft)
-	}
-}
-
-func TestParseStartInputPreservesSkillEditorContext(t *testing.T) {
-	draft := "#!/usr/bin/env bash\necho updated\n"
-	input, err := ParseStartInput(RawStartInput{
-		Message: "Refine this script",
-		Source:  string(SourceSkillEditor),
-		Context: RawChatContext{
-			ProjectID:      stringPointer("550e8400-e29b-41d4-a716-446655440000"),
-			SkillID:        stringPointer("660e8400-e29b-41d4-a716-446655440000"),
-			SkillFilePath:  stringPointer("scripts/redeploy.sh"),
-			SkillFileDraft: &draft,
-		},
-	})
-	if err != nil {
-		t.Fatalf("ParseStartInput() error = %v", err)
-	}
-	if input.Context.SkillID == nil || *input.Context.SkillID != uuid.MustParse("660e8400-e29b-41d4-a716-446655440000") {
-		t.Fatalf("expected skill_id to round-trip, got %#v", input.Context.SkillID)
-	}
-	if input.Context.SkillFilePath == nil || *input.Context.SkillFilePath != "scripts/redeploy.sh" {
-		t.Fatalf("expected skill_file_path to round-trip, got %#v", input.Context.SkillFilePath)
-	}
-	if input.Context.SkillFileDraft == nil || *input.Context.SkillFileDraft != draft {
-		t.Fatalf("expected skill_file_draft to round-trip, got %#v", input.Context.SkillFileDraft)
-	}
-}
-
 func TestMapClaudeEventLeavesUnsupportedStructuredJSONAsText(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
@@ -174,232 +129,6 @@ func TestNormalizeAssistantTextCollapsesRepeatedTrailingDiffJSON(t *testing.T) {
 	}
 	if diff.File != "harness content" || len(diff.Hunks) != 1 {
 		t.Fatalf("unexpected diff payload: %#v", diff)
-	}
-}
-
-func TestBuildSystemPromptGuidesHarnessEditorReplies(t *testing.T) {
-	workflowID := uuid.MustParse("550e8400-e29b-41d4-a716-446655440000")
-	service := NewService(nil, nil, fakeCatalogReader{
-		projectRepos: []catalogdomain.ProjectRepo{
-			{
-				ID:               uuid.MustParse("440e8400-e29b-41d4-a716-446655440000"),
-				Name:             "openase-web",
-				DefaultBranch:    "main",
-				WorkspaceDirname: "web",
-				RepositoryURL:    "https://github.com/PacificStudio/openase",
-				Labels:           []string{"frontend"},
-			},
-		},
-		activityEvents: []catalogdomain.ActivityEvent{
-			{
-				CreatedAt: time.Date(2026, 4, 1, 10, 0, 0, 0, time.UTC),
-				EventType: activityevent.TypeTicketUpdated,
-				Message:   "Updated review workflow bindings",
-			},
-		},
-	}, fakeTicketReader{
-		items: []ticketservice.Ticket{
-			{
-				Identifier:        "ASE-401",
-				Title:             "Tighten workflow status handling",
-				StatusName:        "In Review",
-				WorkflowID:        &workflowID,
-				AttemptCount:      2,
-				ConsecutiveErrors: 1,
-			},
-		},
-	}, harnessWorkflowReader{
-		detail: workflowservice.WorkflowDetail{
-			Workflow: workflowservice.Workflow{
-				ID:               workflowID,
-				Name:             "Coding Workflow",
-				Type:             "coding",
-				HarnessPath:      ".openase/harnesses/workflows/coding.md",
-				MaxConcurrent:    1,
-				MaxRetryAttempts: 3,
-				TimeoutMinutes:   90,
-				IsActive:         true,
-				Version:          7,
-				PickupStatusIDs: []uuid.UUID{
-					uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
-				},
-				FinishStatusIDs: []uuid.UUID{
-					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
-				},
-			},
-			HarnessContent: "---\ntype: coding\n---\n\nWrite code.\n",
-		},
-		list: []workflowservice.Workflow{
-			{
-				ID:               workflowID,
-				Name:             "Coding Workflow",
-				Type:             "coding",
-				HarnessPath:      ".openase/harnesses/workflows/coding.md",
-				MaxConcurrent:    1,
-				MaxRetryAttempts: 3,
-				TimeoutMinutes:   90,
-				IsActive:         true,
-				PickupStatusIDs: []uuid.UUID{
-					uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"),
-				},
-				FinishStatusIDs: []uuid.UUID{
-					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
-				},
-			},
-			{
-				ID:               uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
-				Name:             "Review Workflow",
-				Type:             "review",
-				HarnessPath:      ".openase/harnesses/workflows/review.md",
-				MaxConcurrent:    1,
-				MaxRetryAttempts: 1,
-				TimeoutMinutes:   45,
-				IsActive:         true,
-				PickupStatusIDs: []uuid.UUID{
-					uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"),
-				},
-				FinishStatusIDs: []uuid.UUID{
-					uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000"),
-				},
-			},
-		},
-	}, fakeStatusReader{
-		result: ticketstatusservice.ListResult{
-			Statuses: []ticketstatusservice.Status{
-				{ID: uuid.MustParse("770e8400-e29b-41d4-a716-446655440000"), Name: "Backlog", Stage: "queued", Position: 1, IsDefault: true},
-				{ID: uuid.MustParse("880e8400-e29b-41d4-a716-446655440000"), Name: "In Review", Stage: "active", Position: 2},
-				{ID: uuid.MustParse("aa0e8400-e29b-41d4-a716-446655440000"), Name: "Done", Stage: "done", Position: 3},
-			},
-		},
-	}, "")
-
-	prompt, err := service.buildSystemPrompt(
-		context.Background(),
-		StartInput{
-			Source: SourceHarnessEditor,
-			Context: Context{
-				ProjectID:    uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
-				WorkflowID:   &workflowID,
-				HarnessDraft: stringPointer("---\ntype: coding\n---\n\nWrite code carefully.\n"),
-			},
-		},
-		catalogdomain.Project{Name: "OpenASE"},
-	)
-	if err != nil {
-		t.Fatalf("build system prompt: %v", err)
-	}
-	if !containsAll(prompt,
-		"### Current Editor Draft (Unsaved)",
-		"Write code carefully.",
-		"### Project Status Topology",
-		"- 1. Backlog [stage=queued, default=true]",
-		"### Project Workflow Topology",
-		"Review Workflow [review]",
-		"### Recent Ticket Samples",
-		"### Professional Workflow Design Baseline",
-		"### Infer First, Clarify Only What Is Missing",
-		"1. What is the responsibility boundary of this workflow?",
-		"Harness Editor Response Requirements",
-		"structured diff JSON object",
-		"exactly one structured diff JSON object",
-		"do not output explanatory prose, intros, outros, markdown lists, fenced code blocks, multiple JSON objects, or incomplete JSON fragments",
-		"The output must be one valid JSON object",
-		"The top-level fields are fixed: `type`, `file`, and `hunks`",
-		"`type` must be exactly `diff`, and `file` must be exactly `harness content`",
-		"Field names must use snake_case: `old_start`, `old_lines`, `new_start`, `new_lines`",
-		"The simplified JSON schema is",
-		"\"additionalProperties\": false",
-		"\"type\":\"diff\",\"file\":\"harness content\"",
-		"Do not output proposal JSON",
-	) {
-		t.Fatalf("expected harness-editor response instructions in prompt, got %q", prompt)
-	}
-}
-
-func TestBuildSystemPromptGuidesSkillEditorReplies(t *testing.T) {
-	skillID := uuid.MustParse("440e8400-e29b-41d4-a716-446655440000")
-	service := NewService(nil, nil, fakeCatalogReader{}, fakeTicketReader{}, harnessWorkflowReader{
-		skillDetail: workflowservice.SkillDetail{
-			Skill: workflowservice.Skill{
-				ID:             skillID,
-				Name:           "deploy",
-				Description:    "Deploy the latest release safely.",
-				Path:           ".openase/skills/deploy/SKILL.md",
-				CurrentVersion: 4,
-				IsEnabled:      true,
-				BoundWorkflows: []workflowservice.SkillWorkflowBinding{
-					{
-						ID:          uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
-						Name:        "Release Workflow",
-						HarnessPath: ".openase/harnesses/release.md",
-					},
-				},
-			},
-			BundleHash: "bundle-123",
-			FileCount:  3,
-			Files: []workflowservice.SkillBundleFile{
-				{
-					Path:      "SKILL.md",
-					FileKind:  "entrypoint",
-					MediaType: "text/markdown; charset=utf-8",
-					Encoding:  "utf8",
-					Content:   []byte("---\nname: deploy\n---\n\nUse safe deployment steps.\n"),
-				},
-				{
-					Path:         "scripts/redeploy.sh",
-					FileKind:     "script",
-					MediaType:    "text/x-shellscript; charset=utf-8",
-					Encoding:     "utf8",
-					IsExecutable: true,
-					SizeBytes:    29,
-					Content:      []byte("#!/usr/bin/env bash\necho old\n"),
-				},
-				{
-					Path:      "references/runbook.md",
-					FileKind:  "reference",
-					MediaType: "text/markdown; charset=utf-8",
-					Encoding:  "utf8",
-					Content:   []byte("# Runbook\n"),
-				},
-			},
-		},
-	}, fakeStatusReader{}, "")
-
-	prompt, err := service.buildSystemPrompt(
-		context.Background(),
-		StartInput{
-			Source: SourceSkillEditor,
-			Context: Context{
-				ProjectID:      uuid.MustParse("660e8400-e29b-41d4-a716-446655440000"),
-				SkillID:        &skillID,
-				SkillFilePath:  stringPointer("scripts/redeploy.sh"),
-				SkillFileDraft: stringPointer("#!/usr/bin/env bash\necho new\n"),
-			},
-		},
-		catalogdomain.Project{Name: "OpenASE"},
-	)
-	if err != nil {
-		t.Fatalf("build system prompt: %v", err)
-	}
-	if !containsAll(prompt,
-		"## Source: Skill Editor",
-		"Skill: deploy | Version: 4 | Enabled: true",
-		"### Skill Bundle File List",
-		"scripts/redeploy.sh [kind=script, encoding=utf8, size=29] executable=true",
-		"### Currently Selected File",
-		"path: scripts/redeploy.sh",
-		"### Published File Content",
-		"echo old",
-		"### Other Editable Text File Content",
-		"#### references/runbook.md",
-		"### Current Editor Draft (Unsaved)",
-		"echo new",
-		"### Skill Editing Requirements",
-		"\"type\":\"diff\",\"file\":\"relative/file/path\"",
-		"\"type\":\"bundle_diff\",\"files\"",
-		"`bundle_diff.files[].file` must be a bundle-relative file path",
-	) {
-		t.Fatalf("expected skill-editor response instructions in prompt, got %q", prompt)
 	}
 }
 
@@ -1096,7 +825,7 @@ func TestStartTurnRejectsExhaustedSession(t *testing.T) {
 
 	if _, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message:   "resume",
-		Source:    SourceHarnessEditor,
+		Source:    SourceProjectSidebar,
 		Context:   Context{ProjectID: projectID},
 		SessionID: &sessionID,
 	}); !errors.Is(err, ErrSessionTurnLimitReached) {
@@ -1397,197 +1126,6 @@ func TestStartTurnRejectsExplicitUnavailableEphemeralChatProvider(t *testing.T) 
 	}
 }
 
-func TestStartTurnHarnessProviderMatrix(t *testing.T) {
-	t.Parallel()
-
-	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440105")
-	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440105")
-	workflowID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440105")
-	cases := []struct {
-		name       string
-		provider   catalogdomain.AgentProvider
-		wantErr    error
-		wantReason string
-	}{
-		{
-			name: "accepts local codex",
-			provider: catalogdomain.AgentProvider{
-				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440201"),
-				OrganizationID: orgID,
-				Name:           "Codex local",
-				AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-				MachineHost:    catalogdomain.LocalMachineHost,
-				Available:      true,
-			},
-		},
-		{
-			name: "accepts local claude",
-			provider: catalogdomain.AgentProvider{
-				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440202"),
-				OrganizationID: orgID,
-				Name:           "Claude local",
-				AdapterType:    catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
-				MachineHost:    catalogdomain.LocalMachineHost,
-				Available:      true,
-			},
-		},
-		{
-			name: "accepts local gemini",
-			provider: catalogdomain.AgentProvider{
-				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440203"),
-				OrganizationID: orgID,
-				Name:           "Gemini local",
-				AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
-				MachineHost:    catalogdomain.LocalMachineHost,
-				Available:      true,
-			},
-		},
-		{
-			name: "rejects remote codex",
-			provider: catalogdomain.AgentProvider{
-				ID:             uuid.MustParse("880e8400-e29b-41d4-a716-446655440204"),
-				OrganizationID: orgID,
-				Name:           "Codex remote",
-				AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-				MachineHost:    "10.0.0.25",
-				Available:      true,
-			},
-			wantErr:    ErrProviderUnsupported,
-			wantReason: "reason=remote_machine_not_supported",
-		},
-	}
-
-	for _, tc := range cases {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			runtime := &fakeRuntime{
-				streamEvents: []StreamEvent{{Event: "done", Payload: donePayload{SessionID: "session-1", TurnsUsed: 1}}},
-				supportFn: func(provider catalogdomain.AgentProvider) bool {
-					switch provider.AdapterType {
-					case catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-						catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI,
-						catalogdomain.AgentProviderAdapterTypeGeminiCLI:
-						return true
-					default:
-						return false
-					}
-				},
-			}
-			service := NewService(
-				nil,
-				runtime,
-				fakeCatalogReader{
-					project: catalogdomain.Project{
-						ID:                     projectID,
-						OrganizationID:         orgID,
-						Name:                   "OpenASE",
-						DefaultAgentProviderID: &tc.provider.ID,
-					},
-					providers: []catalogdomain.AgentProvider{tc.provider},
-				},
-				fakeTicketReader{},
-				harnessWorkflowReader{},
-				nil,
-				"",
-			)
-
-			stream, err := service.StartTurn(context.Background(), UserID("user:harness"), StartInput{
-				Message:    "Tighten the harness boundaries.",
-				Source:     SourceHarnessEditor,
-				ProviderID: &tc.provider.ID,
-				Context: Context{
-					ProjectID:  projectID,
-					WorkflowID: &workflowID,
-				},
-			})
-			if tc.wantErr != nil {
-				if !errors.Is(err, tc.wantErr) {
-					t.Fatalf("StartTurn() error = %v, want %v", err, tc.wantErr)
-				}
-				if !strings.Contains(err.Error(), tc.wantReason) {
-					t.Fatalf("expected reason %q in %v", tc.wantReason, err)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("StartTurn() error = %v", err)
-			}
-			_ = collectStreamEvents(stream.Events)
-			if runtime.lastInput.Provider.ID != tc.provider.ID {
-				t.Fatalf("provider id = %s, want %s", runtime.lastInput.Provider.ID, tc.provider.ID)
-			}
-		})
-	}
-}
-
-func TestStartTurnHarnessFallsBackPastRemoteDefaultProvider(t *testing.T) {
-	t.Parallel()
-
-	projectID := uuid.MustParse("660e8400-e29b-41d4-a716-446655440106")
-	orgID := uuid.MustParse("770e8400-e29b-41d4-a716-446655440106")
-	workflowID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440106")
-	remoteProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440205")
-	localProviderID := uuid.MustParse("880e8400-e29b-41d4-a716-446655440206")
-	runtime := &fakeRuntime{
-		streamEvents: []StreamEvent{{Event: "done", Payload: donePayload{SessionID: "session-1", TurnsUsed: 1}}},
-		supportFn: func(provider catalogdomain.AgentProvider) bool {
-			return provider.AdapterType == catalogdomain.AgentProviderAdapterTypeCodexAppServer
-		},
-	}
-	service := NewService(
-		nil,
-		runtime,
-		fakeCatalogReader{
-			project: catalogdomain.Project{
-				ID:                     projectID,
-				OrganizationID:         orgID,
-				Name:                   "OpenASE",
-				DefaultAgentProviderID: &remoteProviderID,
-			},
-			providers: []catalogdomain.AgentProvider{
-				{
-					ID:             remoteProviderID,
-					OrganizationID: orgID,
-					Name:           "Codex remote",
-					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-					MachineHost:    "10.0.0.30",
-					Available:      true,
-				},
-				{
-					ID:             localProviderID,
-					OrganizationID: orgID,
-					Name:           "Codex local",
-					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-					MachineHost:    catalogdomain.LocalMachineHost,
-					Available:      true,
-				},
-			},
-		},
-		fakeTicketReader{},
-		harnessWorkflowReader{},
-		nil,
-		"",
-	)
-
-	stream, err := service.StartTurn(context.Background(), UserID("user:harness"), StartInput{
-		Message: "Tighten the harness boundaries.",
-		Source:  SourceHarnessEditor,
-		Context: Context{
-			ProjectID:  projectID,
-			WorkflowID: &workflowID,
-		},
-	})
-	if err != nil {
-		t.Fatalf("StartTurn() error = %v", err)
-	}
-	_ = collectStreamEvents(stream.Events)
-	if runtime.lastInput.Provider.ID != localProviderID {
-		t.Fatalf("provider id = %s, want fallback %s", runtime.lastInput.Provider.ID, localProviderID)
-	}
-}
-
 func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 	t.Parallel()
 
@@ -1638,7 +1176,7 @@ func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 
 	stream, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message: "first",
-		Source:  SourceHarnessEditor,
+		Source:  SourceProjectSidebar,
 		Context: Context{ProjectID: projectID},
 	})
 	if err != nil {
@@ -1654,7 +1192,7 @@ func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 
 	if _, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message:   "resume",
-		Source:    SourceHarnessEditor,
+		Source:    SourceProjectSidebar,
 		Context:   Context{ProjectID: projectID},
 		SessionID: &sessionID,
 	}); !errors.Is(err, ErrSessionBudgetExceeded) {
@@ -1710,7 +1248,7 @@ func TestStartTurnAllowsResumeWhenProviderSpendUnavailable(t *testing.T) {
 
 	stream, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message: "first",
-		Source:  SourceHarnessEditor,
+		Source:  SourceProjectSidebar,
 		Context: Context{ProjectID: projectID},
 	})
 	if err != nil {
@@ -1726,7 +1264,7 @@ func TestStartTurnAllowsResumeWhenProviderSpendUnavailable(t *testing.T) {
 
 	if _, err := service.StartTurn(context.Background(), userID, StartInput{
 		Message:   "resume",
-		Source:    SourceHarnessEditor,
+		Source:    SourceProjectSidebar,
 		Context:   Context{ProjectID: projectID},
 		SessionID: &sessionID,
 	}); err != nil {

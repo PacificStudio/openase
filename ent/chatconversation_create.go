@@ -64,6 +64,20 @@ func (_c *ChatConversationCreate) SetNillableStatus(v *string) *ChatConversation
 	return _c
 }
 
+// SetTitle sets the "title" field.
+func (_c *ChatConversationCreate) SetTitle(v string) *ChatConversationCreate {
+	_c.mutation.SetTitle(v)
+	return _c
+}
+
+// SetNillableTitle sets the "title" field if the given value is not nil.
+func (_c *ChatConversationCreate) SetNillableTitle(v *string) *ChatConversationCreate {
+	if v != nil {
+		_c.SetTitle(*v)
+	}
+	return _c
+}
+
 // SetProviderThreadID sets the "provider_thread_id" field.
 func (_c *ChatConversationCreate) SetProviderThreadID(v string) *ChatConversationCreate {
 	_c.mutation.SetProviderThreadID(v)
@@ -286,6 +300,10 @@ func (_c *ChatConversationCreate) defaults() {
 		v := chatconversation.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.Title(); !ok {
+		v := chatconversation.DefaultTitle
+		_c.mutation.SetTitle(v)
+	}
 	if _, ok := _c.mutation.LastActivityAt(); !ok {
 		v := chatconversation.DefaultLastActivityAt()
 		_c.mutation.SetLastActivityAt(v)
@@ -393,6 +411,10 @@ func (_c *ChatConversationCreate) createSpec() (*ChatConversation, *sqlgraph.Cre
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(chatconversation.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.Title(); ok {
+		_spec.SetField(chatconversation.FieldTitle, field.TypeString, value)
+		_node.Title = value
 	}
 	if value, ok := _c.mutation.ProviderThreadID(); ok {
 		_spec.SetField(chatconversation.FieldProviderThreadID, field.TypeString, value)

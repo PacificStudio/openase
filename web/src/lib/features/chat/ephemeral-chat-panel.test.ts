@@ -46,6 +46,7 @@ const {
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({

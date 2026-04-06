@@ -9,6 +9,7 @@ const { closeChatSession, streamChatTurn } = vi.hoisted(() => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import type { AgentProvider } from '$lib/api/contracts'

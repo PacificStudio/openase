@@ -524,6 +524,7 @@ var (
 		{Name: "source", Type: field.TypeString},
 		{Name: "provider_id", Type: field.TypeUUID},
 		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "title", Type: field.TypeString, Nullable: true, Default: ""},
 		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
 		{Name: "last_turn_id", Type: field.TypeString, Nullable: true},
 		{Name: "provider_thread_status", Type: field.TypeString, Nullable: true},
@@ -542,7 +543,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_conversations_projects_chat_conversations",
-				Columns:    []*schema.Column{ChatConversationsColumns[13]},
+				Columns:    []*schema.Column{ChatConversationsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -551,7 +552,7 @@ var (
 			{
 				Name:    "chatconversation_project_id_user_id_source_provider_id_last_activity_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatConversationsColumns[13], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[10]},
+				Columns: []*schema.Column{ChatConversationsColumns[14], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[11]},
 			},
 		},
 	}

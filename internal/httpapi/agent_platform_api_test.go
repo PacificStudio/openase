@@ -18,7 +18,6 @@ import (
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -1536,8 +1535,6 @@ func TestAgentPlatformExpandedScheduledJobRoutesRequireExplicitScopes(t *testing
 func TestAgentPlatformExpandedSkillRoutesRequireExplicitScopes(t *testing.T) {
 	fixture := newAgentPlatformExpandedFixture(t)
 	importedEntry := base64.StdEncoding.EncodeToString([]byte("---\nname: platform-imported\ndescription: platform imported bundle\n---\n\n# Imported\n"))
-	refinementSkillEntry := base64.StdEncoding.EncodeToString([]byte("---\nname: platform-main-skill\ndescription: platform refined bundle\n---\n\n# Refined\n"))
-	refinementEntry := base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho refined\n"))
 
 	for _, tc := range []struct {
 		name       string
@@ -1557,7 +1554,6 @@ func TestAgentPlatformExpandedSkillRoutesRequireExplicitScopes(t *testing.T) {
 		{name: "skills.disable", scope: agentplatform.ScopeSkillsDisable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/disable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":false`},
 		{name: "skills.enable", scope: agentplatform.ScopeSkillsEnable, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/enable", fixture.skillMainID), wantStatus: http.StatusOK, wantBody: `"is_enabled":true`},
 		{name: "skills.bind", scope: agentplatform.ScopeSkillsBind, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/bind", fixture.skillMainID), body: map[string]any{"workflow_ids": []string{fixture.mainWorkflowID.String()}}, wantStatus: http.StatusOK, wantBody: `"bound_workflows":[`},
-		{name: "skills.refine", scope: agentplatform.ScopeSkillsRefine, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/skills/%s/refinement-runs", fixture.skillMainID), body: map[string]any{"project_id": fixture.projectID.String(), "message": "Refine the skill and verify it.", "provider_id": fixture.providerID.String(), "files": []map[string]any{{"path": "SKILL.md", "content_base64": refinementSkillEntry, "media_type": "text/markdown; charset=utf-8", "is_executable": false}, {"path": "scripts/check.sh", "content_base64": refinementEntry, "media_type": "text/x-shellscript; charset=utf-8", "is_executable": true}}}, wantStatus: http.StatusOK, wantBody: "event: session"},
 		{name: "skills.delete", scope: agentplatform.ScopeSkillsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/skills/%s", fixture.skillDeleteID), wantStatus: http.StatusOK, wantBody: fixture.skillDeleteID.String()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1581,11 +1577,6 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	if err != nil {
 		t.Fatalf("load provider: %v", err)
 	}
-	projectItem, err := client.Project.Get(ctx, projectID)
-	if err != nil {
-		t.Fatalf("load project: %v", err)
-	}
-
 	repoRoot := createTestGitRepo(t)
 	createPrimaryProjectRepo(ctx, t, client, projectID, repoRoot)
 	attachPrimaryProjectRepoCheckout(ctx, t, client, projectID, providerItem.MachineID, repoRoot)
@@ -1713,44 +1704,6 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		t.Fatalf("create delete scheduled job: %v", err)
 	}
 
-	refinementService := chatservice.NewSkillRefinementService(
-		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		&httpSkillRefinementRuntime{
-			events: []chatservice.StreamEvent{{
-				Event: "message",
-				Payload: map[string]any{
-					"type":    "text",
-					"content": `{"type":"skill_refinement_result","status":"verified","summary":"Platform agent refinement verified","verification_notes":"bash -n passed"}`,
-				},
-			}},
-			anchor: chatservice.RuntimeSessionAnchor{
-				ProviderThreadID:      "thread-platform",
-				LastTurnID:            "turn-platform",
-				ProviderAnchorID:      "thread-platform",
-				ProviderAnchorKind:    "thread",
-				ProviderTurnSupported: true,
-			},
-		},
-		httpSkillRefinementCatalog{
-			project: catalogdomain.Project{
-				ID:                     projectID,
-				OrganizationID:         projectItem.OrganizationID,
-				Name:                   projectItem.Name,
-				DefaultAgentProviderID: &providerItem.ID,
-			},
-			providers: []catalogdomain.AgentProvider{{
-				ID:                providerItem.ID,
-				OrganizationID:    projectItem.OrganizationID,
-				Name:              providerItem.Name,
-				AdapterType:       catalogdomain.AgentProviderAdapterTypeCodexAppServer,
-				AvailabilityState: catalogdomain.AgentProviderAvailabilityStateAvailable,
-				Available:         true,
-				ModelName:         "gpt-5.4",
-			}},
-		},
-		httpSkillRefinementWorkflow{skill: skillMain},
-	)
-
 	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
@@ -1763,7 +1716,6 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 		catalogSvc,
 		workflowSvc,
 		WithScheduledJobService(scheduledJobSvc),
-		WithSkillRefinementService(refinementService),
 	)
 
 	return &agentPlatformExpandedFixture{

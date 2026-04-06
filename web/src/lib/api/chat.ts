@@ -2,7 +2,7 @@ import { ApiError, buildRequestHeaders } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
 import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
-export type ChatSource = 'harness_editor' | 'skill_editor' | 'project_sidebar' | 'ticket_detail'
+export type ChatSource = 'project_sidebar' | 'ticket_detail'
 
 export type ChatTurnRequest = {
   message: string
@@ -11,12 +11,7 @@ export type ChatTurnRequest = {
   sessionId?: string
   context: {
     projectId: string
-    workflowId?: string
     ticketId?: string
-    harnessDraft?: string
-    skillId?: string
-    skillFilePath?: string
-    skillFileDraft?: string
   }
 }
 
@@ -96,6 +91,7 @@ export type ProjectConversation = {
   userId: string
   source: 'project_sidebar'
   providerId: string
+  title: string
   providerAnchorKind?: 'thread' | 'session'
   providerAnchorId?: string
   providerTurnId?: string
@@ -199,6 +195,15 @@ export type ProjectConversationTurnDonePayload = {
   costUSD?: number
 }
 
+export type ProjectConversationTurnResponse = {
+  turn: {
+    id: string
+    turnIndex: number
+    status: string
+  }
+  conversation: ProjectConversation
+}
+
 export type ProjectConversationReasoningUpdatedPayload = {
   threadId: string
   turnId: string
@@ -220,6 +225,8 @@ export type ProjectConversationDiffUpdatedPayload = {
 export type ProjectConversationSessionPayload = {
   conversationId: string
   runtimeState: string
+  title?: string
+  rollingSummary?: string
   providerAnchorKind?: 'thread' | 'session'
   providerAnchorId?: string
   providerTurnId?: string
@@ -255,6 +262,7 @@ type RawProjectConversation = {
   source?: string
   provider_id?: string
   status?: string
+  title?: string
   provider_anchor_kind?: string
   provider_anchor_id?: string
   provider_turn_id?: string
@@ -299,12 +307,7 @@ export async function streamChatTurn(
       session_id: request.sessionId,
       context: {
         project_id: request.context.projectId,
-        workflow_id: request.context.workflowId,
         ticket_id: request.context.ticketId,
-        harness_draft: request.context.harnessDraft,
-        skill_id: request.context.skillId,
-        skill_file_path: request.context.skillFilePath,
-        skill_file_draft: request.context.skillFileDraft,
       },
     }),
     credentials: 'same-origin',
@@ -401,7 +404,7 @@ export function startProjectConversationTurn(
   conversationId: string,
   request: ProjectConversationTurnRequest,
 ) {
-  return fetchJSON<{ turn: { id: string; turn_index: number; status: string } }>(
+  return fetchJSON<{ turn?: Record<string, unknown>; conversation?: RawProjectConversation }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
     {
       method: 'POST',
@@ -410,7 +413,18 @@ export function startProjectConversationTurn(
         focus: serializeProjectConversationFocus(request.focus),
       },
     },
-  )
+  ).then((payload) => {
+    const object = parseRequiredObject(payload)
+    const turn = parseRequiredObject(object.turn)
+    return {
+      turn: {
+        id: readRequiredString(turn, 'id'),
+        turnIndex: readRequiredNumber(turn, 'turn_index'),
+        status: readRequiredString(turn, 'status'),
+      },
+      conversation: parseProjectConversation(object.conversation),
+    } satisfies ProjectConversationTurnResponse
+  })
 }
 
 function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefined) {
@@ -669,6 +683,8 @@ function parseProjectConversationStreamPayload(
         payload: {
           conversationId: readRequiredString(object, 'conversation_id'),
           runtimeState: readRequiredString(object, 'runtime_state'),
+          title: readOptionalString(object, 'title'),
+          rollingSummary: readOptionalString(object, 'rolling_summary'),
           providerAnchorKind: readProviderAnchorKind(object),
           providerAnchorId:
             readOptionalString(object, 'provider_anchor_id') ??
@@ -937,6 +953,7 @@ function parseProjectConversation(value: unknown): ProjectConversation {
     userId: readOptionalString(object, 'user_id') ?? '',
     source: 'project_sidebar',
     providerId: readOptionalString(object, 'provider_id') ?? '',
+    title: readOptionalString(object, 'title') ?? '',
     providerAnchorKind: readProviderAnchorKind(object),
     providerAnchorId:
       readOptionalString(object, 'provider_anchor_id') ??

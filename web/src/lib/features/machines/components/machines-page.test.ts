@@ -68,12 +68,9 @@ const machineFixture = {
   host: 'builder.internal',
   port: 22,
   reachability_mode: 'direct_connect',
-  execution_mode: 'ssh_compat',
+  execution_mode: 'websocket',
   execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
   ssh_helper_enabled: true,
-  ssh_helper_required: true,
-  connection_mode: 'ssh',
-  transport_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
   ssh_user: 'ubuntu',
   ssh_key_path: '/keys/id_ed25519',
   advertised_endpoint: null,
@@ -217,15 +214,18 @@ describe('MachinesPage cache behavior', () => {
 
     expect(await view.findByText('Linux / amd64')).toBeTruthy()
     expect(view.getByText('Direct Connect')).toBeTruthy()
-    expect(view.getByText('Legacy SSH runtime')).toBeTruthy()
+    expect(view.getByText('Waiting for listener')).toBeTruthy()
     expect(view.getByText('Detected')).toBeTruthy()
 
     await openMachineDetails('machine-1')
 
     expect(await view.findByText('Connection topology')).toBeTruthy()
     expect(view.getByText('Next step guidance')).toBeTruthy()
+    expect(view.getAllByText('SSH helper available').length).toBeGreaterThan(0)
     expect(view.getByText('SSH quick setup')).toBeTruthy()
-    expect(view.getByText('Migration needed')).toBeTruthy()
+    expect(
+      view.getByText('Add the direct-connect listener endpoint before running connection checks.'),
+    ).toBeTruthy()
     expect(view.getAllByText('Detected amd64 on Linux.').length).toBeGreaterThan(0)
     expect(view.getByText('/home/ubuntu/.openase/workspace')).toBeTruthy()
     expect(view.getByText('Keeping the saved workspace root override.')).toBeTruthy()

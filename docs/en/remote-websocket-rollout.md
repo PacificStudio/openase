@@ -7,7 +7,7 @@ Terminology used in this guide:
 - `direct_connect`: the control plane can reach the machine.
 - `reverse_connect`: the machine daemon can dial back to the control plane.
 - `websocket`: the intended remote execution path.
-- `ssh_compat`: a legacy stored execution value that should be migrated to websocket. SSH remains helper-only for bootstrap, diagnostics, and emergency repair.
+- SSH remains helper-only for bootstrap, diagnostics, and emergency repair.
 
 ## Architecture Summary
 
@@ -21,9 +21,8 @@ That separation maps onto the stored machine fields and runtime entrypoints like
 
 | Topology | Stored machine state | Runtime entrypoint | Notes |
 | --- | --- | --- | --- |
-| Direct-connect listener | `reachability_mode=direct_connect`, `execution_mode=websocket`, `connection_mode=ws_listener` | Control plane dials the saved `advertised_endpoint` | Use this when OpenASE can reach the machine directly |
-| Reverse-connect daemon | `reachability_mode=reverse_connect`, `execution_mode=websocket`, `connection_mode=ws_reverse` | Remote host runs `openase machine-agent run` and keeps a machine-channel session open | Use this when the machine can dial out but should not expose an inbound listener |
-| Legacy compatibility record | `execution_mode=ssh_compat` | None for normal runtime execution | Migration-only state; ticket execution must not fall back to SSH |
+| Direct-connect listener | `reachability_mode=direct_connect`, `execution_mode=websocket` | Control plane dials the saved `advertised_endpoint` | Use this when OpenASE can reach the machine directly |
+| Reverse-connect daemon | `reachability_mode=reverse_connect`, `execution_mode=websocket` | Remote host runs `openase machine-agent run` and keeps a machine-channel session open | Use this when the machine can dial out but should not expose an inbound listener |
 
 ## Automated Validation Matrix
 
@@ -196,7 +195,7 @@ SSH compatibility:
 
 ### Inventory Current State
 
-List machines and identify any record that still stores `execution_mode=ssh_compat` or is missing the topology-specific fields needed for websocket execution:
+List machines and identify any record that is missing the topology-specific fields needed for websocket execution:
 
 ```bash
 openase machine list
@@ -209,7 +208,7 @@ Use this path when the control plane can dial the machine directly:
 1. Save `reachability_mode=direct_connect`.
 2. Save `execution_mode=websocket`.
 3. Save a valid `advertised_endpoint`.
-4. Resave the machine so `connection_mode` resolves to `ws_listener`.
+4. Resave the machine and confirm the direct-connect listener endpoint is still present.
 5. Run:
 
 ```bash
