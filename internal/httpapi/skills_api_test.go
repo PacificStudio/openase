@@ -163,7 +163,6 @@ func TestHandleStartSkillRefinementRejectsHeaderFallbackInOIDCMode(t *testing.T)
 
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/skills/%s/refinement-runs", skillID), strings.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(chatUserHeader, "user:spoofed-header")
 	rec := httptest.NewRecorder()
 	ctx := server.echo.NewContext(req, rec)
 	ctx.SetPath("/api/v1/skills/:skillId/refinement-runs")
@@ -585,7 +584,11 @@ func TestSkillRefinementRouteStreamsRichRuntimeEvents(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/skills/%s/refinement-runs", skillID), strings.NewReader(requestBody))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(chatUserHeader, "user:skill-http")
+	req.AddCookie(&http.Cookie{
+		Name:  aiPrincipalCookieName,
+		Value: aiPrincipalCookiePrefix + uuid.NewString(),
+		Path:  "/",
+	})
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
