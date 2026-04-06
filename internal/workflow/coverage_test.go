@@ -780,6 +780,7 @@ $(baz)'` {
 	}, maliciousRuntime); err != nil {
 		t.Fatalf("run(shell-safe interpolation) error = %v", err)
 	}
+	//nolint:gosec // test reads a file it created under t.TempDir-backed workspace.
 	content, err := os.ReadFile(filepath.Join(safeWorkspace, "safe.txt"))
 	if err != nil {
 		t.Fatalf("ReadFile(safe.txt) error = %v", err)
