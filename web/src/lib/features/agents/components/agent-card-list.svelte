@@ -41,11 +41,7 @@
 
   function toggleExpand(agentId: string) {
     const next = new Set(expandedIds)
-    if (next.has(agentId)) {
-      next.delete(agentId)
-    } else {
-      next.add(agentId)
-    }
+    next.has(agentId) ? next.delete(agentId) : next.add(agentId)
     expandedIds = next
   }
 
@@ -107,16 +103,13 @@
   }
 
   function activeRuns(agentId: string): AgentRunInstance[] {
-    const runs = runsByAgentId.get(agentId)
-    if (!runs) return []
-    return runs.filter(
+    return (runsByAgentId.get(agentId) ?? []).filter(
       (r) => r.status === 'launching' || r.status === 'ready' || r.status === 'executing',
     )
   }
 
-  function truncate(text: string, max: number): string {
-    return text.length > max ? text.slice(0, max) + '…' : text
-  }
+  const truncate = (text: string, max: number) =>
+    text.length > max ? text.slice(0, max) + '…' : text
 </script>
 
 {#if agents.length === 0}
