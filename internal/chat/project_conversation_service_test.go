@@ -2980,8 +2980,15 @@ func TestProjectConversationConsumeTurnPersistsInterruptAndSummary(t *testing.T)
 	if collected[2].Event != "interrupt_requested" {
 		t.Fatalf("third stream event = %q, want interrupt_requested", collected[2].Event)
 	}
-	if collected[len(collected)-1].Event != "turn_done" {
-		t.Fatalf("last stream event = %q, want turn_done", collected[len(collected)-1].Event)
+	if collected[len(collected)-2].Event != "turn_done" {
+		t.Fatalf("penultimate stream event = %q, want turn_done", collected[len(collected)-2].Event)
+	}
+	lastPayload, ok := collected[len(collected)-1].Payload.(map[string]any)
+	if collected[len(collected)-1].Event != "session" || !ok {
+		t.Fatalf("last stream event = %+v, want inactive session payload", collected[len(collected)-1])
+	}
+	if lastPayload["runtime_state"] != string(chatdomain.RuntimeStateInactive) {
+		t.Fatalf("expected inactive session after completion, got %#v", lastPayload)
 	}
 }
 
