@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -474,10 +473,4 @@ func mapOrganizationInvitation(item *ent.OrganizationInvitation) domain.Organiza
 		CreatedAt:        item.CreatedAt,
 		UpdatedAt:        item.UpdatedAt,
 	}
-}
-
-func sortOrganizationMembershipEntries(entries []domain.OrganizationMembershipEntry) {
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].Membership.Email < entries[j].Membership.Email
-	})
 }
