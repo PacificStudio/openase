@@ -40,7 +40,6 @@ type cliMachineRecord struct {
 	Port             int                  `json:"port"`
 	ReachabilityMode string               `json:"reachability_mode"`
 	ExecutionMode    string               `json:"execution_mode"`
-	ConnectionMode   string               `json:"connection_mode"`
 	SSHUser          *string              `json:"ssh_user"`
 	SSHKeyPath       *string              `json:"ssh_key_path"`
 	WorkspaceRoot    *string              `json:"workspace_root"`
@@ -528,7 +527,12 @@ func fetchCLIMachine(ctx context.Context, apiContext apiCommandContext, machineI
 	if err != nil {
 		return catalogdomain.Machine{}, err
 	}
-	connectionMode, err := catalogdomain.ParseStoredMachineConnectionMode(payload.Machine.ConnectionMode, payload.Machine.Host)
+	connectionMode, _, _, err := catalogdomain.ResolveMachineConnectionMode(
+		"",
+		payload.Machine.ReachabilityMode,
+		payload.Machine.ExecutionMode,
+		payload.Machine.Host,
+	)
 	if err != nil {
 		return catalogdomain.Machine{}, err
 	}

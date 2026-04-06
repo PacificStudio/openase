@@ -60,7 +60,6 @@ type MachineExecutionMode string
 const (
 	MachineExecutionModeLocalProcess MachineExecutionMode = "local_process"
 	MachineExecutionModeWebsocket    MachineExecutionMode = "websocket"
-	MachineExecutionModeSSHCompat    MachineExecutionMode = "ssh_compat"
 )
 
 func (m MachineExecutionMode) String() string {
@@ -70,8 +69,7 @@ func (m MachineExecutionMode) String() string {
 func (m MachineExecutionMode) IsValid() bool {
 	switch m {
 	case MachineExecutionModeLocalProcess,
-		MachineExecutionModeWebsocket,
-		MachineExecutionModeSSHCompat:
+		MachineExecutionModeWebsocket:
 		return true
 	default:
 		return false
@@ -95,8 +93,6 @@ func (m MachineConnectionMode) ExecutionMode() MachineExecutionMode {
 	switch m {
 	case MachineConnectionModeLocal:
 		return MachineExecutionModeLocalProcess
-	case MachineConnectionModeSSH:
-		return MachineExecutionModeSSHCompat
 	case MachineConnectionModeWSReverse, MachineConnectionModeWSListener:
 		return MachineExecutionModeWebsocket
 	default:
@@ -301,12 +297,16 @@ func parseMachineConnectionMode(raw string, host string) (MachineConnectionMode,
 		if host == LocalMachineHost {
 			return MachineConnectionModeLocal, nil
 		}
-		return MachineConnectionModeSSH, nil
+		return MachineConnectionModeWSListener, nil
+	}
+
+	if strings.EqualFold(trimmed, MachineConnectionModeSSH.String()) {
+		return MachineConnectionModeWSListener, nil
 	}
 
 	mode := MachineConnectionMode(strings.ToLower(trimmed))
 	if !mode.IsValid() {
-		return "", fmt.Errorf("connection_mode must be one of local, ssh, ws_reverse, ws_listener")
+		return "", fmt.Errorf("connection_mode must be one of local, ws_reverse, ws_listener")
 	}
 
 	return mode, nil
@@ -343,12 +343,12 @@ func parseMachineExecutionMode(raw string, host string) (MachineExecutionMode, e
 		if host == LocalMachineHost {
 			return MachineExecutionModeLocalProcess, nil
 		}
-		return MachineExecutionModeSSHCompat, nil
+		return MachineExecutionModeWebsocket, nil
 	}
 
 	mode := MachineExecutionMode(strings.ToLower(trimmed))
 	if !mode.IsValid() {
-		return "", fmt.Errorf("execution_mode must be one of local_process, websocket, ssh_compat")
+		return "", fmt.Errorf("execution_mode must be one of local_process, websocket")
 	}
 
 	return mode, nil
@@ -417,14 +417,10 @@ func machineConnectionModeFromSemantics(
 		}
 		return MachineConnectionModeLocal, nil
 	case MachineReachabilityModeDirectConnect:
-		switch executionMode {
-		case MachineExecutionModeWebsocket:
-			return MachineConnectionModeWSListener, nil
-		case MachineExecutionModeSSHCompat:
-			return MachineConnectionModeSSH, nil
-		default:
+		if executionMode != MachineExecutionModeWebsocket {
 			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode direct_connect", executionMode)
 		}
+		return MachineConnectionModeWSListener, nil
 	case MachineReachabilityModeReverseConnect:
 		if executionMode != MachineExecutionModeWebsocket {
 			return "", fmt.Errorf("execution_mode %q is not valid for reachability_mode reverse_connect", executionMode)

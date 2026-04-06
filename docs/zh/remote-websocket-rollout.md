@@ -7,7 +7,7 @@
 - `direct_connect`：控制面可以主动拨到机器。
 - `reverse_connect`：机器守护进程可以反向拨回控制面。
 - `websocket`：目标远程执行路径。
-- `ssh_compat`：需要迁移到 websocket 的遗留执行模式存储值。SSH 仅保留为引导、诊断和紧急修复 helper。
+- SSH 仅保留为引导、诊断和紧急修复 helper。
 
 ## 架构摘要
 
@@ -21,9 +21,8 @@ Remote Runtime v1 将远程机器行为拆成三个独立关注点：
 
 | 拓扑 | 机器存储状态 | 运行入口 | 说明 |
 | --- | --- | --- | --- |
-| Direct-connect listener | `reachability_mode=direct_connect`、`execution_mode=websocket`、`connection_mode=ws_listener` | 控制面直接拨号到保存的 `advertised_endpoint` | 适用于 OpenASE 可以直接到达机器 |
-| Reverse-connect daemon | `reachability_mode=reverse_connect`、`execution_mode=websocket`、`connection_mode=ws_reverse` | 远端主机运行 `openase machine-agent run` 并保持 machine-channel 会话 | 适用于机器可以向外拨号但不应暴露入站 listener |
-| 遗留兼容记录 | `execution_mode=ssh_compat` | 正常 runtime 不存在对应入口 | 只用于迁移阶段；工单执行不得回退到 SSH |
+| Direct-connect listener | `reachability_mode=direct_connect`、`execution_mode=websocket` | 控制面直接拨号到保存的 `advertised_endpoint` | 适用于 OpenASE 可以直接到达机器 |
+| Reverse-connect daemon | `reachability_mode=reverse_connect`、`execution_mode=websocket` | 远端主机运行 `openase machine-agent run` 并保持 machine-channel 会话 | 适用于机器可以向外拨号但不应暴露入站 listener |
 
 ## 自动化验证矩阵
 
@@ -194,7 +193,7 @@ SSH 兼容路径：
 
 ### 盘点当前状态
 
-先列出机器，识别仍然存储 `execution_mode=ssh_compat` 或缺少 websocket 拓扑必填字段的记录：
+先列出机器，识别缺少 websocket 拓扑必填字段的记录：
 
 ```bash
 openase machine list
@@ -207,7 +206,7 @@ openase machine list
 1. 保存 `reachability_mode=direct_connect`。
 2. 保存 `execution_mode=websocket`。
 3. 保存有效的 `advertised_endpoint`。
-4. 重新保存机器，使 `connection_mode` 解析为 `ws_listener`。
+4. 重新保存机器，并确认 direct-connect listener endpoint 仍然存在。
 5. 运行：
 
 ```bash

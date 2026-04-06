@@ -59,7 +59,6 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
       machine.status,
       machine.reachability_mode,
       machine.execution_mode,
-      machine.connection_mode,
       machine.advertised_endpoint,
       machine.detected_os,
       machine.detected_arch,
@@ -74,10 +73,7 @@ export function filterMachines(machines: Machine[], searchQuery: string): Machin
 
 export function isLocalMachine(machine: Machine | null | undefined, draft?: MachineDraft): boolean {
   return (
-    normalizeReachabilityMode(
-      draft?.reachabilityMode ?? machine?.reachability_mode,
-      draft?.host ?? machine?.host,
-      machine?.connection_mode,
-    ) === 'local'
+    normalizeReachabilityMode(draft?.reachabilityMode ?? machine?.reachability_mode, draft?.host ?? machine?.host) ===
+    'local'
   )
 }

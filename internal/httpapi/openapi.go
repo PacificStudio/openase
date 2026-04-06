@@ -101,9 +101,6 @@ type OpenAPIMachine struct {
 	ExecutionMode         string                          `json:"execution_mode"`
 	ExecutionCapabilities []string                        `json:"execution_capabilities,omitempty"`
 	SSHHelperEnabled      bool                            `json:"ssh_helper_enabled"`
-	SSHHelperRequired     bool                            `json:"ssh_helper_required"`
-	ConnectionMode        string                          `json:"connection_mode"`
-	TransportCapabilities []string                        `json:"transport_capabilities,omitempty"`
 	SSHUser               *string                         `json:"ssh_user,omitempty"`
 	SSHKeyPath            *string                         `json:"ssh_key_path,omitempty"`
 	AdvertisedEndpoint    *string                         `json:"advertised_endpoint,omitempty"`
@@ -1781,12 +1778,9 @@ var (
 		"host":                              "Hostname or address used to reach the machine.",
 		"port":                              "Transport-specific port used to connect to the machine.",
 		"reachability_mode":                 "Reachability topology for the machine: local, direct_connect, or reverse_connect.",
-		"execution_mode":                    "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+		"execution_mode":                    "Execution path currently used by this record: local_process or websocket.",
 		"execution_capabilities":            "Runtime execution capabilities derived from the actually implemented path for this machine record.",
 		"ssh_helper_enabled":                "Whether SSH helper credentials are configured for bootstrap or diagnostics.",
-		"ssh_helper_required":               "Whether this record still reflects legacy ssh_compat state that should be migrated to websocket.",
-		"connection_mode":                   "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-		"transport_capabilities":            "Legacy compatibility alias for execution_capabilities.",
 		"ssh_user":                          "SSH helper username used for bootstrap, diagnostics, or emergency repair access.",
 		"ssh_key_path":                      "Path to the SSH private key used for SSH helper bootstrap, diagnostics, or emergency repair access.",
 		"advertised_endpoint":               "Direct-connect websocket endpoint advertised by the machine when execution_mode is websocket and reachability_mode is direct_connect.",

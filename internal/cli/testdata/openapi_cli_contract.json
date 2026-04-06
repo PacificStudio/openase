@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "f12b214f4de060ba590e81abba170c6d6e34c4d296d6f93cb50f95e282cd6210",
+  "openapi_sha256": "8592900682a5382106539c98985d6885f28bc3f983a8875e2a1510d1dd3d087e",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1227,7 +1227,7 @@
       "body_fields": [
         {
           "name": "body",
-          "description": "Markdown body content for the project update thread.",
+          "description": "Required markdown body content for the project update thread.",
           "kind": "string"
         },
         {
@@ -1242,7 +1242,7 @@
         },
         {
           "name": "title",
-          "description": "Human-readable project update title.",
+          "description": "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
           "kind": "string"
         }
       ]
@@ -1273,7 +1273,7 @@
       "body_fields": [
         {
           "name": "body",
-          "description": "Updated markdown body content for the project update thread.",
+          "description": "Required updated markdown body content for the project update thread.",
           "kind": "string"
         },
         {
@@ -1293,7 +1293,7 @@
         },
         {
           "name": "title",
-          "description": "Updated human-readable project update title.",
+          "description": "Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
           "kind": "string"
         }
       ]
@@ -2233,11 +2233,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2264,7 +2259,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2306,11 +2301,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -2347,11 +2337,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2378,7 +2363,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2420,11 +2405,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",

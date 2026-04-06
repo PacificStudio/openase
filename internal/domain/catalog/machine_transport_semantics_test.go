@@ -10,9 +10,6 @@ func TestMachineTransportSemanticsHelpers(t *testing.T) {
 		if got := MachineReachabilityModeDirectConnect.String(); got != "direct_connect" {
 			t.Fatalf("MachineReachabilityModeDirectConnect.String() = %q", got)
 		}
-		if got := MachineExecutionModeSSHCompat.String(); got != "ssh_compat" {
-			t.Fatalf("MachineExecutionModeSSHCompat.String() = %q", got)
-		}
 		if !MachineReachabilityModeReverseConnect.IsValid() {
 			t.Fatal("MachineReachabilityModeReverseConnect should be valid")
 		}
@@ -41,7 +38,7 @@ func TestMachineTransportSemanticsHelpers(t *testing.T) {
 		if got := MachineConnectionModeLocal.ExecutionMode(); got != MachineExecutionModeLocalProcess {
 			t.Fatalf("local execution = %q", got)
 		}
-		if got := MachineConnectionModeSSH.ExecutionMode(); got != MachineExecutionModeSSHCompat {
+		if got := MachineConnectionModeSSH.ExecutionMode(); got != MachineExecutionModeWebsocket {
 			t.Fatalf("ssh execution = %q", got)
 		}
 		if got := MachineConnectionModeWSListener.ExecutionMode(); got != MachineExecutionModeWebsocket {
@@ -85,7 +82,7 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 			t.Fatalf("ParseStoredMachineExecutionMode(local blank) = %q, %v", got, err)
 		}
 		got, err = ParseStoredMachineExecutionMode("", "builder.example.com")
-		if err != nil || got != MachineExecutionModeSSHCompat {
+		if err != nil || got != MachineExecutionModeWebsocket {
 			t.Fatalf("ParseStoredMachineExecutionMode(remote blank) = %q, %v", got, err)
 		}
 		got, err = ParseStoredMachineExecutionMode(" websocket ", "builder.example.com")
@@ -132,26 +129,6 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 			executionMode != MachineExecutionModeWebsocket {
 			t.Fatalf(
 				"ResolveMachineConnectionMode(direct websocket) = %q %q %q",
-				connectionMode,
-				reachabilityMode,
-				executionMode,
-			)
-		}
-
-		connectionMode, reachabilityMode, executionMode, err = ResolveMachineConnectionMode(
-			"ssh",
-			"direct_connect",
-			"ssh_compat",
-			"builder.example.com",
-		)
-		if err != nil {
-			t.Fatalf("ResolveMachineConnectionMode(ssh compat) error = %v", err)
-		}
-		if connectionMode != MachineConnectionModeSSH ||
-			reachabilityMode != MachineReachabilityModeDirectConnect ||
-			executionMode != MachineExecutionModeSSHCompat {
-			t.Fatalf(
-				"ResolveMachineConnectionMode(ssh compat) = %q %q %q",
 				connectionMode,
 				reachabilityMode,
 				executionMode,
@@ -218,14 +195,6 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 		}
 
 		got, err = machineConnectionModeFromSemantics(
-			MachineReachabilityModeDirectConnect,
-			MachineExecutionModeSSHCompat,
-		)
-		if err != nil || got != MachineConnectionModeSSH {
-			t.Fatalf("machineConnectionModeFromSemantics(direct ssh_compat) = %q, %v", got, err)
-		}
-
-		got, err = machineConnectionModeFromSemantics(
 			MachineReachabilityModeReverseConnect,
 			MachineExecutionModeWebsocket,
 		)
@@ -244,12 +213,6 @@ func TestMachineTransportSemanticParsingAndCompatibility(t *testing.T) {
 			MachineExecutionModeLocalProcess,
 		); err == nil {
 			t.Fatal("machineConnectionModeFromSemantics(direct local_process) expected error")
-		}
-		if _, err := machineConnectionModeFromSemantics(
-			MachineReachabilityModeReverseConnect,
-			MachineExecutionModeSSHCompat,
-		); err == nil {
-			t.Fatal("machineConnectionModeFromSemantics(reverse ssh_compat) expected error")
 		}
 		if _, err := machineConnectionModeFromSemantics(
 			MachineReachabilityMode("bogus"),

@@ -61,8 +61,6 @@ type MachineInput struct {
 	Port                  *int                           `json:"port"`
 	ReachabilityMode      string                         `json:"reachability_mode"`
 	ExecutionMode         string                         `json:"execution_mode"`
-	ConnectionMode        string                         `json:"connection_mode"`
-	TransportCapabilities []string                       `json:"transport_capabilities"`
 	SSHUser               *string                        `json:"ssh_user"`
 	SSHKeyPath            *string                        `json:"ssh_key_path"`
 	AdvertisedEndpoint    *string                        `json:"advertised_endpoint"`
@@ -159,7 +157,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 	}
 
 	connectionMode, reachabilityMode, executionMode, err := ResolveMachineConnectionMode(
-		raw.ConnectionMode,
+		"",
 		raw.ReachabilityMode,
 		raw.ExecutionMode,
 		host,
@@ -181,18 +179,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 
 	sshUser := parseOptionalText(raw.SSHUser)
 	sshKeyPath := parseOptionalText(raw.SSHKeyPath)
-	if connectionMode == MachineConnectionModeSSH {
-		if sshUser == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_user must not be empty for ssh machines")
-		}
-		if sshKeyPath == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_key_path must not be empty for ssh machines")
-		}
-	}
-	transportCapabilities, err := parseMachineTransportCapabilities(raw.TransportCapabilities, connectionMode)
-	if err != nil {
-		return CreateMachine{}, err
-	}
+	transportCapabilities := defaultMachineTransportCapabilities(connectionMode)
 	advertisedEndpoint, err := parseMachineAdvertisedEndpoint(raw.AdvertisedEndpoint, connectionMode)
 	if err != nil {
 		return CreateMachine{}, err

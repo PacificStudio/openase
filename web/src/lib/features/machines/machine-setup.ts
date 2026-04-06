@@ -37,9 +37,7 @@ type MachineLike = Pick<
   | 'advertised_endpoint'
   | 'reachability_mode'
   | 'execution_mode'
-  | 'connection_mode'
   | 'ssh_helper_enabled'
-  | 'ssh_helper_required'
   | 'daemon_status'
 >
 
@@ -61,12 +59,6 @@ export function buildMachineSetupGuide(input: {
   const reachabilityMode = normalizeReachabilityMode(
     draft?.reachabilityMode ?? machine?.reachability_mode,
     host,
-    machine?.connection_mode,
-  )
-  const executionMode = normalizeExecutionMode(
-    draft?.executionMode ?? machine?.execution_mode,
-    host,
-    machine?.connection_mode,
   )
   const sshUser = (draft?.sshUser ?? machine?.ssh_user ?? '').trim()
   const sshKeyPath = (draft?.sshKeyPath ?? machine?.ssh_key_path ?? '').trim()
@@ -107,7 +99,6 @@ export function buildMachineSetupGuide(input: {
 
   return buildDirectConnectGuide({
     machine,
-    executionMode,
     advertisedEndpoint,
     snapshot,
     sshPreview,
@@ -116,12 +107,11 @@ export function buildMachineSetupGuide(input: {
 
 function buildDirectConnectGuide(input: {
   machine: MachineLike | null
-  executionMode: string
   advertisedEndpoint: string
   snapshot: MachineSnapshot | null
   sshPreview: string | null
 }): MachineSetupGuide {
-  const { machine, executionMode, advertisedEndpoint, snapshot, sshPreview } = input
+  const { machine, advertisedEndpoint, snapshot, sshPreview } = input
   const nextSteps: string[] = []
   const commands: MachineSetupCommand[] = []
 
@@ -136,21 +126,7 @@ function buildDirectConnectGuide(input: {
   let stateSummary =
     'Add the listener endpoint, then run a connection test so OpenASE can verify reachability.'
 
-  if (executionMode === 'ssh_compat' || machine?.ssh_helper_required) {
-    runtimeLabel = 'Legacy SSH runtime'
-    runtimeSummary =
-      'This record still uses the old SSH execution lane. Migrate it to a direct-connect listener and keep SSH only as a helper.'
-    helperLabel = 'SSH helper required'
-    helperSummary =
-      'This machine still depends on SSH compatibility until the listener migration is complete.'
-    stateLabel = 'Migration needed'
-    stateSummary =
-      'Save a listener endpoint and resave the machine so runtime execution moves onto the direct-connect websocket path.'
-    nextSteps.push(
-      'Expose the machine listener endpoint and save it here.',
-      'Resave the machine so OpenASE switches runtime execution off the legacy SSH lane.',
-    )
-  } else if (!advertisedEndpoint) {
+  if (!advertisedEndpoint) {
     nextSteps.push('Add the direct-connect listener endpoint before running connection checks.')
   } else {
     const reachability = snapshot?.monitor.l1?.reachable
