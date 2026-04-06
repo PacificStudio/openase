@@ -14,7 +14,9 @@
 </script>
 
 <div class="border-border bg-card rounded-xl border">
-  <div class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+  <div
+    class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+  >
     <div class="flex flex-wrap items-center gap-2">
       <h4 class="text-foreground text-sm font-semibold">GPU inventory</h4>
       <Badge variant={stateBadgeVariant(l3State)}>{stateLabel(l3State)}</Badge>

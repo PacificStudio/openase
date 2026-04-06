@@ -134,7 +134,9 @@
       {@const hasRuns = runs.length > 0}
 
       <div class="border-border/60 bg-card/60 rounded-xl border">
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-4">
+        <div
+          class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-4"
+        >
           <button
             type="button"
             class="flex shrink-0 items-center"

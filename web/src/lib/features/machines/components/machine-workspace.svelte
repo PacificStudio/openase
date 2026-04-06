@@ -85,7 +85,10 @@
   )
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 sm:pb-6" data-testid="machines-workspace">
+<div
+  class="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 sm:pb-6"
+  data-testid="machines-workspace"
+>
   {#if state === 'no-org'}
     <div
       class="animate-fade-in-up border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center"

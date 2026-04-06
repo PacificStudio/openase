@@ -233,7 +233,7 @@
                 >
                   {style.badgeLabel}
                 </span>
-                <p class={cn('min-w-0 break-words text-sm leading-snug', style.messageClass)}>
+                <p class={cn('min-w-0 text-sm leading-snug break-words', style.messageClass)}>
                   {entry.message}
                 </p>
               </div>

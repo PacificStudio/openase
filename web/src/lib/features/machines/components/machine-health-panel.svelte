@@ -70,7 +70,9 @@
     </div>
   {:else}
     <div class="border-border bg-card rounded-xl border">
-      <div class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+      >
         <div class="min-w-0">
           <h4 class="text-foreground text-sm font-semibold">Setup guidance</h4>
           <p class="text-muted-foreground mt-1 text-xs">{setupGuide.topologySummary}</p>
@@ -140,7 +142,9 @@
     {#if runtimeRows.length > 0}
       {@const l4State = levelState(snapshot.monitor.l4)}
       <div class="border-border bg-card rounded-xl border">
-        <div class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div class="flex items-center gap-2">
             <h4 class="text-foreground text-sm font-semibold">Runtime providers</h4>
             <Badge variant={stateBadgeVariant(l4State)}>{stateLabel(l4State)}</Badge>
@@ -196,7 +200,9 @@
     {#if snapshot.fullAudit}
       {@const l5State = levelState(snapshot.monitor.l5)}
       <div class="border-border bg-card rounded-xl border">
-        <div class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div class="flex items-center gap-2">
             <h4 class="text-foreground text-sm font-semibold">Tooling audit</h4>
             <Badge variant={stateBadgeVariant(l5State)}>{stateLabel(l5State)}</Badge>

@@ -71,7 +71,9 @@
     <div data-testid={`machine-open-${machine.id}`} class="min-w-0 space-y-3">
       <div class="space-y-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="text-foreground min-w-0 truncate text-sm font-semibold sm:text-base">{machine.name}</h3>
+          <h3 class="text-foreground min-w-0 truncate text-sm font-semibold sm:text-base">
+            {machine.name}
+          </h3>
           {#if localMachine}
             <Badge variant="secondary" class="text-[10px]">local</Badge>
           {/if}
