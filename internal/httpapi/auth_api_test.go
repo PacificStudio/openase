@@ -269,7 +269,7 @@ func TestListSessionsReturnsInventoryAndAuditTrail(t *testing.T) {
 		instanceRoleKey: "instance_admin",
 	})
 	userID := fixture.userIDByEmail(t, "alice@example.com")
-	otherToken, _ := fixture.createAdditionalSession(t, userID, "alice-laptop", "Chrome on macOS")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-laptop", "Chrome on macOS")
 	otherSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
 	if err != nil {
 		t.Fatalf("load additional session: %v", err)
@@ -354,7 +354,7 @@ func TestDeleteSessionRevokesTargetSessionAndBlocksFutureRequests(t *testing.T) 
 		instanceRoleKey: "instance_admin",
 	})
 	userID := fixture.userIDByEmail(t, "alice@example.com")
-	otherToken, _ := fixture.createAdditionalSession(t, userID, "alice-phone", "Safari on iPhone")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-phone", "Safari on iPhone")
 	otherSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(otherToken))
 	if err != nil {
 		t.Fatalf("load additional session: %v", err)
@@ -395,7 +395,7 @@ func TestRevokeAllSessionsKeepsCurrentSession(t *testing.T) {
 		instanceRoleKey: "instance_admin",
 	})
 	userID := fixture.userIDByEmail(t, "alice@example.com")
-	otherToken, _ := fixture.createAdditionalSession(t, userID, "alice-tablet", "Chrome on Android")
+	otherToken := fixture.createAdditionalSession(t, userID, "alice-tablet", "Chrome on Android")
 
 	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/sessions/revoke-all", map[string]string{
 		"Cookie":         humanSessionCookieName + "=" + sessionToken,
@@ -445,7 +445,7 @@ func TestAdminCanForceRevokeUserSessions(t *testing.T) {
 		displayName: "Member",
 	})
 	memberUserID := fixture.userIDByEmail(t, "member@example.com")
-	memberToken, _ := fixture.createAdditionalSession(t, memberUserID, "member-laptop", "Chrome on Windows")
+	memberToken := fixture.createAdditionalSession(t, memberUserID, "member-laptop", "Chrome on Windows")
 
 	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/users/"+memberUserID.String()+"/sessions/revoke", map[string]string{
 		"Cookie":         humanSessionCookieName + "=" + adminToken,
@@ -819,12 +819,11 @@ func (f humanAuthFixture) createAdditionalSession(
 	userID uuid.UUID,
 	tokenSuffix string,
 	deviceLabel string,
-) (string, string) {
+) string {
 	t.Helper()
 
 	now := time.Now().UTC()
 	sessionToken := "session-" + tokenSuffix
-	csrfToken := "csrf-" + tokenSuffix
 	if _, err := f.repo.CreateBrowserSession(context.Background(), humanauthrepo.CreateBrowserSessionInput{
 		UserID:        userID,
 		SessionHash:   humanFixtureHashToken(sessionToken),
@@ -834,11 +833,11 @@ func (f humanAuthFixture) createAdditionalSession(
 		DeviceLabel:   deviceLabel,
 		ExpiresAt:     now.Add(2 * time.Hour),
 		IdleExpiresAt: now.Add(30 * time.Minute),
-		CSRFSecret:    csrfToken,
+		CSRFSecret:    "csrf-" + tokenSuffix,
 	}); err != nil {
 		t.Fatalf("create additional browser session: %v", err)
 	}
-	return sessionToken, csrfToken
+	return sessionToken
 }
 
 func humanFixtureHashToken(token string) string {

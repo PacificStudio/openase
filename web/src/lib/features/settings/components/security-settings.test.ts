@@ -5,7 +5,10 @@ import { authStore } from '$lib/stores/auth.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
+  configuredEffectivePermissions,
+  configuredOidcAuthState,
   configuredSecurity,
+  configuredSessionGovernance,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
@@ -176,47 +179,15 @@ describe('Security settings', () => {
   })
 
   it('renders oidc principal state and creates an organization role binding', async () => {
-    authStore.hydrate({
-      authMode: 'oidc',
-      authenticated: true,
-      issuerURL: 'https://idp.example.com',
-      csrfToken: 'csrf-token',
-      user: {
-        id: 'user-1',
-        primaryEmail: 'alice@example.com',
-        displayName: 'Alice Control Plane',
-      },
-      roles: ['instance_admin'],
-      permissions: ['org.update'],
-    })
+    authStore.hydrate(configuredOidcAuthState())
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => {
       if (orgId) {
-        return {
-          user: {
-            id: 'user-1',
-            primary_email: 'alice@example.com',
-            display_name: 'Alice Control Plane',
-          },
-          scope: { kind: 'organization', id: orgId },
-          roles: ['org_admin'],
-          permissions: ['org.read', 'rbac.manage'],
-          groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-        }
+        return configuredEffectivePermissions('organization', orgId)
       }
-      return {
-        user: {
-          id: 'user-1',
-          primary_email: 'alice@example.com',
-          display_name: 'Alice Control Plane',
-        },
-        scope: { kind: 'project', id: projectId ?? '' },
-        roles: ['project_admin'],
-        permissions: ['project.read', 'rbac.manage'],
-        groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-      }
+      return configuredEffectivePermissions('project', projectId ?? '')
     })
     listOrganizationRoleBindings.mockResolvedValue([
       {
@@ -231,41 +202,7 @@ describe('Security settings', () => {
       },
     ])
     listProjectRoleBindings.mockResolvedValue([])
-    getSessionGovernance.mockResolvedValue({
-      authMode: 'oidc',
-      currentSessionID: 'session-current',
-      sessions: [
-        {
-          id: 'session-current',
-          current: true,
-          device: {
-            kind: 'desktop',
-            os: 'Linux',
-            browser: 'Firefox',
-            label: 'Firefox on Linux',
-          },
-          createdAt: '2026-04-04T10:00:00Z',
-          lastActiveAt: '2026-04-04T10:30:00Z',
-          expiresAt: '2026-04-04T18:00:00Z',
-          idleExpiresAt: '2026-04-04T11:00:00Z',
-        },
-      ],
-      auditEvents: [
-        {
-          id: 'audit-1',
-          eventType: 'login.success',
-          actorID: 'user:user-1',
-          message: 'Signed in via OIDC.',
-          metadata: {},
-          createdAt: '2026-04-04T10:00:00Z',
-        },
-      ],
-      stepUp: {
-        status: 'reserved',
-        summary: 'Reserved for future high-risk actions.',
-        supportedMethods: [],
-      },
-    })
+    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
     createOrganizationRoleBinding.mockResolvedValue({
       id: 'binding-2',
       scopeKind: 'organization',

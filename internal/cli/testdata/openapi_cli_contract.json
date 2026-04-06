@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "d5bd6f739a8455138c42130da491ad0611b1d8fa04d40d5d7d78beda0c0d6bd9",
+  "openapi_sha256": "def7e783c5a9235144342554c1294ce73d29f9f118ec354fd695403c10bb41c6",
   "commands": [
     {
       "use": "list [projectId]",
@@ -626,6 +626,52 @@
           "name": "ticket_id",
           "description": "Filter activity by ticket ID.",
           "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "list",
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "operation_id": "listAuthSessions"
+    },
+    {
+      "use": "revoke [id]",
+      "method": "DELETE",
+      "path": "/api/v1/auth/sessions/{id}",
+      "operation_id": "revokeAuthSession",
+      "positional_params": [
+        "id"
+      ],
+      "path_params": [
+        {
+          "name": "id",
+          "description": "Browser session ID to revoke.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "revoke-all",
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/revoke-all",
+      "operation_id": "revokeAllOtherAuthSessions"
+    },
+    {
+      "use": "revoke-sessions [userId]",
+      "method": "POST",
+      "path": "/api/v1/auth/users/{userId}/sessions/revoke",
+      "operation_id": "adminRevokeUserAuthSessions",
+      "positional_params": [
+        "userId"
+      ],
+      "path_params": [
+        {
+          "name": "userId",
+          "description": "User ID whose browser sessions should be revoked.",
+          "required": true,
+          "kind": "string"
         }
       ]
     },

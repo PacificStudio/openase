@@ -4,7 +4,6 @@
   import {
     logoutHumanSession,
     normalizeReturnTo,
-    type AuthAuditEvent,
     type ManagedAuthSession,
     type SessionGovernanceResponse,
   } from '$lib/api/auth'
@@ -15,29 +14,14 @@
   } from '$lib/api/openase'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import {
-    Clock3,
-    LaptopMinimal,
-    LogOut,
-    ShieldCheck,
-    Smartphone,
-    TabletSmartphone,
-  } from '@lucide/svelte'
+  import { LaptopMinimal, LogOut, ShieldCheck, Smartphone, TabletSmartphone } from '@lucide/svelte'
   import { formatTimestamp } from './security-settings-human-auth.model'
+  import SecuritySettingsHumanAuthAuditTimeline from './security-settings-human-auth-audit-timeline.svelte'
 
   let governance = $state<SessionGovernanceResponse | null>(null)
   let loading = $state(false)
   let error = $state('')
   let actionKey = $state('')
-
-  const eventLabels: Record<string, string> = {
-    'login.success': 'Login succeeded',
-    'login.failed': 'Login failed',
-    logout: 'Logged out',
-    'session.revoked': 'Session revoked',
-    'session.expired': 'Session expired',
-    'user.disabled_after_login': 'User disabled after login',
-  }
 
   async function loadGovernanceState() {
     loading = true
@@ -87,10 +71,6 @@
       default:
         return LaptopMinimal
     }
-  }
-
-  function eventLabel(event: AuthAuditEvent) {
-    return eventLabels[event.eventType] ?? event.eventType
   }
 
   async function handleCurrentSessionLogout() {
@@ -276,33 +256,7 @@
         {/if}
       </div>
 
-      <div class="border-border bg-card rounded-lg border p-4">
-        <div class="flex items-center gap-2">
-          <Clock3 class="text-muted-foreground size-4" />
-          <h5 class="text-sm font-semibold">Auth audit timeline</h5>
-        </div>
-
-        {#if governance.auditEvents.length > 0}
-          <div class="mt-4 space-y-4">
-            {#each governance.auditEvents as event (event.id)}
-              <div class="border-border border-l-2 pl-3">
-                <div class="text-sm font-medium">{eventLabel(event)}</div>
-                <div class="text-muted-foreground mt-1 text-xs">{event.message}</div>
-                <div class="text-muted-foreground mt-1 text-[11px]">
-                  {formatTimestamp(event.createdAt)}
-                  {#if event.actorID}
-                    · {event.actorID}
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <div class="text-muted-foreground mt-4 text-sm">
-            Auth audit events appear here after sign-in, logout, expiry, and revoke actions.
-          </div>
-        {/if}
-      </div>
+      <SecuritySettingsHumanAuthAuditTimeline auditEvents={governance.auditEvents} />
     </div>
   {/if}
 </div>

@@ -92,6 +92,19 @@ export function formatTimestamp(value: string | undefined) {
   return parsed.toLocaleString()
 }
 
+const authAuditEventLabels: Record<string, string> = {
+  'login.success': 'Login succeeded',
+  'login.failed': 'Login failed',
+  logout: 'Logged out',
+  'session.revoked': 'Session revoked',
+  'session.expired': 'Session expired',
+  'user.disabled_after_login': 'User disabled after login',
+}
+
+export function formatAuthAuditEventLabel(eventType: string) {
+  return authAuditEventLabels[eventType] ?? eventType
+}
+
 export function bindingPlaceholder(subjectKind: SubjectKind) {
   return subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'
 }
