@@ -194,7 +194,7 @@ func parseAgentReportUsageRequest(raw rawAgentReportUsageRequest) ticketing.RawU
 }
 
 func parseAgentCreateTicketCommentRequest(ticketID uuid.UUID, createdBy string, raw rawAgentTicketCommentRequest) (ticketservice.AddCommentInput, error) {
-	return parseCreateTicketCommentRequest(ticketID, createdBy, rawCreateTicketCommentRequest{Body: raw.Body})
+	return parseCreateTicketCommentRequest(ticketID, createdBy, rawCreateTicketCommentRequest(raw))
 }
 
 func parseAgentUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, editedBy string, raw rawAgentTicketCommentRequest) (ticketservice.UpdateCommentInput, error) {
@@ -263,11 +263,7 @@ func parseAgentCreateProjectUpdateThreadRequest(
 	createdBy string,
 	raw rawAgentCreateProjectUpdateThreadRequest,
 ) (projectupdateservice.AddThreadInput, error) {
-	return parseCreateProjectUpdateThreadRequest(projectID, createdBy, rawCreateProjectUpdateThreadRequest{
-		Status: raw.Status,
-		Title:  raw.Title,
-		Body:   raw.Body,
-	})
+	return parseCreateProjectUpdateThreadRequest(projectID, createdBy, rawCreateProjectUpdateThreadRequest(raw))
 }
 
 func parseAgentUpdateProjectUpdateThreadRequest(
@@ -276,12 +272,7 @@ func parseAgentUpdateProjectUpdateThreadRequest(
 	editedBy string,
 	raw rawAgentUpdateProjectUpdateThreadRequest,
 ) (projectupdateservice.UpdateThreadInput, error) {
-	return parseUpdateProjectUpdateThreadRequest(projectID, threadID, editedBy, rawUpdateProjectUpdateThreadRequest{
-		Status:     raw.Status,
-		Title:      raw.Title,
-		Body:       raw.Body,
-		EditReason: raw.EditReason,
-	})
+	return parseUpdateProjectUpdateThreadRequest(projectID, threadID, editedBy, rawUpdateProjectUpdateThreadRequest(raw))
 }
 
 func parseAgentCreateProjectUpdateCommentRequest(
@@ -290,7 +281,7 @@ func parseAgentCreateProjectUpdateCommentRequest(
 	createdBy string,
 	raw rawAgentCreateProjectUpdateCommentRequest,
 ) (projectupdateservice.AddCommentInput, error) {
-	return parseCreateProjectUpdateCommentRequest(projectID, threadID, createdBy, rawCreateProjectUpdateCommentRequest{Body: raw.Body})
+	return parseCreateProjectUpdateCommentRequest(projectID, threadID, createdBy, rawCreateProjectUpdateCommentRequest(raw))
 }
 
 func parseAgentUpdateProjectUpdateCommentRequest(
@@ -300,8 +291,5 @@ func parseAgentUpdateProjectUpdateCommentRequest(
 	editedBy string,
 	raw rawAgentUpdateProjectUpdateCommentRequest,
 ) (projectupdateservice.UpdateCommentInput, error) {
-	return parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, editedBy, rawUpdateProjectUpdateCommentRequest{
-		Body:       raw.Body,
-		EditReason: raw.EditReason,
-	})
+	return parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, editedBy, rawUpdateProjectUpdateCommentRequest(raw))
 }
