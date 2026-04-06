@@ -16,6 +16,7 @@
     ondropticket,
     onStatusChange,
     onPriorityChange,
+    onArchiveTicket,
     onCreateTicket,
     onColumnAction,
     isDropTarget = false,
@@ -31,6 +32,7 @@
     ondropticket?: (ticketId: string, columnId: string) => void
     onStatusChange?: (ticketId: string, statusId: string) => void
     onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
+    onArchiveTicket?: (ticketId: string) => void
     onCreateTicket?: (statusId: string) => void
     onColumnAction?: (columnId: string, action: string) => void
     isDropTarget?: boolean
@@ -188,6 +190,7 @@
         {ondragendticket}
         {onStatusChange}
         {onPriorityChange}
+        {onArchiveTicket}
         isDragging={draggingTicketId === ticket.id}
         isPendingMove={ticket.isMoving === true}
       />
