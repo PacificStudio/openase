@@ -18,6 +18,16 @@ type rawGitHubCredentialScopeRequest struct {
 	Scope string `json:"scope"`
 }
 
+type rawSecurityOIDCDraftRequest struct {
+	IssuerURL            string   `json:"issuer_url"`
+	ClientID             string   `json:"client_id"`
+	ClientSecret         string   `json:"client_secret,omitempty"`
+	RedirectURL          string   `json:"redirect_url"`
+	Scopes               []string `json:"scopes"`
+	AllowedEmailDomains  []string `json:"allowed_email_domains,omitempty"`
+	BootstrapAdminEmails []string `json:"bootstrap_admin_emails,omitempty"`
+}
+
 func parseSaveGitHubOutboundCredentialRequest(
 	projectID uuid.UUID,
 	raw rawSaveGitHubOutboundCredentialRequest,

@@ -16,6 +16,21 @@ OpenASE 支持基于浏览器的人类认证，具备以下特性：
 
 浏览器永远不会收到上游 OIDC 的 access token 或 refresh token。
 
+## 如何选择模式
+
+请按真实部署场景选择认证模式：
+
+- `auth.mode=disabled` 适合个人电脑、本地演示、临时沙箱，以及“实际上只有一个操作者”的控制面环境。
+- 当实例开始被团队共享、暴露到 loopback 之外，或需要按用户审计、邀请、成员管理、会话隔离时，应优先使用 `auth.mode=oidc`。
+- 如果你现在只有一个管理员，但希望提前启用浏览器登录与未来多用户能力，也可以选择 `oidc + instance_admin`。这是可选升级路径，不是必须动作。
+- `instance_admin` 是 OIDC 模式内部的最高授权角色；它不能替代 disabled 模式下的本地引导主体。
+
+实操建议：
+
+- 当 OIDC 只会增加配置负担、却没有带来真实安全或协作收益时，继续使用 `disabled`。
+- 当你需要真实用户身份、组织成员生命周期、会话清单或可审计的管理员分离时，切换到 `oidc`。
+- 对于非 loopback / 公网暴露实例，`auth.mode=disabled` 只能视为临时应急姿态。
+
 ## 配置
 
 通过设置 `auth.mode=oidc` 并提供以下 OIDC 配置来启用人类认证：
@@ -51,6 +66,37 @@ auth:
 - `session_idle_ttl`：滑动空闲超时，不得超过 `session_ttl`。
 
 OpenASE 也支持通过正常配置加载器使用等价的 `OPENASE_AUTH_*` 环境变量。
+
+## Settings UI 与显式启用 OIDC
+
+Settings -> Security 是 IAM rollout 的主操作面板。
+
+当 OpenASE 运行在 `auth.mode=disabled` 时，该页面会在不破坏本地管理员体验的前提下，直接提供认证设置面板：
+
+- 页面会明确说明当前处于 disabled / 本地单用户模式
+- 本地引导管理员主体会继续可用
+- 你可以先保存 OIDC 草稿，而不会中断当前 disabled 使用
+- 可以先测试 provider discovery，再决定是否启用
+- 切换到 OIDC 必须通过显式的 `Enable OIDC` 操作完成
+
+Disabled 模式下的设置表单支持：
+
+- issuer URL
+- client ID
+- client secret
+- redirect URL
+- scopes
+- allowed email domains
+- bootstrap admin emails
+
+当前产品行为：
+
+1. `Save draft` 会把 OIDC 草稿持久化到配置文件，但不会改变当前运行中的 auth mode。
+2. `Test configuration` 会执行 provider discovery，并返回可操作的 endpoint 诊断信息与 warning。
+3. `Enable OIDC` 会再次验证 discovery，然后写入 `auth.mode=oidc` 并返回下一步指引。
+4. 当前版本仍然需要重启服务，新的 configured mode 才会成为 active mode。
+
+这种显式拆分是有意设计：保存配置绝不能悄悄打断当前 disabled 模式操作者。
 
 ## 浏览器流程
 
@@ -243,14 +289,20 @@ AI 会话归属始终派生自服务端定义的主体：
 控制面板的 Settings 视图暴露了人类认证状态，包括：
 
 - 当前认证模式
+- 配置文件中的 configured auth mode
 - Issuer URL
+- bootstrap admin 摘要
+- disabled 模式下的本地引导管理员说明
+- 已保存的 OIDC 草稿字段，以及显式的 save / test / enable 动作
 - 当前已认证用户
 - session inventory，包括当前设备识别与撤销动作
 - 浏览器访问相关的 auth 审计时间线
 - 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
 - 有效角色和权限
 - 人类权限与可 mint agent scopes 的区别
-- 组织/项目角色绑定管理
+- 实例 / 组织 / 项目角色绑定管理
+- 组织成员与邀请管理
+- 指向迁移、回退与 rollout 计划的文档入口
 
 `GET /auth/session` 和 `GET /api/v1/auth/me/permissions` 是用于脚本和诊断的 API 等价物。
 

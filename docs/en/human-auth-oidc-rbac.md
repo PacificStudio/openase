@@ -17,6 +17,21 @@ OpenASE supports browser-side human authentication with:
 
 The browser never receives the upstream OIDC access token or refresh token.
 
+## Choosing The Right Mode
+
+Use the auth mode that matches the deployment you actually have:
+
+- Keep `auth.mode=disabled` for personal laptops, local demos, throwaway sandboxes, and any instance where one operator is effectively the whole control plane.
+- Prefer `auth.mode=oidc` once the instance is shared with a team, exposed beyond loopback, or expected to keep per-user audit, invitations, memberships, and session isolation.
+- If you are a single admin but still want browser login and future multi-user readiness, `oidc + instance_admin` is a valid upgrade path. It is optional, not mandatory.
+- `instance_admin` is the highest authorization role *inside* OIDC mode. It does not replace disabled mode's local bootstrap principal.
+
+Practical guidance:
+
+- Continue using `disabled` when OIDC would add overhead without meaningful security or collaboration value.
+- Move to `oidc` when you need real user identity, org membership lifecycle, session inventory, or auditable administrator separation.
+- Treat `auth.mode=disabled` on a non-loopback / public host as a temporary emergency-only posture.
+
 ## Configuration
 
 Enable human auth by setting `auth.mode=oidc` and providing the OIDC settings below:
@@ -52,6 +67,37 @@ Field notes:
 - `session_idle_ttl`: sliding idle timeout. It must not exceed `session_ttl`.
 
 OpenASE also supports equivalent `OPENASE_AUTH_*` environment variables through the normal config loader.
+
+## Settings UI And Explicit OIDC Enablement
+
+The Settings -> Security page is the primary operator surface for IAM rollout.
+
+When OpenASE runs in `auth.mode=disabled`, the page intentionally keeps the local admin experience intact while exposing an auth setup panel:
+
+- the page states that the instance is in disabled / local single-user mode
+- the local bootstrap principal remains active and usable
+- you can save an OIDC draft without interrupting current disabled-mode usage
+- you can test provider discovery before enabling anything
+- switching to OIDC requires an explicit `Enable OIDC` action
+
+The disabled-mode setup form supports:
+
+- issuer URL
+- client ID
+- client secret
+- redirect URL
+- scopes
+- allowed email domains
+- bootstrap admin emails
+
+Current product behavior:
+
+1. `Save draft` persists the OIDC draft to the config file and keeps the active runtime mode unchanged.
+2. `Test configuration` performs provider discovery and returns actionable endpoint diagnostics and warnings.
+3. `Enable OIDC` validates discovery again, writes `auth.mode=oidc`, and returns next steps.
+4. The current release still requires a service restart before the new configured mode becomes active.
+
+This explicit split is intentional. Saving configuration must not silently cut off the current disabled-mode operator.
 
 ## Browser Flow
 
@@ -246,14 +292,20 @@ This preserves the distinction between the human approver and the project-conver
 The control plane Settings view exposes the human auth state, including:
 
 - current auth mode
+- configured auth mode from disk
 - issuer URL
+- bootstrap admin summary
+- disabled-mode local bootstrap principal guidance
+- saved OIDC draft fields and explicit save / test / enable actions
 - current authenticated user
 - session inventory with current-device detection and revoke actions
 - auth audit timeline for browser access events
 - stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
 - effective roles and permissions
 - the distinction between human permissions and mintable agent scopes
-- org/project role binding management
+- instance / org / project role binding management
+- organization members and invitations
+- documentation links for migration, rollback, and rollout planning
 
 `GET /auth/session` and `GET /api/v1/auth/me/permissions` are the API equivalents for scripting and diagnostics.
 

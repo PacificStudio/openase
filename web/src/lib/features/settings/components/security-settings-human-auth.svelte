@@ -1,10 +1,20 @@
 <script lang="ts">
+  import { ApiError } from '$lib/api/client'
   import { type EffectivePermissionsResponse, type RoleBinding } from '$lib/api/auth'
+  import type {
+    OIDCDraftTestResponse,
+    OIDCEnableResponse,
+    SecuritySettingsResponse,
+  } from '$lib/api/contracts'
+  import { enableOIDC, saveOIDCDraft, testOIDCDraft } from '$lib/api/openase'
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Shield } from '@lucide/svelte'
+  import OrganizationMembersSection from '$lib/features/organizations/components/organization-members-section.svelte'
   import SecuritySettingsHumanAuthAuthenticatedView from './security-settings-human-auth-authenticated-view.svelte'
+  import SecuritySettingsHumanAuthDisabledSetup from './security-settings-human-auth-disabled-setup.svelte'
+  import SecuritySettingsHumanAuthGuideLinks from './security-settings-human-auth-guide-links.svelte'
   import SecuritySettingsHumanAuthSummary from './security-settings-human-auth-summary.svelte'
   import {
     createRoleBindingForScope,
@@ -26,7 +36,19 @@
     summary: string
   }
 
-  let { approvalPolicies = null }: { approvalPolicies?: ApprovalPoliciesSummary | null } = $props()
+  type Security = SecuritySettingsResponse['security']
+
+  type OIDCFormState = {
+    issuerURL: string
+    clientID: string
+    clientSecret: string
+    redirectURL: string
+    scopesText: string
+    allowedDomainsText: string
+    bootstrapAdminEmailsText: string
+  }
+
+  let { security = null }: { security?: Security | null } = $props()
 
   let loading = $state(false)
   let error = $state('')
@@ -40,7 +62,23 @@
   let instanceDraft = $state<BindingDraft>(defaultBindingDraftForScope('instance'))
   let orgDraft = $state<BindingDraft>(defaultBindingDraftForScope('organization'))
   let projectDraft = $state<BindingDraft>(defaultBindingDraftForScope('project'))
+  let oidcForm = $state<OIDCFormState>({
+    issuerURL: '',
+    clientID: '',
+    clientSecret: '',
+    redirectURL: '',
+    scopesText: '',
+    allowedDomainsText: '',
+    bootstrapAdminEmailsText: '',
+  })
+  let oidcActionKey = $state('')
+  let oidcError = $state('')
+  let oidcTestResult = $state<OIDCDraftTestResponse | null>(null)
+  let oidcEnableResult = $state<OIDCEnableResponse['activation'] | null>(null)
+  let lastDraftSignature = $state('')
 
+  const approvalPolicies = $derived<ApprovalPoliciesSummary | null>(security?.approval_policies ?? null)
+  const authSummary = $derived(security?.auth ?? null)
   const currentOrgId = $derived(appStore.currentOrg?.id ?? '')
   const currentProjectId = $derived(appStore.currentProject?.id ?? '')
   const currentGroups = $derived(projectPermissions?.groups ?? orgPermissions?.groups ?? [])
@@ -53,6 +91,26 @@
   const canManageProjectBindings = $derived(
     projectPermissions?.permissions.includes('rbac.manage') ?? false,
   )
+
+  $effect(() => {
+    if (!authSummary) {
+      return
+    }
+    const nextSignature = JSON.stringify(authSummary.oidc_draft)
+    if (nextSignature === lastDraftSignature) {
+      return
+    }
+    oidcForm = {
+      issuerURL: authSummary.oidc_draft.issuer_url,
+      clientID: authSummary.oidc_draft.client_id,
+      clientSecret: '',
+      redirectURL: authSummary.oidc_draft.redirect_url,
+      scopesText: authSummary.oidc_draft.scopes.join('\n'),
+      allowedDomainsText: authSummary.oidc_draft.allowed_email_domains.join('\n'),
+      bootstrapAdminEmailsText: authSummary.oidc_draft.bootstrap_admin_emails.join('\n'),
+    }
+    lastDraftSignature = nextSignature
+  })
 
   $effect(() => {
     const authMode = authStore.authMode
@@ -108,6 +166,73 @@
       cancelled = true
     }
   })
+
+  function parseListInput(value: string) {
+    return value
+      .split(/[\n,]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  function oidcDraftPayload() {
+    return {
+      issuer_url: oidcForm.issuerURL.trim(),
+      client_id: oidcForm.clientID.trim(),
+      client_secret: oidcForm.clientSecret.trim(),
+      redirect_url: oidcForm.redirectURL.trim(),
+      scopes: parseListInput(oidcForm.scopesText),
+      allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
+      bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),
+    }
+  }
+
+  async function runOIDCAction(
+    action: 'save' | 'test' | 'enable',
+    runner: (projectId: string) => Promise<void>,
+  ) {
+    const projectId = currentProjectId
+    if (!projectId) {
+      return
+    }
+    oidcActionKey = action
+    oidcError = ''
+
+    try {
+      await runner(projectId)
+    } catch (caughtError) {
+      const message = caughtError instanceof ApiError ? caughtError.detail : 'OIDC update failed.'
+      oidcError = message
+      toastStore.error(message)
+    } finally {
+      oidcActionKey = ''
+    }
+  }
+
+  async function handleSaveOIDCDraft() {
+    await runOIDCAction('save', async (projectId) => {
+      const payload = await saveOIDCDraft(projectId, oidcDraftPayload())
+      security = payload.security
+      oidcEnableResult = null
+      toastStore.success('OIDC draft saved. Disabled mode remains active until you explicitly enable OIDC.')
+    })
+  }
+
+  async function handleTestOIDCDraft() {
+    await runOIDCAction('test', async (projectId) => {
+      oidcTestResult = await testOIDCDraft(projectId, oidcDraftPayload())
+      oidcEnableResult = null
+      toastStore.success('OIDC provider discovery succeeded.')
+    })
+  }
+
+  async function handleEnableOIDC() {
+    await runOIDCAction('enable', async (projectId) => {
+      const payload = await enableOIDC(projectId, oidcDraftPayload())
+      security = payload.security
+      oidcEnableResult = payload.activation
+      toastStore.success('OIDC is now the configured auth mode. Follow the rollout steps to activate it.')
+    })
+  }
 
   function resetDraft(scope: ScopeKind) {
     if (scope === 'instance') {
@@ -229,30 +354,51 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <Shield class="text-muted-foreground size-4" />
-    <h3 class="text-sm font-semibold">Human access and RBAC</h3>
+    <h3 class="text-sm font-semibold">Human access and IAM</h3>
   </div>
 
-  <SecuritySettingsHumanAuthSummary
-    authMode={authStore.authMode}
-    issuerURL={authStore.issuerURL}
-    user={authStore.user}
-  />
-  {#if authStore.authMode !== 'oidc'}
+  {#if authSummary}
+    <SecuritySettingsHumanAuthSummary
+      authMode={authSummary.active_mode}
+      configuredMode={authSummary.configured_mode}
+      issuerURL={authSummary.issuer_url ?? ''}
+      user={authStore.user}
+      bootstrapSummary={authSummary.bootstrap_state.summary}
+      publicExposureRisk={authSummary.public_exposure_risk}
+      localPrincipal={authSummary.local_principal}
+    />
+  {/if}
+
+  {#if authSummary && authStore.authMode !== 'oidc'}
+    <SecuritySettingsHumanAuthDisabledSetup
+      auth={authSummary}
+      form={oidcForm}
+      actionKey={oidcActionKey}
+      error={oidcError}
+      testResult={oidcTestResult}
+      enableResult={oidcEnableResult}
+      onIssuerURL={(value) => (oidcForm.issuerURL = value)}
+      onClientID={(value) => (oidcForm.clientID = value)}
+      onClientSecret={(value) => (oidcForm.clientSecret = value)}
+      onRedirectURL={(value) => (oidcForm.redirectURL = value)}
+      onScopes={(value) => (oidcForm.scopesText = value)}
+      onAllowedDomains={(value) => (oidcForm.allowedDomainsText = value)}
+      onBootstrapAdmins={(value) => (oidcForm.bootstrapAdminEmailsText = value)}
+      onSave={() => void handleSaveOIDCDraft()}
+      onTest={() => void handleTestOIDCDraft()}
+      onEnable={() => void handleEnableOIDC()}
+    />
+  {:else if authStore.authMode === 'oidc' && !authStore.authenticated}
     <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-      Human auth is disabled. Persistent Project Conversation ownership falls back to the stable
-      local principal <code>local-user:default</code>. Enable <code>auth.mode=oidc</code> to enforce browser
-      login and RBAC.
-    </div>
-  {:else if !authStore.authenticated}
-    <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-      Sign in to inspect effective permissions and manage role bindings.
+      Sign in to inspect effective permissions, manage role bindings, and review organization
+      membership diagnostics.
     </div>
   {:else if loading}
     <div class="space-y-3">
       <div class="bg-muted h-16 animate-pulse rounded-lg"></div>
       <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
     </div>
-  {:else}
+  {:else if authStore.authMode === 'oidc'}
     <SecuritySettingsHumanAuthAuthenticatedView
       user={authStore.user}
       currentOrgName={appStore.currentOrg?.name ?? ''}
@@ -280,5 +426,13 @@
       onCreateBinding={(scope) => void handleCreateBinding(scope)}
       onDeleteBinding={(scope, bindingId) => void handleDeleteBinding(scope, bindingId)}
     />
+
+    {#if currentOrgId}
+      <OrganizationMembersSection organizationId={currentOrgId} />
+    {/if}
+  {/if}
+
+  {#if authSummary}
+    <SecuritySettingsHumanAuthGuideLinks docs={authSummary.docs} />
   {/if}
 </div>

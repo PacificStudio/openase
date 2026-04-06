@@ -486,9 +486,66 @@ export type NotificationRuleDeleteResponse = DeepRequired<
 >
 export type NotificationRule = ItemOf<NotificationRulePayload['rules']>
 
-export type SecuritySettingsResponse = DeepRequired<
+type RawSecuritySettingsResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings', 'get'>
 >
+export type SecurityAuthBootstrapState = {
+  status: string
+  admin_emails: string[]
+  summary: string
+}
+export type SecurityOIDCDraft = {
+  issuer_url: string
+  client_id: string
+  client_secret_configured: boolean
+  redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+}
+export type SecurityDocumentationLink = {
+  title: string
+  href: string
+  summary: string
+}
+export type SecurityAuthSettings = {
+  active_mode: string
+  configured_mode: string
+  issuer_url?: string
+  local_principal: string
+  mode_summary: string
+  recommended_mode: string
+  public_exposure_risk: string
+  warnings: string[]
+  next_steps: string[]
+  config_path?: string
+  bootstrap_state: SecurityAuthBootstrapState
+  oidc_draft: SecurityOIDCDraft
+  docs: SecurityDocumentationLink[]
+}
+export type SecuritySettingsResponse = Omit<RawSecuritySettingsResponse, 'security'> & {
+  security: RawSecuritySettingsResponse['security'] & {
+    auth: SecurityAuthSettings
+  }
+}
+export type OIDCDraftTestResponse = {
+  status: string
+  message: string
+  issuer_url: string
+  authorization_endpoint: string
+  token_endpoint: string
+  redirect_url: string
+  warnings: string[]
+}
+export type OIDCEnableResponse = {
+  activation: {
+    status: string
+    message: string
+    restart_required: boolean
+    next_steps: string[]
+  }
+  security: SecuritySettingsResponse['security']
+}
 export type SaveGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'put'>
 >

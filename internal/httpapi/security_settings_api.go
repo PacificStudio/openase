@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	"github.com/BetterAndBetterII/openase/internal/config"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
@@ -82,6 +83,7 @@ type securityGitHubOutboundCredentialResponse struct {
 
 type securitySettingsResponse struct {
 	ProjectID        string                                   `json:"project_id"`
+	Auth             securityAuthSettingsResponse             `json:"auth"`
 	AgentTokens      securityAgentTokensResponse              `json:"agent_tokens"`
 	GitHub           securityGitHubOutboundCredentialResponse `json:"github"`
 	Webhooks         securityWebhookBoundaryResponse          `json:"webhooks"`
@@ -92,6 +94,9 @@ type securitySettingsResponse struct {
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
+	api.PUT("/projects/:projectId/security-settings/oidc-draft", s.handlePutOIDCDraft)
+	api.POST("/projects/:projectId/security-settings/oidc-draft/test", s.handleTestOIDCDraft)
+	api.POST("/projects/:projectId/security-settings/oidc-enable", s.handleEnableOIDC)
 	api.PUT("/projects/:projectId/security-settings/github-outbound-credential", s.handlePutGitHubOutboundCredential)
 	api.POST("/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", s.handleImportGitHubOutboundCredential)
 	api.POST("/projects/:projectId/security-settings/github-outbound-credential/retest", s.handleRetestGitHubOutboundCredential)
@@ -139,6 +144,130 @@ func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
 		return writeGitHubAuthError(c, err)
 	}
 	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
+}
+
+func (s *Server) handlePutOIDCDraft(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+
+	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
+	storedAuth, err := editor.loadStoredAuth()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
+	mode := storedAuth.Mode
+	if mode == "" {
+		mode = s.auth.Mode
+	}
+	storedAuth, err = editor.saveDraft(draft, mode)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"security": buildSecuritySettingsResponse(
+			projectID,
+			storedAuth,
+			s.readGitHubSecurity(c, projectID),
+			s.resolveApprovalPoliciesSummary(c),
+			s.auth,
+			s.cfg.Host,
+			editor.resolvedPath(),
+		),
+	})
+}
+
+func (s *Server) handleTestOIDCDraft(c echo.Context) error {
+	if _, err := s.requireProjectSecurityContext(c); err != nil {
+		return err
+	}
+
+	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
+	storedAuth, err := editor.loadStoredAuth()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
+	authCfg, err := completeOIDCAuthConfig(draft)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, securityOIDCTestResultResponse{
+		Status:                "ok",
+		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
+		IssuerURL:             diagnostics.IssuerURL,
+		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
+		TokenEndpoint:         diagnostics.TokenEndpoint,
+		RedirectURL:           authCfg.OIDC.RedirectURL,
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
+	})
+}
+
+func (s *Server) handleEnableOIDC(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+
+	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
+	storedAuth, err := editor.loadStoredAuth()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
+	authCfg, err := completeOIDCAuthConfig(draft)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	if _, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil); err != nil {
+		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
+	}
+
+	storedAuth, err = editor.saveDraft(draft, config.AuthModeOIDC)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	githubSecurity := s.readGitHubSecurity(c, projectID)
+	return c.JSON(http.StatusOK, securityOIDCEnableResponse{
+		Activation: securityOIDCActivationResponse{
+			Status:          "configured",
+			Message:         "OIDC is now the configured auth mode on disk. Restart the service and complete the first OIDC sign-in with a bootstrap admin email to activate it in the running control plane.",
+			RestartRequired: true,
+			NextSteps: []string{
+				"Restart OpenASE so the running control plane picks up auth.mode=oidc.",
+				"Sign in through the browser with a bootstrap admin email.",
+				"Verify instance, organization, and project role bindings after the first login, then narrow the bootstrap admin list.",
+			},
+		},
+		Security: buildSecuritySettingsResponse(projectID, storedAuth, githubSecurity, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
+	})
 }
 
 func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
@@ -232,18 +361,43 @@ func (s *Server) writeSecuritySettingsResponse(
 	projectID uuid.UUID,
 	github securityGitHubOutboundCredentialResponse,
 ) error {
+	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
+	storedAuth, err := editor.loadStoredAuth()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, github, s.resolveApprovalPoliciesSummary(c)),
+		"security": buildSecuritySettingsResponse(projectID, storedAuth, github, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
 	})
+}
+
+func (s *Server) readGitHubSecurity(c echo.Context, projectID uuid.UUID) securityGitHubOutboundCredentialResponse {
+	githubSecurity := buildMissingGitHubSecurityResponse()
+	if s.githubAuthService == nil {
+		return githubSecurity
+	}
+	resolved, err := s.githubAuthService.ReadProjectSecurity(c.Request().Context(), projectID)
+	if err != nil {
+		return githubSecurity
+	}
+	return mapGitHubSecurityResponse(resolved)
 }
 
 func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
+	storedAuth config.AuthConfig,
 	github securityGitHubOutboundCredentialResponse,
 	approvalPolicies securityApprovalPoliciesResponse,
+	activeAuth config.AuthConfig,
+	host string,
+	configPath string,
 ) securitySettingsResponse {
+	if storedAuth.Mode == "" {
+		storedAuth = activeAuth
+	}
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
+		Auth:      buildSecurityAuthSettingsResponse(activeAuth, storedAuth, configPath, host),
 		AgentTokens: securityAgentTokensResponse{
 			Transport:              securitySettingsAgentTokenTransport,
 			EnvironmentVariable:    securitySettingsAgentTokenEnvVar,

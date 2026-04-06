@@ -230,6 +230,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithGitHubRepoService(githubRepoSvc),
 		httpapi.WithHumanAuthConfig(a.config.Auth),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
+		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
+		httpapi.WithHomeDir(homeDir),
 		httpapi.WithTraceProvider(a.trace),
 		httpapi.WithMetricsProvider(a.metrics),
 		httpapi.WithMetricsHandler(a.metricsHandler),

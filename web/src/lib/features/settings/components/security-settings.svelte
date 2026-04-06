@@ -128,7 +128,7 @@
 
   <Separator />
 
-  <SecuritySettingsHumanAuth approvalPolicies={security?.approval_policies ?? null} />
+  <SecuritySettingsHumanAuth security={security} />
 
   <Separator />
 

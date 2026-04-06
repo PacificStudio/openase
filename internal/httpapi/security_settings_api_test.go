@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -291,6 +293,185 @@ func TestSecuritySettingsRouteRejectsInvalidProjectID(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rec.Code)
 	}
+}
+
+func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Security securitySettingsResponse `json:"security"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Security.Auth.ActiveMode != "disabled" {
+		t.Fatalf("active mode = %q, want disabled", payload.Security.Auth.ActiveMode)
+	}
+	if payload.Security.Auth.ConfiguredMode != "disabled" {
+		t.Fatalf("configured mode = %q, want disabled", payload.Security.Auth.ConfiguredMode)
+	}
+	if payload.Security.Auth.OIDCDraft.IssuerURL != "https://idp.example.com" {
+		t.Fatalf("issuer_url = %q", payload.Security.Auth.OIDCDraft.IssuerURL)
+	}
+	if !payload.Security.Auth.OIDCDraft.ClientSecretConfigured {
+		t.Fatal("expected saved oidc client secret to be marked as configured")
+	}
+
+	written, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config file: %v", err)
+	}
+	if !strings.Contains(string(written), "mode: disabled") {
+		t.Fatalf("expected disabled mode to remain in config, got %s", written)
+	}
+	if !strings.Contains(string(written), "issuer_url: https://idp.example.com") {
+		t.Fatalf("expected issuer_url in config, got %s", written)
+	}
+}
+
+func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	issuerServer := newTestOIDCDiscoveryServer(t)
+	defer issuerServer.Close()
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft/test",
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload securityOIDCTestResultResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Status != "ok" {
+		t.Fatalf("status = %q, want ok", payload.Status)
+	}
+	if payload.AuthorizationEndpoint == "" || payload.TokenEndpoint == "" {
+		t.Fatalf("expected discovery endpoints, got %+v", payload)
+	}
+}
+
+func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	issuerServer := newTestOIDCDiscoveryServer(t)
+	defer issuerServer.Close()
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "0.0.0.0"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-enable",
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload securityOIDCEnableResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Activation.Status != "configured" || !payload.Activation.RestartRequired {
+		t.Fatalf("unexpected activation payload: %+v", payload.Activation)
+	}
+	if payload.Security.Auth.ConfiguredMode != "oidc" {
+		t.Fatalf("configured mode = %q, want oidc", payload.Security.Auth.ConfiguredMode)
+	}
+
+	written, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config file: %v", err)
+	}
+	if !strings.Contains(string(written), "mode: oidc") {
+		t.Fatalf("expected oidc mode in config, got %s", written)
+	}
+}
+
+func newTestOIDCDiscoveryServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"issuer":"`+server.URL+`","authorization_endpoint":"`+server.URL+`/authorize","token_endpoint":"`+server.URL+`/token","jwks_uri":"`+server.URL+`/jwks","response_types_supported":["code"],"subject_types_supported":["public"],"id_token_signing_alg_values_supported":["RS256"]}`)
+		case "/jwks":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"keys":[]}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	return server
 }
 
 type stubGitHubAuthService struct {
