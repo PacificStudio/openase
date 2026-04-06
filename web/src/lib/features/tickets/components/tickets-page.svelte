@@ -1,6 +1,7 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { ticketBoardToolbarStore } from '../board-toolbar-store.svelte'
   import { BoardListView, BoardToolbar, BoardView } from '$lib/features/board'
   import { createTicketsPageController } from './tickets-page-controller.svelte'
@@ -8,7 +9,7 @@
   const controller = createTicketsPageController()
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
+<div class="flex h-full min-h-0 flex-col gap-2 px-2 py-2 sm:px-4 sm:py-3">
   <BoardToolbar
     filter={ticketBoardToolbarStore.filter}
     hideEmpty={ticketBoardToolbarStore.hideEmpty}
