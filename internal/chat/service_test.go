@@ -11,6 +11,7 @@ import (
 
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	ticketstatusservice "github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -476,6 +477,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 			{StatusName: "Todo", RetryPaused: true},
 		},
 	}
+	projectsRoot := t.TempDir()
 	service := NewService(nil, runtime, catalog, tickets, harnessWorkflowReader{}, fakeStatusReader{
 		result: ticketstatusservice.ListResult{
 			Statuses: []ticketstatusservice.Status{
@@ -484,7 +486,7 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 				{ID: uuid.MustParse("bb0e8400-e29b-41d4-a716-446655440000"), Name: "Done"},
 			},
 		},
-	}, "")
+	}, provider.MustParseAbsolutePath(projectsRoot))
 
 	stream, err := service.StartTurn(context.Background(), UserID("user:test"), StartInput{
 		Message: "Summarize project",
@@ -525,6 +527,13 @@ func TestStartTurnStreamsProjectSidebarContext(t *testing.T) {
 	}
 	if runtime.lastInput.Message != "Summarize project" {
 		t.Fatalf("runtime message = %q, want Summarize project", runtime.lastInput.Message)
+	}
+	wantWorkingDirectory, err := workspaceinfra.ProjectChatPath(projectsRoot, projectID.String())
+	if err != nil {
+		t.Fatalf("ProjectChatPath() error = %v", err)
+	}
+	if runtime.lastInput.WorkingDirectory.String() != wantWorkingDirectory {
+		t.Fatalf("runtime working directory = %q, want %q", runtime.lastInput.WorkingDirectory, wantWorkingDirectory)
 	}
 	if runtime.lastInput.MaxTurns != 0 {
 		t.Fatalf("runtime max turns = %d, want unlimited project sidebar policy", runtime.lastInput.MaxTurns)

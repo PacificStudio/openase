@@ -67,6 +67,7 @@ func stubVersionRunner(_ context.Context, name string, _ ...string) (string, err
 
 func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	homeDir := t.TempDir()
+	t.Setenv("PATH", strings.Join([]string{"/usr/bin", "/custom/bin", "/usr/bin"}, string(os.PathListSeparator)))
 	connector := &stubConnector{}
 	installer := &stubInstaller{}
 	service, err := NewService(Options{
@@ -134,6 +135,9 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(envContent), "OPENASE_AUTH_TOKEN=") {
 		t.Fatalf("expected env file to contain auth token, got %q", string(envContent))
+	}
+	if !strings.Contains(string(envContent), "PATH=/usr/bin:/custom/bin\n") {
+		t.Fatalf("expected env file to contain normalized PATH, got %q", string(envContent))
 	}
 
 	for _, dir := range []string{

@@ -18,6 +18,7 @@ import (
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
 	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 	"github.com/nikolalohinski/gonja/v2/exec"
@@ -843,7 +844,7 @@ func TestWorkflowServiceSkillAndHookHelperCoverage(t *testing.T) {
 	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookOnReload, workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(nil storage) error = %v", err)
 	}
-	service.repoRoot = t.TempDir()
+	service.projectsRoot = t.TempDir()
 	if err := service.runWorkflowHooks(ctx, uuid.Nil, workflowHooksConfig{}, workflowHookName("unexpected"), workflowHookRuntime{}); err != nil {
 		t.Fatalf("runWorkflowHooks(default) error = %v", err)
 	}
@@ -861,8 +862,8 @@ func TestWorkflowServiceSkillAndHookHelperCoverage(t *testing.T) {
 		want string
 	}{
 		{name: "empty", path: " ", want: "harness_path must not be empty"},
-		{name: "absolute", path: filepath.Join(string(os.PathSeparator), "tmp", "workflow.md"), want: "harness_path must be relative to the repo root"},
-		{name: "escape", path: "../workflow.md", want: "harness_path must stay within the repo root"},
+		{name: "absolute", path: filepath.Join(string(os.PathSeparator), "tmp", "workflow.md"), want: "harness_path must be relative to the project control root"},
+		{name: "escape", path: "../workflow.md", want: "harness_path must stay within the project control root"},
 		{name: "outside root", path: "workflow.md", want: "harness_path must stay under .openase/harnesses/"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -886,38 +887,36 @@ func TestWorkflowServiceHelperCoverage(t *testing.T) {
 
 	service, err := NewService(nil, nil, repoRoot)
 	if err != nil {
-		t.Fatalf("NewService(repoRoot) error = %v", err)
+		t.Fatalf("NewService(projectsRoot) error = %v", err)
 	}
-	if service.logger == nil || service.RepoRoot() != repoRoot {
-		t.Fatalf("NewService(repoRoot) = %+v", service)
+	if service.logger == nil || service.projectsRoot != repoRoot {
+		t.Fatalf("NewService(projectsRoot) = %+v", service)
 	}
 	if err := service.Close(); err != nil {
 		t.Fatalf("Service.Close() error = %v", err)
 	}
-	if got := (*Service)(nil).RepoRoot(); got != "" {
-		t.Fatalf("(*Service)(nil).RepoRoot() = %q", got)
+	if got, err := (*Service)(nil).ProjectControlRoot(uuid.New()); err != nil || got != "" {
+		t.Fatalf("(*Service)(nil).ProjectControlRoot() = %q, %v", got, err)
 	}
 	if err := (*Service)(nil).Close(); err != nil {
 		t.Fatalf("(*Service)(nil).Close() error = %v", err)
 	}
 
-	originalWD, err := os.Getwd()
+	projectID := uuid.MustParse("990e8400-e29b-41d4-a716-446655440000")
+	projectControlRoot, err := service.ProjectControlRoot(projectID)
 	if err != nil {
-		t.Fatalf("Getwd() error = %v", err)
+		t.Fatalf("ProjectControlRoot() error = %v", err)
 	}
-	if err := os.Chdir(repoRoot); err != nil {
-		t.Fatalf("Chdir(repoRoot) error = %v", err)
+	wantProjectControlRoot, err := workspaceinfra.ProjectStatePath(repoRoot, projectID.String())
+	if err != nil {
+		t.Fatalf("ProjectStatePath() error = %v", err)
 	}
-	t.Cleanup(func() {
-		_ = os.Chdir(originalWD)
-	})
+	if projectControlRoot != wantProjectControlRoot {
+		t.Fatalf("ProjectControlRoot() = %q, want %q", projectControlRoot, wantProjectControlRoot)
+	}
 
-	autoService, err := NewService(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
-	if err != nil {
-		t.Fatalf("NewService(auto detect) error = %v", err)
-	}
-	if autoService.RepoRoot() != repoRoot {
-		t.Fatalf("auto-detected RepoRoot() = %q, want %q", autoService.RepoRoot(), repoRoot)
+	if _, err := NewService(nil, slog.New(slog.NewTextHandler(io.Discard, nil)), ""); err == nil || !strings.Contains(err.Error(), "projects_root must not be empty") {
+		t.Fatalf("NewService(empty projects root) error = %v", err)
 	}
 
 	if got := service.mapWorkflowWriteError("write workflow", ErrWorkflowHarnessPathConflict); !errors.Is(got, ErrWorkflowHarnessPathConflict) {

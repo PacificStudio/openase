@@ -16,6 +16,9 @@ var _ = logging.DeclareComponent("workspace-layout")
 // LocalWorkspacePatternRoot is the display form for the local ticket workspace root.
 const LocalWorkspacePatternRoot = "~/.openase/workspace"
 
+// LocalProjectStatePatternRoot is the display form for the local project control root.
+const LocalProjectStatePatternRoot = "~/.openase/projects"
+
 // LocalWorkspaceRoot resolves the absolute local ticket workspace root.
 func LocalWorkspaceRoot() (string, error) {
 	homeDir, err := os.UserHomeDir()
@@ -24,6 +27,49 @@ func LocalWorkspaceRoot() (string, error) {
 	}
 
 	return filepath.Join(homeDir, ".openase", "workspace"), nil
+}
+
+// LocalProjectStateRoot resolves the absolute local project control root.
+func LocalProjectStateRoot() (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home directory: %w", err)
+	}
+
+	return filepath.Join(homeDir, ".openase", "projects"), nil
+}
+
+// ProjectStatePath derives the absolute project control path.
+func ProjectStatePath(projectsRoot string, projectID string) (string, error) {
+	root, err := parseProjectStateRoot(projectsRoot)
+	if err != nil {
+		return "", err
+	}
+
+	projectSegment, err := parsePathSegment("project_id", projectID)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(root, projectSegment), nil
+}
+
+// ProjectChatPath derives the absolute project chat working directory.
+func ProjectChatPath(projectsRoot string, projectID string) (string, error) {
+	projectPath, err := ProjectStatePath(projectsRoot, projectID)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(projectPath, "chat"), nil
+}
+
+// ProjectHooksPath derives the absolute project workflow hook working directory.
+func ProjectHooksPath(projectsRoot string, projectID string) (string, error) {
+	projectPath, err := ProjectStatePath(projectsRoot, projectID)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(projectPath, "hooks"), nil
 }
 
 // TicketWorkspacePath derives the absolute ticket workspace path.
@@ -78,6 +124,18 @@ func parseTicketWorkspaceRoot(raw string, requireAbsolute bool) (string, error) 
 	}
 	if requireAbsolute && !filepath.IsAbs(trimmed) {
 		return "", fmt.Errorf("workspace_root must be absolute")
+	}
+
+	return filepath.Clean(trimmed), nil
+}
+
+func parseProjectStateRoot(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", fmt.Errorf("projects_root must not be empty")
+	}
+	if !filepath.IsAbs(trimmed) {
+		return "", fmt.Errorf("projects_root must be absolute")
 	}
 
 	return filepath.Clean(trimmed), nil

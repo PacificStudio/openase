@@ -216,6 +216,8 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 
 	t.Setenv("OPENASE_API_URL", server.URL)
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.update")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
@@ -225,8 +227,8 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/tickets/ticket-9" {
-		t.Fatalf("expected env-backed ticket path, got %q", path)
+	if path != "/projects/project-123/tickets/ticket-9" {
+		t.Fatalf("expected project-scoped ticket path, got %q", path)
 	}
 	if payload["description"] != "updated" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -249,6 +251,8 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 
 	t.Setenv("OPENASE_API_URL", server.URL)
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.update")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
@@ -258,8 +262,8 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/tickets/ticket-9" {
-		t.Fatalf("expected env-backed ticket path, got %q", path)
+	if path != "/projects/project-123/tickets/ticket-9" {
+		t.Fatalf("expected project-scoped ticket path, got %q", path)
 	}
 	if payload["status_name"] != "Done" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -282,6 +286,8 @@ func TestTicketUpdateCommandSupportsExpandedPatchSurface(t *testing.T) {
 
 	t.Setenv("OPENASE_API_URL", server.URL)
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.update")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
@@ -299,8 +305,8 @@ func TestTicketUpdateCommandSupportsExpandedPatchSurface(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/tickets/ticket-9" {
-		t.Fatalf("expected env-backed ticket path, got %q", path)
+	if path != "/projects/project-123/tickets/ticket-9" {
+		t.Fatalf("expected project-scoped ticket path, got %q", path)
 	}
 	for key, want := range map[string]any{
 		"priority":         "high",

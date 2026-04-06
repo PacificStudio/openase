@@ -314,6 +314,38 @@ func TestWorkspaceLayoutAndParserHelpers(t *testing.T) {
 		t.Fatalf("LocalWorkspaceRoot() = %q", root)
 	}
 
+	projectsRoot, err := LocalProjectStateRoot()
+	if err != nil {
+		t.Fatalf("LocalProjectStateRoot() error = %v", err)
+	}
+	if projectsRoot != filepath.Join(homeDir, ".openase", "projects") {
+		t.Fatalf("LocalProjectStateRoot() = %q", projectsRoot)
+	}
+
+	projectStatePath, err := ProjectStatePath(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6")
+	if err != nil {
+		t.Fatalf("ProjectStatePath() error = %v", err)
+	}
+	if projectStatePath != filepath.Join(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6") {
+		t.Fatalf("ProjectStatePath() = %q", projectStatePath)
+	}
+
+	projectChatPath, err := ProjectChatPath(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6")
+	if err != nil {
+		t.Fatalf("ProjectChatPath() error = %v", err)
+	}
+	if projectChatPath != filepath.Join(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6", "chat") {
+		t.Fatalf("ProjectChatPath() = %q", projectChatPath)
+	}
+
+	projectHooksPath, err := ProjectHooksPath(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6")
+	if err != nil {
+		t.Fatalf("ProjectHooksPath() error = %v", err)
+	}
+	if projectHooksPath != filepath.Join(projectsRoot, "40c56726-5a02-4c1b-9cac-8e6352f340c6", "hooks") {
+		t.Fatalf("ProjectHooksPath() = %q", projectHooksPath)
+	}
+
 	if got := RepoPath("/srv/workspace/ASE-1", "", " backend "); got != filepath.Join("/srv/workspace/ASE-1", "backend") {
 		t.Fatalf("RepoPath(default clone path) = %q", got)
 	}

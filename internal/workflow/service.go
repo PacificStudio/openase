@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -19,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/builtin"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/google/uuid"
 )
 
@@ -616,28 +616,25 @@ type Service struct {
 	runtimeSnapshots WorkflowRuntimeSnapshotReader
 	harnessTemplates HarnessTemplateDataBuilder
 	logger           *slog.Logger
-	repoRoot         string
+	projectsRoot     string
 	builtinSkillsMu  sync.Mutex
 }
 
-func NewService(source serviceDependencySource, logger *slog.Logger, repoRoot string) (*Service, error) {
-	return NewServiceWithDependencies(serviceDependenciesFromSource(source), logger, repoRoot)
+func NewService(source serviceDependencySource, logger *slog.Logger, projectsRoot string) (*Service, error) {
+	return NewServiceWithDependencies(serviceDependenciesFromSource(source), logger, projectsRoot)
 }
 
-func NewServiceWithDependencies(deps ServiceDependencies, logger *slog.Logger, repoRoot string) (*Service, error) {
+func NewServiceWithDependencies(deps ServiceDependencies, logger *slog.Logger, projectsRoot string) (*Service, error) {
 	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, nil))
 	}
 
-	if repoRoot == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("resolve current working directory: %w", err)
-		}
-		repoRoot, err = DetectRepoRoot(cwd)
-		if err != nil {
-			return nil, err
-		}
+	trimmedProjectsRoot := strings.TrimSpace(projectsRoot)
+	if trimmedProjectsRoot == "" {
+		return nil, fmt.Errorf("projects_root must not be empty")
+	}
+	if !filepath.IsAbs(trimmedProjectsRoot) {
+		return nil, fmt.Errorf("projects_root must be absolute")
 	}
 
 	service := &Service{
@@ -650,7 +647,7 @@ func NewServiceWithDependencies(deps ServiceDependencies, logger *slog.Logger, r
 		runtimeSnapshots: deps.RuntimeSnapshots,
 		harnessTemplates: deps.HarnessTemplates,
 		logger:           logger.With("component", "workflow-service"),
-		repoRoot:         repoRoot,
+		projectsRoot:     filepath.Clean(trimmedProjectsRoot),
 	}
 
 	return service, nil
@@ -676,12 +673,11 @@ func (s *Service) Close() error {
 	return nil
 }
 
-func (s *Service) RepoRoot() string {
+func (s *Service) ProjectControlRoot(projectID uuid.UUID) (string, error) {
 	if s == nil {
-		return ""
+		return "", nil
 	}
-
-	return s.repoRoot
+	return workspaceinfra.ProjectStatePath(s.projectsRoot, projectID.String())
 }
 
 func validateConfiguredHooks(raw map[string]any) (workflowHooksConfig, error) {
@@ -1313,7 +1309,10 @@ func (s *Service) runWorkflowHooks(
 	if s == nil {
 		return nil
 	}
-	executor := s.hookExecutorForProject(ctx, projectID)
+	executor, err := s.hookExecutorForProject(ctx, projectID)
+	if err != nil {
+		return err
+	}
 	if executor == nil {
 		return nil
 	}
@@ -1328,19 +1327,27 @@ func (s *Service) runWorkflowHooks(
 	}
 }
 
-func (s *Service) hookExecutorForProject(_ context.Context, _ uuid.UUID) *workflowHookExecutor {
+func (s *Service) hookExecutorForProject(_ context.Context, projectID uuid.UUID) (*workflowHookExecutor, error) {
 	if s == nil {
-		return nil
+		return nil, nil
 	}
 	logger := s.logger
 	if logger == nil {
 		logger = slog.Default()
 	}
-	repoRoot := strings.TrimSpace(s.repoRoot)
-	if repoRoot == "" {
-		return nil
+	if projectID == uuid.Nil {
+		return nil, nil
 	}
-	return newWorkflowHookExecutor(repoRoot, logger)
+
+	hooksRoot, err := workspaceinfra.ProjectHooksPath(s.projectsRoot, projectID.String())
+	if err != nil {
+		return nil, fmt.Errorf("resolve workflow hook working directory: %w", err)
+	}
+	if err := os.MkdirAll(hooksRoot, 0o750); err != nil {
+		return nil, fmt.Errorf("ensure workflow hook working directory: %w", err)
+	}
+
+	return newWorkflowHookExecutor(hooksRoot, logger), nil
 }
 
 func (s *Service) mapWorkflowReadError(action string, err error) error {
@@ -1450,12 +1457,12 @@ func normalizeHarnessPath(raw string) (string, error) {
 		return "", fmt.Errorf("%w: harness_path must not be empty", ErrHarnessInvalid)
 	}
 	if filepath.IsAbs(trimmed) {
-		return "", fmt.Errorf("%w: harness_path must be relative to the repo root", ErrHarnessInvalid)
+		return "", fmt.Errorf("%w: harness_path must be relative to the project control root", ErrHarnessInvalid)
 	}
 
 	cleaned := filepath.ToSlash(filepath.Clean(trimmed))
 	if strings.HasPrefix(cleaned, "../") || cleaned == ".." {
-		return "", fmt.Errorf("%w: harness_path must stay within the repo root", ErrHarnessInvalid)
+		return "", fmt.Errorf("%w: harness_path must stay within the project control root", ErrHarnessInvalid)
 	}
 	if !strings.HasPrefix(cleaned, ".openase/harnesses/") {
 		return "", fmt.Errorf("%w: harness_path must stay under .openase/harnesses/", ErrHarnessInvalid)
@@ -1559,21 +1566,4 @@ func (s *Service) BuildHarnessTemplateData(ctx context.Context, input BuildHarne
 		return HarnessTemplateData{}, err
 	}
 	return HarnessTemplateData(data), nil
-}
-
-func DetectRepoRoot(start string) (string, error) {
-	current := start
-	for {
-		if _, err := os.Stat(filepath.Join(current, ".git")); err == nil {
-			return current, nil
-		} else if !errors.Is(err, fs.ErrNotExist) {
-			return "", fmt.Errorf("inspect repository root: %w", err)
-		}
-
-		parent := filepath.Dir(current)
-		if parent == current {
-			return "", fmt.Errorf("%w: could not find git repository root from %s", ErrHarnessInvalid, start)
-		}
-		current = parent
-	}
 }
