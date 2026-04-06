@@ -20712,7 +20712,7 @@
               "schema": {
                 "properties": {
                   "body": {
-                    "description": "Markdown body content for the project update thread.",
+                    "description": "Required markdown body content for the project update thread.",
                     "type": "string"
                   },
                   "created_by": {
@@ -20725,7 +20725,8 @@
                     "type": "string"
                   },
                   "title": {
-                    "description": "Human-readable project update title.",
+                    "description": "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
+                    "nullable": true,
                     "type": "string"
                   }
                 },
@@ -21082,7 +21083,7 @@
               "schema": {
                 "properties": {
                   "body": {
-                    "description": "Updated markdown body content for the project update thread.",
+                    "description": "Required updated markdown body content for the project update thread.",
                     "type": "string"
                   },
                   "edit_reason": {
@@ -21100,7 +21101,8 @@
                     "type": "string"
                   },
                   "title": {
-                    "description": "Updated human-readable project update title.",
+                    "description": "Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
+                    "nullable": true,
                     "type": "string"
                   }
                 },

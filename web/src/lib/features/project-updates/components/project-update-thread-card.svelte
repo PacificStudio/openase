@@ -24,7 +24,7 @@
     thread: ProjectUpdateThread
     onUpdateThread?: (
       threadId: string,
-      draft: { status: ProjectUpdateStatus; title: string; body: string },
+      draft: { status: ProjectUpdateStatus; body: string },
     ) => Promise<boolean> | boolean
     onDeleteThread?: (threadId: string) => Promise<boolean> | boolean
     onCreateComment?: (threadId: string, body: string) => Promise<boolean> | boolean
@@ -38,7 +38,7 @@
 
   let editingThread = $state(false)
   let editingStatus = $state<ProjectUpdateStatus>('on_track')
-  let editingTitle = $state('')
+  let editingBody = $state('')
   let commentDraft = $state('')
   let savingThread = $state(false)
   let deletingThread = $state(false)
@@ -56,7 +56,7 @@
 
   $effect(() => {
     editingStatus = thread.status
-    editingTitle = thread.title
+    editingBody = thread.bodyMarkdown || thread.title
     if (thread.isDeleted) {
       editingThread = false
       commentDraft = ''
@@ -66,17 +66,16 @@
   function cancelThreadEdit() {
     editingThread = false
     editingStatus = thread.status
-    editingTitle = thread.title
+    editingBody = thread.bodyMarkdown || thread.title
   }
 
   async function handleSaveThread() {
-    const title = editingTitle.trim()
-    if (!title || savingThread) return
+    const body = editingBody.trim()
+    if (!body || savingThread) return
 
     savingThread = true
     try {
-      const success =
-        (await onUpdateThread?.(thread.id, { status: editingStatus, title, body: title })) ?? false
+      const success = (await onUpdateThread?.(thread.id, { status: editingStatus, body })) ?? false
       if (success) editingThread = false
     } finally {
       savingThread = false
@@ -149,15 +148,15 @@
       </Select.Content>
     </Select.Root>
     <Input
-      bind:value={editingTitle}
+      bind:value={editingBody}
       class="h-7 flex-1 border-none bg-transparent px-0 text-sm shadow-none focus-visible:ring-0"
-      aria-label={`Edit title for ${thread.title}`}
+      aria-label={`Edit update ${thread.title}`}
     />
     <Button
       size="sm"
       class="h-6 px-2 text-xs"
       onclick={handleSaveThread}
-      disabled={!editingTitle.trim() || savingThread}
+      disabled={!editingBody.trim() || savingThread}
     >
       {savingThread ? 'Saving...' : 'Save'}
     </Button>
@@ -195,8 +194,7 @@
             if (value && value !== thread.status) {
               void onUpdateThread?.(thread.id, {
                 status: value as ProjectUpdateStatus,
-                title: thread.title,
-                body: thread.title,
+                body: thread.bodyMarkdown || thread.title,
               })
             }
           }}

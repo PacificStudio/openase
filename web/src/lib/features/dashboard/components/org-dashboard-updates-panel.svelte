@@ -23,14 +23,10 @@
     initialLoaded: boolean
     creatingThread: boolean
     loadError: string
-    onSubmit?: (draft: {
-      status: ProjectUpdateStatus
-      title: string
-      body: string
-    }) => Promise<boolean> | boolean
+    onSubmit?: (draft: { status: ProjectUpdateStatus; body: string }) => Promise<boolean> | boolean
     onUpdateThread?: (
       threadId: string,
-      draft: { status: ProjectUpdateStatus; title: string; body: string },
+      draft: { status: ProjectUpdateStatus; body: string },
     ) => Promise<boolean> | boolean
     onDeleteThread?: (threadId: string) => Promise<boolean> | boolean
     onCreateComment?: (threadId: string, body: string) => Promise<boolean> | boolean

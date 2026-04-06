@@ -1918,14 +1918,14 @@ var (
 	}
 	openAPIProjectUpdateThreadRequestDescriptions = map[string]string{
 		"status":     "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
-		"title":      "Human-readable project update title.",
-		"body":       "Markdown body content for the project update thread.",
+		"title":      "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
+		"body":       "Required markdown body content for the project update thread.",
 		"created_by": "Actor identifier recorded as the creator of the update thread.",
 	}
 	openAPIProjectUpdateThreadPatchDescriptions = map[string]string{
 		"status":      "Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
-		"title":       "Updated human-readable project update title.",
-		"body":        "Updated markdown body content for the project update thread.",
+		"title":       "Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
+		"body":        "Required updated markdown body content for the project update thread.",
 		"edited_by":   "Actor identifier recorded as the editor of the update thread.",
 		"edit_reason": "Reason recorded for editing the update thread.",
 	}

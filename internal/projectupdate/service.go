@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 
 	entdb "github.com/BetterAndBetterII/openase/ent"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
@@ -214,11 +215,13 @@ func (s *Service) AddThread(ctx context.Context, input AddThreadInput) (Thread, 
 
 	now := time.Now().UTC()
 	createdBy := resolveCreatedBy(input.CreatedBy)
+	body := strings.TrimSpace(input.Body)
+	title := resolveThreadTitle(input.Title, body)
 	item, err := tx.ProjectUpdateThread.Create().
 		SetProjectID(input.ProjectID).
 		SetStatus(mapStatus(input.Status)).
-		SetTitle(strings.TrimSpace(input.Title)).
-		SetBodyMarkdown(strings.TrimSpace(input.Body)).
+		SetTitle(title).
+		SetBodyMarkdown(body).
 		SetCreatedBy(createdBy).
 		SetCreatedAt(now).
 		SetUpdatedAt(now).
@@ -273,11 +276,13 @@ func (s *Service) UpdateThread(ctx context.Context, input UpdateThreadInput) (Th
 	editor := resolveCreatedBy(input.EditedBy)
 	nextStatus := mapStatus(input.Status)
 	revisionNumber++
+	body := strings.TrimSpace(input.Body)
+	title := resolveThreadTitle(input.Title, body)
 
 	item, err := tx.ProjectUpdateThread.UpdateOneID(existing.ID).
 		SetStatus(nextStatus).
-		SetTitle(strings.TrimSpace(input.Title)).
-		SetBodyMarkdown(strings.TrimSpace(input.Body)).
+		SetTitle(title).
+		SetBodyMarkdown(body).
 		SetUpdatedAt(now).
 		SetEditedAt(now).
 		SetEditCount(revisionNumber - 1).
@@ -847,6 +852,37 @@ func humanizeStatus(status Status) string {
 	default:
 		return "On track"
 	}
+}
+
+func resolveThreadTitle(rawTitle, body string) string {
+	title := strings.TrimSpace(rawTitle)
+	if title != "" {
+		return title
+	}
+	return deriveThreadTitleFromBody(body)
+}
+
+func deriveThreadTitleFromBody(body string) string {
+	const maxTitleRunes = 100
+
+	normalized := strings.Join(strings.Fields(strings.TrimSpace(body)), " ")
+	if normalized == "" {
+		return ""
+	}
+
+	runes := []rune(normalized)
+	if len(runes) <= maxTitleRunes {
+		return normalized
+	}
+
+	truncated := runes[:maxTitleRunes]
+	for idx := len(truncated) - 1; idx >= 0; idx-- {
+		if unicode.IsSpace(truncated[idx]) {
+			return strings.TrimSpace(string(truncated[:idx]))
+		}
+	}
+
+	return string(truncated)
 }
 
 func mapThread(item *entdb.ProjectUpdateThread) Thread {

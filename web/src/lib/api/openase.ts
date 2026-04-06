@@ -408,8 +408,8 @@ export function createProjectUpdateThread(
   projectId: string,
   body: {
     status: 'on_track' | 'at_risk' | 'off_track'
-    title: string
     body: string
+    title?: string
     created_by?: string
   },
 ) {
@@ -421,8 +421,8 @@ export function updateProjectUpdateThread(
   threadId: string,
   body: {
     status: 'on_track' | 'at_risk' | 'off_track'
-    title: string
     body: string
+    title?: string
     edited_by?: string
     edit_reason?: string
   },

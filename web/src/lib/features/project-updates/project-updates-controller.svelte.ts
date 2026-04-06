@@ -125,11 +125,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     }
   }
 
-  async function handleCreateThread(draft: {
-    status: ProjectUpdateStatus
-    title: string
-    body: string
-  }) {
+  async function handleCreateThread(draft: { status: ProjectUpdateStatus; body: string }) {
     const projectId = input.getProjectId()
     if (!projectId || creatingThread) {
       return false
@@ -154,7 +150,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
 
   async function handleSaveThread(
     threadId: string,
-    draft: { status: ProjectUpdateStatus; title: string; body: string },
+    draft: { status: ProjectUpdateStatus; body: string },
   ) {
     const projectId = input.getProjectId()
     if (!projectId) {
