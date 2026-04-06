@@ -23,16 +23,10 @@ func ParseConversationTitleFromFirstUserMessage(raw string) (ConversationTitle, 
 		title = firstNonEmptyConversationTitleLine(raw)
 	}
 	title = normalizeConversationTitleWhitespace(title)
-	if title == "" {
-		return "", fmt.Errorf("%w: first user message must contain title text", ErrInvalidInput)
-	}
 
 	runes := []rune(title)
 	if len(runes) > MaxConversationTitleRunes {
 		title = strings.TrimSpace(string(runes[:MaxConversationTitleRunes]))
-	}
-	if title == "" {
-		return "", fmt.Errorf("%w: parsed conversation title must not be empty", ErrInvalidInput)
 	}
 
 	return ConversationTitle(title), nil

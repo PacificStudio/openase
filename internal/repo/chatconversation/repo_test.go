@@ -80,7 +80,7 @@ func TestCreateTurnWithUserEntryPersistsStableTitleOnlyOnce(t *testing.T) {
 		t.Fatalf("conversation title after first turn = %q, want %q", got, want)
 	}
 
-	if _, err := repo.CompleteTurn(ctx, mustActiveTurn(t, repo, ctx, conversation.ID).ID, domain.TurnStatusCompleted, nil); err != nil {
+	if _, err := repo.CompleteTurn(ctx, mustActiveTurn(ctx, t, repo, conversation.ID).ID, domain.TurnStatusCompleted, nil); err != nil {
 		t.Fatalf("CompleteTurn() error = %v", err)
 	}
 	if _, _, err := repo.CreateTurnWithUserEntry(
@@ -157,9 +157,9 @@ func TestGetConversationBackfillsLegacyTitleFromEarliestUserEntry(t *testing.T) 
 }
 
 func mustActiveTurn(
+	ctx context.Context,
 	t *testing.T,
 	repo *Repository,
-	ctx context.Context,
 	conversationID uuid.UUID,
 ) domain.Turn {
 	t.Helper()

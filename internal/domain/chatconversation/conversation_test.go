@@ -98,3 +98,26 @@ func TestParseConversationTitleFromFirstUserMessage(t *testing.T) {
 		})
 	}
 }
+
+func TestConversationTitleHelpers(t *testing.T) {
+	t.Parallel()
+
+	if got := (ConversationTitle("  Stable title  ")).String(); got != "Stable title" {
+		t.Fatalf("ConversationTitle.String() = %q, want %q", got, "Stable title")
+	}
+	if got := firstNonEmptyConversationTitleLine("\n  \n first line \nsecond line"); got != "first line" {
+		t.Fatalf("firstNonEmptyConversationTitleLine() = %q, want %q", got, "first line")
+	}
+	if got := firstNonEmptyConversationTitleLine("\n\t "); got != "" {
+		t.Fatalf("firstNonEmptyConversationTitleLine() = %q, want empty", got)
+	}
+	if got := firstConversationSentence(""); got != "" {
+		t.Fatalf("firstConversationSentence(empty) = %q, want empty", got)
+	}
+	if got := firstConversationSentence("No punctuation here"); got != "" {
+		t.Fatalf("firstConversationSentence(no punctuation) = %q, want empty", got)
+	}
+	if got := firstConversationSentence("Ends here! Keep going"); got != "Ends here!" {
+		t.Fatalf("firstConversationSentence() = %q, want %q", got, "Ends here!")
+	}
+}

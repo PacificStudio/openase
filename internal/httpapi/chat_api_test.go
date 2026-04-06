@@ -853,6 +853,7 @@ func TestProjectConversationStreamRouteKeepsParallelConnectionsIsolated(t *testi
 func TestProjectConversationRoutesReturnStableTitleAndBackfillLegacyConversations(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
+	principal := testBrowserSessionAIPrincipal()
 
 	org, err := client.Organization.Create().
 		SetName("Better And Better").
@@ -874,7 +875,7 @@ func TestProjectConversationRoutesReturnStableTitleAndBackfillLegacyConversation
 	repoStore := chatrepo.NewEntRepository(client)
 	legacyConversation, err := client.ChatConversation.Create().
 		SetProjectID(project.ID).
-		SetUserID("user:conversation").
+		SetUserID(principal.String()).
 		SetSource(string(chatdomain.SourceProjectSidebar)).
 		SetProviderID(uuid.New()).
 		SetStatus(string(chatdomain.ConversationStatusActive)).
@@ -930,7 +931,7 @@ func TestProjectConversationRoutesReturnStableTitleAndBackfillLegacyConversation
 		"/api/v1/chat/conversations?project_id="+project.ID.String(),
 		nil,
 	)
-	listReq.Header.Set(chatUserHeader, "user:conversation")
+	addAIPrincipalCookie(listReq, principal)
 	listRec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(listRec, listReq)
 	if listRec.Code != http.StatusOK {
@@ -945,7 +946,7 @@ func TestProjectConversationRoutesReturnStableTitleAndBackfillLegacyConversation
 		"/api/v1/chat/conversations/"+legacyConversation.ID.String(),
 		nil,
 	)
-	getReq.Header.Set(chatUserHeader, "user:conversation")
+	addAIPrincipalCookie(getReq, principal)
 	getRec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(getRec, getReq)
 	if getRec.Code != http.StatusOK {
