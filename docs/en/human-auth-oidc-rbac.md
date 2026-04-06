@@ -1,6 +1,10 @@
 # OpenASE Human Auth, OIDC, And RBAC
 
-This document describes the control-plane human authentication model shipped in OpenASE.
+This document describes the current OIDC setup and RBAC behavior shipped in OpenASE.
+
+For the long-term dual-mode IAM contract that defines how `auth.mode=disabled`
+and `auth.mode=oidc` coexist, see
+[`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md).
 
 ## Summary
 

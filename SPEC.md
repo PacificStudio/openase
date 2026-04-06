@@ -5624,9 +5624,7 @@ database:
 
 # ═══ Authentication ═══
 auth:
-  mode: "local"                  # local | oidc
-  local:
-    token: "${OPENASE_AUTH_TOKEN}"  # at least 50 characters
+  mode: "disabled"               # disabled | oidc
   oidc:                          # required when mode=oidc
     issuer_url: ""
     client_id: ""
@@ -5692,7 +5690,7 @@ git:
 DB_PASSWORD=your_db_password
 
 # Authentication
-OPENASE_AUTH_TOKEN=your_local_auth_token_at_least_50_characters_long_xxxxx
+# disabled mode does not require an auth secret
 OIDC_CLIENT_SECRET=                    # required when mode=oidc
 
 # Agent CLI API Keys

@@ -608,10 +608,14 @@ set -a && source ~/.openase/.env && set +a
 
 | 模式 | 说明 | 使用场景 |
 |------|------|---------|
-| `disabled` | 无需认证；持久 Project Conversation 使用稳定本地主体 `local-user:default` | 本地开发 |
+| `disabled` | 无需登录；OpenASE 使用稳定的本地管理员主体承载个人模式 | 本地开发、个人部署 |
 | `oidc` | 通过 OIDC 提供商浏览器登录 | 生产环境、团队使用 |
 
-OIDC 支持标准提供商：Auth0、Azure Entra ID 以及任何 OpenID Connect 兼容的 IdP。参见 OIDC & RBAC 指南（[EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)）了解配置方法。
+OIDC 支持标准提供商：Auth0、Azure Entra ID 以及任何 OpenID Connect
+兼容的 IdP。关于产品层面的双模式模型，请参见 IAM 双模式契约
+（[EN](docs/en/iam-dual-mode-contract.md) | [中文](docs/zh/iam-dual-mode-contract.md)）；
+关于配置方法，请参见 OIDC & RBAC 指南
+（[EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)）。
 
 ---
 
@@ -789,6 +793,7 @@ make lint-all                    # 完整 Lint 套件
 | 模块架构 | [English](docs/guide/en/architecture.md) | [中文](docs/guide/zh/architecture.md) |
 | FAQ | [English](docs/guide/en/faq.md) | [中文](docs/guide/zh/faq.md) |
 | **源码构建与运行** | [English](docs/en/source-build-and-run.md) | [中文](docs/zh/source-build-and-run.md) |
+| IAM 双模式契约 | [English](docs/en/iam-dual-mode-contract.md) | [中文](docs/zh/iam-dual-mode-contract.md) |
 | OIDC & RBAC | [English](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md) |
 | 可观测性 | [English](docs/en/observability-checklist.md) | [中文](docs/zh/observability-checklist.md) |
 | WebSocket 部署 | [English](docs/en/remote-websocket-rollout.md) | [中文](docs/zh/remote-websocket-rollout.md) |

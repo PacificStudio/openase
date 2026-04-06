@@ -1,6 +1,9 @@
 # OpenASE 人类认证、OIDC 与 RBAC
 
-本文档描述了 OpenASE 中控制面板的人类认证模型。
+本文档描述了 OpenASE 当前已经落地的 OIDC 配置与 RBAC 行为。
+
+关于 `auth.mode=disabled` 与 `auth.mode=oidc` 如何长期共存的正式 IAM
+契约，请参见 [`docs/zh/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)。
 
 ## 概述
 

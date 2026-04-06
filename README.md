@@ -612,10 +612,15 @@ set -a && source ~/.openase/.env && set +a
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `disabled` | No auth required; persistent project conversations use the stable local principal `local-user:default` | Local development |
+| `disabled` | No login required; OpenASE uses a stable local admin principal for personal mode | Local development, personal deployments |
 | `oidc` | Browser login via OIDC provider | Production, team use |
 
-OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID Connect compliant IdP. See OIDC & RBAC Guide ([EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)) for setup.
+OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID
+Connect compliant IdP. See the IAM Dual-Mode Contract
+([EN](docs/en/iam-dual-mode-contract.md) | [中文](docs/zh/iam-dual-mode-contract.md))
+for the product model, and the OIDC & RBAC Guide
+([EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md))
+for setup.
 
 ---
 
@@ -793,6 +798,7 @@ make lint-all                    # Full lint suite
 | Module Architecture | [English](docs/guide/en/architecture.md) | [中文](docs/guide/zh/architecture.md) |
 | FAQ | [English](docs/guide/en/faq.md) | [中文](docs/guide/zh/faq.md) |
 | **Source Build & Run** | [English](docs/en/source-build-and-run.md) | [中文](docs/zh/source-build-and-run.md) |
+| IAM Dual-Mode Contract | [English](docs/en/iam-dual-mode-contract.md) | [中文](docs/zh/iam-dual-mode-contract.md) |
 | WebSocket Runtime Contract | [English](docs/en/websocket-runtime-contract.md) | [中文](docs/zh/websocket-runtime-contract.md) |
 | OIDC & RBAC | [English](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md) |
 | Observability | [English](docs/en/observability-checklist.md) | [中文](docs/zh/observability-checklist.md) |
