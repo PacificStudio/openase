@@ -48,7 +48,6 @@ const (
 	ScopeSkillsEnable                  = domain.ScopeSkillsEnable
 	ScopeSkillsDisable                 = domain.ScopeSkillsDisable
 	ScopeSkillsBind                    = domain.ScopeSkillsBind
-	ScopeSkillsRefine                  = domain.ScopeSkillsRefine
 	ScopeStatusesList                  = domain.ScopeStatusesList
 	ScopeStatusesCreate                = domain.ScopeStatusesCreate
 	ScopeStatusesUpdate                = domain.ScopeStatusesUpdate
@@ -114,7 +113,6 @@ var (
 		ScopeSkillsImport,
 		ScopeSkillsList,
 		ScopeSkillsRead,
-		ScopeSkillsRefine,
 		ScopeSkillsRefresh,
 		ScopeSkillsUpdate,
 		ScopeStatusesCreate,

@@ -49,8 +49,6 @@ type agentProviderResponse struct {
 
 type agentProviderCapabilitiesResponse struct {
 	EphemeralChat agentProviderCapabilityResponse `json:"ephemeral_chat"`
-	HarnessAI     agentProviderCapabilityResponse `json:"harness_ai"`
-	SkillAI       agentProviderCapabilityResponse `json:"skill_ai"`
 }
 
 type agentProviderCapabilityResponse struct {
@@ -722,14 +720,6 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 	if !ephemeralChatState.IsValid() {
 		ephemeralChatState = domain.AgentProviderCapabilityStateUnsupported
 	}
-	harnessAIState := capabilities.HarnessAI.State
-	if !harnessAIState.IsValid() {
-		harnessAIState = domain.AgentProviderCapabilityStateUnsupported
-	}
-	skillAIState := capabilities.SkillAI.State
-	if !skillAIState.IsValid() {
-		skillAIState = domain.AgentProviderCapabilityStateUnsupported
-	}
 
 	return agentProviderResponse{
 		ID:                    item.ID.String(),
@@ -751,14 +741,6 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 			EphemeralChat: agentProviderCapabilityResponse{
 				State:  ephemeralChatState.String(),
 				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
-			},
-			HarnessAI: agentProviderCapabilityResponse{
-				State:  harnessAIState.String(),
-				Reason: stringPointerValue(capabilities.HarnessAI.Reason),
-			},
-			SkillAI: agentProviderCapabilityResponse{
-				State:  skillAIState.String(),
-				Reason: stringPointerValue(capabilities.SkillAI.Reason),
 			},
 		},
 		CliCommand:            item.CliCommand,

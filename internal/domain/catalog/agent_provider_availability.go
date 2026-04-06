@@ -18,8 +18,6 @@ const (
 	providerReasonNotReady                  = "not_ready"
 	providerReasonConfigIncomplete          = "config_incomplete"
 	providerReasonUnsupportedAdapter        = "unsupported_adapter"
-	providerReasonRemoteMachineNotSupported = "remote_machine_not_supported"
-	providerReasonSkillAIRequiresCodex      = "skill_ai_requires_codex"
 )
 
 func DeriveAgentProviderAvailability(item AgentProvider, now time.Time) AgentProvider {

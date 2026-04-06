@@ -45,7 +45,6 @@
     templateDraft = null as WorkflowTemplateDraft | null,
     onSelectedIdChange,
     onDraftChange,
-    onApplyAssistantDraft,
     onSave,
     onValidate,
     onToggleSkill,
@@ -79,7 +78,6 @@
     templateDraft?: WorkflowTemplateDraft | null
     onSelectedIdChange?: (id: string) => void
     onDraftChange?: (raw: string) => void
-    onApplyAssistantDraft?: (content: string) => void
     onSave?: () => void
     onValidate?: () => void
     onToggleSkill?: (skill: SkillState) => void
@@ -105,8 +103,6 @@
       </div>
     {/if}
     <WorkflowEditorPanel
-      projectId={projectId || undefined}
-      {providers}
       selectedWorkflow={selectedWorkflow ?? undefined}
       harness={harness ? toHarnessContent(draftHarness) : null}
       {variableGroups}
@@ -118,7 +114,6 @@
       {loadingHarness}
       {showList}
       onDraftChange={(raw) => onDraftChange?.(raw)}
-      {onApplyAssistantDraft}
       {onSave}
       {onValidate}
       onToggleSkill={(skill) => onToggleSkill?.(skill)}

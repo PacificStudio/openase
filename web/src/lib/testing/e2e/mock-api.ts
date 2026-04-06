@@ -1334,14 +1334,6 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'available',
-          reason: null,
-        },
       },
       cli_command: 'python3',
       cli_args: ['/home/user/workspace/openase/scripts/dev/fake_codex_app_server.py'],
@@ -1373,14 +1365,6 @@ function createInitialState(): MockState {
         ephemeral_chat: {
           state: 'available',
           reason: null,
-        },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'unsupported',
-          reason: 'skill_ai_requires_codex',
         },
       },
       cli_command: 'claude',
@@ -1414,14 +1398,6 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'unsupported',
-          reason: 'skill_ai_requires_codex',
-        },
       },
       cli_command: 'gemini',
       cli_args: [],
@@ -1451,14 +1427,6 @@ function createInitialState(): MockState {
       availability_reason: null,
       capabilities: {
         ephemeral_chat: {
-          state: 'available',
-          reason: null,
-        },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
           state: 'available',
           reason: null,
         },

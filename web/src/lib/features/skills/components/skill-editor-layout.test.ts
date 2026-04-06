@@ -32,6 +32,7 @@ vi.mock('$lib/api/openase', () => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession: vi.fn(),
   streamChatTurn: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({

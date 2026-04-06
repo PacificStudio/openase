@@ -1,5 +1,8 @@
-import { cleanup, fireEvent, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+
+import ProjectConversationPanel from '$lib/features/chat/project-conversation-panel.svelte'
+import { appStore } from '$lib/stores/app.svelte'
 
 const {
   closeChatSession,
@@ -14,6 +17,7 @@ const {
   startProjectConversationTurn,
   streamChatTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeChatSession: vi.fn(),
   closeProjectConversationRuntime: vi.fn(),
@@ -27,6 +31,7 @@ const {
   startProjectConversationTurn: vi.fn(),
   streamChatTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 const { listProviders } = vi.hoisted(() => ({
@@ -46,6 +51,7 @@ vi.mock('$lib/api/chat', () => ({
   startProjectConversationTurn,
   streamChatTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 vi.mock('$lib/api/openase', async () => {
@@ -64,6 +70,15 @@ import {
 } from './ticket-drawer-content.test-helpers'
 
 describe('TicketDrawerContent project AI integration', () => {
+  function mockLiveMuxStream() {
+    watchProjectConversationMuxStream.mockImplementation(async (_projectId, handlers) => {
+      handlers.onOpen?.()
+      await new Promise<void>((resolve) => {
+        handlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+      })
+    })
+  }
+
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
     HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
@@ -82,7 +97,29 @@ describe('TicketDrawerContent project AI integration', () => {
     resetTicketDrawerTestAppStore()
   })
 
-  it('opens Project AI from the ticket drawer and sends the full ticket focus through project conversations', async () => {
+  function renderTicketFocusedProjectAI() {
+    renderTicketDrawerContent()
+    expect(appStore.projectAssistantFocus).toMatchObject({
+      kind: 'ticket',
+      projectId: 'project-1',
+      ticketId: 'ticket-1',
+      selectedArea: 'comments',
+    })
+
+    return render(ProjectConversationPanel, {
+      props: {
+        organizationId: 'org-1',
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        focus: appStore.projectAssistantFocus,
+        placeholder: 'Ask about this ticket without restating the basics…',
+      },
+    })
+  }
+
+  it('routes the full ticket focus into ticket-focused Project AI conversations', async () => {
+    mockLiveMuxStream()
     listProviders.mockResolvedValue({ providers: providerFixtures })
     listProjectConversations.mockResolvedValue({ conversations: [] })
     createProjectConversation.mockResolvedValue({
@@ -98,9 +135,8 @@ describe('TicketDrawerContent project AI integration', () => {
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
 
-    const { getByLabelText, getByPlaceholderText, getByRole } = renderTicketDrawerContent()
+    const { getByPlaceholderText, getByRole } = renderTicketFocusedProjectAI()
 
-    await fireEvent.click(getByLabelText('Project AI'))
     await waitFor(() => {
       expect(listProjectConversations).toHaveBeenCalled()
     })
@@ -109,7 +145,11 @@ describe('TicketDrawerContent project AI integration', () => {
       'Ask about this ticket without restating the basics…',
     ) as HTMLTextAreaElement
     await fireEvent.input(prompt, { target: { value: 'Why is this ticket not running?' } })
-    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+    const sendButton = getByRole('button', { name: 'Send message' })
+    await waitFor(() => {
+      expect((sendButton as HTMLButtonElement).disabled).toBe(false)
+    })
+    await fireEvent.click(sendButton)
 
     await waitFor(() => {
       expect(startProjectConversationTurn).toHaveBeenCalledWith(
@@ -160,7 +200,8 @@ describe('TicketDrawerContent project AI integration', () => {
     expect(closeChatSession).not.toHaveBeenCalled()
   })
 
-  it('keeps action proposal cards working from the ticket drawer entry point', async () => {
+  it('keeps legacy action proposal summaries visible from the ticket-focused Project AI entry point', async () => {
+    mockLiveMuxStream()
     window.localStorage.setItem(
       'openase.project-conversation.project-1.provider-1',
       JSON.stringify({
@@ -204,22 +245,12 @@ describe('TicketDrawerContent project AI integration', () => {
     })
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversation.mockResolvedValue(undefined)
-    executeProjectConversationActionProposal.mockResolvedValue({
-      results: [{ ok: true, summary: 'POST /api/v1/projects/project-1/tickets succeeded.' }],
-    })
 
-    const { findByText, getByLabelText, getByRole } = renderTicketDrawerContent()
+    const { findByText, queryByRole } = renderTicketFocusedProjectAI()
 
-    await fireEvent.click(getByLabelText('Project AI'))
     await findByText('Create a retry investigation child ticket')
-    await fireEvent.click(getByRole('button', { name: 'Confirm' }))
-
-    await waitFor(() => {
-      expect(executeProjectConversationActionProposal).toHaveBeenCalledWith(
-        'conversation-1',
-        'entry-proposal',
-      )
-    })
-    expect(await findByText('Executed')).toBeTruthy()
+    expect(queryByRole('button', { name: 'Confirm' })).toBeNull()
+    expect(queryByRole('button', { name: 'Cancel' })).toBeNull()
+    expect(executeProjectConversationActionProposal).not.toHaveBeenCalled()
   })
 })

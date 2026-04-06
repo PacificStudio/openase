@@ -12,6 +12,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -23,6 +24,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -36,6 +38,7 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 import { createProjectConversationController } from './project-conversation-controller.svelte'
@@ -100,6 +103,38 @@ function seedProjectConversationTabsStorage(
   )
 }
 
+function mockLiveMuxStream() {
+  let handlers:
+    | {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: {
+          conversationId: string
+          sentAt: string
+          event: { kind: string; payload: Record<string, unknown> }
+        }) => void
+      }
+    | undefined
+
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
+    handlers = nextHandlers
+    nextHandlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+
+  return {
+    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
+      handlers?.onFrame({
+        conversationId,
+        sentAt: '2026-04-01T10:00:00Z',
+        event,
+      })
+    },
+  }
+}
+
 describe('createProjectConversationController restore flows', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -107,9 +142,7 @@ describe('createProjectConversationController restore flows', () => {
   })
 
   it('refreshes workspace diff on turn completion and preserves it after runtime reset', async () => {
-    const streamHandlers: Array<{
-      onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
-    }> = []
+    const mux = mockLiveMuxStream()
 
     createProjectConversation.mockResolvedValue({
       conversation: { id: 'conversation-1' },
@@ -117,9 +150,6 @@ describe('createProjectConversationController restore flows', () => {
     getProjectConversationWorkspaceDiff
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
-    watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
-      streamHandlers.push(handlers)
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -132,7 +162,7 @@ describe('createProjectConversationController restore flows', () => {
     controller.syncProviders(providerFixtures, 'provider-1')
 
     await controller.sendTurn('Race test')
-    streamHandlers[0]?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'turn_done',
       payload: {
         conversationId: 'conversation-1',
@@ -143,7 +173,7 @@ describe('createProjectConversationController restore flows', () => {
 
     await controller.resetConversation()
 
-    streamHandlers[0]?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'message',
       payload: {
         type: 'text',
@@ -163,9 +193,10 @@ describe('createProjectConversationController restore flows', () => {
       controller.entries.some(
         (entry) => entry.kind === 'text' && entry.content === 'late assistant reply',
       ),
-    ).toBe(false)
+    ).toBe(true)
     expect(controller.workspaceDiff?.dirty).toBe(true)
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
+    await controller.dispose()
   })
 
   it('switches conversations, reloads the matching transcript, and continues the selected session', async () => {
@@ -219,7 +250,6 @@ describe('createProjectConversationController restore flows', () => {
               },
             ],
     }))
-    watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-3', turn_index: 2, status: 'started' },
     })
@@ -229,6 +259,7 @@ describe('createProjectConversationController restore flows', () => {
       getProjectId: () => 'project-1',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
+    mockLiveMuxStream()
 
     await controller.restore()
 
@@ -243,13 +274,6 @@ describe('createProjectConversationController restore flows', () => {
 
     expect(controller.conversationId).toBe('conversation-2')
     expect(listProjectConversationEntries).toHaveBeenLastCalledWith('conversation-2')
-    expect(watchProjectConversation).toHaveBeenLastCalledWith(
-      'conversation-2',
-      expect.objectContaining({
-        signal: expect.any(AbortSignal),
-        onEvent: expect.any(Function),
-      }),
-    )
     expect(controller.entries).toMatchObject([
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
     ])
@@ -272,6 +296,7 @@ describe('createProjectConversationController restore flows', () => {
       { kind: 'text', role: 'user', content: 'Continue the older plan' },
       { kind: 'text', role: 'user', content: 'Follow up on the older plan' },
     ])
+    await controller.dispose()
   })
 
   it('does not stay in restoring when workspace diff loading hangs', async () => {
@@ -312,7 +337,7 @@ describe('createProjectConversationController restore flows', () => {
           resolveWorkspaceDiff = resolve
         }),
     )
-    watchProjectConversation.mockResolvedValue(undefined)
+    mockLiveMuxStream()
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -330,5 +355,6 @@ describe('createProjectConversationController restore flows', () => {
     expect(controller.workspaceDiffLoading).toBe(true)
 
     expect(resolveWorkspaceDiff).not.toBeNull()
+    await controller.dispose()
   })
 })

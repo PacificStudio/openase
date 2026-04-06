@@ -67,10 +67,6 @@ export function providerAvailabilityHeadline(
       return 'Provider configuration is incomplete.'
     case 'unsupported_adapter':
       return 'Provider adapter is unsupported.'
-    case 'remote_machine_not_supported':
-      return 'This surface only supports local providers today.'
-    case 'skill_ai_requires_codex':
-      return 'Skill AI currently requires a local Codex provider.'
     default:
       switch (normalizeProviderAvailabilityState(state)) {
         case 'available':
@@ -110,10 +106,6 @@ export function providerAvailabilityDescription(
       return 'Required launch configuration is missing, such as the CLI command or remote workspace root.'
     case 'unsupported_adapter':
       return 'OpenASE does not have an availability probe contract for this provider adapter type yet.'
-    case 'remote_machine_not_supported':
-      return 'This editor-side AI surface still runs on the OpenASE host and does not support provider-bound remote machine execution yet.'
-    case 'skill_ai_requires_codex':
-      return 'Skill refinement currently uses the Codex-backed fix-and-verify runtime and does not accept Claude or Gemini providers.'
     default:
       switch (normalizeProviderAvailabilityState(state)) {
         case 'available':

@@ -57,8 +57,8 @@ describe('StepProvider', () => {
     vi.clearAllMocks()
   })
 
-  it('always renders the built-in onboarding cards even before any provider is registered', () => {
-    const { getAllByText, getByText } = render(StepProvider, {
+  it('always renders the built-in onboarding cards even before any provider is registered', async () => {
+    const { findByText, getAllByText } = render(StepProvider, {
       props: {
         projectId: 'project-1',
         orgId: 'org-1',
@@ -73,7 +73,7 @@ describe('StepProvider', () => {
     expect(getAllByText('Claude Code').length).toBeGreaterThan(0)
     expect(getAllByText('OpenAI Codex').length).toBeGreaterThan(0)
     expect(getAllByText('Gemini CLI').length).toBeGreaterThan(0)
-    expect(getByText('No providers are registered yet.')).toBeTruthy()
+    expect(await findByText('No providers registered yet')).toBeTruthy()
   })
 
   it('opens a provider-specific guide with install, auth, and verify commands for unavailable providers', async () => {
@@ -81,7 +81,7 @@ describe('StepProvider', () => {
       providers: [makeProvider({ availability_reason: 'not_logged_in' })],
     })
 
-    const { getByText, findByText } = render(StepProvider, {
+    const { findAllByRole, findByText } = render(StepProvider, {
       props: {
         projectId: 'project-1',
         orgId: 'org-1',
@@ -93,12 +93,13 @@ describe('StepProvider', () => {
       },
     })
 
-    await fireEvent.click(getByText('View OpenAI Codex guide'))
+    const guideButtons = await findAllByRole('button', { name: 'Guide' })
+    await fireEvent.click(guideButtons[1]!)
 
     expect(await findByText('OpenAI Codex setup guide')).toBeTruthy()
-    expect(getByText('npm i -g @openai/codex')).toBeTruthy()
-    expect(getByText('codex --login')).toBeTruthy()
-    expect(getByText('codex --version')).toBeTruthy()
+    expect(await findByText('npm i -g @openai/codex')).toBeTruthy()
+    expect(await findByText('codex --login')).toBeTruthy()
+    expect(await findByText('codex --version')).toBeTruthy()
   })
 
   it('lets users select an available provider as the project default from onboarding', async () => {

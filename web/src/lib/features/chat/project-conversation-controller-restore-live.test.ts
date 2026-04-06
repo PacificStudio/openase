@@ -11,6 +11,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -22,6 +23,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -35,6 +37,7 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 import { createProjectConversationController } from './project-conversation-controller.svelte'
@@ -99,6 +102,38 @@ function seedProjectConversationTabsStorage(
   )
 }
 
+function mockLiveMuxStream() {
+  let handlers:
+    | {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: {
+          conversationId: string
+          sentAt: string
+          event: { kind: string; payload: Record<string, unknown> }
+        }) => void
+      }
+    | undefined
+
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
+    handlers = nextHandlers
+    nextHandlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+
+  return {
+    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
+      handlers?.onFrame({
+        conversationId,
+        sentAt: '2026-04-01T10:00:00Z',
+        event,
+      })
+    },
+  }
+}
+
 describe('createProjectConversationController restore live flows', () => {
   afterEach(() => {
     vi.clearAllMocks()
@@ -130,7 +165,7 @@ describe('createProjectConversationController restore live flows', () => {
       ],
     })
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
-    watchProjectConversation.mockResolvedValue(undefined)
+    mockLiveMuxStream()
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -147,6 +182,7 @@ describe('createProjectConversationController restore live flows', () => {
     expect(controller.tabs).toHaveLength(1)
     expect(controller.tabs[0]?.restored).toBe(true)
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledWith('conversation-1')
+    await controller.dispose()
   })
 
   it('appends live assistant text to a restored conversation controller state', async () => {
@@ -154,10 +190,7 @@ describe('createProjectConversationController restore live flows', () => {
       [{ conversationId: 'conversation-1', providerId: 'provider-1' }],
       0,
     )
-
-    let streamHandlers:
-      | { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-      | undefined
+    const mux = mockLiveMuxStream()
 
     listProjectConversations.mockResolvedValue({
       conversations: [
@@ -183,9 +216,6 @@ describe('createProjectConversationController restore live flows', () => {
         },
       ],
     })
-    watchProjectConversation.mockImplementation(async (_conversationId, handlers) => {
-      streamHandlers = handlers
-    })
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -195,7 +225,7 @@ describe('createProjectConversationController restore live flows', () => {
 
     await controller.restore()
 
-    streamHandlers?.onEvent({
+    mux.emit('conversation-1', {
       kind: 'message',
       payload: {
         type: 'text',
@@ -211,5 +241,6 @@ describe('createProjectConversationController restore live flows', () => {
           entry.content === 'First streamed reply chunk.',
       ),
     ).toBe(true)
+    await controller.dispose()
   })
 })

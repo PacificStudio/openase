@@ -7,6 +7,7 @@ const { streamChatTurn } = vi.hoisted(() => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession: vi.fn(),
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import type { AgentProvider } from '$lib/api/contracts'
@@ -93,7 +94,7 @@ describe('createEphemeralChatSessionController diff handling', () => {
     })
 
     const controller = createEphemeralChatSessionController({
-      getSource: () => 'harness_editor',
+      getSource: () => 'project_sidebar',
     })
     controller.syncProviders(providerFixtures, 'provider-1')
 
@@ -101,7 +102,6 @@ describe('createEphemeralChatSessionController diff handling', () => {
       message: 'Tighten the harness.',
       context: {
         projectId: 'project-1',
-        workflowId: 'workflow-1',
       },
     })
 

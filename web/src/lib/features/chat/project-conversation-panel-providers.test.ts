@@ -14,6 +14,7 @@ const { listProjectConversations } = vi.hoisted(() => ({
 
 vi.mock('$lib/api/chat', () => ({
   listProjectConversations,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({

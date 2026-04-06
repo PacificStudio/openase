@@ -110,9 +110,7 @@ export default defineConfig(
   {
     files: [
       'src/lib/features/board/components/board-page-controls.test.ts',
-      'src/lib/features/skills/components/skill-ai-sidebar.test.ts',
       'src/lib/features/skills/components/skill-editor-page.test.ts',
-      'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts',
       'src/lib/features/workflows/components/workflows-page.test.ts',
       'src/lib/features/chat/project-conversation-controller.test.ts',
     ],

@@ -12,19 +12,10 @@ type providerSurface string
 
 const (
 	providerSurfaceEphemeralChat providerSurface = "ephemeral_chat"
-	providerSurfaceHarnessAI     providerSurface = "harness_ai"
-	providerSurfaceSkillAI       providerSurface = "skill_ai"
 )
 
 func chatProviderSurfaceForSource(source Source) providerSurface {
-	switch source {
-	case SourceHarnessEditor:
-		return providerSurfaceHarnessAI
-	case SourceSkillEditor:
-		return providerSurfaceSkillAI
-	default:
-		return providerSurfaceEphemeralChat
-	}
+	return providerSurfaceEphemeralChat
 }
 
 func resolveProviderCapabilityForSurface(
@@ -32,14 +23,7 @@ func resolveProviderCapabilityForSurface(
 	surface providerSurface,
 ) catalogdomain.AgentProviderCapability {
 	providerItem = catalogdomain.DeriveAgentProviderCapabilities(providerItem)
-	switch surface {
-	case providerSurfaceHarnessAI:
-		return providerItem.Capabilities.HarnessAI
-	case providerSurfaceSkillAI:
-		return providerItem.Capabilities.SkillAI
-	default:
-		return providerItem.Capabilities.EphemeralChat
-	}
+	return providerItem.Capabilities.EphemeralChat
 }
 
 func validateProviderForSurface(

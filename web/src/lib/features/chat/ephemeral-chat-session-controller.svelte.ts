@@ -19,12 +19,7 @@ import { isAbortError } from './transcript'
 
 type EphemeralChatContext = {
   projectId: string
-  workflowId?: string
   ticketId?: string
-  harnessDraft?: string
-  skillId?: string
-  skillFilePath?: string
-  skillFileDraft?: string
 }
 
 type CreateEphemeralChatSessionControllerInput = {

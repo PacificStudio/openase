@@ -8391,30 +8391,6 @@
                                   }
                                 },
                                 "type": "object"
-                              },
-                              "harness_ai": {
-                                "properties": {
-                                  "reason": {
-                                    "nullable": true,
-                                    "type": "string"
-                                  },
-                                  "state": {
-                                    "type": "string"
-                                  }
-                                },
-                                "type": "object"
-                              },
-                              "skill_ai": {
-                                "properties": {
-                                  "reason": {
-                                    "nullable": true,
-                                    "type": "string"
-                                  },
-                                  "state": {
-                                    "type": "string"
-                                  }
-                                },
-                                "type": "object"
                               }
                             },
                             "type": "object"
@@ -8944,30 +8920,6 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "harness_ai": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,
@@ -22847,30 +22799,6 @@
                                 }
                               },
                               "type": "object"
-                            },
-                            "harness_ai": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "skill_ai": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
                             }
                           },
                           "type": "object"
@@ -23407,30 +23335,6 @@
                         "capabilities": {
                           "properties": {
                             "ephemeral_chat": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "harness_ai": {
-                              "properties": {
-                                "reason": {
-                                  "nullable": true,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "type": "string"
-                                }
-                              },
-                              "type": "object"
-                            },
-                            "skill_ai": {
                               "properties": {
                                 "reason": {
                                   "nullable": true,
@@ -24684,85 +24588,6 @@
         "summary": "Trigger a scheduled job once",
         "tags": [
           "scheduled-jobs"
-        ]
-      }
-    },
-    "/api/v1/skills/refinement-runs/{sessionId}": {
-      "delete": {
-        "operationId": "closeSkillRefinementRun",
-        "parameters": [
-          {
-            "description": "Skill refinement session ID.",
-            "in": "path",
-            "name": "sessionId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Skill refinement run closed."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Close a skill refinement run and clean up its temporary workspace",
-        "tags": [
-          "skills"
         ]
       }
     },
@@ -26135,161 +25960,6 @@
           }
         },
         "summary": "List published skill versions",
-        "tags": [
-          "skills"
-        ]
-      }
-    },
-    "/api/v1/skills/{skillId}/refinement-runs": {
-      "post": {
-        "operationId": "startSkillRefinement",
-        "parameters": [
-          {
-            "description": "Skill ID.",
-            "in": "path",
-            "name": "skillId",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "files": {
-                    "description": "Current draft skill bundle files from the editor.",
-                    "items": {
-                      "properties": {
-                        "content_base64": {
-                          "description": "Base64-encoded file bytes for this draft bundle entry.",
-                          "type": "string"
-                        },
-                        "is_executable": {
-                          "description": "Whether the projected file should be marked executable at runtime.",
-                          "type": "boolean"
-                        },
-                        "media_type": {
-                          "description": "Optional media type persisted with the file entry.",
-                          "type": "string"
-                        },
-                        "path": {
-                          "description": "Bundle-relative file path using forward slashes.",
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    },
-                    "type": "array"
-                  },
-                  "message": {
-                    "description": "Requested improvement goal that Codex should fix and verify against the current draft bundle.",
-                    "type": "string"
-                  },
-                  "project_id": {
-                    "description": "Project ID that owns the skill draft and provider selection.",
-                    "type": "string"
-                  },
-                  "provider_id": {
-                    "description": "Optional provider ID. Phase 1 supports Codex-backed refinement only.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Skill fix-and-verify refinement request body.",
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            },
-            "description": "Server-sent events stream."
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Bad Request response."
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Not Found response."
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Conflict response."
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "properties": {
-                    "code": {
-                      "type": "string"
-                    },
-                    "message": {
-                      "type": "string"
-                    }
-                  },
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Internal Server Error response."
-          }
-        },
-        "summary": "Start a Codex-backed skill fix-and-verify refinement run",
         "tags": [
           "skills"
         ]

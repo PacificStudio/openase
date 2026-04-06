@@ -16,11 +16,6 @@ const { bindSkill, deleteSkill, disableSkill, enableSkill, unbindSkill, updateSk
   }),
 )
 
-const { closeSkillRefinementSession, streamSkillRefinement } = vi.hoisted(() => ({
-  closeSkillRefinementSession: vi.fn(),
-  streamSkillRefinement: vi.fn(),
-}))
-
 const { goto } = vi.hoisted(() => ({
   goto: vi.fn(),
 }))
@@ -57,11 +52,6 @@ vi.mock('$lib/api/openase', () => ({
   updateSkill,
 }))
 
-vi.mock('$lib/api/skill-refinement', () => ({
-  closeSkillRefinementSession,
-  streamSkillRefinement,
-}))
-
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore }))
 
 import { appStore } from '$lib/stores/app.svelte'
@@ -87,8 +77,6 @@ const providerFixtures: AgentProvider[] = [
     availability_reason: null,
     capabilities: {
       ephemeral_chat: { state: 'available', reason: null },
-      harness_ai: { state: 'available', reason: null },
-      skill_ai: { state: 'available', reason: null },
     },
     cli_command: 'codex',
     cli_args: [],

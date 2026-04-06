@@ -41,8 +41,6 @@ var (
 type Source string
 
 const (
-	SourceHarnessEditor  Source = "harness_editor"
-	SourceSkillEditor    Source = "skill_editor"
 	SourceProjectSidebar Source = "project_sidebar"
 	SourceTicketDetail   Source = "ticket_detail"
 )
@@ -56,24 +54,14 @@ type RawStartInput struct {
 }
 
 type RawChatContext struct {
-	ProjectID      *string `json:"project_id"`
-	WorkflowID     *string `json:"workflow_id"`
-	TicketID       *string `json:"ticket_id"`
-	HarnessDraft   *string `json:"harness_draft"`
-	SkillID        *string `json:"skill_id"`
-	SkillFilePath  *string `json:"skill_file_path"`
-	SkillFileDraft *string `json:"skill_file_draft"`
+	ProjectID *string `json:"project_id"`
+	TicketID  *string `json:"ticket_id"`
 }
 
 type Context struct {
-	ProjectID      uuid.UUID
-	WorkflowID     *uuid.UUID
-	TicketID       *uuid.UUID
-	HarnessDraft   *string
-	SkillID        *uuid.UUID
-	SkillFilePath  *string
-	SkillFileDraft *string
-	ProjectFocus   *ProjectConversationFocus
+	ProjectID    uuid.UUID
+	TicketID     *uuid.UUID
+	ProjectFocus *ProjectConversationFocus
 }
 
 type StartInput struct {
@@ -110,7 +98,6 @@ type ticketReader interface {
 type workflowReader interface {
 	Get(ctx context.Context, workflowID uuid.UUID) (workflowservice.WorkflowDetail, error)
 	List(ctx context.Context, projectID uuid.UUID) ([]workflowservice.Workflow, error)
-	GetSkill(ctx context.Context, skillID uuid.UUID) (workflowservice.SkillDetail, error)
 }
 
 type statusReader interface {
@@ -235,25 +222,13 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 	if err != nil {
 		return StartInput{}, err
 	}
-	workflowID, err := parseOptionalUUIDPointer("context.workflow_id", raw.Context.WorkflowID)
-	if err != nil {
-		return StartInput{}, err
-	}
 	ticketID, err := parseOptionalUUIDPointer("context.ticket_id", raw.Context.TicketID)
 	if err != nil {
 		return StartInput{}, err
 	}
-	skillID, err := parseOptionalUUIDPointer("context.skill_id", raw.Context.SkillID)
-	if err != nil {
+	if err := validateSourceContext(source, ticketID); err != nil {
 		return StartInput{}, err
 	}
-	if err := validateSourceContext(source, workflowID, ticketID, skillID); err != nil {
-		return StartInput{}, err
-	}
-	harnessDraft := cloneOptionalString(raw.Context.HarnessDraft)
-	skillFilePath := cloneOptionalString(raw.Context.SkillFilePath)
-	skillFileDraft := cloneOptionalString(raw.Context.SkillFileDraft)
-
 	sessionID, err := parseOptionalSessionID(raw.SessionID)
 	if err != nil {
 		return StartInput{}, err
@@ -264,13 +239,8 @@ func ParseStartInput(raw RawStartInput) (StartInput, error) {
 		Source:     source,
 		ProviderID: providerID,
 		Context: Context{
-			ProjectID:      projectID,
-			WorkflowID:     workflowID,
-			TicketID:       ticketID,
-			HarnessDraft:   harnessDraft,
-			SkillID:        skillID,
-			SkillFilePath:  skillFilePath,
-			SkillFileDraft: skillFileDraft,
+			ProjectID: projectID,
+			TicketID:  ticketID,
 		},
 		SessionID: sessionID,
 	}, nil
@@ -672,14 +642,6 @@ func (s *Service) buildSystemPrompt(
 	sb.WriteString("Answer using the context below. Do not claim that you have already performed platform write operations. When platform or repository actions are actually needed, use the skills, CLI, and tools available at runtime directly. Do not output structured proposal JSON such as `action_proposal` or `platform_command_proposal`.\n\n")
 
 	switch input.Source {
-	case SourceHarnessEditor:
-		if err := s.writeHarnessEditorContext(ctx, &sb, project, input); err != nil {
-			return "", err
-		}
-	case SourceSkillEditor:
-		if err := s.writeSkillEditorContext(ctx, &sb, project, input); err != nil {
-			return "", err
-		}
 	case SourceProjectSidebar:
 		if err := s.writeProjectSidebarContext(ctx, &sb, project, input.Context.ProjectFocus); err != nil {
 			return "", err
@@ -699,289 +661,6 @@ func (s *Service) buildSystemPrompt(
 	}
 
 	return sb.String(), nil
-}
-
-func (s *Service) writeHarnessEditorContext(
-	ctx context.Context,
-	sb *strings.Builder,
-	project catalogdomain.Project,
-	input StartInput,
-) error {
-	workflowID := uuidPtrValue(input.Context.WorkflowID)
-	workflowItem, err := s.workflows.Get(ctx, workflowID)
-	if err != nil {
-		return fmt.Errorf("get workflow for chat context: %w", err)
-	}
-
-	sb.WriteString("## Source: Harness Editor\n")
-	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
-	_, _ = fmt.Fprintf(sb, "Workflow: %s (%s)\n", workflowItem.Name, workflowItem.Type)
-	_, _ = fmt.Fprintf(sb, "Harness Path: %s | Active: %t | Version: %d\n", workflowItem.HarnessPath, workflowItem.IsActive, workflowItem.Version)
-	_, _ = fmt.Fprintf(sb, "Concurrency: %d | Max retries: %d | Timeout: %d minutes | Stall timeout: %d minutes\n\n", workflowItem.MaxConcurrent, workflowItem.MaxRetryAttempts, workflowItem.TimeoutMinutes, workflowItem.StallTimeoutMinutes)
-	sb.WriteString("### Current Harness\n")
-	sb.WriteString("```markdown\n")
-	sb.WriteString(workflowItem.HarnessContent)
-	if !strings.HasSuffix(workflowItem.HarnessContent, "\n") {
-		sb.WriteByte('\n')
-	}
-	sb.WriteString("```\n\n")
-	if draft := input.Context.HarnessDraft; draft != nil && *draft != workflowItem.HarnessContent {
-		sb.WriteString("### Current Editor Draft (Unsaved)\n")
-		if *draft == "" {
-			sb.WriteString("(Current draft is empty)\n\n")
-		} else {
-			sb.WriteString("```markdown\n")
-			sb.WriteString(*draft)
-			if !strings.HasSuffix(*draft, "\n") {
-				sb.WriteByte('\n')
-			}
-			sb.WriteString("```\n\n")
-		}
-	}
-
-	statusLines, statusNamesByID, err := s.renderHarnessStatusContext(ctx, project.ID)
-	if err != nil {
-		return err
-	}
-	if statusLines != "" {
-		sb.WriteString("### Project Status Topology\n")
-		sb.WriteString(statusLines)
-		sb.WriteByte('\n')
-	}
-
-	workflowLines, workflowNamesByID, err := s.renderHarnessWorkflowTopology(ctx, project.ID, workflowID, statusNamesByID)
-	if err != nil {
-		return err
-	}
-	if workflowLines != "" {
-		sb.WriteString("### Project Workflow Topology\n")
-		sb.WriteString(workflowLines)
-		sb.WriteByte('\n')
-	}
-
-	repoLines, err := s.renderHarnessRepoContext(ctx, project.ID)
-	if err != nil {
-		return err
-	}
-	if repoLines != "" {
-		sb.WriteString("### Project Repository Boundaries\n")
-		sb.WriteString(repoLines)
-		sb.WriteByte('\n')
-	}
-
-	ticketLines, err := s.renderHarnessTicketSamples(ctx, project.ID, workflowNamesByID)
-	if err != nil {
-		return err
-	}
-	if ticketLines != "" {
-		sb.WriteString("### Recent Ticket Samples\n")
-		sb.WriteString(ticketLines)
-		sb.WriteByte('\n')
-	}
-
-	activityItems, err := s.listRecentActivity(ctx, project.ID, nil, 15)
-	if err != nil {
-		return err
-	}
-	sb.WriteString("### Recent Activity Samples\n")
-	sb.WriteString(renderActivityLines(activityItems))
-	sb.WriteByte('\n')
-
-	sb.WriteString("### Available Template Variables\n")
-	sb.WriteString(renderHarnessVariableDictionary())
-	sb.WriteByte('\n')
-	sb.WriteString("\n### Professional Workflow Design Baseline\n")
-	sb.WriteString("- The harness must match the real status flow of the current project accurately. Do not assume `Todo -> Done` unless the context clearly says so.\n")
-	sb.WriteString("- The artifact should make role boundaries, pickup status, delivery status, definition of done, repo scope, validation requirements, failure/blocker handling, and handoff rules explicit.\n")
-	sb.WriteString("- Prefer reusing the division of labor from existing workflows on the current project so you do not create a workflow that conflicts with or duplicates an existing lane.\n")
-	sb.WriteString("- If the user asks for a professional workflow, default to an executable SOP instead of vague role prose.\n")
-	sb.WriteString("- Do not invent platform capabilities. When a platform write is required, use the runtime tools directly, and clarify first if the target cannot be identified safely.\n")
-	sb.WriteString("\n### Infer First, Clarify Only What Is Missing\n")
-	sb.WriteString("Before producing a harness diff, decide whether the seven items below are already clear from context. If any critical item is missing, ask a focused clarification question first instead of producing workflow text immediately:\n")
-	sb.WriteString("- 1. What is the responsibility boundary of this workflow?\n")
-	sb.WriteString("- 2. Which status does it pick tickets up from?\n")
-	sb.WriteString("- 3. Which status does it move tickets to?\n")
-	sb.WriteString("- 4. What counts as done for this workflow: committed code, PR created, CI green, or merged?\n")
-	sb.WriteString("- 5. Which proactive platform writes may it perform, such as changing status, creating child tickets, or updating repo scope?\n")
-	sb.WriteString("- 6. Which repo or repo scope does it cover by default?\n")
-	sb.WriteString("- 7. How should it react to failures, blockers, missing information, or red CI?\n")
-	sb.WriteString("\n### Harness Editor Response Requirements\n")
-	sb.WriteString("- When the user requests a harness change and the context is sufficient, default to outputting exactly one structured diff JSON object that the editor can apply safely.\n")
-	sb.WriteString("- Unless you are asking a clarification question or you cannot reliably produce a diff, do not output explanatory prose, intros, outros, markdown lists, fenced code blocks, multiple JSON objects, or incomplete JSON fragments.\n")
-	sb.WriteString("- The output must be one valid JSON object, starting at the first `{` and ending at the last `}`, with no natural language mixed in.\n")
-	sb.WriteString("- The top-level fields are fixed: `type`, `file`, and `hunks`. Do not add extra top-level fields.\n")
-	sb.WriteString("- `type` must be exactly `diff`, and `file` must be exactly `harness content`.\n")
-	sb.WriteString("- `hunks` must be a non-empty array, and each hunk must include `old_start`, `old_lines`, `new_start`, `new_lines`, and `lines`.\n")
-	sb.WriteString("- Line numbers use 1-based positive integers. `old_lines` and `new_lines` must match the counts of `context`, `remove`, and `add` entries in `lines` exactly.\n")
-	sb.WriteString("- `lines[].op` may only be `context`, `add`, or `remove`. `lines[].text` must be single-line text; do not embed newline characters inside one `text` value.\n")
-	sb.WriteString("- Field names must use snake_case: `old_start`, `old_lines`, `new_start`, `new_lines`. Do not output camelCase variants.\n")
-	sb.WriteString("- The simplified JSON schema is:\n")
-	sb.WriteString("```json\n")
-	sb.WriteString("{\n")
-	sb.WriteString("  \"type\": \"object\",\n")
-	sb.WriteString("  \"required\": [\"type\", \"file\", \"hunks\"],\n")
-	sb.WriteString("  \"additionalProperties\": false,\n")
-	sb.WriteString("  \"properties\": {\n")
-	sb.WriteString("    \"type\": {\"const\": \"diff\"},\n")
-	sb.WriteString("    \"file\": {\"const\": \"harness content\"},\n")
-	sb.WriteString("    \"hunks\": {\n")
-	sb.WriteString("      \"type\": \"array\",\n")
-	sb.WriteString("      \"minItems\": 1,\n")
-	sb.WriteString("      \"items\": {\n")
-	sb.WriteString("        \"type\": \"object\",\n")
-	sb.WriteString("        \"required\": [\"old_start\", \"old_lines\", \"new_start\", \"new_lines\", \"lines\"],\n")
-	sb.WriteString("        \"additionalProperties\": false,\n")
-	sb.WriteString("        \"properties\": {\n")
-	sb.WriteString("          \"old_start\": {\"type\": \"integer\", \"minimum\": 1},\n")
-	sb.WriteString("          \"old_lines\": {\"type\": \"integer\", \"minimum\": 0},\n")
-	sb.WriteString("          \"new_start\": {\"type\": \"integer\", \"minimum\": 1},\n")
-	sb.WriteString("          \"new_lines\": {\"type\": \"integer\", \"minimum\": 0},\n")
-	sb.WriteString("          \"lines\": {\n")
-	sb.WriteString("            \"type\": \"array\",\n")
-	sb.WriteString("            \"minItems\": 1,\n")
-	sb.WriteString("            \"items\": {\n")
-	sb.WriteString("              \"type\": \"object\",\n")
-	sb.WriteString("              \"required\": [\"op\", \"text\"],\n")
-	sb.WriteString("              \"additionalProperties\": false,\n")
-	sb.WriteString("              \"properties\": {\n")
-	sb.WriteString("                \"op\": {\"enum\": [\"context\", \"add\", \"remove\"]},\n")
-	sb.WriteString("                \"text\": {\"type\": \"string\"}\n")
-	sb.WriteString("              }\n")
-	sb.WriteString("            }\n")
-	sb.WriteString("          }\n")
-	sb.WriteString("        }\n")
-	sb.WriteString("      }\n")
-	sb.WriteString("    }\n")
-	sb.WriteString("  }\n")
-	sb.WriteString("}\n")
-	sb.WriteString("```\n")
-	sb.WriteString("- Valid example: {\"type\":\"diff\",\"file\":\"harness content\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"# Title\"},{\"op\":\"add\",\"text\":\"new content\"}]}]}\n")
-	sb.WriteString("- If the context is sufficient, return a diff that matches the current project state and topology directly. If it is insufficient, ask the smallest sufficient clarification question first.\n")
-	sb.WriteString("- Only fall back to a short explanation plus a full Harness markdown code block if you cannot reliably produce a structured diff.\n")
-	sb.WriteString("- If the user asks for platform writes, prefer an executable implementation grounded in the context or clarify missing information first. Do not output proposal JSON.\n")
-	return nil
-}
-
-func (s *Service) writeSkillEditorContext(
-	ctx context.Context,
-	sb *strings.Builder,
-	project catalogdomain.Project,
-	input StartInput,
-) error {
-	skillID := uuidPtrValue(input.Context.SkillID)
-	skillItem, err := s.workflows.GetSkill(ctx, skillID)
-	if err != nil {
-		return fmt.Errorf("get skill for chat context: %w", err)
-	}
-
-	selectedPath := "SKILL.md"
-	if input.Context.SkillFilePath != nil && strings.TrimSpace(*input.Context.SkillFilePath) != "" {
-		selectedPath = strings.TrimSpace(*input.Context.SkillFilePath)
-	}
-
-	var selectedFile *workflowservice.SkillBundleFile
-	for index := range skillItem.Files {
-		if skillItem.Files[index].Path == selectedPath {
-			selectedFile = &skillItem.Files[index]
-			break
-		}
-	}
-
-	sb.WriteString("## Source: Skill Editor\n")
-	_, _ = fmt.Fprintf(sb, "Project: %s\n", project.Name)
-	_, _ = fmt.Fprintf(sb, "Skill: %s | Version: %d | Enabled: %t\n", skillItem.Name, skillItem.CurrentVersion, skillItem.IsEnabled)
-	_, _ = fmt.Fprintf(sb, "Path: %s | Bundle Hash: %s | Files: %d\n", skillItem.Path, skillItem.BundleHash, skillItem.FileCount)
-	if skillItem.Description != "" {
-		_, _ = fmt.Fprintf(sb, "Description: %s\n", skillItem.Description)
-	}
-	if len(skillItem.BoundWorkflows) > 0 {
-		sb.WriteString("\n### Bound Workflows\n")
-		for _, binding := range skillItem.BoundWorkflows {
-			_, _ = fmt.Fprintf(sb, "- %s (%s)\n", binding.Name, binding.HarnessPath)
-		}
-	}
-
-	sb.WriteString("\n### Skill Bundle File List\n")
-	for _, file := range skillItem.Files {
-		_, _ = fmt.Fprintf(
-			sb,
-			"- %s [kind=%s, encoding=%s, size=%d]",
-			file.Path,
-			file.FileKind,
-			file.Encoding,
-			file.SizeBytes,
-		)
-		if file.IsExecutable {
-			sb.WriteString(" executable=true")
-		}
-		sb.WriteByte('\n')
-	}
-
-	_, _ = fmt.Fprintf(sb, "\n### Currently Selected File\n- path: %s\n", selectedPath)
-	if selectedFile == nil {
-		sb.WriteString("- The currently selected file does not exist in the published bundle and will be treated as a new unsaved file.\n")
-	} else {
-		_, _ = fmt.Fprintf(sb, "- kind: %s\n- encoding: %s\n- media_type: %s\n", selectedFile.FileKind, selectedFile.Encoding, selectedFile.MediaType)
-	}
-
-	publishedContent := ""
-	if selectedFile != nil && selectedFile.Encoding == "utf8" {
-		publishedContent = string(selectedFile.Content)
-	}
-	if publishedContent != "" {
-		sb.WriteString("\n### Published File Content\n")
-		sb.WriteString("```text\n")
-		sb.WriteString(publishedContent)
-		if !strings.HasSuffix(publishedContent, "\n") {
-			sb.WriteByte('\n')
-		}
-		sb.WriteString("```\n")
-	}
-
-	otherTextFiles := 0
-	for _, file := range skillItem.Files {
-		if file.Path == selectedPath || file.Encoding != "utf8" || len(file.Content) == 0 {
-			continue
-		}
-		if otherTextFiles == 0 {
-			sb.WriteString("\n### Other Editable Text File Content\n")
-		}
-		otherTextFiles++
-		_, _ = fmt.Fprintf(sb, "\n#### %s\n", file.Path)
-		sb.WriteString("```text\n")
-		sb.WriteString(string(file.Content))
-		if !strings.HasSuffix(string(file.Content), "\n") {
-			sb.WriteByte('\n')
-		}
-		sb.WriteString("```\n")
-	}
-
-	if draft := input.Context.SkillFileDraft; draft != nil {
-		sb.WriteString("\n### Current Editor Draft (Unsaved)\n")
-		if strings.TrimSpace(*draft) == "" {
-			sb.WriteString("(Current draft is empty)\n")
-		} else {
-			sb.WriteString("```text\n")
-			sb.WriteString(*draft)
-			if !strings.HasSuffix(*draft, "\n") {
-				sb.WriteByte('\n')
-			}
-			sb.WriteString("```\n")
-		}
-	}
-
-	sb.WriteString("\n### Skill Editing Requirements\n")
-	sb.WriteString("- Focus recommendations on the currently selected file first. Only modify multiple bundle files when the request is inherently cross-file.\n")
-	sb.WriteString("- Prefer preserving the current skill's responsibility boundary, frontmatter name, description, and directory structure.\n")
-	sb.WriteString("- If the user requests a script or reference document, keep the target language and format syntactically correct instead of forcing markdown.\n")
-	sb.WriteString("- When the user asks to modify files directly, prefer outputting structured diff JSON that the editor can apply safely.\n")
-	sb.WriteString("- For a single-file change use: {\"type\":\"diff\",\"file\":\"relative/file/path\",\"hunks\":[{\"old_start\":1,\"old_lines\":1,\"new_start\":1,\"new_lines\":2,\"lines\":[{\"op\":\"context\",\"text\":\"original line\"},{\"op\":\"add\",\"text\":\"new line\"}]}]}\n")
-	sb.WriteString("- For a multi-file change use: {\"type\":\"bundle_diff\",\"files\":[{\"file\":\"SKILL.md\",\"hunks\":[...]},{\"file\":\"scripts/redeploy.sh\",\"hunks\":[...]}]}\n")
-	sb.WriteString("- In a single-file diff, `diff.file` must exactly match the target file path. In a multi-file diff, `bundle_diff.files[].file` must be a bundle-relative file path, and creating new UTF-8 text files is allowed.\n")
-	sb.WriteString("- All `hunks` use 1-based line numbers, and `lines[].op` may only be `context`, `add`, or `remove`.\n")
-	sb.WriteString("- Only fall back to a short explanation plus a full-file code block if you cannot reliably produce a structured diff.\n")
-	sb.WriteString("- For normal skill editing, prefer an applicable diff or a concise explanation. Do not output proposal JSON.\n")
-	return nil
 }
 
 func (s *Service) writeProjectSidebarContext(
@@ -1274,27 +953,16 @@ func hasModelFlag(args []string) bool {
 func parseSource(raw string) (Source, error) {
 	source := Source(strings.TrimSpace(raw))
 	switch source {
-	case SourceHarnessEditor, SourceSkillEditor, SourceProjectSidebar, SourceTicketDetail:
+	case SourceProjectSidebar, SourceTicketDetail:
 		return source, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrSourceUnsupported, raw)
 	}
 }
 
-func validateSourceContext(source Source, workflowID *uuid.UUID, ticketID *uuid.UUID, skillID *uuid.UUID) error {
-	switch source {
-	case SourceHarnessEditor:
-		if workflowID == nil {
-			return fmt.Errorf("context.workflow_id is required for source %s", source)
-		}
-	case SourceSkillEditor:
-		if skillID == nil {
-			return fmt.Errorf("context.skill_id is required for source %s", source)
-		}
-	case SourceTicketDetail:
-		if ticketID == nil {
-			return fmt.Errorf("context.ticket_id is required for source %s", source)
-		}
+func validateSourceContext(source Source, ticketID *uuid.UUID) error {
+	if source == SourceTicketDetail && ticketID == nil {
+		return fmt.Errorf("context.ticket_id is required for source %s", source)
 	}
 	return nil
 }
@@ -1340,30 +1008,6 @@ func parseOptionalSessionID(raw *string) (*SessionID, error) {
 	return &parsed, nil
 }
 
-func cloneOptionalString(raw *string) *string {
-	if raw == nil {
-		return nil
-	}
-	value := *raw
-	return &value
-}
-
-func renderHarnessVariableDictionary() string {
-	var sb strings.Builder
-	for _, group := range workflowservice.HarnessVariableDictionary() {
-		_, _ = fmt.Fprintf(&sb, "#### %s\n", group.Name)
-		for _, variable := range group.Variables {
-			_, _ = fmt.Fprintf(&sb, "- `%s` (%s): %s", variable.Path, variable.Type, variable.Description)
-			if variable.Example != "" {
-				_, _ = fmt.Fprintf(&sb, " Example: `%s`", variable.Example)
-			}
-			sb.WriteByte('\n')
-		}
-		sb.WriteByte('\n')
-	}
-	return sb.String()
-}
-
 func renderActivityLines(items []catalogdomain.ActivityEvent) string {
 	if len(items) == 0 {
 		return "- none\n"
@@ -1407,159 +1051,4 @@ func uuidPtrValue(value *uuid.UUID) uuid.UUID {
 		return uuid.UUID{}
 	}
 	return *value
-}
-
-func (s *Service) renderHarnessStatusContext(
-	ctx context.Context,
-	projectID uuid.UUID,
-) (string, map[uuid.UUID]string, error) {
-	if s.statuses == nil {
-		return "", map[uuid.UUID]string{}, nil
-	}
-
-	result, err := s.statuses.List(ctx, projectID)
-	if err != nil {
-		return "", nil, fmt.Errorf("list ticket statuses for chat context: %w", err)
-	}
-
-	statusNamesByID := make(map[uuid.UUID]string, len(result.Statuses))
-	if len(result.Statuses) == 0 {
-		return "- none\n", statusNamesByID, nil
-	}
-
-	var sb strings.Builder
-	for _, item := range result.Statuses {
-		statusNamesByID[item.ID] = item.Name
-		_, _ = fmt.Fprintf(&sb, "- %d. %s [stage=%s", item.Position, item.Name, item.Stage)
-		if item.IsDefault {
-			sb.WriteString(", default=true")
-		}
-		if item.MaxActiveRuns != nil {
-			_, _ = fmt.Fprintf(&sb, ", max_active_runs=%d", *item.MaxActiveRuns)
-		}
-		sb.WriteString("]\n")
-	}
-	return sb.String(), statusNamesByID, nil
-}
-
-func (s *Service) renderHarnessWorkflowTopology(
-	ctx context.Context,
-	projectID uuid.UUID,
-	currentWorkflowID uuid.UUID,
-	statusNamesByID map[uuid.UUID]string,
-) (string, map[uuid.UUID]string, error) {
-	items, err := s.workflows.List(ctx, projectID)
-	if err != nil {
-		return "", nil, fmt.Errorf("list workflows for chat context: %w", err)
-	}
-
-	workflowNamesByID := make(map[uuid.UUID]string, len(items))
-	if len(items) == 0 {
-		return "- none\n", workflowNamesByID, nil
-	}
-
-	var sb strings.Builder
-	for _, item := range items {
-		workflowNamesByID[item.ID] = item.Name
-		_, _ = fmt.Fprintf(&sb, "- %s [%s]", item.Name, item.Type)
-		if item.ID == currentWorkflowID {
-			sb.WriteString(" (current)")
-		}
-		_, _ = fmt.Fprintf(
-			&sb,
-			" pickup=%s finish=%s active=%t harness=%s retry=%d timeout=%d concurrent=%d\n",
-			renderStatusBindingNames(item.PickupStatusIDs, statusNamesByID),
-			renderStatusBindingNames(item.FinishStatusIDs, statusNamesByID),
-			item.IsActive,
-			item.HarnessPath,
-			item.MaxRetryAttempts,
-			item.TimeoutMinutes,
-			item.MaxConcurrent,
-		)
-	}
-	return sb.String(), workflowNamesByID, nil
-}
-
-func (s *Service) renderHarnessRepoContext(ctx context.Context, projectID uuid.UUID) (string, error) {
-	repos, err := s.catalog.ListProjectRepos(ctx, projectID)
-	if err != nil {
-		return "", fmt.Errorf("list project repos for chat context: %w", err)
-	}
-	if len(repos) == 0 {
-		return "- none\n", nil
-	}
-
-	var sb strings.Builder
-	for _, repo := range repos {
-		_, _ = fmt.Fprintf(
-			&sb,
-			"- %s default_branch=%s workspace=%s url=%s",
-			repo.Name,
-			repo.DefaultBranch,
-			repo.WorkspaceDirname,
-			repo.RepositoryURL,
-		)
-		if len(repo.Labels) > 0 {
-			_, _ = fmt.Fprintf(&sb, " labels=%s", strings.Join(repo.Labels, ", "))
-		}
-		sb.WriteByte('\n')
-	}
-	return sb.String(), nil
-}
-
-func (s *Service) renderHarnessTicketSamples(
-	ctx context.Context,
-	projectID uuid.UUID,
-	workflowNamesByID map[uuid.UUID]string,
-) (string, error) {
-	items, err := s.tickets.List(ctx, ticketservice.ListInput{
-		ProjectID: projectID,
-		Limit:     12,
-	})
-	if err != nil {
-		return "", fmt.Errorf("list tickets for chat context: %w", err)
-	}
-	if len(items) == 0 {
-		return "- none\n", nil
-	}
-
-	var sb strings.Builder
-	for _, item := range items {
-		workflowName := "unassigned"
-		if item.WorkflowID != nil {
-			if name, ok := workflowNamesByID[*item.WorkflowID]; ok {
-				workflowName = name
-			} else {
-				workflowName = item.WorkflowID.String()
-			}
-		}
-		_, _ = fmt.Fprintf(
-			&sb,
-			"- %s %s | status=%s | workflow=%s | attempts=%d | paused=%t | consecutive_errors=%d\n",
-			item.Identifier,
-			item.Title,
-			item.StatusName,
-			workflowName,
-			item.AttemptCount,
-			item.RetryPaused,
-			item.ConsecutiveErrors,
-		)
-	}
-	return sb.String(), nil
-}
-
-func renderStatusBindingNames(statusIDs []uuid.UUID, statusNamesByID map[uuid.UUID]string) string {
-	if len(statusIDs) == 0 {
-		return "none"
-	}
-
-	names := make([]string, 0, len(statusIDs))
-	for _, statusID := range statusIDs {
-		if name, ok := statusNamesByID[statusID]; ok {
-			names = append(names, name)
-			continue
-		}
-		names = append(names, statusID.String())
-	}
-	return strings.Join(names, ", ")
 }

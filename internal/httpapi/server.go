@@ -60,7 +60,6 @@ type Server struct {
 	notificationService        *notificationservice.Service
 	projectUpdateService       *projectupdateservice.Service
 	chatService                *chatservice.Service
-	skillRefinementService     *chatservice.SkillRefinementService
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
 	githubRepoService          githubreposervice.Service
@@ -102,11 +101,6 @@ func WithChatService(service *chatservice.Service) ServerOption {
 	}
 }
 
-func WithSkillRefinementService(service *chatservice.SkillRefinementService) ServerOption {
-	return func(server *Server) {
-		server.skillRefinementService = service
-	}
-}
 
 func WithProjectConversationService(service *chatservice.ProjectConversationService) ServerOption {
 	return func(server *Server) {

@@ -6,7 +6,7 @@ const chatUserHeader = 'X-OpenASE-Chat-User'
 const chatUserStorageKey = 'openase.chat.user'
 let cachedChatUserId = ''
 
-export type ChatSource = 'harness_editor' | 'skill_editor' | 'project_sidebar' | 'ticket_detail'
+export type ChatSource = 'project_sidebar' | 'ticket_detail'
 
 export type ChatTurnRequest = {
   message: string
@@ -15,12 +15,7 @@ export type ChatTurnRequest = {
   sessionId?: string
   context: {
     projectId: string
-    workflowId?: string
     ticketId?: string
-    harnessDraft?: string
-    skillId?: string
-    skillFilePath?: string
-    skillFileDraft?: string
   }
 }
 
@@ -304,12 +299,7 @@ export async function streamChatTurn(
       session_id: request.sessionId,
       context: {
         project_id: request.context.projectId,
-        workflow_id: request.context.workflowId,
         ticket_id: request.context.ticketId,
-        harness_draft: request.context.harnessDraft,
-        skill_id: request.context.skillId,
-        skill_file_path: request.context.skillFilePath,
-        skill_file_draft: request.context.skillFileDraft,
       },
     }),
     credentials: 'same-origin',
