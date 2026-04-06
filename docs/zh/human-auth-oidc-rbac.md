@@ -159,7 +159,12 @@ RBAC 评估规则：
 
 ## 聊天、会话与审计操作者
 
-项目聊天和项目会话从已认证的人类主体获取用户身份，而非浏览器本地的随机 ID。
+AI 会话归属始终派生自服务端定义的主体：
+
+- 在 `auth.mode=oidc` 下，项目聊天、项目会话以及其他浏览器驱动的 AI 流程使用已认证的人类主体
+- 在 `auth.mode=disabled` 下，服务端签发并复用 `openase_ai_principal` 浏览器 Cookie，其值是稳定的 `browser-session:<uuid>` 主体
+
+浏览器本地随机 ID 和 `X-OpenASE-Chat-User` 请求头不再是权威 owner 输入。
 
 审计语义：
 
