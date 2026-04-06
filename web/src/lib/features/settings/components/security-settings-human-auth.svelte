@@ -260,7 +260,9 @@
 
   {#if authStore.authMode !== 'oidc'}
     <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-      Human auth is disabled. Enable <code>auth.mode=oidc</code> to enforce browser login and RBAC.
+      Human auth is disabled. Persistent Project Conversation ownership falls back to the stable
+      local principal <code>local-user:default</code>. Enable <code>auth.mode=oidc</code> to enforce browser
+      login and RBAC.
     </div>
   {:else if !authStore.authenticated}
     <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">

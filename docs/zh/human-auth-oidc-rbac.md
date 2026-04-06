@@ -161,6 +161,12 @@ RBAC 评估规则：
 
 项目聊天和项目会话从已认证的人类主体获取用户身份，而非浏览器本地的随机 ID。
 
+当 `auth.mode=disabled` 时，持久 Project Conversation 会切换到服务端定义的本地稳定主体：`local-user:default`。
+
+- 这样可以让会话归属跨前端 dev server 端口与浏览器本地存储重置保持稳定
+- `localStorage` 仅保留标签布局和草稿等 UI 恢复职责，不再作为持久会话 owner 的真相来源
+- 该模式明确是本地单用户 / 共享实例 fallback，不是多用户隔离模型
+
 审计语义：
 
 - 正常的人类写操作记录为 `user:<user-id>`
@@ -175,6 +181,7 @@ RBAC 评估规则：
 - 当前认证模式
 - Issuer URL
 - 当前已认证用户
+- 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
 - 有效角色和权限
 - 组织/项目角色绑定管理
 

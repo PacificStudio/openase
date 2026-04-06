@@ -12,6 +12,10 @@ type UserID string
 
 const AnonymousUserID UserID = "anonymous"
 
+// LocalProjectConversationUserID is the stable non-OIDC owner used for
+// persistent project conversations when browser login is disabled.
+const LocalProjectConversationUserID UserID = "local-user:default"
+
 func ParseUserID(raw string) (UserID, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {

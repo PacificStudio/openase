@@ -531,7 +531,6 @@ export async function watchProjectConversation(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/stream`,
@@ -569,7 +568,6 @@ export async function watchProjectConversationMuxStream(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/projects/${encodeURIComponent(projectId)}/conversations/stream`,
@@ -619,9 +617,7 @@ export function respondProjectConversationInterrupt(
 }
 
 export async function closeProjectConversationRuntime(conversationId: string) {
-  const headers = buildRequestHeaders('DELETE', {
-    [chatUserHeader]: resolveEphemeralChatUserId(),
-  })
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
     {
@@ -1218,7 +1214,6 @@ async function fetchJSON<T>(
   const method = options?.method ?? 'GET'
   const headers = buildRequestHeaders(method, {
     ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
 
   const response = await fetch(url.toString(), {
