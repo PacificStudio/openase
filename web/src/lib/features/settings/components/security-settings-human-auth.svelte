@@ -236,14 +236,6 @@
   function handleDraftExpiresAt(scope: ScopeKind, value: string) {
     patchDraft(scope, { expiresAtLocal: value })
   }
-
-  function handleCreateBindingClick(scope: ScopeKind) {
-    void handleCreateBinding(scope)
-  }
-
-  function handleDeleteBindingClick(scope: ScopeKind, bindingId: string) {
-    void handleDeleteBinding(scope, bindingId)
-  }
 </script>
 
 <div class="space-y-4">
@@ -257,7 +249,6 @@
     issuerURL={authStore.issuerURL}
     user={authStore.user}
   />
-
   {#if authStore.authMode !== 'oidc'}
     <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
       Human auth is disabled. Persistent Project Conversation ownership falls back to the stable
@@ -294,8 +285,8 @@
       onDraftSubjectKey={handleDraftSubjectKey}
       onDraftRoleKey={handleDraftRoleKey}
       onDraftExpiresAt={handleDraftExpiresAt}
-      onCreateBinding={handleCreateBindingClick}
-      onDeleteBinding={handleDeleteBindingClick}
+      onCreateBinding={(scope) => void handleCreateBinding(scope)}
+      onDeleteBinding={(scope, bindingId) => void handleDeleteBinding(scope, bindingId)}
     />
   {/if}
 </div>
