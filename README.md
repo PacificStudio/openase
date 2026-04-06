@@ -612,7 +612,7 @@ set -a && source ~/.openase/.env && set +a
 
 | Mode | Description | Use Case |
 |------|-------------|----------|
-| `disabled` | No auth required | Local development |
+| `disabled` | No auth required; persistent project conversations use the stable local principal `local-user:default` | Local development |
 | `oidc` | Browser login via OIDC provider | Production, team use |
 
 OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID Connect compliant IdP. See OIDC & RBAC Guide ([EN](docs/en/human-auth-oidc-rbac.md) | [中文](docs/zh/human-auth-oidc-rbac.md)) for setup.
