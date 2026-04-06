@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 // GitCommandRunner executes a git command and returns the combined output.
@@ -14,6 +16,8 @@ type GitCommandRunner func(ctx context.Context, args []string, allowExitCodeOne 
 var ErrGitWorkspaceUnavailable = errors.New("git workspace unavailable")
 
 const emptyTreeHash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+var _ = logging.DeclareComponent("workspace-git-snapshot")
 
 // ReadWorkspaceGitBranch resolves the current branch and falls back to symbolic-ref for unborn HEADs.
 func ReadWorkspaceGitBranch(ctx context.Context, repoPath string, run GitCommandRunner) (string, error) {
