@@ -460,19 +460,19 @@ func TestBuiltinRoles(t *testing.T) {
 		}
 	}
 
-	assertHasPermission(t, roles[RoleInstanceAdmin].Permissions, PermissionOrgUpdate)
+	assertHasPermission(t, roles[RoleInstanceAdmin].Permissions, PermissionOrgCreate)
 	assertHasPermission(t, roles[RoleInstanceAdmin].Permissions, PermissionRBACManage)
-	assertHasPermission(t, roles[RoleOrgOwner].Permissions, PermissionOrgUpdate)
+	assertHasPermission(t, roles[RoleOrgOwner].Permissions, PermissionOrgDelete)
 	assertHasPermission(t, roles[RoleOrgAdmin].Permissions, PermissionOrgUpdate)
 	assertHasPermission(t, roles[RoleOrgMember].Permissions, PermissionTicketUpdate)
 	assertMissingPermission(t, roles[RoleOrgMember].Permissions, PermissionRBACManage)
-	assertHasPermission(t, roles[RoleProjectAdmin].Permissions, PermissionSecurityManage)
-	assertHasPermission(t, roles[RoleProjectOperator].Permissions, PermissionWorkflowManage)
+	assertHasPermission(t, roles[RoleProjectAdmin].Permissions, PermissionSecurityUpdate)
+	assertHasPermission(t, roles[RoleProjectOperator].Permissions, PermissionWorkflowUpdate)
 	assertMissingPermission(t, roles[RoleProjectOperator].Permissions, PermissionProposalApprove)
 	assertHasPermission(t, roles[RoleProjectReviewer].Permissions, PermissionProposalApprove)
 	assertMissingPermission(t, roles[RoleProjectReviewer].Permissions, PermissionProjectUpdate)
-	assertHasPermission(t, roles[RoleProjectMember].Permissions, PermissionProjectUpdate)
-	assertMissingPermission(t, roles[RoleProjectMember].Permissions, PermissionSecurityManage)
+	assertHasPermission(t, roles[RoleProjectMember].Permissions, PermissionTicketCommentUpdate)
+	assertMissingPermission(t, roles[RoleProjectMember].Permissions, PermissionSecurityUpdate)
 	assertHasPermission(t, roles[RoleProjectViewer].Permissions, PermissionSecurityRead)
 	assertMissingPermission(t, roles[RoleProjectViewer].Permissions, PermissionProjectUpdate)
 }
@@ -489,21 +489,65 @@ func TestPermissionsForRoles(t *testing.T) {
 
 	want := []PermissionKey{
 		PermissionAgentRead,
-		PermissionJobRead,
+		PermissionConversationCreate,
+		PermissionConversationRead,
+		PermissionConversationUpdate,
+		PermissionHarnessRead,
+		PermissionNotificationRead,
 		PermissionOrgRead,
 		PermissionProjectRead,
-		PermissionProjectUpdate,
+		PermissionProjectUpdateCreate,
+		PermissionProjectUpdateRead,
+		PermissionProjectUpdateUpdate,
 		PermissionProposalApprove,
 		PermissionRepoRead,
+		PermissionJobRead,
+		PermissionSecurityRead,
 		PermissionSkillRead,
-		PermissionTicketComment,
+		PermissionStatusRead,
 		PermissionTicketCreate,
 		PermissionTicketRead,
 		PermissionTicketUpdate,
+		PermissionTicketCommentCreate,
+		PermissionTicketCommentRead,
+		PermissionTicketCommentUpdate,
 		PermissionWorkflowRead,
 	}
 	if !slices.Equal(permissions, want) {
 		t.Fatalf("PermissionsForRoles() = %#v, want %#v", permissions, want)
+	}
+}
+
+func TestProjectRolePermissionMatrix(t *testing.T) {
+	t.Parallel()
+
+	roles := BuiltinRoles()
+	cases := []struct {
+		name       string
+		role       RoleKey
+		permission PermissionKey
+		allowed    bool
+	}{
+		{name: "viewer can read repo", role: RoleProjectViewer, permission: PermissionRepoRead, allowed: true},
+		{name: "viewer cannot create ticket", role: RoleProjectViewer, permission: PermissionTicketCreate, allowed: false},
+		{name: "member can update ticket", role: RoleProjectMember, permission: PermissionTicketUpdate, allowed: true},
+		{name: "member cannot delete workflow", role: RoleProjectMember, permission: PermissionWorkflowDelete, allowed: false},
+		{name: "admin can delete workflow", role: RoleProjectAdmin, permission: PermissionWorkflowDelete, allowed: true},
+		{name: "admin can update security setting", role: RoleProjectAdmin, permission: PermissionSecurityUpdate, allowed: true},
+		{name: "owner can delete org", role: RoleOrgOwner, permission: PermissionOrgDelete, allowed: true},
+		{name: "viewer cannot delete conversation", role: RoleProjectViewer, permission: PermissionConversationDelete, allowed: false},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := slices.Contains(roles[tc.role].Permissions, tc.permission)
+			if got != tc.allowed {
+				t.Fatalf("%s permission %q = %t, want %t", tc.role, tc.permission, got, tc.allowed)
+			}
+		})
 	}
 }
 

@@ -912,6 +912,11 @@ type stubRepository struct {
 	archivedOrganizationID uuid.UUID
 	createdOrganization    domain.Organization
 	createdProject         domain.Project
+	organizations          []domain.Organization
+	projects               []domain.Project
+	projectRepos           []domain.ProjectRepo
+	agents                 []domain.Agent
+	agentRuns              []domain.AgentRun
 	listedProviders        []domain.AgentProvider
 	traceEntries           []domain.AgentTraceEntry
 	stepEntries            []domain.AgentStepEntry
@@ -922,7 +927,7 @@ type stubRepository struct {
 }
 
 func (r *stubRepository) ListOrganizations(context.Context) ([]domain.Organization, error) {
-	return nil, nil
+	return append([]domain.Organization(nil), r.organizations...), nil
 }
 
 func (r *stubRepository) CreateOrganization(context.Context, domain.CreateOrganization) (domain.Organization, error) {
@@ -951,7 +956,7 @@ func (r *stubRepository) ArchiveOrganization(_ context.Context, id uuid.UUID) (d
 }
 
 func (r *stubRepository) ListProjects(context.Context, uuid.UUID) ([]domain.Project, error) {
-	return nil, nil
+	return append([]domain.Project(nil), r.projects...), nil
 }
 
 func (r *stubRepository) ListMachines(context.Context, uuid.UUID) ([]domain.Machine, error) {
@@ -1024,7 +1029,10 @@ func (r *stubRepository) CreateProject(context.Context, domain.CreateProject) (d
 }
 
 func (r *stubRepository) GetProject(context.Context, uuid.UUID) (domain.Project, error) {
-	return domain.Project{}, nil
+	if len(r.projects) > 0 {
+		return r.projects[0], nil
+	}
+	return r.createdProject, nil
 }
 
 func (r *stubRepository) UpdateProject(context.Context, domain.UpdateProject) (domain.Project, error) {
@@ -1076,11 +1084,11 @@ func (r *stubRepository) UpdateAgentProvider(_ context.Context, input domain.Upd
 }
 
 func (r *stubRepository) ListAgents(context.Context, uuid.UUID) ([]domain.Agent, error) {
-	return nil, nil
+	return append([]domain.Agent(nil), r.agents...), nil
 }
 
 func (r *stubRepository) ListAgentRuns(context.Context, uuid.UUID) ([]domain.AgentRun, error) {
-	return nil, nil
+	return append([]domain.AgentRun(nil), r.agentRuns...), nil
 }
 
 func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
@@ -1133,7 +1141,7 @@ func (r *stubRepository) DeleteAgent(context.Context, uuid.UUID) (domain.Agent, 
 }
 
 func (r *stubRepository) ListProjectRepos(context.Context, uuid.UUID) ([]domain.ProjectRepo, error) {
-	return nil, nil
+	return append([]domain.ProjectRepo(nil), r.projectRepos...), nil
 }
 
 func (r *stubRepository) CreateProjectRepo(context.Context, domain.CreateProjectRepo) (domain.ProjectRepo, error) {

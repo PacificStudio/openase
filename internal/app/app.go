@@ -137,6 +137,8 @@ func (a *App) RunServe(ctx context.Context) error {
 	}()
 
 	catalogRepo := catalogrepo.NewEntRepository(client)
+	humanAuthRepo := humanauthrepo.NewEntRepository(client)
+	humanVisibility := humanauthservice.NewVisibilityResolver(humanAuthRepo)
 	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
 	if err != nil {
 		return err
@@ -153,6 +155,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		catalogRepo,
 		executable.NewPathResolver(),
 		machinetransport.NewTester(transportResolver),
+		catalogservice.WithHumanVisibilityResolver(humanVisibility),
 		catalogservice.WithMachineHealthCollector(machinetransport.NewMonitorCollector(transportResolver, sshPool)),
 		catalogservice.WithProjectStatusBootstrapper(catalogservice.ProjectStatusBootstrapperFunc(func(ctx context.Context, projectID uuid.UUID) error {
 			_, err := ticketStatusSvc.ResetToDefaultTemplate(ctx, projectID)
@@ -209,7 +212,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
 	)
 	ticketWorkspaceResetSvc := orchestrator.NewTicketWorkspaceResetService(client, a.logger, sshPool)
-	humanAuthRepo := humanauthrepo.NewEntRepository(client)
 	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))

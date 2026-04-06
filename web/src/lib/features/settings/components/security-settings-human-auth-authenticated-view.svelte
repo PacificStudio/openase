@@ -155,6 +155,11 @@
   />
 </div>
 
+<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-xs">
+  Human permissions are evaluated by backend RBAC on resource/action keys. Agent scopes are related
+  runtime token capabilities, but they are not reused as human permissions.
+</div>
+
 {#if error}
   <div class="text-destructive text-sm">{error}</div>
 {/if}

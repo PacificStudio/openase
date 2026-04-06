@@ -141,6 +141,22 @@ RBAC evaluation rules:
 - Direct user bindings and group bindings union together.
 - Organization bindings inherit downward into descendant project scopes.
 - Permissions are default deny.
+- Human permissions are resource/action oriented. Built-in roles now expand into
+  concrete keys such as `org.read`, `project.create`, `ticket_comment.update`,
+  `workflow.delete`, `harness.update`, `status.read`,
+  `security_setting.update`, `notification.read`, and `conversation.create`.
+- List and index APIs apply the principal's effective visibility before
+  returning organizations, projects, repositories, and other human-facing
+  collections.
+
+Human permissions and agent scopes are intentionally related but not shared:
+
+- Human permissions govern browser-authenticated human actions in the control
+  plane.
+- Agent scopes govern issued runtime tokens such as `projects.update` or
+  `tickets.update.self`.
+- Similar names do not imply interchangeability; a human permission does not
+  mint an agent scope, and an agent scope does not satisfy human RBAC.
 
 Role bindings can be managed through:
 
@@ -192,6 +208,7 @@ The control plane Settings view exposes the human auth state, including:
 - current authenticated user
 - stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
 - effective roles and permissions
+- the distinction between human permissions and mintable agent scopes
 - org/project role binding management
 
 `GET /auth/session` and `GET /api/v1/auth/me/permissions` are the API equivalents for scripting and diagnostics.

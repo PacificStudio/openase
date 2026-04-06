@@ -17,7 +17,9 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -106,29 +108,71 @@ func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 	assertStringSet(
 		t,
 		payload.Permissions,
-		"agent.manage",
+		"agent.control",
+		"agent.create",
+		"agent.delete",
 		"agent.read",
-		"job.manage",
-		"job.read",
+		"agent.update",
+		"conversation.create",
+		"conversation.delete",
+		"conversation.read",
+		"conversation.update",
+		"harness.read",
+		"harness.update",
+		"machine.create",
+		"machine.delete",
+		"machine.read",
+		"machine.update",
+		"notification.create",
+		"notification.delete",
+		"notification.read",
+		"notification.update",
+		"org.create",
+		"org.delete",
 		"org.read",
 		"org.update",
+		"project.create",
 		"project.delete",
 		"project.read",
 		"project.update",
+		"project_update.create",
+		"project_update.read",
+		"project_update.update",
 		"proposal.approve",
+		"provider.create",
+		"provider.delete",
+		"provider.read",
+		"provider.update",
 		"rbac.manage",
-		"repo.manage",
+		"repo.create",
+		"repo.delete",
 		"repo.read",
-		"security.manage",
-		"security.read",
-		"skill.manage",
+		"repo.update",
+		"scheduled_job.create",
+		"scheduled_job.delete",
+		"scheduled_job.read",
+		"scheduled_job.trigger",
+		"scheduled_job.update",
+		"security_setting.read",
+		"security_setting.update",
+		"skill.create",
+		"skill.delete",
 		"skill.read",
-		"ticket.comment",
+		"skill.update",
+		"status.create",
+		"status.delete",
+		"status.read",
+		"status.update",
 		"ticket.create",
 		"ticket.read",
 		"ticket.update",
-		"workflow.manage",
+		"ticket_comment.create",
+		"ticket_comment.read",
+		"ticket_comment.update",
+		"workflow.create",
+		"workflow.delete",
 		"workflow.read",
+		"workflow.update",
 	)
 	if payload.User.PrimaryEmail != "alice@example.com" {
 		t.Fatalf("primary_email = %q, want alice@example.com", payload.User.PrimaryEmail)
@@ -180,32 +224,149 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 	}
 	assertStringSet(t, payload.Roles, "org_admin", "project_viewer")
 	assertStringSet(t, payload.Permissions,
-		"agent.manage",
+		"agent.control",
+		"agent.create",
+		"agent.delete",
 		"agent.read",
-		"job.manage",
-		"job.read",
+		"agent.update",
+		"conversation.create",
+		"conversation.delete",
+		"conversation.read",
+		"conversation.update",
+		"harness.read",
+		"harness.update",
+		"machine.create",
+		"machine.delete",
+		"machine.read",
+		"machine.update",
+		"notification.create",
+		"notification.delete",
+		"notification.read",
+		"notification.update",
 		"org.read",
 		"org.update",
+		"project.create",
 		"project.delete",
 		"project.read",
 		"project.update",
+		"project_update.create",
+		"project_update.read",
+		"project_update.update",
 		"proposal.approve",
+		"provider.create",
+		"provider.delete",
+		"provider.read",
+		"provider.update",
 		"rbac.manage",
-		"repo.manage",
+		"repo.create",
+		"repo.delete",
 		"repo.read",
-		"security.manage",
-		"security.read",
-		"skill.manage",
+		"repo.update",
+		"scheduled_job.create",
+		"scheduled_job.delete",
+		"scheduled_job.read",
+		"scheduled_job.trigger",
+		"scheduled_job.update",
+		"security_setting.read",
+		"security_setting.update",
+		"skill.create",
+		"skill.delete",
 		"skill.read",
-		"ticket.comment",
+		"skill.update",
+		"status.create",
+		"status.delete",
+		"status.read",
+		"status.update",
 		"ticket.create",
 		"ticket.read",
 		"ticket.update",
-		"workflow.manage",
+		"ticket_comment.create",
+		"ticket_comment.read",
+		"ticket_comment.update",
+		"workflow.create",
+		"workflow.delete",
 		"workflow.read",
+		"workflow.update",
 	)
 	if len(payload.Groups) != 1 || payload.Groups[0].GroupKey != "platform-admins" {
 		t.Fatalf("unexpected groups payload: %+v", payload.Groups)
+	}
+}
+
+func TestHumanVisibilityFiltersOrganizationAndProjectLists(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgA, projectA := fixture.createOrganizationProject(t)
+	orgB, _ := fixture.createOrganizationProject(t)
+	projectA2, err := fixture.client.Project.Create().
+		SetOrganizationID(orgA).
+		SetName("Atlas Extra").
+		SetSlug("atlas-extra-" + uuid.NewString()[:8]).
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("create second project in org: %v", err)
+	}
+	sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:      "viewer@example.com",
+		displayName:    "Visible Viewer",
+		projectID:      projectA,
+		projectRoleKey: "project_viewer",
+	})
+
+	orgRec := fixture.request(t, http.MethodGet, "/api/v1/orgs", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "VisibilityListTest/1.0",
+	})
+	if orgRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", orgRec.Code, orgRec.Body.String())
+	}
+	var orgPayload struct {
+		Organizations []struct {
+			ID string `json:"id"`
+		} `json:"organizations"`
+	}
+	decodeResponse(t, orgRec, &orgPayload)
+	if len(orgPayload.Organizations) != 1 || orgPayload.Organizations[0].ID != orgA.String() {
+		t.Fatalf("unexpected organizations payload: %+v", orgPayload.Organizations)
+	}
+
+	projectRec := fixture.request(t, http.MethodGet, "/api/v1/orgs/"+orgA.String()+"/projects", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "VisibilityProjectListTest/1.0",
+	})
+	if projectRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", projectRec.Code, projectRec.Body.String())
+	}
+	var projectPayload struct {
+		Projects []struct {
+			ID string `json:"id"`
+		} `json:"projects"`
+	}
+	decodeResponse(t, projectRec, &projectPayload)
+	if len(projectPayload.Projects) != 1 || projectPayload.Projects[0].ID != projectA.String() {
+		t.Fatalf("unexpected projects payload: %+v", projectPayload.Projects)
+	}
+
+	hiddenOrgRec := fixture.request(t, http.MethodGet, "/api/v1/orgs/"+orgB.String()+"/projects", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + sessionToken,
+		"User-Agent": "HiddenVisibilityProjectListTest/1.0",
+	})
+	if hiddenOrgRec.Code != http.StatusOK {
+		t.Fatalf("expected status 200 for hidden org list filtering, got %d: %s", hiddenOrgRec.Code, hiddenOrgRec.Body.String())
+	}
+	var hiddenProjectPayload struct {
+		Projects []struct {
+			ID string `json:"id"`
+		} `json:"projects"`
+	}
+	decodeResponse(t, hiddenOrgRec, &hiddenProjectPayload)
+	if len(hiddenProjectPayload.Projects) != 0 {
+		t.Fatalf("expected hidden org project list to be empty, got %+v", hiddenProjectPayload.Projects)
+	}
+
+	if projectA2.ID == uuid.Nil {
+		t.Fatal("second project id must be non-nil")
 	}
 }
 
@@ -458,6 +619,12 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 	repository := humanauthrepo.NewEntRepository(client)
 	service := humanauthservice.NewService(cfg, repository, nil)
 	authorizer := humanauthservice.NewAuthorizer(repository)
+	catalogSvc := catalogservice.New(
+		catalogrepo.NewEntRepository(client),
+		nil,
+		nil,
+		catalogservice.WithHumanVisibilityResolver(humanauthservice.NewVisibilityResolver(repository)),
+	)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -466,7 +633,7 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 		nil,
 		nil,
 		nil,
-		nil,
+		catalogSvc,
 		nil,
 		WithHumanAuthConfig(cfg),
 		WithHumanAuthService(service, authorizer),

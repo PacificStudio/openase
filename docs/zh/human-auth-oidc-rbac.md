@@ -140,6 +140,20 @@ RBAC 评估规则：
 - 直接用户绑定和组绑定取并集。
 - 组织绑定向下继承到子项目范围。
 - 权限默认拒绝。
+- 人类权限采用资源/动作粒度。内置角色会展开为明确权限键，例如
+  `org.read`、`project.create`、`ticket_comment.update`、`workflow.delete`、
+  `harness.update`、`status.read`、`security_setting.update`、
+  `notification.read`、`conversation.create`。
+- list / index 类 API 在返回组织、项目、仓库等人类可见集合前，会先按当前
+  principal 的 effective visibility 过滤。
+
+人类权限与 agent scopes 有关联，但不是同一套键：
+
+- 人类权限用于浏览器认证的人类控制面操作。
+- Agent scopes 用于签发给运行时 token 的能力，例如 `projects.update`、
+  `tickets.update.self`。
+- 名称相似不代表可互换；人类权限不会直接 mint agent scope，agent scope 也
+  不会满足人类 RBAC 判定。
 
 角色绑定可通过以下路由管理：
 
@@ -191,6 +205,7 @@ AI 会话归属始终派生自服务端定义的主体：
 - 当前已认证用户
 - 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
 - 有效角色和权限
+- 人类权限与可 mint agent scopes 的区别
 - 组织/项目角色绑定管理
 
 `GET /auth/session` 和 `GET /api/v1/auth/me/permissions` 是用于脚本和诊断的 API 等价物。

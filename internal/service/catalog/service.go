@@ -9,6 +9,7 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
@@ -35,6 +36,13 @@ type MachineHealthCollector interface {
 }
 
 type Option func(*service)
+
+type HumanVisibilityResolver interface {
+	EffectiveVisibility(
+		ctx context.Context,
+		principal humanauthdomain.AuthenticatedPrincipal,
+	) (humanauthdomain.EffectiveVisibility, error)
+}
 
 type ProjectStatusBootstrapper interface {
 	BootstrapProjectStatuses(ctx context.Context, projectID uuid.UUID) error
@@ -64,12 +72,22 @@ func WithMachineHealthCollector(collector MachineHealthCollector) Option {
 	}
 }
 
+func WithHumanVisibilityResolver(resolver HumanVisibilityResolver) Option {
+	return func(s *service) {
+		if resolver == nil {
+			return
+		}
+		s.visibilityResolver = resolver
+	}
+}
+
 type service struct {
 	repo                      Repository
 	resolver                  provider.ExecutableResolver
 	machineTester             MachineTester
 	machineHealthCollector    MachineHealthCollector
 	projectStatusBootstrapper ProjectStatusBootstrapper
+	visibilityResolver        HumanVisibilityResolver
 }
 
 func New(repo Repository, resolver provider.ExecutableResolver, machineTester MachineTester, opts ...Option) Service {
@@ -83,7 +101,15 @@ func New(repo Repository, resolver provider.ExecutableResolver, machineTester Ma
 }
 
 func (s *service) ListOrganizations(ctx context.Context) ([]domain.Organization, error) {
-	return s.repo.ListOrganizations(ctx)
+	items, err := s.repo.ListOrganizations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	visibility, ok, err := s.resolveHumanVisibility(ctx)
+	if err != nil || !ok {
+		return items, err
+	}
+	return filterOrganizationsByVisibility(items, visibility), nil
 }
 
 func (s *service) CreateOrganization(ctx context.Context, input domain.CreateOrganization) (domain.Organization, error) {
@@ -127,6 +153,11 @@ func (s *service) ArchiveOrganization(ctx context.Context, id uuid.UUID) (domain
 }
 
 func (s *service) ListMachines(ctx context.Context, organizationID uuid.UUID) ([]domain.Machine, error) {
+	if allowed, err := s.allowsOrganizationScope(ctx, organizationID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.Machine{}, nil
+	}
 	return s.repo.ListMachines(ctx, organizationID)
 }
 
@@ -326,7 +357,15 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 }
 
 func (s *service) ListProjects(ctx context.Context, organizationID uuid.UUID) ([]domain.Project, error) {
-	return s.repo.ListProjects(ctx, organizationID)
+	items, err := s.repo.ListProjects(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	visibility, ok, err := s.resolveHumanVisibility(ctx)
+	if err != nil || !ok {
+		return items, err
+	}
+	return filterProjectsByVisibility(items, visibility), nil
 }
 
 func (s *service) CreateProject(ctx context.Context, input domain.CreateProject) (domain.Project, error) {
@@ -356,6 +395,11 @@ func (s *service) ArchiveProject(ctx context.Context, id uuid.UUID) (domain.Proj
 }
 
 func (s *service) ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]domain.ProjectRepo, error) {
+	if allowed, err := s.allowsProjectScope(ctx, projectID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.ProjectRepo{}, nil
+	}
 	return s.repo.ListProjectRepos(ctx, projectID)
 }
 
@@ -420,6 +464,75 @@ func cloneResources(raw map[string]any) map[string]any {
 	}
 
 	return cloned
+}
+
+func (s *service) resolveHumanVisibility(
+	ctx context.Context,
+) (humanauthdomain.EffectiveVisibility, bool, error) {
+	if s.visibilityResolver == nil {
+		return humanauthdomain.EffectiveVisibility{}, false, nil
+	}
+	principal, ok := humanauthdomain.PrincipalFromContext(ctx)
+	if !ok {
+		return humanauthdomain.EffectiveVisibility{}, false, nil
+	}
+	visibility, err := s.visibilityResolver.EffectiveVisibility(ctx, principal)
+	if err != nil {
+		return humanauthdomain.EffectiveVisibility{}, false, err
+	}
+	return visibility, true, nil
+}
+
+func (s *service) allowsOrganizationScope(ctx context.Context, organizationID uuid.UUID) (bool, error) {
+	visibility, ok, err := s.resolveHumanVisibility(ctx)
+	if err != nil || !ok {
+		return true, err
+	}
+	return visibility.AllowsOrganizationScope(organizationID), nil
+}
+
+func (s *service) allowsProjectScope(ctx context.Context, projectID uuid.UUID) (bool, error) {
+	visibility, ok, err := s.resolveHumanVisibility(ctx)
+	if err != nil || !ok {
+		return true, err
+	}
+	project, err := s.repo.GetProject(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	return visibility.AllowsProject(project.ID, project.OrganizationID), nil
+}
+
+func filterOrganizationsByVisibility(
+	items []domain.Organization,
+	visibility humanauthdomain.EffectiveVisibility,
+) []domain.Organization {
+	if visibility.Instance {
+		return items
+	}
+	filtered := make([]domain.Organization, 0, len(items))
+	for _, item := range items {
+		if visibility.AllowsOrganization(item.ID) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+func filterProjectsByVisibility(
+	items []domain.Project,
+	visibility humanauthdomain.EffectiveVisibility,
+) []domain.Project {
+	if visibility.Instance {
+		return items
+	}
+	filtered := make([]domain.Project, 0, len(items))
+	for _, item := range items {
+		if visibility.AllowsProject(item.ID, item.OrganizationID) {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 func cloneAnyValue(value any) any {
