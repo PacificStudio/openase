@@ -25,6 +25,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -983,14 +984,15 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	workspaceRoot string,
 	workspace *ent.TicketRepoWorkspace,
 ) (runCompletionRepoDiff, error) {
-	branchOutput, err := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", workspace.RepoPath, "rev-parse", "--abbrev-ref", "HEAD"},
-		false,
-	)
+	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, workspace.RepoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return c.runCompletionSummaryGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
-		if isMissingRunCompletionGitWorkspace(branchOutput) {
+		if errors.Is(err, workspaceinfra.ErrGitWorkspaceUnavailable) {
 			return runCompletionRepoDiff{}, nil
 		}
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace branch for %s: %w", workspace.RepoPath, err)
@@ -1012,12 +1014,13 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 		return runCompletionRepoDiff{}, nil
 	}
 
-	numstatOutput, err := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", workspace.RepoPath, "diff", "--numstat", "-z", "-M", "HEAD", "--"},
-		false,
-	)
+	numstatOutput, err := workspaceinfra.ReadWorkspaceGitNumstat(ctx, workspace.RepoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return c.runCompletionSummaryGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace diff stats for %s: %w", workspace.RepoPath, err)
 	}
@@ -1041,7 +1044,7 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	repoSummary := runCompletionRepoDiff{
 		Name:   filepath.Base(workspace.RepoPath),
 		Path:   relativeRepoPath,
-		Branch: strings.TrimSpace(string(branchOutput)),
+		Branch: branch,
 		Dirty:  true,
 	}
 	for _, status := range statuses {
@@ -1236,13 +1239,6 @@ func mapRunCompletionWorkspaceFileStatus(code string) string {
 	default:
 		return "modified"
 	}
-}
-
-func isMissingRunCompletionGitWorkspace(output []byte) bool {
-	trimmed := strings.ToLower(strings.TrimSpace(string(output)))
-	return strings.Contains(trimmed, "not a git repository") ||
-		strings.Contains(trimmed, "cannot change to") ||
-		strings.Contains(trimmed, "no such file or directory")
 }
 
 func runCompletionSummaryCommandExitedWithCode(err error, code int) bool {
