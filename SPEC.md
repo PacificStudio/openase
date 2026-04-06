@@ -3099,7 +3099,7 @@ The default setup flow stays entirely in the terminal, does not auto-open a brow
 2. Validate database connectivity and perform schema initialization in setup.
 3. Check whether key local CLIs (such as `git`, `codex`, `claude`) are available.
 4. Select browser authentication mode: `disabled` or `oidc`; if `oidc` is selected, setup directly collects fields such as issuer, client ID/secret, redirect URL, and scopes.
-5. Choose the runtime mode after setup ends: `config-only`, or install a current-user `systemd --user` service on supported Linux sessions.
+5. Choose the runtime mode after setup ends: `config-only`, or install the current-user managed service for the local platform (`systemd --user` on Linux, `launchd` on macOS).
 6. Write `~/.openase/config.yaml`, `~/.openase/.env`, and create `~/.openase/logs/`, `~/.openase/workspaces/`.
 7. Initialize default local Organization / Project, ticket statuses, and detected provider seed data.
 
@@ -3127,12 +3127,12 @@ Similarly, `openase up` also needs to be described with two-phase semantics:
 
 Therefore, `/setup`, automatic browser opening, and automatic post-completion redirection are all compatibility/transitional surface behaviors, not part of the core contract for current local setup.
 
-### 14.3 Current Service Management Contract: Config-only + Linux `systemd --user`
+### 14.3 Current Service Management Contract: Config-only + Current-user Managed Service
 
 Current setup promises only two runtime options:
 
 - `config-only`: setup only writes `~/.openase/*`, and the user then manually runs `openase all-in-one --config ~/.openase/config.yaml`.
-- `current-user systemd --user`: setup only installs and validates the managed service after writing configuration when the machine is Linux and the current login session supports `systemctl --user`.
+- `current-user managed service`: setup installs and validates the managed service after writing configuration when the local platform supports the shipped user-service backend (`systemd --user` on Linux, `launchd` on macOS).
 
 The current contract for related commands is as follows:
 
@@ -3148,8 +3148,8 @@ openase down
 Three boundaries must be clear here:
 
 - `openase up/down/restart/logs` are current-user service management commands; they are not browser onboarding flows.
-- When setup inline-installs a service, the current main path only describes Linux `systemd --user`; if the environment does not support it, it explicitly falls back to `config-only`.
-- The implementation layer still retains a user-service abstraction and `launchd`-compatible backend, but PRD should no longer state macOS `launchd` as a current default peer option for setup; it should only be mentioned as a compatibility implementation or future extension.
+- When setup inline-installs a service, the current main path is platform-specific: Linux uses `systemd --user`, macOS uses `launchd`, and unsupported environments explicitly fall back to `config-only`.
+- The implementation layer retains a shared user-service abstraction so the command surface stays consistent across platforms, but macOS `launchd` is part of the current shipped contract rather than a compatibility-only or future-only path.
 
 ### 14.4 Current Scope, Compatibility Scope, and Non-goals
 
@@ -3158,12 +3158,12 @@ To prevent setup/service onboarding from drifting again, this chapter defines bo
 - Already implemented:
   - terminal-first local setup
   - `disabled` / `oidc` authentication modes
-  - `config-only` / Linux current-user `systemd --user` runtime options
+  - `config-only` / current-user managed service runtime options (`systemd --user` on Linux, `launchd` on macOS)
   - initialization of config, logs, workspace, and default control plane data under `~/.openase/`
 - Compatibility paths:
   - `openase setup --web` legacy browser flow
   - `openase up` dual-mode behavior of entering setup when no config exists / installing service when config exists
-  - user service abstraction implementation on non-Linux platforms
+  - cross-platform fallback from managed service installation to `config-only` when the local login session cannot support the expected service manager
 - Non-goals / not-yet-delivered commitments:
   - Using Web Setup Wizard as the current primary path
   - automatic browser redirect after setup completion
@@ -10788,7 +10788,7 @@ Layer 3 (real-time + frontend, depends on Layers 1-2)
 
 Layer 4 (onboarding, depends on Layers 2-3)
   F28 terminal-first local setup (database, auth, runtime bootstrap) → F04, F10
-  F29 current-user service management (`systemd --user` primary path, `launchd` compatibility) → F01
+  F29 current-user service management (`systemd --user` on Linux, `launchd` on macOS, shared `openase up/down/restart/logs`) → F01
   F30 openase up startup flow (enter setup when no config; update service when config exists) → F28, F29
   F31 openase doctor environment diagnostics → F01, F10
   F32 Progressive unlock hints → F24
@@ -10902,7 +10902,7 @@ Layer 11 (enterprise + open ecosystem)
 | ID | Task | Effort | Dependencies | PRD section |
 |----|------|--------|--------------|--------------|
 | F28 | **terminal-first local setup** (database preparation/check + CLI checks + auth/runtime selection + default control plane data initialization; keep legacy web compatibility entrypoint) | 5d | F04, F10 | 14 |
-| F29 | current-user service management (Linux `systemd --user` primary path + `openase up/down/restart/logs`; `launchd` as compatibility implementation) | 3d | F01 | 14 |
+| F29 | current-user service management (`systemd --user` on Linux, `launchd` on macOS, shared `openase up/down/restart/logs`) | 3d | F01 | 14 |
 | F30 | `openase up` startup flow (detect config → enter setup if absent / update services if present) | 2d | F28, F29 | 14 |
 | F31 | openase doctor environment diagnosis | 2d | F01, F10 | 14 |
 | F32 | Progressive unlock hints (milestone detection + UI banner) | 2d | F24 | 14 |
