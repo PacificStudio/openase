@@ -8,6 +8,12 @@
     "type": "git",
     "url": "https://github.com/pacificstudio/openase.git"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "electron-winstaller"
+    ]
+  },
   "main": "main/index.js",
   "packageManager": "pnpm@10.32.1",
   "scripts": {
