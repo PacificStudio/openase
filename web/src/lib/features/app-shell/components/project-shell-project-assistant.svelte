@@ -61,7 +61,11 @@
       if (!nextOpen) onClose()
     }}
   >
-    <SheetContent side="bottom" class="flex h-[calc(100dvh-48px)] flex-col gap-0 p-0" showCloseButton={false}>
+    <SheetContent
+      side="bottom"
+      class="flex h-[calc(100dvh-48px)] flex-col gap-0 p-0"
+      showCloseButton={false}
+    >
       <SheetHeader class="sr-only">
         <SheetTitle>Project AI</SheetTitle>
         <SheetDescription>AI assistant for the current project</SheetDescription>

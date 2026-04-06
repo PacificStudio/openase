@@ -118,7 +118,9 @@
   })
 </script>
 
-<header class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-3 md:px-4">
+<header
+  class="border-border bg-background flex h-12 shrink-0 items-center gap-2 border-b px-3 md:px-4"
+>
   {#if isMobile}
     <Button
       variant="ghost"

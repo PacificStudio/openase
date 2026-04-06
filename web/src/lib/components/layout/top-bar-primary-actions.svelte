@@ -62,7 +62,9 @@
   size="sm"
   class="gap-1.5"
   disabled={!newTicketEnabled}
-  title={newTicketEnabled ? 'Create ticket' : (newTicketTitle ?? 'Ticket creation is not available.')}
+  title={newTicketEnabled
+    ? 'Create ticket'
+    : (newTicketTitle ?? 'Ticket creation is not available.')}
   onclick={onNewTicket}
 >
   <Plus class="size-3.5" />

@@ -71,10 +71,7 @@
       <Tooltip.Content side="right" class="text-xs">
         <span>{item.label}</span>
         {#if item.badge}
-          <Badge
-            variant="secondary"
-            class="ml-1.5 h-4 min-w-4 justify-center px-1 text-[10px]"
-          >
+          <Badge variant="secondary" class="ml-1.5 h-4 min-w-4 justify-center px-1 text-[10px]">
             {item.badge}
           </Badge>
         {/if}
@@ -96,10 +93,7 @@
       <Icon class="size-4 shrink-0" />
       <span class="truncate">{item.label}</span>
       {#if item.badge}
-        <Badge
-          variant="secondary"
-          class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px]"
-        >
+        <Badge variant="secondary" class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px]">
           {item.badge}
         </Badge>
       {/if}
