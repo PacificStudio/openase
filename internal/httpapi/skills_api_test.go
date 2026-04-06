@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"context"
 	"fmt"
 	"io"
@@ -360,6 +361,179 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	}
 }
 
+func TestSkillRoutesImportBundleAndExposeFiles(t *testing.T) {
+	client := openTestEntClient(t)
+	repoRoot := createTestGitRepo(t)
+
+	workflowSvc, err := workflowservice.NewService(workflowrepo.NewEntRepository(client), slog.New(slog.NewTextHandler(io.Discard, nil)), repoRoot)
+	if err != nil {
+		t.Fatalf("create workflow service: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := workflowSvc.Close(); closeErr != nil {
+			t.Errorf("close workflow service: %v", closeErr)
+		}
+	})
+
+	server := NewServer(
+		config.ServerConfig{Port: 40024},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		newTicketStatusService(client),
+		nil,
+		nil,
+		workflowSvc,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	createPrimaryProjectRepo(ctx, t, client, project.ID, repoRoot)
+
+	importResp := skillDetailResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/projects/%s/skills/import", project.ID),
+		map[string]any{
+			"name":       "deploy-openase",
+			"created_by": "user:cli",
+			"files": []map[string]any{
+				{
+					"path":           "SKILL.md",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("---\nname: \"deploy-openase\"\ndescription: \"Safely redeploy OpenASE\"\n---\n\n# Deploy OpenASE\n\nUse the bundled scripts.\n")),
+					"media_type":     "text/markdown; charset=utf-8",
+				},
+				{
+					"path":           "scripts/redeploy.sh",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho deploy\n")),
+					"media_type":     "text/x-shellscript; charset=utf-8",
+					"is_executable":  true,
+				},
+				{
+					"path":           "references/runbook.md",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("# Runbook\n\n1. Validate\n")),
+					"media_type":     "text/markdown; charset=utf-8",
+				},
+			},
+		},
+		http.StatusCreated,
+		&importResp,
+	)
+	if importResp.Skill.Name != "deploy-openase" || importResp.Skill.CreatedBy != "user:cli" || len(importResp.Files) != 3 {
+		t.Fatalf("unexpected import response: %+v", importResp)
+	}
+	scriptFile := findSkillFileResponse(t, importResp.Files, "scripts/redeploy.sh")
+	if !scriptFile.IsExecutable || scriptFile.Content != "#!/usr/bin/env bash\necho deploy\n" {
+		t.Fatalf("unexpected script file response: %+v", scriptFile)
+	}
+
+	filesResp := skillFilesResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s/files", importResp.Skill.ID),
+		nil,
+		http.StatusOK,
+		&filesResp,
+	)
+	if len(filesResp.Files) != 3 {
+		t.Fatalf("expected 3 skill files, got %+v", filesResp)
+	}
+	referenceFile := findSkillFileResponse(t, filesResp.Files, "references/runbook.md")
+	if referenceFile.Content != "# Runbook\n\n1. Validate\n" {
+		t.Fatalf("unexpected reference file response: %+v", referenceFile)
+	}
+	entrypointFile := findSkillFileResponse(t, filesResp.Files, "SKILL.md")
+	if !strings.Contains(entrypointFile.Content, "name: \"deploy-openase\"") {
+		t.Fatalf("unexpected entrypoint file response: %+v", entrypointFile)
+	}
+
+	updateResp := skillDetailResponse{}
+	updatedEntrypoint := "# Deploy OpenASE\n\nUse the updated release flow.\n"
+	executeJSON(
+		t,
+		server,
+		http.MethodPut,
+		fmt.Sprintf("/api/v1/skills/%s", importResp.Skill.ID),
+		map[string]any{
+			"description": "Safely redeploy OpenASE with the updated release flow.",
+			"content":     updatedEntrypoint,
+			"files": []map[string]any{
+				{
+					"path":           "SKILL.md",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("placeholder")),
+					"media_type":     "text/markdown; charset=utf-8",
+				},
+				{
+					"path":           "scripts/release.sh",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("#!/usr/bin/env bash\necho release\n")),
+					"media_type":     "text/x-shellscript; charset=utf-8",
+					"is_executable":  true,
+				},
+				{
+					"path":           "assets/logo.txt",
+					"content_base64": base64.StdEncoding.EncodeToString([]byte("openase\n")),
+					"media_type":     "text/plain; charset=utf-8",
+				},
+			},
+		},
+		http.StatusOK,
+		&updateResp,
+	)
+	if updateResp.Skill.CurrentVersion != 2 || len(updateResp.Files) != 3 {
+		t.Fatalf("unexpected update response: %+v", updateResp)
+	}
+	updatedScript := findSkillFileResponse(t, updateResp.Files, "scripts/release.sh")
+	if !updatedScript.IsExecutable || updatedScript.Content != "#!/usr/bin/env bash\necho release\n" {
+		t.Fatalf("unexpected updated script file response: %+v", updatedScript)
+	}
+	if strings.Contains(findSkillFileResponse(t, updateResp.Files, "SKILL.md").Content, "placeholder") {
+		t.Fatalf("expected update to normalize entrypoint content, got %+v", updateResp.Files)
+	}
+
+	filesAfterUpdate := skillFilesResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s/files", importResp.Skill.ID),
+		nil,
+		http.StatusOK,
+		&filesAfterUpdate,
+	)
+	if len(filesAfterUpdate.Files) != 3 {
+		t.Fatalf("expected 3 updated skill files, got %+v", filesAfterUpdate)
+	}
+	if containsSkillFileResponse(filesAfterUpdate.Files, "scripts/redeploy.sh") {
+		t.Fatalf("expected renamed script path to be removed, got %+v", filesAfterUpdate)
+	}
+	if containsSkillFileResponse(filesAfterUpdate.Files, "references/runbook.md") {
+		t.Fatalf("expected deleted directory content to be removed, got %+v", filesAfterUpdate)
+	}
+	updatedEntrypointFile := findSkillFileResponse(t, filesAfterUpdate.Files, "SKILL.md")
+	if !strings.Contains(updatedEntrypointFile.Content, "Use the updated release flow.") {
+		t.Fatalf("unexpected updated entrypoint file response: %+v", updatedEntrypointFile)
+	}
+}
+
 func containsSkillName(items []string, want string) bool {
 	for _, item := range items {
 		if item == want {
@@ -379,4 +553,24 @@ func findSkillResponse(t *testing.T, items []skillResponse, name string) skillRe
 	}
 	t.Fatalf("expected to find skill %s in %+v", name, items)
 	return skillResponse{}
+}
+
+func containsSkillFileResponse(items []skillFileResponse, path string) bool {
+	for _, item := range items {
+		if item.Path == path {
+			return true
+		}
+	}
+	return false
+}
+
+func findSkillFileResponse(t *testing.T, items []skillFileResponse, path string) skillFileResponse {
+	t.Helper()
+	for _, item := range items {
+		if item.Path == path {
+			return item
+		}
+	}
+	t.Fatalf("expected to find skill file %s in %+v", path, items)
+	return skillFileResponse{}
 }

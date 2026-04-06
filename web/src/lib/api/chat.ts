@@ -287,7 +287,6 @@ export async function streamChatTurn(
   const headers = buildRequestHeaders('POST', {
     accept: 'text/event-stream',
     'Content-Type': 'application/json',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch('/api/v1/chat', {
     method: 'POST',
@@ -323,9 +322,7 @@ export async function streamChatTurn(
 }
 
 export async function closeChatSession(sessionId: string) {
-  const headers = buildRequestHeaders('DELETE', {
-    [chatUserHeader]: resolveEphemeralChatUserId(),
-  })
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(`/api/v1/chat/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
     headers,
@@ -521,7 +518,6 @@ export async function watchProjectConversation(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/stream`,
@@ -559,7 +555,6 @@ export async function watchProjectConversationMuxStream(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/projects/${encodeURIComponent(projectId)}/conversations/stream`,
@@ -609,9 +604,7 @@ export function respondProjectConversationInterrupt(
 }
 
 export async function closeProjectConversationRuntime(conversationId: string) {
-  const headers = buildRequestHeaders('DELETE', {
-    [chatUserHeader]: resolveEphemeralChatUserId(),
-  })
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
     {
@@ -1208,7 +1201,6 @@ async function fetchJSON<T>(
   const method = options?.method ?? 'GET'
   const headers = buildRequestHeaders(method, {
     ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
 
   const response = await fetch(url.toString(), {
@@ -1225,39 +1217,4 @@ async function fetchJSON<T>(
     return undefined as T
   }
   return response.json() as Promise<T>
-}
-
-function resolveEphemeralChatUserId() {
-  if (cachedChatUserId) {
-    return cachedChatUserId
-  }
-
-  if (typeof window === 'undefined') {
-    cachedChatUserId = 'anonymous-browser'
-    return cachedChatUserId
-  }
-
-  try {
-    const stored = window.localStorage.getItem(chatUserStorageKey)?.trim()
-    if (stored) {
-      cachedChatUserId = stored
-      return cachedChatUserId
-    }
-  } catch {
-    // Ignore storage access failures and fall back to an in-memory identifier.
-  }
-
-  const generated =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `chat-user-${Date.now().toString(36)}`
-  cachedChatUserId = generated
-
-  try {
-    window.localStorage.setItem(chatUserStorageKey, generated)
-  } catch {
-    // Ignore storage write failures and keep the in-memory identifier.
-  }
-
-  return cachedChatUserId
 }
