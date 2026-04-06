@@ -32,7 +32,6 @@
     workflows={controller.workflows}
     selectedId={controller.selectedId}
     projectId={appStore.currentProject?.id ?? ''}
-    providers={controller.providers}
     selectedWorkflow={controller.selectedWorkflow}
     harness={controller.harness}
     draftHarness={controller.draftHarness}

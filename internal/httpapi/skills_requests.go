@@ -51,7 +51,6 @@ type rawUpdateSkillBindingsRequest struct {
 	WorkflowIDs []string `json:"workflow_ids"`
 }
 
-
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
 	workspaceRoot := strings.TrimSpace(raw.WorkspaceRoot)
 	if workspaceRoot == "" {

@@ -112,7 +112,6 @@ const pageDataFixture = {
   ],
   selectedWorkflowId: 'wf-1',
   agentOptions: [],
-  providers: [],
   skillStates: [
     {
       name: 'lint',

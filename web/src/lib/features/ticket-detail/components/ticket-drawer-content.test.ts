@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import ProjectConversationPanel from '$lib/features/chat/project-conversation-panel.svelte'
+import { ProjectConversationPanel } from '$lib/features/chat'
 import { appStore } from '$lib/stores/app.svelte'
 
 const {

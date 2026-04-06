@@ -2,10 +2,6 @@ import { ApiError, buildRequestHeaders } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
 import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
-const chatUserHeader = 'X-OpenASE-Chat-User'
-const chatUserStorageKey = 'openase.chat.user'
-let cachedChatUserId = ''
-
 export type ChatSource = 'project_sidebar' | 'ticket_detail'
 
 export type ChatTurnRequest = {

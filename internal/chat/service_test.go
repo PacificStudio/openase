@@ -32,8 +32,6 @@ func TestParseStartInputRequiresTicketForTicketDetail(t *testing.T) {
 	}
 }
 
-
-
 func TestMapClaudeEventLeavesProposalJSONAsText(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
 		Kind: provider.ClaudeCodeEventKindAssistant,
@@ -133,8 +131,6 @@ func TestNormalizeAssistantTextCollapsesRepeatedTrailingDiffJSON(t *testing.T) {
 		t.Fatalf("unexpected diff payload: %#v", diff)
 	}
 }
-
-
 
 func TestMapClaudeEventPromotesDiffJSON(t *testing.T) {
 	events := mapClaudeEvent(SessionID("session-1"), DefaultMaxTurns, provider.ClaudeCodeEvent{
@@ -1129,8 +1125,6 @@ func TestStartTurnRejectsExplicitUnavailableEphemeralChatProvider(t *testing.T) 
 		t.Fatalf("expected unavailable reason in error, got %v", err)
 	}
 }
-
-
 
 func TestStartTurnRejectsResumeAfterBudgetExceeded(t *testing.T) {
 	t.Parallel()

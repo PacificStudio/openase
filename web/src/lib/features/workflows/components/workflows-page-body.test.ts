@@ -59,7 +59,6 @@ const defaultProps = {
   workflows: [workflowFixture],
   selectedId: 'wf-1',
   projectId: 'project-1',
-  providers: [],
   selectedWorkflow: workflowFixture,
   harness: harnessFixture,
   draftHarness: harnessFixture.rawContent,

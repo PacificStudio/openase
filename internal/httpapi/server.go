@@ -101,7 +101,6 @@ func WithChatService(service *chatservice.Service) ServerOption {
 	}
 }
 
-
 func WithProjectConversationService(service *chatservice.ProjectConversationService) ServerOption {
 	return func(server *Server) {
 		server.projectConversationService = service

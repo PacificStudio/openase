@@ -45,24 +45,6 @@ func ResolveAgentProviderEphemeralChatCapability(item AgentProvider) AgentProvid
 	}
 }
 
-func availabilityBackedCapability(item AgentProvider) AgentProviderCapability {
-	if item.Available {
-		return AgentProviderCapability{
-			State: AgentProviderCapabilityStateAvailable,
-		}
-	}
-
-	reason := cloneStringPointer(item.AvailabilityReason)
-	if reason == nil {
-		reason = cloneStringPointer(availabilityReasonPointer(providerReasonNotReady))
-	}
-
-	return AgentProviderCapability{
-		State:  AgentProviderCapabilityStateUnavailable,
-		Reason: reason,
-	}
-}
-
 func adapterSupportsEphemeralChat(adapterType AgentProviderAdapterType) bool {
 	switch adapterType {
 	case AgentProviderAdapterTypeClaudeCodeCLI,

@@ -3,7 +3,7 @@ import type { AgentProvider } from '$lib/api/contracts'
 export type ProviderCapabilityName = 'ephemeral_chat'
 type ProviderCapabilityState = 'available' | 'unavailable' | 'unsupported'
 
-function readProviderCapability(provider: AgentProvider, capability: ProviderCapabilityName) {
+function readProviderCapability(provider: AgentProvider, _capability: ProviderCapabilityName) {
   return provider.capabilities.ephemeral_chat
 }
 

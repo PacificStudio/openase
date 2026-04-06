@@ -156,9 +156,7 @@ describe('provider-options', () => {
     expect(
       pickDefaultProviderCapability(ephemeralChatProviders, 'provider-claude', 'ephemeral_chat'),
     ).toBe('provider-claude')
-    expect(
-      pickDefaultProviderCapability([], 'provider-claude', 'ephemeral_chat'),
-    ).toBe('')
+    expect(pickDefaultProviderCapability([], 'provider-claude', 'ephemeral_chat')).toBe('')
     expect(ephemeralChatProviders).toHaveLength(3)
     expect(ephemeralChatProviders.every((provider) => provider.capabilities.ephemeral_chat)).toBe(
       true,
