@@ -16,6 +16,7 @@ import (
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	gossh "golang.org/x/crypto/ssh"
 )
@@ -293,58 +294,11 @@ func buildRemoteResources(machine domain.Machine, checkedAt time.Time, output st
 }
 
 func detectLocalMachinePlatform() (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
-	return normalizeMachinePlatform(runtime.GOOS, runtime.GOARCH)
+	return machineprobe.NormalizePlatform(runtime.GOOS, runtime.GOARCH)
 }
 
 func detectRemoteMachinePlatform(output string) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-	if len(lines) < 3 {
-		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown, domain.MachineDetectionStatusUnknown
-	}
-	fields := strings.Fields(strings.TrimSpace(lines[2]))
-	if len(fields) == 0 {
-		return domain.MachineDetectedOSUnknown, domain.MachineDetectedArchUnknown, domain.MachineDetectionStatusUnknown
-	}
-	arch := ""
-	if len(fields) > 1 {
-		arch = fields[len(fields)-1]
-	}
-	return normalizeMachinePlatform(fields[0], arch)
-}
-
-func normalizeMachinePlatform(rawOS string, rawArch string) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
-	detectedOS := normalizeDetectedOS(rawOS)
-	detectedArch := normalizeDetectedArch(rawArch)
-	switch {
-	case detectedOS != domain.MachineDetectedOSUnknown && detectedArch != domain.MachineDetectedArchUnknown:
-		return detectedOS, detectedArch, domain.MachineDetectionStatusOK
-	case detectedOS != domain.MachineDetectedOSUnknown || detectedArch != domain.MachineDetectedArchUnknown:
-		return detectedOS, detectedArch, domain.MachineDetectionStatusDegraded
-	default:
-		return detectedOS, detectedArch, domain.MachineDetectionStatusUnknown
-	}
-}
-
-func normalizeDetectedOS(raw string) domain.MachineDetectedOS {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "darwin", "macos", "mac", "macosx":
-		return domain.MachineDetectedOSDarwin
-	case "linux":
-		return domain.MachineDetectedOSLinux
-	default:
-		return domain.MachineDetectedOSUnknown
-	}
-}
-
-func normalizeDetectedArch(raw string) domain.MachineDetectedArch {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "x86_64", "amd64":
-		return domain.MachineDetectedArchAMD64
-	case "aarch64", "arm64", "arm64e":
-		return domain.MachineDetectedArchARM64
-	default:
-		return domain.MachineDetectedArchUnknown
-	}
+	return machineprobe.DetectPlatformFromProbeOutput(output)
 }
 
 type realDialer struct{}

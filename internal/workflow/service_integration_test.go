@@ -302,16 +302,22 @@ func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
 	v1Skill := findRuntimeSkillSnapshot(t, snapshotV1.Skills, "runtime-skill")
 
 	codexRoot := t.TempDir()
-	materializedV1, err := service.MaterializeRuntimeSnapshot(MaterializeRuntimeSnapshotInput{
+	staleHarnessPath := filepath.Join(codexRoot, filepath.FromSlash(created.HarnessPath))
+	if err := os.MkdirAll(filepath.Dir(staleHarnessPath), 0o750); err != nil {
+		t.Fatalf("mkdir stale harness path: %v", err)
+	}
+	if err := os.WriteFile(staleHarnessPath, []byte("stale"), 0o600); err != nil {
+		t.Fatalf("seed stale harness snapshot: %v", err)
+	}
+	if _, err := service.MaterializeRuntimeSnapshot(MaterializeRuntimeSnapshotInput{
 		WorkspaceRoot: codexRoot,
 		AdapterType:   string(entagentprovider.AdapterTypeCodexAppServer),
 		Snapshot:      snapshotV1,
-	})
-	if err != nil {
+	}); err != nil {
 		t.Fatalf("MaterializeRuntimeSnapshot(codex) error = %v", err)
 	}
-	if _, err := os.Stat(materializedV1.HarnessPath); err != nil {
-		t.Fatalf("expected runtime harness snapshot: %v", err)
+	if _, err := os.Stat(staleHarnessPath); !os.IsNotExist(err) {
+		t.Fatalf("expected runtime harness snapshot to stay absent, stat err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(codexRoot, ".codex", "skills", "runtime-skill", "SKILL.md")); err != nil {
 		t.Fatalf("expected codex skill projection: %v", err)

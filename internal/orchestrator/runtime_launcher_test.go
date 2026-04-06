@@ -297,14 +297,8 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if workspaceScriptInfo.Mode()&0o111 == 0 {
 		t.Fatalf("expected codex workspace workpad helper to be executable, mode=%v", workspaceScriptInfo.Mode())
 	}
-	workspaceHarnessPath := filepath.Join(repoWorkspacePath, ".openase", "harnesses", "coding.md")
-	// #nosec G304 -- test reads a fixture from the temp workspace path created above.
-	workspaceHarnessContent, err := os.ReadFile(workspaceHarnessPath)
-	if err != nil {
-		t.Fatalf("read runtime harness snapshot: %v", err)
-	}
-	if !strings.Contains(string(workspaceHarnessContent), "Current {{ machine.name }} root={{ machine.workspace_root }}") {
-		t.Fatalf("expected runtime harness snapshot content, got %q", string(workspaceHarnessContent))
+	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "harnesses", "coding.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected runtime harness snapshot to stay absent, stat err=%v", err)
 	}
 	if _, err := os.Stat(filepath.Join(repoWorkspacePath, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in codex workspace: %v", err)

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
 	"github.com/google/uuid"
@@ -43,16 +42,8 @@ func (s *Service) MaterializeRuntimeSnapshot(input MaterializeRuntimeSnapshotInp
 	if err := os.MkdirAll(target.skillsDir.String(), 0o750); err != nil {
 		return MaterializedRuntimeSnapshot{}, fmt.Errorf("create agent skill directory: %w", err)
 	}
-
-	harnessPath, err := ResolveHarnessTargetForRuntime(target.workspace.String(), input.Snapshot.Workflow.Path)
-	if err != nil {
-		return MaterializedRuntimeSnapshot{}, err
-	}
-	if err := os.MkdirAll(filepath.Dir(harnessPath), 0o750); err != nil {
-		return MaterializedRuntimeSnapshot{}, fmt.Errorf("create runtime harness directory: %w", err)
-	}
-	if err := os.WriteFile(harnessPath, []byte(input.Snapshot.Workflow.Content), 0o600); err != nil {
-		return MaterializedRuntimeSnapshot{}, fmt.Errorf("write runtime harness snapshot: %w", err)
+	if err := os.RemoveAll(filepath.Join(target.workspace.String(), ".openase", "harnesses")); err != nil {
+		return MaterializedRuntimeSnapshot{}, fmt.Errorf("remove legacy runtime harness directory: %w", err)
 	}
 
 	skillVersionIDs := make([]uuid.UUID, 0, len(input.Snapshot.Skills))
@@ -67,7 +58,6 @@ func (s *Service) MaterializeRuntimeSnapshot(input MaterializeRuntimeSnapshotInp
 	}
 
 	return MaterializedRuntimeSnapshot{
-		HarnessPath:       harnessPath,
 		SkillsDir:         target.skillsDir.String(),
 		WorkflowVersionID: input.Snapshot.Workflow.VersionID,
 		SkillVersionIDs:   skillVersionIDs,
@@ -84,24 +74,6 @@ func writeRuntimeSkillSnapshot(skillsDir string, skill RuntimeSkillSnapshot) err
 		})
 	}
 	return writeProjectedSkillBundle(skillsDir, skill.Name, files, skill.Content)
-}
-
-func ResolveHarnessTargetForRuntime(workspaceRoot string, harnessPath string) (string, error) {
-	trimmedWorkspaceRoot := strings.TrimSpace(workspaceRoot)
-	if trimmedWorkspaceRoot == "" {
-		return "", fmt.Errorf("%w: workspace_root must not be empty", ErrHarnessInvalid)
-	}
-	absoluteWorkspaceRoot, err := filepath.Abs(trimmedWorkspaceRoot)
-	if err != nil {
-		return "", fmt.Errorf("%w: resolve workspace root: %s", ErrHarnessInvalid, err)
-	}
-
-	normalizedHarnessPath, err := normalizeHarnessPath(harnessPath)
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(absoluteWorkspaceRoot, filepath.FromSlash(normalizedHarnessPath)), nil
 }
 
 func runtimeSkillNames(skills []RuntimeSkillSnapshot) []string {

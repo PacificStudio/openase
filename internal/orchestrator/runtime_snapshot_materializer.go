@@ -175,17 +175,12 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshotWithSync(
 		return fmt.Errorf("materialize runtime snapshot locally for websocket sync: %w", err)
 	}
 
-	harnessRelativePath, err := filepath.Rel(tempRoot, materialized.HarnessPath)
-	if err != nil {
-		return fmt.Errorf("derive runtime harness relative path: %w", err)
-	}
 	skillsRelativePath, err := filepath.Rel(tempRoot, materialized.SkillsDir)
 	if err != nil {
 		return fmt.Errorf("derive runtime skills relative path: %w", err)
 	}
 
 	paths := []string{
-		filepath.ToSlash(harnessRelativePath),
 		filepath.ToSlash(skillsRelativePath),
 		".openase/bin/openase",
 	}
@@ -193,7 +188,7 @@ func (l *RuntimeLauncher) materializeRemoteRuntimeSnapshotWithSync(
 		LocalRoot:   tempRoot,
 		TargetRoot:  workspaceRoot,
 		Paths:       paths,
-		RemovePaths: []string{filepath.ToSlash(skillsRelativePath), ".openase/bin"},
+		RemovePaths: []string{".openase/harnesses", filepath.ToSlash(skillsRelativePath), ".openase/bin"},
 	}); err != nil {
 		return fmt.Errorf("sync websocket runtime snapshot artifacts: %w", err)
 	}
@@ -209,16 +204,12 @@ func buildRemoteMaterializeRuntimeSnapshotCommand(
 	if err != nil {
 		return "", err
 	}
-	harnessPath, err := workflowservice.ResolveHarnessTargetForRuntime(workspaceRoot, snapshot.Workflow.Path)
-	if err != nil {
-		return "", err
-	}
 
 	lines := []string{
 		"set -eu",
+		"rm -rf " + sshinfra.ShellQuote(filepath.Join(workspaceRoot, ".openase", "harnesses")),
 		"rm -rf " + sshinfra.ShellQuote(target.SkillsDir),
 		"mkdir -p " + sshinfra.ShellQuote(target.SkillsDir),
-		buildRemoteWriteFileCommand(harnessPath, []byte(snapshot.Workflow.Content), false),
 		buildRemoteWriteFileCommand(filepath.Join(workspaceRoot, ".openase", "bin", "openase"), []byte(runtimeOpenASECLIWrapperScript()), true),
 	}
 	for _, skill := range snapshot.Skills {

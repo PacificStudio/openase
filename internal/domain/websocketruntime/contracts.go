@@ -176,9 +176,12 @@ type HelloAck struct {
 }
 
 type ProbeResponse struct {
-	CheckedAt string         `json:"checked_at"`
-	Output    string         `json:"output"`
-	Resources map[string]any `json:"resources,omitempty"`
+	CheckedAt       string         `json:"checked_at"`
+	Output          string         `json:"output"`
+	Resources       map[string]any `json:"resources,omitempty"`
+	DetectedOS      string         `json:"detected_os,omitempty"`
+	DetectedArch    string         `json:"detected_arch,omitempty"`
+	DetectionStatus string         `json:"detection_status,omitempty"`
 }
 
 type PreflightRequest struct {

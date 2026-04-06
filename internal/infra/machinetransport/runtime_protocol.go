@@ -17,6 +17,7 @@ import (
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
+	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	"github.com/BetterAndBetterII/openase/internal/provider"
@@ -460,10 +461,14 @@ func (s *runtimeProtocolServer) handleProbe(ctx context.Context, envelope runtim
 		return s.sendError(ctx, envelope, runtimeErrorPayload(runtimecontract.ErrorCodeInternal, runtimecontract.ErrorClassTransient, err, true, nil))
 	}
 	now := time.Now().UTC()
+	detectedOS, detectedArch, detectionStatus := machineprobe.DetectPlatformFromProbeOutput(output)
 	return s.sendResponse(ctx, envelope, runtimecontract.ProbeResponse{
-		CheckedAt: now.Format(time.RFC3339),
-		Output:    strings.TrimSpace(output),
-		Resources: buildRuntimeProbeResources(now, output),
+		CheckedAt:       now.Format(time.RFC3339),
+		Output:          strings.TrimSpace(output),
+		Resources:       buildRuntimeProbeResources(now, output),
+		DetectedOS:      detectedOS.String(),
+		DetectedArch:    detectedArch.String(),
+		DetectionStatus: detectionStatus.String(),
 	})
 }
 
@@ -961,10 +966,14 @@ func runtimeErrorPayload(
 }
 
 func buildRuntimeProbeResources(checkedAt time.Time, output string) map[string]any {
+	detectedOS, detectedArch, detectionStatus := machineprobe.DetectPlatformFromProbeOutput(output)
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	resources := map[string]any{
-		"checked_at":   checkedAt.Format(time.RFC3339),
-		"last_success": true,
+		"checked_at":       checkedAt.Format(time.RFC3339),
+		"last_success":     true,
+		"detected_os":      detectedOS.String(),
+		"detected_arch":    detectedArch.String(),
+		"detection_status": detectionStatus.String(),
 	}
 	if len(lines) > 0 && strings.TrimSpace(lines[0]) != "" {
 		resources["remote_user"] = strings.TrimSpace(lines[0])
@@ -1054,19 +1063,57 @@ func runtimeWorkspaceResponse(response runtimecontract.WorkspacePrepareResponse)
 }
 
 func augmentRuntimeProbe(machine domain.Machine, probe runtimecontract.ProbeResponse) domain.MachineProbe {
+	checkedAt := time.Now().UTC()
+	if parsedCheckedAt, err := time.Parse(time.RFC3339, strings.TrimSpace(probe.CheckedAt)); err == nil {
+		checkedAt = parsedCheckedAt.UTC()
+	}
+	detectedOS, detectedArch, detectionStatus := parseRuntimeProbePlatform(probe)
 	result := domain.MachineProbe{
-		CheckedAt: time.Now().UTC(),
-		Transport: machine.ConnectionMode.String(),
-		Output:    strings.TrimSpace(probe.Output),
-		Resources: map[string]any{},
+		CheckedAt:       checkedAt,
+		Transport:       machine.ConnectionMode.String(),
+		Output:          strings.TrimSpace(probe.Output),
+		DetectedOS:      detectedOS,
+		DetectedArch:    detectedArch,
+		DetectionStatus: detectionStatus,
+		Resources:       map[string]any{},
 	}
 	for key, value := range probe.Resources {
 		result.Resources[key] = value
 	}
 	result.Resources["transport"] = machine.ConnectionMode.String()
+	result.Resources["detected_os"] = detectedOS.String()
+	result.Resources["detected_arch"] = detectedArch.String()
+	result.Resources["detection_status"] = detectionStatus.String()
 	if machine.ConnectionMode == domain.MachineConnectionModeWSListener {
 		result.Resources["advertised_endpoint"] = strings.TrimSpace(pointerString(machine.AdvertisedEndpoint))
 		result.Resources["listener_session_mode"] = "runtime_contract_v1"
 	}
 	return result
+}
+
+func parseRuntimeProbePlatform(probe runtimecontract.ProbeResponse) (domain.MachineDetectedOS, domain.MachineDetectedArch, domain.MachineDetectionStatus) {
+	rawDetectedOS := strings.TrimSpace(probe.DetectedOS)
+	rawDetectedArch := strings.TrimSpace(probe.DetectedArch)
+	rawDetectionStatus := strings.TrimSpace(probe.DetectionStatus)
+	if rawDetectedOS == "" && rawDetectedArch == "" && rawDetectionStatus == "" {
+		return machineprobe.DetectPlatformFromProbeOutput(probe.Output)
+	}
+
+	detectedOS, err := domain.ParseStoredMachineDetectedOS(rawDetectedOS)
+	if err != nil {
+		detectedOS = domain.MachineDetectedOSUnknown
+	}
+	detectedArch, err := domain.ParseStoredMachineDetectedArch(rawDetectedArch)
+	if err != nil {
+		detectedArch = domain.MachineDetectedArchUnknown
+	}
+	if rawDetectionStatus == "" {
+		_, _, derivedStatus := machineprobe.NormalizePlatform(detectedOS.String(), detectedArch.String())
+		return detectedOS, detectedArch, derivedStatus
+	}
+	detectionStatus, err := domain.ParseStoredMachineDetectionStatus(rawDetectionStatus)
+	if err != nil {
+		detectionStatus = domain.MachineDetectionStatusUnknown
+	}
+	return detectedOS, detectedArch, detectionStatus
 }

@@ -399,7 +399,6 @@ type ResolveRecordedRuntimeSnapshotInput struct {
 }
 
 type MaterializedRuntimeSnapshot struct {
-	HarnessPath       string
 	SkillsDir         string
 	WorkflowVersionID uuid.UUID
 	SkillVersionIDs   []uuid.UUID
