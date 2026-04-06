@@ -130,9 +130,8 @@ func (s *Server) handleCreateWorkflow(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseCreateWorkflowRequest(projectID, raw)
+	input, err := parseCreateWorkflowRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -199,9 +198,8 @@ func (s *Server) handleUpdateWorkflow(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseUpdateWorkflowRequest(workflowID, raw)
+	input, err := parseUpdateWorkflowRequest(workflowID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -396,9 +394,8 @@ func (s *Server) handleRetireWorkflow(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil && !errors.Is(err, io.EOF) {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	editedBy := parseRetireWorkflowRequest(workflowID, raw)
+	editedBy := parseRetireWorkflowRequest(workflowID, actorFromWritePrincipal(c), raw)
 
 	item, err := s.workflowService.Retire(c.Request().Context(), workflowID, editedBy)
 	if err != nil {
@@ -439,9 +436,8 @@ func (s *Server) handleReplaceWorkflowReferences(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	input, editedBy, err := parseReplaceWorkflowReferencesRequest(workflowID, raw)
+	input, editedBy, err := parseReplaceWorkflowReferencesRequest(workflowID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -564,9 +560,8 @@ func (s *Server) handleUpdateWorkflowHarness(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
 
-	input, err := parseUpdateHarnessRequest(workflowID, raw)
+	input, err := parseUpdateHarnessRequest(workflowID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}

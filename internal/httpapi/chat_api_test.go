@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -84,37 +85,33 @@ func TestCurrentRequestChatUserIDAllowsHeaderFallbackWhenAuthDisabled(t *testing
 	}
 }
 
-func TestPrepareProjectConversationActionBodyInjectsExplicitAuditActor(t *testing.T) {
+func TestPrepareProjectConversationActionBodyLeavesBodyUnchangedForExplicitAuditRoutes(t *testing.T) {
 	conversationID := uuid.MustParse("57cdcb4e-6e4c-4474-839a-4daa5abdd8d2")
 	executedBy := projectConversationConfirmedActionActor(chatservice.UserID("user:browser-user"), conversationID)
 
 	tests := []struct {
-		name      string
-		method    string
-		path      string
-		body      map[string]any
-		fieldName string
+		name   string
+		method string
+		path   string
+		body   map[string]any
 	}{
 		{
-			name:      "ticket create",
-			method:    http.MethodPost,
-			path:      "/api/v1/projects/" + uuid.NewString() + "/tickets",
-			body:      map[string]any{"title": "Follow up"},
-			fieldName: "created_by",
+			name:   "ticket create",
+			method: http.MethodPost,
+			path:   "/api/v1/projects/" + uuid.NewString() + "/tickets",
+			body:   map[string]any{"title": "Follow up"},
 		},
 		{
-			name:      "ticket comment patch",
-			method:    http.MethodPatch,
-			path:      "/api/v1/tickets/" + uuid.NewString() + "/comments/" + uuid.NewString(),
-			body:      map[string]any{"body": "Updated after confirmation"},
-			fieldName: "edited_by",
+			name:   "ticket comment patch",
+			method: http.MethodPatch,
+			path:   "/api/v1/tickets/" + uuid.NewString() + "/comments/" + uuid.NewString(),
+			body:   map[string]any{"body": "Updated after confirmation"},
 		},
 		{
-			name:      "workflow harness update",
-			method:    http.MethodPut,
-			path:      "/api/v1/workflows/" + uuid.NewString() + "/harness",
-			body:      map[string]any{"content": "new harness"},
-			fieldName: "edited_by",
+			name:   "workflow harness update",
+			method: http.MethodPut,
+			path:   "/api/v1/workflows/" + uuid.NewString() + "/harness",
+			body:   map[string]any{"content": "new harness"},
 		},
 	}
 
@@ -124,8 +121,8 @@ func TestPrepareProjectConversationActionBodyInjectsExplicitAuditActor(t *testin
 			if err != nil {
 				t.Fatalf("prepareProjectConversationActionBody() error = %v", err)
 			}
-			if got := prepared[tc.fieldName]; got != executedBy {
-				t.Fatalf("prepareProjectConversationActionBody() %s = %#v, want %q", tc.fieldName, got, executedBy)
+			if !reflect.DeepEqual(prepared, tc.body) {
+				t.Fatalf("prepareProjectConversationActionBody() = %#v, want %#v", prepared, tc.body)
 			}
 		})
 	}

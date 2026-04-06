@@ -891,7 +891,7 @@ func (s *Server) executeActionProposalActions(_ context.Context, payload map[str
 			results = append(results, result)
 			continue
 		}
-		status, responseBody, err := s.executeInternalAPIAction(method, path, preparedBody)
+		status, responseBody, err := s.executeInternalAPIAction(method, path, preparedBody, executedBy)
 		result["status_code"] = status
 		if responseBody != "" {
 			result["detail"] = responseBody
@@ -913,7 +913,7 @@ func httpStringValue(value any) string {
 	return typed
 }
 
-func (s *Server) executeInternalAPIAction(method string, path string, body map[string]any) (int, string, error) {
+func (s *Server) executeInternalAPIAction(method string, path string, body map[string]any, executedBy string) (int, string, error) {
 	var reader io.Reader
 	if body != nil {
 		encoded, err := json.Marshal(body)
@@ -926,6 +926,9 @@ func (s *Server) executeInternalAPIAction(method string, path string, body map[s
 	if body != nil {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	}
+	if strings.TrimSpace(executedBy) != "" {
+		req = req.WithContext(withWriteActor(req.Context(), executedBy))
+	}
 	rec := httptest.NewRecorder()
 	s.Handler().ServeHTTP(rec, req)
 	return rec.Code, strings.TrimSpace(rec.Body.String()), nil
@@ -935,7 +938,7 @@ func projectConversationConfirmedActionActor(userID chatservice.UserID, conversa
 	return fmt.Sprintf("user:%s via project-conversation:%s", strings.TrimSpace(string(userID)), conversationID.String())
 }
 
-func prepareProjectConversationActionBody(method string, path string, body map[string]any, executedBy string) (map[string]any, error) {
+func prepareProjectConversationActionBody(method string, path string, body map[string]any, _ string) (map[string]any, error) {
 	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
 	normalizedPath := strings.TrimSpace(path)
 	if normalizedMethod == "" || normalizedPath == "" {
@@ -944,27 +947,16 @@ func prepareProjectConversationActionBody(method string, path string, body map[s
 	prepared := cloneHTTPActionBody(body)
 	switch {
 	case normalizedMethod == http.MethodPost && projectConversationTicketCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationTicketPatchPath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPost && projectConversationTicketCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationTicketCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodPost && projectConversationUpdateThreadCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationUpdateThreadPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodPost && projectConversationUpdateCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodPost && projectConversationWorkflowCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
 	case normalizedMethod == http.MethodPatch && projectConversationWorkflowPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodPut && projectConversationWorkflowHarnessUpdatePath(normalizedPath):
-		prepared["edited_by"] = executedBy
 	case normalizedMethod == http.MethodGet:
 		return prepared, nil
 	default:

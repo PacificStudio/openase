@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"strings"
 
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
@@ -15,6 +16,7 @@ const (
 )
 
 type humanPrincipalContextKey struct{}
+type writeActorContextKey struct{}
 
 func currentHumanPrincipal(c echo.Context) (humanauthdomain.AuthenticatedPrincipal, bool) {
 	value := c.Get(humanPrincipalContextKey{}.String())
@@ -34,18 +36,19 @@ func actorFromHumanPrincipal(c echo.Context) string {
 	return principal.ActorID()
 }
 
-func optionalActor(raw *string, fallback string) *string {
-	if raw != nil {
-		trimmed := strings.TrimSpace(*raw)
-		if trimmed != "" {
-			return &trimmed
-		}
+func actorFromWritePrincipal(c echo.Context) string {
+	if actor, ok := c.Request().Context().Value(writeActorContextKey{}).(string); ok {
+		return strings.TrimSpace(actor)
 	}
-	if strings.TrimSpace(fallback) == "" {
-		return nil
+	return strings.TrimSpace(actorFromHumanPrincipal(c))
+}
+
+func withWriteActor(ctx context.Context, actor string) context.Context {
+	trimmed := strings.TrimSpace(actor)
+	if trimmed == "" {
+		return ctx
 	}
-	value := strings.TrimSpace(fallback)
-	return &value
+	return context.WithValue(ctx, writeActorContextKey{}, trimmed)
 }
 
 func (humanPrincipalContextKey) String() string {

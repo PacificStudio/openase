@@ -1,10 +1,12 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 	"time"
@@ -17,6 +19,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 )
 
 func openTestEntClient(t *testing.T) *ent.Client {
@@ -73,6 +76,60 @@ func executeJSON(
 	if out != nil && wantStatus != http.StatusNoContent && rec.Body.Len() > 0 {
 		decodeResponse(t, rec, out)
 	}
+}
+
+func executeJSONWithWriteActor(
+	t *testing.T,
+	server *Server,
+	method string,
+	target string,
+	body any,
+	writeActor string,
+	wantStatus int,
+	out any,
+) {
+	t.Helper()
+
+	bodyJSON := ""
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		bodyJSON = string(encoded)
+	}
+
+	rec := performJSONRequestWithWriteActor(t, server, method, target, bodyJSON, writeActor)
+	if rec.Code != wantStatus {
+		t.Fatalf("expected status %d, got %d: %s", wantStatus, rec.Code, rec.Body.String())
+	}
+	if out != nil && wantStatus != http.StatusNoContent && rec.Body.Len() > 0 {
+		decodeResponse(t, rec, out)
+	}
+}
+
+func performJSONRequestWithWriteActor(
+	t *testing.T,
+	server *Server,
+	method string,
+	target string,
+	body string,
+	writeActor string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, target, bytes.NewBufferString(body))
+	if body != "" {
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	}
+	if writeActor != "" {
+		req = req.WithContext(withWriteActor(req.Context(), writeActor))
+	}
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	return rec
 }
 
 func subscribeTopicEvents(

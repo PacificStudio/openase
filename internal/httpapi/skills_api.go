@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
@@ -126,11 +125,8 @@ func (s *Server) handleCreateSkill(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
-		raw.CreatedBy = actor
-	}
 
-	input, err := parseCreateSkillRequest(projectID, raw)
+	input, err := parseCreateSkillRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -157,11 +153,8 @@ func (s *Server) handleImportSkillBundle(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
-		raw.CreatedBy = actor
-	}
 
-	input, err := parseImportSkillBundleRequest(projectID, raw)
+	input, err := parseImportSkillBundleRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}

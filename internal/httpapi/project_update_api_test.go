@@ -48,16 +48,16 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	createThreadResp := struct {
 		Thread projectUpdateThreadResponse `json:"thread"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/updates", projectID),
 		map[string]any{
-			"status":     "on_track",
-			"body":       "Initial launch window is green.",
-			"created_by": " user:codex ",
+			"status": "on_track",
+			"body":   "Initial launch window is green.",
 		},
+		"user:codex",
 		http.StatusCreated,
 		&createThreadResp,
 	)
@@ -88,15 +88,13 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	commentResp := struct {
 		Comment projectUpdateCommentResponse `json:"comment"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/projects/%s/updates/%s/comments", projectID, createThreadResp.Thread.ID),
-		map[string]any{
-			"body":       "Need one more canary before Friday.",
-			"created_by": "user:ops",
-		},
+		map[string]any{"body": "Need one more canary before Friday."},
+		"user:ops",
 		http.StatusCreated,
 		&commentResp,
 	)
@@ -107,7 +105,7 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	updateThreadResp := struct {
 		Thread projectUpdateThreadResponse `json:"thread"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPatch,
@@ -115,9 +113,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 		map[string]any{
 			"status":      "at_risk",
 			"body":        "Blocked by flaky canary verification.",
-			"edited_by":   "user:reviewer",
 			"edit_reason": "status recalibration",
 		},
+		"user:reviewer",
 		http.StatusOK,
 		&updateThreadResp,
 	)
@@ -131,7 +129,7 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	updateCommentResp := struct {
 		Comment projectUpdateCommentResponse `json:"comment"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPatch,
@@ -143,9 +141,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 		),
 		map[string]any{
 			"body":        "Need one more canary before Friday noon.",
-			"edited_by":   "user:ops",
 			"edit_reason": "tightened timing",
 		},
+		"user:ops",
 		http.StatusOK,
 		&updateCommentResp,
 	)
@@ -312,14 +310,11 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 	projectID := uuid.New()
 	threadID := uuid.New()
 	commentID := uuid.New()
-	createdBy := " user:codex "
-	editedBy := " user:reviewer "
 	editReason := " refined wording "
 
-	createInput, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
-		Status:    "at_risk",
-		Body:      "  Investigating blockers  ",
-		CreatedBy: &createdBy,
+	createInput, err := parseCreateProjectUpdateThreadRequest(projectID, "user:codex", rawCreateProjectUpdateThreadRequest{
+		Status: "at_risk",
+		Body:   "  Investigating blockers  ",
 	})
 	if err != nil {
 		t.Fatalf("parseCreateProjectUpdateThreadRequest() error = %v", err)
@@ -329,11 +324,10 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 	}
 
 	title := "  Delivery  "
-	createInputWithTitle, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
-		Status:    "at_risk",
-		Title:     &title,
-		Body:      "  Investigating blockers  ",
-		CreatedBy: &createdBy,
+	createInputWithTitle, err := parseCreateProjectUpdateThreadRequest(projectID, "user:codex", rawCreateProjectUpdateThreadRequest{
+		Status: "at_risk",
+		Title:  &title,
+		Body:   "  Investigating blockers  ",
 	})
 	if err != nil {
 		t.Fatalf("parseCreateProjectUpdateThreadRequest(with title) error = %v", err)
@@ -342,9 +336,8 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 		t.Fatalf("parseCreateProjectUpdateThreadRequest(with title) = %+v", createInputWithTitle)
 	}
 
-	updateInput, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, rawUpdateProjectUpdateCommentRequest{
+	updateInput, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, "user:reviewer", rawUpdateProjectUpdateCommentRequest{
 		Body:       "  Updated body  ",
-		EditedBy:   &editedBy,
 		EditReason: &editReason,
 	})
 	if err != nil {
@@ -354,13 +347,13 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 		t.Fatalf("parseUpdateProjectUpdateCommentRequest() = %+v", updateInput)
 	}
 
-	if _, err := parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
+	if _, err := parseCreateProjectUpdateThreadRequest(projectID, "", rawCreateProjectUpdateThreadRequest{
 		Status: "bad",
 		Body:   "y",
 	}); err == nil {
 		t.Fatal("expected invalid status error")
 	}
-	if _, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, rawCreateProjectUpdateCommentRequest{
+	if _, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, "", rawCreateProjectUpdateCommentRequest{
 		Body: " ",
 	}); err == nil {
 		t.Fatal("expected empty comment body error")

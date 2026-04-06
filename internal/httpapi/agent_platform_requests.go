@@ -90,7 +90,7 @@ func (e agentStatusNameResolutionError) Error() string { return e.err.Error() }
 func (e agentStatusNameResolutionError) Unwrap() error { return e.err }
 
 func parseAgentCreateTicketRequest(projectID uuid.UUID, raw rawAgentCreateTicketRequest) (ticketservice.CreateInput, error) {
-	return parseCreateTicketRequest(projectID, rawCreateTicketRequest{
+	return parseCreateTicketRequest(projectID, "", rawCreateTicketRequest{
 		Title:          raw.Title,
 		Description:    raw.Description,
 		StatusID:       raw.StatusID,
@@ -194,16 +194,12 @@ func parseAgentReportUsageRequest(raw rawAgentReportUsageRequest) ticketing.RawU
 }
 
 func parseAgentCreateTicketCommentRequest(ticketID uuid.UUID, createdBy string, raw rawAgentTicketCommentRequest) (ticketservice.AddCommentInput, error) {
-	return parseCreateTicketCommentRequest(ticketID, rawCreateTicketCommentRequest{
-		Body:      raw.Body,
-		CreatedBy: stringPointer(createdBy),
-	})
+	return parseCreateTicketCommentRequest(ticketID, createdBy, rawCreateTicketCommentRequest{Body: raw.Body})
 }
 
 func parseAgentUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, editedBy string, raw rawAgentTicketCommentRequest) (ticketservice.UpdateCommentInput, error) {
-	return parseUpdateTicketCommentRequest(ticketID, commentID, rawUpdateTicketCommentRequest{
+	return parseUpdateTicketCommentRequest(ticketID, commentID, editedBy, rawUpdateTicketCommentRequest{
 		Body:       raw.Body,
-		EditedBy:   stringPointer(editedBy),
 		EditReason: stringPointer("agent_workpad_update"),
 	})
 }
@@ -267,11 +263,10 @@ func parseAgentCreateProjectUpdateThreadRequest(
 	createdBy string,
 	raw rawAgentCreateProjectUpdateThreadRequest,
 ) (projectupdateservice.AddThreadInput, error) {
-	return parseCreateProjectUpdateThreadRequest(projectID, rawCreateProjectUpdateThreadRequest{
-		Status:    raw.Status,
-		Title:     raw.Title,
-		Body:      raw.Body,
-		CreatedBy: stringPointer(createdBy),
+	return parseCreateProjectUpdateThreadRequest(projectID, createdBy, rawCreateProjectUpdateThreadRequest{
+		Status: raw.Status,
+		Title:  raw.Title,
+		Body:   raw.Body,
 	})
 }
 
@@ -281,11 +276,10 @@ func parseAgentUpdateProjectUpdateThreadRequest(
 	editedBy string,
 	raw rawAgentUpdateProjectUpdateThreadRequest,
 ) (projectupdateservice.UpdateThreadInput, error) {
-	return parseUpdateProjectUpdateThreadRequest(projectID, threadID, rawUpdateProjectUpdateThreadRequest{
+	return parseUpdateProjectUpdateThreadRequest(projectID, threadID, editedBy, rawUpdateProjectUpdateThreadRequest{
 		Status:     raw.Status,
 		Title:      raw.Title,
 		Body:       raw.Body,
-		EditedBy:   stringPointer(editedBy),
 		EditReason: raw.EditReason,
 	})
 }
@@ -296,10 +290,7 @@ func parseAgentCreateProjectUpdateCommentRequest(
 	createdBy string,
 	raw rawAgentCreateProjectUpdateCommentRequest,
 ) (projectupdateservice.AddCommentInput, error) {
-	return parseCreateProjectUpdateCommentRequest(projectID, threadID, rawCreateProjectUpdateCommentRequest{
-		Body:      raw.Body,
-		CreatedBy: stringPointer(createdBy),
-	})
+	return parseCreateProjectUpdateCommentRequest(projectID, threadID, createdBy, rawCreateProjectUpdateCommentRequest{Body: raw.Body})
 }
 
 func parseAgentUpdateProjectUpdateCommentRequest(
@@ -309,9 +300,8 @@ func parseAgentUpdateProjectUpdateCommentRequest(
 	editedBy string,
 	raw rawAgentUpdateProjectUpdateCommentRequest,
 ) (projectupdateservice.UpdateCommentInput, error) {
-	return parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, rawUpdateProjectUpdateCommentRequest{
+	return parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, editedBy, rawUpdateProjectUpdateCommentRequest{
 		Body:       raw.Body,
-		EditedBy:   stringPointer(editedBy),
 		EditReason: raw.EditReason,
 	})
 }

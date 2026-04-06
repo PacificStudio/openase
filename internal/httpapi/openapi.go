@@ -1868,8 +1868,6 @@ var (
 		"role_description":        "Structured workflow role summary shown in runtime and editor context.",
 		"platform_access_allowed": "Allowed OpenASE platform API scopes for agents running this workflow.",
 		"skill_names":             "Skill names to bind to the workflow when it is created.",
-		"created_by":              "Optional creator descriptor recorded on the initial workflow harness version.",
-		"edited_by":               "Optional editor descriptor recorded on subsequent workflow harness versions.",
 		"pickup_status_ids":       "Ticket status IDs that allow the workflow to pick up tickets.",
 		"finish_status_ids":       "Ticket status IDs that mark workflow completion.",
 		"is_active":               "Whether the workflow is active and eligible to pick up work.",
@@ -1882,8 +1880,7 @@ var (
 		"hooks":                   "Workflow hook configuration keyed by lifecycle phase.",
 	}
 	openAPIHarnessContentDescriptions = map[string]string{
-		"content":   "Harness content to write or validate.",
-		"edited_by": "Optional editor descriptor recorded on the published workflow harness version.",
+		"content": "Harness content to write or validate.",
 	}
 	openAPIScheduledJobDescriptions = map[string]string{
 		"name":            "Human-readable scheduled job name.",
@@ -1904,38 +1901,31 @@ var (
 		"repo_scopes[].branch_name": "Optional work-branch override for the scoped repository. When omitted or blank, OpenASE uses the generated ticket branch.",
 		"parent_ticket_id":          "Optional parent ticket ID for hierarchical ticket relationships.",
 		"external_ref":              "Optional external reference string associated with the ticket.",
-		"created_by":                "Actor identifier recorded as the creator of the ticket.",
 		"budget_usd":                "Optional budget limit for the ticket in USD.",
 	}
 	openAPITicketCommentRequestDescriptions = map[string]string{
-		"body":       "Markdown body content for the ticket comment.",
-		"created_by": "Actor identifier recorded as the creator of the comment.",
+		"body": "Markdown body content for the ticket comment.",
 	}
 	openAPITicketCommentPatchDescriptions = map[string]string{
 		"body":        "Updated markdown body content for the ticket comment.",
-		"edited_by":   "Actor identifier recorded as the editor of the comment.",
 		"edit_reason": "Reason recorded for editing the comment.",
 	}
 	openAPIProjectUpdateThreadRequestDescriptions = map[string]string{
-		"status":     "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
-		"title":      "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
-		"body":       "Required markdown body content for the project update thread.",
-		"created_by": "Actor identifier recorded as the creator of the update thread.",
+		"status": "Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
+		"title":  "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
+		"body":   "Required markdown body content for the project update thread.",
 	}
 	openAPIProjectUpdateThreadPatchDescriptions = map[string]string{
 		"status":      "Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track.",
 		"title":       "Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
 		"body":        "Required updated markdown body content for the project update thread.",
-		"edited_by":   "Actor identifier recorded as the editor of the update thread.",
 		"edit_reason": "Reason recorded for editing the update thread.",
 	}
 	openAPIProjectUpdateCommentRequestDescriptions = map[string]string{
-		"body":       "Markdown body content for the project update comment.",
-		"created_by": "Actor identifier recorded as the creator of the update comment.",
+		"body": "Markdown body content for the project update comment.",
 	}
 	openAPIProjectUpdateCommentPatchDescriptions = map[string]string{
 		"body":        "Updated markdown body content for the project update comment.",
-		"edited_by":   "Actor identifier recorded as the editor of the update comment.",
 		"edit_reason": "Reason recorded for editing the update comment.",
 	}
 	openAPIDependencyRequestDescriptions = map[string]string{
@@ -2081,7 +2071,6 @@ var (
 		"name":        "Project-unique skill name in the control plane.",
 		"content":     "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
 		"description": "Optional description used when the input content does not declare one.",
-		"created_by":  "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
 		"is_enabled":  "Whether the new skill should be enabled for runtime injection immediately.",
 	}
 	openAPISkillUpdateDescriptions = map[string]string{
@@ -2132,8 +2121,8 @@ var (
 		"PATCH /api/v1/agents/{agentId}":                                                               openAPIAgentRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/workflows":                                                  openAPIWorkflowRequestDescriptions,
 		"PATCH /api/v1/workflows/{workflowId}":                                                         mergeRequestFieldDescriptions(openAPIWorkflowRequestDescriptions, map[string]string{"harness_content": ""}),
-		"POST /api/v1/workflows/{workflowId}/retire":                                                   map[string]string{"edited_by": openAPIWorkflowRequestDescriptions["edited_by"]},
-		"POST /api/v1/workflows/{workflowId}/replace-references":                                       map[string]string{"replacement_workflow_id": "Workflow ID that should receive replaceable scheduled job and active ticket references.", "edited_by": openAPIWorkflowRequestDescriptions["edited_by"]},
+		"POST /api/v1/workflows/{workflowId}/retire":                                                   map[string]string{},
+		"POST /api/v1/workflows/{workflowId}/replace-references":                                       map[string]string{"replacement_workflow_id": "Workflow ID that should receive replaceable scheduled job and active ticket references."},
 		"PUT /api/v1/workflows/{workflowId}/harness":                                                   openAPIHarnessContentDescriptions,
 		"POST /api/v1/harness/validate":                                                                openAPIHarnessContentDescriptions,
 		"POST /api/v1/projects/{projectId}/scheduled-jobs":                                             openAPIScheduledJobDescriptions,
