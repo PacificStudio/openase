@@ -11,6 +11,11 @@ import (
 )
 
 func (s *service) ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]domain.AgentProvider, error) {
+	if allowed, err := s.allowsOrganizationScope(ctx, organizationID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.AgentProvider{}, nil
+	}
 	items, err := s.repo.ListAgentProviders(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -63,10 +68,20 @@ func (s *service) UpdateAgentProvider(ctx context.Context, input domain.UpdateAg
 }
 
 func (s *service) ListAgents(ctx context.Context, projectID uuid.UUID) ([]domain.Agent, error) {
+	if allowed, err := s.allowsProjectScope(ctx, projectID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.Agent{}, nil
+	}
 	return s.repo.ListAgents(ctx, projectID)
 }
 
 func (s *service) ListAgentRuns(ctx context.Context, projectID uuid.UUID) ([]domain.AgentRun, error) {
+	if allowed, err := s.allowsProjectScope(ctx, projectID); err != nil {
+		return nil, err
+	} else if !allowed {
+		return []domain.AgentRun{}, nil
+	}
 	return s.repo.ListAgentRuns(ctx, projectID)
 }
 

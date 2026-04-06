@@ -410,7 +410,7 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if request.Source != chatdomain.SourceProjectSidebar {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", "project conversations only support project_sidebar")
 	}
-	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionTicketComment); err != nil {
+	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionConversationCreate); err != nil {
 		return err
 	}
 	userID, err := s.currentProjectConversationUserID(c)
@@ -442,7 +442,7 @@ func (s *Server) handleListProjectConversations(c echo.Context) error {
 	if err := s.requireHumanPermission(
 		c,
 		humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: projectID.String()},
-		humanauthdomain.PermissionTicketRead,
+		humanauthdomain.PermissionConversationRead,
 	); err != nil {
 		return err
 	}

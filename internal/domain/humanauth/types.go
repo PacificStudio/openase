@@ -1,6 +1,7 @@
 package humanauth
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -34,27 +35,89 @@ type RoleKey string
 type PermissionKey string
 
 const (
-	PermissionOrgRead         PermissionKey = "org.read"
-	PermissionOrgUpdate       PermissionKey = "org.update"
-	PermissionProjectRead     PermissionKey = "project.read"
-	PermissionProjectUpdate   PermissionKey = "project.update"
-	PermissionProjectDelete   PermissionKey = "project.delete"
-	PermissionRepoRead        PermissionKey = "repo.read"
-	PermissionRepoManage      PermissionKey = "repo.manage"
-	PermissionTicketRead      PermissionKey = "ticket.read"
-	PermissionTicketCreate    PermissionKey = "ticket.create"
-	PermissionTicketUpdate    PermissionKey = "ticket.update"
-	PermissionTicketComment   PermissionKey = "ticket.comment"
-	PermissionWorkflowRead    PermissionKey = "workflow.read"
-	PermissionWorkflowManage  PermissionKey = "workflow.manage"
-	PermissionSkillRead       PermissionKey = "skill.read"
-	PermissionSkillManage     PermissionKey = "skill.manage"
-	PermissionAgentRead       PermissionKey = "agent.read"
-	PermissionAgentManage     PermissionKey = "agent.manage"
-	PermissionJobRead         PermissionKey = "job.read"
-	PermissionJobManage       PermissionKey = "job.manage"
-	PermissionSecurityRead    PermissionKey = "security.read"
-	PermissionSecurityManage  PermissionKey = "security.manage"
+	PermissionOrgRead   PermissionKey = "org.read"
+	PermissionOrgCreate PermissionKey = "org.create"
+	PermissionOrgUpdate PermissionKey = "org.update"
+	PermissionOrgDelete PermissionKey = "org.delete"
+
+	PermissionProjectRead   PermissionKey = "project.read"
+	PermissionProjectCreate PermissionKey = "project.create"
+	PermissionProjectUpdate PermissionKey = "project.update"
+	PermissionProjectDelete PermissionKey = "project.delete"
+
+	PermissionRepoRead   PermissionKey = "repo.read"
+	PermissionRepoCreate PermissionKey = "repo.create"
+	PermissionRepoUpdate PermissionKey = "repo.update"
+	PermissionRepoDelete PermissionKey = "repo.delete"
+
+	PermissionTicketRead   PermissionKey = "ticket.read"
+	PermissionTicketCreate PermissionKey = "ticket.create"
+	PermissionTicketUpdate PermissionKey = "ticket.update"
+	PermissionTicketDelete PermissionKey = "ticket.delete"
+
+	PermissionTicketCommentRead   PermissionKey = "ticket_comment.read"
+	PermissionTicketCommentCreate PermissionKey = "ticket_comment.create"
+	PermissionTicketCommentUpdate PermissionKey = "ticket_comment.update"
+	PermissionTicketCommentDelete PermissionKey = "ticket_comment.delete"
+
+	PermissionProjectUpdateRead   PermissionKey = "project_update.read"
+	PermissionProjectUpdateCreate PermissionKey = "project_update.create"
+	PermissionProjectUpdateUpdate PermissionKey = "project_update.update"
+	PermissionProjectUpdateDelete PermissionKey = "project_update.delete"
+
+	PermissionWorkflowRead   PermissionKey = "workflow.read"
+	PermissionWorkflowCreate PermissionKey = "workflow.create"
+	PermissionWorkflowUpdate PermissionKey = "workflow.update"
+	PermissionWorkflowDelete PermissionKey = "workflow.delete"
+
+	PermissionHarnessRead   PermissionKey = "harness.read"
+	PermissionHarnessUpdate PermissionKey = "harness.update"
+
+	PermissionStatusRead   PermissionKey = "status.read"
+	PermissionStatusCreate PermissionKey = "status.create"
+	PermissionStatusUpdate PermissionKey = "status.update"
+	PermissionStatusDelete PermissionKey = "status.delete"
+
+	PermissionSkillRead   PermissionKey = "skill.read"
+	PermissionSkillCreate PermissionKey = "skill.create"
+	PermissionSkillUpdate PermissionKey = "skill.update"
+	PermissionSkillDelete PermissionKey = "skill.delete"
+
+	PermissionAgentRead    PermissionKey = "agent.read"
+	PermissionAgentCreate  PermissionKey = "agent.create"
+	PermissionAgentUpdate  PermissionKey = "agent.update"
+	PermissionAgentDelete  PermissionKey = "agent.delete"
+	PermissionAgentControl PermissionKey = "agent.control"
+
+	PermissionJobRead    PermissionKey = "scheduled_job.read"
+	PermissionJobCreate  PermissionKey = "scheduled_job.create"
+	PermissionJobUpdate  PermissionKey = "scheduled_job.update"
+	PermissionJobDelete  PermissionKey = "scheduled_job.delete"
+	PermissionJobTrigger PermissionKey = "scheduled_job.trigger"
+
+	PermissionSecurityRead   PermissionKey = "security_setting.read"
+	PermissionSecurityUpdate PermissionKey = "security_setting.update"
+
+	PermissionNotificationRead   PermissionKey = "notification.read"
+	PermissionNotificationCreate PermissionKey = "notification.create"
+	PermissionNotificationUpdate PermissionKey = "notification.update"
+	PermissionNotificationDelete PermissionKey = "notification.delete"
+
+	PermissionConversationRead   PermissionKey = "conversation.read"
+	PermissionConversationCreate PermissionKey = "conversation.create"
+	PermissionConversationUpdate PermissionKey = "conversation.update"
+	PermissionConversationDelete PermissionKey = "conversation.delete"
+
+	PermissionMachineRead   PermissionKey = "machine.read"
+	PermissionMachineCreate PermissionKey = "machine.create"
+	PermissionMachineUpdate PermissionKey = "machine.update"
+	PermissionMachineDelete PermissionKey = "machine.delete"
+
+	PermissionProviderRead   PermissionKey = "provider.read"
+	PermissionProviderCreate PermissionKey = "provider.create"
+	PermissionProviderUpdate PermissionKey = "provider.update"
+	PermissionProviderDelete PermissionKey = "provider.delete"
+
 	PermissionProposalApprove PermissionKey = "proposal.approve"
 	PermissionRBACManage      PermissionKey = "rbac.manage"
 )
@@ -203,6 +266,18 @@ type ScopeRef struct {
 
 func (p AuthenticatedPrincipal) ActorID() string {
 	return "user:" + p.User.ID.String()
+}
+
+type principalContextKey struct{}
+
+func WithPrincipal(ctx context.Context, principal AuthenticatedPrincipal) context.Context {
+	return context.WithValue(ctx, principalContextKey{}, principal)
+}
+
+func PrincipalFromContext(ctx context.Context) (AuthenticatedPrincipal, bool) {
+	value := ctx.Value(principalContextKey{})
+	principal, ok := value.(AuthenticatedPrincipal)
+	return principal, ok
 }
 
 func ParseScopeKind(raw string) (ScopeKind, error) {

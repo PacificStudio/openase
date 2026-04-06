@@ -128,7 +128,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 	case "/api/v1/auth/users/:userId/sessions/revoke":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,
-			permission:    humanauthdomain.PermissionSecurityManage,
+			permission:    humanauthdomain.PermissionSecurityUpdate,
 			checkRequired: true,
 		}, true
 	case "/api/v1/instance/users", "/api/v1/instance/users/:userId", "/api/v1/instance/users/:userId/status":
@@ -156,10 +156,26 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 		}
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverInstance,
-			permission:    humanauthdomain.PermissionOrgUpdate,
+			permission:    humanauthdomain.PermissionOrgCreate,
 			checkRequired: true,
 		}, true
-	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/projects", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId":
+	case "/api/v1/orgs/:orgId/projects":
+		if method == http.MethodGet {
+			return humanRouteAuthorizationRule{
+				scopeResolver: humanRouteScopeResolverOrganization,
+				resource:      "organization",
+				paramName:     "orgId",
+				checkRequired: false,
+			}, true
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "organization",
+			paramName:     "orgId",
+			permission:    humanauthdomain.PermissionProjectCreate,
+			checkRequired: true,
+		}, true
+	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "organization",
@@ -168,27 +184,19 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			checkRequired: true,
 		}, true
 	case "/api/v1/machines/:machineId", "/api/v1/machines/:machineId/test", "/api/v1/machines/:machineId/refresh-health", "/api/v1/machines/:machineId/resources":
-		permission := humanauthdomain.PermissionOrgUpdate
-		if method == http.MethodGet {
-			permission = humanauthdomain.PermissionOrgRead
-		}
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "machine",
 			paramName:     "machineId",
-			permission:    permission,
+			permission:    machinePermissionForPath(path, method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/providers/:providerId":
-		permission := humanauthdomain.PermissionOrgUpdate
-		if method == http.MethodGet {
-			permission = humanauthdomain.PermissionOrgRead
-		}
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "provider",
 			paramName:     "providerId",
-			permission:    permission,
+			permission:    providerPermissionForPath(method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/channels/:channelId", "/api/v1/channels/:channelId/test":
@@ -196,7 +204,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "channel",
 			paramName:     "channelId",
-			permission:    humanauthdomain.PermissionOrgUpdate,
+			permission:    channelPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/projects/:projectId", "/api/v1/projects/:projectId/activity", "/api/v1/projects/:projectId/events/stream", "/api/v1/projects/:projectId/updates", "/api/v1/projects/:projectId/updates/:threadId", "/api/v1/projects/:projectId/updates/:threadId/revisions", "/api/v1/projects/:projectId/updates/:threadId/comments", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId/revisions", "/api/v1/projects/:projectId/notification-rules", "/api/v1/projects/:projectId/scheduled-jobs", "/api/v1/projects/:projectId/skills", "/api/v1/projects/:projectId/skills/import", "/api/v1/projects/:projectId/skills/refresh", "/api/v1/projects/:projectId/workflows", "/api/v1/projects/:projectId/statuses", "/api/v1/projects/:projectId/statuses/reset", "/api/v1/projects/:projectId/tickets", "/api/v1/projects/:projectId/tickets/archived", "/api/v1/projects/:projectId/tickets/:ticketId/detail", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes", "/api/v1/projects/:projectId/tickets/:ticketId/runs", "/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId", "/api/v1/projects/:projectId/repos", "/api/v1/projects/:projectId/token-usage", "/api/v1/projects/:projectId/github/namespaces", "/api/v1/projects/:projectId/github/repos", "/api/v1/projects/:projectId/agents", "/api/v1/projects/:projectId/agent-runs", "/api/v1/projects/:projectId/agents/:agentId/output", "/api/v1/projects/:projectId/agents/:agentId/output/stream", "/api/v1/projects/:projectId/agents/:agentId/steps", "/api/v1/projects/:projectId/agents/:agentId/steps/stream", "/api/v1/projects/:projectId/security-settings", "/api/v1/projects/:projectId/security-settings/github-outbound-credential", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/retest", "/api/v1/projects/:projectId/hr-advisor", "/api/v1/projects/:projectId/hr-advisor/activate", "/api/v1/projects/:projectId/role-bindings", "/api/v1/projects/:projectId/role-bindings/:bindingId", "/api/v1/chat/projects/:projectId/conversations/stream":
@@ -212,7 +220,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "project",
 			paramName:     "projectId",
-			permission:    humanauthdomain.PermissionRepoManage,
+			permission:    repoPermissionForPath(method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/skills/:skillId", "/api/v1/skills/:skillId/files", "/api/v1/skills/:skillId/history", "/api/v1/skills/:skillId/enable", "/api/v1/skills/:skillId/disable", "/api/v1/skills/:skillId/bind", "/api/v1/skills/:skillId/unbind":
@@ -236,7 +244,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "status",
 			paramName:     "statusId",
-			permission:    humanauthdomain.PermissionProjectUpdate,
+			permission:    statusPermissionForPath(method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/agents/:agentId", "/api/v1/agents/:agentId/interrupt", "/api/v1/agents/:agentId/pause", "/api/v1/agents/:agentId/resume", "/api/v1/agents/:agentId/retire":
@@ -252,7 +260,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "scheduled_job",
 			paramName:     "jobId",
-			permission:    humanauthdomain.PermissionJobManage,
+			permission:    scheduledJobPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/notification-rules/:ruleId":
@@ -260,7 +268,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "notification_rule",
 			paramName:     "ruleId",
-			permission:    humanauthdomain.PermissionProjectUpdate,
+			permission:    notificationPermissionForPath(method),
 			checkRequired: true,
 		}, true
 	case "/api/v1/tickets/:ticketId", "/api/v1/tickets/:ticketId/comments", "/api/v1/tickets/:ticketId/comments/:commentId", "/api/v1/tickets/:ticketId/comments/:commentId/revisions", "/api/v1/tickets/:ticketId/dependencies", "/api/v1/tickets/:ticketId/dependencies/:dependencyId", "/api/v1/tickets/:ticketId/external-links", "/api/v1/tickets/:ticketId/external-links/:externalLinkId", "/api/v1/tickets/:ticketId/workspace/reset", "/api/v1/tickets/:ticketId/retry/resume":
@@ -496,10 +504,34 @@ func organizationPermissionForPath(path, method string) humanauthdomain.Permissi
 	if strings.Contains(path, "/role-bindings") {
 		return humanauthdomain.PermissionRBACManage
 	}
-	if method == http.MethodGet {
+	switch {
+	case strings.Contains(path, "/projects"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionProjectRead
+		}
+		return humanauthdomain.PermissionProjectCreate
+	case strings.Contains(path, "/machines"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionMachineRead
+		}
+		return humanauthdomain.PermissionMachineCreate
+	case strings.Contains(path, "/providers"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionProviderRead
+		}
+		return humanauthdomain.PermissionProviderCreate
+	case strings.Contains(path, "/channels"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionNotificationRead
+		}
+		return humanauthdomain.PermissionNotificationCreate
+	case method == http.MethodGet:
 		return humanauthdomain.PermissionOrgRead
+	case method == http.MethodDelete:
+		return humanauthdomain.PermissionOrgDelete
+	default:
+		return humanauthdomain.PermissionOrgUpdate
 	}
-	return humanauthdomain.PermissionOrgUpdate
 }
 
 func projectPermissionForPath(path, method string) humanauthdomain.PermissionKey {
@@ -508,37 +540,34 @@ func projectPermissionForPath(path, method string) humanauthdomain.PermissionKey
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionRepoRead
 		}
-		return humanauthdomain.PermissionRepoManage
+		return humanauthdomain.PermissionRepoCreate
 	case strings.Contains(path, "/updates"):
-		if method == http.MethodGet {
-			return humanauthdomain.PermissionTicketRead
-		}
-		return humanauthdomain.PermissionTicketComment
+		return projectUpdatePermissionForPath(method)
 	case strings.Contains(path, "/notification-rules"):
 		if method == http.MethodGet {
-			return humanauthdomain.PermissionProjectRead
+			return humanauthdomain.PermissionNotificationRead
 		}
-		return humanauthdomain.PermissionProjectUpdate
+		return humanauthdomain.PermissionNotificationCreate
 	case strings.Contains(path, "/scheduled-jobs"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionJobRead
 		}
-		return humanauthdomain.PermissionJobManage
+		return humanauthdomain.PermissionJobCreate
 	case strings.Contains(path, "/skills"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionSkillRead
 		}
-		return humanauthdomain.PermissionSkillManage
+		return humanauthdomain.PermissionSkillCreate
 	case strings.Contains(path, "/workflows"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionWorkflowRead
 		}
-		return humanauthdomain.PermissionWorkflowManage
+		return humanauthdomain.PermissionWorkflowCreate
 	case strings.Contains(path, "/statuses"):
 		if method == http.MethodGet {
-			return humanauthdomain.PermissionProjectRead
+			return humanauthdomain.PermissionStatusRead
 		}
-		return humanauthdomain.PermissionProjectUpdate
+		return humanauthdomain.PermissionStatusCreate
 	case strings.Contains(path, "/tickets"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionTicketRead
@@ -548,12 +577,12 @@ func projectPermissionForPath(path, method string) humanauthdomain.PermissionKey
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionSecurityRead
 		}
-		return humanauthdomain.PermissionSecurityManage
+		return humanauthdomain.PermissionSecurityUpdate
 	case strings.Contains(path, "/agents") || strings.Contains(path, "/agent-runs"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionAgentRead
 		}
-		return humanauthdomain.PermissionAgentManage
+		return humanauthdomain.PermissionAgentCreate
 	case strings.Contains(path, "/hr-advisor"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionProjectRead
@@ -576,48 +605,177 @@ func skillPermissionForPath(_ string, method string) humanauthdomain.PermissionK
 	if method == http.MethodGet {
 		return humanauthdomain.PermissionSkillRead
 	}
-	return humanauthdomain.PermissionSkillManage
+	if method == http.MethodDelete {
+		return humanauthdomain.PermissionSkillDelete
+	}
+	return humanauthdomain.PermissionSkillUpdate
 }
 
 func workflowPermissionForPath(path, method string) humanauthdomain.PermissionKey {
-	if method == http.MethodGet && !strings.Contains(path, "/skills/") {
+	switch {
+	case strings.Contains(path, "/harness"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionHarnessRead
+		}
+		return humanauthdomain.PermissionHarnessUpdate
+	case strings.Contains(path, "/skills/"):
+		return humanauthdomain.PermissionSkillUpdate
+	case method == http.MethodGet:
 		return humanauthdomain.PermissionWorkflowRead
+	case method == http.MethodDelete:
+		return humanauthdomain.PermissionWorkflowDelete
+	default:
+		return humanauthdomain.PermissionWorkflowUpdate
 	}
-	return humanauthdomain.PermissionWorkflowManage
 }
 
 func agentPermissionForPath(path, method string) humanauthdomain.PermissionKey {
-	if method == http.MethodGet &&
-		!strings.HasSuffix(path, "/interrupt") &&
-		!strings.HasSuffix(path, "/pause") &&
-		!strings.HasSuffix(path, "/resume") {
+	if method == http.MethodGet {
 		return humanauthdomain.PermissionAgentRead
 	}
-	return humanauthdomain.PermissionAgentManage
+	if method == http.MethodDelete {
+		return humanauthdomain.PermissionAgentDelete
+	}
+	if strings.HasSuffix(path, "/interrupt") ||
+		strings.HasSuffix(path, "/pause") ||
+		strings.HasSuffix(path, "/resume") ||
+		strings.HasSuffix(path, "/retire") {
+		return humanauthdomain.PermissionAgentControl
+	}
+	return humanauthdomain.PermissionAgentUpdate
 }
 
 func ticketPermissionForPath(path, method string) humanauthdomain.PermissionKey {
 	switch {
 	case strings.Contains(path, "/comments"):
-		if method == http.MethodGet {
-			return humanauthdomain.PermissionTicketRead
+		switch method {
+		case http.MethodGet:
+			return humanauthdomain.PermissionTicketCommentRead
+		case http.MethodDelete:
+			return humanauthdomain.PermissionTicketCommentDelete
+		case http.MethodPost:
+			return humanauthdomain.PermissionTicketCommentCreate
+		default:
+			return humanauthdomain.PermissionTicketCommentUpdate
 		}
-		return humanauthdomain.PermissionTicketComment
 	case strings.Contains(path, "/workspace/reset"), strings.Contains(path, "/retry/resume"), strings.Contains(path, "/dependencies"), strings.Contains(path, "/external-links"):
 		return humanauthdomain.PermissionTicketUpdate
 	default:
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionTicketRead
 		}
+		if method == http.MethodDelete {
+			return humanauthdomain.PermissionTicketDelete
+		}
 		return humanauthdomain.PermissionTicketUpdate
 	}
 }
 
 func chatPermissionForPath(path, method string) humanauthdomain.PermissionKey {
-	if method == http.MethodGet && !strings.HasSuffix(path, "/stream") {
-		return humanauthdomain.PermissionTicketRead
+	switch method {
+	case http.MethodGet:
+		return humanauthdomain.PermissionConversationRead
+	case http.MethodDelete:
+		return humanauthdomain.PermissionConversationDelete
+	case http.MethodPost:
+		if strings.HasSuffix(path, "/turns") || strings.Contains(path, "/interrupts/") {
+			return humanauthdomain.PermissionConversationUpdate
+		}
+		return humanauthdomain.PermissionConversationCreate
+	default:
+		return humanauthdomain.PermissionConversationUpdate
 	}
-	return humanauthdomain.PermissionTicketComment
+}
+
+func machinePermissionForPath(path, method string) humanauthdomain.PermissionKey {
+	if method == http.MethodGet {
+		return humanauthdomain.PermissionMachineRead
+	}
+	if strings.HasSuffix(path, "/test") || strings.HasSuffix(path, "/refresh-health") {
+		return humanauthdomain.PermissionMachineUpdate
+	}
+	return humanauthdomain.PermissionMachineUpdate
+}
+
+func providerPermissionForPath(method string) humanauthdomain.PermissionKey {
+	if method == http.MethodGet {
+		return humanauthdomain.PermissionProviderRead
+	}
+	if method == http.MethodDelete {
+		return humanauthdomain.PermissionProviderDelete
+	}
+	return humanauthdomain.PermissionProviderUpdate
+}
+
+func channelPermissionForPath(path, method string) humanauthdomain.PermissionKey {
+	if method == http.MethodGet {
+		return humanauthdomain.PermissionNotificationRead
+	}
+	if method == http.MethodDelete {
+		return humanauthdomain.PermissionNotificationDelete
+	}
+	if strings.HasSuffix(path, "/test") {
+		return humanauthdomain.PermissionNotificationUpdate
+	}
+	return humanauthdomain.PermissionNotificationUpdate
+}
+
+func repoPermissionForPath(method string) humanauthdomain.PermissionKey {
+	if method == http.MethodGet {
+		return humanauthdomain.PermissionRepoRead
+	}
+	if method == http.MethodDelete {
+		return humanauthdomain.PermissionRepoDelete
+	}
+	return humanauthdomain.PermissionRepoUpdate
+}
+
+func projectUpdatePermissionForPath(method string) humanauthdomain.PermissionKey {
+	switch method {
+	case http.MethodGet:
+		return humanauthdomain.PermissionProjectUpdateRead
+	case http.MethodDelete:
+		return humanauthdomain.PermissionProjectUpdateDelete
+	case http.MethodPost:
+		return humanauthdomain.PermissionProjectUpdateCreate
+	default:
+		return humanauthdomain.PermissionProjectUpdateUpdate
+	}
+}
+
+func statusPermissionForPath(method string) humanauthdomain.PermissionKey {
+	switch method {
+	case http.MethodGet:
+		return humanauthdomain.PermissionStatusRead
+	case http.MethodDelete:
+		return humanauthdomain.PermissionStatusDelete
+	default:
+		return humanauthdomain.PermissionStatusUpdate
+	}
+}
+
+func scheduledJobPermissionForPath(path, method string) humanauthdomain.PermissionKey {
+	switch {
+	case strings.HasSuffix(path, "/trigger"):
+		return humanauthdomain.PermissionJobTrigger
+	case method == http.MethodGet:
+		return humanauthdomain.PermissionJobRead
+	case method == http.MethodDelete:
+		return humanauthdomain.PermissionJobDelete
+	default:
+		return humanauthdomain.PermissionJobUpdate
+	}
+}
+
+func notificationPermissionForPath(method string) humanauthdomain.PermissionKey {
+	switch method {
+	case http.MethodGet:
+		return humanauthdomain.PermissionNotificationRead
+	case http.MethodDelete:
+		return humanauthdomain.PermissionNotificationDelete
+	default:
+		return humanauthdomain.PermissionNotificationUpdate
+	}
 }
 
 func mapRoleBindingResponse(item humanauthdomain.RoleBinding) roleBindingResponse {

@@ -26,6 +26,7 @@ func currentHumanPrincipal(c echo.Context) (humanauthdomain.AuthenticatedPrincip
 
 func setHumanPrincipal(c echo.Context, principal humanauthdomain.AuthenticatedPrincipal) {
 	c.Set(humanPrincipalContextKey{}.String(), principal)
+	c.SetRequest(c.Request().WithContext(humanauthdomain.WithPrincipal(c.Request().Context(), principal)))
 }
 
 func actorFromHumanPrincipal(c echo.Context) string {

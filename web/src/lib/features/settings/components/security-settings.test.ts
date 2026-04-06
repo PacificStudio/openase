@@ -289,6 +289,11 @@ describe('Security settings', () => {
     expect(await findByText('Login succeeded')).toBeTruthy()
     expect(await findByText('Stored rules')).toBeTruthy()
     expect(await findByText('reserved')).toBeTruthy()
+    expect(
+      await findByText(
+        /Agent scopes are related runtime token capabilities, but they are not reused as human permissions\./,
+      ),
+    ).toBeTruthy()
 
     const orgSectionTitle = await findByText('Organization RBAC')
     const orgSection = orgSectionTitle.closest('.border-border') as HTMLElement
