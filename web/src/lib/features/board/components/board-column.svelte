@@ -2,6 +2,7 @@
   import { cn } from '$lib/utils'
   import { Inbox, Plus, Ellipsis, ArrowLeft, ArrowRight, Archive, Trash2 } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import type { BoardColumn, BoardStatusOption, BoardTicket } from '../types'
   import TicketCard from './ticket-card.svelte'
 
@@ -76,7 +77,13 @@
   const showInlineCreateButton = $derived(!showDropPlaceholder)
 </script>
 
-<div class={cn('flex h-full min-h-0 max-w-[320px] min-w-[280px] shrink-0 flex-col', className)}>
+<div
+  class={cn(
+    'flex h-full min-h-0 shrink-0 flex-col',
+    viewport.isMobile ? 'max-w-[280px] min-w-[240px]' : 'max-w-[320px] min-w-[280px]',
+    className,
+  )}
+>
   <div class="mb-2 flex items-center gap-1.5 px-1">
     <span class="size-2.5 rounded-full" style="background-color: {column.color}"></span>
     <span class="text-foreground text-sm font-medium">{column.name}</span>

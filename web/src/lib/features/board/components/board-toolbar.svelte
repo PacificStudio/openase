@@ -3,11 +3,15 @@
   import { Input } from '$ui/input'
   import { Button } from '$ui/button'
   import * as Select from '$ui/select'
-  import { Search, Columns3, List, AlertTriangle, EyeOff } from '@lucide/svelte'
+  import { Search, Columns3, List, AlertTriangle, EyeOff, SlidersHorizontal } from '@lucide/svelte'
   import { parseBoardFilterPriority } from '../priority'
   import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import PriorityIcon from './priority-icon.svelte'
+  import type { BoardPriority } from '../priority'
   import type { BoardFilter } from '../types'
+
+  const priorities: BoardPriority[] = ['urgent', 'high', 'medium', 'low']
 
   let {
     filter = { search: '' },
@@ -27,130 +31,21 @@
     onHideEmptyChange?: (next: boolean) => void
   } = $props()
 
+  let filtersExpanded = $state(false)
+
   function updateFilter(next: BoardFilter) {
     onFilterChange?.(next)
   }
 
   const parsePriorityFilter = parseBoardFilterPriority
+
+  const hasActiveFilters = $derived(
+    !!(filter.workflow || filter.agent || filter.priority || filter.anomalyOnly),
+  )
 </script>
 
-<div class={cn('flex items-center gap-2', className)}>
-  <div class="relative w-52">
-    <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
-    <Input
-      type="text"
-      placeholder="Search tickets..."
-      class="h-8 pl-8 text-sm"
-      value={filter.search ?? ''}
-      oninput={(event) =>
-        updateFilter({ ...filter, search: (event.currentTarget as HTMLInputElement).value })}
-    />
-  </div>
-
-  <Select.Root
-    type="single"
-    onValueChange={(v) => {
-      updateFilter({ ...filter, workflow: v || undefined })
-    }}
-  >
-    <Select.Trigger size="sm" class="h-8 text-xs">
-      {filter.workflow ?? 'Workflow'}
-    </Select.Trigger>
-    <Select.Content>
-      <Select.Item value="">All</Select.Item>
-      {#each workflows as wf}
-        <Select.Item value={wf}>{wf}</Select.Item>
-      {/each}
-    </Select.Content>
-  </Select.Root>
-
-  {#if agents.length > 0}
-    <Select.Root
-      type="single"
-      onValueChange={(v) => {
-        updateFilter({ ...filter, agent: v || undefined })
-      }}
-    >
-      <Select.Trigger size="sm" class="h-8 text-xs">
-        {filter.agent ?? 'Agent'}
-      </Select.Trigger>
-      <Select.Content>
-        <Select.Item value="">All</Select.Item>
-        {#each agents as a}
-          <Select.Item value={a}>{a}</Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  {/if}
-
-  <Select.Root
-    type="single"
-    onValueChange={(v) => {
-      updateFilter({ ...filter, priority: parsePriorityFilter(v) })
-    }}
-  >
-    <Select.Trigger size="sm" class="h-8 text-xs">
-      {#if filter.priority}
-        <span class="flex items-center gap-1.5">
-          <PriorityIcon priority={filter.priority} />
-          <span class="capitalize">{filter.priority}</span>
-        </span>
-      {:else}
-        Priority
-      {/if}
-    </Select.Trigger>
-    <Select.Content>
-      <Select.Item value="">All</Select.Item>
-      <Select.Item value="urgent"
-        ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="urgent" /><span>Urgent</span></span
-        ></Select.Item
-      >
-      <Select.Item value="high"
-        ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="high" /><span>High</span></span
-        ></Select.Item
-      >
-      <Select.Item value="medium"
-        ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="medium" /><span>Medium</span></span
-        ></Select.Item
-      >
-      <Select.Item value="low"
-        ><span class="flex items-center gap-1.5"
-          ><PriorityIcon priority="low" /><span>Low</span></span
-        ></Select.Item
-      >
-    </Select.Content>
-  </Select.Root>
-
-  <Button
-    variant={filter.anomalyOnly ? 'secondary' : 'ghost'}
-    size="sm"
-    class="h-8 gap-1 text-xs"
-    onclick={() => {
-      updateFilter({ ...filter, anomalyOnly: !filter.anomalyOnly })
-    }}
-  >
-    <AlertTriangle class="size-3" />
-    Anomalies
-  </Button>
-
-  {#if ticketViewStore.mode === 'board'}
-    <Button
-      variant={hideEmpty ? 'secondary' : 'ghost'}
-      size="sm"
-      class="h-8 gap-1 text-xs"
-      onclick={() => {
-        onHideEmptyChange?.(!hideEmpty)
-      }}
-    >
-      <EyeOff class="size-3" />
-      Hide empty
-    </Button>
-  {/if}
-
-  <div class="border-border ml-auto flex items-center rounded-md border">
+{#snippet viewSwitcher(extraClass?: string)}
+  <div class={cn('border-border flex items-center rounded-md border', extraClass)}>
     <Button
       variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"
@@ -170,4 +65,143 @@
       <List class="size-3.5" />
     </Button>
   </div>
-</div>
+{/snippet}
+
+{#snippet filterControls()}
+  <Select.Root
+    type="single"
+    onValueChange={(v) => updateFilter({ ...filter, workflow: v || undefined })}
+  >
+    <Select.Trigger size="sm" class="h-8 text-xs">
+      {filter.workflow ?? 'Workflow'}
+    </Select.Trigger>
+    <Select.Content>
+      <Select.Item value="">All</Select.Item>
+      {#each workflows as wf}
+        <Select.Item value={wf}>{wf}</Select.Item>
+      {/each}
+    </Select.Content>
+  </Select.Root>
+
+  {#if agents.length > 0}
+    <Select.Root
+      type="single"
+      onValueChange={(v) => updateFilter({ ...filter, agent: v || undefined })}
+    >
+      <Select.Trigger size="sm" class="h-8 text-xs">
+        {filter.agent ?? 'Agent'}
+      </Select.Trigger>
+      <Select.Content>
+        <Select.Item value="">All</Select.Item>
+        {#each agents as a}
+          <Select.Item value={a}>{a}</Select.Item>
+        {/each}
+      </Select.Content>
+    </Select.Root>
+  {/if}
+
+  <Select.Root
+    type="single"
+    onValueChange={(v) => updateFilter({ ...filter, priority: parsePriorityFilter(v) })}
+  >
+    <Select.Trigger size="sm" class="h-8 text-xs">
+      {#if filter.priority}
+        <span class="flex items-center gap-1.5">
+          <PriorityIcon priority={filter.priority} />
+          <span class="capitalize">{filter.priority}</span>
+        </span>
+      {:else}
+        Priority
+      {/if}
+    </Select.Trigger>
+    <Select.Content>
+      <Select.Item value="">All</Select.Item>
+      {#each priorities as p}
+        <Select.Item value={p}>
+          <span class="flex items-center gap-1.5">
+            <PriorityIcon priority={p} /><span class="capitalize">{p}</span>
+          </span>
+        </Select.Item>
+      {/each}
+    </Select.Content>
+  </Select.Root>
+
+  <Button
+    variant={filter.anomalyOnly ? 'secondary' : 'ghost'}
+    size="sm"
+    class="h-8 gap-1 text-xs"
+    onclick={() => updateFilter({ ...filter, anomalyOnly: !filter.anomalyOnly })}
+  >
+    <AlertTriangle class="size-3" />
+    Anomalies
+  </Button>
+
+  {#if ticketViewStore.mode === 'board'}
+    <Button
+      variant={hideEmpty ? 'secondary' : 'ghost'}
+      size="sm"
+      class="h-8 gap-1 text-xs"
+      onclick={() => onHideEmptyChange?.(!hideEmpty)}
+    >
+      <EyeOff class="size-3" />
+      Hide empty
+    </Button>
+  {/if}
+{/snippet}
+
+{#if viewport.isMobile}
+  <div class={cn('flex flex-col gap-2', className)}>
+    <div class="flex items-center gap-2">
+      <div class="relative min-w-0 flex-1">
+        <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+        <Input
+          type="text"
+          placeholder="Search..."
+          class="h-8 pl-8 text-sm"
+          value={filter.search ?? ''}
+          oninput={(event) =>
+            updateFilter({ ...filter, search: (event.currentTarget as HTMLInputElement).value })}
+        />
+      </div>
+      <Button
+        variant={filtersExpanded || hasActiveFilters ? 'secondary' : 'ghost'}
+        size="sm"
+        class="h-8 shrink-0 gap-1 px-2 text-xs"
+        onclick={() => (filtersExpanded = !filtersExpanded)}
+        aria-label="Toggle filters"
+      >
+        <SlidersHorizontal class="size-3.5" />
+        {#if hasActiveFilters}
+          <span
+            class="bg-primary text-primary-foreground flex size-4 items-center justify-center rounded-full text-[10px] font-medium"
+          >
+            {[filter.workflow, filter.agent, filter.priority, filter.anomalyOnly].filter(Boolean)
+              .length}
+          </span>
+        {/if}
+      </Button>
+      {@render viewSwitcher('shrink-0')}
+    </div>
+    {#if filtersExpanded}
+      <div class="flex flex-wrap items-center gap-2">
+        {@render filterControls()}
+      </div>
+    {/if}
+  </div>
+{:else}
+  <div class={cn('flex items-center gap-2', className)}>
+    <div class="relative w-52">
+      <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+      <Input
+        type="text"
+        placeholder="Search tickets..."
+        class="h-8 pl-8 text-sm"
+        value={filter.search ?? ''}
+        oninput={(event) =>
+          updateFilter({ ...filter, search: (event.currentTarget as HTMLInputElement).value })}
+      />
+    </div>
+    {@render filterControls()}
+    {@render viewSwitcher('ml-auto')}
+  </div>
+{/if}

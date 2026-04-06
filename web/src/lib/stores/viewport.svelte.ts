@@ -13,7 +13,7 @@ const DESKTOP_MIN = 1024
 function createViewportStore() {
   let width = $state(typeof window !== 'undefined' ? window.innerWidth : DESKTOP_MIN)
 
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
     const mqlMobile = window.matchMedia(`(max-width: ${MOBILE_MAX - 1}px)`)
     const mqlDesktop = window.matchMedia(`(min-width: ${DESKTOP_MIN}px)`)
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { EyeOff, Plus } from '@lucide/svelte'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import type { BoardGroup, BoardStatusOption, BoardTicket, HiddenColumn } from '../types'
   import BoardColumnComponent from './board-column.svelte'
 
@@ -103,10 +104,13 @@
       No board statuses configured yet.
     </div>
   {:else}
-    <div class="flex h-full min-h-0 gap-4 p-1">
+    <div class={cn('flex h-full min-h-0 p-1', viewport.isMobile ? 'gap-2' : 'gap-4')}>
       {#each groups as group (group.id)}
         <section
-          class="bg-muted/10 flex h-full min-h-0 shrink-0 flex-col gap-3 rounded-xl border px-3 py-2"
+          class={cn(
+            'bg-muted/10 flex h-full min-h-0 shrink-0 flex-col rounded-xl border',
+            viewport.isMobile ? 'gap-2 px-2 py-1.5' : 'gap-3 px-3 py-2',
+          )}
         >
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -116,12 +120,15 @@
 
           {#if group.columns.length === 0}
             <div
-              class="text-muted-foreground flex min-h-36 min-w-[280px] items-center justify-center rounded-lg border border-dashed px-4 text-sm"
+              class={cn(
+                'text-muted-foreground flex items-center justify-center rounded-lg border border-dashed px-4 text-sm',
+                viewport.isMobile ? 'min-h-24 min-w-[240px]' : 'min-h-36 min-w-[280px]',
+              )}
             >
               No statuses in this group.
             </div>
           {:else}
-            <div class="flex min-h-0 flex-1 gap-3">
+            <div class={cn('flex min-h-0 flex-1', viewport.isMobile ? 'gap-2' : 'gap-3')}>
               {#each group.columns as column (column.id)}
                 <BoardColumnComponent
                   {column}
@@ -146,7 +153,12 @@
       {/each}
 
       {#if hiddenColumns.length > 0}
-        <div class="flex h-full min-h-0 w-48 shrink-0 flex-col rounded-xl border px-3 py-2">
+        <div
+          class={cn(
+            'flex h-full min-h-0 shrink-0 flex-col rounded-xl border',
+            viewport.isMobile ? 'w-36 px-2 py-1.5' : 'w-48 px-3 py-2',
+          )}
+        >
           <div class="text-muted-foreground mb-2 flex items-center gap-1.5">
             <EyeOff class="size-3" />
             <span class="text-xs font-medium">Hidden ({hiddenColumns.length})</span>

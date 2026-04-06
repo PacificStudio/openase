@@ -8,7 +8,7 @@
   const controller = createTicketsPageController()
 </script>
 
-<div class="flex h-full min-h-0 flex-col gap-2 px-4 py-3">
+<div class="flex h-full min-h-0 flex-col gap-2 px-2 py-2 sm:px-4 sm:py-3">
   <BoardToolbar
     filter={ticketBoardToolbarStore.filter}
     hideEmpty={ticketBoardToolbarStore.hideEmpty}
