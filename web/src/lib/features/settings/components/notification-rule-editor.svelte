@@ -114,7 +114,11 @@
         <p class="text-xs">
           Severity:
           <span
-            class="font-medium {currentSeverity === 'critical' ? 'text-red-500' : currentSeverity === 'warning' ? 'text-amber-500' : 'text-blue-500'}"
+            class="font-medium {currentSeverity === 'critical'
+              ? 'text-red-500'
+              : currentSeverity === 'warning'
+                ? 'text-amber-500'
+                : 'text-blue-500'}"
           >
             {severityLabel(currentSeverity)}
           </span>
@@ -173,20 +177,11 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-2 pt-1">
-    <Button
-      size="sm"
-      onclick={onSave}
-      disabled={!canCreateRule || saving || deleting}
-    >
+    <Button size="sm" onclick={onSave} disabled={!canCreateRule || saving || deleting}>
       {saving ? 'Saving...' : selectedRule ? 'Save changes' : 'Create rule'}
     </Button>
     {#if selectedRule}
-      <Button
-        variant="destructive"
-        size="sm"
-        onclick={onDelete}
-        disabled={saving || deleting}
-      >
+      <Button variant="destructive" size="sm" onclick={onDelete} disabled={saving || deleting}>
         {deleting ? 'Deleting...' : 'Delete rule'}
       </Button>
     {/if}

@@ -100,12 +100,7 @@
       {saving ? 'Saving...' : selectedChannel ? 'Save changes' : 'Create channel'}
     </Button>
     {#if selectedChannel}
-      <Button
-        variant="destructive"
-        size="sm"
-        onclick={onDelete}
-        disabled={saving || deleting}
-      >
+      <Button variant="destructive" size="sm" onclick={onDelete} disabled={saving || deleting}>
         {deleting ? 'Deleting...' : 'Delete channel'}
       </Button>
     {/if}

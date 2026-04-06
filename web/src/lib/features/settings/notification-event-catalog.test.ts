@@ -3,12 +3,48 @@ import { describe, expect, it } from 'vitest'
 import { buildEventCatalog, getSeverity, severityLabel } from './notification-event-catalog'
 
 const sampleEventTypes = [
-  { event_type: 'ticket.created', label: 'Ticket Created', group: 'Ticket lifecycle', level: 'info', default_template: '' },
-  { event_type: 'ticket.status_changed', label: 'Ticket Status Changed', group: 'Ticket lifecycle', level: 'info', default_template: '' },
-  { event_type: 'ticket.budget_exhausted', label: 'Ticket Budget Exhausted', group: 'Ticket health', level: 'critical', default_template: '' },
-  { event_type: 'agent.failed', label: 'Agent Failed', group: 'Agents', level: 'critical', default_template: '' },
-  { event_type: 'machine.offline', label: 'Machine Offline', group: 'Infrastructure', level: 'critical', default_template: '' },
-  { event_type: 'pr.opened', label: 'PR Opened', group: 'Pull requests', level: 'info', default_template: '' },
+  {
+    event_type: 'ticket.created',
+    label: 'Ticket Created',
+    group: 'Ticket lifecycle',
+    level: 'info',
+    default_template: '',
+  },
+  {
+    event_type: 'ticket.status_changed',
+    label: 'Ticket Status Changed',
+    group: 'Ticket lifecycle',
+    level: 'info',
+    default_template: '',
+  },
+  {
+    event_type: 'ticket.budget_exhausted',
+    label: 'Ticket Budget Exhausted',
+    group: 'Ticket health',
+    level: 'critical',
+    default_template: '',
+  },
+  {
+    event_type: 'agent.failed',
+    label: 'Agent Failed',
+    group: 'Agents',
+    level: 'critical',
+    default_template: '',
+  },
+  {
+    event_type: 'machine.offline',
+    label: 'Machine Offline',
+    group: 'Infrastructure',
+    level: 'critical',
+    default_template: '',
+  },
+  {
+    event_type: 'pr.opened',
+    label: 'PR Opened',
+    group: 'Pull requests',
+    level: 'info',
+    default_template: '',
+  },
 ]
 
 describe('notification event catalog', () => {
@@ -46,7 +82,13 @@ describe('notification event catalog', () => {
 
   it('omits groups with no matching events', () => {
     const groups = buildEventCatalog([
-      { event_type: 'ticket.created', label: 'Ticket Created', group: 'Ticket lifecycle', level: 'info', default_template: '' },
+      {
+        event_type: 'ticket.created',
+        label: 'Ticket Created',
+        group: 'Ticket lifecycle',
+        level: 'info',
+        default_template: '',
+      },
     ])
     const labels = groups.map((g) => g.label)
 
@@ -57,7 +99,13 @@ describe('notification event catalog', () => {
 
   it('handles events without a group in an Other group', () => {
     const groups = buildEventCatalog([
-      { event_type: 'custom.event', label: 'Custom Event', group: '', level: '', default_template: '' },
+      {
+        event_type: 'custom.event',
+        label: 'Custom Event',
+        group: '',
+        level: '',
+        default_template: '',
+      },
     ])
 
     const other = groups.find((g) => g.label === 'Other')

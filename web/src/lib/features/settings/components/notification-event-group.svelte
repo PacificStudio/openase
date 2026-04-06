@@ -70,11 +70,13 @@
 <div class="border-border bg-card overflow-hidden rounded-lg border">
   <button
     type="button"
-    class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30"
+    class="hover:bg-muted/30 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
     onclick={() => onToggleGroup(group.key)}
   >
     <svg
-      class="text-muted-foreground size-4 shrink-0 transition-transform {expanded ? 'rotate-90' : ''}"
+      class="text-muted-foreground size-4 shrink-0 transition-transform {expanded
+        ? 'rotate-90'
+        : ''}"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -95,18 +97,20 @@
   </button>
 
   {#if expanded}
-    <div class="border-t border-border/50">
+    <div class="border-border/50 border-t">
       {#each group.events as event, idx (event.eventType)}
         {@const rule = ruleForEvent(event.eventType)}
         <div
-          class="flex items-center gap-3 px-4 py-2.5 {idx > 0 ? 'border-t border-border/30' : ''}"
+          class="flex items-center gap-3 px-4 py-2.5 {idx > 0 ? 'border-border/30 border-t' : ''}"
         >
           <span class="size-2 shrink-0 rounded-full {severityDot(event.severity)}"></span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
               <span class="text-sm">{event.label}</span>
               <span
-                class="rounded-sm border px-1.5 py-0.5 text-[10px] font-medium leading-none {severityColor(event.severity)}"
+                class="rounded-sm border px-1.5 py-0.5 text-[10px] leading-none font-medium {severityColor(
+                  event.severity,
+                )}"
               >
                 {event.severity}
               </span>

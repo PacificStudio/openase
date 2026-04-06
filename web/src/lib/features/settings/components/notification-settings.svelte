@@ -261,7 +261,9 @@
         />
       </svg>
       <p class="text-destructive text-sm font-medium">{error}</p>
-      <p class="text-muted-foreground text-xs">Check your connection and try refreshing the page.</p>
+      <p class="text-muted-foreground text-xs">
+        Check your connection and try refreshing the page.
+      </p>
     </div>
   {:else}
     <div class="space-y-8">
