@@ -259,7 +259,7 @@ func writeOrganizationMembershipError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "ORGANIZATION_INVITATION_NOT_FOUND", err.Error())
 	case errors.Is(err, humanauthservice.ErrOrganizationInvitationExpired):
 		return writeAPIError(c, http.StatusConflict, "ORGANIZATION_INVITATION_EXPIRED", err.Error())
-	case errors.Is(err, humanauthservice.ErrOrganizationInvitationPending), errors.Is(err, humanauthservice.ErrOrganizationMemberExists), errors.Is(err, humanauthservice.ErrLastOrganizationOwner):
+	case errors.Is(err, humanauthservice.ErrOrganizationInvitationPending), errors.Is(err, humanauthservice.ErrOrganizationMemberExists), errors.Is(err, humanauthservice.ErrLastOrganizationOwner), errors.Is(err, humanauthservice.ErrOrganizationAcceptanceRequired):
 		return writeAPIError(c, http.StatusConflict, "ORGANIZATION_MEMBERSHIP_CONFLICT", err.Error())
 	case errors.Is(err, humanauthservice.ErrOrganizationInvitationMismatch), errors.Is(err, humanauthservice.ErrPermissionDenied):
 		return writeAPIError(c, http.StatusForbidden, "ORGANIZATION_MEMBERSHIP_FORBIDDEN", err.Error())
