@@ -52,6 +52,7 @@ type UserDirectoryDetail struct {
 	User               User
 	Identities         []UserIdentity
 	Groups             []UserGroupMembership
+	ActiveSessions     []BrowserSession
 	RecentAuditEvents  []AuthAuditEvent
 	ActiveSessionCount int
 	LatestStatusAudit  *UserStatusAudit

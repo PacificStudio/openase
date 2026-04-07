@@ -101,6 +101,7 @@ export type ManagedAuthSession = {
     browser: string
     label: string
   }
+  ipSummary?: string
   createdAt: string
   lastActiveAt: string
   expiresAt: string
@@ -180,6 +181,7 @@ export type UserDirectoryDetail = {
   user: UserDirectoryEntry
   identities: UserDirectoryIdentityDetail[]
   groups: UserDirectoryGroup[]
+  activeSessions: ManagedAuthSession[]
   activeSessionCount: number
   latestStatusAudit?: UserStatusAudit
   recentAuditEvents: AuthAuditEvent[]
@@ -250,6 +252,7 @@ type RawManagedAuthSession = {
     browser?: string
     label?: string
   }
+  ip_summary?: string
   created_at?: string
   last_active_at?: string
   expires_at?: string
@@ -327,6 +330,7 @@ type RawUserDirectoryDetail = {
   user?: RawUserDirectoryEntry
   identities?: RawUserDirectoryIdentityDetail[]
   groups?: RawUserDirectoryGroup[]
+  active_sessions?: RawManagedAuthSession[]
   active_session_count?: number
   latest_status_audit?: RawUserStatusAudit
   recent_audit_events?: RawAuthAuditEvent[]
@@ -480,6 +484,7 @@ function parseManagedAuthSession(raw: RawManagedAuthSession): ManagedAuthSession
       browser: raw.device?.browser ?? '',
       label: raw.device?.label ?? 'Unknown device',
     },
+    ipSummary: raw.ip_summary ?? undefined,
     createdAt: raw.created_at ?? '',
     lastActiveAt: raw.last_active_at ?? '',
     expiresAt: raw.expires_at ?? '',
@@ -757,6 +762,9 @@ export async function getInstanceUserDetail(userId: string): Promise<UserDirecto
     groups: Array.isArray(payload.groups)
       ? payload.groups.map((item) => parseUserDirectoryGroup(item))
       : [],
+    activeSessions: Array.isArray(payload.active_sessions)
+      ? payload.active_sessions.map((item) => parseManagedAuthSession(item))
+      : [],
     activeSessionCount: payload.active_session_count ?? 0,
     latestStatusAudit: parseUserStatusAudit(payload.latest_status_audit),
     recentAuditEvents: Array.isArray(payload.recent_audit_events)
@@ -835,7 +843,13 @@ export function revokeAllOtherAuthSessions() {
 }
 
 export function adminRevokeUserAuthSessions(userId: string) {
-  return api.post<{ revoked_count: number; user_id: string }>(
+  return api.post<{ revoked_count: number; user_id: string; current_session_revoked?: boolean }>(
     `/api/v1/auth/users/${userId}/sessions/revoke`,
+  )
+}
+
+export function adminRevokeAuthSession(id: string) {
+  return api.delete<{ revoked_count: number; user_id: string; current_session_revoked?: boolean }>(
+    `/api/v1/instance/sessions/${id}`,
   )
 }

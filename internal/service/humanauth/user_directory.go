@@ -61,13 +61,15 @@ func (s *Service) GetUserDirectoryDetail(
 	if err != nil {
 		return domain.UserDirectoryDetail{}, err
 	}
+	now := time.Now().UTC()
 
 	detail := domain.UserDirectoryDetail{
 		User:               user,
 		Identities:         identities,
 		Groups:             groups,
+		ActiveSessions:     activeSessions(sessions, now),
 		RecentAuditEvents:  events,
-		ActiveSessionCount: countActiveSessions(sessions, time.Now().UTC()),
+		ActiveSessionCount: countActiveSessions(sessions, now),
 		LatestStatusAudit:  latestUserStatusAudit(events),
 	}
 	return detail, nil
@@ -170,7 +172,11 @@ func latestUserStatusAudit(events []domain.AuthAuditEvent) *domain.UserStatusAud
 }
 
 func countActiveSessions(sessions []domain.BrowserSession, now time.Time) int {
-	count := 0
+	return len(activeSessions(sessions, now))
+}
+
+func activeSessions(sessions []domain.BrowserSession, now time.Time) []domain.BrowserSession {
+	active := make([]domain.BrowserSession, 0, len(sessions))
 	for _, session := range sessions {
 		if session.RevokedAt != nil {
 			continue
@@ -178,7 +184,7 @@ func countActiveSessions(sessions []domain.BrowserSession, now time.Time) int {
 		if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
 			continue
 		}
-		count++
+		active = append(active, session)
 	}
-	return count
+	return active
 }

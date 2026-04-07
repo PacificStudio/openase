@@ -29,6 +29,7 @@ func TestBuildOpenAPIDocument(t *testing.T) {
 		"/api/v1/auth/sessions/{id}",
 		"/api/v1/auth/sessions/revoke-all",
 		"/api/v1/auth/users/{userId}/sessions/revoke",
+		"/api/v1/instance/sessions/{id}",
 		"/api/v1/instance/users",
 		"/api/v1/instance/users/{userId}",
 		"/api/v1/instance/users/{userId}/status",

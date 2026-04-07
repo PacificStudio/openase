@@ -1,12 +1,16 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import { ApiError } from '$lib/api/client'
   import type { UserDirectoryDetail, UserDirectoryEntry } from '$lib/api/auth'
   import {
+    adminRevokeAuthSession,
     adminRevokeUserAuthSessions,
     getInstanceUserDetail,
     listInstanceUsers,
+    normalizeReturnTo,
     transitionInstanceUserStatus,
   } from '$lib/api/auth'
+  import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Badge } from '$ui/badge'
   import { Input } from '$ui/input'
@@ -131,10 +135,43 @@
     error = ''
     try {
       const result = await adminRevokeUserAuthSessions(selectedDetail.user.id)
+      if (result.current_session_revoked) {
+        authStore.clear()
+        await goto(
+          `/login?return_to=${encodeURIComponent(normalizeReturnTo(window.location.pathname + window.location.search + window.location.hash))}`,
+        )
+        return
+      }
       toastStore.success(`Revoked ${result.revoked_count} browser session(s).`)
       await loadDetail(selectedDetail.user.id)
     } catch (caughtError) {
       const message = formatError(caughtError, 'Failed to revoke user sessions.')
+      error = message
+      toastStore.error(message)
+    } finally {
+      actionKey = ''
+    }
+  }
+
+  async function handleRevokeSession(sessionId: string) {
+    if (!selectedDetail || !canManage) {
+      return
+    }
+    actionKey = `revoke:${sessionId}`
+    error = ''
+    try {
+      const result = await adminRevokeAuthSession(sessionId)
+      if (result.current_session_revoked) {
+        authStore.clear()
+        await goto(
+          `/login?return_to=${encodeURIComponent(normalizeReturnTo(window.location.pathname + window.location.search + window.location.hash))}`,
+        )
+        return
+      }
+      toastStore.success('Session revoked.')
+      await loadDetail(selectedDetail.user.id)
+    } catch (caughtError) {
+      const message = formatError(caughtError, 'Failed to revoke session.')
       error = message
       toastStore.error(message)
     } finally {
@@ -260,6 +297,7 @@
       }}
       onTransition={(status) => void handleTransition(status)}
       onRevokeSessions={() => void handleRevokeSessions()}
+      onRevokeSession={(sessionId) => void handleRevokeSession(sessionId)}
     />
   </div>
 </div>
