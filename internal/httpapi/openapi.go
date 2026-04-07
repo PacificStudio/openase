@@ -1591,20 +1591,38 @@ type OpenAPISecurityDocumentationLink struct {
 	Summary string `json:"summary"`
 }
 
+type OpenAPISecurityAuthSessionPolicy struct {
+	SessionTTL     string `json:"session_ttl"`
+	SessionIdleTTL string `json:"session_idle_ttl"`
+}
+
+type OpenAPISecurityAuthValidationDiagnostics struct {
+	Status                string   `json:"status"`
+	Message               string   `json:"message"`
+	CheckedAt             *string  `json:"checked_at,omitempty"`
+	IssuerURL             string   `json:"issuer_url,omitempty"`
+	AuthorizationEndpoint string   `json:"authorization_endpoint,omitempty"`
+	TokenEndpoint         string   `json:"token_endpoint,omitempty"`
+	RedirectURL           string   `json:"redirect_url,omitempty"`
+	Warnings              []string `json:"warnings"`
+}
+
 type OpenAPISecurityAuthSettings struct {
-	ActiveMode         string                             `json:"active_mode"`
-	ConfiguredMode     string                             `json:"configured_mode"`
-	IssuerURL          string                             `json:"issuer_url,omitempty"`
-	LocalPrincipal     string                             `json:"local_principal"`
-	ModeSummary        string                             `json:"mode_summary"`
-	RecommendedMode    string                             `json:"recommended_mode"`
-	PublicExposureRisk string                             `json:"public_exposure_risk"`
-	Warnings           []string                           `json:"warnings"`
-	NextSteps          []string                           `json:"next_steps"`
-	ConfigPath         string                             `json:"config_path,omitempty"`
-	BootstrapState     OpenAPISecurityAuthBootstrapState  `json:"bootstrap_state"`
-	OIDCDraft          OpenAPISecurityOIDCDraft           `json:"oidc_draft"`
-	Docs               []OpenAPISecurityDocumentationLink `json:"docs"`
+	ActiveMode         string                                   `json:"active_mode"`
+	ConfiguredMode     string                                   `json:"configured_mode"`
+	IssuerURL          string                                   `json:"issuer_url,omitempty"`
+	LocalPrincipal     string                                   `json:"local_principal"`
+	ModeSummary        string                                   `json:"mode_summary"`
+	RecommendedMode    string                                   `json:"recommended_mode"`
+	PublicExposureRisk string                                   `json:"public_exposure_risk"`
+	Warnings           []string                                 `json:"warnings"`
+	NextSteps          []string                                 `json:"next_steps"`
+	ConfigPath         string                                   `json:"config_path,omitempty"`
+	BootstrapState     OpenAPISecurityAuthBootstrapState        `json:"bootstrap_state"`
+	SessionPolicy      OpenAPISecurityAuthSessionPolicy         `json:"session_policy"`
+	LastValidation     OpenAPISecurityAuthValidationDiagnostics `json:"last_validation"`
+	OIDCDraft          OpenAPISecurityOIDCDraft                 `json:"oidc_draft"`
+	Docs               []OpenAPISecurityDocumentationLink       `json:"docs"`
 }
 
 type OpenAPISecurityWebhooks struct {
@@ -1681,6 +1699,15 @@ type OpenAPISecurityOIDCActivation struct {
 type OpenAPISecurityOIDCEnableResponse struct {
 	Activation OpenAPISecurityOIDCActivation `json:"activation"`
 	Security   OpenAPISecuritySettings       `json:"security"`
+}
+
+type OpenAPIAdminAuthResponse struct {
+	Auth OpenAPISecurityAuthSettings `json:"auth"`
+}
+
+type OpenAPIAdminAuthModeTransitionResponse struct {
+	Transition OpenAPISecurityOIDCActivation `json:"transition"`
+	Auth       OpenAPISecurityAuthSettings   `json:"auth"`
 }
 
 type OpenAPIAuthSessionUser struct {
@@ -2372,6 +2399,9 @@ var (
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential":                openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
+		"PUT /api/v1/admin/auth/oidc-draft":                                                            openAPIOIDCDraftDescriptions,
+		"POST /api/v1/admin/auth/oidc-draft/test":                                                      openAPIOIDCDraftDescriptions,
+		"POST /api/v1/admin/auth/oidc-enable":                                                          openAPIOIDCDraftDescriptions,
 		"PUT /api/v1/projects/{projectId}/security-settings/oidc-draft":                                openAPIOIDCDraftDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/oidc-draft/test":                          openAPIOIDCDraftDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/oidc-enable":                              openAPIOIDCDraftDescriptions,
@@ -2460,6 +2490,7 @@ func BuildOpenAPIDocument() (*openapi3.T, error) {
 			{Name: "streams"},
 			{Name: "hr-advisor"},
 			{Name: "notifications"},
+			{Name: "admin-auth"},
 			{Name: "security-settings"},
 		},
 	}
@@ -5401,6 +5432,91 @@ func (b openAPISpecBuilder) addNotificationOperations() error {
 }
 
 func (b openAPISpecBuilder) addSecurityOperations() error {
+	adminAuthGet, err := b.jsonOperation(
+		"getAdminAuth",
+		"Get instance-level admin auth status and diagnostics",
+		[]string{"admin-auth"},
+		http.StatusOK,
+		OpenAPIAdminAuthResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/auth", http.MethodGet, adminAuthGet)
+
+	adminOIDCDraftPut, err := b.jsonOperation(
+		"saveAdminOIDCDraft",
+		"Save an instance-level OIDC draft without changing the active auth mode",
+		[]string{"admin-auth"},
+		http.StatusOK,
+		OpenAPIAdminAuthResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/auth/oidc-draft", http.MethodPut, adminOIDCDraftPut)
+
+	adminOIDCDraftTest, err := b.jsonOperation(
+		"testAdminOIDCDraft",
+		"Test instance-level OIDC discovery using the provided draft configuration",
+		[]string{"admin-auth"},
+		http.StatusOK,
+		OpenAPISecurityOIDCTestResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/auth/oidc-draft/test", http.MethodPost, adminOIDCDraftTest)
+
+	adminOIDCEnable, err := b.jsonOperation(
+		"enableAdminOIDC",
+		"Persist the instance OIDC draft and switch the configured auth mode to oidc",
+		[]string{"admin-auth"},
+		http.StatusOK,
+		OpenAPIAdminAuthModeTransitionResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/auth/oidc-enable", http.MethodPost, adminOIDCEnable)
+
+	adminAuthDisable, err := b.jsonOperation(
+		"disableAdminAuth",
+		"Switch the configured instance auth mode back to disabled while keeping the saved OIDC draft",
+		[]string{"admin-auth"},
+		http.StatusOK,
+		OpenAPIAdminAuthModeTransitionResponse{},
+		nil,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/auth/disable", http.MethodPost, adminAuthDisable)
+
 	securityGet, err := b.jsonOperation(
 		"getSecuritySettings",
 		"Get project security settings posture",

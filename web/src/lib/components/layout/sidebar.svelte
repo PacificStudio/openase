@@ -1,5 +1,6 @@
 <script lang="ts">
   import { preloadCode } from '$app/navigation'
+  import { authStore } from '$lib/stores/auth.svelte'
   import { buildGlobalNav, buildProjectNav, type SidebarNavItem } from './sidebar-nav'
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
@@ -32,7 +33,10 @@
     onNavigate?: () => void
   } = $props()
 
-  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
+  const showAdmin = $derived(
+    authStore.authMode !== 'oidc' || authStore.roles.includes('instance_admin'),
+  )
+  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId, showAdmin))
   const projectNav: SidebarNavItem[] = $derived(
     buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
   )

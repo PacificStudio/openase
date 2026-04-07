@@ -86,6 +86,7 @@ func (r routeRegistrar) registerProtectedAPIRoutes(protected *echo.Group) {
 	r.server.registerWorkflowRoutes(protected)
 	r.server.registerScheduledJobRoutes(protected)
 	r.server.registerNotificationRoutes(protected)
+	r.server.registerAdminAuthRoutes(protected)
 	r.server.registerSecuritySettingsRoutes(protected)
 	r.server.registerGitHubRepoRoutes(protected)
 	r.server.registerSkillRoutes(protected)

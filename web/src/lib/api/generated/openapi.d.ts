@@ -4,6 +4,91 @@
  */
 
 export interface paths {
+  '/api/v1/admin/auth': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get instance-level admin auth status and diagnostics */
+    get: operations['getAdminAuth']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Switch the configured instance auth mode back to disabled while keeping the saved OIDC draft */
+    post: operations['disableAdminAuth']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-draft': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Save an instance-level OIDC draft without changing the active auth mode */
+    put: operations['saveAdminOIDCDraft']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-draft/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Test instance-level OIDC discovery using the provided draft configuration */
+    post: operations['testAdminOIDCDraft']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Persist the instance OIDC draft and switch the configured auth mode to oidc */
+    post: operations['enableAdminOIDC']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/agents/{agentId}': {
     parameters: {
       query?: never
@@ -2424,6 +2509,610 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  getAdminAuth: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get instance-level admin auth status and diagnostics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                issuer_url?: string
+                redirect_url?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableAdminAuth: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Switch the configured instance auth mode back to disabled while keeping the saved OIDC draft response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                issuer_url?: string
+                redirect_url?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+            transition?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveAdminOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Save an instance-level OIDC draft without changing the active auth mode request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Save an instance-level OIDC draft without changing the active auth mode response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                issuer_url?: string
+                redirect_url?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testAdminOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Test instance-level OIDC discovery using the provided draft configuration request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Test instance-level OIDC discovery using the provided draft configuration response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            authorization_endpoint?: string
+            issuer_url?: string
+            message?: string
+            redirect_url?: string
+            status?: string
+            token_endpoint?: string
+            warnings?: string[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  enableAdminOIDC: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Persist the instance OIDC draft and switch the configured auth mode to oidc request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Persist the instance OIDC draft and switch the configured auth mode to oidc response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                issuer_url?: string
+                redirect_url?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+            transition?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getAgent: {
     parameters: {
       query?: never
@@ -11914,6 +12603,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -11928,6 +12627,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -12119,6 +12822,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -12133,6 +12846,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -12317,6 +13034,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -12331,6 +13058,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -12520,6 +13251,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -12534,6 +13275,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -12723,6 +13468,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -12737,6 +13492,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -12938,6 +13697,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -12952,6 +13721,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
@@ -13270,6 +14043,16 @@ export interface operations {
                   title?: string
                 }[]
                 issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
                 local_principal?: string
                 mode_summary?: string
                 next_steps?: string[]
@@ -13284,6 +14067,10 @@ export interface operations {
                 }
                 public_exposure_risk?: string
                 recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
                 warnings?: string[]
               }
               deferred?: {
