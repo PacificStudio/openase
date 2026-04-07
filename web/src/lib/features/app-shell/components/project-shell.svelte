@@ -270,6 +270,13 @@
   const settingsEnabled = $derived(routeContext.scope === 'project')
   const settingsHref = $derived(settingsHrefForRoute(routeContext))
   const currentUser = $derived(authStore.user)
+  const adminEnabled = $derived.by(
+    () =>
+      authStore.authMode === 'disabled' ||
+      authStore.roles.includes('instance_admin') ||
+      authStore.permissions.includes('security.read') ||
+      authStore.permissions.includes('security.manage'),
+  )
 </script>
 
 <ProjectShellFrame
@@ -280,6 +287,7 @@
   currentProject={appStore.currentProject}
   organizations={appStore.organizations}
   projects={appStore.projects}
+  {adminEnabled}
   agentCount={appStore.agentCount}
   sseStatus={appStore.sseStatus}
   sidebarCollapsed={appStore.sidebarCollapsed}

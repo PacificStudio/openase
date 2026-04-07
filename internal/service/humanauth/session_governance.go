@@ -173,6 +173,45 @@ func (s *Service) ForceRevokeUserSessions(
 	return sessions, nil
 }
 
+func (s *Service) ForceRevokeSession(
+	ctx context.Context,
+	actor domain.AuthenticatedPrincipal,
+	sessionID uuid.UUID,
+) (domain.BrowserSession, bool, error) {
+	session, err := s.repo.GetBrowserSession(ctx, sessionID)
+	if err != nil {
+		return domain.BrowserSession{}, false, ErrSessionNotFound
+	}
+	isCurrent := session.ID == actor.Session.ID
+	if session.RevokedAt != nil {
+		return session, isCurrent, nil
+	}
+
+	now := time.Now().UTC()
+	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+		_ = s.expireSession(ctx, session, now)
+		session.RevokedAt = &now
+		return session, isCurrent, nil
+	}
+
+	if err := s.repo.RevokeBrowserSession(ctx, session.ID, now); err != nil {
+		return domain.BrowserSession{}, false, err
+	}
+	session.RevokedAt = &now
+	if err := s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
+		UserID:    &session.UserID,
+		SessionID: &session.ID,
+		ActorID:   actor.ActorID(),
+		EventType: domain.AuthAuditSessionRevoked,
+		Message:   "An administrator revoked this browser session.",
+		Metadata:  map[string]any{"reason": "admin_force_revoke_session"},
+		CreatedAt: now,
+	}); err != nil {
+		return domain.BrowserSession{}, false, err
+	}
+	return session, isCurrent, nil
+}
+
 func (s *Service) handleDisabledUserSession(ctx context.Context, session domain.BrowserSession, now time.Time) error {
 	sessions, err := s.repo.RevokeBrowserSessionsByUser(ctx, session.UserID, nil, now)
 	if err != nil {

@@ -17,6 +17,7 @@ const { getSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
 }))
 
 const {
+  adminRevokeAuthSession,
   cancelOrganizationInvitation,
   getEffectivePermissions,
   getInstanceUserDetail,
@@ -31,6 +32,7 @@ const {
   transitionInstanceUserStatus,
   updateOrganizationMembership,
 } = vi.hoisted(() => ({
+  adminRevokeAuthSession: vi.fn(),
   cancelOrganizationInvitation: vi.fn(),
   getEffectivePermissions: vi.fn(),
   getInstanceUserDetail: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock('$lib/api/openase', () => ({
 }))
 
 vi.mock('$lib/api/auth', () => ({
+  adminRevokeAuthSession,
   cancelOrganizationInvitation,
   getEffectivePermissions,
   getInstanceUserDetail,
@@ -133,6 +136,23 @@ function seedUserDirectory() {
       },
     ],
     groups: [],
+    activeSessions: [
+      {
+        id: 'session-bob-1',
+        current: false,
+        device: {
+          kind: 'desktop',
+          os: 'macOS',
+          browser: 'Safari',
+          label: 'Safari on MacBook Pro',
+        },
+        ipSummary: '203.0.113.0/24',
+        createdAt: '2026-04-05T09:30:00Z',
+        lastActiveAt: '2026-04-05T10:00:00Z',
+        expiresAt: '2026-04-05T18:00:00Z',
+        idleExpiresAt: '2026-04-05T11:00:00Z',
+      },
+    ],
     activeSessionCount: 1,
     latestStatusAudit: undefined,
     recentAuditEvents: [],
@@ -160,6 +180,9 @@ describe('Security settings user directory', () => {
     expect(await findByText('OIDC group cache')).toBeTruthy()
     expect(await findByText('No synchronized groups for this user.')).toBeTruthy()
     expect(await findByText('Lifecycle controls')).toBeTruthy()
+    expect(await findByText('Active browser sessions')).toBeTruthy()
+    expect(await findByText('Safari on MacBook Pro')).toBeTruthy()
+    expect(await findByText(/203\.0\.113\.0\/24/)).toBeTruthy()
   })
 
   it('disables a cached user from the directory with an audit reason', async () => {
@@ -201,6 +224,23 @@ describe('Security settings user directory', () => {
         status: 'disabled',
         reason: 'Left the organization',
       })
+    })
+  })
+
+  it('revokes one governable session from the directory detail', async () => {
+    seedUserDirectory()
+    adminRevokeAuthSession.mockResolvedValue({
+      revoked_count: 1,
+      user_id: 'user-2',
+      current_session_revoked: false,
+    })
+
+    const { findByRole } = render(SecuritySettings)
+    const revokeButton = await findByRole('button', { name: 'Revoke session' })
+    await fireEvent.click(revokeButton)
+
+    await waitFor(() => {
+      expect(adminRevokeAuthSession).toHaveBeenCalledWith('session-bob-1')
     })
   })
 })
