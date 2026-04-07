@@ -69,7 +69,7 @@ Manage project security credentials:
 - SSH key management
 - Outbound credential testing
 
-Security now doubles as the operator console for IAM rollout. In local single-user deployments, you can stay on `auth.mode=disabled` with the built-in local admin principal. When you need multi-user browser access, configure OIDC here, test the provider, and then enable it explicitly.
+Security now doubles as the transitional operator console for IAM rollout. In local single-user deployments, you can stay on `auth.mode=disabled` with the built-in local admin principal. When you need multi-user browser access, configure OIDC here, test the provider, and then enable it explicitly. The steady-state split between `/admin`, org admin, and project settings is documented in [`../../en/iam-admin-boundaries.md`](../../en/iam-admin-boundaries.md).
 
 ### Archived Tickets
 
