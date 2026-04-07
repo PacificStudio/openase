@@ -2,8 +2,10 @@
   import { ApiError } from '$lib/api/client'
   import { getEffectivePermissions, type EffectivePermissionsResponse } from '$lib/api/auth'
   import { PageScaffold } from '$lib/components/layout'
-  import SecuritySettingsHumanAuthSessions from '$lib/features/settings/components/security-settings-human-auth-sessions.svelte'
-  import SecuritySettingsUserDirectory from '$lib/features/settings/components/security-settings-user-directory.svelte'
+  import {
+    SecuritySettingsHumanAuthSessions,
+    SecuritySettingsUserDirectory,
+  } from '$lib/features/settings'
   import { authStore } from '$lib/stores/auth.svelte'
   import { Badge } from '$ui/badge'
   import { LockKeyhole, ShieldCheck, Users } from '@lucide/svelte'
