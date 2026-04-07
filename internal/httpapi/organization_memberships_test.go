@@ -236,6 +236,140 @@ func TestOrganizationMembershipTransferOwnershipPromotesTargetAndDemotesPrevious
 	}
 }
 
+func TestOrganizationMembershipRejectsActivatingInvitationBeforeAcceptance(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	ownerToken, ownerCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	ownerUserID := fixture.userIDByEmail(t, "owner@example.com")
+	setOrganizationMembershipRole(t, fixture, orgID, ownerUserID, entorganizationmembership.RoleOwner)
+
+	inviteRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgID.String()+"/invitations",
+		`{"email":"pending@example.com","role":"member"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + ownerToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": ownerCSRF,
+			"User-Agent":     "OrgPrematureActivationTest/1.0",
+		},
+	)
+	if inviteRec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", inviteRec.Code, inviteRec.Body.String())
+	}
+
+	var invitePayload struct {
+		Membership struct {
+			ID string `json:"id"`
+		} `json:"membership"`
+	}
+	decodeResponse(t, inviteRec, &invitePayload)
+
+	activateRec := fixture.requestJSON(
+		t,
+		http.MethodPatch,
+		"/api/v1/orgs/"+orgID.String()+"/members/"+invitePayload.Membership.ID,
+		`{"status":"active"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + ownerToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": ownerCSRF,
+			"User-Agent":     "OrgPrematureActivationTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		activateRec,
+		http.StatusConflict,
+		"ORGANIZATION_MEMBERSHIP_CONFLICT",
+		"organization membership cannot become active before invitation acceptance",
+	)
+
+	membership := organizationMembershipByEmail(t, fixture, orgID, "pending@example.com")
+	if membership.Status != entorganizationmembership.StatusInvited {
+		t.Fatalf("membership.status = %q, want invited", membership.Status)
+	}
+	if membership.UserID != nil {
+		t.Fatalf("membership.user_id = %v, want nil", membership.UserID)
+	}
+	if membership.AcceptedAt != nil {
+		t.Fatalf("membership.accepted_at = %v, want nil", membership.AcceptedAt)
+	}
+}
+
+func TestOrganizationMembershipTransferOwnershipRejectsUnacceptedActiveMembership(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	ownerToken, ownerCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	ownerUserID := fixture.userIDByEmail(t, "owner@example.com")
+	setOrganizationMembershipRole(t, fixture, orgID, ownerUserID, entorganizationmembership.RoleOwner)
+
+	inviteRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgID.String()+"/invitations",
+		`{"email":"ghost-owner@example.com","role":"member"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + ownerToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": ownerCSRF,
+			"User-Agent":     "OrgTransferPendingOwnerTest/1.0",
+		},
+	)
+	if inviteRec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", inviteRec.Code, inviteRec.Body.String())
+	}
+
+	targetMembership := organizationMembershipByEmail(t, fixture, orgID, "ghost-owner@example.com")
+	if _, err := fixture.client.OrganizationMembership.UpdateOneID(targetMembership.ID).
+		SetStatus(entorganizationmembership.StatusActive).
+		ClearUserID().
+		ClearAcceptedAt().
+		Save(context.Background()); err != nil {
+		t.Fatalf("force invalid active membership: %v", err)
+	}
+
+	transferRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgID.String()+"/members/"+targetMembership.ID.String()+"/transfer-ownership",
+		`{"previous_owner_role":"admin"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + ownerToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": ownerCSRF,
+			"User-Agent":     "OrgTransferPendingOwnerTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		transferRec,
+		http.StatusConflict,
+		"ORGANIZATION_MEMBERSHIP_CONFLICT",
+		"organization membership cannot become active before invitation acceptance",
+	)
+
+	ownerMembership := organizationMembershipByUser(t, fixture, orgID, ownerUserID)
+	if ownerMembership.Role != entorganizationmembership.RoleOwner {
+		t.Fatalf("owner membership role = %q, want owner", ownerMembership.Role)
+	}
+}
+
 func organizationMembershipByUser(
 	t *testing.T,
 	fixture humanAuthFixture,
@@ -252,6 +386,26 @@ func organizationMembershipByUser(
 		Only(context.Background())
 	if err != nil {
 		t.Fatalf("load organization membership: %v", err)
+	}
+	return item
+}
+
+func organizationMembershipByEmail(
+	t *testing.T,
+	fixture humanAuthFixture,
+	orgID uuid.UUID,
+	email string,
+) *ent.OrganizationMembership {
+	t.Helper()
+
+	item, err := fixture.client.OrganizationMembership.Query().
+		Where(
+			entorganizationmembership.OrganizationIDEQ(orgID),
+			entorganizationmembership.EmailEQ(email),
+		).
+		Only(context.Background())
+	if err != nil {
+		t.Fatalf("load organization membership by email: %v", err)
 	}
 	return item
 }

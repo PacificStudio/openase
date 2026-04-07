@@ -20,6 +20,7 @@ var (
 	ErrOrganizationMemberExists       = errors.New("organization member already exists")
 	ErrLastOrganizationOwner          = errors.New("cannot change the last active organization owner")
 	ErrOrganizationInvitationMismatch = errors.New("organization invitation email does not match the current user")
+	ErrOrganizationAcceptanceRequired = errors.New("organization membership cannot become active before invitation acceptance")
 )
 
 const organizationInvitationTTL = 7 * 24 * time.Hour
@@ -384,6 +385,9 @@ func (s *Service) TransferOrganizationOwnership(
 	if target.Status != domain.OrganizationMembershipStatusActive {
 		return nil, fmt.Errorf("ownership can only be transferred to an active member")
 	}
+	if target.UserID == nil {
+		return nil, ErrOrganizationAcceptanceRequired
+	}
 
 	actorMembership, actorMembershipErr := s.repo.GetOrganizationMembershipByUser(ctx, organizationID, actor.User.ID)
 	actorIsOwner := actorMembershipErr == nil && actorMembership.Status == domain.OrganizationMembershipStatusActive && actorMembership.Role == domain.OrganizationMembershipRoleOwner
@@ -439,6 +443,12 @@ func (s *Service) applyOrganizationMembershipUpdate(
 
 	if input.Status != nil && nextStatus != membership.Status && !membership.Status.CanTransitionTo(nextStatus) {
 		return domain.OrganizationMembership{}, fmt.Errorf("membership cannot transition from %s to %s", membership.Status, nextStatus)
+	}
+	if input.Status != nil &&
+		membership.Status != domain.OrganizationMembershipStatusActive &&
+		nextStatus == domain.OrganizationMembershipStatusActive &&
+		membership.UserID == nil {
+		return domain.OrganizationMembership{}, ErrOrganizationAcceptanceRequired
 	}
 
 	if membership.Role == domain.OrganizationMembershipRoleOwner && membership.Status == domain.OrganizationMembershipStatusActive {
