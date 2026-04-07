@@ -1,6 +1,5 @@
 <script lang="ts">
   import { PageScaffold } from '$lib/components/layout'
-  import { ApiError } from '$lib/api/client'
   import type { AdminSecuritySettingsResponse } from '$lib/api/contracts'
   import {
     createInstanceRoleBinding,

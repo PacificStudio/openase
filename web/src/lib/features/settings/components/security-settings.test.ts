@@ -7,7 +7,6 @@ import SecuritySettings from './security-settings.svelte'
 import {
   configuredSecurity,
   configuredSecurityWithNullPermissions,
-  currentOrg,
   currentProject,
 } from './security-settings.test-helpers'
 import { effectivePermissionsMock, hydrateOidcAuth } from './security-settings-human-auth.fixtures'
