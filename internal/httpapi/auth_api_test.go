@@ -720,6 +720,13 @@ func TestUserDirectoryListsSearchesAndLoadsDetail(t *testing.T) {
 		Groups []struct {
 			GroupKey string `json:"group_key"`
 		} `json:"groups"`
+		ActiveSessions []struct {
+			ID        string `json:"id"`
+			IPSummary string `json:"ip_summary"`
+			Device    struct {
+				Label string `json:"label"`
+			} `json:"device"`
+		} `json:"active_sessions"`
 		ActiveSessionCount int `json:"active_session_count"`
 	}
 	decodeResponse(t, detailRec, &detailPayload)
@@ -734,6 +741,12 @@ func TestUserDirectoryListsSearchesAndLoadsDetail(t *testing.T) {
 	}
 	if detailPayload.ActiveSessionCount != 1 {
 		t.Fatalf("active_session_count = %d, want 1", detailPayload.ActiveSessionCount)
+	}
+	if len(detailPayload.ActiveSessions) != 1 {
+		t.Fatalf("expected one active session in detail payload, got %+v", detailPayload.ActiveSessions)
+	}
+	if detailPayload.ActiveSessions[0].Device.Label == "" || detailPayload.ActiveSessions[0].IPSummary == "" {
+		t.Fatalf("expected session device and ip summary in detail payload, got %+v", detailPayload.ActiveSessions[0])
 	}
 }
 
@@ -823,6 +836,80 @@ func TestInstanceAdminCanDisableUserViaDirectoryAndRevokeSessions(t *testing.T) 
 	}
 	if len(events) != 1 {
 		t.Fatalf("expected one user.disabled event, got %+v", events)
+	}
+}
+
+func TestInstanceAdminCanRevokeSingleUserSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:       "admin@example.com",
+		displayName:     "Admin",
+		instanceRoleKey: "instance_admin",
+	})
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "member@example.com",
+		displayName: "Member",
+	})
+	memberUserID := fixture.userIDByEmail(t, "member@example.com")
+	memberExtraToken := fixture.createAdditionalSession(t, memberUserID, "member-extra", "Safari on iPad")
+	memberExtraSession, err := fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(memberExtraToken))
+	if err != nil {
+		t.Fatalf("reload extra member session: %v", err)
+	}
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodDelete,
+		"/api/v1/instance/sessions/"+memberExtraSession.ID.String(),
+		"",
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "AdminSessionRevokeTest/1.0",
+		},
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		RevokedCount          int    `json:"revoked_count"`
+		UserID                string `json:"user_id"`
+		CurrentSessionRevoked bool   `json:"current_session_revoked"`
+	}
+	decodeResponse(t, rec, &payload)
+	if payload.RevokedCount != 1 {
+		t.Fatalf("revoked_count = %d, want 1", payload.RevokedCount)
+	}
+	if payload.UserID != memberUserID.String() {
+		t.Fatalf("user_id = %q, want %q", payload.UserID, memberUserID.String())
+	}
+	if payload.CurrentSessionRevoked {
+		t.Fatal("current_session_revoked = true, want false")
+	}
+
+	memberExtraSession, err = fixture.repo.GetBrowserSessionByHash(context.Background(), humanFixtureHashToken(memberExtraToken))
+	if err != nil {
+		t.Fatalf("reload revoked member session: %v", err)
+	}
+	if memberExtraSession.RevokedAt == nil {
+		t.Fatal("expected extra member session to be revoked")
+	}
+
+	events, err := fixture.client.AuthAuditEvent.Query().
+		Where(
+			entauthauditevent.EventTypeEQ(string(humanauthdomain.AuthAuditSessionRevoked)),
+			entauthauditevent.SessionID(memberExtraSession.ID),
+		).
+		All(context.Background())
+	if err != nil {
+		t.Fatalf("query session revoked audit events: %v", err)
+	}
+	if len(events) == 0 {
+		t.Fatal("expected at least one session.revoked audit event for the revoked session")
 	}
 }
 

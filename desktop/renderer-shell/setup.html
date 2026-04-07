@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenASE Desktop Setup</title>
+    <link rel="stylesheet" href="./shell.css" />
+  </head>
+  <body data-view="setup">
+    <main class="shell">
+      <section class="panel panel-setup">
+        <span class="eyebrow">First launch</span>
+        <h1>Prepare PostgreSQL for OpenASE Desktop</h1>
+        <p id="message">Loading setup diagnostics...</p>
+        <dl class="meta-grid compact">
+          <div>
+            <dt>Current blocker</dt>
+            <dd id="issue-code">setup_required</dd>
+          </div>
+          <div>
+            <dt>Config path</dt>
+            <dd id="config-path">~/.openase/config.yaml</dd>
+          </div>
+        </dl>
+
+        <section class="section-block">
+          <div class="section-header">
+            <h2>Current status</h2>
+            <button id="recheck" class="secondary">Re-check environment</button>
+          </div>
+          <div id="issues" class="issue-grid"></div>
+        </section>
+
+        <section class="section-block">
+          <div class="section-header">
+            <h2>Machine diagnostics</h2>
+            <p class="inline-note">Desktop host orchestration stays in Electron; provisioning and config writes run through the Go setup runtime.</p>
+          </div>
+          <div id="cli-diagnostics" class="diagnostic-grid"></div>
+        </section>
+
+        <section class="setup-grid">
+          <form id="manual-form" class="setup-card">
+            <div class="card-header">
+              <span class="card-kicker">Path 1</span>
+              <h2>Connect existing PostgreSQL</h2>
+            </div>
+            <p>Write a fresh config, validate the connection, and reuse your existing PostgreSQL instance.</p>
+            <label>
+              Host
+              <input id="manual-host" name="host" type="text" autocomplete="off" />
+            </label>
+            <div class="field-row">
+              <label>
+                Port
+                <input id="manual-port" name="port" type="number" min="1" max="65535" />
+              </label>
+              <label>
+                SSL mode
+                <select id="manual-ssl-mode" name="ssl_mode">
+                  <option value="disable">disable</option>
+                  <option value="require">require</option>
+                  <option value="verify-full">verify-full</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Database
+              <input id="manual-name" name="name" type="text" autocomplete="off" />
+            </label>
+            <div class="field-row">
+              <label>
+                User
+                <input id="manual-user" name="user" type="text" autocomplete="off" />
+              </label>
+              <label>
+                Password
+                <input id="manual-password" name="password" type="password" autocomplete="current-password" />
+              </label>
+            </div>
+            <button type="submit">Validate and continue</button>
+          </form>
+
+          <form id="docker-form" class="setup-card accent">
+            <div class="card-header">
+              <span class="card-kicker">Path 2</span>
+              <h2>Let Docker prepare PostgreSQL</h2>
+            </div>
+            <p>Provision a local PostgreSQL container, wait for readiness, and write the OpenASE config automatically.</p>
+            <label>
+              Container name
+              <input id="docker-container-name" name="container_name" type="text" autocomplete="off" />
+            </label>
+            <div class="field-row">
+              <label>
+                Database
+                <input id="docker-database-name" name="database_name" type="text" autocomplete="off" />
+              </label>
+              <label>
+                User
+                <input id="docker-user" name="user" type="text" autocomplete="off" />
+              </label>
+            </div>
+            <div class="field-row">
+              <label>
+                Port
+                <input id="docker-port" name="port" type="number" min="1" max="65535" />
+              </label>
+              <label>
+                Volume name
+                <input id="docker-volume-name" name="volume_name" type="text" autocomplete="off" />
+              </label>
+            </div>
+            <label>
+              Docker image
+              <input id="docker-image" name="image" type="text" autocomplete="off" />
+            </label>
+            <button id="docker-submit" type="submit">Prepare with Docker</button>
+          </form>
+        </section>
+
+        <div class="actions">
+          <button id="open-logs" class="secondary">Open logs</button>
+          <button id="open-data" class="secondary">Open data</button>
+          <button id="open-guide" class="secondary">Open guide</button>
+        </div>
+      </section>
+    </main>
+    <script src="./shell.js"></script>
+  </body>
+</html>

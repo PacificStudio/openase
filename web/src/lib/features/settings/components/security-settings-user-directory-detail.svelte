@@ -5,6 +5,7 @@
   import { Input } from '$ui/input'
   import { ShieldCheck } from '@lucide/svelte'
   import { formatAuthAuditEventLabel, formatTimestamp } from './security-settings-human-auth.model'
+  import SecuritySettingsUserDirectorySessions from './security-settings-user-directory-sessions.svelte'
 
   let {
     canRead = false,
@@ -18,6 +19,7 @@
     onStatusReasonInput = (_value: string) => {},
     onTransition = (_status: 'active' | 'disabled') => {},
     onRevokeSessions = () => {},
+    onRevokeSession = (_sessionId: string) => {},
   }: {
     canRead?: boolean
     canManage?: boolean
@@ -30,10 +32,40 @@
     onStatusReasonInput?: (value: string) => void
     onTransition?: (status: 'active' | 'disabled') => void
     onRevokeSessions?: () => void
+    onRevokeSession?: (sessionId: string) => void
   } = $props()
 
   function statusVariant(status: string) {
     return status === 'disabled' ? 'destructive' : 'secondary'
+  }
+
+  function groupSyncSummary() {
+    if (!selectedDetail || selectedDetail.groups.length === 0) {
+      return 'No synchronized groups cached.'
+    }
+    const latest = [...selectedDetail.groups].sort((left, right) =>
+      right.lastSyncedAt.localeCompare(left.lastSyncedAt),
+    )[0]
+    return `${selectedDetail.groups.length} synchronized group(s) · last sync ${formatTimestamp(latest?.lastSyncedAt)}`
+  }
+
+  function sessionDiagnostics() {
+    if (!selectedDetail) {
+      return []
+    }
+    const diagnostics: string[] = []
+    if (selectedDetail.user.status === 'disabled' && selectedDetail.activeSessionCount > 0) {
+      diagnostics.push('Disabled user still has active sessions and should be investigated.')
+    }
+    if (selectedDetail.activeSessionCount >= 3) {
+      diagnostics.push(
+        'Multiple concurrent active sessions may indicate shared-device or stale-session risk.',
+      )
+    }
+    if (!selectedDetail.user.lastLoginAt && selectedDetail.activeSessionCount > 0) {
+      diagnostics.push('Active sessions exist without a recorded last-login timestamp.')
+    }
+    return diagnostics
   }
 </script>
 
@@ -108,6 +140,7 @@
 
         <div class="space-y-2">
           <div class="text-sm font-medium">OIDC group cache</div>
+          <div class="text-muted-foreground text-xs">{groupSyncSummary()}</div>
           {#if selectedDetail.groups.length > 0}
             <div class="flex flex-wrap gap-2">
               {#each selectedDetail.groups as group (group.id)}
@@ -176,9 +209,33 @@
             disabled={!canManage || actionKey !== ''}
             onclick={onRevokeSessions}
           >
-            Revoke sessions only
+            Revoke all sessions
           </Button>
         </div>
+      </div>
+
+      <SecuritySettingsUserDirectorySessions
+        activeSessions={selectedDetail.activeSessions}
+        {canManage}
+        {actionKey}
+        {onRevokeSession}
+      />
+
+      <div class="space-y-2">
+        <div class="text-sm font-medium">Diagnostics</div>
+        {#if sessionDiagnostics().length > 0}
+          <div class="space-y-2">
+            {#each sessionDiagnostics() as diagnostic (diagnostic)}
+              <div class="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">
+                {diagnostic}
+              </div>
+            {/each}
+          </div>
+        {:else}
+          <div class="text-muted-foreground rounded-lg border border-dashed px-3 py-4 text-xs">
+            No immediate session anomalies detected from the cached user and active-session state.
+          </div>
+        {/if}
       </div>
 
       <div class="space-y-2">

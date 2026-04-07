@@ -39,8 +39,11 @@ function buildOpenASELaunchSpec(options) {
   const binaryPath = options.binaryPath
   const port = options.port
   const configPath = options.configPath
+  const commandArgs = Array.isArray(options.args) && options.args.length > 0
+    ? [...options.args]
+    : ['all-in-one', '--host', '127.0.0.1', '--port', String(port), '--config', configPath]
   let executablePath = binaryPath
-  let args = ['all-in-one', '--host', '127.0.0.1', '--port', String(port), '--config', configPath]
+  let args = commandArgs
 
   if (isJavaScriptEntrypoint(binaryPath)) {
     const nodeBinary = env.OPENASE_DESKTOP_NODE_BINARY

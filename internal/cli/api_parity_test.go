@@ -26,6 +26,7 @@ var intentionalCLIOpenAPIGaps = map[string]string{
 	contractKey("GET", "/api/v1/chat/projects/{projectId}/conversations/stream"):                                   "project-scoped conversation stream has no first-class CLI yet",
 	contractKey("GET", "/api/v1/instance/users"):                                                                   "instance user directory listing has no first-class CLI yet",
 	contractKey("GET", "/api/v1/instance/users/{userId}"):                                                          "instance user directory detail has no first-class CLI yet",
+	contractKey("DELETE", "/api/v1/instance/sessions/{id}"):                                                        "instance session governance has no first-class CLI yet",
 	contractKey("POST", "/api/v1/instance/users/{userId}/status"):                                                  "instance user lifecycle transition has no first-class CLI yet",
 	contractKey("GET", "/api/v1/instance/role-bindings"):                                                           "instance role binding inspection has no first-class CLI yet",
 	contractKey("POST", "/api/v1/instance/role-bindings"):                                                          "instance role binding mutation has no first-class CLI yet",

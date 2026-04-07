@@ -220,6 +220,116 @@ jobs:
           path: ${{ runner.temp }}/openase_${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.release_tag || needs.release-please.outputs.tag_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.${{ matrix.archive_format }}
           if-no-files-found: error
 
+  build-desktop:
+    name: Build Desktop Packages (${{ matrix.label }})
+    needs:
+      - resolve-release
+      - release-please
+      - build-embedded-web
+    if: |
+      always() &&
+      (needs.resolve-release.outputs.mode == 'tag' || needs.release-please.outputs.release_created == 'true') &&
+      needs.build-embedded-web.result == 'success' &&
+      (needs.release-please.result == 'success' || needs.release-please.result == 'skipped')
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x64
+            runner: ubuntu-latest
+            artifact_name: release-desktop-linux-x64
+            file_glob: |
+              desktop/dist/packages/*.AppImage
+              desktop/dist/packages/*.deb
+          - label: macos
+            runner: macos-14
+            artifact_name: release-desktop-darwin
+            file_glob: |
+              desktop/dist/packages/*.dmg
+              desktop/dist/packages/*.zip
+    env:
+      RELEASE_TAG: ${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.release_tag || needs.release-please.outputs.tag_name }}
+      OPENASE_DESKTOP_VERSION: ${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.release_tag || needs.release-please.outputs.tag_name }}
+      CSC_LINK: ${{ secrets.CSC_LINK }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - name: Check Out Release Commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.build_ref || needs.release-please.outputs.sha }}
+
+      - name: Download Embedded Web Assets
+        uses: actions/download-artifact@v7
+        with:
+          name: embedded-web-assets-release
+          path: internal/webui/static
+
+      - name: Set Up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Set Up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            desktop/pnpm-lock.yaml
+            web/pnpm-lock.yaml
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Install Desktop Dependencies
+        run: make desktop-install
+
+      - name: Ensure Electron Binary Is Installed
+        run: node desktop/node_modules/electron/install.js
+
+      - name: Configure macOS Signing Mode
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CSC_LINK}" || -z "${CSC_KEY_PASSWORD}" ]]; then
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "${GITHUB_ENV}"
+            echo "macOS signing secrets are unavailable; building unsigned desktop release assets."
+          else
+            echo "macOS signing secrets detected; electron-builder signing is enabled."
+          fi
+
+          if [[ -z "${APPLE_ID}" || -z "${APPLE_APP_SPECIFIC_PASSWORD}" || -z "${APPLE_TEAM_ID}" ]]; then
+            echo "APPLE_ID=" >> "${GITHUB_ENV}"
+            echo "APPLE_APP_SPECIFIC_PASSWORD=" >> "${GITHUB_ENV}"
+            echo "APPLE_TEAM_ID=" >> "${GITHUB_ENV}"
+            echo "Notarization secrets are unavailable; notarization will be skipped."
+          else
+            echo "Notarization secrets detected; electron-builder notarization can proceed."
+          fi
+
+      - name: Build Desktop Packages
+        run: make desktop-package
+
+      - name: Run Desktop Package Smoke Check
+        run: make desktop-package-smoke
+
+      - name: Upload Desktop Packages
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.file_glob }}
+          if-no-files-found: error
+
   publish-release:
     name: Publish Release Assets
     runs-on: ubuntu-latest
@@ -227,17 +337,19 @@ jobs:
       - resolve-release
       - release-please
       - build-binaries
+      - build-desktop
     if: |
       always() &&
       (needs.resolve-release.outputs.mode == 'tag' || needs.release-please.outputs.release_created == 'true') &&
       needs.build-binaries.result == 'success' &&
+      needs.build-desktop.result == 'success' &&
       (needs.release-please.result == 'success' || needs.release-please.result == 'skipped')
 
     steps:
       - name: Download Release Archives
         uses: actions/download-artifact@v7
         with:
-          pattern: release-binary-*
+          pattern: release-*
           merge-multiple: true
           path: release-artifacts
 
@@ -248,10 +360,26 @@ jobs:
           cd release-artifacts
           sha256sum * > checksums.txt
 
+      - name: Prepare Desktop Release Note Addendum
+        shell: bash
+        run: |
+          cat <<'EOF' > "${RUNNER_TEMP}/desktop-release-notes.md"
+          ## Desktop installers
+
+          This release ships OpenASE desktop installers alongside the Go archives:
+
+          - macOS: `.dmg`, `.zip`
+          - Linux: `.AppImage`, `.deb`
+
+          The desktop packages bundle the Electron host, the OpenASE binary, the desktop bundle manifest, and the starter config template. If macOS signing or notarization secrets are unavailable in CI, the workflow still publishes unsigned desktop assets and logs that downgrade explicitly.
+          EOF
+
       - name: Upload Assets To GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.resolve-release.outputs.mode == 'tag' && needs.resolve-release.outputs.release_tag || needs.release-please.outputs.tag_name }}
+          append_body: true
+          body_path: ${{ runner.temp }}/desktop-release-notes.md
           files: release-artifacts/*
         env:
           GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}

@@ -4,9 +4,13 @@ import { spawnSync } from 'node:child_process'
 
 const desktopRoot = path.resolve(fileURLToPath(new URL('..', import.meta.url)))
 const builderArgs = ['pnpm', 'exec', 'electron-builder', '--config', 'packaging/electron-builder.yml']
+const desktopVersion = process.env.OPENASE_DESKTOP_VERSION?.trim()
 
 if (process.argv.includes('--dir')) {
   builderArgs.push('--dir')
+}
+if (desktopVersion) {
+  builderArgs.push(`--config.extraMetadata.version=${desktopVersion}`)
 }
 
 const prepare = spawnSync(process.execPath, ['scripts/prepare-openase-bundle.mjs'], {

@@ -3055,6 +3055,9 @@
                           "idle_expires_at": {
                             "type": "string"
                           },
+                          "ip_summary": {
+                            "type": "string"
+                          },
                           "last_active_at": {
                             "type": "string"
                           }
@@ -3121,6 +3124,9 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "current_session_revoked": {
+                      "type": "boolean"
+                    },
                     "revoked_count": {
                       "type": "integer"
                     },
@@ -3296,6 +3302,9 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "current_session_revoked": {
+                      "type": "boolean"
+                    },
                     "revoked_count": {
                       "type": "integer"
                     },
@@ -6361,6 +6370,140 @@
         ]
       }
     },
+    "/api/v1/instance/sessions/{id}": {
+      "delete": {
+        "operationId": "adminRevokeAuthSession",
+        "parameters": [
+          {
+            "description": "Browser session ID to revoke from the admin surface.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "current_session_revoked": {
+                      "type": "boolean"
+                    },
+                    "revoked_count": {
+                      "type": "integer"
+                    },
+                    "user_id": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Revoke one browser session from the instance-level governance surface response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Unauthorized response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "Revoke one browser session from the instance-level governance surface",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/instance/users": {
       "get": {
         "operationId": "listInstanceUsers",
@@ -6562,6 +6705,52 @@
                   "properties": {
                     "active_session_count": {
                       "type": "integer"
+                    },
+                    "active_sessions": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "current": {
+                            "type": "boolean"
+                          },
+                          "device": {
+                            "properties": {
+                              "browser": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "os": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "expires_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "idle_expires_at": {
+                            "type": "string"
+                          },
+                          "ip_summary": {
+                            "type": "string"
+                          },
+                          "last_active_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
                     },
                     "groups": {
                       "items": {

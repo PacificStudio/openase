@@ -21,10 +21,10 @@ mac:
     - dmg
     - zip
   category: public.app-category.developer-tools
-  artifactName: OpenASE-Desktop-${version}-${arch}.${ext}
+  artifactName: openase-desktop_${version}_darwin_${arch}.${ext}
 linux:
   target:
     - AppImage
     - deb
   category: Development
-  artifactName: OpenASE-Desktop-${version}-${arch}.${ext}
+  artifactName: openase-desktop_${version}_linux_${arch}.${ext}

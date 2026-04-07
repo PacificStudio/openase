@@ -45,7 +45,7 @@ const projectSections = [
 export function buildGlobalNav(
   currentPath: string,
   currentOrgId: string | null,
-  showAdmin = false,
+  adminEnabled = false,
 ): SidebarNavItem[] {
   const href = currentOrgId ? organizationPath(currentOrgId) : '/'
   const items: SidebarNavItem[] = [
@@ -56,10 +56,10 @@ export function buildGlobalNav(
       active: currentPath === href,
     },
   ]
-  if (showAdmin) {
+  if (adminEnabled) {
     items.push({
       label: 'Admin',
-      href: '/admin/auth',
+      href: '/admin',
       icon: Shield,
       active: currentPath.startsWith('/admin'),
     })

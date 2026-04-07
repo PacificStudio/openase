@@ -20,6 +20,7 @@
     currentProject,
     organizations = [],
     projects = [],
+    adminEnabled = false,
     agentCount = 0,
     sseStatus = 'live' as 'idle' | 'connecting' | 'live' | 'retrying',
     sidebarCollapsed = false,
@@ -59,6 +60,7 @@
     currentProject: Project | null
     organizations?: Organization[]
     projects?: Project[]
+    adminEnabled?: boolean
     agentCount?: number
     sseStatus?: 'idle' | 'connecting' | 'live' | 'retrying'
     sidebarCollapsed?: boolean
@@ -149,6 +151,7 @@
             {currentPath}
             currentOrgId={currentOrg?.id ?? null}
             currentProjectId={currentProject?.id ?? null}
+            {adminEnabled}
             projectSelected={Boolean(currentProject)}
             {agentCount}
             onOpenProjectAssistant={() => {
@@ -172,6 +175,7 @@
           {currentPath}
           currentOrgId={currentOrg?.id ?? null}
           currentProjectId={currentProject?.id ?? null}
+          {adminEnabled}
           projectSelected={Boolean(currentProject)}
           {agentCount}
           onOpenProjectAssistant={() => onOpenProjectAssistant?.()}

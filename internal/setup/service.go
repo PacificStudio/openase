@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/envfile"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -63,6 +64,7 @@ type InstallInput struct {
 
 type Options struct {
 	HomeDir      string
+	ConfigPath   string
 	Resolver     provider.ExecutableResolver
 	Connector    DatabaseConnector
 	Installer    Installer
@@ -71,13 +73,14 @@ type Options struct {
 }
 
 type Service struct {
-	homeDir      string
-	resolver     provider.ExecutableResolver
-	connector    DatabaseConnector
-	installer    Installer
-	dockerRunner DockerRunner
-	runCommand   func(context.Context, string, ...string) (string, error)
-	logger       *slog.Logger
+	homeDir            string
+	configPathOverride string
+	resolver           provider.ExecutableResolver
+	connector          DatabaseConnector
+	installer          Installer
+	dockerRunner       DockerRunner
+	runCommand         func(context.Context, string, ...string) (string, error)
+	logger             *slog.Logger
 }
 
 type runtimeDatabaseConnector struct{}
@@ -147,15 +150,17 @@ func NewService(opts Options) (*Service, error) {
 	}
 
 	runCommand := opts.RunCommand
+	configPath := strings.TrimSpace(opts.ConfigPath)
 
 	return &Service{
-		homeDir:      homeDir,
-		resolver:     resolver,
-		connector:    connector,
-		installer:    installer,
-		dockerRunner: dockerRunner,
-		runCommand:   runCommand,
-		logger:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		homeDir:            homeDir,
+		configPathOverride: configPath,
+		resolver:           resolver,
+		connector:          connector,
+		installer:          installer,
+		dockerRunner:       dockerRunner,
+		runCommand:         runCommand,
+		logger:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}, nil
 }
 
@@ -199,6 +204,100 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 			Auth:           defaultRawAuthInput(),
 		},
 	}, nil
+}
+
+func (s *Service) DesktopPreflight(ctx context.Context) (DesktopPreflightResult, error) {
+	result := DesktopPreflightResult{
+		Ready:          false,
+		ConfigPath:     s.configPathResolved(),
+		OpenASEHomeDir: s.openaseHomeDir(),
+	}
+
+	if err := s.ensureHomeLayout(); err != nil {
+		result.Issues = append(result.Issues, DesktopIssue{
+			Code:    DesktopIssueDirectoryUnavailable,
+			Title:   "OpenASE data directory is unavailable",
+			Message: err.Error(),
+			Action:  "Check directory permissions, then retry the desktop setup.",
+		})
+		return result, nil
+	}
+
+	if !fileExists(result.ConfigPath) {
+		result.Issues = append(result.Issues, DesktopIssue{
+			Code:    DesktopIssueConfigMissing,
+			Title:   "OpenASE config is missing",
+			Message: fmt.Sprintf("No config file was found at %s.", result.ConfigPath),
+			Action:  "Choose an existing PostgreSQL connection or let Docker prepare PostgreSQL for you.",
+		})
+		return result, nil
+	}
+
+	loaded, err := config.Load(config.LoadOptions{ConfigFile: result.ConfigPath})
+	if err != nil {
+		result.Issues = append(result.Issues, DesktopIssue{
+			Code:    DesktopIssueConfigInvalid,
+			Title:   "OpenASE config could not be loaded",
+			Message: err.Error(),
+			Action:  "Update the database settings from the desktop setup flow and write a fresh config.",
+		})
+		return result, nil
+	}
+
+	if err := s.connector.Ping(ctx, loaded.Database.DSN); err != nil {
+		result.Issues = append(result.Issues, classifyDesktopSetupIssue(err))
+		return result, nil
+	}
+
+	result.Ready = true
+	return result, nil
+}
+
+func (s *Service) DesktopApply(ctx context.Context, raw RawDesktopApplyRequest) (DesktopApplyResult, error) {
+	result := DesktopApplyResult{
+		Ready:          false,
+		ConfigPath:     s.configPathResolved(),
+		OpenASEHomeDir: s.openaseHomeDir(),
+	}
+
+	source, err := parseDatabaseSourceInput(raw.Database)
+	if err != nil {
+		result.Issues = append(result.Issues, DesktopIssue{
+			Code:    DesktopIssueInputInvalid,
+			Title:   "Setup input is incomplete",
+			Message: err.Error(),
+			Action:  "Review the database fields and try again.",
+		})
+		return result, nil
+	}
+
+	prepared, err := s.PrepareDatabase(ctx, raw.Database)
+	if err != nil {
+		result.DatabaseSource = source.Type
+		result.Issues = append(result.Issues, classifyDesktopSetupIssue(err))
+		return result, nil
+	}
+
+	completed, err := s.Complete(ctx, RawCompleteRequest{
+		Database:       prepared.Config.Raw(),
+		Auth:           defaultRawAuthInput(),
+		AllowOverwrite: raw.AllowOverwrite,
+	})
+	if err != nil {
+		result.DatabaseSource = prepared.Source
+		if prepared.Docker != nil {
+			result.Docker = prepared.Docker
+		}
+		result.Issues = append(result.Issues, classifyDesktopSetupIssue(err))
+		return result, nil
+	}
+
+	result.Ready = true
+	result.ConfigPath = completed.ConfigPath
+	result.EnvPath = completed.EnvPath
+	result.DatabaseSource = prepared.Source
+	result.Docker = prepared.Docker
+	return result, nil
 }
 
 func (s *Service) PrepareDatabase(ctx context.Context, raw RawDatabaseSourceInput) (PreparedDatabase, error) {
@@ -294,11 +393,12 @@ func (s *Service) Complete(ctx context.Context, raw RawCompleteRequest) (Complet
 }
 
 func (s *Service) ensureHomeLayout() error {
-	baseDir := filepath.Join(s.homeDir, ".openase")
+	baseDir := s.openaseHomeDir()
 	for _, dir := range []string{
 		baseDir,
 		filepath.Join(baseDir, "logs"),
 		filepath.Join(baseDir, "workspaces"),
+		filepath.Dir(s.configPathResolved()),
 	} {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return fmt.Errorf("create %s: %w", dir, err)
@@ -462,19 +562,106 @@ func (s *Service) writeEnvFile(authToken string) error {
 	return nil
 }
 
+func (s *Service) openaseHomeDir() string {
+	return filepath.Join(s.homeDir, ".openase")
+}
+
+func (s *Service) configPathResolved() string {
+	if strings.TrimSpace(s.configPathOverride) != "" {
+		return s.configPathOverride
+	}
+	return filepath.Join(s.openaseHomeDir(), "config.yaml")
+}
+
 func (s *Service) configPath() string {
-	return filepath.Join(s.homeDir, ".openase", "config.yaml")
+	return s.configPathResolved()
 }
 
 func (s *Service) envPath() string {
-	return filepath.Join(s.homeDir, ".openase", ".env")
+	return filepath.Join(s.openaseHomeDir(), ".env")
 }
 
 func (s *Service) existingConfigPath() (string, bool) {
-	if fileExists(s.configPath()) {
-		return s.configPath(), true
+	if fileExists(s.configPathResolved()) {
+		return s.configPathResolved(), true
 	}
-	return s.configPath(), false
+	return s.configPathResolved(), false
+}
+
+func classifyDesktopSetupIssue(err error) DesktopIssue {
+	if err == nil {
+		return DesktopIssue{
+			Code:    DesktopIssueSetupFailed,
+			Title:   "Setup failed",
+			Message: "unknown setup error",
+			Action:  "Retry the desktop setup.",
+		}
+	}
+
+	normalized := strings.ToLower(err.Error())
+	switch {
+	case errors.Is(err, ErrSetupAlreadyCompleted):
+		return DesktopIssue{
+			Code:    DesktopIssueSetupFailed,
+			Title:   "Config already exists",
+			Message: err.Error(),
+			Action:  "Retry with overwrite enabled or update the existing config manually.",
+		}
+	case strings.Contains(normalized, "password authentication failed"),
+		strings.Contains(normalized, "authentication failed"),
+		strings.Contains(normalized, "role") && strings.Contains(normalized, "does not exist"):
+		return DesktopIssue{
+			Code:    DesktopIssueDatabaseAuthFailed,
+			Title:   "PostgreSQL rejected the credentials",
+			Message: err.Error(),
+			Action:  "Update the username or password and retry the connection test.",
+		}
+	case strings.Contains(normalized, "docker is not installed"),
+		strings.Contains(normalized, "docker daemon is unavailable"),
+		strings.Contains(normalized, "docker daemon is not reachable"),
+		strings.Contains(normalized, "docker permission denied"):
+		return DesktopIssue{
+			Code:    DesktopIssueDockerUnavailable,
+			Title:   "Docker is unavailable",
+			Message: err.Error(),
+			Action:  "Install Docker, start the daemon, or switch to an existing PostgreSQL connection.",
+		}
+	case strings.Contains(normalized, "port 127.0.0.1"),
+		strings.Contains(normalized, "port is already allocated"):
+		return DesktopIssue{
+			Code:    DesktopIssuePortConflict,
+			Title:   "PostgreSQL port is already in use",
+			Message: err.Error(),
+			Action:  "Free the port or pick the existing PostgreSQL path.",
+		}
+	case strings.Contains(normalized, "not ready within"),
+		strings.Contains(normalized, "timed out"):
+		return DesktopIssue{
+			Code:    DesktopIssueSetupTimeout,
+			Title:   "Setup timed out",
+			Message: err.Error(),
+			Action:  "Retry the setup and inspect the logs if the timeout repeats.",
+		}
+	case strings.Contains(normalized, "connection refused"),
+		strings.Contains(normalized, "dial tcp"),
+		strings.Contains(normalized, "no such host"),
+		strings.Contains(normalized, "i/o timeout"),
+		strings.Contains(normalized, "network is unreachable"),
+		strings.Contains(normalized, "test database connection"):
+		return DesktopIssue{
+			Code:    DesktopIssueDatabaseUnreachable,
+			Title:   "PostgreSQL could not be reached",
+			Message: err.Error(),
+			Action:  "Verify the host, port, database name, and that PostgreSQL is running.",
+		}
+	default:
+		return DesktopIssue{
+			Code:    DesktopIssueSetupFailed,
+			Title:   "Setup failed",
+			Message: err.Error(),
+			Action:  "Retry the setup or inspect the logs for more detail.",
+		}
+	}
 }
 
 func (s *Service) detectCLIDiagnostics(ctx context.Context) []CLIDiagnostic {

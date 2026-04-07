@@ -5,6 +5,7 @@ const { DesktopAppController } = require('./app-controller')
 const { createFileLogger } = require('./runtime/logger')
 const { resolveDesktopPaths } = require('./runtime/paths')
 const { OpenASEServiceProcess } = require('./runtime/service-process')
+const { OpenASESetupRuntime } = require('./runtime/setup-runtime')
 const { enforceSingleInstanceLock } = require('./runtime/single-instance')
 
 const isHeadless = process.env.OPENASE_DESKTOP_HEADLESS === '1'
@@ -29,6 +30,11 @@ const service = new OpenASEServiceProcess({
   paths,
   logger,
 })
+const setupRuntime = new OpenASESetupRuntime({
+  env: process.env,
+  paths,
+  logger,
+})
 const controller = new DesktopAppController({
   app,
   Menu,
@@ -36,6 +42,7 @@ const controller = new DesktopAppController({
   shell,
   paths,
   service,
+  setupRuntime,
   logger,
   version: app.getVersion(),
   devServerURL: process.env.OPENASE_DESKTOP_DEV_SERVER_URL,
