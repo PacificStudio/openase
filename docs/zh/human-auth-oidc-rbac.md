@@ -4,6 +4,8 @@
 
 关于 `auth.mode=disabled` 与 `auth.mode=oidc` 如何长期共存的正式 IAM
 契约，请参见 [`docs/zh/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)。
+关于 instance admin、org admin 与 project settings 之间的稳态边界，请参见
+[`docs/zh/iam-admin-boundaries.md`](./iam-admin-boundaries.md)。
 
 ## 概述
 
@@ -69,7 +71,7 @@ OpenASE 也支持通过正常配置加载器使用等价的 `OPENASE_AUTH_*` 环
 
 ## Settings UI 与显式启用 OIDC
 
-Settings -> Security 是 IAM rollout 的主操作面板。
+Settings -> Security 是当前 IAM setup 的过渡操作面板。`/admin`、org admin 与 project settings 的稳态拆分定义在 [`iam-admin-boundaries.md`](./iam-admin-boundaries.md)。
 
 当 OpenASE 运行在 `auth.mode=disabled` 时，该页面会在不破坏本地管理员体验的前提下，直接提供认证设置面板：
 

@@ -2,10 +2,13 @@
 
 This checklist documents how to roll out the full IAM admin console safely across both supported auth modes: `disabled` and `oidc`.
 
+During the current transition, some controls may still appear together in Settings -> Security. The target control-plane ownership is defined in [`iam-admin-boundaries.md`](./iam-admin-boundaries.md) and should guide all follow-up implementation.
+
 Use it together with:
 
 - [`human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)
 - [`iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)
+- [`iam-admin-boundaries.md`](./iam-admin-boundaries.md)
 
 ## Rollout Goals
 

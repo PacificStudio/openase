@@ -5,6 +5,8 @@ This document describes the current OIDC setup and RBAC behavior shipped in Open
 For the long-term dual-mode IAM contract that defines how `auth.mode=disabled`
 and `auth.mode=oidc` coexist, see
 [`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md).
+For the steady-state boundary between instance admin, org admin, and project settings, see
+[`docs/en/iam-admin-boundaries.md`](./iam-admin-boundaries.md).
 
 ## Summary
 
@@ -70,7 +72,7 @@ OpenASE also supports equivalent `OPENASE_AUTH_*` environment variables through 
 
 ## Settings UI And Explicit OIDC Enablement
 
-The Settings -> Security page is the primary operator surface for IAM rollout.
+The Settings -> Security page is the current rollout surface for IAM setup. The steady-state split between `/admin`, org admin, and project settings is defined in [`iam-admin-boundaries.md`](./iam-admin-boundaries.md).
 
 When OpenASE runs in `auth.mode=disabled`, the page intentionally keeps the local admin experience intact while exposing an auth setup panel:
 

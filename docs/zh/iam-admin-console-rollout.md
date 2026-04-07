@@ -2,10 +2,13 @@
 
 本文档用于指导在 `disabled` 与 `oidc` 两种认证模式下，安全落地完整 IAM 管理控制台。
 
+当前过渡期里，部分控件仍可能暂时集中在 Settings -> Security 中；但后续实现必须遵循 [`iam-admin-boundaries.md`](./iam-admin-boundaries.md) 定义的目标控制面归属。
+
 建议配合以下文档一起使用：
 
 - [`human-auth-oidc-rbac.md`](./human-auth-oidc-rbac.md)
 - [`iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)
+- [`iam-admin-boundaries.md`](./iam-admin-boundaries.md)
 
 ## Rollout 目标
 
