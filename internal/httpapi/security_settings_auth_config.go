@@ -222,14 +222,6 @@ func (e securitySettingsConfigEditor) loadStoredState() (securityStoredAuthState
 	return state, nil
 }
 
-func (e securitySettingsConfigEditor) loadStoredAuth() (config.AuthConfig, error) {
-	state, err := e.loadStoredState()
-	if err != nil {
-		return config.AuthConfig{}, err
-	}
-	return state.Auth, nil
-}
-
 func (e securitySettingsConfigEditor) saveDraft(input securityOIDCDraftInput, mode config.AuthMode) (securityStoredAuthState, error) {
 	root, err := e.loadConfigRoot()
 	if err != nil {
@@ -252,10 +244,10 @@ func (e securitySettingsConfigEditor) saveDraft(input securityOIDCDraftInput, mo
 	return e.writeRoot(root)
 }
 
-func (e securitySettingsConfigEditor) saveValidation(record securityOIDCValidationRecord) (securityStoredAuthState, error) {
+func (e securitySettingsConfigEditor) saveValidation(record securityOIDCValidationRecord) error {
 	root, err := e.loadConfigRoot()
 	if err != nil {
-		return securityStoredAuthState{}, err
+		return err
 	}
 	authMap := childMap(root, "auth")
 	lastValidation := childMap(authMap, "last_validation")
@@ -271,7 +263,8 @@ func (e securitySettingsConfigEditor) saveValidation(record securityOIDCValidati
 	lastValidation["warnings"] = append([]string(nil), record.Warnings...)
 	authMap["last_validation"] = lastValidation
 	root["auth"] = authMap
-	return e.writeRoot(root)
+	_, err = e.writeRoot(root)
+	return err
 }
 
 func (e securitySettingsConfigEditor) loadConfigRoot() (map[string]any, error) {

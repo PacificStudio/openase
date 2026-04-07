@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { SecurityAuthSettings } from '$lib/api/contracts'
 import { authStore } from '$lib/stores/auth.svelte'
 import AdminAuthPage from './admin-auth-page.svelte'
-import { disabledSecurity } from '$lib/features/settings/components/security-settings.test-helpers'
 
 const { disableAdminAuth, enableAdminOIDC, getAdminAuth, saveAdminOIDCDraft, testAdminOIDCDraft } =
   vi.hoisted(() => ({
@@ -22,6 +22,78 @@ vi.mock('$lib/api/openase', () => ({
   testAdminOIDCDraft,
 }))
 
+function disabledAdminAuthFixture(): SecurityAuthSettings {
+  return {
+    active_mode: 'disabled',
+    configured_mode: 'disabled',
+    issuer_url: '',
+    local_principal: 'local_instance_admin:default',
+    mode_summary:
+      'Disabled mode keeps OpenASE in local single-user operation. The current user keeps local highest privilege without browser login or OIDC dependency.',
+    recommended_mode:
+      'Keep disabled mode for personal or local-only use. Move to OIDC + instance_admin when you need real multi-user browser access control.',
+    public_exposure_risk: 'local_only',
+    warnings: [
+      'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+    ],
+    next_steps: [
+      'You can keep disabled mode for local single-user use with no extra IAM overhead.',
+      'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+    ],
+    config_path: '/home/test/.openase/config.yaml',
+    bootstrap_state: {
+      status: 'configured',
+      admin_emails: ['admin@example.com'],
+      summary:
+        '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
+    },
+    session_policy: {
+      session_ttl: '8h0m0s',
+      session_idle_ttl: '30m0s',
+    },
+    last_validation: {
+      status: 'ok',
+      message:
+        'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
+      checked_at: '2026-04-07T04:12:00Z',
+      issuer_url: 'https://idp.example.com',
+      authorization_endpoint: 'https://idp.example.com/authorize',
+      token_endpoint: 'https://idp.example.com/token',
+      redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+      warnings: [],
+    },
+    oidc_draft: {
+      issuer_url: 'https://idp.example.com',
+      client_id: 'openase',
+      client_secret_configured: true,
+      redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+      scopes: ['openid', 'profile', 'email', 'groups'],
+      allowed_email_domains: ['example.com'],
+      bootstrap_admin_emails: ['admin@example.com'],
+    },
+    docs: [
+      {
+        title: 'Mode selection guide',
+        href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
+        summary:
+          'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+      },
+      {
+        title: 'Dual-mode contract',
+        href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
+        summary:
+          'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+      },
+      {
+        title: 'IAM rollout checklist',
+        href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
+        summary:
+          'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+      },
+    ],
+  }
+}
+
 describe('Admin auth page', () => {
   afterEach(() => {
     cleanup()
@@ -30,7 +102,7 @@ describe('Admin auth page', () => {
   })
 
   it('renders the instance auth posture and persisted diagnostics', async () => {
-    getAdminAuth.mockResolvedValue({ auth: disabledSecurity().auth })
+    getAdminAuth.mockResolvedValue({ auth: disabledAdminAuthFixture() })
 
     const { findByText, findByLabelText } = render(AdminAuthPage)
 
@@ -42,8 +114,8 @@ describe('Admin auth page', () => {
   })
 
   it('saves, tests, enables, and disables instance auth explicitly', async () => {
-    getAdminAuth.mockResolvedValue({ auth: disabledSecurity().auth })
-    saveAdminOIDCDraft.mockResolvedValue({ auth: disabledSecurity().auth })
+    getAdminAuth.mockResolvedValue({ auth: disabledAdminAuthFixture() })
+    saveAdminOIDCDraft.mockResolvedValue({ auth: disabledAdminAuthFixture() })
     testAdminOIDCDraft.mockResolvedValue({
       status: 'ok',
       message: 'OIDC discovery succeeded.',
@@ -61,7 +133,7 @@ describe('Admin auth page', () => {
         next_steps: ['Restart OpenASE', 'Complete bootstrap login'],
       },
       auth: {
-        ...disabledSecurity().auth,
+        ...disabledAdminAuthFixture(),
         configured_mode: 'oidc',
       },
     })
@@ -72,7 +144,7 @@ describe('Admin auth page', () => {
         restart_required: false,
         next_steps: ['Keep the saved OIDC draft'],
       },
-      auth: disabledSecurity().auth,
+      auth: disabledAdminAuthFixture(),
     })
 
     const { findByLabelText, findByRole, findByText } = render(AdminAuthPage)

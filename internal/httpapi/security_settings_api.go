@@ -209,7 +209,7 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 	}
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
 	response := securityOIDCTestResultResponse{
@@ -221,7 +221,7 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 		RedirectURL:           authCfg.OIDC.RedirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
 	}
-	if _, err := editor.saveValidation(securityOIDCValidationSuccessRecord(response)); err != nil {
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(response)); err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
 
@@ -252,10 +252,10 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 	}
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
-	if _, err := editor.saveValidation(securityOIDCValidationSuccessRecord(securityOIDCTestResultResponse{
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(securityOIDCTestResultResponse{
 		Status:                "ok",
 		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
 		IssuerURL:             diagnostics.IssuerURL,

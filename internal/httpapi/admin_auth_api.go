@@ -90,13 +90,13 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(state.Auth))
 	authCfg, err := completeOIDCAuthConfig(draft)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
 
@@ -109,7 +109,7 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 		RedirectURL:           authCfg.OIDC.RedirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
 	}
-	if _, err := editor.saveValidation(securityOIDCValidationSuccessRecord(response)); err != nil {
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(response)); err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusOK, response)
@@ -130,17 +130,17 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(state.Auth))
 	authCfg, err := completeOIDCAuthConfig(draft)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_, _ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
 
-	if _, err := editor.saveValidation(securityOIDCValidationSuccessRecord(securityOIDCTestResultResponse{
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(securityOIDCTestResultResponse{
 		Status:                "ok",
 		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active auth mode unchanged until you explicitly enable OIDC.",
 		IssuerURL:             diagnostics.IssuerURL,

@@ -1,2 +1,5 @@
 export { default as SettingsPage } from './components/settings-page.svelte'
+export { default as SecuritySettingsHumanAuthGuideLinks } from './components/security-settings-human-auth-guide-links.svelte'
+export { default as SecuritySettingsHumanAuthSummary } from './components/security-settings-human-auth-summary.svelte'
 export { default as WorkflowScheduledJobsPanel } from './components/workflow-scheduled-jobs-panel.svelte'
+export { formatTimestamp } from './components/security-settings-human-auth.model'
