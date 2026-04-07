@@ -266,7 +266,7 @@ func TestDesktopPreflightReportsMissingConfig(t *testing.T) {
 func TestDesktopPreflightClassifiesAuthenticationFailures(t *testing.T) {
 	homeDir := t.TempDir()
 	configPath := filepath.Join(homeDir, "custom", "config.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
 		t.Fatalf("MkdirAll() error = %v", err)
 	}
 	if err := os.WriteFile(configPath, []byte("database:\n  dsn: postgres://openase:bad@127.0.0.1:5432/openase?sslmode=disable\n"), 0o600); err != nil {
