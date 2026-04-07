@@ -174,7 +174,6 @@
       submittingInvite = false
     }
   }
-
   async function handleSaveRole(entry: OrganizationMembership) {
     const role = roleDrafts[entry.id] ?? (entry.role as MembershipRole)
     if (role === entry.role) {
@@ -195,7 +194,6 @@
       setBusy(busyKey, false)
     }
   }
-
   async function handleInvitationAction(
     entry: OrganizationMembership,
     action: 'resend' | 'cancel',
@@ -225,7 +223,6 @@
       setBusy(busyKey, false)
     }
   }
-
   async function handleMembershipStatus(
     entry: OrganizationMembership,
     status: 'active' | 'suspended' | 'removed',
@@ -245,7 +242,6 @@
       setBusy(busyKey, false)
     }
   }
-
   async function handleTransferOwnership(entry: OrganizationMembership) {
     const busyKey = `transfer:${entry.id}`
     setBusy(busyKey, true)
@@ -264,7 +260,6 @@
       setBusy(busyKey, false)
     }
   }
-
   $effect(() => {
     if (!organizationId) {
       memberships = []

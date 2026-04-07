@@ -3,6 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { authStore } from '$lib/stores/auth.svelte'
 import OrganizationMembersSection from './organization-members-section.svelte'
+import { makeInvitation, makeMembership, orgId } from './organization-members-section.test-helpers'
 
 const {
   getEffectivePermissions,
@@ -92,7 +93,7 @@ describe('OrganizationMembersSection', () => {
       },
       scope: {
         kind: 'organization',
-        id: 'org-1',
+        id: orgId,
       },
       roles: ['org_owner'],
       permissions: ['org.update', 'rbac.manage'],
@@ -111,47 +112,26 @@ describe('OrganizationMembersSection', () => {
   it('loads members and submits a new invite', async () => {
     listOrganizationMemberships
       .mockResolvedValueOnce([
-        {
+        makeMembership({
           id: 'membership-owner',
-          organizationID: 'org-1',
           userID: 'user-owner',
           email: 'owner@example.com',
+          displayName: 'Owner',
           role: 'owner',
           status: 'active',
-          invitedBy: 'system',
-          invitedAt: '2026-04-05T10:00:00Z',
-          acceptedAt: '2026-04-05T10:05:00Z',
-          createdAt: '2026-04-05T10:00:00Z',
-          updatedAt: '2026-04-05T10:05:00Z',
-          user: {
-            id: 'user-owner',
-            primaryEmail: 'owner@example.com',
-            displayName: 'Owner',
-          },
-        },
+        }),
       ])
       .mockResolvedValueOnce([
-        {
+        makeMembership({
           id: 'membership-owner',
-          organizationID: 'org-1',
           userID: 'user-owner',
           email: 'owner@example.com',
+          displayName: 'Owner',
           role: 'owner',
           status: 'active',
-          invitedBy: 'system',
-          invitedAt: '2026-04-05T10:00:00Z',
-          acceptedAt: '2026-04-05T10:05:00Z',
-          createdAt: '2026-04-05T10:00:00Z',
-          updatedAt: '2026-04-05T10:05:00Z',
-          user: {
-            id: 'user-owner',
-            primaryEmail: 'owner@example.com',
-            displayName: 'Owner',
-          },
-        },
-        {
+        }),
+        makeMembership({
           id: 'membership-invitee',
-          organizationID: 'org-1',
           email: 'invitee@example.com',
           role: 'member',
           status: 'invited',
@@ -159,22 +139,13 @@ describe('OrganizationMembersSection', () => {
           invitedAt: '2026-04-06T11:00:00Z',
           createdAt: '2026-04-06T11:00:00Z',
           updatedAt: '2026-04-06T11:00:00Z',
-          activeInvitation: {
-            id: 'invitation-1',
-            status: 'pending',
-            email: 'invitee@example.com',
-            role: 'member',
-            invitedBy: 'user:user-owner',
-            sentAt: '2026-04-06T11:00:00Z',
-            expiresAt: '2026-04-13T11:00:00Z',
-          },
-        },
+          activeInvitation: makeInvitation(),
+        }),
       ])
 
     inviteOrganizationMember.mockResolvedValue({
-      membership: {
+      membership: makeMembership({
         id: 'membership-invitee',
-        organizationID: 'org-1',
         email: 'invitee@example.com',
         role: 'member',
         status: 'invited',
@@ -182,29 +153,21 @@ describe('OrganizationMembersSection', () => {
         invitedAt: '2026-04-06T11:00:00Z',
         createdAt: '2026-04-06T11:00:00Z',
         updatedAt: '2026-04-06T11:00:00Z',
-      },
-      invitation: {
-        id: 'invitation-1',
-        status: 'pending',
-        email: 'invitee@example.com',
-        role: 'member',
-        invitedBy: 'user:user-owner',
-        sentAt: '2026-04-06T11:00:00Z',
-        expiresAt: '2026-04-13T11:00:00Z',
-      },
+      }),
+      invitation: makeInvitation(),
       acceptToken: 'accept-token-123',
     })
 
     const view = render(OrganizationMembersSection, {
-      organizationId: 'org-1',
+      organizationId: orgId,
     })
 
     await waitFor(() => {
       expect(listOrganizationMemberships).toHaveBeenCalledWith(
-        'org-1',
+        orgId,
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
       )
-      expect(getEffectivePermissions).toHaveBeenCalledWith({ orgId: 'org-1' })
+      expect(getEffectivePermissions).toHaveBeenCalledWith({ orgId })
     })
     expect(view.getByText('Owner')).toBeTruthy()
     expect(view.getByText('1 owner')).toBeTruthy()
@@ -215,7 +178,7 @@ describe('OrganizationMembersSection', () => {
     await fireEvent.click(view.getByRole('button', { name: 'Send invite' }))
 
     await waitFor(() => {
-      expect(inviteOrganizationMember).toHaveBeenCalledWith('org-1', {
+      expect(inviteOrganizationMember).toHaveBeenCalledWith(orgId, {
         email: 'invitee@example.com',
         role: 'member',
       })
@@ -234,62 +197,39 @@ describe('OrganizationMembersSection', () => {
   it('saves a role change for an existing member', async () => {
     listOrganizationMemberships
       .mockResolvedValueOnce([
-        {
+        makeMembership({
           id: 'membership-member',
-          organizationID: 'org-1',
           userID: 'user-member',
           email: 'member@example.com',
+          displayName: 'Member',
           role: 'member',
           status: 'active',
-          invitedBy: 'system',
-          invitedAt: '2026-04-05T10:00:00Z',
-          acceptedAt: '2026-04-05T10:05:00Z',
-          createdAt: '2026-04-05T10:00:00Z',
-          updatedAt: '2026-04-05T10:05:00Z',
-          user: {
-            id: 'user-member',
-            primaryEmail: 'member@example.com',
-            displayName: 'Member',
-          },
-        },
+        }),
       ])
       .mockResolvedValueOnce([
-        {
+        makeMembership({
           id: 'membership-member',
-          organizationID: 'org-1',
           userID: 'user-member',
           email: 'member@example.com',
+          displayName: 'Member',
           role: 'admin',
           status: 'active',
-          invitedBy: 'system',
-          invitedAt: '2026-04-05T10:00:00Z',
-          acceptedAt: '2026-04-05T10:05:00Z',
-          createdAt: '2026-04-05T10:00:00Z',
-          updatedAt: '2026-04-05T10:05:00Z',
-          user: {
-            id: 'user-member',
-            primaryEmail: 'member@example.com',
-            displayName: 'Member',
-          },
-        },
+        }),
       ])
 
-    updateOrganizationMembership.mockResolvedValue({
-      id: 'membership-member',
-      organizationID: 'org-1',
-      userID: 'user-member',
-      email: 'member@example.com',
-      role: 'admin',
-      status: 'active',
-      invitedBy: 'system',
-      invitedAt: '2026-04-05T10:00:00Z',
-      acceptedAt: '2026-04-05T10:05:00Z',
-      createdAt: '2026-04-05T10:00:00Z',
-      updatedAt: '2026-04-05T10:05:00Z',
-    })
+    updateOrganizationMembership.mockResolvedValue(
+      makeMembership({
+        id: 'membership-member',
+        userID: 'user-member',
+        email: 'member@example.com',
+        role: 'admin',
+        status: 'active',
+        displayName: 'Member',
+      }),
+    )
 
     const view = render(OrganizationMembersSection, {
-      organizationId: 'org-1',
+      organizationId: orgId,
     })
 
     await waitFor(() => {
@@ -317,7 +257,7 @@ describe('OrganizationMembersSection', () => {
     await fireEvent.click(saveButton)
 
     await waitFor(() => {
-      expect(updateOrganizationMembership).toHaveBeenCalledWith('org-1', 'membership-member', {
+      expect(updateOrganizationMembership).toHaveBeenCalledWith(orgId, 'membership-member', {
         role: 'admin',
       })
     })
