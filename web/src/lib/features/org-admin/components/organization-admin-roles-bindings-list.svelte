@@ -1,9 +1,6 @@
 <script lang="ts">
   import type { RoleBinding } from '$lib/api/auth'
-  import {
-    formatTimestamp,
-    resolveRoleOption,
-  } from '$lib/features/settings/components/security-settings-human-auth.model'
+  import { formatTimestamp, resolveRoleOption } from '$lib/features/org-admin/role-bindings'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
 

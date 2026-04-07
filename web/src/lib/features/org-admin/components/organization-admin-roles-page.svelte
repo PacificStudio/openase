@@ -4,7 +4,7 @@
     defaultBindingDraftForScope,
     resolveRoleOption,
     type BindingDraft,
-  } from '$lib/features/settings/components/security-settings-human-auth.model'
+  } from '$lib/features/org-admin/role-bindings'
   import {
     createOrganizationRoleBinding,
     deleteOrganizationRoleBinding,
@@ -27,7 +27,7 @@
   let mutationKey = $state('')
   let bindings = $state<RoleBinding[]>([])
   let permissions = $state<EffectivePermissionsResponse | null>(null)
-  let draft = $state<BindingDraft>(defaultBindingDraftForScope('organization'))
+  let draft = $state<BindingDraft>(defaultBindingDraftForScope())
 
   const canManageBindings = $derived(permissions?.permissions.includes('rbac.manage') ?? false)
   const canManagePrivilegedRoles = $derived(
@@ -79,12 +79,12 @@
     mutationKey = 'create'
     error = ''
     try {
-      const payload = createBindingPayload('organization', {
+      const payload = createBindingPayload({
         ...draft,
         roleKey: roleOptions.includes(draft.roleKey) ? draft.roleKey : 'org_member',
       })
       await createOrganizationRoleBinding(organizationId, payload)
-      draft = defaultBindingDraftForScope('organization')
+      draft = defaultBindingDraftForScope()
       await loadState()
       toastStore.success('Organization role binding added.')
     } catch (caughtError) {
