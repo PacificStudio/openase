@@ -60,8 +60,8 @@ During migration, OpenASE should keep reading the legacy ownership string `local
 
 ### Settings Access
 
-- In `disabled`, the Settings UI and protected writes run as `local_instance_admin:default`.
-- In `oidc`, the Settings UI runs as the authenticated user and authorization checks depend on the user's effective bindings.
+- In `disabled`, `/admin` and other protected writes run as `local_instance_admin:default`.
+- In `oidc`, `/admin` runs as the authenticated user and authorization checks depend on the user's effective bindings.
 
 ### Session Model
 
@@ -95,7 +95,7 @@ The mode switch is a configuration workflow, not a login side effect.
 ### Admin Workflow
 
 1. Start in `auth.mode=disabled` with the local bootstrap admin subject active.
-2. Open Settings and save draft OIDC configuration. Saving draft config does not change the current auth mode.
+2. Open `/admin` and save draft OIDC configuration. Saving draft config does not change the current auth mode.
 3. Run `Test OIDC`.
    - Validate field completeness.
    - Fetch discovery metadata and JWKS.

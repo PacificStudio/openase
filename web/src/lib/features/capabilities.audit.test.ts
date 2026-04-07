@@ -146,8 +146,8 @@ const settingsAuditCases: SettingsAuditCase[] = [
     expectedState: 'available',
     summarySnippets: [
       'GET /api/v1/projects/{projectId}/security-settings',
-      'human auth',
-      'RBAC',
+      'project-scoped RBAC',
+      '/admin',
       'approval policy expansion',
       'GitHub Device Flow remain explicitly deferred',
     ],
@@ -158,7 +158,10 @@ const settingsAuditCases: SettingsAuditCase[] = [
       },
       {
         file: './settings/components/security-settings.svelte',
-        snippets: ['const payload = await getSecuritySettings(projectId)'],
+        snippets: [
+          'const payload = await getSecuritySettings(projectId)',
+          'Instance auth moved to `/admin`',
+        ],
       },
       {
         file: './settings/components/security-settings-github-outbound-credentials.svelte',

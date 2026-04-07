@@ -5,6 +5,22 @@ import type { AgentProvider, Organization, Project } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import OrganizationDashboardPage from './organization-dashboard-page.svelte'
 
+vi.hoisted(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
+
 const { loadOrganizationDashboardSummary } = vi.hoisted(() => ({
   loadOrganizationDashboardSummary: vi.fn(),
 }))
@@ -133,6 +149,7 @@ describe('OrganizationDashboardPage', () => {
 
     const links = view.getAllByRole('link')
     expect(links.some((link) => link.getAttribute('href') === '/orgs/org-1')).toBe(true)
+    expect(links.some((link) => link.getAttribute('href') === '/orgs/org-1/admin')).toBe(true)
     expect(
       links.some((link) => link.getAttribute('href') === '/orgs/org-1/projects/project-1'),
     ).toBe(true)

@@ -1683,6 +1683,20 @@ type OpenAPISecurityOIDCEnableResponse struct {
 	Security   OpenAPISecuritySettings       `json:"security"`
 }
 
+type OpenAPIAdminSecuritySettings struct {
+	Auth             OpenAPISecurityAuthSettings     `json:"auth"`
+	ApprovalPolicies OpenAPISecurityApprovalPolicies `json:"approval_policies"`
+}
+
+type OpenAPIAdminSecuritySettingsResponse struct {
+	Settings OpenAPIAdminSecuritySettings `json:"settings"`
+}
+
+type OpenAPIAdminSecurityOIDCEnableResponse struct {
+	Activation OpenAPISecurityOIDCActivation `json:"activation"`
+	Settings   OpenAPIAdminSecuritySettings  `json:"settings"`
+}
+
 type OpenAPIAuthSessionUser struct {
 	ID           string `json:"id"`
 	PrimaryEmail string `json:"primary_email"`
@@ -2369,6 +2383,9 @@ var (
 		"POST /api/v1/projects/{projectId}/repos":                                                      openAPIRepoRequestDescriptions,
 		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                                            openAPIRepoRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/github/repos":                                               openAPIGitHubRepositoryDescriptions,
+		"PUT /api/v1/admin/security-settings/oidc-draft":                                               openAPIOIDCDraftDescriptions,
+		"POST /api/v1/admin/security-settings/oidc-draft/test":                                         openAPIOIDCDraftDescriptions,
+		"POST /api/v1/admin/security-settings/oidc-enable":                                             openAPIOIDCDraftDescriptions,
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential":                openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
@@ -5401,6 +5418,77 @@ func (b openAPISpecBuilder) addNotificationOperations() error {
 }
 
 func (b openAPISpecBuilder) addSecurityOperations() error {
+	adminSecurityGet, err := b.jsonOperation(
+		"getAdminSecuritySettings",
+		"Get instance admin auth and security settings",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIAdminSecuritySettingsResponse{},
+		nil,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/security-settings", http.MethodGet, adminSecurityGet)
+
+	adminOIDCDraftPut, err := b.jsonOperation(
+		"saveAdminOIDCDraft",
+		"Save the instance-level OIDC draft without changing the active auth mode",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIAdminSecuritySettingsResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/security-settings/oidc-draft", http.MethodPut, adminOIDCDraftPut)
+
+	adminOIDCDraftTest, err := b.jsonOperation(
+		"testAdminOIDCDraft",
+		"Test instance-level OIDC discovery using the provided draft configuration",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPISecurityOIDCTestResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/security-settings/oidc-draft/test", http.MethodPost, adminOIDCDraftTest)
+
+	adminOIDCEnable, err := b.jsonOperation(
+		"enableAdminOIDC",
+		"Persist the instance-level OIDC draft and switch the configured auth mode to oidc",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIAdminSecurityOIDCEnableResponse{},
+		OpenAPISecurityOIDCDraftRequest{},
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusServiceUnavailable,
+		http.StatusBadGateway,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	b.doc.AddOperation("/api/v1/admin/security-settings/oidc-enable", http.MethodPost, adminOIDCEnable)
+
 	securityGet, err := b.jsonOperation(
 		"getSecuritySettings",
 		"Get project security settings posture",

@@ -1,83 +1,117 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { appStore } from '$lib/stores/app.svelte'
 import { authStore } from '$lib/stores/auth.svelte'
-import SecuritySettings from './security-settings.svelte'
-import { configuredSecurity, currentOrg, currentProject } from './security-settings.test-helpers'
+import InstanceAdminPage from '$lib/features/admin/components/instance-admin-page.svelte'
 import {
   configuredSessionGovernance,
   hydrateOidcAuth,
   mockEffectivePermissionsByScope,
 } from './security-settings-human-auth.fixtures'
 
-const { getSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
-  getSecuritySettings: vi.fn(),
+vi.hoisted(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
+
+const { getAdminSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
+  getAdminSecuritySettings: vi.fn(),
   getSessionGovernance: vi.fn(),
 }))
 
 const {
-  cancelOrganizationInvitation,
+  adminRevokeUserAuthSessions,
+  createInstanceRoleBinding,
+  deleteInstanceRoleBinding,
   getEffectivePermissions,
   getInstanceUserDetail,
-  inviteOrganizationMember,
   listInstanceRoleBindings,
   listInstanceUsers,
-  listOrganizationMemberships,
-  listOrganizationRoleBindings,
-  listProjectRoleBindings,
-  resendOrganizationInvitation,
-  transferOrganizationOwnership,
+  logoutHumanSession,
   transitionInstanceUserStatus,
-  updateOrganizationMembership,
 } = vi.hoisted(() => ({
-  cancelOrganizationInvitation: vi.fn(),
+  adminRevokeUserAuthSessions: vi.fn(),
+  createInstanceRoleBinding: vi.fn(),
+  deleteInstanceRoleBinding: vi.fn(),
   getEffectivePermissions: vi.fn(),
   getInstanceUserDetail: vi.fn(),
-  inviteOrganizationMember: vi.fn(),
   listInstanceRoleBindings: vi.fn(),
   listInstanceUsers: vi.fn(),
-  listOrganizationMemberships: vi.fn(),
-  listOrganizationRoleBindings: vi.fn(),
-  listProjectRoleBindings: vi.fn(),
-  resendOrganizationInvitation: vi.fn(),
-  transferOrganizationOwnership: vi.fn(),
+  logoutHumanSession: vi.fn(),
   transitionInstanceUserStatus: vi.fn(),
-  updateOrganizationMembership: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
-  getSecuritySettings,
+  getAdminSecuritySettings,
   getSessionGovernance,
+  revokeAllOtherAuthSessions: vi.fn(),
+  revokeAuthSession: vi.fn(),
 }))
 
 vi.mock('$lib/api/auth', () => ({
-  cancelOrganizationInvitation,
+  adminRevokeUserAuthSessions,
+  createInstanceRoleBinding,
+  deleteInstanceRoleBinding,
   getEffectivePermissions,
   getInstanceUserDetail,
-  inviteOrganizationMember,
   listInstanceRoleBindings,
   listInstanceUsers,
-  listOrganizationMemberships,
-  listOrganizationRoleBindings,
-  listProjectRoleBindings,
-  resendOrganizationInvitation,
-  transferOrganizationOwnership,
-  transitionInstanceUserStatus,
+  logoutHumanSession,
   normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
-  updateOrganizationMembership,
+  transitionInstanceUserStatus,
 }))
 
-function seedUserDirectory() {
+function seedInstanceAdmin() {
   hydrateOidcAuth()
-  appStore.currentOrg = currentOrg()
-  appStore.currentProject = currentProject()
-  getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+  getAdminSecuritySettings.mockResolvedValue({
+    settings: {
+      auth: {
+        active_mode: 'oidc',
+        configured_mode: 'oidc',
+        issuer_url: 'https://idp.example.com',
+        local_principal: 'local_instance_admin:default',
+        mode_summary: 'OIDC is active.',
+        recommended_mode: 'oidc',
+        public_exposure_risk: 'medium',
+        warnings: [],
+        next_steps: [],
+        config_path: '~/.openase/config.yaml',
+        bootstrap_state: {
+          status: 'configured',
+          admin_emails: ['admin@example.com'],
+          summary: '1 bootstrap admin email(s) configured.',
+        },
+        oidc_draft: {
+          issuer_url: 'https://idp.example.com',
+          client_id: 'openase',
+          client_secret_configured: true,
+          redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+          scopes: ['openid', 'profile', 'email', 'groups'],
+          allowed_email_domains: ['example.com'],
+          bootstrap_admin_emails: ['admin@example.com'],
+        },
+        docs: [],
+      },
+      approval_policies: {
+        status: 'reserved',
+        rules_count: 0,
+        summary: 'Reserved for future high-risk actions.',
+      },
+    },
+  })
   getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
   listInstanceRoleBindings.mockResolvedValue([])
-  listOrganizationMemberships.mockResolvedValue([])
-  listOrganizationRoleBindings.mockResolvedValue([])
-  listProjectRoleBindings.mockResolvedValue([])
   getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
   listInstanceUsers.mockResolvedValue([
     {
@@ -139,31 +173,27 @@ function seedUserDirectory() {
   })
 }
 
-describe('Security settings user directory', () => {
+describe('Instance admin user directory', () => {
   afterEach(() => {
     cleanup()
     authStore.clear()
-    appStore.currentOrg = null
-    appStore.currentProject = null
     vi.clearAllMocks()
   })
 
-  it('renders the user directory and identity governance details', async () => {
-    seedUserDirectory()
+  it('renders the instance user directory and identity detail', async () => {
+    seedInstanceAdmin()
 
-    const { findByText } = render(SecuritySettings)
+    const { findByText } = render(InstanceAdminPage)
 
+    expect(await findByText('Instance Admin')).toBeTruthy()
     expect(await findByText('User directory and deprovision')).toBeTruthy()
     expect(await findByText('Bob Reviewer')).toBeTruthy()
     expect(await findByText('Identity governance detail')).toBeTruthy()
     expect(await findByText('subject: subject-bob')).toBeTruthy()
-    expect(await findByText('OIDC group cache')).toBeTruthy()
-    expect(await findByText('No synchronized groups for this user.')).toBeTruthy()
-    expect(await findByText('Lifecycle controls')).toBeTruthy()
   })
 
-  it('disables a cached user from the directory with an audit reason', async () => {
-    seedUserDirectory()
+  it('disables a cached user from the instance directory with an audit reason', async () => {
+    seedInstanceAdmin()
     transitionInstanceUserStatus.mockResolvedValue({
       user: {
         id: 'user-2',
@@ -187,7 +217,7 @@ describe('Security settings user directory', () => {
       },
     })
 
-    const { findByPlaceholderText, findByRole } = render(SecuritySettings)
+    const { findByPlaceholderText, findByRole } = render(InstanceAdminPage)
     const reasonInput = await findByPlaceholderText(
       'Document the lifecycle reason for audit and future review',
     )

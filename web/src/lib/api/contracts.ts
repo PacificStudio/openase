@@ -489,6 +489,9 @@ export type NotificationRule = ItemOf<NotificationRulePayload['rules']>
 type RawSecuritySettingsResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings', 'get'>
 >
+type RawAdminSecuritySettingsResponse = DeepRequired<
+  ResponseFor<'/api/v1/admin/security-settings', 'get'>
+>
 export type SecurityAuthBootstrapState = {
   status: string
   admin_emails: string[]
@@ -528,6 +531,11 @@ export type SecuritySettingsResponse = Omit<RawSecuritySettingsResponse, 'securi
     auth: SecurityAuthSettings
   }
 }
+export type AdminSecuritySettingsResponse = Omit<RawAdminSecuritySettingsResponse, 'settings'> & {
+  settings: RawAdminSecuritySettingsResponse['settings'] & {
+    auth: SecurityAuthSettings
+  }
+}
 export type OIDCDraftTestResponse = {
   status: string
   message: string
@@ -545,6 +553,10 @@ export type OIDCEnableResponse = {
     next_steps: string[]
   }
   security: SecuritySettingsResponse['security']
+}
+export type AdminOIDCEnableResponse = {
+  activation: OIDCEnableResponse['activation']
+  settings: AdminSecuritySettingsResponse['settings']
 }
 export type SaveGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'put'>

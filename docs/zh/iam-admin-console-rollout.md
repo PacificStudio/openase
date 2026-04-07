@@ -19,18 +19,11 @@
 
 ## 管理控制台覆盖面
 
-Settings -> Security 现在提供：
+现在 IAM 控制面被明确拆分为：
 
-- active auth mode 与 configured auth mode
-- issuer 与 bootstrap admin 摘要
-- disabled 模式说明与公网暴露风险提示
-- 包含 save / test / enable 动作的 OIDC 草稿表单
-- instance / organization / project 范围的 effective access
-- role bindings
-- session inventory 与 audit 摘要
-- user directory
-- organization members 与 invitations
-- rollout / rollback 文档入口
+- `/admin`：负责 active/configured auth mode、issuer/bootstrap 摘要、disabled 模式说明、公网暴露风险提示、OIDC 草稿 save/test/enable、instance RBAC、session inventory、user directory，以及 rollout / rollback 文档入口。
+- `/orgs/:orgId/admin`：负责 organization 级 RBAC、members 与 invitations。
+- project Settings -> Security：只保留 project 范围内的 RBAC 与项目边界凭据能力。
 
 ## 部署选择矩阵
 
@@ -61,7 +54,7 @@ Settings -> Security 现在提供：
 
 ## Disabled 模式验证
 
-针对个人 / 本地部署，确认 Security 页面满足以下要求：
+针对个人 / 本地部署，确认 `/admin` 页面满足以下要求：
 
 - 明确说明当前运行在 disabled 模式
 - 明确说明当前操作者已经拥有本地最高权限
@@ -73,7 +66,7 @@ Settings -> Security 现在提供：
 
 ## OIDC 草稿与启用清单
 
-1. 在仍处于 `auth.mode=disabled` 时打开 Settings -> Security。
+1. 在仍处于 `auth.mode=disabled` 时打开 `/admin`。
 2. 填写：
    - issuer URL
    - client ID
@@ -102,7 +95,7 @@ Settings -> Security 现在提供：
 - role bindings 是否可以查看和更新
 - session inventory 是否能看到当前浏览器会话
 - user directory 是否列出同步后的用户
-- organization members 与 invitations 是否可用
+- `/orgs/:orgId/admin` 中的 organization members 与 invitations 是否可用
 - audit / diagnostics 摘要是否反映新的登录路径
 
 ## 从基础 OIDC+RBAC 迁移到完整控制台的检查项
@@ -110,11 +103,11 @@ Settings -> Security 现在提供：
 适用于已在使用 OIDC 的实例：
 
 1. 确认现有 OIDC 配置仍与 provider 匹配。
-2. 打开 Security 页面，检查保存下来的 issuer、scopes 与 redirect URL。
+2. 打开 `/admin`，检查保存下来的 issuer、scopes 与 redirect URL。
 3. 确认 bootstrap admin 邮箱仍适用于 break-glass 恢复。
 4. 检查实例、组织、项目范围的管理员与操作员绑定。
 5. 验证 session inventory 与 user directory 是否符合预期用户集合。
-6. 验证 organization memberships 与 invitations。
+6. 验证 `/orgs/:orgId/admin` 中的 organization memberships 与 invitations。
 7. 在一次全新登录后复查 audit / diagnostics 摘要。
 8. 当稳态 RBAC 已确认后，收窄或清空 bootstrap admin 邮箱列表。
 
@@ -124,7 +117,7 @@ Settings -> Security 现在提供：
 
 1. 如果 rollout 期间 OIDC 登录或授权失败，将 `auth.mode` 改回 `disabled`。
 2. 如果部署模型要求重启，则重启服务。
-3. 确认 Security 页面重新显示 disabled 模式和本地管理员主体。
+3. 确认 `/admin` 页面重新显示 disabled 模式和本地管理员主体。
 4. 保留已保存的 OIDC 草稿，便于修复问题后重试。
 5. 在再次启用前，先记录并定位失败原因。
 
@@ -136,7 +129,7 @@ Settings -> Security 现在提供：
 
 ### `disabled`
 
-- Security 页面渲染 auth setup 面板
+- `/admin` 页面渲染 auth setup 面板
 - 保存 OIDC 草稿不会改变 active mode
 - 测试 OIDC 能返回 discovery diagnostics
 - 在合适条件下出现公网风险提示
@@ -147,8 +140,8 @@ Settings -> Security 现在提供：
 - effective access 面板与预期绑定一致
 - instance / org / project 三个范围的 role-binding CRUD 正常
 - session inventory 与 revoke 动作可用
-- user directory 与 membership diagnostics 正常加载
-- organization invites 可发送和管理
+- `/admin` 上的 user directory diagnostics 正常加载
+- `/orgs/:orgId/admin` 上的 organization invites 可发送和管理
 
 ## 运维说明
 

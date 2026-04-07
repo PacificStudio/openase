@@ -84,9 +84,9 @@
         </div>
         <p class="text-muted-foreground text-sm leading-relaxed">{auth.mode_summary}</p>
         <p class="text-muted-foreground text-xs leading-relaxed">
-          Your current local admin principal is <code>{auth.local_principal}</code>. You can keep
-          using disabled mode for personal or local work, or configure OIDC now and enable it only
-          when you want multi-user browser access.
+          The disabled-mode bootstrap subject remains <code>{auth.local_principal}</code>. Use this
+          control plane to keep local single-user access, stage an OIDC draft, or rotate the
+          configured provider details before broader rollout.
         </p>
       </div>
 

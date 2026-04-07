@@ -1,12 +1,14 @@
 import { organizationPath, projectPath } from '$lib/stores/app-context'
 import {
   Activity,
+  Building2,
   Bot,
   CalendarClock,
   LayoutDashboard,
   MessageSquare,
   Server,
   Settings,
+  Shield,
   TicketCheck,
   Workflow,
   Wrench,
@@ -43,14 +45,32 @@ const projectSections = [
 
 export function buildGlobalNav(currentPath: string, currentOrgId: string | null): SidebarNavItem[] {
   const href = currentOrgId ? organizationPath(currentOrgId) : '/'
-  return [
+  const items: SidebarNavItem[] = [
     {
       label: 'Dashboard',
       href,
       icon: LayoutDashboard,
       active: currentPath === href,
     },
+    {
+      label: 'Instance Admin',
+      href: '/admin',
+      icon: Shield,
+      active: currentPath.startsWith('/admin'),
+    },
   ]
+
+  if (currentOrgId) {
+    const orgAdminHref = `${organizationPath(currentOrgId)}/admin`
+    items.push({
+      label: 'Org Admin',
+      href: orgAdminHref,
+      icon: Building2,
+      active: currentPath.startsWith(orgAdminHref),
+    })
+  }
+
+  return items
 }
 
 export function buildProjectNav({

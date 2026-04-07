@@ -7,6 +7,8 @@ import type {
   AgentProviderResponse,
   AgentOutputPayload,
   AgentStepPayload,
+  AdminOIDCEnableResponse,
+  AdminSecuritySettingsResponse,
   AgentResponse,
   AgentProvider,
   AgentProviderListPayload,
@@ -285,22 +287,43 @@ export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
 }
 
+type OIDCDraftRequest = {
+  issuer_url: string
+  client_id: string
+  client_secret?: string
+  redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+}
+
+export function getAdminSecuritySettings() {
+  return api.get<AdminSecuritySettingsResponse>('/api/v1/admin/security-settings')
+}
+
+export function saveAdminOIDCDraft(body: OIDCDraftRequest) {
+  return api.put<AdminSecuritySettingsResponse>('/api/v1/admin/security-settings/oidc-draft', {
+    body,
+  })
+}
+
+export function testAdminOIDCDraft(body: OIDCDraftRequest) {
+  return api.post<OIDCDraftTestResponse>('/api/v1/admin/security-settings/oidc-draft/test', {
+    body,
+  })
+}
+
+export function enableAdminOIDC(body: OIDCDraftRequest) {
+  return api.post<AdminOIDCEnableResponse>('/api/v1/admin/security-settings/oidc-enable', {
+    body,
+  })
+}
+
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
 }
 
-export function saveOIDCDraft(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function saveOIDCDraft(projectId: string, body: OIDCDraftRequest) {
   return api.put<SecuritySettingsResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
     {
@@ -309,36 +332,14 @@ export function saveOIDCDraft(
   )
 }
 
-export function testOIDCDraft(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function testOIDCDraft(projectId: string, body: OIDCDraftRequest) {
   return api.post<OIDCDraftTestResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
     { body },
   )
 }
 
-export function enableOIDC(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function enableOIDC(projectId: string, body: OIDCDraftRequest) {
   return api.post<OIDCEnableResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
     {

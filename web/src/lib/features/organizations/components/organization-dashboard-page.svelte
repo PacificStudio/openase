@@ -19,7 +19,6 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Ticket as TicketIcon } from '@lucide/svelte'
-  import OrganizationMembersSection from './organization-members-section.svelte'
 
   const currentOrg = $derived(appStore.currentOrg),
     projects = $derived(appStore.projects),
@@ -104,6 +103,11 @@
       </div>
     </div>
     <div class="flex gap-2">
+      {#if currentOrg}
+        <Button variant="outline" href={`${organizationPath(currentOrg.id)}/admin`}
+          >Org admin</Button
+        >
+      {/if}
       <Button variant="outline" onclick={() => (showProviderDialog = true)}>Add provider</Button>
       <Button onclick={() => (showProjectDialog = true)}>New project</Button>
     </div>
@@ -196,10 +200,6 @@
       </button>
     {/if}
   </section>
-
-  {#if currentOrg}
-    <OrganizationMembersSection organizationId={currentOrg.id} />
-  {/if}
 </div>
 
 {#if currentOrg}

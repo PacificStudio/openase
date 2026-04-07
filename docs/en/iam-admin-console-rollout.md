@@ -19,18 +19,13 @@ Use it together with:
 
 ## Surfaces Covered By The Admin Console
 
-Settings -> Security now provides:
+The IAM control plane is now split explicitly:
 
-- active auth mode and configured auth mode
-- issuer and bootstrap admin summary
-- explicit disabled-mode guidance and public-exposure warnings
-- OIDC draft form with save / test / enable actions
-- effective access across instance, organization, and project scopes
-- role bindings
-- session inventory and audit summary
-- user directory
-- organization members and invitations
-- rollout and rollback documentation links
+- `/admin` owns active/configured auth mode, issuer/bootstrap summary, disabled-mode guidance,
+  public-exposure warnings, OIDC draft save/test/enable, instance RBAC, session inventory, user
+  directory, and rollout / rollback documentation links.
+- `/orgs/:orgId/admin` owns organization-scoped RBAC plus members and invitations.
+- project Settings -> Security keeps only project-scoped RBAC and project-boundary credentials.
 
 ## Deployment Choice Matrix
 
@@ -61,7 +56,7 @@ Before touching the mode:
 
 ## Disabled-Mode Validation
 
-For personal and local deployments, validate that the Security page:
+For personal and local deployments, validate that `/admin`:
 
 - clearly states that disabled mode is active
 - explains that the current operator already has local highest privilege
@@ -73,7 +68,7 @@ This ensures that disabled mode remains a first-class product path rather than a
 
 ## OIDC Draft And Enablement Checklist
 
-1. Open Settings -> Security while still on `auth.mode=disabled`.
+1. Open `/admin` while still on `auth.mode=disabled`.
 2. Fill in:
    - issuer URL
    - client ID
@@ -102,7 +97,7 @@ After the first successful OIDC login, verify the following from the product UI:
 - role bindings can be inspected and updated
 - session inventory shows the current browser session
 - user directory lists synchronized users
-- organization members and invitations are available
+- `/orgs/:orgId/admin` shows organization members and invitations
 - audit / diagnostics summary reflects the new login path
 
 ## Migration Checklist From Basic OIDC+RBAC To The Full Console
@@ -110,11 +105,11 @@ After the first successful OIDC login, verify the following from the product UI:
 Use this when upgrading an existing OIDC-backed instance:
 
 1. Confirm existing OIDC settings still match the provider.
-2. Open the Security page and verify the stored issuer, scopes, and redirect URL.
+2. Open `/admin` and verify the stored issuer, scopes, and redirect URL.
 3. Confirm bootstrap admin emails are still correct for break-glass recovery.
 4. Review instance, organization, and project bindings for administrators and operators.
 5. Validate session inventory and user directory data against expected users.
-6. Validate organization memberships and invitations.
+6. Validate `/orgs/:orgId/admin` memberships and invitations.
 7. Review audit / diagnostics summary after a fresh login.
 8. Remove or narrow bootstrap admin emails once steady-state RBAC is confirmed.
 
@@ -124,7 +119,7 @@ Rollback must be explicit and fast:
 
 1. If OIDC login or authorization fails during rollout, revert `auth.mode` to `disabled`.
 2. Restart the service if required by the deployment model.
-3. Confirm that the Security page again shows disabled mode and the local admin principal.
+3. Confirm that `/admin` again shows disabled mode and the local admin principal.
 4. Keep the saved OIDC draft so you can retry after fixing the provider or RBAC issue.
 5. Record the failure cause before attempting another enablement.
 
@@ -136,7 +131,7 @@ Validate both product modes before wider rollout:
 
 ### `disabled`
 
-- Security page renders the auth setup panel
+- `/admin` renders the auth setup panel
 - saving OIDC draft does not change the active mode
 - testing OIDC returns discovery diagnostics
 - public-host warning appears when appropriate
@@ -147,8 +142,8 @@ Validate both product modes before wider rollout:
 - effective access panels match expected bindings
 - role-binding CRUD works across instance, org, and project scopes
 - session inventory and revoke actions work
-- user directory and membership diagnostics load
-- organization invites can be sent and managed
+- user directory diagnostics load from `/admin`
+- organization invites can be sent and managed from `/orgs/:orgId/admin`
 
 ## Operational Notes
 

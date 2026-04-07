@@ -212,79 +212,29 @@ describe('Security settings', () => {
     expect(await findByText('No scopes reported')).toBeTruthy()
   })
 
-  it('filters role picker options by scope, including instance bindings', async () => {
+  it('keeps only project-scoped RBAC controls inside project security settings', async () => {
     hydrateOidcAuth()
-    appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getSessionGovernance.mockResolvedValue({
-      authMode: 'oidc',
-      currentSessionID: 'session-current',
-      sessions: [],
-      auditEvents: [],
-      stepUp: {
-        status: 'reserved',
-        summary: 'Reserved for future high-risk actions.',
-        supportedMethods: [],
-      },
-    })
-    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) =>
-      effectivePermissionsMock(
-        orgId ? 'organization' : projectId ? 'project' : 'instance',
-        orgId ?? projectId ?? '',
-      ),
+    getEffectivePermissions.mockImplementation(async ({ projectId }) =>
+      effectivePermissionsMock('project', projectId ?? ''),
     )
-    listInstanceRoleBindings.mockResolvedValue([])
-    listOrganizationRoleBindings.mockResolvedValue([])
     listProjectRoleBindings.mockResolvedValue([])
-    listInstanceUsers.mockResolvedValue([])
-    listOrganizationMemberships.mockResolvedValue([])
-    getInstanceUserDetail.mockResolvedValue({
-      user: {
-        id: '',
-        status: 'active',
-        primaryEmail: '',
-        displayName: '',
-        avatarURL: '',
-        createdAt: '',
-        updatedAt: '',
-      },
-      identities: [],
-      groups: [],
-      activeSessionCount: 0,
-      recentAuditEvents: [],
-    })
 
     const { findByText } = render(SecuritySettings)
 
-    const instanceSection = (await findByText('Instance RBAC')).closest(
-      '.border-border',
-    ) as HTMLElement
-    const organizationSection = (await findByText('Organization RBAC')).closest(
-      '.border-border',
-    ) as HTMLElement
+    expect(await findByText('Instance auth moved to `/admin`')).toBeTruthy()
+    expect(await findByText('Org member governance moved to org admin')).toBeTruthy()
     const projectSection = (await findByText('Project RBAC')).closest(
       '.border-border',
     ) as HTMLElement
 
-    const instanceRoleSelect = within(instanceSection).getAllByRole(
-      'combobox',
-    )[1] as HTMLSelectElement
-    const organizationRoleSelect = within(organizationSection).getAllByRole(
-      'combobox',
-    )[1] as HTMLSelectElement
     const projectRoleSelect = within(projectSection).getAllByRole(
       'combobox',
     )[1] as HTMLSelectElement
 
-    const instanceRoleOptions = Array.from(instanceRoleSelect.options).map((option) => option.value)
-    const organizationRoleOptions = Array.from(organizationRoleSelect.options).map(
-      (option) => option.value,
-    )
     const projectRoleOptions = Array.from(projectRoleSelect.options).map((option) => option.value)
 
-    expect(instanceRoleOptions).toEqual(['instance_admin'])
-    expect(organizationRoleOptions).toEqual(['org_owner', 'org_admin', 'org_member'])
     expect(projectRoleOptions).toEqual([
       'project_admin',
       'project_operator',

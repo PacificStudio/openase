@@ -11,9 +11,10 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Separator } from '$ui/separator'
+  import { organizationPath } from '$lib/stores/app-context'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
-  import SecuritySettingsHumanAuth from './security-settings-human-auth.svelte'
+  import ProjectSecurityAccessPanel from './project-security-access-panel.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
@@ -122,18 +123,20 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Security</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Human access, credentials, webhooks, and runtime token policies.
+      Project-boundary access, GitHub credentials, and runtime token policies.
     </p>
   </div>
 
   <Separator />
 
-  <SecuritySettingsHumanAuth {security} />
-
-  <Separator />
-
   {#if loading}
     <div class="space-y-6">
+      <div class="space-y-3">
+        <div class="bg-muted h-4 w-40 animate-pulse rounded"></div>
+        <div class="bg-muted h-3 w-80 animate-pulse rounded"></div>
+        <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
+      </div>
+      <div class="bg-border h-px"></div>
       <!-- Skeleton: GitHub credentials section -->
       <div class="space-y-3">
         <div class="bg-muted h-4 w-44 animate-pulse rounded"></div>
@@ -168,6 +171,40 @@
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}
+    <div class="grid gap-3 lg:grid-cols-2">
+      <a
+        href="/admin"
+        class="border-border hover:border-foreground/20 hover:bg-card rounded-lg border px-4 py-4 transition-colors"
+      >
+        <div class="text-foreground text-sm font-semibold">Instance auth moved to `/admin`</div>
+        <div class="text-muted-foreground mt-1 text-sm">
+          OIDC mode, bootstrap admins, session governance, and cached-user lifecycle now live in the
+          global instance control plane.
+        </div>
+      </a>
+      <a
+        href={appStore.currentOrg ? `${organizationPath(appStore.currentOrg.id)}/admin` : '/orgs'}
+        class="border-border hover:border-foreground/20 hover:bg-card rounded-lg border px-4 py-4 transition-colors"
+      >
+        <div class="text-foreground text-sm font-semibold">
+          Org member governance moved to org admin
+        </div>
+        <div class="text-muted-foreground mt-1 text-sm">
+          Owners and admins now manage org members, invitations, and org-scoped RBAC from the org
+          control plane instead of project settings.
+        </div>
+      </a>
+    </div>
+
+    <Separator />
+
+    <ProjectSecurityAccessPanel
+      projectId={appStore.currentProject?.id ?? ''}
+      projectName={appStore.currentProject?.name ?? ''}
+    />
+
+    <Separator />
+
     <GitHubOutboundCredentialsPanel
       {security}
       {actionKey}

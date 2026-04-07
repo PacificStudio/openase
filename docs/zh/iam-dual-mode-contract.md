@@ -60,8 +60,8 @@ Disabled 模式的规范主体是 `local_instance_admin:default`。
 
 ### Settings Access
 
-- `disabled` 下，Settings UI 以及受保护写操作都以 `local_instance_admin:default` 执行。
-- `oidc` 下，Settings UI 以当前登录用户执行，授权取决于该用户的有效绑定。
+- `disabled` 下，`/admin` 与其他受保护写操作都以 `local_instance_admin:default` 执行。
+- `oidc` 下，`/admin` 以当前登录用户执行，授权取决于该用户的有效绑定。
 
 ### Session 模型
 
@@ -95,7 +95,7 @@ Disabled 模式的规范主体是 `local_instance_admin:default`。
 ### 管理流程
 
 1. 从 `auth.mode=disabled` 开始，本地引导管理员主体处于激活状态。
-2. 在 Settings 中保存 OIDC 草稿配置。保存草稿不会改变当前认证模式。
+2. 在 `/admin` 中保存 OIDC 草稿配置。保存草稿不会改变当前认证模式。
 3. 执行 `Test OIDC`。
    - 校验字段完整性。
    - 拉取 discovery metadata 与 JWKS。

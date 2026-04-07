@@ -458,6 +458,147 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	}
 }
 
+func TestAdminSecuritySettingsRouteReturnsAuthBoundary(t *testing.T) {
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/security-settings", http.NoBody)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload adminSecuritySettingsEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Settings.Auth.ActiveMode != "disabled" {
+		t.Fatalf("active mode = %q, want disabled", payload.Settings.Auth.ActiveMode)
+	}
+	if payload.Settings.Auth.LocalPrincipal != "local_instance_admin:default" {
+		t.Fatalf("local principal = %q", payload.Settings.Auth.LocalPrincipal)
+	}
+	if payload.Settings.ApprovalPolicies.Status != "reserved" {
+		t.Fatalf("approval policies = %+v", payload.Settings.ApprovalPolicies)
+	}
+}
+
+func TestAdminSecuritySettingsRouteSavesOIDCDraftWithoutProjectContext(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/admin/security-settings/oidc-draft",
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload adminSecuritySettingsEnvelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Settings.Auth.ActiveMode != "disabled" {
+		t.Fatalf("active mode = %q, want disabled", payload.Settings.Auth.ActiveMode)
+	}
+	if payload.Settings.Auth.OIDCDraft.IssuerURL != "https://idp.example.com" {
+		t.Fatalf("issuer_url = %q", payload.Settings.Auth.OIDCDraft.IssuerURL)
+	}
+
+	// #nosec G304 -- configPath is created inside this test's TempDir.
+	written, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config file: %v", err)
+	}
+	if !strings.Contains(string(written), "mode: disabled") {
+		t.Fatalf("expected disabled mode to remain in config, got %s", written)
+	}
+}
+
+func TestAdminSecuritySettingsRouteEnablesOIDC(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	issuerServer := newTestOIDCDiscoveryServer(t)
+	defer issuerServer.Close()
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "0.0.0.0"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		newFakeCatalogService(),
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/security-settings/oidc-enable",
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var payload adminSecurityOIDCEnableResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Activation.Status != "configured" || !payload.Activation.RestartRequired {
+		t.Fatalf("unexpected activation payload: %+v", payload.Activation)
+	}
+	if payload.Settings.Auth.ConfiguredMode != "oidc" {
+		t.Fatalf("configured mode = %q, want oidc", payload.Settings.Auth.ConfiguredMode)
+	}
+
+	// #nosec G304 -- configPath is created inside this test's TempDir.
+	written, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config file: %v", err)
+	}
+	if !strings.Contains(string(written), "mode: oidc") {
+		t.Fatalf("expected oidc mode in config, got %s", written)
+	}
+}
+
 func newTestOIDCDiscoveryServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	var server *httptest.Server

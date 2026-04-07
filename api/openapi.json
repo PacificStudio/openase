@@ -7,6 +7,1021 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/api/v1/admin/security-settings": {
+      "get": {
+        "operationId": "getAdminSecuritySettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "settings": {
+                      "properties": {
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "auth": {
+                          "properties": {
+                            "active_mode": {
+                              "type": "string"
+                            },
+                            "bootstrap_state": {
+                              "properties": {
+                                "admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "summary": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "config_path": {
+                              "type": "string"
+                            },
+                            "configured_mode": {
+                              "type": "string"
+                            },
+                            "docs": {
+                              "items": {
+                                "properties": {
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "issuer_url": {
+                              "type": "string"
+                            },
+                            "local_principal": {
+                              "type": "string"
+                            },
+                            "mode_summary": {
+                              "type": "string"
+                            },
+                            "next_steps": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "oidc_draft": {
+                              "properties": {
+                                "allowed_email_domains": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "bootstrap_admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "client_id": {
+                                  "type": "string"
+                                },
+                                "client_secret_configured": {
+                                  "type": "boolean"
+                                },
+                                "issuer_url": {
+                                  "type": "string"
+                                },
+                                "redirect_url": {
+                                  "type": "string"
+                                },
+                                "scopes": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "public_exposure_risk": {
+                              "type": "string"
+                            },
+                            "recommended_mode": {
+                              "type": "string"
+                            },
+                            "warnings": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get instance admin auth and security settings response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get instance admin auth and security settings",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/security-settings/oidc-draft": {
+      "put": {
+        "operationId": "saveAdminOIDCDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "allowed_email_domains": {
+                    "description": "Optional email domain allowlist enforced after ID token verification.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "bootstrap_admin_emails": {
+                    "description": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "client_id": {
+                    "description": "OAuth client ID registered for the OpenASE browser login application.",
+                    "type": "string"
+                  },
+                  "client_secret": {
+                    "description": "OAuth client secret stored server-side for the configured OIDC client.",
+                    "type": "string"
+                  },
+                  "issuer_url": {
+                    "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
+                    "type": "string"
+                  },
+                  "redirect_url": {
+                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "description": "OIDC scopes requested during the authorization-code flow.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Save the instance-level OIDC draft without changing the active auth mode request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "settings": {
+                      "properties": {
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "auth": {
+                          "properties": {
+                            "active_mode": {
+                              "type": "string"
+                            },
+                            "bootstrap_state": {
+                              "properties": {
+                                "admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "summary": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "config_path": {
+                              "type": "string"
+                            },
+                            "configured_mode": {
+                              "type": "string"
+                            },
+                            "docs": {
+                              "items": {
+                                "properties": {
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "issuer_url": {
+                              "type": "string"
+                            },
+                            "local_principal": {
+                              "type": "string"
+                            },
+                            "mode_summary": {
+                              "type": "string"
+                            },
+                            "next_steps": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "oidc_draft": {
+                              "properties": {
+                                "allowed_email_domains": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "bootstrap_admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "client_id": {
+                                  "type": "string"
+                                },
+                                "client_secret_configured": {
+                                  "type": "boolean"
+                                },
+                                "issuer_url": {
+                                  "type": "string"
+                                },
+                                "redirect_url": {
+                                  "type": "string"
+                                },
+                                "scopes": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "public_exposure_risk": {
+                              "type": "string"
+                            },
+                            "recommended_mode": {
+                              "type": "string"
+                            },
+                            "warnings": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Save the instance-level OIDC draft without changing the active auth mode response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Save the instance-level OIDC draft without changing the active auth mode",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/security-settings/oidc-draft/test": {
+      "post": {
+        "operationId": "testAdminOIDCDraft",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "allowed_email_domains": {
+                    "description": "Optional email domain allowlist enforced after ID token verification.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "bootstrap_admin_emails": {
+                    "description": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "client_id": {
+                    "description": "OAuth client ID registered for the OpenASE browser login application.",
+                    "type": "string"
+                  },
+                  "client_secret": {
+                    "description": "OAuth client secret stored server-side for the configured OIDC client.",
+                    "type": "string"
+                  },
+                  "issuer_url": {
+                    "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
+                    "type": "string"
+                  },
+                  "redirect_url": {
+                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "description": "OIDC scopes requested during the authorization-code flow.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Test instance-level OIDC discovery using the provided draft configuration request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "authorization_endpoint": {
+                      "type": "string"
+                    },
+                    "issuer_url": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "redirect_url": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "token_endpoint": {
+                      "type": "string"
+                    },
+                    "warnings": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Test instance-level OIDC discovery using the provided draft configuration response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Test instance-level OIDC discovery using the provided draft configuration",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/admin/security-settings/oidc-enable": {
+      "post": {
+        "operationId": "enableAdminOIDC",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "allowed_email_domains": {
+                    "description": "Optional email domain allowlist enforced after ID token verification.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "bootstrap_admin_emails": {
+                    "description": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "client_id": {
+                    "description": "OAuth client ID registered for the OpenASE browser login application.",
+                    "type": "string"
+                  },
+                  "client_secret": {
+                    "description": "OAuth client secret stored server-side for the configured OIDC client.",
+                    "type": "string"
+                  },
+                  "issuer_url": {
+                    "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
+                    "type": "string"
+                  },
+                  "redirect_url": {
+                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "type": "string"
+                  },
+                  "scopes": {
+                    "description": "OIDC scopes requested during the authorization-code flow.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Persist the instance-level OIDC draft and switch the configured auth mode to oidc request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "activation": {
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        },
+                        "next_steps": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "restart_required": {
+                          "type": "boolean"
+                        },
+                        "status": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "settings": {
+                      "properties": {
+                        "approval_policies": {
+                          "properties": {
+                            "rules_count": {
+                              "type": "integer"
+                            },
+                            "status": {
+                              "type": "string"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "auth": {
+                          "properties": {
+                            "active_mode": {
+                              "type": "string"
+                            },
+                            "bootstrap_state": {
+                              "properties": {
+                                "admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "status": {
+                                  "type": "string"
+                                },
+                                "summary": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "config_path": {
+                              "type": "string"
+                            },
+                            "configured_mode": {
+                              "type": "string"
+                            },
+                            "docs": {
+                              "items": {
+                                "properties": {
+                                  "href": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "issuer_url": {
+                              "type": "string"
+                            },
+                            "local_principal": {
+                              "type": "string"
+                            },
+                            "mode_summary": {
+                              "type": "string"
+                            },
+                            "next_steps": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            },
+                            "oidc_draft": {
+                              "properties": {
+                                "allowed_email_domains": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "bootstrap_admin_emails": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "client_id": {
+                                  "type": "string"
+                                },
+                                "client_secret_configured": {
+                                  "type": "boolean"
+                                },
+                                "issuer_url": {
+                                  "type": "string"
+                                },
+                                "redirect_url": {
+                                  "type": "string"
+                                },
+                                "scopes": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "public_exposure_risk": {
+                              "type": "string"
+                            },
+                            "recommended_mode": {
+                              "type": "string"
+                            },
+                            "warnings": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
+                            }
+                          },
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Persist the instance-level OIDC draft and switch the configured auth mode to oidc response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Gateway response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Persist the instance-level OIDC draft and switch the configured auth mode to oidc",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
     "/api/v1/agents/{agentId}": {
       "delete": {
         "operationId": "deleteAgent",

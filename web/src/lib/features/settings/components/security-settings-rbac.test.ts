@@ -3,178 +3,88 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
 import { authStore } from '$lib/stores/auth.svelte'
-import SecuritySettings from './security-settings.svelte'
-import { configuredSecurity, currentOrg, currentProject } from './security-settings.test-helpers'
+import OrganizationAdminPage from '$lib/features/organizations/components/organization-admin-page.svelte'
+import { currentOrg } from './security-settings.test-helpers'
 import {
-  configuredSessionGovernance,
   createdOrganizationUserBinding,
   hydrateOidcAuth,
   mockEffectivePermissionsByScope,
   organizationGroupBinding,
 } from './security-settings-human-auth.fixtures'
 
-const { getSecuritySettings, getSessionGovernance } = vi.hoisted(() => ({
-  getSecuritySettings: vi.fn(),
-  getSessionGovernance: vi.fn(),
-}))
+vi.hoisted(() => {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation(() => ({
+      matches: false,
+      media: '',
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  })
+})
 
 const {
-  cancelOrganizationInvitation,
   createOrganizationRoleBinding,
+  deleteOrganizationRoleBinding,
   getEffectivePermissions,
-  getInstanceUserDetail,
-  inviteOrganizationMember,
-  listInstanceRoleBindings,
-  listInstanceUsers,
   listOrganizationMemberships,
   listOrganizationRoleBindings,
-  listProjectRoleBindings,
-  resendOrganizationInvitation,
-  transferOrganizationOwnership,
-  updateOrganizationMembership,
 } = vi.hoisted(() => ({
-  cancelOrganizationInvitation: vi.fn(),
   createOrganizationRoleBinding: vi.fn(),
+  deleteOrganizationRoleBinding: vi.fn(),
   getEffectivePermissions: vi.fn(),
-  getInstanceUserDetail: vi.fn(),
-  inviteOrganizationMember: vi.fn(),
-  listInstanceRoleBindings: vi.fn(),
-  listInstanceUsers: vi.fn(),
   listOrganizationMemberships: vi.fn(),
   listOrganizationRoleBindings: vi.fn(),
-  listProjectRoleBindings: vi.fn(),
+}))
+
+vi.mock('$lib/api/auth', () => ({
+  createOrganizationRoleBinding,
+  deleteOrganizationRoleBinding,
+  getEffectivePermissions,
+  listOrganizationMemberships,
+  listOrganizationRoleBindings,
+  cancelOrganizationInvitation: vi.fn(),
+  inviteOrganizationMember: vi.fn(),
   resendOrganizationInvitation: vi.fn(),
   transferOrganizationOwnership: vi.fn(),
   updateOrganizationMembership: vi.fn(),
 }))
 
-vi.mock('$lib/api/openase', () => ({
-  getSecuritySettings,
-  getSessionGovernance,
+vi.mock('$app/navigation', () => ({
+  invalidateAll: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('$lib/api/auth', () => ({
-  cancelOrganizationInvitation,
-  createOrganizationRoleBinding,
-  getEffectivePermissions,
-  getInstanceUserDetail,
-  inviteOrganizationMember,
-  listInstanceRoleBindings,
-  listInstanceUsers,
-  listOrganizationMemberships,
-  listOrganizationRoleBindings,
-  listProjectRoleBindings,
-  normalizeReturnTo: vi.fn((value?: string | null) => value?.trim() || '/'),
-  resendOrganizationInvitation,
-  transferOrganizationOwnership,
-  updateOrganizationMembership,
-}))
-
-describe('Security settings RBAC', () => {
+describe('Organization admin RBAC', () => {
   afterEach(() => {
     cleanup()
     authStore.clear()
     appStore.currentOrg = null
-    appStore.currentProject = null
     vi.clearAllMocks()
   })
 
-  it('renders oidc principal state and creates an organization role binding', async () => {
+  it('creates an organization role binding from the org admin surface', async () => {
     hydrateOidcAuth()
     appStore.currentOrg = currentOrg()
-    appStore.currentProject = currentProject()
-    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     getEffectivePermissions.mockImplementation(mockEffectivePermissionsByScope)
-    listInstanceRoleBindings.mockResolvedValue([])
-    listOrganizationMemberships.mockResolvedValue([])
     listOrganizationRoleBindings.mockResolvedValue([organizationGroupBinding()])
-    listProjectRoleBindings.mockResolvedValue([])
-    getSessionGovernance.mockResolvedValue(configuredSessionGovernance())
+    listOrganizationMemberships.mockResolvedValue([])
     createOrganizationRoleBinding.mockResolvedValue(createdOrganizationUserBinding())
-    listInstanceUsers.mockResolvedValue([
-      {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-        primaryIdentity: {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-        },
-      },
-    ])
-    getInstanceUserDetail.mockResolvedValue({
-      user: {
-        id: 'user-2',
-        status: 'active',
-        primaryEmail: 'bob@example.com',
-        displayName: 'Bob Reviewer',
-        avatarURL: '',
-        lastLoginAt: '2026-04-05T10:00:00Z',
-        createdAt: '2026-04-05T09:00:00Z',
-        updatedAt: '2026-04-05T10:00:00Z',
-        primaryIdentity: {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-        },
-      },
-      identities: [
-        {
-          id: 'identity-1',
-          issuer: 'https://idp.example.com',
-          subject: 'subject-bob',
-          email: 'bob@example.com',
-          emailVerified: true,
-          lastSyncedAt: '2026-04-05T10:00:00Z',
-          claimsVersion: 4,
-          rawClaimsJSON: '{}',
-          createdAt: '2026-04-05T09:00:00Z',
-          updatedAt: '2026-04-05T10:00:00Z',
-        },
-      ],
-      groups: [],
-      activeSessionCount: 1,
-      latestStatusAudit: undefined,
-      recentAuditEvents: [],
+
+    const { findByText, findAllByPlaceholderText } = render(OrganizationAdminPage, {
+      organizationId: currentOrg().id,
     })
 
-    const { findAllByPlaceholderText, findAllByText, findByText } = render(SecuritySettings)
+    expect(await findByText('Organization effective access')).toBeTruthy()
+    expect(await findByText('Members')).toBeTruthy()
 
-    expect(await findByText('Human access and IAM')).toBeTruthy()
-    expect(await findByText('Alice Control Plane')).toBeTruthy()
-    expect(await findByText('alice@example.com')).toBeTruthy()
-    expect(await findByText('Instance effective access')).toBeTruthy()
-    expect(await findByText('Platform Admins')).toBeTruthy()
-    expect(await findByText('org_admin')).toBeTruthy()
-    expect(await findByText('project_admin')).toBeTruthy()
-    expect(await findByText('Approval boundary')).toBeTruthy()
-    expect(await findByText('Session governance')).toBeTruthy()
-    expect(await findByText('User directory and deprovision')).toBeTruthy()
-    expect(await findByText('Bob Reviewer')).toBeTruthy()
-    expect((await findAllByText('Firefox on Linux')).length).toBeGreaterThan(0)
-    expect(await findByText('Login succeeded')).toBeTruthy()
-    expect(await findByText('Stored rules')).toBeTruthy()
-    expect(await findByText('reserved')).toBeTruthy()
-    expect(
-      await findByText(
-        /Agent scopes are related runtime token capabilities, but they are not reused as human permissions\./,
-      ),
-    ).toBeTruthy()
-
-    const orgSectionTitle = await findByText('Organization RBAC')
-    const orgSection = orgSectionTitle.closest('.border-border') as HTMLElement
+    const orgSection = (await findByText('Organization RBAC')).closest(
+      '.border-border',
+    ) as HTMLElement
     const subjectInputs = await findAllByPlaceholderText('user@example.com')
     const orgInput = subjectInputs.find((element) => orgSection.contains(element as Node))
     expect(orgInput).toBeTruthy()
