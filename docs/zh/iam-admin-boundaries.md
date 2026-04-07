@@ -35,18 +35,18 @@
 
 ## Scope 归属
 
-| 关注点 | 归属 scope | 主路由 | 说明 |
-|---|---|---|---|
-| `auth.mode`、OIDC 草稿配置、enable / disable 流程、bootstrap admin 策略 | Instance | `/admin/auth` | 整个 OpenASE 安装共享的全局单例 |
-| 缓存用户目录、上游 identity、用户启用 / 停用 | Instance | `/admin/users` | 用户是安装级 identity，不归某个 org 单独拥有 |
-| 全局 session 治理、强制撤销某个用户的全部 session | Instance | `/admin/sessions` | 用户自助 session 操作仍可保留在 `/auth/sessions`，但管理员治理是实例级 |
-| 实例 auth audit、break-glass 姿态、instance 级 role binding | Instance | `/admin/security` | 这里承载最高权限治理动作 |
-| org membership 生命周期、seat 状态、入组与离组 | Organization | `/orgs/:orgId/admin/members` | membership 是到 org 的身份关系 |
-| org invitation 生命周期 | Organization | `/orgs/:orgId/admin/invitations` | invitation 创建的是待生效的 org membership，不是全局 identity |
-| `org_owner` / `org_admin` 等 org 级 role binding | Organization | `/orgs/:orgId/admin/roles` | 授权与 membership 生命周期分离 |
-| 项目名称、描述、仓库、workflow、agent、通知 | Project | `/orgs/:orgId/projects/:projectId/settings` | 纯项目本地配置 |
-| 项目凭证与出站集成 | Project | `/orgs/:orgId/projects/:projectId/settings` | 这里的“Security”指项目拥有的 secret / integration，而不是全局人类认证 |
-| `project_admin` 等 project 级 role binding | Project | `/orgs/:orgId/projects/:projectId/settings` | 项目访问控制应贴近被治理的项目本身 |
+| 关注点                                                                  | 归属 scope   | 主路由                                      | 说明                                                                   |
+| ----------------------------------------------------------------------- | ------------ | ------------------------------------------- | ---------------------------------------------------------------------- |
+| `auth.mode`、OIDC 草稿配置、enable / disable 流程、bootstrap admin 策略 | Instance     | `/admin/auth`                               | 整个 OpenASE 安装共享的全局单例                                        |
+| 缓存用户目录、上游 identity、用户启用 / 停用                            | Instance     | `/admin/users`                              | 用户是安装级 identity，不归某个 org 单独拥有                           |
+| 全局 session 治理、强制撤销某个用户的全部 session                       | Instance     | `/admin/sessions`                           | 用户自助 session 操作仍可保留在 `/auth/sessions`，但管理员治理是实例级 |
+| 实例 auth audit、break-glass 姿态、instance 级 role binding             | Instance     | `/admin/security`                           | 这里承载最高权限治理动作                                               |
+| org membership 生命周期、seat 状态、入组与离组                          | Organization | `/orgs/:orgId/admin/members`                | membership 是到 org 的身份关系                                         |
+| org invitation 生命周期                                                 | Organization | `/orgs/:orgId/admin/invitations`            | invitation 创建的是待生效的 org membership，不是全局 identity          |
+| `org_owner` / `org_admin` 等 org 级 role binding                        | Organization | `/orgs/:orgId/admin/roles`                  | 授权与 membership 生命周期分离                                         |
+| 项目名称、描述、仓库、workflow、agent、通知                             | Project      | `/orgs/:orgId/projects/:projectId/settings` | 纯项目本地配置                                                         |
+| 项目凭证与出站集成                                                      | Project      | `/orgs/:orgId/projects/:projectId/settings` | 这里的“Security”指项目拥有的 secret / integration，而不是全局人类认证  |
+| `project_admin` 等 project 级 role binding                              | Project      | `/orgs/:orgId/projects/:projectId/settings` | 项目访问控制应贴近被治理的项目本身                                     |
 
 ## 路由树
 
@@ -184,33 +184,33 @@ Legend：
 - `Self`：只能走该 surface 之外的自助接口
 - `-`：无权访问
 
-| Surface | Disabled `local_instance_admin` | OIDC `instance_admin` | OIDC `org_owner` | OIDC `org_admin` | OIDC `project_admin` | OIDC 其他成员 / 未登录 |
-|---|---|---|---|---|---|---|
-| `/admin/auth` | RW | RW | - | - | - | - |
-| `/admin/users` | RW | RW | - | - | - | - |
-| `/admin/sessions` | RW | RW | - | - | - | 仅可通过 `/auth/sessions` 自助 |
-| `/admin/security` | RW | RW | - | - | - | - |
-| `/orgs/:orgId/admin/members` | RW | RW | RW | RW | - | - |
-| `/orgs/:orgId/admin/invitations` | RW | RW | RW | RW | - | - |
-| `/orgs/:orgId/admin/roles` | RW | RW | RW | 受限 `RW`（不能授予或撤销 `org_admin` / `org_owner`） | - | - |
-| Project settings: general / repos / workflows / notifications | RW | RW | RW | RW | RW | - |
-| Project settings: security（项目凭证 / 集成） | RW | RW | RW | RW | RW | - |
-| Project settings: access（project role bindings） | RW | RW | RW | RW | RW | - |
+| Surface                                                       | Disabled `local_instance_admin` | OIDC `instance_admin` | OIDC `org_owner` | OIDC `org_admin`                                      | OIDC `project_admin` | OIDC 其他成员 / 未登录         |
+| ------------------------------------------------------------- | ------------------------------- | --------------------- | ---------------- | ----------------------------------------------------- | -------------------- | ------------------------------ |
+| `/admin/auth`                                                 | RW                              | RW                    | -                | -                                                     | -                    | -                              |
+| `/admin/users`                                                | RW                              | RW                    | -                | -                                                     | -                    | -                              |
+| `/admin/sessions`                                             | RW                              | RW                    | -                | -                                                     | -                    | 仅可通过 `/auth/sessions` 自助 |
+| `/admin/security`                                             | RW                              | RW                    | -                | -                                                     | -                    | -                              |
+| `/orgs/:orgId/admin/members`                                  | RW                              | RW                    | RW               | RW                                                    | -                    | -                              |
+| `/orgs/:orgId/admin/invitations`                              | RW                              | RW                    | RW               | RW                                                    | -                    | -                              |
+| `/orgs/:orgId/admin/roles`                                    | RW                              | RW                    | RW               | 受限 `RW`（不能授予或撤销 `org_admin` / `org_owner`） | -                    | -                              |
+| Project settings: general / repos / workflows / notifications | RW                              | RW                    | RW               | RW                                                    | RW                   | -                              |
+| Project settings: security（项目凭证 / 集成）                 | RW                              | RW                    | RW               | RW                                                    | RW                   | -                              |
+| Project settings: access（project role bindings）             | RW                              | RW                    | RW               | RW                                                    | RW                   | -                              |
 
 ## Org Admin 能力矩阵
 
 `instance_admin` 永远可以覆盖 org 本地限制。对于 org 角色本身，边界如下：
 
-| Org admin 动作 | `org_owner` | `org_admin` |
-|---|---|---|
-| 查看 members、invites、roles | RW | RW |
-| 创建 / resend / revoke invite | RW | RW |
-| 激活、suspend、remove 非 owner 成员 | RW | RW |
-| 管理后代项目里的 project-level admins | RW | RW |
-| 授予或撤销 `org_admin` | RW | - |
-| 授予或撤销 `org_owner` | RW | - |
-| transfer org ownership | RW | - |
-| 移除最后一个 remaining owner | - | - |
+| Org admin 动作                        | `org_owner` | `org_admin` |
+| ------------------------------------- | ----------- | ----------- |
+| 查看 members、invites、roles          | RW          | RW          |
+| 创建 / resend / revoke invite         | RW          | RW          |
+| 激活、suspend、remove 非 owner 成员   | RW          | RW          |
+| 管理后代项目里的 project-level admins | RW          | RW          |
+| 授予或撤销 `org_admin`                | RW          | -           |
+| 授予或撤销 `org_owner`                | RW          | -           |
+| transfer org ownership                | RW          | -           |
+| 移除最后一个 remaining owner          | -           | -           |
 
 这样既能把日常 org 运维委托给 `org_admin`，又能把治理类与防锁死动作保留给 `org_owner`。
 
@@ -241,16 +241,16 @@ Project settings 可以继续保留名为 “Security” 的 section，但它只
 
 ## 迁移映射
 
-| 当前 / 过渡期 surface | 目标稳态 surface | Scope owner | 后续工单 |
-|---|---|---|---|
-| Settings -> Security 中的 OIDC setup | `/admin/auth` | Instance | ASE-93 |
-| Settings -> Security 中的 user directory | `/admin/users` | Instance | ASE-94 |
-| Settings -> Security 中的 session governance | `/admin/sessions` | Instance | ASE-94 |
-| Settings -> Security 中的 instance auth audit 与 instance role controls | `/admin/security` | Instance | ASE-93 / ASE-94 |
-| 共享 IAM 视图中嵌入的 org members UI | `/orgs/:orgId/admin/members` | Organization | ASE-95 / ASE-96 |
-| 共享 IAM 视图中嵌入的 invite 动作 | `/orgs/:orgId/admin/invitations` | Organization | ASE-95 / ASE-96 |
-| 共享 IAM 视图中嵌入的 org role binding 管理 | `/orgs/:orgId/admin/roles` | Organization | ASE-96 |
-| 共享 IAM 视图中的 project-scoped bindings | Project settings access section | Project | ASE-91 umbrella 下的 follow-up |
+| 当前 / 过渡期 surface                                                   | 目标稳态 surface                 | Scope owner  | 后续工单        |
+| ----------------------------------------------------------------------- | -------------------------------- | ------------ | --------------- |
+| Settings -> Security 中的 OIDC setup                                    | `/admin/auth`                    | Instance     | ASE-93          |
+| Settings -> Security 中的 user directory                                | `/admin/users`                   | Instance     | ASE-94          |
+| Settings -> Security 中的 session governance                            | `/admin/sessions`                | Instance     | ASE-94          |
+| Settings -> Security 中的 instance auth audit 与 instance role controls | `/admin/security`                | Instance     | ASE-93 / ASE-94 |
+| 共享 IAM 视图中嵌入的 org members UI                                    | `/orgs/:orgId/admin/members`     | Organization | ASE-95 / ASE-96 |
+| 共享 IAM 视图中嵌入的 invite 动作                                       | `/orgs/:orgId/admin/invitations` | Organization | ASE-95 / ASE-96 |
+| 共享 IAM 视图中嵌入的 org role binding 管理                             | `/orgs/:orgId/admin/roles`       | Organization | ASE-96          |
+| 共享 IAM 视图中的 project-scoped bindings                               | Project settings -> Access       | Project      | ASE-97          |
 
 ## Non-Goals
 

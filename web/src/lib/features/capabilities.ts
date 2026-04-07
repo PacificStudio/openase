@@ -21,6 +21,7 @@ export type CapabilityKey =
   | 'workflowsSettings'
   | 'agentsSettings'
   | 'notificationsSettings'
+  | 'accessSettings'
   | 'securitySettings'
 
 export type CapabilityDescriptor = {
@@ -120,10 +121,15 @@ export const capabilityCatalog: Record<CapabilityKey, CapabilityDescriptor> = {
     summary:
       'Notifications settings are wired to org-level channel CRUD, project rule CRUD, test send, and enable/disable controls.',
   },
+  accessSettings: {
+    state: 'available',
+    summary:
+      'Access settings now host project-scoped bindings, effective project access diagnostics, and migration links toward /admin and org admin surfaces.',
+  },
   securitySettings: {
     state: 'available',
     summary:
-      'Security settings surface shipped human auth, RBAC, user-directory governance, deprovision controls, and outbound GitHub credential diagnostics while approval policy expansion and GitHub Device Flow remain explicitly deferred.',
+      'Security settings now focus on project-owned credentials, webhook boundaries, runtime token posture, and compatibility-period migration guidance away from the old shared IAM surface.',
   },
 }
 
@@ -134,6 +140,7 @@ export const settingsCapabilityBySection: Record<SettingsSection, CapabilityKey>
   statuses: 'statusesSettings',
   agents: 'agentsSettings',
   notifications: 'notificationsSettings',
+  access: 'accessSettings',
   security: 'securitySettings',
 }
 

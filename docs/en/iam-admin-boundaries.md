@@ -35,18 +35,18 @@ Use it together with:
 
 ## Scope Ownership
 
-| Concern | Owning scope | Primary route | Notes |
-|---|---|---|---|
-| `auth.mode`, OIDC draft config, enable / disable flow, bootstrap admin policy | Instance | `/admin/auth` | Global singleton for the entire OpenASE installation |
-| Cached user directory, upstream identities, user disable / enable | Instance | `/admin/users` | Users are installation-wide identities, not org-owned rows |
-| Global session governance, forced user-session revocation | Instance | `/admin/sessions` | Self-service session actions may still exist under `/auth/sessions`, but admin governance is instance-scoped |
-| Instance auth audit, break-glass posture, instance-scoped role bindings | Instance | `/admin/security` | Includes the highest-privilege governance controls |
-| Org membership lifecycle, seat state, onboarding and offboarding | Organization | `/orgs/:orgId/admin/members` | Membership is the identity relationship to the org |
-| Org invitation lifecycle | Organization | `/orgs/:orgId/admin/invitations` | Invitation creates pending org membership, not global identity |
-| Org-scoped role bindings such as `org_owner` / `org_admin` | Organization | `/orgs/:orgId/admin/roles` | Authorization is separate from membership lifecycle |
-| Project name, description, repo wiring, workflows, agents, notifications | Project | `/orgs/:orgId/projects/:projectId/settings` | Purely project-local configuration |
-| Project credentials and outbound integrations | Project | `/orgs/:orgId/projects/:projectId/settings` | "Security" here means project-owned secrets and integrations, not global human auth |
-| Project-scoped role bindings such as `project_admin` | Project | `/orgs/:orgId/projects/:projectId/settings` | Keep project access near the project it governs |
+| Concern                                                                       | Owning scope | Primary route                               | Notes                                                                                                        |
+| ----------------------------------------------------------------------------- | ------------ | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `auth.mode`, OIDC draft config, enable / disable flow, bootstrap admin policy | Instance     | `/admin/auth`                               | Global singleton for the entire OpenASE installation                                                         |
+| Cached user directory, upstream identities, user disable / enable             | Instance     | `/admin/users`                              | Users are installation-wide identities, not org-owned rows                                                   |
+| Global session governance, forced user-session revocation                     | Instance     | `/admin/sessions`                           | Self-service session actions may still exist under `/auth/sessions`, but admin governance is instance-scoped |
+| Instance auth audit, break-glass posture, instance-scoped role bindings       | Instance     | `/admin/security`                           | Includes the highest-privilege governance controls                                                           |
+| Org membership lifecycle, seat state, onboarding and offboarding              | Organization | `/orgs/:orgId/admin/members`                | Membership is the identity relationship to the org                                                           |
+| Org invitation lifecycle                                                      | Organization | `/orgs/:orgId/admin/invitations`            | Invitation creates pending org membership, not global identity                                               |
+| Org-scoped role bindings such as `org_owner` / `org_admin`                    | Organization | `/orgs/:orgId/admin/roles`                  | Authorization is separate from membership lifecycle                                                          |
+| Project name, description, repo wiring, workflows, agents, notifications      | Project      | `/orgs/:orgId/projects/:projectId/settings` | Purely project-local configuration                                                                           |
+| Project credentials and outbound integrations                                 | Project      | `/orgs/:orgId/projects/:projectId/settings` | "Security" here means project-owned secrets and integrations, not global human auth                          |
+| Project-scoped role bindings such as `project_admin`                          | Project      | `/orgs/:orgId/projects/:projectId/settings` | Keep project access near the project it governs                                                              |
 
 ## Route Tree
 
@@ -184,33 +184,33 @@ Legend:
 - `Self`: only self-service endpoints outside this surface
 - `-`: no access
 
-| Surface | Disabled `local_instance_admin` | OIDC `instance_admin` | OIDC `org_owner` | OIDC `org_admin` | OIDC `project_admin` | OIDC other member / anonymous |
-|---|---|---|---|---|---|---|
-| `/admin/auth` | RW | RW | - | - | - | - |
-| `/admin/users` | RW | RW | - | - | - | - |
-| `/admin/sessions` | RW | RW | - | - | - | `Self` via `/auth/sessions` only |
-| `/admin/security` | RW | RW | - | - | - | - |
-| `/orgs/:orgId/admin/members` | RW | RW | RW | RW | - | - |
-| `/orgs/:orgId/admin/invitations` | RW | RW | RW | RW | - | - |
-| `/orgs/:orgId/admin/roles` | RW | RW | RW | Limited RW (cannot grant or revoke `org_admin` / `org_owner`) | - | - |
-| Project settings: general / repos / workflows / notifications | RW | RW | RW | RW | RW | - |
-| Project settings: security (project credentials / integrations) | RW | RW | RW | RW | RW | - |
-| Project settings: access (project role bindings) | RW | RW | RW | RW | RW | - |
+| Surface                                                         | Disabled `local_instance_admin` | OIDC `instance_admin` | OIDC `org_owner` | OIDC `org_admin`                                              | OIDC `project_admin` | OIDC other member / anonymous    |
+| --------------------------------------------------------------- | ------------------------------- | --------------------- | ---------------- | ------------------------------------------------------------- | -------------------- | -------------------------------- |
+| `/admin/auth`                                                   | RW                              | RW                    | -                | -                                                             | -                    | -                                |
+| `/admin/users`                                                  | RW                              | RW                    | -                | -                                                             | -                    | -                                |
+| `/admin/sessions`                                               | RW                              | RW                    | -                | -                                                             | -                    | `Self` via `/auth/sessions` only |
+| `/admin/security`                                               | RW                              | RW                    | -                | -                                                             | -                    | -                                |
+| `/orgs/:orgId/admin/members`                                    | RW                              | RW                    | RW               | RW                                                            | -                    | -                                |
+| `/orgs/:orgId/admin/invitations`                                | RW                              | RW                    | RW               | RW                                                            | -                    | -                                |
+| `/orgs/:orgId/admin/roles`                                      | RW                              | RW                    | RW               | Limited RW (cannot grant or revoke `org_admin` / `org_owner`) | -                    | -                                |
+| Project settings: general / repos / workflows / notifications   | RW                              | RW                    | RW               | RW                                                            | RW                   | -                                |
+| Project settings: security (project credentials / integrations) | RW                              | RW                    | RW               | RW                                                            | RW                   | -                                |
+| Project settings: access (project role bindings)                | RW                              | RW                    | RW               | RW                                                            | RW                   | -                                |
 
 ## Organization Admin Capability Matrix
 
 `instance_admin` always overrides org-local limits. Between org roles, the boundary is:
 
-| Org admin action | `org_owner` | `org_admin` |
-|---|---|---|
-| View members, invites, roles | RW | RW |
-| Create / resend / revoke invitations | RW | RW |
-| Activate, suspend, or remove non-owner members | RW | RW |
-| Manage project-level administrators inside descendant projects | RW | RW |
-| Grant or revoke `org_admin` | RW | - |
-| Grant or revoke `org_owner` | RW | - |
-| Transfer org ownership | RW | - |
-| Remove the last remaining owner | - | - |
+| Org admin action                                               | `org_owner` | `org_admin` |
+| -------------------------------------------------------------- | ----------- | ----------- |
+| View members, invites, roles                                   | RW          | RW          |
+| Create / resend / revoke invitations                           | RW          | RW          |
+| Activate, suspend, or remove non-owner members                 | RW          | RW          |
+| Manage project-level administrators inside descendant projects | RW          | RW          |
+| Grant or revoke `org_admin`                                    | RW          | -           |
+| Grant or revoke `org_owner`                                    | RW          | -           |
+| Transfer org ownership                                         | RW          | -           |
+| Remove the last remaining owner                                | -           | -           |
 
 This keeps day-to-day org operations delegable to `org_admin` while reserving org-governance and anti-lockout actions to `org_owner`.
 
@@ -241,16 +241,16 @@ Project settings may keep a section named "Security", but that label is limited 
 
 ## Migration Map
 
-| Current / transitional surface | Target steady-state surface | Scope owner | Follow-up ticket |
-|---|---|---|---|
-| Settings -> Security OIDC setup | `/admin/auth` | Instance | ASE-93 |
-| Settings -> Security user directory | `/admin/users` | Instance | ASE-94 |
-| Settings -> Security session governance | `/admin/sessions` | Instance | ASE-94 |
-| Settings -> Security instance auth audit and instance role controls | `/admin/security` | Instance | ASE-93 / ASE-94 |
-| Embedded org members UI in shared IAM view | `/orgs/:orgId/admin/members` | Organization | ASE-95 / ASE-96 |
-| Embedded org invite actions in shared IAM view | `/orgs/:orgId/admin/invitations` | Organization | ASE-95 / ASE-96 |
-| Embedded org role binding management in shared IAM view | `/orgs/:orgId/admin/roles` | Organization | ASE-96 |
-| Project-scoped bindings inside shared IAM view | Project settings access section | Project | follow-up under ASE-91 umbrella |
+| Current / transitional surface                                      | Target steady-state surface      | Scope owner  | Follow-up ticket |
+| ------------------------------------------------------------------- | -------------------------------- | ------------ | ---------------- |
+| Settings -> Security OIDC setup                                     | `/admin/auth`                    | Instance     | ASE-93           |
+| Settings -> Security user directory                                 | `/admin/users`                   | Instance     | ASE-94           |
+| Settings -> Security session governance                             | `/admin/sessions`                | Instance     | ASE-94           |
+| Settings -> Security instance auth audit and instance role controls | `/admin/security`                | Instance     | ASE-93 / ASE-94  |
+| Embedded org members UI in shared IAM view                          | `/orgs/:orgId/admin/members`     | Organization | ASE-95 / ASE-96  |
+| Embedded org invite actions in shared IAM view                      | `/orgs/:orgId/admin/invitations` | Organization | ASE-95 / ASE-96  |
+| Embedded org role binding management in shared IAM view             | `/orgs/:orgId/admin/roles`       | Organization | ASE-96           |
+| Project-scoped bindings inside shared IAM view                      | Project settings -> Access       | Project      | ASE-97           |
 
 ## Non-Goals
 

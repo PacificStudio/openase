@@ -158,6 +158,7 @@ describe('Instance admin page', () => {
 
     const { findAllByText, findByText } = render(InstanceAdminPage)
 
+    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Disabled-mode diagnostics')).toBeTruthy()
     expect((await findAllByText('local_instance_admin:default')).length).toBeGreaterThan(0)
     expect(await findByText('Break-glass and recovery')).toBeTruthy()
@@ -168,6 +169,7 @@ describe('Instance admin page', () => {
 
     const { findByText } = render(InstanceAdminPage)
 
+    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Current session boundary')).toBeTruthy()
     expect(await findByText('Session governance')).toBeTruthy()
     expect(await findByText('User directory and deprovision')).toBeTruthy()

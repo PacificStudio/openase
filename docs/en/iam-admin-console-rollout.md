@@ -124,7 +124,7 @@ Rollback must be explicit and fast:
 
 1. If OIDC login or authorization fails during rollout, revert `auth.mode` to `disabled`.
 2. Restart the service if required by the deployment model.
-3. Confirm that the Security page again shows disabled mode and the local admin principal.
+3. Confirm that `/admin/auth` again shows disabled mode and the local admin principal, and that Project Settings -> Security / -> Access still point operators back to the new control planes.
 4. Keep the saved OIDC draft so you can retry after fixing the provider or RBAC issue.
 5. Record the failure cause before attempting another enablement.
 

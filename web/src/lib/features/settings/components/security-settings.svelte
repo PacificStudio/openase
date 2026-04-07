@@ -13,8 +13,8 @@
   import { Separator } from '$ui/separator'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
-  import SecuritySettingsHumanAuth from './security-settings-human-auth.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
+  import SettingsIAMMigrationPanel from './settings-iam-migration-panel.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
   type Security = SecuritySettingsResponse['security']
@@ -122,18 +122,13 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Security</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Human access, credentials, webhooks, and runtime token policies.
+      Project-owned credentials, webhook boundaries, and runtime token policies.
     </p>
   </div>
 
-  <Separator />
-
-  <SecuritySettingsHumanAuth {security} />
-
-  <Separator />
-
   {#if loading}
     <div class="space-y-6">
+      <div class="bg-muted h-24 animate-pulse rounded-2xl"></div>
       <!-- Skeleton: GitHub credentials section -->
       <div class="space-y-3">
         <div class="bg-muted h-4 w-44 animate-pulse rounded"></div>
@@ -168,6 +163,15 @@
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}
+    <Separator />
+
+    <SettingsIAMMigrationPanel
+      auth={security.auth}
+      organizationId={appStore.currentOrg?.id ?? ''}
+    />
+
+    <Separator />
+
     <GitHubOutboundCredentialsPanel
       {security}
       {actionKey}
