@@ -55,6 +55,21 @@ export function configuredSecurity() {
         summary:
           '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
       },
+      session_policy: {
+        session_ttl: '8h0m0s',
+        session_idle_ttl: '30m0s',
+      },
+      last_validation: {
+        status: 'ok',
+        message:
+          'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
+        checked_at: '2026-04-07T04:12:00Z',
+        issuer_url: 'https://idp.example.com',
+        authorization_endpoint: 'https://idp.example.com/authorize',
+        token_endpoint: 'https://idp.example.com/token',
+        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        warnings: [],
+      },
       oidc_draft: {
         issuer_url: 'https://idp.example.com',
         client_id: 'openase',

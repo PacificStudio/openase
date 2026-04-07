@@ -2,6 +2,8 @@ import { api } from './client'
 import type { SessionGovernanceResponse } from './auth'
 import type {
   ActivityPayload,
+  AdminAuthModeTransitionResponse,
+  AdminAuthResponse,
   AgentPayload,
   AgentRunPayload,
   AgentProviderResponse,
@@ -283,6 +285,50 @@ export function createProvider(
 
 export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
+}
+
+export function getAdminAuth() {
+  return api.get<AdminAuthResponse>('/api/v1/admin/auth')
+}
+
+export function saveAdminOIDCDraft(body: {
+  issuer_url: string
+  client_id: string
+  client_secret?: string
+  redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+}) {
+  return api.put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
+}
+
+export function testAdminOIDCDraft(body: {
+  issuer_url: string
+  client_id: string
+  client_secret?: string
+  redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+}) {
+  return api.post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
+}
+
+export function enableAdminOIDC(body: {
+  issuer_url: string
+  client_id: string
+  client_secret?: string
+  redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+}) {
+  return api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', { body })
+}
+
+export function disableAdminAuth() {
+  return api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/disable')
 }
 
 export function getSecuritySettings(projectId: string) {

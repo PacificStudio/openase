@@ -508,6 +508,20 @@ export type SecurityDocumentationLink = {
   href: string
   summary: string
 }
+export type SecurityAuthSessionPolicy = {
+  session_ttl: string
+  session_idle_ttl: string
+}
+export type SecurityAuthValidationDiagnostics = {
+  status: string
+  message: string
+  checked_at?: string | null
+  issuer_url?: string
+  authorization_endpoint?: string
+  token_endpoint?: string
+  redirect_url?: string
+  warnings: string[]
+}
 export type SecurityAuthSettings = {
   active_mode: string
   configured_mode: string
@@ -520,6 +534,8 @@ export type SecurityAuthSettings = {
   next_steps: string[]
   config_path?: string
   bootstrap_state: SecurityAuthBootstrapState
+  session_policy: SecurityAuthSessionPolicy
+  last_validation: SecurityAuthValidationDiagnostics
   oidc_draft: SecurityOIDCDraft
   docs: SecurityDocumentationLink[]
 }
@@ -545,6 +561,18 @@ export type OIDCEnableResponse = {
     next_steps: string[]
   }
   security: SecuritySettingsResponse['security']
+}
+export type AdminAuthResponse = {
+  auth: SecurityAuthSettings
+}
+export type AdminAuthModeTransitionResponse = {
+  transition: {
+    status: string
+    message: string
+    restart_required: boolean
+    next_steps: string[]
+  }
+  auth: SecurityAuthSettings
 }
 export type SaveGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'put'>

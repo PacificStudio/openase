@@ -38,20 +38,38 @@ type securityDocumentationLinkResponse struct {
 	Summary string `json:"summary"`
 }
 
+type securityAuthSessionPolicyResponse struct {
+	SessionTTL     string `json:"session_ttl"`
+	SessionIdleTTL string `json:"session_idle_ttl"`
+}
+
+type securityAuthValidationDiagnosticsResponse struct {
+	Status                string   `json:"status"`
+	Message               string   `json:"message"`
+	CheckedAt             *string  `json:"checked_at,omitempty"`
+	IssuerURL             string   `json:"issuer_url,omitempty"`
+	AuthorizationEndpoint string   `json:"authorization_endpoint,omitempty"`
+	TokenEndpoint         string   `json:"token_endpoint,omitempty"`
+	RedirectURL           string   `json:"redirect_url,omitempty"`
+	Warnings              []string `json:"warnings"`
+}
+
 type securityAuthSettingsResponse struct {
-	ActiveMode         string                              `json:"active_mode"`
-	ConfiguredMode     string                              `json:"configured_mode"`
-	IssuerURL          string                              `json:"issuer_url,omitempty"`
-	LocalPrincipal     string                              `json:"local_principal"`
-	ModeSummary        string                              `json:"mode_summary"`
-	RecommendedMode    string                              `json:"recommended_mode"`
-	PublicExposureRisk string                              `json:"public_exposure_risk"`
-	Warnings           []string                            `json:"warnings"`
-	NextSteps          []string                            `json:"next_steps"`
-	ConfigPath         string                              `json:"config_path,omitempty"`
-	BootstrapState     securityAuthBootstrapStateResponse  `json:"bootstrap_state"`
-	OIDCDraft          securityOIDCDraftResponse           `json:"oidc_draft"`
-	Docs               []securityDocumentationLinkResponse `json:"docs"`
+	ActiveMode         string                                    `json:"active_mode"`
+	ConfiguredMode     string                                    `json:"configured_mode"`
+	IssuerURL          string                                    `json:"issuer_url,omitempty"`
+	LocalPrincipal     string                                    `json:"local_principal"`
+	ModeSummary        string                                    `json:"mode_summary"`
+	RecommendedMode    string                                    `json:"recommended_mode"`
+	PublicExposureRisk string                                    `json:"public_exposure_risk"`
+	Warnings           []string                                  `json:"warnings"`
+	NextSteps          []string                                  `json:"next_steps"`
+	ConfigPath         string                                    `json:"config_path,omitempty"`
+	BootstrapState     securityAuthBootstrapStateResponse        `json:"bootstrap_state"`
+	SessionPolicy      securityAuthSessionPolicyResponse         `json:"session_policy"`
+	LastValidation     securityAuthValidationDiagnosticsResponse `json:"last_validation"`
+	OIDCDraft          securityOIDCDraftResponse                 `json:"oidc_draft"`
+	Docs               []securityDocumentationLinkResponse       `json:"docs"`
 }
 
 type securityOIDCTestResultResponse struct {
@@ -86,6 +104,22 @@ type securityOIDCDraftInput struct {
 	BootstrapAdminEmails []string
 }
 
+type securityOIDCValidationRecord struct {
+	Status                string
+	Message               string
+	CheckedAt             time.Time
+	IssuerURL             string
+	AuthorizationEndpoint string
+	TokenEndpoint         string
+	RedirectURL           string
+	Warnings              []string
+}
+
+type securityStoredAuthState struct {
+	Auth           config.AuthConfig
+	LastValidation securityOIDCValidationRecord
+}
+
 type securitySettingsConfigEditor struct {
 	path     string
 	fallback config.AuthConfig
@@ -111,7 +145,7 @@ func (e securitySettingsConfigEditor) resolvedPath() string {
 	return e.path
 }
 
-func (e securitySettingsConfigEditor) loadStoredAuth() (config.AuthConfig, error) {
+func (e securitySettingsConfigEditor) loadStoredState() (securityStoredAuthState, error) {
 	cfg := e.fallback
 	if strings.TrimSpace(cfg.OIDC.RedirectURL) == "" {
 		cfg.OIDC.RedirectURL = setup.DefaultOIDCRedirectURL
@@ -119,16 +153,20 @@ func (e securitySettingsConfigEditor) loadStoredAuth() (config.AuthConfig, error
 	if len(cfg.OIDC.Scopes) == 0 {
 		cfg.OIDC.Scopes = []string{"openid", "profile", "email", "groups"}
 	}
+	state := securityStoredAuthState{
+		Auth:           cfg,
+		LastValidation: defaultSecurityOIDCValidationRecord(),
+	}
 	if strings.TrimSpace(e.path) == "" {
-		return cfg, nil
+		return state, nil
 	}
 
 	payload, err := os.ReadFile(e.path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
+			return state, nil
 		}
-		return config.AuthConfig{}, fmt.Errorf("read config file: %w", err)
+		return securityStoredAuthState{}, fmt.Errorf("read config file: %w", err)
 	}
 
 	var doc struct {
@@ -143,10 +181,20 @@ func (e securitySettingsConfigEditor) loadStoredAuth() (config.AuthConfig, error
 				AllowedEmailDomains  []string `yaml:"allowed_email_domains"`
 				BootstrapAdminEmails []string `yaml:"bootstrap_admin_emails"`
 			} `yaml:"oidc"`
+			LastValidation struct {
+				Status                string   `yaml:"status"`
+				Message               string   `yaml:"message"`
+				CheckedAt             string   `yaml:"checked_at"`
+				IssuerURL             string   `yaml:"issuer_url"`
+				AuthorizationEndpoint string   `yaml:"authorization_endpoint"`
+				TokenEndpoint         string   `yaml:"token_endpoint"`
+				RedirectURL           string   `yaml:"redirect_url"`
+				Warnings              []string `yaml:"warnings"`
+			} `yaml:"last_validation"`
 		} `yaml:"auth"`
 	}
 	if err := yaml.Unmarshal(payload, &doc); err != nil {
-		return config.AuthConfig{}, fmt.Errorf("parse config file: %w", err)
+		return securityStoredAuthState{}, fmt.Errorf("parse config file: %w", err)
 	}
 	if mode := normalizeAuthMode(doc.Auth.Mode, cfg.Mode); mode != "" {
 		cfg.Mode = mode
@@ -160,28 +208,25 @@ func (e securitySettingsConfigEditor) loadStoredAuth() (config.AuthConfig, error
 		AllowedEmailDomains:  doc.Auth.OIDC.AllowedEmailDomains,
 		BootstrapAdminEmails: doc.Auth.OIDC.BootstrapAdminEmails,
 	})
-	return cfg, nil
+	state.Auth = cfg
+	state.LastValidation = parseSecurityOIDCValidationRecord(
+		doc.Auth.LastValidation.Status,
+		doc.Auth.LastValidation.Message,
+		doc.Auth.LastValidation.CheckedAt,
+		doc.Auth.LastValidation.IssuerURL,
+		doc.Auth.LastValidation.AuthorizationEndpoint,
+		doc.Auth.LastValidation.TokenEndpoint,
+		doc.Auth.LastValidation.RedirectURL,
+		doc.Auth.LastValidation.Warnings,
+	)
+	return state, nil
 }
 
-func (e securitySettingsConfigEditor) saveDraft(input securityOIDCDraftInput, mode config.AuthMode) (config.AuthConfig, error) {
-	if strings.TrimSpace(e.path) == "" {
-		return config.AuthConfig{}, errors.New("config file path is unavailable")
+func (e securitySettingsConfigEditor) saveDraft(input securityOIDCDraftInput, mode config.AuthMode) (securityStoredAuthState, error) {
+	root, err := e.loadConfigRoot()
+	if err != nil {
+		return securityStoredAuthState{}, err
 	}
-
-	root := map[string]any{}
-	if payload, err := os.ReadFile(e.path); err == nil {
-		if len(payload) > 0 {
-			if err := yaml.Unmarshal(payload, &root); err != nil {
-				return config.AuthConfig{}, fmt.Errorf("parse config file: %w", err)
-			}
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return config.AuthConfig{}, fmt.Errorf("read config file: %w", err)
-	}
-	if root == nil {
-		root = map[string]any{}
-	}
-
 	authMap := childMap(root, "auth")
 	authMap["mode"] = string(mode)
 	oidcMap := childMap(authMap, "oidc")
@@ -196,18 +241,65 @@ func (e securitySettingsConfigEditor) saveDraft(input securityOIDCDraftInput, mo
 	oidcMap["bootstrap_admin_emails"] = append([]string(nil), input.BootstrapAdminEmails...)
 	authMap["oidc"] = oidcMap
 	root["auth"] = authMap
+	return e.writeRoot(root)
+}
 
+func (e securitySettingsConfigEditor) saveValidation(record securityOIDCValidationRecord) error {
+	root, err := e.loadConfigRoot()
+	if err != nil {
+		return err
+	}
+	authMap := childMap(root, "auth")
+	lastValidation := childMap(authMap, "last_validation")
+	lastValidation["status"] = record.Status
+	lastValidation["message"] = record.Message
+	if !record.CheckedAt.IsZero() {
+		lastValidation["checked_at"] = record.CheckedAt.UTC().Format(time.RFC3339)
+	}
+	lastValidation["issuer_url"] = record.IssuerURL
+	lastValidation["authorization_endpoint"] = record.AuthorizationEndpoint
+	lastValidation["token_endpoint"] = record.TokenEndpoint
+	lastValidation["redirect_url"] = record.RedirectURL
+	lastValidation["warnings"] = append([]string(nil), record.Warnings...)
+	authMap["last_validation"] = lastValidation
+	root["auth"] = authMap
+	_, err = e.writeRoot(root)
+	return err
+}
+
+func (e securitySettingsConfigEditor) loadConfigRoot() (map[string]any, error) {
+	if strings.TrimSpace(e.path) == "" {
+		return nil, errors.New("config file path is unavailable")
+	}
+
+	root := map[string]any{}
+	if payload, err := os.ReadFile(e.path); err == nil {
+		if len(payload) > 0 {
+			if err := yaml.Unmarshal(payload, &root); err != nil {
+				return nil, fmt.Errorf("parse config file: %w", err)
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("read config file: %w", err)
+	}
+	if root == nil {
+		root = map[string]any{}
+	}
+	return root, nil
+}
+
+func (e securitySettingsConfigEditor) writeRoot(root map[string]any) (securityStoredAuthState, error) {
 	content, err := yaml.Marshal(root)
 	if err != nil {
-		return config.AuthConfig{}, fmt.Errorf("marshal config file: %w", err)
+		return securityStoredAuthState{}, fmt.Errorf("marshal config file: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(e.path), 0o700); err != nil {
-		return config.AuthConfig{}, fmt.Errorf("create config directory: %w", err)
+		return securityStoredAuthState{}, fmt.Errorf("create config directory: %w", err)
 	}
 	if err := os.WriteFile(e.path, content, 0o600); err != nil {
-		return config.AuthConfig{}, fmt.Errorf("write config file: %w", err)
+		return securityStoredAuthState{}, fmt.Errorf("write config file: %w", err)
 	}
-	return e.loadStoredAuth()
+	return e.loadStoredState()
 }
 
 func childMap(parent map[string]any, key string) map[string]any {
@@ -349,7 +441,13 @@ func completeOIDCAuthConfig(input securityOIDCDraftInput) (config.AuthConfig, er
 	}, nil
 }
 
-func buildSecurityAuthSettingsResponse(active config.AuthConfig, stored config.AuthConfig, configPath string, host string) securityAuthSettingsResponse {
+func buildSecurityAuthSettingsResponse(
+	active config.AuthConfig,
+	stored config.AuthConfig,
+	lastValidation securityOIDCValidationRecord,
+	configPath string,
+	host string,
+) securityAuthSettingsResponse {
 	publicExposureRisk, warnings := securityPublicExposure(host, active.Mode)
 	bootstrap := buildBootstrapState(stored)
 	configuredMode := string(stored.Mode)
@@ -372,10 +470,129 @@ func buildSecurityAuthSettingsResponse(active config.AuthConfig, stored config.A
 		NextSteps:          securityNextSteps(active.Mode, configuredMode),
 		ConfigPath:         configPath,
 		BootstrapState:     bootstrap,
+		SessionPolicy:      buildSecuritySessionPolicyResponse(stored, active),
+		LastValidation:     buildSecurityValidationDiagnosticsResponse(lastValidation),
 		OIDCDraft:          buildSecurityOIDCDraftResponse(stored),
 		Docs:               defaultSecurityDocumentationLinks(),
 	}
 	return response
+}
+
+func buildSecuritySessionPolicyResponse(
+	stored config.AuthConfig,
+	active config.AuthConfig,
+) securityAuthSessionPolicyResponse {
+	sessionTTL := stored.OIDC.SessionTTL
+	if sessionTTL == 0 {
+		sessionTTL = active.OIDC.SessionTTL
+	}
+	if sessionTTL == 0 {
+		sessionTTL = 8 * time.Hour
+	}
+	sessionIdleTTL := stored.OIDC.SessionIdleTTL
+	if sessionIdleTTL == 0 {
+		sessionIdleTTL = active.OIDC.SessionIdleTTL
+	}
+	if sessionIdleTTL == 0 {
+		sessionIdleTTL = 30 * time.Minute
+	}
+	return securityAuthSessionPolicyResponse{
+		SessionTTL:     sessionTTL.String(),
+		SessionIdleTTL: sessionIdleTTL.String(),
+	}
+}
+
+func buildSecurityValidationDiagnosticsResponse(
+	record securityOIDCValidationRecord,
+) securityAuthValidationDiagnosticsResponse {
+	response := securityAuthValidationDiagnosticsResponse{
+		Status:                record.Status,
+		Message:               record.Message,
+		IssuerURL:             strings.TrimSpace(record.IssuerURL),
+		AuthorizationEndpoint: strings.TrimSpace(record.AuthorizationEndpoint),
+		TokenEndpoint:         strings.TrimSpace(record.TokenEndpoint),
+		RedirectURL:           strings.TrimSpace(record.RedirectURL),
+		Warnings:              append([]string(nil), record.Warnings...),
+	}
+	if response.Status == "" {
+		response.Status = "not_tested"
+	}
+	if strings.TrimSpace(response.Message) == "" {
+		response.Message = "No OIDC validation has been recorded yet."
+	}
+	if !record.CheckedAt.IsZero() {
+		value := record.CheckedAt.UTC().Format(time.RFC3339)
+		response.CheckedAt = &value
+	}
+	return response
+}
+
+func defaultSecurityOIDCValidationRecord() securityOIDCValidationRecord {
+	return securityOIDCValidationRecord{
+		Status:   "not_tested",
+		Message:  "No OIDC validation has been recorded yet.",
+		Warnings: []string{},
+	}
+}
+
+func parseSecurityOIDCValidationRecord(
+	status string,
+	message string,
+	checkedAt string,
+	issuerURL string,
+	authorizationEndpoint string,
+	tokenEndpoint string,
+	redirectURL string,
+	warnings []string,
+) securityOIDCValidationRecord {
+	record := defaultSecurityOIDCValidationRecord()
+	if trimmed := strings.TrimSpace(status); trimmed != "" {
+		record.Status = trimmed
+	}
+	if trimmed := strings.TrimSpace(message); trimmed != "" {
+		record.Message = trimmed
+	}
+	if trimmed := strings.TrimSpace(checkedAt); trimmed != "" {
+		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
+			record.CheckedAt = parsed
+		}
+	}
+	record.IssuerURL = strings.TrimSpace(issuerURL)
+	record.AuthorizationEndpoint = strings.TrimSpace(authorizationEndpoint)
+	record.TokenEndpoint = strings.TrimSpace(tokenEndpoint)
+	record.RedirectURL = strings.TrimSpace(redirectURL)
+	record.Warnings = normalizeStringList(warnings, false)
+	return record
+}
+
+func securityOIDCValidationSuccessRecord(
+	response securityOIDCTestResultResponse,
+) securityOIDCValidationRecord {
+	return securityOIDCValidationRecord{
+		Status:                "ok",
+		Message:               strings.TrimSpace(response.Message),
+		CheckedAt:             time.Now().UTC(),
+		IssuerURL:             strings.TrimSpace(response.IssuerURL),
+		AuthorizationEndpoint: strings.TrimSpace(response.AuthorizationEndpoint),
+		TokenEndpoint:         strings.TrimSpace(response.TokenEndpoint),
+		RedirectURL:           strings.TrimSpace(response.RedirectURL),
+		Warnings:              normalizeStringList(response.Warnings, false),
+	}
+}
+
+func securityOIDCValidationFailureRecord(
+	message string,
+	redirectURL string,
+	host string,
+	mode config.AuthMode,
+) securityOIDCValidationRecord {
+	return securityOIDCValidationRecord{
+		Status:      "failed",
+		Message:     strings.TrimSpace(message),
+		CheckedAt:   time.Now().UTC(),
+		RedirectURL: strings.TrimSpace(redirectURL),
+		Warnings:    securityPublicExposureWarnings(host, mode),
+	}
 }
 
 func buildBootstrapState(cfg config.AuthConfig) securityAuthBootstrapStateResponse {

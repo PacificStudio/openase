@@ -8,7 +8,7 @@
   } from '$lib/features/settings'
   import { authStore } from '$lib/stores/auth.svelte'
   import { Badge } from '$ui/badge'
-  import { LockKeyhole, ShieldCheck, Users } from '@lucide/svelte'
+  import { ArrowRight, LockKeyhole, ShieldCheck, Users } from '@lucide/svelte'
 
   let loading = $state(false)
   let error = $state('')
@@ -68,7 +68,7 @@
   description="Instance-scoped user directory, session governance, auth diagnostics, and break-glass recovery guidance."
 >
   <div class="space-y-4">
-    <div class="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+    <div class="grid gap-4 lg:grid-cols-3">
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
         <div class="flex items-center gap-2">
           <ShieldCheck class="text-muted-foreground size-4" />
@@ -111,6 +111,24 @@
             after upstream identity sync and role bindings are confirmed.
           </p>
         </div>
+      </div>
+
+      <div class="border-border bg-card space-y-3 rounded-lg border p-4">
+        <div class="flex items-center gap-2">
+          <ArrowRight class="text-muted-foreground size-4" />
+          <div class="text-sm font-semibold">Auth configuration</div>
+        </div>
+        <p class="text-muted-foreground text-xs">
+          Manage instance-wide auth mode, OIDC draft settings, bootstrap admins, and the latest
+          validation diagnostics from the dedicated auth control plane.
+        </p>
+        <a
+          class="inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-800"
+          href="/admin/auth"
+        >
+          Open auth configuration
+          <ArrowRight class="size-4" />
+        </a>
       </div>
     </div>
 

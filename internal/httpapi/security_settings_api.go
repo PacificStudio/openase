@@ -153,7 +153,7 @@ func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 	}
 
 	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
-	storedAuth, err := editor.loadStoredAuth()
+	storedState, err := editor.loadStoredState()
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
@@ -163,12 +163,12 @@ func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
-	mode := storedAuth.Mode
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedState.Auth))
+	mode := storedState.Auth.Mode
 	if mode == "" {
 		mode = s.auth.Mode
 	}
-	storedAuth, err = editor.saveDraft(draft, mode)
+	storedState, err = editor.saveDraft(draft, mode)
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
@@ -176,7 +176,7 @@ func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{
 		"security": buildSecuritySettingsResponse(
 			projectID,
-			storedAuth,
+			storedState,
 			s.readGitHubSecurity(c, projectID),
 			s.resolveApprovalPoliciesSummary(c),
 			s.auth,
@@ -192,7 +192,7 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 	}
 
 	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
-	storedAuth, err := editor.loadStoredAuth()
+	storedState, err := editor.loadStoredState()
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
@@ -202,17 +202,17 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedState.Auth))
 	authCfg, err := completeOIDCAuthConfig(draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
-
-	return c.JSON(http.StatusOK, securityOIDCTestResultResponse{
+	response := securityOIDCTestResultResponse{
 		Status:                "ok",
 		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
 		IssuerURL:             diagnostics.IssuerURL,
@@ -220,7 +220,12 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 		TokenEndpoint:         diagnostics.TokenEndpoint,
 		RedirectURL:           authCfg.OIDC.RedirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
-	})
+	}
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(response)); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
 
 func (s *Server) handleEnableOIDC(c echo.Context) error {
@@ -230,7 +235,7 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 	}
 
 	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
-	storedAuth, err := editor.loadStoredAuth()
+	storedState, err := editor.loadStoredState()
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
@@ -240,16 +245,29 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedAuth))
+	draft := parseSecurityOIDCDraftRequest(raw, draftInputFromConfig(storedState.Auth))
 	authCfg, err := completeOIDCAuthConfig(draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
-	if _, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil); err != nil {
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	if err != nil {
+		_ = editor.saveValidation(securityOIDCValidationFailureRecord(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
+	if err := editor.saveValidation(securityOIDCValidationSuccessRecord(securityOIDCTestResultResponse{
+		Status:                "ok",
+		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
+		IssuerURL:             diagnostics.IssuerURL,
+		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
+		TokenEndpoint:         diagnostics.TokenEndpoint,
+		RedirectURL:           authCfg.OIDC.RedirectURL,
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
+	})); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
 
-	storedAuth, err = editor.saveDraft(draft, config.AuthModeOIDC)
+	storedState, err = editor.saveDraft(draft, config.AuthModeOIDC)
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
@@ -266,7 +284,7 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 				"Verify instance, organization, and project role bindings after the first login, then narrow the bootstrap admin list.",
 			},
 		},
-		Security: buildSecuritySettingsResponse(projectID, storedAuth, githubSecurity, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
+		Security: buildSecuritySettingsResponse(projectID, storedState, githubSecurity, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
 	})
 }
 
@@ -362,12 +380,12 @@ func (s *Server) writeSecuritySettingsResponse(
 	github securityGitHubOutboundCredentialResponse,
 ) error {
 	editor := newSecuritySettingsConfigEditor(s.configFilePath, s.homeDir, s.auth)
-	storedAuth, err := editor.loadStoredAuth()
+	storedState, err := editor.loadStoredState()
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, storedAuth, github, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
+		"security": buildSecuritySettingsResponse(projectID, storedState, github, s.resolveApprovalPoliciesSummary(c), s.auth, s.cfg.Host, editor.resolvedPath()),
 	})
 }
 
@@ -385,19 +403,20 @@ func (s *Server) readGitHubSecurity(c echo.Context, projectID uuid.UUID) securit
 
 func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
-	storedAuth config.AuthConfig,
+	storedState securityStoredAuthState,
 	github securityGitHubOutboundCredentialResponse,
 	approvalPolicies securityApprovalPoliciesResponse,
 	activeAuth config.AuthConfig,
 	host string,
 	configPath string,
 ) securitySettingsResponse {
+	storedAuth := storedState.Auth
 	if storedAuth.Mode == "" {
 		storedAuth = activeAuth
 	}
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
-		Auth:      buildSecurityAuthSettingsResponse(activeAuth, storedAuth, configPath, host),
+		Auth:      buildSecurityAuthSettingsResponse(activeAuth, storedAuth, storedState.LastValidation, configPath, host),
 		AgentTokens: securityAgentTokensResponse{
 			Transport:              securitySettingsAgentTokenTransport,
 			EnvironmentVariable:    securitySettingsAgentTokenEnvVar,

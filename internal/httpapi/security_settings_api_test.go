@@ -364,6 +364,7 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	projectID := uuid.New()
 	catalog := newFakeCatalogService()
 	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	issuerServer := newTestOIDCDiscoveryServer(t)
 	defer issuerServer.Close()
 	server := NewServer(
@@ -376,6 +377,7 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 		nil,
 		catalog,
 		nil,
+		WithRuntimeConfigFile(configPath),
 	)
 
 	req := httptest.NewRequest(
