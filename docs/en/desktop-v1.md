@@ -7,6 +7,7 @@ OpenASE Desktop v1 is a desktop shell around the existing local OpenASE runtime.
 - surfacing startup, timeout, and unexpected-exit errors with log and data-directory actions
 - exposing logs, restart, and data-directory entrypoints from the Electron shell
 - packaging the Electron shell and the OpenASE binary together for macOS and Linux
+- guiding first-launch PostgreSQL setup from inside the desktop shell instead of failing on a raw config error
 
 ## Scope And Non-goals
 
@@ -21,10 +22,14 @@ Desktop v1 intentionally keeps the current product shape:
 
 ### Production mode
 
-1. The desktop shell resolves the OpenASE binary from the packaged app resources.
-2. The shell starts `openase all-in-one --host 127.0.0.1 --port <dynamic-port> --config <resolved-config>`.
-3. The shell waits for both readiness endpoints.
-4. The BrowserWindow opens `http://127.0.0.1:<dynamic-port>`.
+1. The desktop shell resolves the packaged OpenASE binary and setup runtime helpers.
+2. The shell runs a Go-backed desktop preflight:
+   - ensure the OpenASE home layout can be created
+   - check whether the config file exists and loads
+   - validate PostgreSQL reachability when config already exists
+3. If preflight is ready, the shell starts `openase all-in-one --host 127.0.0.1 --port <dynamic-port> --config <resolved-config>`.
+4. If preflight is blocked, the shell opens the first-launch guide and lets the user finish setup in-app.
+5. Once setup succeeds, the shell reruns preflight and only then opens `http://127.0.0.1:<dynamic-port>`.
 
 ### Development mode
 
@@ -51,18 +56,34 @@ Compatibility rule: desktop v1 reuses the existing `~/.openase` data layout inst
 
 ## PostgreSQL Strategy For v1
 
-Desktop v1 supports the same PostgreSQL preparation modes as the CLI and source-build flow:
+Desktop v1 supports the same PostgreSQL preparation modes as the CLI and source-build flow, but the first-run path now lives inside the desktop shell:
 
-- manual PostgreSQL connection
-- Docker PostgreSQL prepared through `openase setup`
+- connect an existing PostgreSQL instance
+- let Docker provision PostgreSQL through the existing Go `setup` runtime
 
-Required operator expectation:
+The first-launch setup page shows:
 
-- desktop startup expects a valid config file before the shell can launch OpenASE successfully
-- that config must point at a reachable PostgreSQL instance
-- the shell does not try to mutate your database configuration during startup
+- the current blocking issue and recovery hint
+- a manual PostgreSQL form for host / port / database / user / password / sslmode
+- a Docker PostgreSQL path with the local container defaults
+- retry / re-check actions plus direct log and data-directory entrypoints
 
-Recommended first-run preparation:
+The desktop host still keeps the layering boundary intact:
+
+- Electron owns the state machine, view switching, and log entrypoints.
+- Go `setup` owns config generation, PostgreSQL validation, Docker provisioning, and schema initialization.
+
+What the shell now catches explicitly:
+
+- missing config
+- invalid config
+- PostgreSQL authentication failures
+- PostgreSQL reachability failures
+- Docker unavailable / permission denied
+- port conflicts during Docker provisioning
+- setup timeouts
+
+If you prefer to prepare the environment before launching the desktop app, the CLI path is still valid:
 
 ```bash
 make build-web
@@ -70,6 +91,26 @@ make build-web
 ```
 
 After setup creates `~/.openase/config.yaml`, the desktop shell can reuse that config.
+
+## Release Assets
+
+Desktop installers are now part of the GitHub release workflow instead of being local-only packaging outputs.
+
+Release assets include:
+
+- macOS: `openase-desktop_<version>_darwin_<arch>.dmg`, `openase-desktop_<version>_darwin_<arch>.zip`
+- Linux: `openase-desktop_<version>_linux_<arch>.AppImage`, `openase-desktop_<version>_linux_<arch>.deb`
+- existing Go release archives remain published alongside them
+
+Each desktop installer bundles:
+
+- the Electron desktop host
+- the OpenASE binary
+- `config/desktop-manifest.json`
+- `config/config.example.yaml`
+- `docs/desktop-v1.md`
+
+If CI has macOS signing / notarization secrets, Electron Builder uses them. If not, the workflow still publishes unsigned desktop assets and logs that downgrade explicitly.
 
 ### Managed local PostgreSQL follow-up direction
 
@@ -131,7 +172,7 @@ make desktop-validate
 This runs:
 
 - desktop unit/integration tests
-- desktop Electron E2E
+- desktop Electron E2E, including the first-launch setup surface
 - desktop package smoke
 
 ### Build the desktop bundle
@@ -166,6 +207,7 @@ The smoke step builds the unpacked desktop app and verifies that the packaged re
 - the bundled OpenASE binary
 - the config template
 - the desktop bundle manifest
+- the desktop guide
 
 ## Test Layers
 
@@ -180,8 +222,8 @@ Desktop v1 validation is deliberately layered instead of relying on manual check
 ### Desktop-specific coverage
 
 - unit: port allocation, command assembly, health timeout, single instance, directory resolution
-- integration: service lifecycle, restart behavior, window/controller flow, unexpected exit handling
-- E2E: launch the Electron shell, reach the hosted page, verify API connectivity, verify the error page when config is missing
+- integration: service lifecycle, restart behavior, preflight gating, first-launch setup flow, unexpected exit handling
+- E2E: launch the Electron shell, reach the hosted page, validate the setup guide on a fresh profile, and confirm the manual setup path reaches the hosted UI
 - package smoke: build unpacked app resources and verify packaged contents
 
 ## Local Packaging Checklist
@@ -212,7 +254,7 @@ That job runs:
 
 ### Config missing
 
-If the desktop shell reports that `~/.openase/config.yaml` is missing, run:
+Desktop v1 now opens the first-launch guide instead of stopping on the raw config error. You can complete setup in-app, or run the CLI path manually:
 
 ```bash
 ./bin/openase setup
@@ -220,7 +262,16 @@ If the desktop shell reports that `~/.openase/config.yaml` is missing, run:
 
 ### Database not reachable
 
-Desktop v1 does not hide PostgreSQL errors. If the service fails after config resolution, open the logs directory from the error page and verify that the configured DSN is reachable.
+If the setup page reports PostgreSQL authentication or reachability failures, use the same page to edit the connection details and retry. If the failure persists, open the logs directory and verify that the configured DSN is reachable.
+
+### Docker unavailable
+
+If the Docker path is disabled or fails, check whether:
+
+- Docker is installed
+- the Docker daemon is running
+- your user can access the Docker daemon
+- the requested local PostgreSQL port is not already in use
 
 ### Wrong binary during local development
 

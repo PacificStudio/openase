@@ -46,6 +46,10 @@ body {
   border-color: rgba(255, 143, 121, 0.24);
 }
 
+.panel-setup {
+  width: min(1040px, 100%);
+}
+
 .eyebrow {
   display: inline-flex;
   margin-bottom: 14px;
@@ -69,6 +73,11 @@ p {
   color: var(--muted);
   font-size: 1rem;
   line-height: 1.6;
+}
+
+h2,
+h3 {
+  margin: 0;
 }
 
 .pulse-row {
@@ -127,6 +136,133 @@ p {
   gap: 12px;
 }
 
+.section-block {
+  margin-top: 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.inline-note {
+  font-size: 0.92rem;
+}
+
+.issue-grid,
+.diagnostic-grid,
+.setup-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.issue-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.issue-card,
+.setup-card {
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.issue-card h3 {
+  margin: 12px 0 8px;
+  font-size: 1.1rem;
+}
+
+.issue-code,
+.card-kicker {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.issue-action {
+  margin-top: 10px;
+  color: var(--text);
+}
+
+.diagnostic-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.diagnostic {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.diagnostic.ready span {
+  color: var(--accent);
+}
+
+.diagnostic.missing span,
+.diagnostic.version_error span {
+  color: var(--danger);
+}
+
+.setup-grid {
+  margin: 28px 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.setup-card {
+  display: grid;
+  gap: 14px;
+}
+
+.setup-card.accent {
+  border-color: rgba(85, 212, 176, 0.18);
+  background: linear-gradient(180deg, rgba(85, 212, 176, 0.08), rgba(255, 255, 255, 0.03));
+}
+
+.card-header {
+  display: grid;
+  gap: 8px;
+}
+
+.field-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+input,
+select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(7, 14, 18, 0.84);
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+button:focus {
+  outline: 2px solid rgba(85, 212, 176, 0.35);
+  outline-offset: 2px;
+}
+
 button {
   border: 0;
   border-radius: 999px;
@@ -141,6 +277,12 @@ button {
 button.secondary {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 button:hover {
@@ -167,6 +309,16 @@ button:hover {
 
   .meta-grid {
     grid-template-columns: 1fr;
+  }
+
+  .setup-grid,
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .actions {

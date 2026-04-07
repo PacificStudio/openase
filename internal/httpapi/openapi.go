@@ -1711,6 +1711,7 @@ type OpenAPIManagedAuthSession struct {
 	ID            string                   `json:"id"`
 	Current       bool                     `json:"current"`
 	Device        OpenAPIAuthSessionDevice `json:"device"`
+	IPSummary     string                   `json:"ip_summary,omitempty"`
 	CreatedAt     string                   `json:"created_at"`
 	LastActiveAt  string                   `json:"last_active_at"`
 	ExpiresAt     string                   `json:"expires_at"`
@@ -1742,8 +1743,9 @@ type OpenAPIAuthSessionsResponse struct {
 }
 
 type OpenAPIAuthRevokeSessionsResponse struct {
-	RevokedCount int    `json:"revoked_count"`
-	UserID       string `json:"user_id,omitempty"`
+	RevokedCount          int    `json:"revoked_count"`
+	UserID                string `json:"user_id,omitempty"`
+	CurrentSessionRevoked bool   `json:"current_session_revoked,omitempty"`
 }
 
 type OpenAPIUserIdentitySummary struct {
@@ -1805,6 +1807,7 @@ type OpenAPIUserDirectoryDetailResponse struct {
 	User               OpenAPIUserDirectoryEntry    `json:"user"`
 	Identities         []OpenAPIUserIdentityDetail  `json:"identities"`
 	Groups             []OpenAPIUserGroupMembership `json:"groups"`
+	ActiveSessions     []OpenAPIManagedAuthSession  `json:"active_sessions"`
 	ActiveSessionCount int                          `json:"active_session_count"`
 	LatestStatusAudit  *OpenAPIUserStatusAudit      `json:"latest_status_audit,omitempty"`
 	RecentAuditEvents  []OpenAPIAuthAuditEvent      `json:"recent_audit_events"`
@@ -2683,6 +2686,25 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 	}
 	adminRevokeSessions.AddParameter(uuidPathParameter("userId", "User ID whose browser sessions should be revoked."))
 	b.doc.AddOperation("/api/v1/auth/users/{userId}/sessions/revoke", http.MethodPost, adminRevokeSessions)
+
+	adminRevokeSession, err := b.jsonOperation(
+		"adminRevokeAuthSession",
+		"Revoke one browser session from the instance-level governance surface",
+		[]string{"auth"},
+		http.StatusOK,
+		OpenAPIAuthRevokeSessionsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusUnauthorized,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	adminRevokeSession.AddParameter(uuidPathParameter("id", "Browser session ID to revoke from the admin surface."))
+	b.doc.AddOperation("/api/v1/instance/sessions/{id}", http.MethodDelete, adminRevokeSession)
 
 	listUsers, err := b.jsonOperation(
 		"listInstanceUsers",

@@ -553,6 +553,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/instance/sessions/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke one browser session from the instance-level governance surface */
+    delete: operations['adminRevokeAuthSession']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/instance/users': {
     parameters: {
       query?: never
@@ -3369,6 +3386,7 @@ export interface operations {
               expires_at?: string
               id?: string
               idle_expires_at?: string
+              ip_summary?: string
               last_active_at?: string
             }[]
             step_up?: {
@@ -3409,6 +3427,7 @@ export interface operations {
         }
         content: {
           'application/json': {
+            current_session_revoked?: boolean
             revoked_count?: number
             user_id?: string
           }
@@ -3528,6 +3547,7 @@ export interface operations {
         }
         content: {
           'application/json': {
+            current_session_revoked?: boolean
             revoked_count?: number
             user_id?: string
           }
@@ -5333,6 +5353,93 @@ export interface operations {
       }
     }
   }
+  adminRevokeAuthSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Browser session ID to revoke from the admin surface. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke one browser session from the instance-level governance surface response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            current_session_revoked?: boolean
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listInstanceUsers: {
     parameters: {
       query?: {
@@ -5447,6 +5554,21 @@ export interface operations {
         content: {
           'application/json': {
             active_session_count?: number
+            active_sessions?: {
+              created_at?: string
+              current?: boolean
+              device?: {
+                browser?: string
+                kind?: string
+                label?: string
+                os?: string
+              }
+              expires_at?: string
+              id?: string
+              idle_expires_at?: string
+              ip_summary?: string
+              last_active_at?: string
+            }[]
             groups?: {
               group_key?: string
               group_name?: string

@@ -41,6 +41,7 @@ type authManagedSessionResponse struct {
 	ID            string                    `json:"id"`
 	Current       bool                      `json:"current"`
 	Device        authSessionDeviceResponse `json:"device"`
+	IPSummary     string                    `json:"ip_summary,omitempty"`
 	CreatedAt     string                    `json:"created_at"`
 	LastActiveAt  string                    `json:"last_active_at"`
 	ExpiresAt     string                    `json:"expires_at"`
@@ -72,8 +73,9 @@ type authSessionsResponse struct {
 }
 
 type authRevokeSessionsResponse struct {
-	RevokedCount int    `json:"revoked_count"`
-	UserID       string `json:"user_id,omitempty"`
+	RevokedCount          int    `json:"revoked_count"`
+	UserID                string `json:"user_id,omitempty"`
+	CurrentSessionRevoked bool   `json:"current_session_revoked,omitempty"`
 }
 
 func (s *Server) registerAuthRoutes(api *echo.Group) {
@@ -89,6 +91,7 @@ func (s *Server) registerProtectedAuthRoutes(api *echo.Group) {
 	api.DELETE("/auth/sessions/:id", s.handleDeleteSession)
 	api.POST("/auth/sessions/revoke-all", s.handleRevokeAllSessions)
 	api.POST("/auth/users/:userId/sessions/revoke", s.handleAdminRevokeUserSessions)
+	api.DELETE("/instance/sessions/:id", s.handleAdminRevokeSession)
 }
 
 func (s *Server) handleOIDCStart(c echo.Context) error {
@@ -282,8 +285,40 @@ func (s *Server) handleAdminRevokeUserSessions(c echo.Context) error {
 		s.clearHumanSessionCookies(c)
 	}
 	return c.JSON(http.StatusOK, authRevokeSessionsResponse{
-		RevokedCount: len(sessions),
-		UserID:       userID.String(),
+		RevokedCount:          len(sessions),
+		UserID:                userID.String(),
+		CurrentSessionRevoked: userID == principal.User.ID,
+	})
+}
+
+func (s *Server) handleAdminRevokeSession(c echo.Context) error {
+	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
+	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+	}
+	sessionID, err := parseUUIDPathParamValue(c, "id")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
+	}
+	session, isCurrent, err := s.humanAuthService.ForceRevokeSession(c.Request().Context(), principal, sessionID)
+	if err != nil {
+		switch {
+		case errors.Is(err, humanauthservice.ErrSessionNotFound):
+			return writeAPIError(c, http.StatusNotFound, "SESSION_NOT_FOUND", "browser session not found")
+		default:
+			return writeAPIError(c, http.StatusInternalServerError, "SESSION_REVOKE_FAILED", err.Error())
+		}
+	}
+	if isCurrent {
+		s.clearHumanSessionCookies(c)
+	}
+	return c.JSON(http.StatusOK, authRevokeSessionsResponse{
+		RevokedCount:          1,
+		UserID:                session.UserID.String(),
+		CurrentSessionRevoked: isCurrent,
 	})
 }
 
@@ -339,6 +374,14 @@ func cookieSecure(c echo.Context) bool {
 }
 
 func mapManagedSessionResponse(session humanauthdomain.BrowserSession, currentSessionID uuid.UUID) authManagedSessionResponse {
+	label := strings.TrimSpace(session.DeviceLabel)
+	if label == "" {
+		label = "Unknown device"
+	}
+	ipSummary := strings.TrimSpace(session.IPPrefix)
+	if ipSummary == "" {
+		ipSummary = "Unavailable"
+	}
 	return authManagedSessionResponse{
 		ID:      session.ID.String(),
 		Current: session.ID == currentSessionID,
@@ -346,8 +389,9 @@ func mapManagedSessionResponse(session humanauthdomain.BrowserSession, currentSe
 			Kind:    string(session.DeviceKind),
 			OS:      session.DeviceOS,
 			Browser: session.DeviceBrowser,
-			Label:   session.DeviceLabel,
+			Label:   label,
 		},
+		IPSummary:     ipSummary,
 		CreatedAt:     session.CreatedAt.UTC().Format(time.RFC3339),
 		LastActiveAt:  session.UpdatedAt.UTC().Format(time.RFC3339),
 		ExpiresAt:     session.ExpiresAt.UTC().Format(time.RFC3339),

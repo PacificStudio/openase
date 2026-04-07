@@ -9,6 +9,7 @@ import (
 
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -71,6 +72,7 @@ type userDirectoryDetailResponse struct {
 	User               userDirectoryEntryResponse    `json:"user"`
 	Identities         []userIdentityDetailResponse  `json:"identities"`
 	Groups             []userGroupMembershipResponse `json:"groups"`
+	ActiveSessions     []authManagedSessionResponse  `json:"active_sessions"`
 	ActiveSessionCount int                           `json:"active_session_count"`
 	LatestStatusAudit  *userStatusAuditResponse      `json:"latest_status_audit,omitempty"`
 	RecentAuditEvents  []authAuditEventResponse      `json:"recent_audit_events"`
@@ -136,7 +138,11 @@ func (s *Server) handleGetUser(c echo.Context) error {
 		}
 		return writeAPIError(c, http.StatusInternalServerError, "USER_DIRECTORY_DETAIL_FAILED", err.Error())
 	}
-	return c.JSON(http.StatusOK, mapUserDirectoryDetailResponse(detail))
+	var currentSessionID uuid.UUID
+	if principal, ok := currentHumanPrincipal(c); ok {
+		currentSessionID = principal.Session.ID
+	}
+	return c.JSON(http.StatusOK, mapUserDirectoryDetailResponse(detail, currentSessionID))
 }
 
 func (s *Server) handleTransitionUserStatus(c echo.Context) error {
@@ -214,11 +220,15 @@ func mapUserDirectoryEntryResponse(entry humanauthdomain.UserDirectoryEntry) use
 	return response
 }
 
-func mapUserDirectoryDetailResponse(detail humanauthdomain.UserDirectoryDetail) userDirectoryDetailResponse {
+func mapUserDirectoryDetailResponse(
+	detail humanauthdomain.UserDirectoryDetail,
+	currentSessionID uuid.UUID,
+) userDirectoryDetailResponse {
 	response := userDirectoryDetailResponse{
 		User:               mapUserDirectoryEntryResponse(humanauthdomain.UserDirectoryEntry{User: detail.User}),
 		Identities:         make([]userIdentityDetailResponse, 0, len(detail.Identities)),
 		Groups:             make([]userGroupMembershipResponse, 0, len(detail.Groups)),
+		ActiveSessions:     make([]authManagedSessionResponse, 0, len(detail.ActiveSessions)),
 		ActiveSessionCount: detail.ActiveSessionCount,
 		LatestStatusAudit:  mapUserStatusAuditResponse(detail.LatestStatusAudit),
 		RecentAuditEvents:  make([]authAuditEventResponse, 0, len(detail.RecentAuditEvents)),
@@ -245,6 +255,9 @@ func mapUserDirectoryDetailResponse(detail humanauthdomain.UserDirectoryDetail) 
 			GroupName:    group.GroupName,
 			LastSyncedAt: group.LastSyncedAt.UTC().Format(time.RFC3339),
 		})
+	}
+	for _, session := range detail.ActiveSessions {
+		response.ActiveSessions = append(response.ActiveSessions, mapManagedSessionResponse(session, currentSessionID))
 	}
 	for _, event := range detail.RecentAuditEvents {
 		response.RecentAuditEvents = append(response.RecentAuditEvents, mapAuthAuditEventResponse(event))
