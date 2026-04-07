@@ -123,7 +123,7 @@ describe('Security settings', () => {
       security: configuredSecurityWithNullPermissions() as never,
     })
 
-    const { findByRole, findByText } = render(SecuritySettings)
+    const { findByText } = render(SecuritySettings)
 
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(await findByText('No scopes reported')).toBeTruthy()
