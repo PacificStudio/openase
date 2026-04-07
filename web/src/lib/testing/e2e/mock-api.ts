@@ -43,6 +43,51 @@ type MockGitHubSlot = {
 
 type MockSecuritySettings = {
   project_id: string
+  auth: {
+    active_mode: string
+    configured_mode: string
+    issuer_url: string
+    local_principal: string
+    mode_summary: string
+    recommended_mode: string
+    public_exposure_risk: string
+    warnings: string[]
+    next_steps: string[]
+    config_path: string
+    bootstrap_state: {
+      status: string
+      admin_emails: string[]
+      summary: string
+    }
+    session_policy: {
+      session_ttl: string
+      session_idle_ttl: string
+    }
+    last_validation: {
+      status: string
+      message: string
+      checked_at: string
+      issuer_url: string
+      authorization_endpoint: string
+      token_endpoint: string
+      redirect_url: string
+      warnings: string[]
+    }
+    oidc_draft: {
+      issuer_url: string
+      client_id: string
+      client_secret_configured: boolean
+      redirect_url: string
+      scopes: string[]
+      allowed_email_domains: string[]
+      bootstrap_admin_emails: string[]
+    }
+    docs: Array<{
+      title: string
+      href: string
+      summary: string
+    }>
+  }
   agent_tokens: {
     transport: string
     environment_variable: string
@@ -158,6 +203,43 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
     })
   }
 
+  if (url.pathname === '/api/v1/auth/me/permissions' && request.method === 'GET') {
+    const projectId = url.searchParams.get('project_id') ?? ''
+    const orgId = url.searchParams.get('org_id') ?? ''
+    const scopeKind = projectId ? 'project' : orgId ? 'organization' : 'instance'
+    const scopeID = projectId || orgId
+    const roles =
+      scopeKind === 'project'
+        ? ['project_admin']
+        : scopeKind === 'organization'
+          ? ['instance_admin']
+          : ['instance_admin']
+    const permissions =
+      scopeKind === 'project'
+        ? ['project.read', 'project.update', 'rbac.manage']
+        : scopeKind === 'organization'
+          ? ['org.read', 'org.update', 'rbac.manage']
+          : ['security.read', 'security.manage', 'rbac.manage']
+    return jsonResponse({
+      user: {
+        id: 'local-instance-admin',
+        primary_email: 'local@example.com',
+        display_name: 'Local Instance Admin',
+      },
+      scope: {
+        kind: scopeKind,
+        id: scopeID,
+      },
+      roles,
+      permissions,
+      groups: [],
+    })
+  }
+
+  if (url.pathname === '/api/v1/admin/auth' && request.method === 'GET') {
+    return jsonResponse({ auth: clone(resolveSecuritySettings(PROJECT_ID).auth) })
+  }
+
   if (url.pathname === '/api/v1/auth/logout' && request.method === 'POST') {
     return noContentResponse()
   }
@@ -241,6 +323,56 @@ async function handleOrgRoutes(request: Request, segments: string[]) {
   if (segments[2] === 'projects' && request.method === 'GET') {
     return jsonResponse({
       projects: clone(mockState.projects.filter((project) => project.org_id === orgId)),
+    })
+  }
+  if (segments[2] === 'summary' && request.method === 'GET') {
+    return jsonResponse({
+      organization: {
+        id: ORG_ID,
+        name: 'OpenASE E2E',
+        slug: 'openase-e2e',
+        project_count: 1,
+        active_project_count: 1,
+      },
+      projects: clone(mockState.projects.filter((project) => project.org_id === orgId)),
+    })
+  }
+  if (segments[2] === 'token-usage' && request.method === 'GET') {
+    return jsonResponse({
+      summary: {
+        total_tokens: 4200,
+        avg_daily_tokens: 600,
+        peak_day: {
+          date: '2026-03-25',
+          total_tokens: 900,
+        },
+      },
+      days: [],
+    })
+  }
+  if (segments[2] === 'members' && request.method === 'GET') {
+    return jsonResponse({
+      memberships: [
+        {
+          id: 'membership-1',
+          organization_id: ORG_ID,
+          user_id: 'user-1',
+          email: 'alice@example.com',
+          role: 'org_admin',
+          status: 'active',
+          invited_by: 'user:seed',
+          invited_at: nowIso,
+          accepted_at: nowIso,
+          created_at: nowIso,
+          updated_at: nowIso,
+          user: {
+            id: 'user-1',
+            primary_email: 'alice@example.com',
+            display_name: 'Alice Admin',
+            avatar_url: '',
+          },
+        },
+      ],
     })
   }
   if (segments[2] === 'providers' && request.method === 'GET') {
@@ -1850,6 +1982,75 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
   const projectOverride = createEmptyGitHubSlot('project')
   return {
     project_id: projectId,
+    auth: {
+      active_mode: 'disabled',
+      configured_mode: 'disabled',
+      issuer_url: '',
+      local_principal: 'local_instance_admin:default',
+      mode_summary:
+        'Disabled mode keeps the local bootstrap principal active while `/admin`, org admin, and project access stay split by scope.',
+      recommended_mode:
+        'Keep disabled mode for local-only use, or move to OIDC from /admin/auth when you need real multi-user browser access control.',
+      public_exposure_risk: 'local_only',
+      warnings: [
+        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+      ],
+      next_steps: [
+        'You can keep disabled mode for local single-user use with no extra IAM overhead.',
+        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+      ],
+      config_path: '/home/test/.openase/config.yaml',
+      bootstrap_state: {
+        status: 'configured',
+        admin_emails: ['admin@example.com'],
+        summary:
+          '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
+      },
+      session_policy: {
+        session_ttl: '8h0m0s',
+        session_idle_ttl: '30m0s',
+      },
+      last_validation: {
+        status: 'ok',
+        message:
+          'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
+        checked_at: nowIso,
+        issuer_url: 'https://idp.example.com',
+        authorization_endpoint: 'https://idp.example.com/authorize',
+        token_endpoint: 'https://idp.example.com/token',
+        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        warnings: [],
+      },
+      oidc_draft: {
+        issuer_url: 'https://idp.example.com',
+        client_id: 'openase',
+        client_secret_configured: true,
+        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        scopes: ['openid', 'profile', 'email', 'groups'],
+        allowed_email_domains: ['example.com'],
+        bootstrap_admin_emails: ['admin@example.com'],
+      },
+      docs: [
+        {
+          title: 'Mode selection guide',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
+          summary:
+            'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+        },
+        {
+          title: 'Dual-mode contract',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
+          summary:
+            'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+        },
+        {
+          title: 'IAM rollout checklist',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
+          summary:
+            'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+        },
+      ],
+    },
     agent_tokens: {
       transport: 'Bearer token',
       environment_variable: 'OPENASE_AGENT_TOKEN',

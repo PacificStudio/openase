@@ -13,6 +13,7 @@
   import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
+  import { authStore } from '$lib/stores/auth.svelte'
   import { cn } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import type { Snippet } from 'svelte'
@@ -116,6 +117,25 @@
   description="Run member lifecycle, invitations, and org-scoped RBAC without crossing into instance-wide `/admin` controls. Project access still inherits from these org decisions."
 >
   <div class="space-y-6">
+    <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
+      <div class="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">Migration note</Badge>
+        <Badge variant="secondary"
+          >{authStore.authMode === 'oidc' ? 'OIDC mode' : 'Disabled mode'}</Badge
+        >
+      </div>
+      <p class="mt-2 leading-6">
+        Organization members, invitations, and org-scoped roles now live here instead of project
+        Settings -&gt; Security. Keep installation-wide auth in <code>/admin</code>, and keep
+        project-local role bindings in each project's Settings -&gt; Access section.
+      </p>
+      <p class="mt-2 text-xs leading-5 opacity-90">
+        {authStore.authMode === 'oidc'
+          ? 'OIDC mode enforces real org owners and org admins here; instance-wide authority still does not collapse back into project settings.'
+          : 'Disabled mode still reaches this route through the local bootstrap principal, but the ownership model remains organization scope rather than project security scope.'}
+      </p>
+    </div>
+
     <div class="rounded-3xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-950">
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="outline">Org scope only</Badge>

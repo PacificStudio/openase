@@ -26,7 +26,7 @@ Use the auth mode that matches the deployment you actually have:
 - Keep `auth.mode=disabled` for personal laptops, local demos, throwaway sandboxes, and any instance where one operator is effectively the whole control plane.
 - Prefer `auth.mode=oidc` once the instance is shared with a team, exposed beyond loopback, or expected to keep per-user audit, invitations, memberships, and session isolation.
 - If you are a single admin but still want browser login and future multi-user readiness, `oidc + instance_admin` is a valid upgrade path. It is optional, not mandatory.
-- `instance_admin` is the highest authorization role *inside* OIDC mode. It does not replace disabled mode's local bootstrap principal.
+- `instance_admin` is the highest authorization role _inside_ OIDC mode. It does not replace disabled mode's local bootstrap principal.
 
 Practical guidance:
 
@@ -72,9 +72,15 @@ OpenASE also supports equivalent `OPENASE_AUTH_*` environment variables through 
 
 ## Settings UI And Explicit OIDC Enablement
 
-The Settings -> Security page is the current rollout surface for IAM setup. The steady-state split between `/admin`, org admin, and project settings is defined in [`iam-admin-boundaries.md`](./iam-admin-boundaries.md).
+OpenASE now splits human IAM across four steady-state surfaces:
 
-When OpenASE runs in `auth.mode=disabled`, the page intentionally keeps the local admin experience intact while exposing an auth setup panel:
+- `/admin/auth`: instance auth mode, OIDC draft configuration, bootstrap admins, validation, enablement, and rollback guidance
+- `/admin`: instance directory, session governance, and break-glass diagnostics
+- `/orgs/:orgId/admin/*`: organization members, invitations, and org-scoped role bindings
+- Project Settings -> `#access`: project-scoped bindings and effective project access
+- Project Settings -> `#security`: project-owned credentials, webhook boundaries, and runtime token posture only
+
+When OpenASE runs in `auth.mode=disabled`, `/admin/auth` intentionally keeps the local admin experience intact while exposing the OIDC rollout workflow:
 
 - the page states that the instance is in disabled / local single-user mode
 - the local bootstrap principal remains active and usable
@@ -99,7 +105,7 @@ Current product behavior:
 3. `Enable OIDC` validates discovery again, writes `auth.mode=oidc`, and returns next steps.
 4. The current release still requires a service restart before the new configured mode becomes active.
 
-This explicit split is intentional. Saving configuration must not silently cut off the current disabled-mode operator.
+Project Settings -> Security still exists during the compatibility window, but only as a project-security surface plus migration guidance. It must not continue acting as the instance auth control plane.
 
 ## Browser Flow
 

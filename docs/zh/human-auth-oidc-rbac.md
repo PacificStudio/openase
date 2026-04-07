@@ -71,9 +71,15 @@ OpenASE 也支持通过正常配置加载器使用等价的 `OPENASE_AUTH_*` 环
 
 ## Settings UI 与显式启用 OIDC
 
-Settings -> Security 是当前 IAM setup 的过渡操作面板。`/admin`、org admin 与 project settings 的稳态拆分定义在 [`iam-admin-boundaries.md`](./iam-admin-boundaries.md)。
+OpenASE 现在把人类 IAM 拆分到四个稳态 surface：
 
-当 OpenASE 运行在 `auth.mode=disabled` 时，该页面会在不破坏本地管理员体验的前提下，直接提供认证设置面板：
+- `/admin/auth`：实例级 auth mode、OIDC 草稿、bootstrap admin、验证、启用与回滚指引
+- `/admin`：实例级用户目录、session governance 与 break-glass 诊断
+- `/orgs/:orgId/admin/*`：组织成员、邀请与组织级 role binding
+- Project Settings -> `#access`：项目级 role binding 与有效 project access
+- Project Settings -> `#security`：仅保留项目自有凭证、webhook 边界与运行时 token posture
+
+当 OpenASE 运行在 `auth.mode=disabled` 时，`/admin/auth` 会在不破坏本地管理员体验的前提下提供 OIDC rollout 流程：
 
 - 页面会明确说明当前处于 disabled / 本地单用户模式
 - 本地引导管理员主体会继续可用
@@ -98,7 +104,7 @@ Disabled 模式下的设置表单支持：
 3. `Enable OIDC` 会再次验证 discovery，然后写入 `auth.mode=oidc` 并返回下一步指引。
 4. 当前版本仍然需要重启服务，新的 configured mode 才会成为 active mode。
 
-这种显式拆分是有意设计：保存配置绝不能悄悄打断当前 disabled 模式操作者。
+Project Settings -> Security 在兼容期内仍然存在，但它只负责项目级安全配置与迁移提示，不能再继续充当实例级 auth control plane。
 
 ## 浏览器流程
 

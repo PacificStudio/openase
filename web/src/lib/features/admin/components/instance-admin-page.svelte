@@ -68,6 +68,20 @@
   description="Instance-scoped user directory, session governance, auth diagnostics, and break-glass recovery guidance."
 >
   <div class="space-y-4">
+    <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
+      <div class="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">Migration note</Badge>
+        <Badge variant="secondary"
+          >{authStore.authMode === 'oidc' ? 'OIDC mode' : 'Disabled mode'}</Badge
+        >
+      </div>
+      <p class="mt-2 leading-6">
+        Instance auth, user directory, and global session governance have moved out of project
+        Settings -&gt; Security. Use <code>/admin</code> and <code>/admin/auth</code> for installation-wide
+        IAM, then return to project Settings -&gt; Access only for project-local bindings.
+      </p>
+    </div>
+
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
         <div class="flex items-center gap-2">
