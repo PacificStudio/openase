@@ -9,9 +9,9 @@
   </div>
   <div class="text-muted-foreground space-y-2 text-sm leading-6">
     <p>
-      Disabled mode keeps the local bootstrap principal in charge, so this route focuses on
-      boundary clarity and migration guidance instead of pretending there is already a real
-      multi-user project directory.
+      Disabled mode keeps the local bootstrap principal in charge, so this route focuses on boundary
+      clarity and migration guidance instead of pretending there is already a real multi-user
+      project directory.
     </p>
     <p>
       When you switch to OIDC, return here to review effective project roles and manage
