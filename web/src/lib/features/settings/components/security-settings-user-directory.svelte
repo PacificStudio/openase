@@ -25,7 +25,6 @@
     canRead?: boolean
     canManage?: boolean
   } = $props()
-
   let loading = $state(false)
   let detailLoading = $state(false)
   let error = $state('')
@@ -40,7 +39,6 @@
   const selectedUserStatus = $derived(
     users.find((entry) => entry.id === selectedUserId)?.status ?? '',
   )
-
   function formatError(caughtError: unknown, fallback: string) {
     return caughtError instanceof ApiError ? caughtError.detail : fallback
   }
@@ -75,7 +73,6 @@
       loading = false
     }
   }
-
   async function loadDetail(userId: string) {
     if (!canRead || !userId) {
       selectedDetail = null
@@ -93,7 +90,6 @@
       detailLoading = false
     }
   }
-
   async function handleTransition(status: 'active' | 'disabled') {
     if (!selectedDetail || !canManage) {
       return
@@ -126,7 +122,6 @@
       actionKey = ''
     }
   }
-
   async function handleRevokeSessions() {
     if (!selectedDetail || !canManage) {
       return
@@ -152,7 +147,6 @@
       actionKey = ''
     }
   }
-
   async function handleRevokeSession(sessionId: string) {
     if (!selectedDetail || !canManage) {
       return
