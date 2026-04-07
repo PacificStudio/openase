@@ -46,8 +46,8 @@ func (e permissionDeniedDetail) Error() string { return e.message }
 
 func (e permissionDeniedDetail) Unwrap() error { return ErrPermissionDenied }
 
-func permissionDeniedf(format string, args ...any) error {
-	return permissionDeniedDetail{message: fmt.Sprintf(format, args...)}
+func permissionDeniedf(message string) error {
+	return permissionDeniedDetail{message: message}
 }
 
 const flowCookieTTL = 10 * time.Minute
