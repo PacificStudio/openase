@@ -3,11 +3,19 @@
   import * as Avatar from '$ui/avatar'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as Select from '$ui/select'
 
   let {
     entry,
     currentUserId = '',
+    canManageMembership = false,
+    roleDraft = 'member',
+    roleEditable = false,
+    roleOptions = ['member'],
+    roleDirty = false,
     busyState,
+    onRoleDraftChange,
+    onSaveRole,
     onResend,
     onCancel,
     onTransfer,
@@ -17,7 +25,13 @@
   }: {
     entry: OrganizationMembership
     currentUserId?: string
+    canManageMembership?: boolean
+    roleDraft?: 'owner' | 'admin' | 'member'
+    roleEditable?: boolean
+    roleOptions?: Array<'owner' | 'admin' | 'member'>
+    roleDirty?: boolean
     busyState: {
+      role: boolean
       resend: boolean
       cancel: boolean
       transfer: boolean
@@ -25,6 +39,8 @@
       reactivate: boolean
       remove: boolean
     }
+    onRoleDraftChange?: (role: 'owner' | 'admin' | 'member') => void
+    onSaveRole?: () => void
     onResend: () => void
     onCancel: () => void
     onTransfer: () => void
@@ -119,11 +135,56 @@
           <span>Invite sent {formatTimestamp(entry.activeInvitation.sentAt)}</span>
         {/if}
       </div>
+
+      {#if canManageMembership}
+        <div class="flex flex-wrap items-center gap-2">
+          {#if roleEditable}
+            <div class="min-w-40">
+              <Select.Root
+                type="single"
+                value={roleDraft}
+                onValueChange={(value) => {
+                  if (value === 'owner' || value === 'admin' || value === 'member') {
+                    onRoleDraftChange?.(value)
+                  }
+                }}
+              >
+                <Select.Trigger
+                  class="h-8 w-full text-xs capitalize"
+                  aria-label={`Role for ${entry.email}`}
+                  data-testid={`organization-membership-role-${entry.id}`}
+                >
+                  {roleDraft}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each roleOptions as roleOption (roleOption)}
+                    <Select.Item value={roleOption} class="capitalize">{roleOption}</Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!roleDirty || busyState.role}
+              onclick={onSaveRole}
+            >
+              {busyState.role ? 'Saving…' : 'Save role'}
+            </Button>
+          {:else}
+            <span class="text-muted-foreground text-xs">
+              {entry.role === 'owner' || entry.role === 'admin'
+                ? 'Owner approval required for privileged role changes.'
+                : 'Role is fixed by current access policy.'}
+            </span>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 
   <div class="flex flex-wrap items-start justify-end gap-2">
-    {#if entry.status === 'invited' && entry.activeInvitation}
+    {#if canManageMembership && entry.status === 'invited' && entry.activeInvitation}
       <Button variant="outline" size="sm" disabled={busyState.resend} onclick={onResend}>
         {busyState.resend ? 'Resending…' : 'Resend'}
       </Button>
@@ -132,7 +193,7 @@
       </Button>
     {/if}
 
-    {#if entry.status === 'active' && entry.role !== 'owner'}
+    {#if canManageMembership && entry.status === 'active' && entry.role !== 'owner'}
       <Button size="sm" disabled={busyState.transfer} onclick={onTransfer}>
         {busyState.transfer ? 'Promoting…' : 'Make owner'}
       </Button>
@@ -141,13 +202,13 @@
       </Button>
     {/if}
 
-    {#if entry.status === 'suspended'}
+    {#if canManageMembership && entry.status === 'suspended'}
       <Button variant="outline" size="sm" disabled={busyState.reactivate} onclick={onReactivate}>
         {busyState.reactivate ? 'Reactivating…' : 'Reactivate'}
       </Button>
     {/if}
 
-    {#if entry.status === 'active' || entry.status === 'suspended'}
+    {#if canManageMembership && (entry.status === 'active' || entry.status === 'suspended')}
       <Button variant="outline" size="sm" disabled={busyState.remove} onclick={onRemove}>
         {busyState.remove ? 'Removing…' : 'Remove'}
       </Button>

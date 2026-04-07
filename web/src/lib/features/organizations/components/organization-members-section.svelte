@@ -3,36 +3,67 @@
   import { ApiError } from '$lib/api/client'
   import {
     cancelOrganizationInvitation,
+    getEffectivePermissions,
     inviteOrganizationMember,
     listOrganizationMemberships,
     resendOrganizationInvitation,
     transferOrganizationOwnership,
     updateOrganizationMembership,
+    type EffectivePermissionsResponse,
     type OrganizationMembership,
   } from '$lib/api/auth'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
-  import * as Card from '$ui/card'
-  import OrganizationMembersInvitePanel from './organization-members-invite-panel.svelte'
-  import OrganizationMemberRow from './organization-member-row.svelte'
+  import OrganizationMembersPanel from './organization-members-panel.svelte'
 
-  let { organizationId }: { organizationId: string } = $props()
+  type MembershipRole = 'owner' | 'admin' | 'member'
+  type SectionMode = 'all' | 'members' | 'invitations'
+
+  let {
+    organizationId,
+    mode = 'all',
+    heading = 'Members',
+    description = 'Owners and admins handle invites here. Active memberships drive org visibility and project authorization.',
+    emptyMessage = 'No memberships yet.',
+  }: {
+    organizationId: string
+    mode?: SectionMode
+    heading?: string
+    description?: string
+    emptyMessage?: string
+  } = $props()
 
   const currentUserId = $derived(authStore.user?.id ?? '')
   let memberships = $state<OrganizationMembership[]>([])
+  let orgPermissions = $state<EffectivePermissionsResponse | null>(null)
   let loading = $state(false)
   let inviteEmail = $state('')
-  let inviteRole = $state<'owner' | 'admin' | 'member'>('member')
+  let inviteRole = $state<MembershipRole>('member')
   let submittingInvite = $state(false)
   let recentInviteToken = $state('')
   let recentInviteEmail = $state('')
+  let roleDrafts = $state<Record<string, MembershipRole>>({})
   let busyKeys = $state<Set<string>>(new Set())
+
   const counts = $derived({
     owners: memberships.filter((item) => item.role === 'owner' && item.status === 'active').length,
     active: memberships.filter((item) => item.status === 'active').length,
     invited: memberships.filter((item) => item.status === 'invited').length,
     suspended: memberships.filter((item) => item.status === 'suspended').length,
+  })
+  const effectiveRoles = $derived(orgPermissions?.roles ?? [])
+  const canManageMemberships = $derived(orgPermissions?.permissions.includes('org.update') ?? false)
+  const canManagePrivilegedRoles = $derived(
+    effectiveRoles.includes('instance_admin') || effectiveRoles.includes('org_owner'),
+  )
+  const filteredMemberships = $derived.by(() => {
+    if (mode === 'invitations') {
+      return memberships.filter((item) => item.activeInvitation)
+    }
+    if (mode === 'members') {
+      return memberships.filter((item) => !item.activeInvitation)
+    }
+    return memberships
   })
 
   function setBusy(key: string, active: boolean) {
@@ -44,22 +75,43 @@
     next.delete(key)
     busyKeys = next
   }
-
   function isBusy(key: string) {
     return busyKeys.has(key)
   }
-
+  function syncRoleDrafts(items: OrganizationMembership[]) {
+    const nextDrafts: Record<string, MembershipRole> = {}
+    for (const item of items) {
+      if (item.role === 'owner' || item.role === 'admin' || item.role === 'member') {
+        nextDrafts[item.id] = item.role
+      }
+    }
+    roleDrafts = nextDrafts
+  }
   async function loadMemberships(signal?: AbortSignal) {
     if (!organizationId) {
       memberships = []
+      orgPermissions = null
       return
     }
     loading = true
     try {
-      memberships = await listOrganizationMemberships(organizationId, { signal })
+      const [nextMemberships, nextPermissions] = await Promise.all([
+        listOrganizationMemberships(organizationId, { signal }),
+        getEffectivePermissions({ orgId: organizationId }),
+      ])
+      memberships = nextMemberships
+      orgPermissions = nextPermissions
+      syncRoleDrafts(nextMemberships)
+      if (
+        !nextPermissions.roles.includes('instance_admin') &&
+        !nextPermissions.roles.includes('org_owner')
+      ) {
+        inviteRole = 'member'
+      }
     } catch (caughtError) {
       if (signal?.aborted) return
       memberships = []
+      orgPermissions = null
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
@@ -69,13 +121,29 @@
       if (!signal?.aborted) loading = false
     }
   }
-
   async function refreshAfterMutation(successMessage: string) {
     await loadMemberships()
     await invalidateAll()
     toastStore.success(successMessage)
   }
-
+  function canManageEntry(entry: OrganizationMembership) {
+    if (!canManageMemberships) {
+      return false
+    }
+    if (canManagePrivilegedRoles) {
+      return true
+    }
+    return entry.role === 'member'
+  }
+  function roleOptionsForEntry(entry: OrganizationMembership): MembershipRole[] {
+    if (!canManageEntry(entry)) {
+      return [entry.role as MembershipRole]
+    }
+    if (canManagePrivilegedRoles) {
+      return ['owner', 'admin', 'member']
+    }
+    return ['member']
+  }
   async function handleInvite() {
     const email = inviteEmail.trim()
     if (!email) {
@@ -92,6 +160,9 @@
       recentInviteToken = result.acceptToken
       recentInviteEmail = result.membership.email
       inviteEmail = ''
+      if (!canManagePrivilegedRoles) {
+        inviteRole = 'member'
+      }
       await refreshAfterMutation(`Invitation sent to ${result.membership.email}.`)
     } catch (caughtError) {
       toastStore.error(
@@ -101,6 +172,27 @@
       )
     } finally {
       submittingInvite = false
+    }
+  }
+
+  async function handleSaveRole(entry: OrganizationMembership) {
+    const role = roleDrafts[entry.id] ?? (entry.role as MembershipRole)
+    if (role === entry.role) {
+      return
+    }
+
+    const busyKey = `role:${entry.id}`
+    setBusy(busyKey, true)
+    try {
+      await updateOrganizationMembership(organizationId, entry.id, { role })
+      await refreshAfterMutation(`${entry.email} is now ${role}.`)
+    } catch (caughtError) {
+      roleDrafts = { ...roleDrafts, [entry.id]: entry.role as MembershipRole }
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : `Failed to update ${entry.email}.`,
+      )
+    } finally {
+      setBusy(busyKey, false)
     }
   }
 
@@ -176,6 +268,7 @@
   $effect(() => {
     if (!organizationId) {
       memberships = []
+      orgPermissions = null
       return
     }
 
@@ -187,81 +280,25 @@
   })
 </script>
 
-<Card.Root
-  class="overflow-hidden rounded-3xl border border-sky-100/80 bg-gradient-to-br from-sky-50 via-white to-emerald-50 shadow-sm"
->
-  <Card.Header class="gap-4 border-b border-sky-100/80 bg-white/70 backdrop-blur">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-      <div class="space-y-1.5">
-        <div class="flex flex-wrap items-center gap-2">
-          <Card.Title>Members</Card.Title>
-          <Badge variant="secondary">{counts.active} active</Badge>
-          <Badge variant="outline">{counts.invited} invited</Badge>
-          {#if counts.suspended > 0}
-            <Badge variant="destructive">{counts.suspended} suspended</Badge>
-          {/if}
-        </div>
-        <Card.Description>
-          Owners and admins handle invites here. Active memberships drive org visibility and project
-          authorization.
-        </Card.Description>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="default">{counts.owners} owner{counts.owners === 1 ? '' : 's'}</Badge>
-        <Badge variant="outline">{memberships.length} total seats</Badge>
-      </div>
-    </div>
-  </Card.Header>
-
-  <Card.Content class="space-y-5 p-6">
-    <OrganizationMembersInvitePanel
-      bind:inviteEmail
-      bind:inviteRole
-      {submittingInvite}
-      {recentInviteToken}
-      {recentInviteEmail}
-      onInvite={handleInvite}
-      onCopyToken={async () => {
-        try {
-          await navigator.clipboard.writeText(recentInviteToken)
-          toastStore.success('Accept token copied.')
-        } catch {
-          toastStore.error('Failed to copy accept token.')
-        }
-      }}
-    />
-
-    {#if loading}
-      <div class="text-muted-foreground rounded-2xl border border-dashed px-4 py-8 text-sm">
-        Loading organization members…
-      </div>
-    {:else if memberships.length === 0}
-      <div class="text-muted-foreground rounded-2xl border border-dashed px-4 py-8 text-sm">
-        No memberships yet.
-      </div>
-    {:else}
-      <div class="space-y-3">
-        {#each memberships as entry (entry.id)}
-          <OrganizationMemberRow
-            {entry}
-            {currentUserId}
-            busyState={{
-              resend: isBusy(`resend:${entry.id}`),
-              cancel: isBusy(`cancel:${entry.id}`),
-              transfer: isBusy(`transfer:${entry.id}`),
-              suspend: isBusy(`suspended:${entry.id}`),
-              reactivate: isBusy(`active:${entry.id}`),
-              remove: isBusy(`removed:${entry.id}`),
-            }}
-            onResend={() => handleInvitationAction(entry, 'resend')}
-            onCancel={() => handleInvitationAction(entry, 'cancel')}
-            onTransfer={() => handleTransferOwnership(entry)}
-            onSuspend={() => handleMembershipStatus(entry, 'suspended')}
-            onReactivate={() => handleMembershipStatus(entry, 'active')}
-            onRemove={() => handleMembershipStatus(entry, 'removed')}
-          />
-        {/each}
-      </div>
-    {/if}
-  </Card.Content>
-</Card.Root>
+<!-- prettier-ignore -->
+<OrganizationMembersPanel {heading} {description} {counts} membershipsCount={memberships.length}
+  {canManageMemberships} {canManagePrivilegedRoles} bind:inviteEmail bind:inviteRole
+  {submittingInvite} {recentInviteToken} {recentInviteEmail} {loading} {emptyMessage}
+  {filteredMemberships} {currentUserId} {roleDrafts} {canManageEntry} {roleOptionsForEntry}
+  {isBusy} onInvite={handleInvite}
+  onCopyToken={async () => {
+    try {
+      await navigator.clipboard.writeText(recentInviteToken)
+      toastStore.success('Accept token copied.')
+    } catch {
+      toastStore.error('Failed to copy accept token.')
+    }
+  }}
+  onRoleDraftChange={(entryId, role) => {
+    roleDrafts = { ...roleDrafts, [entryId]: role }
+  }}
+  onSaveRole={handleSaveRole} onResend={(entry) => handleInvitationAction(entry, 'resend')}
+  onCancel={(entry) => handleInvitationAction(entry, 'cancel')} onTransfer={handleTransferOwnership}
+  onSuspend={(entry) => handleMembershipStatus(entry, 'suspended')}
+  onReactivate={(entry) => handleMembershipStatus(entry, 'active')}
+  onRemove={(entry) => handleMembershipStatus(entry, 'removed')} />

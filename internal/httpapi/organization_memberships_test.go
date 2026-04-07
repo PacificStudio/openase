@@ -370,6 +370,157 @@ func TestOrganizationMembershipTransferOwnershipRejectsUnacceptedActiveMembershi
 	}
 }
 
+func TestOrganizationAdminCannotInviteElevatedRoles(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	setOrganizationMembershipRole(t, fixture, orgID, fixture.userIDByEmail(t, "owner@example.com"), entorganizationmembership.RoleOwner)
+
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "admin@example.com",
+		displayName: "Admin",
+		orgID:       orgID,
+	})
+	setOrganizationMembershipRole(t, fixture, orgID, fixture.userIDByEmail(t, "admin@example.com"), entorganizationmembership.RoleAdmin)
+
+	inviteRec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/orgs/"+orgID.String()+"/invitations",
+		`{"email":"new-admin@example.com","role":"admin"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "OrgAdminInviteElevatedTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		inviteRec,
+		http.StatusForbidden,
+		"ORGANIZATION_MEMBERSHIP_FORBIDDEN",
+		"organization owner role is required to grant or revoke org_owner or org_admin",
+	)
+}
+
+func TestOrganizationAdminCannotPromoteMemberToAdmin(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	setOrganizationMembershipRole(t, fixture, orgID, fixture.userIDByEmail(t, "owner@example.com"), entorganizationmembership.RoleOwner)
+
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "admin@example.com",
+		displayName: "Admin",
+		orgID:       orgID,
+	})
+	setOrganizationMembershipRole(t, fixture, orgID, fixture.userIDByEmail(t, "admin@example.com"), entorganizationmembership.RoleAdmin)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "member@example.com",
+		displayName: "Member",
+		orgID:       orgID,
+	})
+	memberUserID := fixture.userIDByEmail(t, "member@example.com")
+	memberMembershipID := organizationMembershipIDByUser(t, fixture, orgID, memberUserID)
+
+	promoteRec := fixture.requestJSON(
+		t,
+		http.MethodPatch,
+		"/api/v1/orgs/"+orgID.String()+"/members/"+memberMembershipID.String(),
+		`{"role":"admin"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "OrgAdminPromoteMemberTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		promoteRec,
+		http.StatusForbidden,
+		"ORGANIZATION_MEMBERSHIP_FORBIDDEN",
+		"organization owner role is required to grant or revoke org_owner or org_admin",
+	)
+
+	memberMembership := organizationMembershipByUser(t, fixture, orgID, memberUserID)
+	if memberMembership.Role != entorganizationmembership.RoleMember {
+		t.Fatalf("member role = %q, want member", memberMembership.Role)
+	}
+}
+
+func TestOrganizationAdminCannotSuspendAdminMembership(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	setOrganizationMembershipRole(t, fixture, orgID, fixture.userIDByEmail(t, "owner@example.com"), entorganizationmembership.RoleOwner)
+
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "admin@example.com",
+		displayName: "Admin",
+		orgID:       orgID,
+	})
+	adminUserID := fixture.userIDByEmail(t, "admin@example.com")
+	setOrganizationMembershipRole(t, fixture, orgID, adminUserID, entorganizationmembership.RoleAdmin)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "other-admin@example.com",
+		displayName: "Other Admin",
+		orgID:       orgID,
+	})
+	otherAdminUserID := fixture.userIDByEmail(t, "other-admin@example.com")
+	setOrganizationMembershipRole(t, fixture, orgID, otherAdminUserID, entorganizationmembership.RoleAdmin)
+	otherAdminMembershipID := organizationMembershipIDByUser(t, fixture, orgID, otherAdminUserID)
+
+	suspendRec := fixture.requestJSON(
+		t,
+		http.MethodPatch,
+		"/api/v1/orgs/"+orgID.String()+"/members/"+otherAdminMembershipID.String(),
+		`{"status":"suspended"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "OrgAdminSuspendAdminTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		suspendRec,
+		http.StatusForbidden,
+		"ORGANIZATION_MEMBERSHIP_FORBIDDEN",
+		"organization owner role is required to manage owner or admin memberships",
+	)
+
+	otherAdminMembership := organizationMembershipByUser(t, fixture, orgID, otherAdminUserID)
+	if otherAdminMembership.Status != entorganizationmembership.StatusActive {
+		t.Fatalf("other admin status = %q, want active", otherAdminMembership.Status)
+	}
+}
+
 func organizationMembershipByUser(
 	t *testing.T,
 	fixture humanAuthFixture,

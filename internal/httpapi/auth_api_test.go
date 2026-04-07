@@ -1043,6 +1043,126 @@ func TestDeleteOrganizationRoleBindingStaysWithinScope(t *testing.T) {
 	}
 }
 
+func TestOrganizationAdminCannotCreatePrivilegedOrganizationRoleBinding(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	ownerUserID := fixture.userIDByEmail(t, "owner@example.com")
+	membership := organizationMembershipByUser(t, fixture, orgID, ownerUserID)
+	if _, err := fixture.client.OrganizationMembership.UpdateOneID(membership.ID).
+		SetRole(entorganizationmembership.RoleOwner).
+		Save(context.Background()); err != nil {
+		t.Fatalf("promote owner membership: %v", err)
+	}
+
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "admin@example.com",
+		displayName: "Admin",
+		orgID:       orgID,
+	})
+	adminUserID := fixture.userIDByEmail(t, "admin@example.com")
+	adminMembership := organizationMembershipByUser(t, fixture, orgID, adminUserID)
+	if _, err := fixture.client.OrganizationMembership.UpdateOneID(adminMembership.ID).
+		SetRole(entorganizationmembership.RoleAdmin).
+		Save(context.Background()); err != nil {
+		t.Fatalf("promote admin membership: %v", err)
+	}
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodPost,
+		"/api/v1/organizations/"+orgID.String()+"/role-bindings",
+		`{"subject_kind":"group","subject_key":"oidc:owners","role_key":"org_owner"}`,
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "OrgAdminPrivilegedRoleBindingTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		rec,
+		http.StatusForbidden,
+		"ROLE_BINDING_FORBIDDEN",
+		"organization owner role is required to grant or revoke org_owner or org_admin",
+	)
+}
+
+func TestOrganizationAdminCannotDeletePrivilegedOrganizationRoleBinding(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixture(t)
+	orgID, _ := fixture.createOrganizationProject(t)
+
+	fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "owner@example.com",
+		displayName: "Owner",
+		orgID:       orgID,
+	})
+	ownerUserID := fixture.userIDByEmail(t, "owner@example.com")
+	ownerMembership := organizationMembershipByUser(t, fixture, orgID, ownerUserID)
+	if _, err := fixture.client.OrganizationMembership.UpdateOneID(ownerMembership.ID).
+		SetRole(entorganizationmembership.RoleOwner).
+		Save(context.Background()); err != nil {
+		t.Fatalf("promote owner membership: %v", err)
+	}
+
+	adminToken, adminCSRF := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "admin@example.com",
+		displayName: "Admin",
+		orgID:       orgID,
+	})
+	adminUserID := fixture.userIDByEmail(t, "admin@example.com")
+	adminMembership := organizationMembershipByUser(t, fixture, orgID, adminUserID)
+	if _, err := fixture.client.OrganizationMembership.UpdateOneID(adminMembership.ID).
+		SetRole(entorganizationmembership.RoleAdmin).
+		Save(context.Background()); err != nil {
+		t.Fatalf("promote admin membership: %v", err)
+	}
+
+	targetUserID := fixture.createUser(t, "scope-owner@example.com", "Scope Owner")
+	ctx := context.Background()
+	binding, err := fixture.client.RoleBinding.Create().
+		SetScopeKind(entrolebinding.ScopeKindOrganization).
+		SetScopeID(orgID.String()).
+		SetSubjectKind(entrolebinding.SubjectKindUser).
+		SetSubjectKey(targetUserID.String()).
+		SetRoleKey(string(humanauthdomain.RoleOrgAdmin)).
+		SetGrantedBy("system:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create role binding: %v", err)
+	}
+
+	rec := fixture.requestJSON(
+		t,
+		http.MethodDelete,
+		"/api/v1/organizations/"+orgID.String()+"/role-bindings/"+binding.ID.String(),
+		"",
+		map[string]string{
+			"Cookie":         humanSessionCookieName + "=" + adminToken,
+			"Origin":         "http://example.com",
+			"X-OpenASE-CSRF": adminCSRF,
+			"User-Agent":     "OrgAdminDeletePrivilegedRoleBindingTest/1.0",
+		},
+	)
+	assertAPIErrorResponse(
+		t,
+		rec,
+		http.StatusForbidden,
+		"ROLE_BINDING_FORBIDDEN",
+		"organization owner role is required to grant or revoke org_owner or org_admin",
+	)
+}
+
 func TestInstanceRoleBindingRoutesCanonicalizeDirectUserSubject(t *testing.T) {
 	t.Parallel()
 

@@ -7,6 +7,7 @@
   let {
     inviteEmail = $bindable(''),
     inviteRole = $bindable<'owner' | 'admin' | 'member'>('member'),
+    roleOptions = ['owner', 'admin', 'member'],
     submittingInvite = false,
     recentInviteToken = '',
     recentInviteEmail = '',
@@ -15,6 +16,7 @@
   }: {
     inviteEmail?: string
     inviteRole?: 'owner' | 'admin' | 'member'
+    roleOptions?: Array<'owner' | 'admin' | 'member'>
     submittingInvite?: boolean
     recentInviteToken?: string
     recentInviteEmail?: string
@@ -42,16 +44,19 @@
       type="single"
       value={inviteRole}
       onValueChange={(value) => {
-        if (value === 'owner' || value === 'admin' || value === 'member') {
+        if (
+          (value === 'owner' || value === 'admin' || value === 'member') &&
+          roleOptions.includes(value)
+        ) {
           inviteRole = value
         }
       }}
     >
       <Select.Trigger class="w-full capitalize">{inviteRole}</Select.Trigger>
       <Select.Content>
-        <Select.Item value="owner">Owner</Select.Item>
-        <Select.Item value="admin">Admin</Select.Item>
-        <Select.Item value="member">Member</Select.Item>
+        {#each roleOptions as roleOption (roleOption)}
+          <Select.Item value={roleOption} class="capitalize">{roleOption}</Select.Item>
+        {/each}
       </Select.Content>
     </Select.Root>
   </div>

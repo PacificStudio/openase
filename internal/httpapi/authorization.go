@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -359,6 +360,9 @@ func (s *Server) handleCreateInstanceRoleBinding(c echo.Context) error {
 		ExpiresAt:   expiresAt,
 	})
 	if err != nil {
+		if errors.Is(err, humanauthservice.ErrPermissionDenied) {
+			return writeAPIError(c, http.StatusForbidden, "ROLE_BINDING_FORBIDDEN", err.Error())
+		}
 		return writeAPIError(c, http.StatusBadRequest, "ROLE_BINDING_CREATE_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"role_binding": mapRoleBindingResponse(item.Generic())})
@@ -381,7 +385,7 @@ func (s *Server) handleCreateOrganizationRoleBinding(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_EXPIRES_AT", "expires_at must be RFC3339")
 	}
-	item, err := s.humanAuthService.CreateOrganizationRoleBinding(c.Request().Context(), organizationID, humanauthservice.CreateRoleBindingInput{
+	item, err := s.humanAuthService.CreateOrganizationRoleBinding(c.Request().Context(), organizationID, principal, humanauthservice.CreateRoleBindingInput{
 		SubjectKind: raw.SubjectKind,
 		SubjectKey:  raw.SubjectKey,
 		RoleKey:     raw.RoleKey,
@@ -389,6 +393,9 @@ func (s *Server) handleCreateOrganizationRoleBinding(c echo.Context) error {
 		ExpiresAt:   expiresAt,
 	})
 	if err != nil {
+		if errors.Is(err, humanauthservice.ErrPermissionDenied) {
+			return writeAPIError(c, http.StatusForbidden, "ROLE_BINDING_FORBIDDEN", err.Error())
+		}
 		return writeAPIError(c, http.StatusBadRequest, "ROLE_BINDING_CREATE_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"role_binding": mapRoleBindingResponse(item.Generic())})
@@ -470,11 +477,15 @@ func (s *Server) handleDeleteRoleBinding(
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_ROLE_BINDING_ID", "role binding id must be a UUID")
 	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	}
 	switch scopeKind {
 	case humanauthdomain.ScopeKindInstance:
 		err = s.humanAuthService.DeleteInstanceRoleBinding(c.Request().Context(), parsed)
 	case humanauthdomain.ScopeKindOrganization:
-		err = s.humanAuthService.DeleteOrganizationRoleBinding(c.Request().Context(), scopeResourceID, parsed)
+		err = s.humanAuthService.DeleteOrganizationRoleBinding(c.Request().Context(), scopeResourceID, principal, parsed)
 	case humanauthdomain.ScopeKindProject:
 		err = s.humanAuthService.DeleteProjectRoleBinding(c.Request().Context(), scopeResourceID, parsed)
 	default:
@@ -483,6 +494,9 @@ func (s *Server) handleDeleteRoleBinding(
 	if err != nil {
 		if err == humanauthservice.ErrRoleBindingNotFound {
 			return writeAPIError(c, http.StatusNotFound, "ROLE_BINDING_NOT_FOUND", err.Error())
+		}
+		if errors.Is(err, humanauthservice.ErrPermissionDenied) {
+			return writeAPIError(c, http.StatusForbidden, "ROLE_BINDING_FORBIDDEN", err.Error())
 		}
 		return writeAPIError(c, http.StatusBadRequest, "ROLE_BINDING_DELETE_FAILED", err.Error())
 	}

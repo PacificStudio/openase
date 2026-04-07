@@ -38,6 +38,18 @@ var (
 	ErrRoleBindingNotFound = errors.New("role binding not found")
 )
 
+type permissionDeniedDetail struct {
+	message string
+}
+
+func (e permissionDeniedDetail) Error() string { return e.message }
+
+func (e permissionDeniedDetail) Unwrap() error { return ErrPermissionDenied }
+
+func permissionDeniedf(format string, args ...any) error {
+	return permissionDeniedDetail{message: fmt.Sprintf(format, args...)}
+}
+
 const flowCookieTTL = 10 * time.Minute
 
 type Service struct {
@@ -444,8 +456,12 @@ func (s *Service) CreateInstanceRoleBinding(ctx context.Context, input CreateRol
 func (s *Service) CreateOrganizationRoleBinding(
 	ctx context.Context,
 	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
 	input CreateRoleBindingInput,
 ) (domain.OrganizationRoleBinding, error) {
+	if err := requireOrganizationRoleBindingPrivilege(ctx, s.repo, organizationID, actor, domain.RoleKey(strings.TrimSpace(input.RoleKey))); err != nil {
+		return domain.OrganizationRoleBinding{}, err
+	}
 	subject, err := s.resolveRoleBindingSubject(ctx, input.SubjectKind, input.SubjectKey)
 	if err != nil {
 		return domain.OrganizationRoleBinding{}, err
@@ -580,7 +596,15 @@ func (s *Service) DeleteInstanceRoleBinding(ctx context.Context, id uuid.UUID) e
 	return err
 }
 
-func (s *Service) DeleteOrganizationRoleBinding(ctx context.Context, organizationID uuid.UUID, id uuid.UUID) error {
+func (s *Service) DeleteOrganizationRoleBinding(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
+	id uuid.UUID,
+) error {
+	if err := requireOrganizationRoleBindingDeletePrivilege(ctx, s.repo, organizationID, actor, id); err != nil {
+		return err
+	}
 	err := s.repo.DeleteOrganizationRoleBinding(ctx, organizationID, id)
 	if errors.Is(err, repo.ErrRoleBindingNotFound) {
 		return ErrRoleBindingNotFound
@@ -594,6 +618,69 @@ func (s *Service) DeleteProjectRoleBinding(ctx context.Context, projectID uuid.U
 		return ErrRoleBindingNotFound
 	}
 	return err
+}
+
+func requireOrganizationRoleBindingPrivilege(
+	ctx context.Context,
+	repository *repo.Repository,
+	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
+	role domain.RoleKey,
+) error {
+	if !isPrivilegedOrganizationRole(role) {
+		return nil
+	}
+	allowed, err := canManagePrivilegedOrganizationRoles(ctx, repository, organizationID, actor)
+	if err != nil {
+		return err
+	}
+	if allowed {
+		return nil
+	}
+	return permissionDeniedf("organization owner role is required to grant or revoke org_owner or org_admin")
+}
+
+func requireOrganizationRoleBindingDeletePrivilege(
+	ctx context.Context,
+	repository *repo.Repository,
+	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
+	bindingID uuid.UUID,
+) error {
+	items, err := repository.ListOrganizationRoleBindings(ctx, organizationID)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item.ID == bindingID {
+			return requireOrganizationRoleBindingPrivilege(ctx, repository, organizationID, actor, domain.RoleKey(item.RoleKey))
+		}
+	}
+	return ErrRoleBindingNotFound
+}
+
+func canManagePrivilegedOrganizationRoles(
+	ctx context.Context,
+	repository *repo.Repository,
+	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
+) (bool, error) {
+	if principalHasRole(actor, domain.RoleInstanceAdmin) {
+		return true, nil
+	}
+	membership, err := repository.GetOrganizationMembershipByUser(ctx, organizationID, actor.User.ID)
+	if errors.Is(err, repo.ErrOrganizationMembershipNotFound) {
+		return false, permissionDeniedf("active organization membership is required")
+	}
+	if err != nil {
+		return false, err
+	}
+	return membership.Status == domain.OrganizationMembershipStatusActive &&
+		membership.Role == domain.OrganizationMembershipRoleOwner, nil
+}
+
+func isPrivilegedOrganizationRole(role domain.RoleKey) bool {
+	return role == domain.RoleOrgOwner || role == domain.RoleOrgAdmin
 }
 
 func (s *Service) CountApprovalPolicies(ctx context.Context) (int, error) {

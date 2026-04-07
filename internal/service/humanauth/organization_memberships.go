@@ -45,6 +45,10 @@ type TransferOrganizationOwnershipInput struct {
 	PreviousOwnerRole string
 }
 
+type organizationActorAuthority struct {
+	canManagePrivilegedRoles bool
+}
+
 func (s *Service) ListOrganizationMembershipEntries(
 	ctx context.Context,
 	organizationID uuid.UUID,
@@ -62,12 +66,19 @@ func (s *Service) InviteOrganizationMember(
 	actor domain.AuthenticatedPrincipal,
 	input InviteOrganizationMemberInput,
 ) (InviteOrganizationMemberResult, error) {
+	authority, err := s.resolveOrganizationActorAuthority(ctx, organizationID, actor)
+	if err != nil {
+		return InviteOrganizationMemberResult{}, err
+	}
 	email := strings.ToLower(strings.TrimSpace(input.Email))
 	if email == "" {
 		return InviteOrganizationMemberResult{}, fmt.Errorf("email is required")
 	}
 	role, err := domain.ParseOrganizationMembershipRole(input.Role)
 	if err != nil {
+		return InviteOrganizationMemberResult{}, err
+	}
+	if err := authority.requirePrivilegedRoleChange(role.RoleKey()); err != nil {
 		return InviteOrganizationMemberResult{}, err
 	}
 
@@ -158,8 +169,15 @@ func (s *Service) ResendOrganizationInvitation(
 	invitationID uuid.UUID,
 	actor domain.AuthenticatedPrincipal,
 ) (InviteOrganizationMemberResult, error) {
+	authority, err := s.resolveOrganizationActorAuthority(ctx, organizationID, actor)
+	if err != nil {
+		return InviteOrganizationMemberResult{}, err
+	}
 	invitation, membership, now, err := s.loadOrganizationInvitationState(ctx, organizationID, invitationID)
 	if err != nil {
+		return InviteOrganizationMemberResult{}, err
+	}
+	if err := authority.requirePrivilegedRoleChange(invitation.Role.RoleKey()); err != nil {
 		return InviteOrganizationMemberResult{}, err
 	}
 
@@ -224,9 +242,17 @@ func (s *Service) CancelOrganizationInvitation(
 	ctx context.Context,
 	organizationID uuid.UUID,
 	invitationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
 ) (domain.OrganizationMembershipEntry, error) {
+	authority, err := s.resolveOrganizationActorAuthority(ctx, organizationID, actor)
+	if err != nil {
+		return domain.OrganizationMembershipEntry{}, err
+	}
 	invitation, membership, now, err := s.loadOrganizationInvitationState(ctx, organizationID, invitationID)
 	if err != nil {
+		return domain.OrganizationMembershipEntry{}, err
+	}
+	if err := authority.requirePrivilegedRoleChange(invitation.Role.RoleKey()); err != nil {
 		return domain.OrganizationMembershipEntry{}, err
 	}
 	if invitation.Status == domain.OrganizationInvitationStatusPending && now.After(invitation.ExpiresAt) {
@@ -348,13 +374,21 @@ func (s *Service) UpdateOrganizationMembership(
 	ctx context.Context,
 	organizationID uuid.UUID,
 	membershipID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
 	input UpdateOrganizationMembershipInput,
 ) (domain.OrganizationMembershipEntry, error) {
+	authority, err := s.resolveOrganizationActorAuthority(ctx, organizationID, actor)
+	if err != nil {
+		return domain.OrganizationMembershipEntry{}, err
+	}
 	membership, err := s.repo.GetOrganizationMembership(ctx, organizationID, membershipID)
 	if errors.Is(err, repo.ErrOrganizationMembershipNotFound) {
 		return domain.OrganizationMembershipEntry{}, ErrOrganizationMembershipNotFound
 	}
 	if err != nil {
+		return domain.OrganizationMembershipEntry{}, err
+	}
+	if err := authority.validateMembershipMutation(membership, input); err != nil {
 		return domain.OrganizationMembershipEntry{}, err
 	}
 	updated, err := s.applyOrganizationMembershipUpdate(ctx, membership, input)
@@ -392,7 +426,7 @@ func (s *Service) TransferOrganizationOwnership(
 	actorMembership, actorMembershipErr := s.repo.GetOrganizationMembershipByUser(ctx, organizationID, actor.User.ID)
 	actorIsOwner := actorMembershipErr == nil && actorMembership.Status == domain.OrganizationMembershipStatusActive && actorMembership.Role == domain.OrganizationMembershipRoleOwner
 	if !actorIsOwner && !principalHasRole(actor, domain.RoleInstanceAdmin) {
-		return nil, ErrPermissionDenied
+		return nil, permissionDeniedf("organization owner role is required to transfer ownership")
 	}
 
 	promoted, err := s.applyOrganizationMembershipUpdate(ctx, target, UpdateOrganizationMembershipInput{Role: stringPointer(domain.OrganizationMembershipRoleOwner.String())})
@@ -573,6 +607,61 @@ func findOrganizationMembershipEntry(
 		}
 	}
 	return domain.OrganizationMembershipEntry{}, ErrOrganizationMembershipNotFound
+}
+
+func (s *Service) resolveOrganizationActorAuthority(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	actor domain.AuthenticatedPrincipal,
+) (organizationActorAuthority, error) {
+	if principalHasRole(actor, domain.RoleInstanceAdmin) {
+		return organizationActorAuthority{canManagePrivilegedRoles: true}, nil
+	}
+
+	membership, err := s.repo.GetOrganizationMembershipByUser(ctx, organizationID, actor.User.ID)
+	if errors.Is(err, repo.ErrOrganizationMembershipNotFound) {
+		return organizationActorAuthority{}, permissionDeniedf("active organization membership is required")
+	}
+	if err != nil {
+		return organizationActorAuthority{}, err
+	}
+	if membership.Status != domain.OrganizationMembershipStatusActive {
+		return organizationActorAuthority{}, permissionDeniedf("active organization membership is required")
+	}
+	return organizationActorAuthority{
+		canManagePrivilegedRoles: membership.Role == domain.OrganizationMembershipRoleOwner,
+	}, nil
+}
+
+func (a organizationActorAuthority) requirePrivilegedRoleChange(role domain.RoleKey) error {
+	if a.canManagePrivilegedRoles || !isPrivilegedOrganizationRoleKey(role) {
+		return nil
+	}
+	return permissionDeniedf("organization owner role is required to grant or revoke org_owner or org_admin")
+}
+
+func (a organizationActorAuthority) validateMembershipMutation(
+	membership domain.OrganizationMembership,
+	input UpdateOrganizationMembershipInput,
+) error {
+	if a.canManagePrivilegedRoles {
+		return nil
+	}
+	if membership.Role != domain.OrganizationMembershipRoleMember {
+		return permissionDeniedf("organization owner role is required to manage owner or admin memberships")
+	}
+	if input.Role == nil {
+		return nil
+	}
+	nextRole, err := domain.ParseOrganizationMembershipRole(*input.Role)
+	if err != nil {
+		return err
+	}
+	return a.requirePrivilegedRoleChange(nextRole.RoleKey())
+}
+
+func isPrivilegedOrganizationRoleKey(role domain.RoleKey) bool {
+	return role == domain.RoleOrgOwner || role == domain.RoleOrgAdmin
 }
 
 func organizationInvitationMatchesPrincipal(

@@ -156,6 +156,10 @@ func (s *Server) handleCancelOrganizationInvitation(c echo.Context) error {
 	if s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "organization membership is only available when oidc auth is enabled")
 	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	}
 	organizationID, err := parseUUIDPathParamValue(c, "orgId")
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_ORGANIZATION_ID", err.Error())
@@ -164,7 +168,7 @@ func (s *Server) handleCancelOrganizationInvitation(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_INVITATION_ID", err.Error())
 	}
-	entry, err := s.humanAuthService.CancelOrganizationInvitation(c.Request().Context(), organizationID, invitationID)
+	entry, err := s.humanAuthService.CancelOrganizationInvitation(c.Request().Context(), organizationID, invitationID, principal)
 	if err != nil {
 		return writeOrganizationMembershipError(c, err)
 	}
@@ -194,6 +198,10 @@ func (s *Server) handlePatchOrganizationMembership(c echo.Context) error {
 	if s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "organization membership is only available when oidc auth is enabled")
 	}
+	principal, ok := currentHumanPrincipal(c)
+	if !ok {
+		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	}
 	organizationID, err := parseUUIDPathParamValue(c, "orgId")
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_ORGANIZATION_ID", err.Error())
@@ -206,7 +214,7 @@ func (s *Server) handlePatchOrganizationMembership(c echo.Context) error {
 	if err := decodeJSON(c, &request); err != nil {
 		return err
 	}
-	entry, err := s.humanAuthService.UpdateOrganizationMembership(c.Request().Context(), organizationID, membershipID, humanauthservice.UpdateOrganizationMembershipInput{
+	entry, err := s.humanAuthService.UpdateOrganizationMembership(c.Request().Context(), organizationID, membershipID, principal, humanauthservice.UpdateOrganizationMembershipInput{
 		Role:   request.Role,
 		Status: request.Status,
 	})
