@@ -129,6 +129,11 @@ type RawCompleteRequest struct {
 	AllowOverwrite bool             `json:"allow_overwrite,omitempty"`
 }
 
+type RawDesktopApplyRequest struct {
+	Database       RawDatabaseSourceInput `json:"database"`
+	AllowOverwrite bool                   `json:"allow_overwrite,omitempty"`
+}
+
 type DatabaseConfig struct {
 	Host     string
 	Port     int
@@ -202,6 +207,45 @@ type CompleteResult struct {
 	OrganizationSlug string `json:"organization_slug"`
 	ProjectName      string `json:"project_name"`
 	ProjectSlug      string `json:"project_slug"`
+}
+
+type DesktopIssueCode string
+
+const (
+	DesktopIssueConfigMissing        DesktopIssueCode = "config_missing"
+	DesktopIssueConfigInvalid        DesktopIssueCode = "config_invalid"
+	DesktopIssueDirectoryUnavailable DesktopIssueCode = "directory_unavailable"
+	DesktopIssueDatabaseAuthFailed   DesktopIssueCode = "database_auth_failed"
+	DesktopIssueDatabaseUnreachable  DesktopIssueCode = "database_unreachable"
+	DesktopIssueDockerUnavailable    DesktopIssueCode = "docker_unavailable"
+	DesktopIssuePortConflict         DesktopIssueCode = "port_conflict"
+	DesktopIssueSetupTimeout         DesktopIssueCode = "setup_timeout"
+	DesktopIssueInputInvalid         DesktopIssueCode = "input_invalid"
+	DesktopIssueSetupFailed          DesktopIssueCode = "setup_failed"
+)
+
+type DesktopIssue struct {
+	Code    DesktopIssueCode `json:"code"`
+	Title   string           `json:"title"`
+	Message string           `json:"message"`
+	Action  string           `json:"action,omitempty"`
+}
+
+type DesktopPreflightResult struct {
+	Ready          bool           `json:"ready"`
+	ConfigPath     string         `json:"config_path"`
+	OpenASEHomeDir string         `json:"openase_home_dir"`
+	Issues         []DesktopIssue `json:"issues,omitempty"`
+}
+
+type DesktopApplyResult struct {
+	Ready          bool                   `json:"ready"`
+	ConfigPath     string                 `json:"config_path"`
+	EnvPath        string                 `json:"env_path,omitempty"`
+	OpenASEHomeDir string                 `json:"openase_home_dir"`
+	DatabaseSource DatabaseSourceType     `json:"database_source,omitempty"`
+	Docker         *DockerDatabaseRuntime `json:"docker,omitempty"`
+	Issues         []DesktopIssue         `json:"issues,omitempty"`
 }
 
 func defaultRawDatabaseInput() RawDatabaseInput {

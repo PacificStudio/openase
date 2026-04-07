@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -91,6 +92,7 @@ user managed service, and writes a runnable ~/.openase/config.yaml plus
 	}
 
 	command.Flags().BoolVar(&force, "force", false, "Overwrite an existing ~/.openase/config.yaml without prompting.")
+	command.AddCommand(newSetupDesktopCommand())
 
 	return command
 }
@@ -100,7 +102,7 @@ func runDefaultSetupWizard(ctx context.Context, out io.Writer) error {
 }
 
 func runSetupFlowCommand(ctx context.Context, in io.Reader, out io.Writer, opts setupFlowOptions) error {
-	service, err := setup.NewService(setup.Options{})
+	service, err := newSetupServiceFromEnv()
 	if err != nil {
 		return err
 	}
@@ -117,6 +119,114 @@ func runSetupFlowCommand(ctx context.Context, in io.Reader, out io.Writer, opts 
 		return err
 	}
 	return nil
+}
+
+func newSetupDesktopCommand() *cobra.Command {
+	command := &cobra.Command{
+		Use:    "desktop",
+		Short:  "Run desktop-oriented setup helpers.",
+		Hidden: true,
+	}
+	command.AddCommand(
+		newSetupDesktopBootstrapCommand(),
+		newSetupDesktopPreflightCommand(),
+		newSetupDesktopApplyCommand(),
+	)
+	return command
+}
+
+func newSetupDesktopBootstrapCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "bootstrap",
+		Short: "Print setup bootstrap metadata for the desktop shell.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			service, err := newSetupServiceFromEnv()
+			if err != nil {
+				return err
+			}
+			result, err := service.Bootstrap(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return writeSetupJSON(cmd.OutOrStdout(), result)
+		},
+	}
+}
+
+func newSetupDesktopPreflightCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "preflight",
+		Short: "Run the desktop first-launch preflight checks.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			service, err := newSetupServiceFromEnv()
+			if err != nil {
+				return err
+			}
+			result, err := service.DesktopPreflight(cmd.Context())
+			if err != nil {
+				return err
+			}
+			return writeSetupJSON(cmd.OutOrStdout(), result)
+		},
+	}
+}
+
+func newSetupDesktopApplyCommand() *cobra.Command {
+	var inputPath string
+	command := &cobra.Command{
+		Use:   "apply",
+		Short: "Apply the desktop setup request from JSON input.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			body, err := readInputFile(strings.TrimSpace(inputPath))
+			if err != nil {
+				return err
+			}
+			var request setup.RawDesktopApplyRequest
+			if err := json.Unmarshal(body, &request); err != nil {
+				return fmt.Errorf("decode desktop setup request: %w", err)
+			}
+
+			service, err := newSetupServiceFromEnv()
+			if err != nil {
+				return err
+			}
+			result, err := service.DesktopApply(cmd.Context(), request)
+			if err != nil {
+				return err
+			}
+			return writeSetupJSON(cmd.OutOrStdout(), result)
+		},
+	}
+	command.Flags().StringVar(&inputPath, "input", "", "Read the raw JSON desktop setup request from a file. Use - for stdin.")
+	_ = command.MarkFlagRequired("input")
+	return command
+}
+
+func newSetupServiceFromEnv() (*setup.Service, error) {
+	return setup.NewService(setup.Options{
+		HomeDir:    resolveSetupHomeOverride(),
+		ConfigPath: resolveSetupConfigOverride(),
+	})
+}
+
+func resolveSetupHomeOverride() string {
+	if value := strings.TrimSpace(os.Getenv("OPENASE_SETUP_HOME")); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv("OPENASE_DESKTOP_OPENASE_HOME"))
+}
+
+func resolveSetupConfigOverride() string {
+	if value := strings.TrimSpace(os.Getenv("OPENASE_SETUP_CONFIG_PATH")); value != "" {
+		return value
+	}
+	return strings.TrimSpace(os.Getenv("OPENASE_DESKTOP_OPENASE_CONFIG"))
+}
+
+func writeSetupJSON(out io.Writer, payload any) error {
+	encoder := json.NewEncoder(out)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(payload)
 }
 
 func runSetupFlowWithDeps(
