@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
 import { authStore } from '$lib/stores/auth.svelte'
-import OrganizationAdminPage from '$lib/features/organizations/components/organization-admin-page.svelte'
+import { OrganizationAdminPage } from '$lib/features/organizations'
 import { currentOrg } from './security-settings.test-helpers'
 import {
   createdOrganizationUserBinding,

@@ -10,21 +10,21 @@
     type RoleBinding,
   } from '$lib/api/auth'
   import { getAdminSecuritySettings } from '$lib/api/openase'
-  import { authStore } from '$lib/stores/auth.svelte'
-  import { toastStore } from '$lib/stores/toast.svelte'
-  import { Separator } from '$ui/separator'
-  import { Badge } from '$ui/badge'
-  import SecuritySettingsHumanAuthAccessCard from '$lib/features/settings/components/security-settings-human-auth-access-card.svelte'
-  import SecuritySettingsHumanAuthBindingSection from '$lib/features/settings/components/security-settings-human-auth-binding-section.svelte'
-  import SecuritySettingsHumanAuthGuideLinks from '$lib/features/settings/components/security-settings-human-auth-guide-links.svelte'
-  import SecuritySettingsHumanAuthSessions from '$lib/features/settings/components/security-settings-human-auth-sessions.svelte'
-  import SecuritySettingsUserDirectory from '$lib/features/settings/components/security-settings-user-directory.svelte'
   import {
+    SecuritySettingsHumanAuthAccessCard,
+    SecuritySettingsHumanAuthBindingSection,
+    SecuritySettingsHumanAuthGuideLinks,
+    SecuritySettingsHumanAuthSessions,
+    SecuritySettingsUserDirectory,
     createBindingPayload,
     defaultBindingDraftForScope,
     formatError,
     type BindingDraft,
-  } from '$lib/features/settings/components/security-settings-human-auth.model'
+  } from '$lib/features/settings'
+  import { authStore } from '$lib/stores/auth.svelte'
+  import { toastStore } from '$lib/stores/toast.svelte'
+  import { Separator } from '$ui/separator'
+  import { Badge } from '$ui/badge'
   import InstanceAdminAuthSetupPanel from './instance-admin-auth-setup-panel.svelte'
 
   let settings = $state<AdminSecuritySettingsResponse['settings'] | null>(null)

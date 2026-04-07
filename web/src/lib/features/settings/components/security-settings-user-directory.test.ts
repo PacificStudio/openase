@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { authStore } from '$lib/stores/auth.svelte'
-import InstanceAdminPage from '$lib/features/admin/components/instance-admin-page.svelte'
+import { InstanceAdminPage } from '$lib/features/admin'
 import {
   configuredSessionGovernance,
   hydrateOidcAuth,

@@ -8,7 +8,7 @@
   } from '$lib/api/contracts'
   import { enableAdminOIDC, saveAdminOIDCDraft, testAdminOIDCDraft } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import SecuritySettingsHumanAuthDisabledSetup from '$lib/features/settings/components/security-settings-human-auth-disabled-setup.svelte'
+  import { SecuritySettingsHumanAuthDisabledSetup } from '$lib/features/settings'
 
   type AdminSettings = AdminSecuritySettingsResponse['settings']
 

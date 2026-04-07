@@ -10,15 +10,15 @@
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
-  import SecuritySettingsHumanAuthAccessCard from '$lib/features/settings/components/security-settings-human-auth-access-card.svelte'
-  import SecuritySettingsHumanAuthBindingSection from '$lib/features/settings/components/security-settings-human-auth-binding-section.svelte'
   import {
+    SecuritySettingsHumanAuthAccessCard,
+    SecuritySettingsHumanAuthBindingSection,
     createBindingPayload,
     defaultBindingDraftForScope,
     formatError,
     type BindingDraft,
-  } from '$lib/features/settings/components/security-settings-human-auth.model'
+  } from '$lib/features/settings'
+  import { Badge } from '$ui/badge'
   import OrganizationMembersSection from './organization-members-section.svelte'
 
   let { organizationId }: { organizationId: string } = $props()
