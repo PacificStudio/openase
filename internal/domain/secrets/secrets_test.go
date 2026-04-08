@@ -227,6 +227,23 @@ func TestSelectBindingsReturnsMissingAndAllowsSameSecretAtEqualPrecedence(t *tes
 	}
 }
 
+func TestSelectBindingsAllowsSameSecretWithinSameScope(t *testing.T) {
+	sharedSecretID := uuid.New()
+	selected, missing, err := SelectBindings([]string{"GH_TOKEN"}, []Candidate{
+		{Binding: Binding{BindingKey: "GH_TOKEN", Scope: BindingScopeKindProject}, Secret: Secret{ID: sharedSecretID, Name: "ZZZ_PROJECT", Scope: ScopeKindProject}},
+		{Binding: Binding{BindingKey: "GH_TOKEN", Scope: BindingScopeKindProject}, Secret: Secret{ID: sharedSecretID, Name: "AAA_PROJECT", Scope: ScopeKindProject}},
+	})
+	if err != nil {
+		t.Fatalf("SelectBindings() error = %v", err)
+	}
+	if len(missing) != 0 {
+		t.Fatalf("missing = %v", missing)
+	}
+	if len(selected) != 1 || selected[0].Secret.Name != "AAA_PROJECT" {
+		t.Fatalf("selected = %#v", selected)
+	}
+}
+
 func TestSelectBindingsMarksAllDisabledCandidatesMissing(t *testing.T) {
 	disabledAt := time.Now().UTC()
 	selected, missing, err := SelectBindings([]string{"GH_TOKEN"}, []Candidate{

@@ -80,32 +80,32 @@ func ParseBindingScopeKind(raw string) (BindingScopeKind, error) {
 type KeySource string
 
 const (
-	CipherAlgorithmAES256GCM  = "aes-256-gcm"
+	CipherAlgorithmAES256GCM             = "aes-256-gcm"
 	KeySourceDatabaseDSNSHA256 KeySource = "database_dsn_sha256"
-	DefaultKeyID                        = "database-dsn-sha256:v1"
+	DefaultKeyID                         = "database-dsn-sha256:v1"
 )
 
 type StoredValue struct {
-	Algorithm   string    `json:"algorithm"`
-	KeySource   KeySource `json:"key_source"`
-	KeyID       string    `json:"key_id"`
-	Preview     string    `json:"preview"`
-	Nonce       string    `json:"nonce"`
-	Ciphertext  string    `json:"ciphertext"`
-	RotatedAt   time.Time `json:"rotated_at"`
+	Algorithm  string    `json:"algorithm"`
+	KeySource  KeySource `json:"key_source"`
+	KeyID      string    `json:"key_id"`
+	Preview    string    `json:"preview"`
+	Nonce      string    `json:"nonce"`
+	Ciphertext string    `json:"ciphertext"`
+	RotatedAt  time.Time `json:"rotated_at"`
 }
 
 type Secret struct {
-	ID             uuid.UUID  `json:"id"`
-	OrganizationID uuid.UUID  `json:"organization_id"`
-	ProjectID      uuid.UUID  `json:"project_id"`
-	Scope          ScopeKind  `json:"scope"`
-	Name           string     `json:"name"`
-	Kind           Kind       `json:"kind"`
-	Description    string     `json:"description"`
-	DisabledAt     *time.Time `json:"disabled_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID             uuid.UUID   `json:"id"`
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	ProjectID      uuid.UUID   `json:"project_id"`
+	Scope          ScopeKind   `json:"scope"`
+	Name           string      `json:"name"`
+	Kind           Kind        `json:"kind"`
+	Description    string      `json:"description"`
+	DisabledAt     *time.Time  `json:"disabled_at,omitempty"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
 	StoredValue    StoredValue `json:"stored_value"`
 }
 
@@ -143,8 +143,8 @@ type ResolvedSecret struct {
 }
 
 var (
-	namePattern                    = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,127}$`)
-	ErrResolutionScopeConflict     = errors.New("secret binding precedence conflict")
+	namePattern                = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,127}$`)
+	ErrResolutionScopeConflict = errors.New("secret binding precedence conflict")
 )
 
 func NormalizeName(raw string) (string, error) {
