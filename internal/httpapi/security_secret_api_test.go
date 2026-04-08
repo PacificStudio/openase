@@ -757,6 +757,8 @@ func TestScopedSecretRoutesRotateDisableAndDeleteEmitActivity(t *testing.T) {
 
 func TestScopedSecretResolveMasksSecretValues(t *testing.T) {
 	projectID := uuid.New()
+	resolvedValue := "runtime-value-" + strings.Repeat("v", 8)
+	bindingKey := "RUNTIME_CONFIG"
 	catalog := newFakeCatalogService()
 	catalog.projects[projectID] = catalogdomain.Project{ID: projectID, OrganizationID: uuid.New()}
 
@@ -774,13 +776,13 @@ func TestScopedSecretResolveMasksSecretValues(t *testing.T) {
 			resolveForRuntime: func(context.Context, secretsservice.ResolveRuntimeInput) ([]secretsdomain.ResolvedSecret, []string, error) {
 				return []secretsdomain.ResolvedSecret{
 					{
-						BindingKey:   "OPENAI_API_KEY",
+						BindingKey:   bindingKey,
 						BindingScope: secretsdomain.BindingScopeKindTicket,
 						SecretID:     uuid.New(),
-						SecretName:   "OPENAI_API_KEY",
+						SecretName:   bindingKey,
 						SecretScope:  secretsdomain.ScopeKindProject,
 						SecretKind:   secretsdomain.KindOpaque,
-						Value:        "sk-live-1234cdef",
+						Value:        resolvedValue,
 					},
 				}, nil, nil
 			},
@@ -792,15 +794,15 @@ func TestScopedSecretResolveMasksSecretValues(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/secrets/resolve-for-runtime",
-		`{"binding_keys":["OPENAI_API_KEY"]}`,
+		`{"binding_keys":["RUNTIME_CONFIG"]}`,
 	)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if strings.Contains(rec.Body.String(), "sk-live-1234cdef") {
+	if strings.Contains(rec.Body.String(), resolvedValue) {
 		t.Fatalf("resolve response exposed raw value: %s", rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "sk-live...cdef") {
+	if !strings.Contains(rec.Body.String(), secretsdomain.RedactValue(resolvedValue)) {
 		t.Fatalf("resolve response missing redacted preview: %s", rec.Body.String())
 	}
 }

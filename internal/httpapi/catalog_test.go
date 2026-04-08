@@ -787,14 +787,14 @@ func TestMachineRoutesMaskSecretLikeEnvVarsAndPreserveMaskedPatchValues(t *testi
 	machineID := uuid.New()
 	advertisedEndpoint := "wss://builder-01.example.com/openase"
 	service.machines[machineID] = domain.Machine{
-		ID:             machineID,
-		OrganizationID: orgID,
-		Name:           "builder-01",
-		Host:           "10.0.1.13",
-		Port:           22,
+		ID:                 machineID,
+		OrganizationID:     orgID,
+		Name:               "builder-01",
+		Host:               "10.0.1.13",
+		Port:               22,
 		AdvertisedEndpoint: &advertisedEndpoint,
-		Status:         "online",
-		EnvVars:        []string{"OPENAI_API_KEY=sk-live-1234", "CUDA_VISIBLE_DEVICES=0"},
+		Status:             "online",
+		EnvVars:            []string{"OPENAI_API_KEY=sk-live-1234", "CUDA_VISIBLE_DEVICES=0"},
 	}
 
 	getRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+machineID.String(), "")
