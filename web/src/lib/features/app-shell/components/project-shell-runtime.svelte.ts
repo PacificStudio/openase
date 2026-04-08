@@ -80,7 +80,7 @@ export async function logoutProjectShellSession(
 ) {
   setLogoutPending(true)
   const returnTo = normalizeReturnTo(currentLocation)
-  const authMode = authStore.authMode
+  const loginRequired = authStore.loginRequired
 
   try {
     await logoutHumanSession()
@@ -94,7 +94,7 @@ export async function logoutProjectShellSession(
 
   authStore.clear()
   setLogoutPending(false)
-  await goto(authMode === 'oidc' ? `/login?return_to=${encodeURIComponent(returnTo)}` : '/')
+  await goto(loginRequired ? `/login?return_to=${encodeURIComponent(returnTo)}` : '/')
 }
 
 export function consumeProjectAssistantRequest(onOpen: (prompt: string) => void) {

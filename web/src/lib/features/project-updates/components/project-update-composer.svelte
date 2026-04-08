@@ -66,7 +66,7 @@
 </script>
 
 <div class="border-border bg-background rounded-xl border">
-  <div class="flex items-end gap-2 px-3 py-2.5">
+  <div class="flex items-center gap-2 px-3 py-2.5">
     <Select.Root
       type="single"
       value={status}

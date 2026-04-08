@@ -71,4 +71,29 @@ describe('provider draft', () => {
       }),
     })
   })
+
+  it('parses secret binding maps into provider secret binding inputs', () => {
+    const parsed = parseProviderDraft({
+      ...createEmptyProviderDraft(),
+      machineId: 'machine-1',
+      name: 'Codex Local',
+      adapterType: 'codex-app-server',
+      secretBindings: JSON.stringify({
+        OPENAI_API_KEY: 'PROJECT_OPENAI_KEY',
+      }),
+      modelName: 'gpt-5.4',
+      modelTemperature: '0',
+      modelMaxTokens: '16384',
+      maxParallelRuns: '',
+      costPerInputToken: '0',
+      costPerOutputToken: '0',
+    })
+
+    expect(parsed).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        secret_bindings: [{ env_var_key: 'OPENAI_API_KEY', binding_key: 'PROJECT_OPENAI_KEY' }],
+      }),
+    })
+  })
 })

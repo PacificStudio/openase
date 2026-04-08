@@ -3,3 +3,4 @@ export { default as OrganizationAdminMembersPage } from './components/organizati
 export { default as OrganizationAdminInvitationsPage } from './components/organization-admin-invitations-page.svelte'
 export { default as OrganizationAdminRolesPage } from './components/organization-admin-roles-page.svelte'
 export { default as OrganizationAdminSettingsPage } from './components/organization-admin-settings-page.svelte'
+export { default as OrganizationAdminCredentialsPage } from './components/organization-admin-credentials-page.svelte'

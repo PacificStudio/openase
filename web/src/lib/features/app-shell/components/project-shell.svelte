@@ -270,13 +270,7 @@
   const settingsEnabled = $derived(routeContext.scope === 'project')
   const settingsHref = $derived(settingsHrefForRoute(routeContext))
   const currentUser = $derived(authStore.user)
-  const adminEnabled = $derived.by(
-    () =>
-      authStore.authMode === 'disabled' ||
-      authStore.roles.includes('instance_admin') ||
-      authStore.permissions.includes('security.read') ||
-      authStore.permissions.includes('security.manage'),
-  )
+  const adminEnabled = $derived(authStore.canManageAuth)
 </script>
 
 <ProjectShellFrame

@@ -136,7 +136,8 @@ func (r *EntRepository) List(ctx context.Context, input ListInput) ([]Ticket, er
 		}).
 		WithExternalLinks(func(query *ent.TicketExternalLinkQuery) {
 			query.Order(ent.Asc(entticketexternallink.FieldCreatedAt), ent.Asc(entticketexternallink.FieldID))
-		})
+		}).
+		WithRepoScopes()
 
 	if len(input.StatusNames) > 0 {
 		query = query.Where(entticket.HasStatusWith(entticketstatus.NameIn(input.StatusNames...)))
@@ -1661,6 +1662,11 @@ func mapTicket(item *ent.Ticket) Ticket {
 	}
 	for _, externalLink := range item.Edges.ExternalLinks {
 		result.ExternalLinks = append(result.ExternalLinks, mapExternalLink(externalLink))
+	}
+	for _, scope := range item.Edges.RepoScopes {
+		if strings.TrimSpace(scope.PullRequestURL) != "" {
+			result.PullRequestURLs = append(result.PullRequestURLs, scope.PullRequestURL)
+		}
 	}
 
 	return result

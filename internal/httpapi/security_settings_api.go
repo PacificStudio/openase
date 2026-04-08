@@ -94,12 +94,21 @@ type securitySettingsResponse struct {
 }
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
+	api.GET("/orgs/:orgId/security-settings/secrets", s.handleListOrganizationScopedSecrets)
+	api.POST("/orgs/:orgId/security-settings/secrets", s.handleCreateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/rotate", s.handleRotateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/disable", s.handleDisableOrganizationScopedSecret)
+	api.DELETE("/orgs/:orgId/security-settings/secrets/:secretId", s.handleDeleteOrganizationScopedSecret)
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
 	api.GET("/projects/:projectId/security-settings/secrets", s.handleListScopedSecrets)
 	api.POST("/projects/:projectId/security-settings/secrets", s.handleCreateScopedSecret)
+	api.GET("/projects/:projectId/security-settings/secret-bindings", s.handleListScopedSecretBindings)
+	api.POST("/projects/:projectId/security-settings/secret-bindings", s.handleCreateScopedSecretBinding)
 	api.PATCH("/projects/:projectId/security-settings/secrets/:secretId", s.handlePatchScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/:secretId/rotate", s.handleRotateScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/:secretId/disable", s.handleDisableScopedSecret)
+	api.DELETE("/projects/:projectId/security-settings/secret-bindings/:bindingId", s.handleDeleteScopedSecretBinding)
+	api.DELETE("/projects/:projectId/security-settings/secrets/:secretId", s.handleDeleteScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/resolve-for-runtime", s.handleResolveScopedSecretsForRuntime)
 	api.PUT("/projects/:projectId/security-settings/oidc-draft", s.handlePutOIDCDraft)
 	api.POST("/projects/:projectId/security-settings/oidc-draft/test", s.handleTestOIDCDraft)
@@ -152,6 +161,9 @@ func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
 	}
 	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
 }
+
+// Org credential scope is no longer accepted on project endpoints.
+// Use /orgs/:orgId/security/github-credential for org-level management.
 
 func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 	projectID, err := s.requireProjectSecurityContext(c)
@@ -316,16 +328,7 @@ func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -341,16 +344,7 @@ func (s *Server) handleRetestGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -366,12 +360,7 @@ func (s *Server) handleDeleteGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	input, err := parseGitHubCredentialScopeQuery(projectID, c.QueryParam("scope"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -391,6 +380,21 @@ func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error
 		return uuid.UUID{}, writeCatalogError(c, err)
 	}
 	return projectID, nil
+}
+
+func (s *Server) requireOrganizationSecurityContext(c echo.Context) (uuid.UUID, error) {
+	if s.catalog.Empty() {
+		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+
+	organizationID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if _, err := s.catalog.GetOrganization(c.Request().Context(), organizationID); err != nil {
+		return uuid.UUID{}, writeCatalogError(c, err)
+	}
+	return organizationID, nil
 }
 
 func (s *Server) writeSecuritySettingsResponse(

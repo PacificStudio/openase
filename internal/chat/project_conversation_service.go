@@ -119,6 +119,7 @@ type ProjectConversationService struct {
 	platformAPIURL      string
 	agentPlatform       projectConversationAgentPlatform
 	githubAuth          githubauthservice.TokenResolver
+	secretResolver      RuntimeEnvironmentResolver
 	secretManager       projectConversationSecretManager
 
 	streamBroker    *projectConversationStreamBroker
@@ -169,7 +170,9 @@ func NewProjectConversationService(
 		if err != nil {
 			return nil, err
 		}
-		return NewCodexRuntime(adapter), nil
+		runtime := NewCodexRuntime(adapter)
+		runtime.ConfigureSecretResolver(service.secretResolver)
+		return runtime, nil
 	}
 	service.runtimeManager = newProjectConversationRuntimeManager(
 		service.logger,
@@ -201,6 +204,16 @@ func (s *ProjectConversationService) ConfigureGitHubCredentials(resolver githuba
 	s.githubAuth = resolver
 	if s.runtimeManager != nil {
 		s.runtimeManager.ConfigureGitHubCredentials(resolver)
+	}
+}
+
+func (s *ProjectConversationService) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
+	if s == nil {
+		return
+	}
+	s.secretResolver = resolver
+	if s.runtimeManager != nil {
+		s.runtimeManager.ConfigureSecretResolver(resolver)
 	}
 }
 
@@ -707,6 +720,8 @@ func (s *ProjectConversationService) RespondInterrupt(
 	}
 	stream, err := live.interrupt.RespondInterrupt(ctx, RuntimeInterruptResponseInput{
 		SessionID:              SessionID(conversationID.String()),
+		ProjectID:              project.ID,
+		TicketID:               conversationFocusTicketID(storedFocus),
 		Provider:               live.provider,
 		RequestID:              interrupt.ProviderRequestID,
 		Kind:                   runtimeKind,
@@ -1663,6 +1678,8 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	}
 	return RuntimeTurnInput{
 		SessionID:              SessionID(conversation.ID.String()),
+		ProjectID:              project.ID,
+		TicketID:               conversationFocusTicketID(focus),
 		Provider:               providerItem,
 		Message:                "",
 		SystemPrompt:           systemPrompt,
@@ -1674,6 +1691,14 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 		MaxBudgetUSD:           0,
 		PersistentConversation: true,
 	}, nil
+}
+
+func conversationFocusTicketID(focus *ProjectConversationFocus) *uuid.UUID {
+	if focus == nil || focus.Ticket == nil || focus.Ticket.ID == uuid.Nil {
+		return nil
+	}
+	copied := focus.Ticket.ID
+	return &copied
 }
 
 func conversationAnchorsFromRuntimeAnchor(anchor RuntimeSessionAnchor, rollingSummary string) domain.ConversationAnchors {

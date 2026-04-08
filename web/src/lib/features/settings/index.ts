@@ -3,6 +3,7 @@ export { default as SettingsIAMMigrationPanel } from './components/settings-iam-
 export { default as SecuritySettingsHumanAuthGuideLinks } from './components/security-settings-human-auth-guide-links.svelte'
 export { default as SecuritySettingsHumanAuthSessions } from './components/security-settings-human-auth-sessions.svelte'
 export { default as SecuritySettingsHumanAuthSummary } from './components/security-settings-human-auth-summary.svelte'
+export { default as OrganizationScopedSecretsPanel } from './components/organization-scoped-secrets-panel.svelte'
 export { default as SecuritySettingsUserDirectory } from './components/security-settings-user-directory.svelte'
 export { default as WorkflowScheduledJobsPanel } from './components/workflow-scheduled-jobs-panel.svelte'
 export { formatTimestamp } from './components/security-settings-human-auth.model'

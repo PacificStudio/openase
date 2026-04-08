@@ -78,10 +78,10 @@
   } = $props()
 
   const canReadUserDirectory = $derived(
-    instancePermissions?.permissions.includes('security.read') ?? false,
+    instancePermissions?.permissions.includes('security_setting.read') ?? false,
   )
   const canManageUserDirectory = $derived(
-    instancePermissions?.permissions.includes('security.manage') ?? false,
+    instancePermissions?.permissions.includes('security_setting.update') ?? false,
   )
 </script>
 

@@ -59,12 +59,12 @@
   )
 
   $effect(() => {
-    const authMode = authStore.authMode
+    const loginRequired = authStore.loginRequired
     const authenticated = authStore.authenticated
     const orgId = currentOrgId
     const projectId = currentProjectId
 
-    if (authMode !== 'oidc' || !authenticated || !orgId || !projectId) {
+    if (!loginRequired || !authenticated || !orgId || !projectId) {
       loading = false
       error = ''
       instancePermissions = null
@@ -248,20 +248,20 @@
     />
   {/if}
 
-  {#if authSummary && authStore.authMode !== 'oidc'}
+  {#if authSummary && !authStore.loginRequired}
     <SecuritySettingsHumanAuthSetupPanel
       auth={authSummary}
       projectId={currentProjectId}
       onSecurityChange={(nextSecurity) => (security = nextSecurity)}
     />
-  {:else if authStore.authMode === 'oidc' && !authStore.authenticated}
+  {:else if authStore.loginRequired && !authStore.authenticated}
     <SecuritySettingsHumanAuthSignInHint />
   {:else if loading}
     <div class="space-y-3">
       <div class="bg-muted h-16 animate-pulse rounded-lg"></div>
       <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
     </div>
-  {:else if authStore.authMode === 'oidc'}
+  {:else if authStore.loginRequired}
     <SecuritySettingsHumanAuthAuthenticatedView
       user={authStore.user}
       {currentOrgId}

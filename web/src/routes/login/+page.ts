@@ -6,7 +6,7 @@ export const load: PageLoad = async ({ url, fetch }) => {
   const returnTo = normalizeReturnTo(url.searchParams.get('return_to'))
   const authSession = await getAuthSession(fetch)
 
-  if (authSession.authMode !== 'oidc') {
+  if (!authSession.loginRequired) {
     throw redirect(307, returnTo)
   }
   if (authSession.authenticated) {

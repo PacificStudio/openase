@@ -58,7 +58,27 @@ esac
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
-go_path="$repo_root/.tooling/go/bin:/home/yuzhong/.local/go1.26.1/bin:$PATH"
+node_bin_dir=""
+for candidate in \
+  "${HOME}/.nvm/versions/node/v22.22.1/bin" \
+  "${HOME}/.nvm/versions/node/v22.22.0/bin" \
+  "${HOME}/.nvm/versions/node/v24.13.0/bin"
+do
+  if [[ -x "${candidate}/node" && -x "${candidate}/corepack" ]]; then
+    node_bin_dir="$candidate"
+    break
+  fi
+done
+
+if [[ -n "$node_bin_dir" ]]; then
+  node_path="${node_bin_dir}:$PATH"
+  corepack_cmd="${node_bin_dir}/corepack"
+else
+  node_path="$PATH"
+  corepack_cmd="corepack"
+fi
+
+go_path="$repo_root/.tooling/go/bin:${HOME}/.local/go1.26.1/bin:$PATH"
 stdout_log="${HOME}/.openase/logs/openase-local.stdout.log"
 stderr_log="${HOME}/.openase/logs/openase-local.stderr.log"
 repo_binary="${repo_root}/bin/openase"
@@ -94,8 +114,8 @@ repo_local_listener_pid() {
 }
 
 echo "[1/5] build web assets"
-corepack pnpm --dir web install --frozen-lockfile
-corepack pnpm --dir web run build
+PATH="$node_path" "$corepack_cmd" pnpm --dir web install --frozen-lockfile
+PATH="$node_path" "$corepack_cmd" pnpm --dir web run build
 
 echo "[2/5] build backend binary"
 PATH="$go_path" go build -o ./bin/openase ./cmd/openase
