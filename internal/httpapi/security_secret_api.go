@@ -34,6 +34,37 @@ type securityScopedSecretResponse struct {
 	Encryption     securityScopedSecretEncryptionResponse `json:"encryption"`
 }
 
+type securityScopedSecretBindingSecretResponse struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Scope       string  `json:"scope"`
+	Kind        string  `json:"kind"`
+	Description string  `json:"description"`
+	ProjectID   *string `json:"project_id,omitempty"`
+	Disabled    bool    `json:"disabled"`
+}
+
+type securityScopedSecretBindingTargetResponse struct {
+	ID         string `json:"id"`
+	Scope      string `json:"scope"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier,omitempty"`
+}
+
+type securityScopedSecretBindingResponse struct {
+	ID              string                                    `json:"id"`
+	OrganizationID  string                                    `json:"organization_id"`
+	ProjectID       string                                    `json:"project_id"`
+	SecretID        string                                    `json:"secret_id"`
+	Scope           string                                    `json:"scope"`
+	ScopeResourceID string                                    `json:"scope_resource_id"`
+	BindingKey      string                                    `json:"binding_key"`
+	CreatedAt       string                                    `json:"created_at"`
+	UpdatedAt       string                                    `json:"updated_at"`
+	Secret          securityScopedSecretBindingSecretResponse `json:"secret"`
+	Target          securityScopedSecretBindingTargetResponse `json:"target"`
+}
+
 type securityResolvedRuntimeSecretResponse struct {
 	BindingKey   string `json:"binding_key"`
 	BindingScope string `json:"binding_scope"`
@@ -83,6 +114,48 @@ func (s *Server) handleCreateScopedSecret(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]any{"secret": mapScopedSecretResponse(item)})
 }
 
+func (s *Server) handleListScopedSecretBindings(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	items, err := s.secretService.ListProjectBindings(c.Request().Context(), projectID)
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	response := make([]securityScopedSecretBindingResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapScopedSecretBindingResponse(item))
+	}
+	return c.JSON(http.StatusOK, map[string]any{"bindings": response})
+}
+
+func (s *Server) handleCreateScopedSecretBinding(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	var raw rawCreateScopedSecretBindingRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	input, err := parseCreateScopedSecretBindingRequest(projectID, raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	item, err := s.secretService.CreateBinding(c.Request().Context(), input)
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.JSON(http.StatusCreated, map[string]any{"binding": mapScopedSecretBindingResponse(item)})
+}
+
 func (s *Server) handlePatchScopedSecret(c echo.Context) error {
 	projectID, err := s.requireProjectSecurityContext(c)
 	if err != nil {
@@ -104,6 +177,27 @@ func (s *Server) handlePatchScopedSecret(c echo.Context) error {
 		return writeScopedSecretError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"secret": mapScopedSecretResponse(item)})
+}
+
+func (s *Server) handleDeleteScopedSecretBinding(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	bindingID, err := parseUUIDPathParam(c, "bindingId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SECRET_BINDING_ID", err.Error())
+	}
+	if err := s.secretService.DeleteBinding(c.Request().Context(), secretsservice.DeleteBindingInput{
+		ProjectID: projectID,
+		BindingID: bindingID,
+	}); err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) handleRotateScopedSecret(c echo.Context) error {
@@ -216,6 +310,41 @@ func mapScopedSecretResponse(item secretsdomain.Secret) securityScopedSecretResp
 	return response
 }
 
+func mapScopedSecretBindingResponse(item secretsdomain.BindingRecord) securityScopedSecretBindingResponse {
+	response := securityScopedSecretBindingResponse{
+		ID:              item.Binding.ID.String(),
+		OrganizationID:  item.Binding.OrganizationID.String(),
+		ProjectID:       item.Binding.ProjectID.String(),
+		SecretID:        item.Binding.SecretID.String(),
+		Scope:           string(item.Binding.Scope),
+		ScopeResourceID: item.Binding.ScopeResourceID.String(),
+		BindingKey:      item.Binding.BindingKey,
+		CreatedAt:       item.Binding.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:       item.Binding.UpdatedAt.UTC().Format(time.RFC3339),
+		Secret: securityScopedSecretBindingSecretResponse{
+			ID:          item.Secret.ID.String(),
+			Name:        item.Secret.Name,
+			Scope:       string(item.Secret.Scope),
+			Kind:        string(item.Secret.Kind),
+			Description: item.Secret.Description,
+			Disabled:    item.Secret.DisabledAt != nil,
+		},
+		Target: securityScopedSecretBindingTargetResponse{
+			ID:    item.Target.ID.String(),
+			Scope: string(item.Target.Scope),
+			Name:  item.Target.Name,
+		},
+	}
+	if item.Secret.ProjectID != uuid.Nil {
+		projectID := item.Secret.ProjectID.String()
+		response.Secret.ProjectID = &projectID
+	}
+	if item.Target.Identifier != "" {
+		response.Target.Identifier = item.Target.Identifier
+	}
+	return response
+}
+
 func writeScopedSecretError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, secretsservice.ErrUnavailable):
@@ -226,6 +355,12 @@ func writeScopedSecretError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "SECRET_NOT_FOUND", err.Error())
 	case errors.Is(err, secretsservice.ErrSecretNameConflict):
 		return writeAPIError(c, http.StatusConflict, "SECRET_NAME_CONFLICT", err.Error())
+	case errors.Is(err, secretsservice.ErrBindingNotFound):
+		return writeAPIError(c, http.StatusNotFound, "SECRET_BINDING_NOT_FOUND", err.Error())
+	case errors.Is(err, secretsservice.ErrBindingConflict):
+		return writeAPIError(c, http.StatusConflict, "SECRET_BINDING_CONFLICT", err.Error())
+	case errors.Is(err, secretsservice.ErrBindingTarget):
+		return writeAPIError(c, http.StatusBadRequest, "SECRET_BINDING_TARGET_NOT_FOUND", err.Error())
 	case errors.Is(err, secretsdomain.ErrResolutionScopeConflict):
 		return writeAPIError(c, http.StatusConflict, "SECRET_BINDING_CONFLICT", err.Error())
 	default:

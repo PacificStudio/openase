@@ -544,6 +544,23 @@ export type SecuritySettingsResponse = Omit<RawSecuritySettingsResponse, 'securi
     auth: SecurityAuthSettings
   }
 }
+export type ScopedSecretPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secrets', 'get'>
+>
+export type ScopedSecret = ItemOf<ScopedSecretPayload['secrets']>
+export type ScopedSecretBindingPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secret-bindings', 'get'>
+>
+export type ScopedSecretBinding = ItemOf<ScopedSecretBindingPayload['bindings']>
+export type CreateScopedSecretBindingResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secret-bindings', 'post'>
+>
+export type DeleteScopedSecretBindingResponse = DeepRequired<
+  ResponseFor<
+    '/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}',
+    'delete'
+  >
+>
 export type OIDCDraftTestResponse = {
   status: string
   message: string

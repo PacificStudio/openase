@@ -1,10 +1,22 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import type { SecuritySettingsResponse } from '$lib/api/contracts'
+  import type {
+    ScopedSecret,
+    ScopedSecretBinding,
+    SecuritySettingsResponse,
+    Ticket,
+    Workflow,
+  } from '$lib/api/contracts'
   import {
+    createScopedSecretBinding,
+    deleteScopedSecretBinding,
     deleteGitHubOutboundCredential,
     getSecuritySettings,
     importGitHubOutboundCredentialFromGHCLI,
+    listScopedSecretBindings,
+    listScopedSecrets,
+    listTickets,
+    listWorkflows,
     retestGitHubOutboundCredential,
     saveGitHubOutboundCredential,
   } from '$lib/api/openase'
@@ -14,6 +26,9 @@
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
+  import SecuritySettingsSecretBindings, {
+    type SecretBindingDraft,
+  } from './security-settings-secret-bindings.svelte'
   import SettingsIAMMigrationPanel from './settings-iam-migration-panel.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
@@ -24,6 +39,19 @@
   let loading = $state(false)
   let error = $state('')
   let actionKey = $state('')
+  let secretBindingLoading = $state(false)
+  let secretBindingError = $state('')
+  let secretBindingMutationKey = $state('')
+  let secrets = $state<ScopedSecret[]>([])
+  let bindings = $state<ScopedSecretBinding[]>([])
+  let workflows = $state<Workflow[]>([])
+  let tickets = $state<Ticket[]>([])
+  let secretBindingDraft = $state<SecretBindingDraft>({
+    bindingKey: '',
+    scope: 'workflow',
+    scopeResourceId: '',
+    secretId: '',
+  })
   let manualTokens = $state<Record<GitHubScope, string>>({
     organization: '',
     project: '',
@@ -65,6 +93,59 @@
     }
   })
 
+  $effect(() => {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) {
+      secretBindingLoading = false
+      secretBindingError = ''
+      secretBindingMutationKey = ''
+      secrets = []
+      bindings = []
+      workflows = []
+      tickets = []
+      secretBindingDraft = {
+        bindingKey: '',
+        scope: 'workflow',
+        scopeResourceId: '',
+        secretId: '',
+      }
+      return
+    }
+
+    let cancelled = false
+
+    const load = async () => {
+      secretBindingLoading = true
+      secretBindingError = ''
+      try {
+        const [secretPayload, bindingPayload, workflowPayload, ticketPayload] = await Promise.all([
+          listScopedSecrets(projectId),
+          listScopedSecretBindings(projectId),
+          listWorkflows(projectId),
+          listTickets(projectId),
+        ])
+        if (cancelled) return
+        secrets = secretPayload.secrets
+        bindings = bindingPayload.bindings
+        workflows = workflowPayload.workflows
+        tickets = ticketPayload.tickets
+      } catch (caughtError) {
+        if (cancelled) return
+        secretBindingError = formatError(caughtError, 'Failed to load runtime secret bindings.')
+      } finally {
+        if (!cancelled) {
+          secretBindingLoading = false
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  })
+
   function formatError(caughtError: unknown, fallback: string) {
     return caughtError instanceof ApiError ? caughtError.detail : fallback
   }
@@ -75,6 +156,78 @@
 
   function handleManualTokenChange(scope: GitHubScope, value: string) {
     manualTokens[scope] = value
+  }
+
+  function resetSecretBindingDraft() {
+    secretBindingDraft = {
+      bindingKey: '',
+      scope: 'workflow',
+      scopeResourceId: '',
+      secretId: '',
+    }
+  }
+
+  async function reloadSecretBindingData(projectId: string) {
+    const [secretPayload, bindingPayload, workflowPayload, ticketPayload] = await Promise.all([
+      listScopedSecrets(projectId),
+      listScopedSecretBindings(projectId),
+      listWorkflows(projectId),
+      listTickets(projectId),
+    ])
+    secrets = secretPayload.secrets
+    bindings = bindingPayload.bindings
+    workflows = workflowPayload.workflows
+    tickets = ticketPayload.tickets
+  }
+
+  async function handleCreateSecretBinding() {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    const bindingKey = secretBindingDraft.bindingKey.trim()
+    if (!bindingKey || !secretBindingDraft.secretId || !secretBindingDraft.scopeResourceId) {
+      toastStore.error('Select a target, a secret, and a binding key first.')
+      return
+    }
+
+    secretBindingMutationKey = 'create'
+    secretBindingError = ''
+    try {
+      await createScopedSecretBinding(projectId, {
+        secret_id: secretBindingDraft.secretId,
+        scope: secretBindingDraft.scope,
+        scope_resource_id: secretBindingDraft.scopeResourceId,
+        binding_key: bindingKey,
+      })
+      await reloadSecretBindingData(projectId)
+      resetSecretBindingDraft()
+      toastStore.success('Runtime secret binding created.')
+    } catch (caughtError) {
+      const message = formatError(caughtError, 'Failed to create runtime secret binding.')
+      secretBindingError = message
+      toastStore.error(message)
+    } finally {
+      secretBindingMutationKey = ''
+    }
+  }
+
+  async function handleDeleteSecretBinding(bindingId: string) {
+    const projectId = appStore.currentProject?.id
+    if (!projectId) return
+
+    secretBindingMutationKey = `delete:${bindingId}`
+    secretBindingError = ''
+    try {
+      await deleteScopedSecretBinding(projectId, bindingId)
+      await reloadSecretBindingData(projectId)
+      toastStore.success('Runtime secret binding deleted.')
+    } catch (caughtError) {
+      const message = formatError(caughtError, 'Failed to delete runtime secret binding.')
+      secretBindingError = message
+      toastStore.error(message)
+    } finally {
+      secretBindingMutationKey = ''
+    }
   }
 
   async function mutateScope(scope: GitHubScope, action: 'save' | 'import' | 'retest' | 'delete') {
@@ -178,6 +331,22 @@
       {manualTokens}
       onAction={mutateScope}
       onManualTokenChange={handleManualTokenChange}
+    />
+
+    <Separator />
+
+    <SecuritySettingsSecretBindings
+      {secrets}
+      {bindings}
+      {workflows}
+      {tickets}
+      draft={secretBindingDraft}
+      loading={secretBindingLoading}
+      error={secretBindingError}
+      mutationKey={secretBindingMutationKey}
+      onDraftChange={(draft) => (secretBindingDraft = draft)}
+      onCreate={() => void handleCreateSecretBinding()}
+      onDelete={(bindingId) => void handleDeleteSecretBinding(bindingId)}
     />
 
     <Separator />

@@ -16,6 +16,8 @@ import type {
   ArchivedTicketPayload,
   BuiltinRolePayload,
   BuiltinRoleDetailResponse,
+  CreateScopedSecretBindingResponse,
+  DeleteScopedSecretBindingResponse,
   DeleteGitHubOutboundCredentialResponse,
   GitHubRepositoryCreateResponse,
   GitHubRepositoryListResponse,
@@ -59,6 +61,8 @@ import type {
   ScheduledJobResponse,
   ScheduledJobTriggerResponse,
   ScheduledJobUpdateResponse,
+  ScopedSecretBindingPayload,
+  ScopedSecretPayload,
   SecuritySettingsResponse,
   RetestGitHubOutboundCredentialResponse,
   SaveGitHubOutboundCredentialResponse,
@@ -333,6 +337,37 @@ export function disableAdminAuth() {
 
 export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+}
+
+export function listScopedSecrets(projectId: string) {
+  return api.get<ScopedSecretPayload>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function listScopedSecretBindings(projectId: string) {
+  return api.get<ScopedSecretBindingPayload>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+  )
+}
+
+export function createScopedSecretBinding(
+  projectId: string,
+  body: {
+    secret_id: string
+    scope: 'workflow' | 'ticket'
+    scope_resource_id: string
+    binding_key: string
+  },
+) {
+  return api.post<CreateScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+    { body },
+  )
+}
+
+export function deleteScopedSecretBinding(projectId: string, bindingId: string) {
+  return api.delete<DeleteScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings/${bindingId}`,
+  )
 }
 
 export function saveOIDCDraft(

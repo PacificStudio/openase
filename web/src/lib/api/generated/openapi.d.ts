@@ -1593,6 +1593,41 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List workflow and ticket scoped secret bindings configured for this project */
+    get: operations['listScopedSecretBindings']
+    put?: never
+    /** Create a workflow or ticket scoped secret binding for runtime resolution */
+    post: operations['createScopedSecretBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a workflow or ticket scoped secret binding */
+    delete: operations['deleteScopedSecretBinding']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/security-settings/secrets': {
     parameters: {
       query?: never
@@ -14385,6 +14420,299 @@ export interface operations {
       }
       /** @description Bad Gateway response. */
       502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecretBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List workflow and ticket scoped secret bindings configured for this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            bindings?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a workflow or ticket scoped secret binding for runtime resolution request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Runtime environment binding key. Keys are normalized to upper snake case before persistence. */
+          binding_key?: string
+          /** @description Binding scope. Supported values are workflow and ticket. */
+          scope?: string
+          /** @description Workflow or ticket ID that owns this binding. */
+          scope_resource_id?: string
+          /** @description Secret ID to bind into workflow or ticket runtime resolution. */
+          secret_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a workflow or ticket scoped secret binding for runtime resolution response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            binding?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret binding ID. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Secret binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }
