@@ -324,3 +324,197 @@ func TestParseAccessControlStateCoversDraftAndActiveErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestOIDCRedirectModeHelpers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		raw              string
+		fixedRedirectURL string
+		want             OIDCRedirectMode
+		wantErr          string
+	}{
+		{
+			name: "empty defaults to auto",
+			want: OIDCRedirectModeAuto,
+		},
+		{
+			name:             "empty legacy fixed url infers fixed",
+			fixedRedirectURL: "https://openase.example.com/callback",
+			want:             OIDCRedirectModeFixed,
+		},
+		{
+			name: "explicit auto",
+			raw:  " AUTO ",
+			want: OIDCRedirectModeAuto,
+		},
+		{
+			name: "explicit fixed",
+			raw:  "fixed",
+			want: OIDCRedirectModeFixed,
+		},
+		{
+			name:    "invalid mode",
+			raw:     "desktop",
+			wantErr: "redirect_mode must be one of auto, fixed",
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			mode, err := ParseOIDCRedirectMode(tc.raw, tc.fixedRedirectURL)
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ParseOIDCRedirectMode() error = %v", err)
+			}
+			if mode != tc.want {
+				t.Fatalf("mode = %q, want %q", mode, tc.want)
+			}
+			if mode.String() != string(tc.want) {
+				t.Fatalf("mode.String() = %q, want %q", mode.String(), tc.want)
+			}
+		})
+	}
+}
+
+func TestDraftAndActiveOIDCRedirectHelpers(t *testing.T) {
+	t.Parallel()
+
+	draft, err := parseDraftOIDCConfig(AccessControlStateInput{
+		RedirectMode:     "",
+		RedirectURL:      " https://legacy.example.com/oidc/callback ",
+		FixedRedirectURL: "https://preferred.example.com/oidc/callback",
+		EmailClaim:       " custom-email ",
+		NameClaim:        " custom-name ",
+		UsernameClaim:    " custom-user ",
+		GroupsClaim:      " custom-groups ",
+		Scopes:           []string{},
+	})
+	if err != nil {
+		t.Fatalf("parseDraftOIDCConfig() error = %v", err)
+	}
+	if draft.RedirectMode != OIDCRedirectModeFixed {
+		t.Fatalf("draft redirect mode = %q", draft.RedirectMode)
+	}
+	if draft.FixedRedirectURL != "https://preferred.example.com/oidc/callback" {
+		t.Fatalf("draft fixed redirect = %q", draft.FixedRedirectURL)
+	}
+	if draft.Claims.EmailClaim != "custom-email" ||
+		draft.Claims.NameClaim != "custom-name" ||
+		draft.Claims.UsernameClaim != "custom-user" ||
+		draft.Claims.GroupsClaim != "custom-groups" {
+		t.Fatalf("draft claims = %#v", draft.Claims)
+	}
+	if got := strings.Join(draft.Scopes, ","); got != "openid,profile,email,groups" {
+		t.Fatalf("draft scopes = %q", got)
+	}
+
+	if fixedURL, err := draft.EffectiveRedirectURL("https://ignored.example.com"); err != nil {
+		t.Fatalf("draft fixed EffectiveRedirectURL() error = %v", err)
+	} else if fixedURL != "https://preferred.example.com/oidc/callback" {
+		t.Fatalf("draft fixed EffectiveRedirectURL() = %q", fixedURL)
+	}
+
+	autoDraft := DefaultDraftOIDCConfig()
+	autoURL, err := autoDraft.EffectiveRedirectURL("https://desktop.example.com:43123")
+	if err != nil {
+		t.Fatalf("draft auto EffectiveRedirectURL() error = %v", err)
+	}
+	if autoURL != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("draft auto EffectiveRedirectURL() = %q", autoURL)
+	}
+
+	active, err := parseActiveOIDCConfig(AccessControlStateInput{
+		IssuerURL:      "https://issuer.example.com",
+		ClientID:       "openase",
+		ClientSecret:   "secret",
+		RedirectMode:   "auto",
+		SessionTTL:     "2h",
+		SessionIdleTTL: "15m",
+	})
+	if err != nil {
+		t.Fatalf("parseActiveOIDCConfig(auto) error = %v", err)
+	}
+	activeURL, err := active.EffectiveRedirectURL("https://proxy.example.com")
+	if err != nil {
+		t.Fatalf("active auto EffectiveRedirectURL() error = %v", err)
+	}
+	if activeURL != "https://proxy.example.com/api/v1/auth/oidc/callback" {
+		t.Fatalf("active auto EffectiveRedirectURL() = %q", activeURL)
+	}
+
+	activeFixed, err := parseActiveOIDCConfig(AccessControlStateInput{
+		IssuerURL:        "https://issuer.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "secret",
+		RedirectMode:     "fixed",
+		FixedRedirectURL: "https://openase.example.com/api/v1/auth/oidc/callback",
+		SessionTTL:       "2h",
+		SessionIdleTTL:   "15m",
+	})
+	if err != nil {
+		t.Fatalf("parseActiveOIDCConfig(fixed) error = %v", err)
+	}
+	if fixedURL, err := activeFixed.EffectiveRedirectURL("https://ignored.example.com"); err != nil {
+		t.Fatalf("active fixed EffectiveRedirectURL() error = %v", err)
+	} else if fixedURL != "https://openase.example.com/api/v1/auth/oidc/callback" {
+		t.Fatalf("active fixed EffectiveRedirectURL() = %q", fixedURL)
+	}
+
+	if _, err := parseDraftOIDCConfig(AccessControlStateInput{RedirectMode: "bad-mode"}); err == nil ||
+		!strings.Contains(err.Error(), "redirect_mode must be one of auto, fixed") {
+		t.Fatalf("expected draft redirect mode error, got %v", err)
+	}
+
+	if _, err := parseActiveOIDCConfig(AccessControlStateInput{
+		IssuerURL:        "https://issuer.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "secret",
+		RedirectMode:     "fixed",
+		FixedRedirectURL: "relative/path",
+		SessionTTL:       "2h",
+		SessionIdleTTL:   "15m",
+	}); err == nil || !strings.Contains(err.Error(), "fixed_redirect_url must be a valid absolute URL") {
+		t.Fatalf("expected fixed redirect validation error, got %v", err)
+	}
+}
+
+func TestOIDCRedirectURLParsingHelpers(t *testing.T) {
+	t.Parallel()
+
+	parsed, err := parseAbsoluteURL(" https://OpenASE.example.com:9443/base ")
+	if err != nil {
+		t.Fatalf("parseAbsoluteURL(valid) error = %v", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host != "OpenASE.example.com:9443" {
+		t.Fatalf("parseAbsoluteURL(valid) = %#v", parsed)
+	}
+
+	if _, err := parseAbsoluteURL("/relative/path"); err == nil ||
+		!strings.Contains(err.Error(), "absolute url is required") {
+		t.Fatalf("expected parseAbsoluteURL(relative) error, got %v", err)
+	}
+	if _, err := parseAbsoluteURL("https://example.com/%zz"); err == nil {
+		t.Fatal("expected parseAbsoluteURL(parse failure) to fail")
+	}
+
+	autoURL, err := resolveAutoRedirectURL("HTTPS://OpenASE.example.com:9443/base")
+	if err != nil {
+		t.Fatalf("resolveAutoRedirectURL(valid) error = %v", err)
+	}
+	if autoURL != "https://OpenASE.example.com:9443/api/v1/auth/oidc/callback" {
+		t.Fatalf("resolveAutoRedirectURL(valid) = %q", autoURL)
+	}
+
+	if _, err := resolveAutoRedirectURL("not-a-url"); err == nil ||
+		!strings.Contains(err.Error(), "external base url must be a valid absolute URL") {
+		t.Fatalf("expected resolveAutoRedirectURL(invalid) error, got %v", err)
+	}
+}
