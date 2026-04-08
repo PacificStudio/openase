@@ -96,6 +96,7 @@ func TestParseRuntimeBindingScopeKind(t *testing.T) {
 		{input: "workflow", want: BindingScopeKindWorkflow, ok: true},
 		{input: "ticket", want: BindingScopeKindTicket, ok: true},
 		{input: "project", ok: false},
+		{input: "machine", ok: false},
 	}
 
 	for _, tc := range tests {

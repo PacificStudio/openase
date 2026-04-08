@@ -8,11 +8,13 @@ import {
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
+} from './security-settings.test-helpers'
+import {
   scopedSecretBindings,
   scopedSecrets,
   ticketCatalog,
   workflowCatalog,
-} from './security-settings.test-helpers'
+} from './security-settings-secret-binding-test-helpers'
 
 const {
   createScopedSecretBinding,

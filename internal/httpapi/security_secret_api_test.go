@@ -409,7 +409,7 @@ type stubSecretService struct {
 	disableSecret       func(context.Context, secretsservice.DisableSecretInput) (secretsdomain.Secret, error)
 	deleteBinding       func(context.Context, secretsservice.DeleteBindingInput) error
 	resolveForRuntime   func(context.Context, secretsservice.ResolveRuntimeInput) ([]secretsdomain.ResolvedSecret, []string, error)
-	resolveBound       func(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
+	resolveBound        func(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
 func (s *stubSecretService) ListProjectSecrets(ctx context.Context, projectID uuid.UUID) ([]secretsdomain.Secret, error) {
