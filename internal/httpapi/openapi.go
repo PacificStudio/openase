@@ -155,34 +155,35 @@ type OpenAPIProjectRepo struct {
 }
 
 type OpenAPIAgentProvider struct {
-	ID                    string                             `json:"id"`
-	OrganizationID        string                             `json:"organization_id"`
-	MachineID             string                             `json:"machine_id"`
-	MachineName           string                             `json:"machine_name"`
-	MachineHost           string                             `json:"machine_host"`
-	MachineStatus         string                             `json:"machine_status"`
-	MachineSSHUser        *string                            `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string                            `json:"machine_workspace_root,omitempty"`
-	Name                  string                             `json:"name"`
-	AdapterType           string                             `json:"adapter_type"`
-	PermissionProfile     string                             `json:"permission_profile"`
-	AvailabilityState     string                             `json:"availability_state"`
-	Available             bool                               `json:"available"`
-	AvailabilityCheckedAt *string                            `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string                            `json:"availability_reason,omitempty"`
-	Capabilities          OpenAPIAgentProviderCapabilities   `json:"capabilities"`
-	CliCommand            string                             `json:"cli_command"`
-	CliArgs               []string                           `json:"cli_args"`
-	AuthConfig            map[string]any                     `json:"auth_config"`
-	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit  `json:"cli_rate_limit,omitempty"`
-	CLIRateLimitUpdatedAt *string                            `json:"cli_rate_limit_updated_at,omitempty"`
-	ModelName             string                             `json:"model_name"`
-	ModelTemperature      float64                            `json:"model_temperature"`
-	ModelMaxTokens        int                                `json:"model_max_tokens"`
-	MaxParallelRuns       int                                `json:"max_parallel_runs"`
-	CostPerInputToken     float64                            `json:"cost_per_input_token"`
-	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
-	PricingConfig         pricing.ProviderModelPricingConfig `json:"pricing_config"`
+	ID                    string                                     `json:"id"`
+	OrganizationID        string                                     `json:"organization_id"`
+	MachineID             string                                     `json:"machine_id"`
+	MachineName           string                                     `json:"machine_name"`
+	MachineHost           string                                     `json:"machine_host"`
+	MachineStatus         string                                     `json:"machine_status"`
+	MachineSSHUser        *string                                    `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                                    `json:"machine_workspace_root,omitempty"`
+	Name                  string                                     `json:"name"`
+	AdapterType           string                                     `json:"adapter_type"`
+	PermissionProfile     string                                     `json:"permission_profile"`
+	AvailabilityState     string                                     `json:"availability_state"`
+	Available             bool                                       `json:"available"`
+	AvailabilityCheckedAt *string                                    `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                                    `json:"availability_reason,omitempty"`
+	Capabilities          OpenAPIAgentProviderCapabilities           `json:"capabilities"`
+	CliCommand            string                                     `json:"cli_command"`
+	CliArgs               []string                                   `json:"cli_args"`
+	AuthConfig            map[string]any                             `json:"auth_config"`
+	SecretBindings        []catalogdomain.AgentProviderSecretBinding `json:"secret_bindings"`
+	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit          `json:"cli_rate_limit,omitempty"`
+	CLIRateLimitUpdatedAt *string                                    `json:"cli_rate_limit_updated_at,omitempty"`
+	ModelName             string                                     `json:"model_name"`
+	ModelTemperature      float64                                    `json:"model_temperature"`
+	ModelMaxTokens        int                                        `json:"model_max_tokens"`
+	MaxParallelRuns       int                                        `json:"max_parallel_runs"`
+	CostPerInputToken     float64                                    `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                                    `json:"cost_per_output_token"`
+	PricingConfig         pricing.ProviderModelPricingConfig         `json:"pricing_config"`
 }
 
 type OpenAPIAgentProviderCapabilities struct {
@@ -2140,20 +2141,23 @@ var (
 		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
-		"name":                  "Human-readable provider name.",
-		"machine_id":            "Machine ID where this provider runs.",
-		"adapter_type":          "Adapter type used to launch and communicate with the provider.",
-		"permission_profile":    "Managed permission profile used to render adapter-specific approval and sandbox options.",
-		"cli_command":           "CLI command used to launch the provider.",
-		"cli_args":              "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
-		"auth_config":           "Provider-specific authentication configuration object.",
-		"model_name":            "Model name configured for the provider.",
-		"model_temperature":     "Sampling temperature configured for the provider model.",
-		"model_max_tokens":      "Maximum number of output tokens allowed for the provider model.",
-		"max_parallel_runs":     "Maximum number of concurrent runs allowed for the provider.",
-		"cost_per_input_token":  "Estimated USD cost per input token.",
-		"cost_per_output_token": "Estimated USD cost per output token.",
-		"pricing_config":        "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
+		"name":                          "Human-readable provider name.",
+		"machine_id":                    "Machine ID where this provider runs.",
+		"adapter_type":                  "Adapter type used to launch and communicate with the provider.",
+		"permission_profile":            "Managed permission profile used to render adapter-specific approval and sandbox options.",
+		"cli_command":                   "CLI command used to launch the provider.",
+		"cli_args":                      "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
+		"auth_config":                   "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
+		"secret_bindings":               "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+		"secret_bindings[].env_var_key": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+		"secret_bindings[].binding_key": "Secret binding alias to resolve for the matching runtime environment variable.",
+		"model_name":                    "Model name configured for the provider.",
+		"model_temperature":             "Sampling temperature configured for the provider model.",
+		"model_max_tokens":              "Maximum number of output tokens allowed for the provider model.",
+		"max_parallel_runs":             "Maximum number of concurrent runs allowed for the provider.",
+		"cost_per_input_token":          "Estimated USD cost per input token.",
+		"cost_per_output_token":         "Estimated USD cost per output token.",
+		"pricing_config":                "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
 	}
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",

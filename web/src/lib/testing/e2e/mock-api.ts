@@ -886,6 +886,7 @@ async function handleProviderRoutes(request: Request, segments: string[]) {
   provider.cost_per_output_token =
     asNumber(body.cost_per_output_token) ?? provider.cost_per_output_token
   provider.auth_config = asObject(body.auth_config) ?? {}
+  provider.secret_bindings = asSecretBindings(body.secret_bindings)
 
   return jsonResponse({ provider: clone(provider) })
 }
@@ -1537,6 +1538,7 @@ function createInitialState(): MockState {
       cli_command: 'python3',
       cli_args: ['/home/user/workspace/openase/scripts/dev/fake_codex_app_server.py'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1569,6 +1571,7 @@ function createInitialState(): MockState {
       cli_command: 'claude',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'claude-opus-4-6',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1601,6 +1604,7 @@ function createInitialState(): MockState {
       cli_command: 'gemini',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gemini-2.5-pro',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1633,6 +1637,7 @@ function createInitialState(): MockState {
       cli_command: 'codex',
       cli_args: ['app-server', '--listen', 'stdio://'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -2992,6 +2997,17 @@ function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] 
           !!item && typeof item === 'object' && !Array.isArray(item),
       )
     : null
+}
+
+function asSecretBindings(
+  value: JsonValue | undefined,
+): Array<{ env_var_key: string; binding_key: string; configured: boolean; source: string }> {
+  return (asObjectArray(value) ?? []).map((item) => ({
+    env_var_key: asString(item.env_var_key) ?? '',
+    binding_key: asString(item.binding_key) ?? '',
+    configured: true,
+    source: 'binding',
+  }))
 }
 
 function decodeBase64UTF8(value: string): string {

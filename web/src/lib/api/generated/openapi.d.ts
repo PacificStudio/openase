@@ -9792,6 +9792,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }[]
           }
         }
@@ -9850,7 +9856,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           }
@@ -9889,6 +9895,13 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           }
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?: {
+            /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+            binding_key?: string
+            /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+            env_var_key?: string
+          }[]
         }
       }
     }
@@ -10034,6 +10047,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -19009,6 +19028,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -19067,7 +19092,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string | null
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           } | null
@@ -19106,6 +19131,15 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           } | null
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?:
+            | {
+                /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+                binding_key?: string
+                /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+                env_var_key?: string
+              }[]
+            | null
         }
       }
     }
@@ -19251,6 +19285,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }

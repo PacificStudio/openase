@@ -13442,6 +13442,26 @@
                               }
                             },
                             "type": "object"
+                          },
+                          "secret_bindings": {
+                            "items": {
+                              "properties": {
+                                "binding_key": {
+                                  "type": "string"
+                                },
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "env_var_key": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
                           }
                         },
                         "type": "object"
@@ -13540,7 +13560,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "type": "object"
                   },
                   "cli_args": {
@@ -13602,6 +13622,23 @@
                     "additionalProperties": {},
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -13981,6 +14018,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -32390,6 +32447,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -32487,7 +32564,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "nullable": true,
                     "type": "object"
                   },
@@ -32557,6 +32634,24 @@
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "nullable": true,
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "nullable": true,
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -32936,6 +33031,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"

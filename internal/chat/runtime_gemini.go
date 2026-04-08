@@ -15,6 +15,7 @@ import (
 
 type GeminiRuntime struct {
 	processManager provider.AgentCLIProcessManager
+	secretResolver RuntimeEnvironmentResolver
 	mu             sync.Mutex
 	sessions       map[SessionID]*geminiRuntimeSession
 }
@@ -42,6 +43,13 @@ func NewGeminiRuntime(processManager provider.AgentCLIProcessManager) *GeminiRun
 	return &GeminiRuntime{processManager: processManager}
 }
 
+func (r *GeminiRuntime) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
+	if r == nil {
+		return
+	}
+	r.secretResolver = resolver
+}
+
 func (r *GeminiRuntime) Supports(providerItem catalogdomain.AgentProvider) bool {
 	return r != nil &&
 		r.processManager != nil &&
@@ -66,11 +74,16 @@ func (r *GeminiRuntime) StartTurn(ctx context.Context, input RuntimeTurnInput) (
 		workingDirectory = &input.WorkingDirectory
 	}
 
+	environment, err := resolveRuntimeEnvironment(ctx, r.secretResolver, input)
+	if err != nil {
+		return TurnStream{}, err
+	}
+
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
 		buildGeminiArgs(input.Provider.CliArgs, input.Provider.ModelName, input.Provider.PermissionProfile, prompt),
 		workingDirectory,
-		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
+		environment,
 	)
 	if err != nil {
 		return TurnStream{}, err
