@@ -229,6 +229,139 @@ func TestBuildRunCompletionSummaryDeveloperInstructionsUsesProjectOverride(t *te
 	}
 }
 
+func TestBuildRunCompletionSummaryDeveloperInstructionsTrimsLongOverride(t *testing.T) {
+	override := strings.Repeat("Keep retries and commands. ", 4000)
+
+	instructions := buildRunCompletionSummaryDeveloperInstructions(&ent.Project{
+		AgentRunSummaryPrompt: override,
+	})
+
+	if len(instructions) > runCompletionSummaryDeveloperInstructionsMaxBytes {
+		t.Fatalf("expected developer instructions to stay within %d bytes, got %d", runCompletionSummaryDeveloperInstructionsMaxBytes, len(instructions))
+	}
+	if !strings.Contains(instructions, "trimmed for length") {
+		t.Fatalf("expected trim note in developer instructions, got %q", instructions)
+	}
+}
+
+func TestBuildRunCompletionSummaryUserPromptCompactsOversizedInput(t *testing.T) {
+	huge := strings.Repeat("0123456789abcdef", 512)
+	commands := make([]map[string]any, 0, 120)
+	for index := 0; index < 120; index++ {
+		commands = append(commands, map[string]any{
+			"command":    "go test ./..." + huge,
+			"kind":       catalogdomain.AgentTraceKindCommandDelta,
+			"created_at": time.Date(2026, 4, 2, 10, 0, index%60, 0, time.UTC).Format(time.RFC3339),
+		})
+	}
+
+	repos := make([]runCompletionRepoDiff, 0, 10)
+	for repoIndex := 0; repoIndex < 10; repoIndex++ {
+		files := make([]runCompletionFileDiff, 0, 30)
+		for fileIndex := 0; fileIndex < 30; fileIndex++ {
+			files = append(files, runCompletionFileDiff{
+				Path:    "internal/orchestrator/file_" + strings.Repeat("x", 80) + ".go",
+				Status:  "modified",
+				Added:   fileIndex + 1,
+				Removed: fileIndex,
+			})
+		}
+		repos = append(repos, runCompletionRepoDiff{
+			Name:         "openase",
+			Path:         "openase",
+			Branch:       "fix/ase-99-summary-limit",
+			Dirty:        true,
+			FilesChanged: len(files),
+			Added:        200,
+			Removed:      100,
+			Files:        files,
+		})
+	}
+
+	input := map[string]any{
+		"metadata": map[string]any{
+			"ticket_identifier": "ASE-99",
+			"ticket_title":      "Optimize completion summary prompt to avoid Codex input length limit",
+			"agent_name":        "Ticket Runner",
+			"provider_name":     "Codex",
+		},
+		"steps": []map[string]any{
+			{"step_status": "inspect", "summary": strings.Repeat("Inspect traces. ", 400), "duration_seconds": 180},
+			{"step_status": "implement", "summary": strings.Repeat("Compact summary input. ", 400), "duration_seconds": 240},
+		},
+		"commands": commands,
+		"tool_calls": []map[string]any{
+			{
+				"tool":       "functions.exec_command",
+				"call_id":    "call-1",
+				"created_at": time.Date(2026, 4, 2, 10, 3, 0, 0, time.UTC).Format(time.RFC3339),
+				"arguments": map[string]any{
+					"cmd": huge,
+				},
+			},
+		},
+		"approvals": []map[string]any{
+			{
+				"kind":       catalogdomain.AgentTraceKindApprovalRequested,
+				"summary":    "Approval requested for cleanup.",
+				"created_at": time.Date(2026, 4, 2, 10, 4, 0, 0, time.UTC).Format(time.RFC3339),
+				"payload": map[string]any{
+					"reason": huge,
+				},
+			},
+		},
+		"output_excerpts": []map[string]any{
+			{"kind": "assistant_conclusion", "stream": "assistant", "text": "Implemented prompt compaction and added regression coverage."},
+		},
+		"file_snapshot": runCompletionWorkspaceSnapshot{
+			WorkspacePath: "/tmp/openase/workspace",
+			Dirty:         true,
+			ReposChanged:  len(repos),
+			FilesChanged:  len(repos) * 30,
+			Added:         2000,
+			Removed:       1000,
+			Repos:         repos,
+		},
+		"heuristics": map[string]any{
+			"long_running_steps": []map[string]any{
+				{"step_status": "implement", "summary": "Compact summary input.", "duration_seconds": 240},
+			},
+			"repeated_commands": []map[string]any{
+				{"command": "go test ./...", "count": 120},
+			},
+			"repeated_failures": []map[string]any{
+				{"text": "error: payload too large", "count": 5},
+			},
+			"risky_commands": []map[string]any{
+				{"command": "rm -rf tmp/cache", "reason": "matches risky command heuristic"},
+			},
+			"risky_files": []map[string]any{
+				{"repo": "openase", "path": ".github/workflows/ci.yml", "status": "modified", "added": 2, "removed": 1},
+			},
+		},
+	}
+
+	prompt, err := buildRunCompletionSummaryUserPrompt(input, 8192)
+	if err != nil {
+		t.Fatalf("build compact prompt: %v", err)
+	}
+	if len(prompt) > 8192 {
+		t.Fatalf("expected prompt to stay within budget, got %d bytes", len(prompt))
+	}
+	if !strings.Contains(prompt, "ASE-99") {
+		t.Fatalf("expected prompt to preserve ticket identifier, got %q", prompt)
+	}
+	if !strings.Contains(prompt, "rm -rf tmp/cache") {
+		t.Fatalf("expected prompt to preserve risky command context, got %q", prompt)
+	}
+	if strings.Contains(prompt, huge) {
+		t.Fatalf("expected prompt compaction to remove huge raw payloads")
+	}
+	if !strings.Contains(prompt, "\"omitted_counts\"") {
+		t.Fatalf("expected prompt context to record omitted counts, got %q", prompt)
+	}
+}
+
 func TestPublishRunCompletionSummaryEventEmitsTicketRunSummaryPayload(t *testing.T) {
 	bus := eventinfra.NewChannelBus()
 	coordinator := newRuntimeCompletionSummaryCoordinator(
