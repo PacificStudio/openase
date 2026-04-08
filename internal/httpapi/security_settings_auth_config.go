@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/BetterAndBetterII/openase/internal/setup"
 	"go.yaml.in/yaml/v3"
 )
@@ -705,4 +706,256 @@ func defaultSecurityDocumentationLinks() []securityDocumentationLinkResponse {
 			Summary: "Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.",
 		},
 	}
+}
+
+func buildSecurityAuthSettingsResponseFromAccessControl(
+	active config.AuthConfig,
+	stored iam.AccessControlState,
+	storageLocation string,
+	host string,
+) securityAuthSettingsResponse {
+	publicExposureRisk, warnings := securityPublicExposure(host, active.Mode)
+	configuredMode := stored.ConfiguredAuthMode().String()
+	issuerURL := strings.TrimSpace(active.OIDC.IssuerURL)
+	if issuerURL == "" {
+		switch {
+		case stored.Active != nil:
+			issuerURL = strings.TrimSpace(stored.Active.IssuerURL)
+		case stored.Draft != nil:
+			issuerURL = strings.TrimSpace(stored.Draft.IssuerURL)
+		}
+	}
+	return securityAuthSettingsResponse{
+		ActiveMode:         string(active.Mode),
+		ConfiguredMode:     configuredMode,
+		IssuerURL:          issuerURL,
+		LocalPrincipal:     "local_instance_admin:default",
+		ModeSummary:        securityModeSummary(active.Mode),
+		RecommendedMode:    securityRecommendedMode(active.Mode),
+		PublicExposureRisk: publicExposureRisk,
+		Warnings:           warnings,
+		NextSteps:          securityNextSteps(active.Mode, configuredMode),
+		ConfigPath:         storageLocation,
+		BootstrapState:     buildBootstrapStateFromAccessControl(stored),
+		SessionPolicy:      buildSecuritySessionPolicyResponseFromAccessControl(stored, active),
+		LastValidation:     buildSecurityValidationDiagnosticsResponseFromAccessControl(stored.Validation),
+		OIDCDraft:          buildSecurityOIDCDraftResponseFromAccessControl(stored),
+		Docs:               defaultSecurityDocumentationLinks(),
+	}
+}
+
+func buildSecuritySessionPolicyResponseFromAccessControl(
+	stored iam.AccessControlState,
+	active config.AuthConfig,
+) securityAuthSessionPolicyResponse {
+	sessionTTL := active.OIDC.SessionTTL
+	sessionIdleTTL := active.OIDC.SessionIdleTTL
+	switch {
+	case stored.Active != nil:
+		sessionTTL = stored.Active.SessionPolicy.SessionTTL
+		sessionIdleTTL = stored.Active.SessionPolicy.SessionIdleTTL
+	case stored.Draft != nil:
+		sessionTTL = stored.Draft.SessionPolicy.SessionTTL
+		sessionIdleTTL = stored.Draft.SessionPolicy.SessionIdleTTL
+	}
+	if sessionTTL == 0 {
+		sessionTTL = 8 * time.Hour
+	}
+	if sessionIdleTTL == 0 {
+		sessionIdleTTL = 30 * time.Minute
+	}
+	return securityAuthSessionPolicyResponse{
+		SessionTTL:     sessionTTL.String(),
+		SessionIdleTTL: sessionIdleTTL.String(),
+	}
+}
+
+func buildSecurityValidationDiagnosticsResponseFromAccessControl(
+	validation iam.OIDCValidationMetadata,
+) securityAuthValidationDiagnosticsResponse {
+	response := securityAuthValidationDiagnosticsResponse{
+		Status:                validation.Status,
+		Message:               validation.Message,
+		IssuerURL:             strings.TrimSpace(validation.IssuerURL),
+		AuthorizationEndpoint: strings.TrimSpace(validation.AuthorizationEndpoint),
+		TokenEndpoint:         strings.TrimSpace(validation.TokenEndpoint),
+		RedirectURL:           strings.TrimSpace(validation.RedirectURL),
+		Warnings:              append([]string(nil), validation.Warnings...),
+	}
+	if response.Status == "" {
+		response.Status = "not_tested"
+	}
+	if strings.TrimSpace(response.Message) == "" {
+		response.Message = "No OIDC validation has been recorded yet."
+	}
+	if validation.CheckedAt != nil {
+		value := validation.CheckedAt.UTC().Format(time.RFC3339)
+		response.CheckedAt = &value
+	}
+	return response
+}
+
+func defaultSecurityOIDCValidationMetadata() iam.OIDCValidationMetadata {
+	return iam.OIDCValidationMetadata{
+		Status:   "not_tested",
+		Message:  "No OIDC validation has been recorded yet.",
+		Warnings: []string{},
+	}
+}
+
+func securityOIDCValidationSuccessMetadata(response securityOIDCTestResultResponse) iam.OIDCValidationMetadata {
+	now := time.Now().UTC()
+	return iam.OIDCValidationMetadata{
+		Status:                "ok",
+		Message:               strings.TrimSpace(response.Message),
+		CheckedAt:             &now,
+		IssuerURL:             strings.TrimSpace(response.IssuerURL),
+		AuthorizationEndpoint: strings.TrimSpace(response.AuthorizationEndpoint),
+		TokenEndpoint:         strings.TrimSpace(response.TokenEndpoint),
+		RedirectURL:           strings.TrimSpace(response.RedirectURL),
+		Warnings:              normalizeStringList(response.Warnings, false),
+	}
+}
+
+func securityOIDCValidationFailureMetadata(
+	message string,
+	redirectURL string,
+	host string,
+	mode config.AuthMode,
+) iam.OIDCValidationMetadata {
+	now := time.Now().UTC()
+	return iam.OIDCValidationMetadata{
+		Status:      "failed",
+		Message:     strings.TrimSpace(message),
+		CheckedAt:   &now,
+		RedirectURL: strings.TrimSpace(redirectURL),
+		Warnings:    securityPublicExposureWarnings(host, mode),
+	}
+}
+
+func buildBootstrapStateFromAccessControl(state iam.AccessControlState) securityAuthBootstrapStateResponse {
+	var emails []string
+	switch {
+	case state.Active != nil:
+		emails = append([]string(nil), state.Active.BootstrapAdminEmails...)
+	case state.Draft != nil:
+		emails = append([]string(nil), state.Draft.BootstrapAdminEmails...)
+	default:
+		emails = []string{}
+	}
+	if len(emails) == 0 {
+		return securityAuthBootstrapStateResponse{
+			Status:      "not_configured",
+			AdminEmails: []string{},
+			Summary:     "No bootstrap admin emails configured. The first OIDC admin must be granted through another path before rollout.",
+		}
+	}
+	return securityAuthBootstrapStateResponse{
+		Status:      "configured",
+		AdminEmails: emails,
+		Summary:     fmt.Sprintf("%d bootstrap admin email(s) will receive instance_admin on first successful OIDC login.", len(emails)),
+	}
+}
+
+func buildSecurityOIDCDraftResponseFromAccessControl(state iam.AccessControlState) securityOIDCDraftResponse {
+	draft := iam.DefaultDraftOIDCConfig()
+	switch {
+	case state.Active != nil:
+		draft = iam.DraftOIDCConfig(*state.Active)
+	case state.Draft != nil:
+		draft = *state.Draft
+	}
+	return securityOIDCDraftResponse{
+		IssuerURL:              strings.TrimSpace(draft.IssuerURL),
+		ClientID:               strings.TrimSpace(draft.ClientID),
+		ClientSecretConfigured: strings.TrimSpace(draft.ClientSecret) != "",
+		RedirectURL:            strings.TrimSpace(draft.RedirectURL),
+		Scopes:                 append([]string(nil), draft.Scopes...),
+		AllowedEmailDomains:    append([]string(nil), draft.AllowedEmailDomains...),
+		BootstrapAdminEmails:   append([]string(nil), draft.BootstrapAdminEmails...),
+	}
+}
+
+func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.AccessControlState) iam.DraftOIDCConfig {
+	defaultDraft := iam.DefaultDraftOIDCConfig()
+	existing := defaultDraft
+	switch {
+	case current.Active != nil:
+		existing = iam.DraftOIDCConfig(*current.Active)
+	case current.Draft != nil:
+		existing = *current.Draft
+	}
+	return iam.DraftOIDCConfig{
+		IssuerURL:            strings.TrimSpace(raw.IssuerURL),
+		ClientID:             strings.TrimSpace(raw.ClientID),
+		ClientSecret:         preserveSecret(raw.ClientSecret, existing.ClientSecret),
+		RedirectURL:          strings.TrimSpace(raw.RedirectURL),
+		Scopes:               fallbackList(normalizeStringList(raw.Scopes, false), existing.Scopes),
+		Claims:               existing.Claims,
+		AllowedEmailDomains:  normalizeStringList(raw.AllowedEmailDomains, true),
+		BootstrapAdminEmails: normalizeStringList(raw.BootstrapAdminEmails, true),
+		SessionPolicy:        existing.SessionPolicy,
+	}
+}
+
+func activeOIDCConfigFromDraft(draft iam.DraftOIDCConfig) (iam.ActiveOIDCConfig, error) {
+	state, err := iam.ParseAccessControlState(iam.AccessControlStateInput{
+		Status:               iam.AccessControlStatusActive.String(),
+		IssuerURL:            draft.IssuerURL,
+		ClientID:             draft.ClientID,
+		ClientSecret:         draft.ClientSecret,
+		RedirectURL:          draft.RedirectURL,
+		Scopes:               draft.Scopes,
+		EmailClaim:           draft.Claims.EmailClaim,
+		NameClaim:            draft.Claims.NameClaim,
+		UsernameClaim:        draft.Claims.UsernameClaim,
+		GroupsClaim:          draft.Claims.GroupsClaim,
+		AllowedEmailDomains:  draft.AllowedEmailDomains,
+		BootstrapAdminEmails: draft.BootstrapAdminEmails,
+		SessionTTL:           draft.SessionPolicy.SessionTTL.String(),
+		SessionIdleTTL:       draft.SessionPolicy.SessionIdleTTL.String(),
+	})
+	if err != nil {
+		return iam.ActiveOIDCConfig{}, err
+	}
+	if state.Active == nil {
+		return iam.ActiveOIDCConfig{}, errors.New("active oidc config is required")
+	}
+	return *state.Active, nil
+}
+
+func completeOIDCAuthConfigFromAccessControl(active iam.ActiveOIDCConfig) config.AuthConfig {
+	return config.AuthConfig{
+		Mode: config.AuthModeOIDC,
+		OIDC: config.OIDCConfig{
+			IssuerURL:            active.IssuerURL,
+			ClientID:             active.ClientID,
+			ClientSecret:         active.ClientSecret,
+			RedirectURL:          active.RedirectURL,
+			Scopes:               append([]string(nil), active.Scopes...),
+			EmailClaim:           active.Claims.EmailClaim,
+			NameClaim:            active.Claims.NameClaim,
+			UsernameClaim:        active.Claims.UsernameClaim,
+			GroupsClaim:          active.Claims.GroupsClaim,
+			AllowedEmailDomains:  append([]string(nil), active.AllowedEmailDomains...),
+			BootstrapAdminEmails: append([]string(nil), active.BootstrapAdminEmails...),
+			SessionTTL:           active.SessionPolicy.SessionTTL,
+			SessionIdleTTL:       active.SessionPolicy.SessionIdleTTL,
+		},
+	}
+}
+
+func fallbackList(items []string, fallback []string) []string {
+	if items == nil {
+		return append([]string(nil), fallback...)
+	}
+	return items
+}
+
+func fallbackString(raw string, fallback string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return fallback
+	}
+	return trimmed
 }

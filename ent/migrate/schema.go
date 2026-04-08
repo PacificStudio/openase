@@ -721,6 +721,42 @@ var (
 			},
 		},
 	}
+	// InstanceAuthConfigsColumns holds the columns for the "instance_auth_configs" table.
+	InstanceAuthConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "scope_key", Type: field.TypeString, Default: "instance"},
+		{Name: "status", Type: field.TypeString, Default: "absent"},
+		{Name: "issuer_url", Type: field.TypeString, Default: ""},
+		{Name: "client_id", Type: field.TypeString, Default: ""},
+		{Name: "client_secret_encrypted", Type: field.TypeJSON, Nullable: true},
+		{Name: "redirect_url", Type: field.TypeString, Default: ""},
+		{Name: "scopes", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "email_claim", Type: field.TypeString, Default: "email"},
+		{Name: "name_claim", Type: field.TypeString, Default: "name"},
+		{Name: "username_claim", Type: field.TypeString, Default: "preferred_username"},
+		{Name: "groups_claim", Type: field.TypeString, Default: "groups"},
+		{Name: "allowed_email_domains", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "bootstrap_admin_emails", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "session_ttl", Type: field.TypeString, Default: "8h"},
+		{Name: "session_idle_ttl", Type: field.TypeString, Default: "30m"},
+		{Name: "validation_metadata", Type: field.TypeJSON},
+		{Name: "activation_metadata", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// InstanceAuthConfigsTable holds the schema information for the "instance_auth_configs" table.
+	InstanceAuthConfigsTable = &schema.Table{
+		Name:       "instance_auth_configs",
+		Columns:    InstanceAuthConfigsColumns,
+		PrimaryKey: []*schema.Column{InstanceAuthConfigsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "instanceauthconfig_scope_key",
+				Unique:  true,
+				Columns: []*schema.Column{InstanceAuthConfigsColumns[1]},
+			},
+		},
+	}
 	// MachinesColumns holds the columns for the "machines" table.
 	MachinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2449,6 +2485,7 @@ var (
 		ChatEntriesTable,
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
+		InstanceAuthConfigsTable,
 		MachinesTable,
 		MachineChannelTokensTable,
 		NotificationChannelsTable,
