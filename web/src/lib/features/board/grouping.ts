@@ -4,7 +4,7 @@ import type { BoardColumn, BoardGroup, BoardTicket } from './types'
 export function buildBoardGroups(
   statusPayload: Pick<StatusPayload, 'statuses'>,
   ticketsByStatusId: Map<string, BoardTicket[]>,
-  pickupWorkflowsByStatusId?: Map<string, { id: string; name: string }[]>,
+  pickupWorkflowsByStatusId?: Map<string, { id: string; name: string; type: string }[]>,
 ): BoardGroup[] {
   const columns = statusPayload.statuses
     .slice()

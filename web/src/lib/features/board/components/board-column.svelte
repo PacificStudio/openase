@@ -1,6 +1,15 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Inbox, Plus, Ellipsis, ArrowLeft, ArrowRight, Archive, Trash2, Gauge } from '@lucide/svelte'
+  import {
+    Inbox,
+    Plus,
+    Ellipsis,
+    ArrowLeft,
+    ArrowRight,
+    Archive,
+    Trash2,
+    Gauge,
+  } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import * as Tooltip from '$ui/tooltip'
   import type { BoardColumn, BoardStatusOption, BoardTicket } from '../types'

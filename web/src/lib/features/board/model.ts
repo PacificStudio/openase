@@ -68,7 +68,7 @@ export function buildBoardData(
   activity: ActivityEvent[],
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
-  const pickupWorkflowsByStatusId = new Map<string, { id: string; name: string }[]>()
+  const pickupWorkflowsByStatusId = new Map<string, { id: string; name: string; type: string }[]>()
   for (const wf of workflows) {
     for (const sid of wf.pickup_status_ids ?? []) {
       const list = pickupWorkflowsByStatusId.get(sid) ?? []
