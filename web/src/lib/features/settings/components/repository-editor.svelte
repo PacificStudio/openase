@@ -1,7 +1,9 @@
 <script lang="ts">
   import { Input } from '$ui/input'
+  import * as InputGroup from '$ui/input-group'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import { cn } from '$lib/utils'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
   import RepositoryGitHubBrowser from './repository-github-browser.svelte'
   import RepositoryGitHubCreate from './repository-github-create.svelte'
@@ -63,9 +65,42 @@
     onCreateGitHubRepoAndBind?: () => void
   } = $props()
 
+  type UrlType = 'remote' | 'file'
+
+  let urlType = $state<UrlType>(draft.repositoryURL.startsWith('file://') ? 'file' : 'remote')
+
+  function extractFilePath(url: string): string {
+    let p = url.startsWith('file://') ? url.slice('file://'.length) : ''
+    if (p.endsWith('.git')) p = p.slice(0, -4)
+    return p
+  }
+
+  function buildFileUrl(path: string): string {
+    return 'file://' + path.replace(/\/+$/, '') + '.git'
+  }
+
+  let filePath = $state(extractFilePath(draft.repositoryURL))
+
   function updateTextField(field: keyof RepositoryDraft, event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
     onDraftChange?.(field, target.value)
+  }
+
+  function onFilePathInput(event: Event) {
+    const path = (event.currentTarget as HTMLInputElement).value
+    filePath = path
+    onDraftChange?.('repositoryURL', buildFileUrl(path))
+  }
+
+  function switchUrlType(type: UrlType) {
+    if (urlType === type) return
+    urlType = type
+    if (type === 'file') {
+      filePath = ''
+      onDraftChange?.('repositoryURL', buildFileUrl(''))
+    } else {
+      onDraftChange?.('repositoryURL', '')
+    }
   }
 </script>
 
@@ -132,12 +167,66 @@
 
     <div class="space-y-2">
       <Label for="repo-url">Repository URL</Label>
-      <Input
-        id="repo-url"
-        value={draft.repositoryURL}
-        placeholder="https://github.com/acme/backend.git"
-        oninput={(event) => updateTextField('repositoryURL', event)}
-      />
+      <div class="bg-muted flex rounded-md p-0.5 text-xs">
+        <button
+          type="button"
+          class={cn(
+            'flex-1 rounded px-3 py-1.5 font-medium transition-colors',
+            urlType === 'remote'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          onclick={() => switchUrlType('remote')}
+        >
+          Remote
+        </button>
+        <button
+          type="button"
+          class={cn(
+            'flex-1 rounded px-3 py-1.5 font-medium transition-colors',
+            urlType === 'file'
+              ? 'bg-background text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          onclick={() => switchUrlType('file')}
+        >
+          Local path
+        </button>
+      </div>
+
+      {#if urlType === 'file'}
+        <InputGroup.Root>
+          <InputGroup.Addon align="inline-start">
+            <InputGroup.Text class="font-mono text-xs">file://</InputGroup.Text>
+          </InputGroup.Addon>
+          <InputGroup.Input
+            id="repo-url"
+            value={filePath}
+            placeholder="/home/user/repos/backend"
+            oninput={onFilePathInput}
+          />
+          <InputGroup.Addon align="inline-end">
+            <InputGroup.Text class="font-mono text-xs">.git</InputGroup.Text>
+          </InputGroup.Addon>
+        </InputGroup.Root>
+        <div class="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-400">
+          <span class="font-semibold">Beta</span> — Local path support is experimental. In multi-machine
+          setups the path must exist on every machine that runs clone or fetch operations, otherwise the
+          agent will fail to prepare the workspace.
+        </div>
+      {:else}
+        <Input
+          id="repo-url"
+          value={draft.repositoryURL}
+          placeholder="https://github.com/acme/backend.git"
+          oninput={(event) => updateTextField('repositoryURL', event)}
+        />
+        <p class="text-muted-foreground text-xs">
+          Supports <code class="font-mono text-[11px]">https://</code> and
+          <code class="font-mono text-[11px]">git@</code> SSH URLs. Works with GitHub, GitLab,
+          Gitea, and any hosted or self-hosted Git server reachable from the agent machine.
+        </p>
+      {/if}
     </div>
   </section>
 
