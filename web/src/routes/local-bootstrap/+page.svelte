@@ -11,19 +11,16 @@
   let { data }: { data: PageData } = $props()
 
   let pending = $state(false)
-  let status = $state<'idle' | 'success' | 'error'>('idle')
   let message = $state('Authorize this browser as the local instance admin.')
 
   async function redeem() {
     if (!data.requestID || !data.code || !data.nonce) {
-      status = 'error'
       message =
         'This link is incomplete. Generate a fresh local bootstrap authorization link from the CLI.'
       return
     }
 
     pending = true
-    status = 'idle'
     message = 'Authorizing this browser session...'
     try {
       await redeemLocalBootstrapAuthorization({
@@ -31,11 +28,9 @@
         code: data.code,
         nonce: data.nonce,
       })
-      status = 'success'
       message = 'Authorization succeeded. Redirecting into OpenASE...'
       await goto(data.returnTo, { replaceState: true })
     } catch (error) {
-      status = 'error'
       message =
         error instanceof ApiError
           ? error.detail || 'Local bootstrap authorization failed.'
