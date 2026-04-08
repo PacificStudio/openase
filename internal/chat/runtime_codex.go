@@ -13,9 +13,10 @@ import (
 )
 
 type CodexRuntime struct {
-	adapter  *codexadapter.Adapter
-	mu       sync.Mutex
-	sessions map[SessionID]*codexRuntimeSession
+	adapter        *codexadapter.Adapter
+	secretResolver RuntimeEnvironmentResolver
+	mu             sync.Mutex
+	sessions       map[SessionID]*codexRuntimeSession
 }
 
 type codexRuntimeSession struct {
@@ -91,6 +92,13 @@ func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
 	}
 
 	return &CodexRuntime{adapter: adapter}
+}
+
+func (r *CodexRuntime) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
+	if r == nil {
+		return
+	}
+	r.secretResolver = resolver
 }
 
 func (r *CodexRuntime) Supports(providerItem catalogdomain.AgentProvider) bool {
@@ -178,11 +186,16 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 		workingDirectory = &input.WorkingDirectory
 	}
 
+	environment, err := resolveRuntimeEnvironment(ctx, r.secretResolver, input)
+	if err != nil {
+		return nil, err
+	}
+
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
 		buildCodexArgs(input.Provider.CliArgs),
 		workingDirectory,
-		append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...),
+		environment,
 	)
 	if err != nil {
 		return nil, err

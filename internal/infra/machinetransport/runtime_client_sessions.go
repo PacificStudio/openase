@@ -1,6 +1,7 @@
 package machinetransport
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
@@ -23,11 +24,9 @@ type runtimeManagedClientSession struct {
 	sessionMu sync.Mutex
 	sessionID string
 
-	stdoutReader *io.PipeReader
-	stdoutWriter *io.PipeWriter
-	stderrReader *io.PipeReader
-	stderrWriter *io.PipeWriter
-	stdinWriter  *runtimeSessionInputWriter
+	stdout      *sessionOutputBuffer
+	stderr      *sessionOutputBuffer
+	stdinWriter *runtimeSessionInputWriter
 
 	waitDone   chan struct{}
 	waitErr    error
@@ -42,16 +41,12 @@ func newRuntimeManagedClientSession(
 	client *runtimeProtocolClient,
 	transportClose func(error),
 ) *runtimeManagedClientSession {
-	stdoutReader, stdoutWriter := io.Pipe()
-	stderrReader, stderrWriter := io.Pipe()
 	session := &runtimeManagedClientSession{
 		ctx:            ctx,
 		client:         client,
 		transportClose: transportClose,
-		stdoutReader:   stdoutReader,
-		stdoutWriter:   stdoutWriter,
-		stderrReader:   stderrReader,
-		stderrWriter:   stderrWriter,
+		stdout:         newSessionOutputBuffer(),
+		stderr:         newSessionOutputBuffer(),
 		waitDone:       make(chan struct{}),
 	}
 	session.stdinWriter = &runtimeSessionInputWriter{session: session}
@@ -74,14 +69,14 @@ func (s *runtimeManagedClientSession) StdoutPipe() (io.Reader, error) {
 	if s == nil {
 		return nil, fmt.Errorf("runtime session unavailable")
 	}
-	return s.stdoutReader, nil
+	return s.stdout, nil
 }
 
 func (s *runtimeManagedClientSession) StderrPipe() (io.Reader, error) {
 	if s == nil {
 		return nil, fmt.Errorf("runtime session unavailable")
 	}
-	return s.stderrReader, nil
+	return s.stderr, nil
 }
 
 func (s *runtimeManagedClientSession) StdinPipe() (io.WriteCloser, error) {
@@ -136,11 +131,11 @@ func (s *runtimeManagedClientSession) handleOutput(payload runtimecontract.Sessi
 	switch payload.Stream {
 	case "stdout":
 		if len(data) > 0 {
-			_, err = s.stdoutWriter.Write(data)
+			_, err = s.stdout.Write(data)
 		}
 	case "stderr":
 		if len(data) > 0 {
-			_, err = s.stderrWriter.Write(data)
+			_, err = s.stderr.Write(data)
 		}
 	default:
 		err = fmt.Errorf("runtime output stream %q is not supported", payload.Stream)
@@ -165,13 +160,68 @@ func (s *runtimeManagedClientSession) finish(err error) {
 		s.waitMu.Lock()
 		s.waitErr = err
 		s.waitMu.Unlock()
-		_ = s.stdoutWriter.Close()
-		_ = s.stderrWriter.Close()
+		s.stdout.Close()
+		s.stderr.Close()
 		close(s.waitDone)
 		if s.transportClose != nil {
 			s.transportClose(err)
 		}
 	})
+}
+
+type sessionOutputBuffer struct {
+	mu     sync.Mutex
+	cond   *sync.Cond
+	buffer bytes.Buffer
+	closed bool
+}
+
+func newSessionOutputBuffer() *sessionOutputBuffer {
+	stream := &sessionOutputBuffer{}
+	stream.cond = sync.NewCond(&stream.mu)
+	return stream
+}
+
+func (b *sessionOutputBuffer) Read(p []byte) (int, error) {
+	if b == nil {
+		return 0, io.EOF
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for b.buffer.Len() == 0 && !b.closed {
+		b.cond.Wait()
+	}
+	if b.buffer.Len() > 0 {
+		return b.buffer.Read(p)
+	}
+	return 0, io.EOF
+}
+
+func (b *sessionOutputBuffer) Write(p []byte) (int, error) {
+	if b == nil {
+		return 0, io.ErrClosedPipe
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return 0, io.ErrClosedPipe
+	}
+	n, err := b.buffer.Write(p)
+	b.cond.Signal()
+	return n, err
+}
+
+func (b *sessionOutputBuffer) Close() {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return
+	}
+	b.closed = true
+	b.cond.Broadcast()
 }
 
 type runtimeSessionInputWriter struct {
