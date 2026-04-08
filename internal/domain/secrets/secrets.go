@@ -77,6 +77,19 @@ func ParseBindingScopeKind(raw string) (BindingScopeKind, error) {
 	}
 }
 
+func ParseRuntimeBindingScopeKind(raw string) (BindingScopeKind, error) {
+	scope, err := ParseBindingScopeKind(raw)
+	if err != nil {
+		return "", err
+	}
+	switch scope {
+	case BindingScopeKindWorkflow, BindingScopeKindTicket:
+		return scope, nil
+	default:
+		return "", fmt.Errorf("binding scope must be workflow or ticket")
+	}
+}
+
 type KeySource string
 
 const (
@@ -109,6 +122,12 @@ type Secret struct {
 	StoredValue    StoredValue `json:"stored_value"`
 }
 
+type InventorySecret struct {
+	Secret      Secret             `json:"secret"`
+	UsageCount  int                `json:"usage_count"`
+	UsageScopes []BindingScopeKind `json:"usage_scopes"`
+}
+
 type Binding struct {
 	ID              uuid.UUID        `json:"id"`
 	OrganizationID  uuid.UUID        `json:"organization_id"`
@@ -119,6 +138,19 @@ type Binding struct {
 	BindingKey      string           `json:"binding_key"`
 	CreatedAt       time.Time        `json:"created_at"`
 	UpdatedAt       time.Time        `json:"updated_at"`
+}
+
+type BindingTarget struct {
+	ID         uuid.UUID        `json:"id"`
+	Scope      BindingScopeKind `json:"scope"`
+	Name       string           `json:"name"`
+	Identifier string           `json:"identifier,omitempty"`
+}
+
+type BindingRecord struct {
+	Binding Binding       `json:"binding"`
+	Secret  Secret        `json:"secret"`
+	Target  BindingTarget `json:"target"`
 }
 
 type Candidate struct {

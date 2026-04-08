@@ -46,6 +46,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newStatusCommand())
 	rootCmd.AddCommand(newChatCommand())
 	rootCmd.AddCommand(newRootProjectCommand())
+	rootCmd.AddCommand(newSecretCommand())
 	rootCmd.AddCommand(newRepoCommand())
 	rootCmd.AddCommand(newWorkflowCommand())
 	rootCmd.AddCommand(newScheduledJobCommand())

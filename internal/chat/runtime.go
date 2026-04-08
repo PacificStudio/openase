@@ -8,6 +8,7 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	"github.com/google/uuid"
 )
 
 type SessionID string
@@ -27,6 +28,10 @@ func (s SessionID) String() string {
 
 type RuntimeTurnInput struct {
 	SessionID              SessionID
+	ProjectID              uuid.UUID
+	TicketID               *uuid.UUID
+	WorkflowID             *uuid.UUID
+	AgentID                *uuid.UUID
 	Provider               catalogdomain.AgentProvider
 	Message                string
 	SystemPrompt           string
@@ -51,6 +56,10 @@ type RuntimeSessionAnchor struct {
 
 type RuntimeInterruptResponseInput struct {
 	SessionID              SessionID
+	ProjectID              uuid.UUID
+	TicketID               *uuid.UUID
+	WorkflowID             *uuid.UUID
+	AgentID                *uuid.UUID
 	Provider               catalogdomain.AgentProvider
 	RequestID              string
 	Kind                   string

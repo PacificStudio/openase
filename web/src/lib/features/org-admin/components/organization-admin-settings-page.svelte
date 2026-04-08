@@ -1,6 +1,7 @@
 <script lang="ts">
   import { OrganizationSettingsPanel, ProviderCreationDialog } from '$lib/features/catalog-creation'
   import { OrganizationProvidersSection } from '$lib/features/dashboard'
+  import { OrganizationScopedSecretsPanel } from '$lib/features/settings'
   import { appStore } from '$lib/stores/app.svelte'
   import { Button } from '$ui/button'
 
@@ -34,6 +35,7 @@
 
   {#if currentOrg}
     <OrganizationSettingsPanel organization={currentOrg} {providers} />
+    <OrganizationScopedSecretsPanel organizationId={currentOrg.id} />
     <ProviderCreationDialog orgId={currentOrg.id} bind:open={showProviderDialog} />
   {/if}
 </div>
