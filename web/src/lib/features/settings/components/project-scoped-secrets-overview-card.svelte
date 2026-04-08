@@ -11,7 +11,7 @@
     projectOverrideCount,
     organizationSecretCount,
     organizationId,
-    actionKey,
+    creating,
     onCreate,
     name = $bindable(),
     description = $bindable(),
@@ -21,7 +21,7 @@
     projectOverrideCount: number
     organizationSecretCount: number
     organizationId: string
-    actionKey: string
+    creating: boolean
     onCreate: () => void
     name: string
     description: string
@@ -114,8 +114,8 @@
       </div>
 
       <div class="mt-4 flex justify-end">
-        <Button onclick={onCreate} disabled={actionKey === 'create'}>
-          {actionKey === 'create' ? 'Creating…' : 'Create override'}
+        <Button onclick={onCreate} disabled={creating}>
+          {creating ? 'Creating…' : 'Create override'}
         </Button>
       </div>
     </div>

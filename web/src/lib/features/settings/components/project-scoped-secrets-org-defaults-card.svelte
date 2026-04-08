@@ -4,6 +4,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
+  import { Skeleton } from '$ui/skeleton'
   import { formatSecretTimestamp, isOverriddenInProject, usageIndicator } from '../scoped-secrets'
 
   let {
@@ -31,10 +32,27 @@
   </Card.Header>
   <Card.Content>
     {#if loading}
-      <div class="text-sm text-slate-500">Loading inherited organization defaults…</div>
+      <div class="space-y-3">
+        {#each Array(2) as _, i (i)}
+          <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 space-y-2">
+                <Skeleton class="h-4 w-28" />
+                <Skeleton class="h-3 w-44" />
+                <Skeleton class="h-3 w-52" />
+              </div>
+              <Skeleton class="h-8 w-28 rounded-md" />
+            </div>
+          </div>
+        {/each}
+      </div>
     {:else if organizationSecrets.length === 0}
-      <div class="text-sm text-slate-500">
-        No organization defaults are available for this project.
+      <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+        <p class="text-sm font-medium text-slate-700">No inherited org secrets</p>
+        <p class="mt-1 text-sm text-slate-500">
+          Ask your org admin to create organization-level secrets — they will appear here
+          automatically.
+        </p>
       </div>
     {:else}
       <div class="space-y-3">
@@ -55,10 +73,12 @@
                 <div class="text-sm text-slate-600">
                   {secret.description || 'No description yet.'}
                 </div>
-                <div class="text-xs text-slate-500">
-                  Preview {secret.encryption.value_preview} · {usageIndicator(secret)} · updated {formatSecretTimestamp(
-                    secret.updated_at,
-                  )}
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">
+                    {secret.encryption.value_preview}
+                  </code>
+                  <span>{usageIndicator(secret)}</span>
+                  <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
                 </div>
               </div>
 

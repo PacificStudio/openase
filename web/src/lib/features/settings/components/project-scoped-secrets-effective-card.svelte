@@ -2,6 +2,7 @@
   import type { ScopedSecretRecord } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import * as Card from '$ui/card'
+  import { Skeleton } from '$ui/skeleton'
   import {
     formatSecretTimestamp,
     isProjectOverride,
@@ -30,9 +31,30 @@
   </Card.Header>
   <Card.Content>
     {#if loading}
-      <div class="text-sm text-slate-500">Loading effective secrets…</div>
+      <div class="space-y-3">
+        {#each Array(3) as _, i (i)}
+          <div class="rounded-2xl border border-slate-200 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 space-y-2">
+                <Skeleton class="h-4 w-28" />
+                <Skeleton class="h-3 w-44" />
+                <Skeleton class="h-3 w-56" />
+              </div>
+              <div class="space-y-1 text-right">
+                <Skeleton class="ml-auto h-3 w-10" />
+                <Skeleton class="ml-auto h-5 w-16" />
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
     {:else if effectiveSecrets.length === 0}
-      <div class="text-sm text-slate-500">No effective secrets are available yet.</div>
+      <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+        <p class="text-sm font-medium text-slate-700">No secrets in scope yet</p>
+        <p class="mt-1 text-sm text-slate-500">
+          Create a project override above or ask your org admin to add an organization secret.
+        </p>
+      </div>
     {:else}
       <div class="space-y-3">
         {#each effectiveSecrets as secret (secret.id)}
@@ -51,10 +73,12 @@
                 <div class="text-sm text-slate-600">
                   {secret.description || 'No description yet.'}
                 </div>
-                <div class="text-xs text-slate-500">
-                  Preview {secret.encryption.value_preview} · rotated {formatSecretTimestamp(
-                    secret.encryption.rotated_at,
-                  )} · updated {formatSecretTimestamp(secret.updated_at)}
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">
+                    {secret.encryption.value_preview}
+                  </code>
+                  <span>Rotated {formatSecretTimestamp(secret.encryption.rotated_at)}</span>
+                  <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
                 </div>
               </div>
 

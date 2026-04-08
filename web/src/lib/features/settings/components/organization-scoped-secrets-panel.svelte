@@ -19,21 +19,17 @@
   let { organizationId }: { organizationId: string } = $props()
 
   let loading = $state(false)
-  let error = $state('')
-  let actionKey = $state('')
+  let creating = $state(false)
   let secrets = $state<ScopedSecretRecord[]>([])
   let createDraft = $state({
     name: '',
     description: '',
     value: '',
   })
-  let rotateDrafts = $state<Record<string, string>>({})
-  let openRotateId = $state('')
 
   $effect(() => {
     if (!organizationId) {
       secrets = []
-      error = ''
       return
     }
     void loadSecrets()
@@ -45,12 +41,11 @@
 
   async function loadSecrets() {
     loading = true
-    error = ''
     try {
       const payload = await listOrganizationScopedSecrets(organizationId)
       secrets = payload.secrets ?? []
     } catch (caughtError) {
-      error = formatError(caughtError, 'Failed to load organization secrets.')
+      toastStore.error(formatError(caughtError, 'Failed to load organization secrets.'))
       secrets = []
     } finally {
       loading = false
@@ -69,8 +64,7 @@
       return
     }
 
-    actionKey = 'create'
-    error = ''
+    creating = true
     try {
       await createOrganizationScopedSecret(organizationId, {
         name,
@@ -81,94 +75,42 @@
       toastStore.success('Created organization secret.')
       await loadSecrets()
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to create organization secret.')
-      error = message
-      toastStore.error(message)
+      toastStore.error(formatError(caughtError, 'Failed to create organization secret.'))
     } finally {
-      actionKey = ''
+      creating = false
     }
   }
 
-  async function handleRotate(secret: ScopedSecretRecord) {
-    const value = (rotateDrafts[secret.id] ?? '').trim()
-    if (!value) {
-      toastStore.error('A new secret value is required to rotate.')
-      return
-    }
-
-    actionKey = `rotate:${secret.id}`
-    error = ''
+  async function handleRotate(secret: ScopedSecretRecord, value: string) {
     try {
       await rotateOrganizationScopedSecret(organizationId, secret.id, { value })
-      rotateDrafts = { ...rotateDrafts, [secret.id]: '' }
-      openRotateId = ''
       toastStore.success(`Rotated ${secret.name}.`)
       await loadSecrets()
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to rotate organization secret.')
-      error = message
-      toastStore.error(message)
-    } finally {
-      actionKey = ''
+      toastStore.error(formatError(caughtError, 'Failed to rotate organization secret.'))
+      throw caughtError
     }
   }
 
   async function handleDisable(secret: ScopedSecretRecord) {
-    if (
-      !window.confirm(
-        `Disable ${secret.name}? Projects will fall back to lower-precedence secrets when available.`,
-      )
-    ) {
-      return
-    }
-
-    actionKey = `disable:${secret.id}`
-    error = ''
     try {
       await disableOrganizationScopedSecret(organizationId, secret.id)
       toastStore.success(`Disabled ${secret.name}.`)
       await loadSecrets()
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to disable organization secret.')
-      error = message
-      toastStore.error(message)
-    } finally {
-      actionKey = ''
+      toastStore.error(formatError(caughtError, 'Failed to disable organization secret.'))
+      throw caughtError
     }
   }
 
   async function handleDelete(secret: ScopedSecretRecord) {
-    if (
-      !window.confirm(
-        `Delete ${secret.name}? This removes the org default and its binding from every inheriting project.`,
-      )
-    ) {
-      return
-    }
-
-    actionKey = `delete:${secret.id}`
-    error = ''
     try {
       await deleteOrganizationScopedSecret(organizationId, secret.id)
       toastStore.success(`Deleted ${secret.name}.`)
       await loadSecrets()
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to delete organization secret.')
-      error = message
-      toastStore.error(message)
-    } finally {
-      actionKey = ''
-    }
-  }
-
-  function toggleRotate(secretId: string) {
-    openRotateId = openRotateId === secretId ? '' : secretId
-  }
-
-  function updateRotateDraft(secretId: string, value: string) {
-    rotateDrafts = {
-      ...rotateDrafts,
-      [secretId]: value,
+      toastStore.error(formatError(caughtError, 'Failed to delete organization secret.'))
+      throw caughtError
     }
   }
 </script>
@@ -219,8 +161,8 @@
             placeholder="What this secret powers, who owns it, and when to rotate it."
           />
           <div class="flex justify-end pt-2">
-            <Button onclick={handleCreate} disabled={actionKey === 'create'}>
-              {actionKey === 'create' ? 'Creating…' : 'Create org secret'}
+            <Button onclick={handleCreate} disabled={creating}>
+              {creating ? 'Creating…' : 'Create org secret'}
             </Button>
           </div>
         </div>
@@ -228,20 +170,9 @@
     </Card.Content>
   </Card.Root>
 
-  {#if error}
-    <div class="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      {error}
-    </div>
-  {/if}
-
   <OrganizationScopedSecretsInventoryCard
     {loading}
     {secrets}
-    {actionKey}
-    {openRotateId}
-    {rotateDrafts}
-    onToggleRotate={toggleRotate}
-    onRotateInput={updateRotateDraft}
     onRotate={handleRotate}
     onDisable={handleDisable}
     onDelete={handleDelete}
