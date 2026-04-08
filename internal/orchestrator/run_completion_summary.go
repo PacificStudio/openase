@@ -27,6 +27,7 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -130,6 +131,7 @@ type runtimeCompletionSummaryCoordinator struct {
 	sshPool        *sshinfra.Pool
 	transports     *machinetransport.Resolver
 	workflow       *workflowservice.Service
+	secretResolver runtimesecretenv.Resolver
 	secretManager  runtimeSecretManager
 	now            func() time.Time
 	timeout        time.Duration
@@ -430,7 +432,17 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		return fmt.Errorf("parse summary provider command: %w", err)
 	}
 
-	environment := buildAgentCLIEnvironment(summaryCtx.machine.EnvVars, summaryCtx.provider.AuthConfig)
+	environment, err := runtimesecretenv.AppendResolvedProviderSecrets(ctx, c.secretResolver, runtimesecretenv.ResolveInput{
+		ProjectID:          summaryCtx.project.ID,
+		ProviderAuthConfig: summaryCtx.provider.AuthConfig,
+		BaseEnvironment:    buildAgentCLIEnvironment(summaryCtx.machine.EnvVars, summaryCtx.provider.AuthConfig),
+		TicketID:           &summaryCtx.ticket.ID,
+		WorkflowID:         optionalUUIDPointer(summaryCtx.run.WorkflowID),
+		AgentID:            &summaryCtx.agent.ID,
+	})
+	if err != nil {
+		return err
+	}
 	secretEnvironment, err := c.buildRuntimeSecretEnvironment(ctx, summaryCtx)
 	if err != nil {
 		return err
@@ -1822,6 +1834,14 @@ func timePointerString(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339)
+}
+
+func optionalUUIDPointer(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+	copied := value
+	return &copied
 }
 
 func stringMapValue(raw map[string]any, key string) string {

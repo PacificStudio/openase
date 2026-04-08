@@ -45,6 +45,7 @@ import (
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
@@ -64,6 +65,24 @@ var (
 	runtimeStartedType = provider.MustParseEventType("runtime.started")
 	runtimeTickType    = provider.MustParseEventType("orchestrator.tick")
 )
+
+type chatRuntimeEnvironmentResolver struct {
+	resolver runtimesecretenv.Resolver
+}
+
+func (r chatRuntimeEnvironmentResolver) ResolveProviderEnvironment(
+	ctx context.Context,
+	input chatservice.RuntimeEnvironmentResolveInput,
+) ([]string, error) {
+	return runtimesecretenv.AppendResolvedProviderSecrets(ctx, r.resolver, runtimesecretenv.ResolveInput{
+		ProjectID:          input.ProjectID,
+		ProviderAuthConfig: input.ProviderAuthConfig,
+		BaseEnvironment:    input.BaseEnvironment,
+		TicketID:           input.TicketID,
+		WorkflowID:         input.WorkflowID,
+		AgentID:            input.AgentID,
+	})
+}
 
 type App struct {
 	config              config.Config
@@ -189,13 +208,19 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct chat codex adapter: %w", err)
 	}
+	chatSecretResolver := chatRuntimeEnvironmentResolver{resolver: secretSvc}
 	codexRuntime := chatservice.NewCodexRuntime(codexRuntimeAdapter)
+	codexRuntime.ConfigureSecretResolver(chatSecretResolver)
+	claudeRuntime := chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager))
+	claudeRuntime.ConfigureSecretResolver(chatSecretResolver)
+	geminiRuntime := chatservice.NewGeminiRuntime(chatProcessManager)
+	geminiRuntime.ConfigureSecretResolver(chatSecretResolver)
 	chatSvc := chatservice.NewService(
 		a.logger,
 		chatservice.NewRuntime(
-			chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager)),
+			claudeRuntime,
 			codexRuntime,
-			chatservice.NewGeminiRuntime(chatProcessManager),
+			geminiRuntime,
 		),
 		catalogSvc,
 		ticketSvc,
@@ -215,6 +240,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	)
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
+	projectConversationSvc.ConfigureSecretResolver(chatSecretResolver)
 	projectConversationSvc.ConfigureSecretManager(secretSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
@@ -342,6 +368,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
+	runtimeLauncher.ConfigureSecretResolver(secretSvc)
 	runtimeLauncher.ConfigureMetrics(a.metrics)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	runtimeLauncher.ConfigureSecretManager(secretSvc)

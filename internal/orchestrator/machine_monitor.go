@@ -445,7 +445,8 @@ func (m *MachineMonitor) publishProviderEvent(
 			"availability_reason":     stringPointerValue(item.AvailabilityReason),
 			"cli_command":             item.CliCommand,
 			"cli_args":                append([]string(nil), item.CliArgs...),
-			"auth_config":             cloneResourceMap(item.AuthConfig),
+			"auth_config":             domain.VisibleAgentProviderAuthConfig(item.AdapterType, item.AuthConfig),
+			"secret_bindings":         providerSecretBindingResources(domain.AgentProviderSecretBindings(item.AdapterType, item.AuthConfig)),
 			"model_name":              item.ModelName,
 			"model_temperature":       item.ModelTemperature,
 			"model_max_tokens":        item.ModelMaxTokens,
@@ -511,6 +512,22 @@ func mapMonitoredAgentProvider(item *ent.AgentProvider, machine monitoredMachine
 		CostPerInputToken:    item.CostPerInputToken,
 		CostPerOutputToken:   item.CostPerOutputToken,
 	}
+}
+
+func providerSecretBindingResources(items []domain.AgentProviderSecretBinding) []map[string]any {
+	if len(items) == 0 {
+		return nil
+	}
+	resources := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		resources = append(resources, map[string]any{
+			"env_var_key": item.EnvVarKey,
+			"binding_key": item.BindingKey,
+			"configured":  item.Configured,
+			"source":      item.Source,
+		})
+	}
+	return resources
 }
 
 func mapMachineEntity(item *ent.Machine) monitoredMachine {

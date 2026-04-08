@@ -31,6 +31,7 @@ type projectConversationRuntimeManager struct {
 	sshPool             *sshinfra.Pool
 	transports          *machinetransport.Resolver
 	githubAuth          githubauthservice.TokenResolver
+	secretResolver      RuntimeEnvironmentResolver
 	newCodexRuntime     func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error)
 
 	mu   sync.Mutex
@@ -65,6 +66,13 @@ func (m *projectConversationRuntimeManager) ConfigureGitHubCredentials(resolver 
 		return
 	}
 	m.githubAuth = resolver
+}
+
+func (m *projectConversationRuntimeManager) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
+	if m == nil {
+		return
+	}
+	m.secretResolver = resolver
 }
 
 func (m *projectConversationRuntimeManager) ConfigureSkillSync(syncer projectConversationSkillSync) {
@@ -165,10 +173,13 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 		interruptRuntime = codexRuntime
 	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
 		claudeRuntime := NewClaudeRuntime(claudecodeadapter.NewAdapter(manager))
+		claudeRuntime.ConfigureSecretResolver(m.secretResolver)
 		runtime = claudeRuntime
 		interruptRuntime = claudeRuntime
 	case catalogdomain.AgentProviderAdapterTypeGeminiCLI:
-		runtime = NewGeminiRuntime(manager)
+		geminiRuntime := NewGeminiRuntime(manager)
+		geminiRuntime.ConfigureSecretResolver(m.secretResolver)
+		runtime = geminiRuntime
 	default:
 		return nil, false, fmt.Errorf("%w: provider=%s", ErrProviderUnsupported, providerItem.AdapterType)
 	}

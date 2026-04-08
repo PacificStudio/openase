@@ -40,7 +40,7 @@ function disabledAdminAuthFixture(): SecurityAuthSettings {
       'You can keep disabled mode for local single-user use with no extra IAM overhead.',
       'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
     ],
-    config_path: '/home/test/.openase/config.yaml',
+    config_path: 'db:instance_auth_configs',
     bootstrap_state: {
       status: 'configured',
       admin_emails: ['admin@example.com'],
@@ -112,6 +112,8 @@ describe('Admin auth page', () => {
     expect(await findByText('OIDC configuration')).toBeTruthy()
     expect(await findByLabelText('Issuer URL')).toBeTruthy()
     expect(await findByText('8h0m0s')).toBeTruthy()
+    expect(await findByText('Source of truth')).toBeTruthy()
+    expect(await findByText('db:instance_auth_configs')).toBeTruthy()
   })
 
   it('saves, tests, enables, and disables instance auth explicitly', async () => {

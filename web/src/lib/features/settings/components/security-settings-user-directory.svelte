@@ -232,7 +232,7 @@
 
       {#if !canRead}
         <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-          Instance-level <code>security.read</code> is required to browse the user directory.
+          Instance-level <code>security_setting.read</code> is required to browse the user directory.
         </div>
       {:else if loading}
         <div class="space-y-3">

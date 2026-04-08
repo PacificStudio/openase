@@ -67,7 +67,12 @@ describe('OrganizationMembersSection', () => {
   beforeEach(() => {
     authStore.hydrate({
       authMode: 'oidc',
+      loginRequired: true,
       authenticated: true,
+      principalKind: 'human_session',
+      authConfigured: true,
+      sessionGovernanceAvailable: true,
+      canManageAuth: false,
       csrfToken: 'csrf-token',
       roles: ['org_owner'],
       permissions: ['org.update'],

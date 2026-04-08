@@ -155,34 +155,35 @@ type OpenAPIProjectRepo struct {
 }
 
 type OpenAPIAgentProvider struct {
-	ID                    string                             `json:"id"`
-	OrganizationID        string                             `json:"organization_id"`
-	MachineID             string                             `json:"machine_id"`
-	MachineName           string                             `json:"machine_name"`
-	MachineHost           string                             `json:"machine_host"`
-	MachineStatus         string                             `json:"machine_status"`
-	MachineSSHUser        *string                            `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string                            `json:"machine_workspace_root,omitempty"`
-	Name                  string                             `json:"name"`
-	AdapterType           string                             `json:"adapter_type"`
-	PermissionProfile     string                             `json:"permission_profile"`
-	AvailabilityState     string                             `json:"availability_state"`
-	Available             bool                               `json:"available"`
-	AvailabilityCheckedAt *string                            `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string                            `json:"availability_reason,omitempty"`
-	Capabilities          OpenAPIAgentProviderCapabilities   `json:"capabilities"`
-	CliCommand            string                             `json:"cli_command"`
-	CliArgs               []string                           `json:"cli_args"`
-	AuthConfig            map[string]any                     `json:"auth_config"`
-	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit  `json:"cli_rate_limit,omitempty"`
-	CLIRateLimitUpdatedAt *string                            `json:"cli_rate_limit_updated_at,omitempty"`
-	ModelName             string                             `json:"model_name"`
-	ModelTemperature      float64                            `json:"model_temperature"`
-	ModelMaxTokens        int                                `json:"model_max_tokens"`
-	MaxParallelRuns       int                                `json:"max_parallel_runs"`
-	CostPerInputToken     float64                            `json:"cost_per_input_token"`
-	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
-	PricingConfig         pricing.ProviderModelPricingConfig `json:"pricing_config"`
+	ID                    string                                     `json:"id"`
+	OrganizationID        string                                     `json:"organization_id"`
+	MachineID             string                                     `json:"machine_id"`
+	MachineName           string                                     `json:"machine_name"`
+	MachineHost           string                                     `json:"machine_host"`
+	MachineStatus         string                                     `json:"machine_status"`
+	MachineSSHUser        *string                                    `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                                    `json:"machine_workspace_root,omitempty"`
+	Name                  string                                     `json:"name"`
+	AdapterType           string                                     `json:"adapter_type"`
+	PermissionProfile     string                                     `json:"permission_profile"`
+	AvailabilityState     string                                     `json:"availability_state"`
+	Available             bool                                       `json:"available"`
+	AvailabilityCheckedAt *string                                    `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                                    `json:"availability_reason,omitempty"`
+	Capabilities          OpenAPIAgentProviderCapabilities           `json:"capabilities"`
+	CliCommand            string                                     `json:"cli_command"`
+	CliArgs               []string                                   `json:"cli_args"`
+	AuthConfig            map[string]any                             `json:"auth_config"`
+	SecretBindings        []catalogdomain.AgentProviderSecretBinding `json:"secret_bindings"`
+	CLIRateLimit          *OpenAPIAgentProviderCLIRateLimit          `json:"cli_rate_limit,omitempty"`
+	CLIRateLimitUpdatedAt *string                                    `json:"cli_rate_limit_updated_at,omitempty"`
+	ModelName             string                                     `json:"model_name"`
+	ModelTemperature      float64                                    `json:"model_temperature"`
+	ModelMaxTokens        int                                        `json:"model_max_tokens"`
+	MaxParallelRuns       int                                        `json:"max_parallel_runs"`
+	CostPerInputToken     float64                                    `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                                    `json:"cost_per_output_token"`
+	PricingConfig         pricing.ProviderModelPricingConfig         `json:"pricing_config"`
 }
 
 type OpenAPIAgentProviderCapabilities struct {
@@ -1699,6 +1700,8 @@ type OpenAPIScopedSecret struct {
 	DisabledAt     *string                       `json:"disabled_at,omitempty"`
 	CreatedAt      string                        `json:"created_at"`
 	UpdatedAt      string                        `json:"updated_at"`
+	UsageCount     int                           `json:"usage_count"`
+	UsageScopes    []string                      `json:"usage_scopes,omitempty"`
 	Encryption     OpenAPIScopedSecretEncryption `json:"encryption"`
 }
 
@@ -1708,6 +1711,45 @@ type OpenAPIScopedSecretsResponse struct {
 
 type OpenAPIScopedSecretResponse struct {
 	Secret OpenAPIScopedSecret `json:"secret"`
+}
+
+type OpenAPIScopedSecretBindingSecret struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Scope       string  `json:"scope"`
+	Kind        string  `json:"kind"`
+	Description string  `json:"description"`
+	ProjectID   *string `json:"project_id,omitempty"`
+	Disabled    bool    `json:"disabled"`
+}
+
+type OpenAPIScopedSecretBindingTarget struct {
+	ID         string `json:"id"`
+	Scope      string `json:"scope"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier,omitempty"`
+}
+
+type OpenAPIScopedSecretBinding struct {
+	ID              string                           `json:"id"`
+	OrganizationID  string                           `json:"organization_id"`
+	ProjectID       string                           `json:"project_id"`
+	SecretID        string                           `json:"secret_id"`
+	Scope           string                           `json:"scope"`
+	ScopeResourceID string                           `json:"scope_resource_id"`
+	BindingKey      string                           `json:"binding_key"`
+	CreatedAt       string                           `json:"created_at"`
+	UpdatedAt       string                           `json:"updated_at"`
+	Secret          OpenAPIScopedSecretBindingSecret `json:"secret"`
+	Target          OpenAPIScopedSecretBindingTarget `json:"target"`
+}
+
+type OpenAPIScopedSecretBindingsResponse struct {
+	Bindings []OpenAPIScopedSecretBinding `json:"bindings"`
+}
+
+type OpenAPIScopedSecretBindingResponse struct {
+	Binding OpenAPIScopedSecretBinding `json:"binding"`
 }
 
 type OpenAPIResolvedRuntimeSecret struct {
@@ -1764,13 +1806,18 @@ type OpenAPIAuthSessionUser struct {
 }
 
 type OpenAPIAuthSessionResponse struct {
-	AuthMode      string                  `json:"auth_mode"`
-	Authenticated bool                    `json:"authenticated"`
-	IssuerURL     string                  `json:"issuer_url,omitempty"`
-	User          *OpenAPIAuthSessionUser `json:"user,omitempty"`
-	CSRFToken     string                  `json:"csrf_token,omitempty"`
-	Roles         []string                `json:"roles,omitempty"`
-	Permissions   []string                `json:"permissions,omitempty"`
+	AuthMode                   string                  `json:"auth_mode"`
+	LoginRequired              bool                    `json:"login_required"`
+	Authenticated              bool                    `json:"authenticated"`
+	PrincipalKind              string                  `json:"principal_kind"`
+	AuthConfigured             bool                    `json:"auth_configured"`
+	SessionGovernanceAvailable bool                    `json:"session_governance_available"`
+	CanManageAuth              bool                    `json:"can_manage_auth"`
+	IssuerURL                  string                  `json:"issuer_url,omitempty"`
+	User                       *OpenAPIAuthSessionUser `json:"user,omitempty"`
+	CSRFToken                  string                  `json:"csrf_token,omitempty"`
+	Roles                      []string                `json:"roles,omitempty"`
+	Permissions                []string                `json:"permissions,omitempty"`
 }
 
 type OpenAPIAuthSessionDevice struct {
@@ -1905,11 +1952,18 @@ type OpenAPIHumanGroupMembership struct {
 }
 
 type OpenAPIAuthPermissionsResponse struct {
-	User        OpenAPIAuthSessionUser        `json:"user"`
-	Scope       OpenAPIHumanScope             `json:"scope"`
-	Roles       []string                      `json:"roles"`
-	Permissions []string                      `json:"permissions"`
-	Groups      []OpenAPIHumanGroupMembership `json:"groups"`
+	AuthMode                   string                        `json:"auth_mode"`
+	LoginRequired              bool                          `json:"login_required"`
+	Authenticated              bool                          `json:"authenticated"`
+	PrincipalKind              string                        `json:"principal_kind"`
+	AuthConfigured             bool                          `json:"auth_configured"`
+	SessionGovernanceAvailable bool                          `json:"session_governance_available"`
+	CanManageAuth              bool                          `json:"can_manage_auth"`
+	User                       *OpenAPIAuthSessionUser       `json:"user,omitempty"`
+	Scope                      OpenAPIHumanScope             `json:"scope"`
+	Roles                      []string                      `json:"roles"`
+	Permissions                []string                      `json:"permissions"`
+	Groups                     []OpenAPIHumanGroupMembership `json:"groups"`
 }
 
 type OpenAPIRoleBinding struct {
@@ -2027,6 +2081,7 @@ type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialR
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
 type OpenAPICreateScopedSecretRequest rawCreateScopedSecretRequest
+type OpenAPICreateScopedSecretBindingRequest rawCreateScopedSecretBindingRequest
 type OpenAPIUpdateScopedSecretRequest rawPatchScopedSecretRequest
 type OpenAPIRotateScopedSecretRequest rawRotateScopedSecretRequest
 type OpenAPIResolveScopedSecretsRequest rawResolveScopedSecretsRequest
@@ -2137,20 +2192,23 @@ var (
 		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
-		"name":                  "Human-readable provider name.",
-		"machine_id":            "Machine ID where this provider runs.",
-		"adapter_type":          "Adapter type used to launch and communicate with the provider.",
-		"permission_profile":    "Managed permission profile used to render adapter-specific approval and sandbox options.",
-		"cli_command":           "CLI command used to launch the provider.",
-		"cli_args":              "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
-		"auth_config":           "Provider-specific authentication configuration object.",
-		"model_name":            "Model name configured for the provider.",
-		"model_temperature":     "Sampling temperature configured for the provider model.",
-		"model_max_tokens":      "Maximum number of output tokens allowed for the provider model.",
-		"max_parallel_runs":     "Maximum number of concurrent runs allowed for the provider.",
-		"cost_per_input_token":  "Estimated USD cost per input token.",
-		"cost_per_output_token": "Estimated USD cost per output token.",
-		"pricing_config":        "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
+		"name":                          "Human-readable provider name.",
+		"machine_id":                    "Machine ID where this provider runs.",
+		"adapter_type":                  "Adapter type used to launch and communicate with the provider.",
+		"permission_profile":            "Managed permission profile used to render adapter-specific approval and sandbox options.",
+		"cli_command":                   "CLI command used to launch the provider.",
+		"cli_args":                      "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
+		"auth_config":                   "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
+		"secret_bindings":               "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+		"secret_bindings[].env_var_key": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+		"secret_bindings[].binding_key": "Secret binding alias to resolve for the matching runtime environment variable.",
+		"model_name":                    "Model name configured for the provider.",
+		"model_temperature":             "Sampling temperature configured for the provider model.",
+		"model_max_tokens":              "Maximum number of output tokens allowed for the provider model.",
+		"max_parallel_runs":             "Maximum number of concurrent runs allowed for the provider.",
+		"cost_per_input_token":          "Estimated USD cost per input token.",
+		"cost_per_output_token":         "Estimated USD cost per output token.",
+		"pricing_config":                "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
 	}
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",
@@ -2177,6 +2235,12 @@ var (
 		"kind":        "Secret kind. Currently only opaque is supported.",
 		"description": "Human-readable description that explains what the secret is used for.",
 		"value":       "Plaintext secret value to encrypt and persist at rest.",
+	}
+	openAPICreateScopedSecretBindingDescriptions = map[string]string{
+		"secret_id":         "Secret ID to bind into workflow or ticket runtime resolution.",
+		"scope":             "Binding scope. Supported values are workflow and ticket.",
+		"scope_resource_id": "Workflow or ticket ID that owns this binding.",
+		"binding_key":       "Runtime environment binding key. Keys are normalized to upper snake case before persistence.",
 	}
 	openAPIUpdateScopedSecretDescriptions = map[string]string{
 		"name":        "Updated secret name. Names are normalized to upper snake case when provided.",
@@ -2469,7 +2533,10 @@ var (
 		"POST /api/v1/projects/{projectId}/repos":                                                      openAPIRepoRequestDescriptions,
 		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                                            openAPIRepoRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/github/repos":                                               openAPIGitHubRepositoryDescriptions,
+		"POST /api/v1/orgs/{orgId}/security-settings/secrets":                                          openAPICreateScopedSecretDescriptions,
+		"POST /api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate":                        openAPIRotateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets":                                  openAPICreateScopedSecretDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/secret-bindings":                          openAPICreateScopedSecretBindingDescriptions,
 		"PATCH /api/v1/projects/{projectId}/security-settings/secrets/{secretId}":                      openAPIUpdateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate":                openAPIRotateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime":              openAPIResolveScopedSecretsDescriptions,
@@ -2509,25 +2576,25 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                                                            openAPIChatRequestDescriptions,
-		"POST /api/v1/chat/conversations":                                                              openAPIProjectConversationCreateDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
-		"POST /api/v1/instance/role-bindings":                                                          openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/instance/users/{userId}/status":                                                  openAPIUserStatusTransitionDescriptions,
-		"POST /api/v1/orgs/{orgId}/invitations":                                                        openAPIOrganizationInvitationDescriptions,
-		"POST /api/v1/org-invitations/accept":                                                          openAPIOrganizationInvitationAcceptDescriptions,
-		"PATCH /api/v1/orgs/{orgId}/members/{membershipId}":                                            openAPIOrganizationMembershipPatchDescriptions,
-		"POST /api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership":                          openAPIOrganizationOwnershipTransferDescriptions,
-		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/refresh":                                             openAPISkillSyncDescriptions,
-		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
-		"POST /api/v1/skills/{skillId}/bind":                                                           openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/skills/{skillId}/unbind":                                                         openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/bind":                                              openAPISkillBindingDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                            openAPISkillBindingDescriptions,
+		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/instance/role-bindings":                                               openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/instance/users/{userId}/status":                                       openAPIUserStatusTransitionDescriptions,
+		"POST /api/v1/orgs/{orgId}/invitations":                                             openAPIOrganizationInvitationDescriptions,
+		"POST /api/v1/org-invitations/accept":                                               openAPIOrganizationInvitationAcceptDescriptions,
+		"PATCH /api/v1/orgs/{orgId}/members/{membershipId}":                                 openAPIOrganizationMembershipPatchDescriptions,
+		"POST /api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership":               openAPIOrganizationOwnershipTransferDescriptions,
+		"POST /api/v1/organizations/{orgId}/role-bindings":                                  openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/role-bindings":                                   openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":                                          openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":                                  openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                                                      openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                                                openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":                                              openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":                                   openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                 openAPISkillBindingDescriptions,
 	}
 )
 
@@ -2880,7 +2947,7 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 
 	myPermissions, err := b.jsonOperation(
 		"getMyEffectivePermissions",
-		"Get effective OpenASE roles and permissions for the authenticated human",
+		"Get effective OpenASE roles and permissions for the current request context",
 		[]string{"auth"},
 		http.StatusOK,
 		OpenAPIAuthPermissionsResponse{},
@@ -5650,6 +5717,24 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretList.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodGet, secretList)
 
+	orgSecretList, err := b.jsonOperation(
+		"listOrganizationScopedSecrets",
+		"List organization scoped secrets managed from org settings",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretList.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets", http.MethodGet, orgSecretList)
+
 	secretCreate, err := b.jsonOperation(
 		"createScopedSecret",
 		"Create a new encrypted scoped secret",
@@ -5668,6 +5753,62 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	secretCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodPost, secretCreate)
+
+	secretBindingList, err := b.jsonOperation(
+		"listScopedSecretBindings",
+		"List workflow and ticket scoped secret bindings configured for this project",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretBindingsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretBindingList.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings", http.MethodGet, secretBindingList)
+
+	secretBindingCreate, err := b.jsonOperation(
+		"createScopedSecretBinding",
+		"Create a workflow or ticket scoped secret binding for runtime resolution",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIScopedSecretBindingResponse{},
+		OpenAPICreateScopedSecretBindingRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretBindingCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings", http.MethodPost, secretBindingCreate)
+
+	orgSecretCreate, err := b.jsonOperation(
+		"createOrganizationScopedSecret",
+		"Create a new organization scoped secret",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIScopedSecretResponse{},
+		OpenAPICreateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretCreate.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets", http.MethodPost, orgSecretCreate)
 
 	secretPatch, err := b.jsonOperation(
 		"updateScopedSecretMetadata",
@@ -5708,6 +5849,25 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretRotate.AddParameter(uuidPathParameter("secretId", "Secret ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate", http.MethodPost, secretRotate)
 
+	orgSecretRotate, err := b.jsonOperation(
+		"rotateOrganizationScopedSecret",
+		"Rotate the encrypted value for an organization scoped secret",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		OpenAPIRotateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretRotate.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretRotate.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate", http.MethodPost, orgSecretRotate)
+
 	secretDisable, err := b.jsonOperation(
 		"disableScopedSecret",
 		"Disable a scoped secret so lower-precedence bindings can fall back",
@@ -5726,6 +5886,74 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretDisable.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	secretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable", http.MethodPost, secretDisable)
+
+	orgSecretDisable, err := b.jsonOperation(
+		"disableOrganizationScopedSecret",
+		"Disable an organization scoped secret so lower-precedence bindings can fall back",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretDisable.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable", http.MethodPost, orgSecretDisable)
+
+	secretBindingDelete := openapi3.NewOperation()
+	secretBindingDelete.OperationID = "deleteScopedSecretBinding"
+	secretBindingDelete.Summary = "Delete a workflow or ticket scoped secret binding"
+	secretBindingDelete.Tags = []string{"security-settings"}
+	secretBindingDelete.Responses = openapi3.NewResponsesWithCapacity(5)
+	secretBindingDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Secret binding deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		secretBindingDelete.AddResponse(code, errorResponse)
+	}
+	secretBindingDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretBindingDelete.AddParameter(uuidPathParameter("bindingId", "Secret binding ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}", http.MethodDelete, secretBindingDelete)
+
+	secretDelete := openapi3.NewOperation()
+	secretDelete.OperationID = "deleteScopedSecret"
+	secretDelete.Summary = "Delete a scoped secret and remove its default bindings"
+	secretDelete.Tags = []string{"security-settings"}
+	secretDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Scoped secret deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		secretDelete.AddResponse(code, errorResponse)
+	}
+	secretDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretDelete.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}", http.MethodDelete, secretDelete)
+
+	orgSecretDelete := openapi3.NewOperation()
+	orgSecretDelete.OperationID = "deleteOrganizationScopedSecret"
+	orgSecretDelete.Summary = "Delete an organization scoped secret and remove its default bindings"
+	orgSecretDelete.Tags = []string{"security-settings"}
+	orgSecretDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Organization scoped secret deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		orgSecretDelete.AddResponse(code, errorResponse)
+	}
+	orgSecretDelete.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretDelete.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}", http.MethodDelete, orgSecretDelete)
 
 	secretResolve, err := b.jsonOperation(
 		"resolveScopedSecretsForRuntime",
