@@ -60,6 +60,17 @@ describe('Access settings', () => {
   })
 
   it('shows migration guidance for disabled mode without loading oidc access state', async () => {
+    authStore.hydrate({
+      authMode: 'oidc',
+      loginRequired: false,
+      authenticated: true,
+      principalKind: 'local_bootstrap',
+      authConfigured: true,
+      sessionGovernanceAvailable: false,
+      canManageAuth: true,
+      roles: ['instance_admin'],
+      permissions: ['security_setting.read', 'security_setting.update'],
+    })
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
@@ -71,6 +82,7 @@ describe('Access settings', () => {
     expect(await findByText('Disabled-mode project access')).toBeTruthy()
     expect(queryByText('Project effective access')).toBeNull()
     expect(getEffectivePermissions).not.toHaveBeenCalled()
+    expect(listProjectRoleBindings).not.toHaveBeenCalled()
   })
 
   it('renders oidc project access and creates a project role binding', async () => {

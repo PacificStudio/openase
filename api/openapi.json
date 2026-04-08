@@ -2655,6 +2655,18 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "auth_configured": {
+                      "type": "boolean"
+                    },
+                    "auth_mode": {
+                      "type": "string"
+                    },
+                    "authenticated": {
+                      "type": "boolean"
+                    },
+                    "can_manage_auth": {
+                      "type": "boolean"
+                    },
                     "groups": {
                       "items": {
                         "properties": {
@@ -2672,11 +2684,17 @@
                       },
                       "type": "array"
                     },
+                    "login_required": {
+                      "type": "boolean"
+                    },
                     "permissions": {
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
+                    },
+                    "principal_kind": {
+                      "type": "string"
                     },
                     "roles": {
                       "items": {
@@ -2695,7 +2713,11 @@
                       },
                       "type": "object"
                     },
+                    "session_governance_available": {
+                      "type": "boolean"
+                    },
                     "user": {
+                      "nullable": true,
                       "properties": {
                         "avatar_url": {
                           "type": "string"
@@ -2717,7 +2739,7 @@
                 }
               }
             },
-            "description": "Get effective OpenASE roles and permissions for the authenticated human response."
+            "description": "Get effective OpenASE roles and permissions for the current request context response."
           },
           "401": {
             "content": {
@@ -2756,7 +2778,7 @@
             "description": "Forbidden response."
           }
         },
-        "summary": "Get effective OpenASE roles and permissions for the authenticated human",
+        "summary": "Get effective OpenASE roles and permissions for the current request context",
         "tags": [
           "auth"
         ]
@@ -2919,10 +2941,16 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "auth_configured": {
+                      "type": "boolean"
+                    },
                     "auth_mode": {
                       "type": "string"
                     },
                     "authenticated": {
+                      "type": "boolean"
+                    },
+                    "can_manage_auth": {
                       "type": "boolean"
                     },
                     "csrf_token": {
@@ -2931,17 +2959,26 @@
                     "issuer_url": {
                       "type": "string"
                     },
+                    "login_required": {
+                      "type": "boolean"
+                    },
                     "permissions": {
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
                     },
+                    "principal_kind": {
+                      "type": "string"
+                    },
                     "roles": {
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
+                    },
+                    "session_governance_available": {
+                      "type": "boolean"
                     },
                     "user": {
                       "nullable": true,

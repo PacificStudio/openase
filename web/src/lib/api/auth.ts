@@ -5,7 +5,12 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 
 type RawAuthSessionResponse = {
   auth_mode?: string
+  login_required?: boolean
   authenticated?: boolean
+  principal_kind?: string
+  auth_configured?: boolean
+  session_governance_available?: boolean
+  can_manage_auth?: boolean
   issuer_url?: string
   user?: {
     id?: string
@@ -19,7 +24,14 @@ type RawAuthSessionResponse = {
 }
 
 export type EffectivePermissionsResponse = {
-  user: {
+  auth_mode?: string
+  login_required?: boolean
+  authenticated?: boolean
+  principal_kind?: string
+  auth_configured?: boolean
+  session_governance_available?: boolean
+  can_manage_auth?: boolean
+  user?: {
     id: string
     primary_email: string
     display_name: string
@@ -355,6 +367,57 @@ function parseUser(raw?: RawAuthSessionResponse['user']): HumanAuthUser | undefi
   }
 }
 
+function normalizeAuthMode(raw: string | null | undefined) {
+  return raw?.trim() || 'disabled'
+}
+
+function normalizeLoginRequired(raw: RawAuthSessionResponse) {
+  if (raw.login_required === true) {
+    return true
+  }
+  if (raw.login_required === false) {
+    return false
+  }
+  return normalizeAuthMode(raw.auth_mode) === 'oidc'
+}
+
+function normalizeAuthenticated(raw: RawAuthSessionResponse, loginRequired: boolean) {
+  if (raw.authenticated === true) {
+    return true
+  }
+  if (raw.authenticated === false) {
+    return false
+  }
+  return !loginRequired
+}
+
+function normalizePrincipalKind(
+  raw: RawAuthSessionResponse,
+  loginRequired: boolean,
+  authenticated: boolean,
+) {
+  const explicit = raw.principal_kind?.trim()
+  if (explicit) {
+    return explicit
+  }
+  if (!authenticated) {
+    return loginRequired ? 'anonymous' : 'local_bootstrap'
+  }
+  return raw.user?.id ? 'human_session' : 'local_bootstrap'
+}
+
+function normalizeCanManageAuth(raw: RawAuthSessionResponse, permissions: string[]) {
+  if (raw.can_manage_auth === true) {
+    return true
+  }
+  if (raw.can_manage_auth === false) {
+    return false
+  }
+  return (
+    permissions.includes('security_setting.read') || permissions.includes('security_setting.update')
+  )
+}
+
 export function normalizeReturnTo(raw: string | null | undefined) {
   const trimmed = raw?.trim() ?? ''
   if (!trimmed) {
@@ -381,16 +444,26 @@ export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSess
     throw new ApiError(response.status, await response.text().catch(() => response.statusText))
   }
   const payload = (await response.json()) as RawAuthSessionResponse
+  const authMode = normalizeAuthMode(payload.auth_mode)
+  const loginRequired = normalizeLoginRequired(payload)
+  const authenticated = normalizeAuthenticated(payload, loginRequired)
+  const permissions = Array.isArray(payload.permissions)
+    ? payload.permissions.filter((value) => value.trim() !== '')
+    : []
   return {
-    authMode: payload.auth_mode?.trim() || 'disabled',
-    authenticated: payload.authenticated === true,
+    authMode,
+    loginRequired,
+    authenticated,
+    principalKind: normalizePrincipalKind(payload, loginRequired, authenticated),
+    authConfigured: payload.auth_configured === true || authMode === 'oidc',
+    sessionGovernanceAvailable:
+      payload.session_governance_available === true || (authMode === 'oidc' && authenticated),
+    canManageAuth: normalizeCanManageAuth(payload, permissions),
     issuerURL: payload.issuer_url?.trim() || '',
     user: parseUser(payload.user),
     csrfToken: payload.csrf_token?.trim() || '',
     roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
-    permissions: Array.isArray(payload.permissions)
-      ? payload.permissions.filter((value) => value.trim() !== '')
-      : [],
+    permissions,
   }
 }
 

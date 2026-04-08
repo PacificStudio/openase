@@ -323,9 +323,9 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 }
 
 func (s *Server) handleGetMyPermissions(c echo.Context) error {
-	principal, ok := currentHumanPrincipal(c)
-	if !ok {
-		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	authContext, err := s.resolveAuthRequestContext(c, invalidHumanSessionAsError)
+	if err != nil {
+		return writeHumanSessionAuthError(c, err)
 	}
 	scope := humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}
 	if projectID := strings.TrimSpace(c.QueryParam("project_id")); projectID != "" {
@@ -334,30 +334,45 @@ func (s *Server) handleGetMyPermissions(c echo.Context) error {
 	if orgID := strings.TrimSpace(c.QueryParam("org_id")); orgID != "" {
 		scope = humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindOrganization, ID: orgID}
 	}
-	roles, permissions, err := s.humanAuthorizer.Evaluate(
-		c.Request().Context(),
-		principal.User,
-		principal.Identity,
-		principal.Groups,
-		scope,
-	)
-	if err != nil {
-		return writeAPIError(c, http.StatusForbidden, "AUTHORIZATION_DENIED", err.Error())
+
+	roles := authContext.Roles
+	permissions := authContext.Permissions
+	groups := authContext.Groups
+	if authContext.PrincipalKind == authRequestPrincipalKindHumanSession {
+		if s.humanAuthorizer == nil || authContext.HumanPrincipal == nil {
+			return writeAPIError(c, http.StatusServiceUnavailable, "AUTHORIZATION_UNAVAILABLE", "authorization service unavailable")
+		}
+		roles, permissions, err = s.humanAuthorizer.Evaluate(
+			c.Request().Context(),
+			authContext.HumanPrincipal.User,
+			authContext.HumanPrincipal.Identity,
+			authContext.HumanPrincipal.Groups,
+			scope,
+		)
+		if err != nil {
+			return writeAPIError(c, http.StatusForbidden, "AUTHORIZATION_DENIED", err.Error())
+		}
 	}
-	return c.JSON(http.StatusOK, map[string]any{
-		"user": map[string]any{
-			"id":            principal.User.ID.String(),
-			"primary_email": principal.User.PrimaryEmail,
-			"display_name":  principal.User.DisplayName,
-		},
+	response := map[string]any{
+		"auth_mode":                    authContext.RuntimeState.AuthMode.String(),
+		"login_required":               authContext.LoginRequired,
+		"authenticated":                authContext.Authenticated,
+		"principal_kind":               string(authContext.PrincipalKind),
+		"auth_configured":              authContext.AuthConfigured,
+		"session_governance_available": authContext.SessionGovernanceAvailable,
+		"can_manage_auth":              authContext.CanManageAuth,
 		"scope": map[string]any{
 			"kind": scope.Kind,
 			"id":   scope.ID,
 		},
 		"roles":       roleKeysToStrings(roles),
 		"permissions": permissionKeysToStrings(permissions),
-		"groups":      groupMembershipsToResponse(principal.Groups),
-	})
+		"groups":      groupMembershipsToResponse(groups),
+	}
+	if authContext.User != nil {
+		response["user"] = authContext.User
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 func (s *Server) handleListOrganizationRoleBindings(c echo.Context) error {
