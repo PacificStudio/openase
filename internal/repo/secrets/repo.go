@@ -210,19 +210,22 @@ func (r *EntRepository) ListResolutionCandidates(ctx context.Context, projectID 
 			entsecretbinding.ProjectIDEQ(item.projectID),
 		))
 	}
-	items, err := r.client.SecretBinding.Query().
-		Where(
-			entsecretbinding.OrganizationIDEQ(projectContext.OrganizationID),
-			entsecretbinding.BindingKeyIn(keys...),
-			entsecretbinding.Or(bindingPredicates...),
-			entsecretbinding.HasSecretWith(
-				entsecret.OrganizationIDEQ(projectContext.OrganizationID),
-				entsecret.Or(
-					entsecret.ProjectIDEQ(uuid.Nil),
-					entsecret.ProjectIDEQ(projectID),
-				),
+	queryPredicates := []predicate.SecretBinding{
+		entsecretbinding.OrganizationIDEQ(projectContext.OrganizationID),
+		entsecretbinding.Or(bindingPredicates...),
+		entsecretbinding.HasSecretWith(
+			entsecret.OrganizationIDEQ(projectContext.OrganizationID),
+			entsecret.Or(
+				entsecret.ProjectIDEQ(uuid.Nil),
+				entsecret.ProjectIDEQ(projectID),
 			),
-		).
+		),
+	}
+	if len(keys) > 0 {
+		queryPredicates = append(queryPredicates, entsecretbinding.BindingKeyIn(keys...))
+	}
+	items, err := r.client.SecretBinding.Query().
+		Where(queryPredicates...).
 		WithSecret().
 		All(ctx)
 	if err != nil {

@@ -176,6 +176,17 @@ func ParseBindingKeys(raw []string) ([]string, error) {
 	return keys, nil
 }
 
+func BindingKeysFromCandidates(candidates []Candidate) ([]string, error) {
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	raw := make([]string, 0, len(candidates))
+	for _, item := range candidates {
+		raw = append(raw, item.Binding.BindingKey)
+	}
+	return ParseBindingKeys(raw)
+}
+
 func DefaultCipherSeed(seed string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(seed)))
 	return base64.StdEncoding.EncodeToString(sum[:])

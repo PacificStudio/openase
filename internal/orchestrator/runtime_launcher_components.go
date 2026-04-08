@@ -87,6 +87,7 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 	l.completionSummaries.sshPool = l.sshPool
 	l.completionSummaries.transports = l.transports
 	l.completionSummaries.workflow = l.workflow
+	l.completionSummaries.secretManager = l.secretManager
 	l.completionSummaries.now = now
 	return l.completionSummaries
 }

@@ -219,6 +219,7 @@ type stubSecretService struct {
 	rotateSecret       func(context.Context, secretsservice.RotateSecretInput) (secretsdomain.Secret, error)
 	disableSecret      func(context.Context, secretsservice.DisableSecretInput) (secretsdomain.Secret, error)
 	resolveForRuntime  func(context.Context, secretsservice.ResolveRuntimeInput) ([]secretsdomain.ResolvedSecret, []string, error)
+	resolveBound       func(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
 func (s *stubSecretService) ListProjectSecrets(ctx context.Context, projectID uuid.UUID) ([]secretsdomain.Secret, error) {
@@ -261,4 +262,11 @@ func (s *stubSecretService) ResolveForRuntime(ctx context.Context, input secrets
 		return nil, nil, nil
 	}
 	return s.resolveForRuntime(ctx, input)
+}
+
+func (s *stubSecretService) ResolveBoundForRuntime(ctx context.Context, input secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error) {
+	if s.resolveBound == nil {
+		return nil, nil
+	}
+	return s.resolveBound(ctx, input)
 }
