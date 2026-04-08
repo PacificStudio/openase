@@ -316,6 +316,8 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
 		SessionID:              sessionID,
+		ProjectID:              input.Context.ProjectID,
+		TicketID:               input.Context.TicketID,
 		Provider:               providerItem,
 		Message:                input.Message,
 		SystemPrompt:           systemPrompt,

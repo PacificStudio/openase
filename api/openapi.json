@@ -13406,6 +13406,26 @@
                               }
                             },
                             "type": "object"
+                          },
+                          "secret_bindings": {
+                            "items": {
+                              "properties": {
+                                "binding_key": {
+                                  "type": "string"
+                                },
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "env_var_key": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
                           }
                         },
                         "type": "object"
@@ -13504,7 +13524,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "type": "object"
                   },
                   "cli_args": {
@@ -13566,6 +13586,23 @@
                     "additionalProperties": {},
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -13945,6 +13982,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -14083,6 +14140,910 @@
         "summary": "Stream organization provider events",
         "tags": [
           "streams"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets": {
+      "get": {
+        "operationId": "listOrganizationScopedSecrets",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secrets": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "disabled_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "encryption": {
+                            "properties": {
+                              "algorithm": {
+                                "type": "string"
+                              },
+                              "key_id": {
+                                "type": "string"
+                              },
+                              "key_source": {
+                                "type": "string"
+                              },
+                              "rotated_at": {
+                                "type": "string"
+                              },
+                              "value_preview": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "usage_count": {
+                            "type": "integer"
+                          },
+                          "usage_scopes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List organization scoped secrets managed from org settings response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List organization scoped secrets managed from org settings",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "post": {
+        "operationId": "createOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "description": {
+                    "description": "Human-readable description that explains what the secret is used for.",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "description": "Secret kind. Currently only opaque is supported.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
+                    "type": "string"
+                  },
+                  "scope": {
+                    "description": "Secret scope. Supported values are organization and project.",
+                    "type": "string"
+                  },
+                  "value": {
+                    "description": "Plaintext secret value to encrypt and persist at rest.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a new organization scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a new organization scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a new organization scoped secret",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}": {
+      "delete": {
+        "operationId": "deleteOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Organization scoped secret deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an organization scoped secret and remove its default bindings",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable": {
+      "post": {
+        "operationId": "disableOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Disable an organization scoped secret so lower-precedence bindings can fall back response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Disable an organization scoped secret so lower-precedence bindings can fall back",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate": {
+      "post": {
+        "operationId": "rotateOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "value": {
+                    "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Rotate the encrypted value for an organization scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Rotate the encrypted value for an organization scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Rotate the encrypted value for an organization scoped secret",
+        "tags": [
+          "security-settings"
         ]
       }
     },
@@ -23842,6 +24803,15 @@
                           },
                           "updated_at": {
                             "type": "string"
+                          },
+                          "usage_count": {
+                            "type": "integer"
+                          },
+                          "usage_scopes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           }
                         },
                         "type": "object"
@@ -24042,6 +25012,15 @@
                         },
                         "updated_at": {
                           "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -24346,6 +25325,115 @@
       }
     },
     "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}": {
+      "delete": {
+        "operationId": "deleteScopedSecret",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Scoped secret deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a scoped secret and remove its default bindings",
+        "tags": [
+          "security-settings"
+        ]
+      },
       "patch": {
         "operationId": "updateScopedSecretMetadata",
         "parameters": [
@@ -24455,6 +25543,15 @@
                         },
                         "updated_at": {
                           "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -24650,6 +25747,15 @@
                         },
                         "updated_at": {
                           "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -24844,6 +25950,15 @@
                         },
                         "updated_at": {
                           "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -31773,6 +32888,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -31870,7 +33005,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "nullable": true,
                     "type": "object"
                   },
@@ -31940,6 +33075,24 @@
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "nullable": true,
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "nullable": true,
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -32319,6 +33472,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"

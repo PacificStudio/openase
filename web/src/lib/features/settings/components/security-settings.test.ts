@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { ScopedSecretRecord } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
@@ -17,42 +18,57 @@ import {
 } from './security-settings-secret-binding-test-helpers'
 
 const {
+  createProjectScopedSecret,
   createScopedSecretBinding,
-  deleteScopedSecretBinding,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  deleteScopedSecretBinding,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
   listScopedSecretBindings,
   listScopedSecrets,
   listTickets,
   listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
+  createProjectScopedSecret: vi.fn(),
   createScopedSecretBinding: vi.fn(),
-  deleteScopedSecretBinding: vi.fn(),
   deleteGitHubOutboundCredential: vi.fn(),
+  deleteProjectScopedSecret: vi.fn(),
+  deleteScopedSecretBinding: vi.fn(),
+  disableProjectScopedSecret: vi.fn(),
   getSecuritySettings: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  listProjectScopedSecrets: vi.fn(),
   listScopedSecretBindings: vi.fn(),
   listScopedSecrets: vi.fn(),
   listTickets: vi.fn(),
   listWorkflows: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
+  rotateProjectScopedSecret: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
+  createProjectScopedSecret,
   createScopedSecretBinding,
-  deleteScopedSecretBinding,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  deleteScopedSecretBinding,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
   listScopedSecretBindings,
   listScopedSecrets,
   listTickets,
   listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
 }))
 
@@ -71,11 +87,39 @@ describe('Security settings', () => {
     listTickets.mockResolvedValue({ tickets: ticketCatalog() })
   }
 
+  function mockProjectScopedSecrets(secrets: ScopedSecretRecord[] = []) {
+    listProjectScopedSecrets.mockResolvedValue({ secrets })
+  }
+
   it('renders the migration panel before project-owned security controls', async () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets([
+      {
+        id: 'secret-org',
+        organization_id: 'org-1',
+        project_id: null,
+        scope: 'organization',
+        name: 'OPENAI_API_KEY',
+        kind: 'opaque',
+        description: 'Inherited model key',
+        disabled: false,
+        disabled_at: null,
+        created_at: '2026-04-08T12:00:00Z',
+        updated_at: '2026-04-08T12:00:00Z',
+        usage_count: 1,
+        usage_scopes: ['organization'],
+        encryption: {
+          algorithm: 'aes-256-gcm',
+          key_id: 'database-dsn-sha256:v1',
+          key_source: 'database_dsn_sha256',
+          rotated_at: '2026-04-08T12:00:00Z',
+          value_preview: 'sk-live...1234',
+        },
+      },
+    ])
 
     const { findByRole, findByText } = render(SecuritySettings)
 
@@ -85,6 +129,8 @@ describe('Security settings', () => {
     expect(await findByText('Project access stays here')).toBeTruthy()
     expect(await findByRole('link', { name: 'Open /admin/auth' })).toBeTruthy()
     expect(await findByRole('link', { name: 'Open org admin' })).toBeTruthy()
+    expect(await findByText('Scoped secrets')).toBeTruthy()
+    expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(await findByText('Runtime secret bindings')).toBeTruthy()
     expect(
@@ -98,6 +144,7 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
@@ -121,6 +168,7 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: configuredSecurity() })
     retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
@@ -161,6 +209,7 @@ describe('Security settings', () => {
       security: configuredSecurityWithNullPermissions() as never,
     })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
 
     const { findByText } = render(SecuritySettings)
 
@@ -173,6 +222,7 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     listScopedSecretBindings.mockResolvedValue({ bindings: [] })
     createScopedSecretBinding.mockResolvedValue({
       binding: scopedSecretBindings()[0],
@@ -206,6 +256,7 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     deleteScopedSecretBinding.mockResolvedValue({})
 
     const { findByTitle } = render(SecuritySettings)

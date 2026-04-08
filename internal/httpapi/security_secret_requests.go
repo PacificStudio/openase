@@ -65,6 +65,16 @@ func parseCreateScopedSecretBindingRequest(projectID uuid.UUID, raw rawCreateSco
 	}, nil
 }
 
+func parseCreateOrganizationScopedSecretRequest(organizationID uuid.UUID, raw rawCreateScopedSecretRequest) secretsservice.CreateOrganizationSecretInput {
+	return secretsservice.CreateOrganizationSecretInput{
+		OrganizationID: organizationID,
+		Name:           raw.Name,
+		Kind:           raw.Kind,
+		Description:    raw.Description,
+		Value:          raw.Value,
+	}
+}
+
 func parsePatchScopedSecretRequest(projectID uuid.UUID, secretID uuid.UUID, raw rawPatchScopedSecretRequest) secretsservice.UpdateSecretMetadataInput {
 	return secretsservice.UpdateSecretMetadataInput{
 		ProjectID:   projectID,

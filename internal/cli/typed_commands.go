@@ -635,6 +635,17 @@ func newSecretCommand() *cobra.Command {
 		Example: "openase secret disable $OPENASE_PROJECT_ID $SECRET_ID",
 	}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "delete [projectId] [secretId]",
+		Short:            "Delete a scoped secret.",
+		Method:           http.MethodDelete,
+		Path:             "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+		PositionalParams: []string{"projectId", "secretId"},
+		HelpNotes: []string{
+			"This removes the secret and its default bindings from shared storage.",
+		},
+		Example: "openase secret delete $OPENASE_PROJECT_ID $SECRET_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
 		Use:              "resolve [projectId]",
 		Short:            "Resolve runtime secrets for a project context.",
 		Method:           http.MethodPost,
@@ -2228,6 +2239,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "update [projectId] [secretId]", Short: "Update scoped secret metadata.", Method: http.MethodPatch, Path: "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}", PositionalParams: []string{"projectId", "secretId"}},
 		{Use: "rotate [projectId] [secretId]", Short: "Rotate a scoped secret value.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate", PositionalParams: []string{"projectId", "secretId"}},
 		{Use: "disable [projectId] [secretId]", Short: "Disable a scoped secret.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable", PositionalParams: []string{"projectId", "secretId"}},
+		{Use: "delete [projectId] [secretId]", Short: "Delete a scoped secret.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}", PositionalParams: []string{"projectId", "secretId"}},
 		{Use: "resolve [projectId]", Short: "Resolve runtime secrets for a project context.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime", PositionalParams: []string{"projectId"}},
 		{Use: "list [projectId]", Short: "List workflow and ticket secret bindings.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/security-settings/secret-bindings", PositionalParams: []string{"projectId"}},
 		{Use: "create [projectId]", Short: "Create a workflow or ticket secret binding.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/security-settings/secret-bindings", PositionalParams: []string{"projectId"}},

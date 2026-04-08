@@ -197,7 +197,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionProjectCreate,
 			checkRequired: true,
 		}, true
-	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId", "/api/v1/orgs/:orgId/members", "/api/v1/orgs/:orgId/members/:membershipId", "/api/v1/orgs/:orgId/members/:membershipId/transfer-ownership", "/api/v1/orgs/:orgId/invitations", "/api/v1/orgs/:orgId/invitations/:invitationId/resend", "/api/v1/orgs/:orgId/invitations/:invitationId/cancel":
+	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/orgs/:orgId/security-settings/secrets", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId/rotate", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId/disable", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId", "/api/v1/orgs/:orgId/members", "/api/v1/orgs/:orgId/members/:membershipId", "/api/v1/orgs/:orgId/members/:membershipId/transfer-ownership", "/api/v1/orgs/:orgId/invitations", "/api/v1/orgs/:orgId/invitations/:invitationId/resend", "/api/v1/orgs/:orgId/invitations/:invitationId/cancel":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
 			resource:      "organization",
@@ -548,6 +548,11 @@ func organizationPermissionForPath(path, method string) humanauthdomain.Permissi
 		return humanauthdomain.PermissionRBACManage
 	}
 	switch {
+	case strings.Contains(path, "/security-settings"):
+		if method == http.MethodGet {
+			return humanauthdomain.PermissionSecurityRead
+		}
+		return humanauthdomain.PermissionSecurityUpdate
 	case strings.Contains(path, "/projects"):
 		if method == http.MethodGet {
 			return humanauthdomain.PermissionProjectRead

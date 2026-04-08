@@ -6,20 +6,21 @@ import (
 )
 
 type agentProviderPatchRequest struct {
-	MachineID          *string         `json:"machine_id"`
-	Name               *string         `json:"name"`
-	AdapterType        *string         `json:"adapter_type"`
-	PermissionProfile  *string         `json:"permission_profile"`
-	CliCommand         *string         `json:"cli_command"`
-	CliArgs            *[]string       `json:"cli_args"`
-	AuthConfig         *map[string]any `json:"auth_config"`
-	ModelName          *string         `json:"model_name"`
-	ModelTemperature   *float64        `json:"model_temperature"`
-	ModelMaxTokens     *int            `json:"model_max_tokens"`
-	MaxParallelRuns    *int            `json:"max_parallel_runs"`
-	CostPerInputToken  *float64        `json:"cost_per_input_token"`
-	CostPerOutputToken *float64        `json:"cost_per_output_token"`
-	PricingConfig      *map[string]any `json:"pricing_config"`
+	MachineID          *string                                   `json:"machine_id"`
+	Name               *string                                   `json:"name"`
+	AdapterType        *string                                   `json:"adapter_type"`
+	PermissionProfile  *string                                   `json:"permission_profile"`
+	CliCommand         *string                                   `json:"cli_command"`
+	CliArgs            *[]string                                 `json:"cli_args"`
+	AuthConfig         *map[string]any                           `json:"auth_config"`
+	SecretBindings     *[]domain.AgentProviderSecretBindingInput `json:"secret_bindings"`
+	ModelName          *string                                   `json:"model_name"`
+	ModelTemperature   *float64                                  `json:"model_temperature"`
+	ModelMaxTokens     *int                                      `json:"model_max_tokens"`
+	MaxParallelRuns    *int                                      `json:"max_parallel_runs"`
+	CostPerInputToken  *float64                                  `json:"cost_per_input_token"`
+	CostPerOutputToken *float64                                  `json:"cost_per_output_token"`
+	PricingConfig      *map[string]any                           `json:"pricing_config"`
 }
 
 type agentPatchRequest struct {
@@ -69,6 +70,9 @@ func parseAgentProviderPatchRequest(
 	if patch.AuthConfig != nil {
 		request.AuthConfig = cloneMap(*patch.AuthConfig)
 	}
+	if patch.SecretBindings != nil {
+		request.SecretBindings = cloneSecretBindingInputs(*patch.SecretBindings)
+	}
 	if patch.ModelName != nil {
 		request.ModelName = *patch.ModelName
 	}
@@ -91,6 +95,20 @@ func parseAgentProviderPatchRequest(
 		request.PricingConfig = cloneMap(*patch.PricingConfig)
 	}
 
+	if patch.AuthConfig != nil || patch.SecretBindings != nil {
+		mergedAuthConfig, err := domain.MergeAgentProviderAuthConfig(
+			current.AdapterType,
+			current.AuthConfig,
+			patch.AuthConfig,
+			patch.SecretBindings,
+		)
+		if err != nil {
+			return domain.UpdateAgentProvider{}, err
+		}
+		request.AuthConfig = mergedAuthConfig
+		request.SecretBindings = nil
+	}
+
 	return domain.ParseUpdateAgentProvider(providerID, current.OrganizationID, request)
 }
 
@@ -111,4 +129,20 @@ func parseAgentPatchRequest(
 	}
 
 	return domain.ParseUpdateAgent(agentID, current.ProjectID, request)
+}
+
+func cloneSecretBindingInputs(
+	raw []domain.AgentProviderSecretBindingInput,
+) []domain.AgentProviderSecretBindingInput {
+	if len(raw) == 0 {
+		return nil
+	}
+	cloned := make([]domain.AgentProviderSecretBindingInput, 0, len(raw))
+	for _, item := range raw {
+		cloned = append(cloned, domain.AgentProviderSecretBindingInput{
+			EnvVarKey:  item.EnvVarKey,
+			BindingKey: item.BindingKey,
+		})
+	}
+	return cloned
 }

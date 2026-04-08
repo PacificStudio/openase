@@ -64,6 +64,8 @@ import type {
   ScopedSecretBindingPayload,
   ScopedSecretPayload,
   SecuritySettingsResponse,
+  ScopedSecretResponse,
+  ScopedSecretsResponse,
   RetestGitHubOutboundCredentialResponse,
   SaveGitHubOutboundCredentialResponse,
   SkillListPayload,
@@ -275,6 +277,7 @@ export function createProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name: string
     model_temperature?: number
     model_max_tokens?: number
@@ -364,10 +367,87 @@ export function createScopedSecretBinding(
   )
 }
 
+export function listProjectScopedSecrets(projectId: string) {
+  return api.get<ScopedSecretsResponse>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function createProjectScopedSecret(
+  projectId: string,
+  body: {
+    scope: 'organization' | 'project'
+    name: string
+    kind?: string
+    description?: string
+    value: string
+  },
+) {
+  return api.post<ScopedSecretResponse>(`/api/v1/projects/${projectId}/security-settings/secrets`, {
+    body,
+  })
+}
+
+export function rotateProjectScopedSecret(
+  projectId: string,
+  secretId: string,
+  body: { value: string },
+) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secrets/${secretId}/rotate`,
+    { body },
+  )
+}
+
 export function deleteScopedSecretBinding(projectId: string, bindingId: string) {
   return api.delete<DeleteScopedSecretBindingResponse>(
     `/api/v1/projects/${projectId}/security-settings/secret-bindings/${bindingId}`,
   )
+}
+
+export function disableProjectScopedSecret(projectId: string, secretId: string) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secrets/${secretId}/disable`,
+  )
+}
+
+export function deleteProjectScopedSecret(projectId: string, secretId: string) {
+  return api.delete<void>(`/api/v1/projects/${projectId}/security-settings/secrets/${secretId}`)
+}
+
+export function listOrganizationScopedSecrets(orgId: string) {
+  return api.get<ScopedSecretsResponse>(`/api/v1/orgs/${orgId}/security-settings/secrets`)
+}
+
+export function createOrganizationScopedSecret(
+  orgId: string,
+  body: {
+    name: string
+    kind?: string
+    description?: string
+    value: string
+  },
+) {
+  return api.post<ScopedSecretResponse>(`/api/v1/orgs/${orgId}/security-settings/secrets`, { body })
+}
+
+export function rotateOrganizationScopedSecret(
+  orgId: string,
+  secretId: string,
+  body: { value: string },
+) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}/rotate`,
+    { body },
+  )
+}
+
+export function disableOrganizationScopedSecret(orgId: string, secretId: string) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}/disable`,
+  )
+}
+
+export function deleteOrganizationScopedSecret(orgId: string, secretId: string) {
+  return api.delete<void>(`/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}`)
 }
 
 export function saveOIDCDraft(
@@ -1315,6 +1395,7 @@ export function updateProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name?: string
     model_temperature?: number
     model_max_tokens?: number

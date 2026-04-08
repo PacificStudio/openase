@@ -64,6 +64,7 @@ export type ProviderConfig = {
   cliCommand: string
   cliArgs: string[]
   authConfig: Record<string, unknown>
+  secretBindings: ProviderSecretBinding[]
   cliRateLimit?: ProviderCLIRateLimit | null
   cliRateLimitUpdatedAt?: string | null
   modelName: string
@@ -75,6 +76,15 @@ export type ProviderConfig = {
   pricingConfig: ProviderPricingConfig
   agentCount: number
   isDefault: boolean
+}
+
+export type ProviderSecretBindingSource = 'binding' | 'legacy_auth_config' | 'default'
+
+export type ProviderSecretBinding = {
+  envVarKey: string
+  bindingKey: string
+  configured: boolean
+  source: ProviderSecretBindingSource
 }
 
 export type ProviderPricingRates = {
@@ -160,6 +170,7 @@ export type ProviderDraft = {
   cliCommand: string
   cliArgs: string
   authConfig: string
+  secretBindings: string
   modelName: string
   modelTemperature: string
   modelMaxTokens: string
@@ -179,6 +190,10 @@ export type ProviderMutation = {
   cli_command: string
   cli_args: string[]
   auth_config: Record<string, unknown>
+  secret_bindings: Array<{
+    env_var_key: string
+    binding_key: string
+  }>
   model_name: string
   model_temperature: number
   model_max_tokens: number

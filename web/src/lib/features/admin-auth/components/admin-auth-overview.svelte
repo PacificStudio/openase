@@ -65,7 +65,7 @@
       <div class="mt-1 text-sm font-medium">{auth.session_policy.session_idle_ttl}</div>
     </div>
     <div class="rounded-xl border border-dashed p-3 md:col-span-2">
-      <div class="text-muted-foreground text-xs">Stored in</div>
+      <div class="text-muted-foreground text-xs">Source of truth</div>
       <div class="mt-1 font-mono text-xs break-all">{auth.config_path || 'Not available'}</div>
     </div>
   </div>

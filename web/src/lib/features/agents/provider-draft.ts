@@ -11,6 +11,7 @@ import {
   formatPricingPerMillion,
   parseProviderPricingConfig,
 } from './provider-pricing'
+import { parseSecretBindings, stringifySecretBindingsDraft } from './provider-secret-bindings'
 
 export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
   { value: 'claude-code-cli', label: 'Claude Code CLI' },
@@ -45,6 +46,7 @@ export function createEmptyProviderDraft(): ProviderDraft {
     cliCommand: '',
     cliArgs: '',
     authConfig: '',
+    secretBindings: '',
     modelName: '',
     modelTemperature: '0',
     modelMaxTokens: '1',
@@ -67,6 +69,7 @@ export function providerToDraft(provider: ProviderConfig): ProviderDraft {
       Object.keys(provider.authConfig).length > 0
         ? JSON.stringify(provider.authConfig, null, 2)
         : '',
+    secretBindings: stringifySecretBindingsDraft(provider.secretBindings),
     modelName: provider.modelName,
     modelTemperature: String(provider.modelTemperature),
     modelMaxTokens: String(provider.modelMaxTokens),
@@ -145,6 +148,11 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
     return authConfig
   }
 
+  const secretBindings = parseSecretBindings(draft.secretBindings)
+  if (!secretBindings.ok) {
+    return secretBindings
+  }
+
   const pricingConfig =
     parseProviderPricingConfig(draft.pricingConfig) ??
     createCustomFlatPricingConfig(costPerInputToken.value, costPerOutputToken.value)
@@ -159,6 +167,7 @@ export function parseProviderDraft(draft: ProviderDraft): ProviderDraftParseResu
       cli_command: draft.cliCommand.trim(),
       cli_args: splitLines(draft.cliArgs),
       auth_config: authConfig.value,
+      secret_bindings: secretBindings.value,
       model_name: modelName,
       model_temperature: modelTemperature.value,
       model_max_tokens: modelMaxTokens.value,

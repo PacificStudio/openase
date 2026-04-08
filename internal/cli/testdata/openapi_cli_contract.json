@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "0d1c4e033cc871dfb25f8f4e2fd7c6afc194942c4582ceaa4ea3fcff7022d7eb",
+  "openapi_sha256": "dd75deee5eb04244ccf51fc9a7776bf70abca80bc925b73e629d49d2df2286f9",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1350,6 +1350,30 @@
       "method": "POST",
       "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable",
       "operation_id": "disableScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [secretId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "operation_id": "deleteScopedSecret",
       "positional_params": [
         "projectId",
         "secretId"
