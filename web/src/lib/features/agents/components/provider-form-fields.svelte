@@ -16,6 +16,7 @@
   } from '../provider-pricing'
   import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderDraft, ProviderDraftField } from '../types'
+  import ProviderAuthConfigField from './provider-auth-config-field.svelte'
   import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
   import ProviderSecretBindingsFields from './provider-secret-bindings-fields.svelte'
@@ -235,19 +236,10 @@
           </p>
         </div>
 
-        <div class="space-y-2">
-          <Label for="provider-auth-config">Plain auth config</Label>
-          <Textarea
-            id="provider-auth-config"
-            rows={4}
-            value={draft.authConfig}
-            placeholder={`{\n  "base_url": "http://localhost:4318"\n}`}
-            oninput={(event) => onFieldChange?.('authConfig', fieldValue(event))}
-          />
-          <p class="text-muted-foreground text-xs">
-            JSON object for non-secret provider settings only. Leave blank to clear.
-          </p>
-        </div>
+        <ProviderAuthConfigField
+          value={draft.authConfig}
+          onValueChange={(value) => onFieldChange?.('authConfig', value)}
+        />
 
         <ProviderSecretBindingsFields
           adapterType={draft.adapterType}
