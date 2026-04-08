@@ -31,6 +31,8 @@ type securityScopedSecretResponse struct {
 	DisabledAt     *string                                `json:"disabled_at,omitempty"`
 	CreatedAt      string                                 `json:"created_at"`
 	UpdatedAt      string                                 `json:"updated_at"`
+	UsageCount     int                                    `json:"usage_count"`
+	UsageScopes    []string                               `json:"usage_scopes,omitempty"`
 	Encryption     securityScopedSecretEncryptionResponse `json:"encryption"`
 }
 
@@ -52,13 +54,32 @@ func (s *Server) handleListScopedSecrets(c echo.Context) error {
 	if s.secretService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
 	}
-	items, err := s.secretService.ListProjectSecrets(c.Request().Context(), projectID)
+	items, err := s.secretService.ListProjectSecretInventory(c.Request().Context(), projectID)
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
 	response := make([]securityScopedSecretResponse, 0, len(items))
 	for _, item := range items {
-		response = append(response, mapScopedSecretResponse(item))
+		response = append(response, mapScopedSecretInventoryResponse(item))
+	}
+	return c.JSON(http.StatusOK, map[string]any{"secrets": response})
+}
+
+func (s *Server) handleListOrganizationScopedSecrets(c echo.Context) error {
+	organizationID, err := s.requireOrganizationSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	items, err := s.secretService.ListOrganizationSecretInventory(c.Request().Context(), organizationID)
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	response := make([]securityScopedSecretResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, mapScopedSecretInventoryResponse(item))
 	}
 	return c.JSON(http.StatusOK, map[string]any{"secrets": response})
 }
@@ -80,7 +101,26 @@ func (s *Server) handleCreateScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
-	return c.JSON(http.StatusCreated, map[string]any{"secret": mapScopedSecretResponse(item)})
+	return c.JSON(http.StatusCreated, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
+}
+
+func (s *Server) handleCreateOrganizationScopedSecret(c echo.Context) error {
+	organizationID, err := s.requireOrganizationSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	var raw rawCreateScopedSecretRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	item, err := s.secretService.CreateOrganizationSecret(c.Request().Context(), parseCreateOrganizationScopedSecretRequest(organizationID, raw))
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.JSON(http.StatusCreated, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
 }
 
 func (s *Server) handlePatchScopedSecret(c echo.Context) error {
@@ -103,7 +143,7 @@ func (s *Server) handlePatchScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"secret": mapScopedSecretResponse(item)})
+	return c.JSON(http.StatusOK, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
 }
 
 func (s *Server) handleRotateScopedSecret(c echo.Context) error {
@@ -126,7 +166,7 @@ func (s *Server) handleRotateScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"secret": mapScopedSecretResponse(item)})
+	return c.JSON(http.StatusOK, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
 }
 
 func (s *Server) handleDisableScopedSecret(c echo.Context) error {
@@ -145,7 +185,95 @@ func (s *Server) handleDisableScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
-	return c.JSON(http.StatusOK, map[string]any{"secret": mapScopedSecretResponse(item)})
+	return c.JSON(http.StatusOK, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
+}
+
+func (s *Server) handleDeleteScopedSecret(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	secretID, err := parseUUIDPathParam(c, "secretId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SECRET_ID", err.Error())
+	}
+	if err := s.secretService.DeleteSecret(c.Request().Context(), secretsservice.DeleteSecretInput{ProjectID: projectID, SecretID: secretID}); err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) handleRotateOrganizationScopedSecret(c echo.Context) error {
+	organizationID, err := s.requireOrganizationSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	secretID, err := parseUUIDPathParam(c, "secretId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SECRET_ID", err.Error())
+	}
+	var raw rawRotateScopedSecretRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	item, err := s.secretService.RotateOrganizationSecret(c.Request().Context(), secretsservice.RotateOrganizationSecretInput{
+		OrganizationID: organizationID,
+		SecretID:       secretID,
+		Value:          raw.Value,
+	})
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
+}
+
+func (s *Server) handleDisableOrganizationScopedSecret(c echo.Context) error {
+	organizationID, err := s.requireOrganizationSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	secretID, err := parseUUIDPathParam(c, "secretId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SECRET_ID", err.Error())
+	}
+	item, err := s.secretService.DisableOrganizationSecret(c.Request().Context(), secretsservice.DisableOrganizationSecretInput{
+		OrganizationID: organizationID,
+		SecretID:       secretID,
+	})
+	if err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
+}
+
+func (s *Server) handleDeleteOrganizationScopedSecret(c echo.Context) error {
+	organizationID, err := s.requireOrganizationSecurityContext(c)
+	if err != nil {
+		return err
+	}
+	if s.secretService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", secretsservice.ErrUnavailable.Error())
+	}
+	secretID, err := parseUUIDPathParam(c, "secretId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_SECRET_ID", err.Error())
+	}
+	if err := s.secretService.DeleteOrganizationSecret(c.Request().Context(), secretsservice.DeleteOrganizationSecretInput{
+		OrganizationID: organizationID,
+		SecretID:       secretID,
+	}); err != nil {
+		return writeScopedSecretError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (s *Server) handleResolveScopedSecretsForRuntime(c echo.Context) error {
@@ -214,6 +342,43 @@ func mapScopedSecretResponse(item secretsdomain.Secret) securityScopedSecretResp
 		response.DisabledAt = &disabledAt
 	}
 	return response
+}
+
+func mapScopedSecretInventoryResponse(item secretsdomain.InventorySecret) securityScopedSecretResponse {
+	response := mapScopedSecretResponse(item.Secret)
+	response.UsageCount = item.UsageCount
+	if len(item.UsageScopes) > 0 {
+		response.UsageScopes = make([]string, 0, len(item.UsageScopes))
+		for _, scope := range item.UsageScopes {
+			response.UsageScopes = append(response.UsageScopes, string(scope))
+		}
+	}
+	return response
+}
+
+func (s *Server) projectSecretResponse(c echo.Context, projectID uuid.UUID, item secretsdomain.Secret) securityScopedSecretResponse {
+	inventory, err := s.secretService.ListProjectSecretInventory(c.Request().Context(), projectID)
+	if err != nil {
+		return mapScopedSecretResponse(item)
+	}
+	return matchScopedSecretInventoryResponse(inventory, item)
+}
+
+func (s *Server) organizationSecretResponse(c echo.Context, organizationID uuid.UUID, item secretsdomain.Secret) securityScopedSecretResponse {
+	inventory, err := s.secretService.ListOrganizationSecretInventory(c.Request().Context(), organizationID)
+	if err != nil {
+		return mapScopedSecretResponse(item)
+	}
+	return matchScopedSecretInventoryResponse(inventory, item)
+}
+
+func matchScopedSecretInventoryResponse(inventory []secretsdomain.InventorySecret, item secretsdomain.Secret) securityScopedSecretResponse {
+	for _, candidate := range inventory {
+		if candidate.Secret.ID == item.ID {
+			return mapScopedSecretInventoryResponse(candidate)
+		}
+	}
+	return mapScopedSecretResponse(item)
 }
 
 func writeScopedSecretError(c echo.Context, err error) error {

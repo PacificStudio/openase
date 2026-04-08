@@ -109,6 +109,12 @@ type Secret struct {
 	StoredValue    StoredValue `json:"stored_value"`
 }
 
+type InventorySecret struct {
+	Secret      Secret             `json:"secret"`
+	UsageCount  int                `json:"usage_count"`
+	UsageScopes []BindingScopeKind `json:"usage_scopes"`
+}
+
 type Binding struct {
 	ID              uuid.UUID        `json:"id"`
 	OrganizationID  uuid.UUID        `json:"organization_id"`
@@ -174,6 +180,17 @@ func ParseBindingKeys(raw []string) ([]string, error) {
 	}
 	slices.Sort(keys)
 	return keys, nil
+}
+
+func BindingKeysFromCandidates(candidates []Candidate) ([]string, error) {
+	if len(candidates) == 0 {
+		return nil, nil
+	}
+	raw := make([]string, 0, len(candidates))
+	for _, item := range candidates {
+		raw = append(raw, item.Binding.BindingKey)
+	}
+	return ParseBindingKeys(raw)
 }
 
 func DefaultCipherSeed(seed string) string {

@@ -116,6 +116,28 @@ func TestParseBindingKeys(t *testing.T) {
 	}
 }
 
+func TestBindingKeysFromCandidates(t *testing.T) {
+	got, err := BindingKeysFromCandidates([]Candidate{
+		{Binding: Binding{BindingKey: " gh_token "}},
+		{Binding: Binding{BindingKey: "OPENAI_API_KEY"}},
+		{Binding: Binding{BindingKey: "GH_TOKEN"}},
+	})
+	if err != nil {
+		t.Fatalf("BindingKeysFromCandidates() error = %v", err)
+	}
+	if len(got) != 2 || got[0] != "GH_TOKEN" || got[1] != "OPENAI_API_KEY" {
+		t.Fatalf("BindingKeysFromCandidates() = %v", got)
+	}
+
+	empty, err := BindingKeysFromCandidates(nil)
+	if err != nil {
+		t.Fatalf("BindingKeysFromCandidates(nil) error = %v", err)
+	}
+	if len(empty) != 0 {
+		t.Fatalf("BindingKeysFromCandidates(nil) = %v, want empty", empty)
+	}
+}
+
 func TestDefaultCipherSeedAndRedactValue(t *testing.T) {
 	seed := DefaultCipherSeed("postgres://example")
 	decoded, err := base64.StdEncoding.DecodeString(seed)

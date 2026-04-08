@@ -1699,6 +1699,8 @@ type OpenAPIScopedSecret struct {
 	DisabledAt     *string                       `json:"disabled_at,omitempty"`
 	CreatedAt      string                        `json:"created_at"`
 	UpdatedAt      string                        `json:"updated_at"`
+	UsageCount     int                           `json:"usage_count"`
+	UsageScopes    []string                      `json:"usage_scopes,omitempty"`
 	Encryption     OpenAPIScopedSecretEncryption `json:"encryption"`
 }
 
@@ -2469,6 +2471,8 @@ var (
 		"POST /api/v1/projects/{projectId}/repos":                                                      openAPIRepoRequestDescriptions,
 		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                                            openAPIRepoRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/github/repos":                                               openAPIGitHubRepositoryDescriptions,
+		"POST /api/v1/orgs/{orgId}/security-settings/secrets":                                          openAPICreateScopedSecretDescriptions,
+		"POST /api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate":                        openAPIRotateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets":                                  openAPICreateScopedSecretDescriptions,
 		"PATCH /api/v1/projects/{projectId}/security-settings/secrets/{secretId}":                      openAPIUpdateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate":                openAPIRotateScopedSecretDescriptions,
@@ -2509,25 +2513,25 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                                                            openAPIChatRequestDescriptions,
-		"POST /api/v1/chat/conversations":                                                              openAPIProjectConversationCreateDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/turns":                                       openAPIProjectConversationTurnDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond":            openAPIProjectConversationInterruptResponseDescriptions,
-		"POST /api/v1/instance/role-bindings":                                                          openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/instance/users/{userId}/status":                                                  openAPIUserStatusTransitionDescriptions,
-		"POST /api/v1/orgs/{orgId}/invitations":                                                        openAPIOrganizationInvitationDescriptions,
-		"POST /api/v1/org-invitations/accept":                                                          openAPIOrganizationInvitationAcceptDescriptions,
-		"PATCH /api/v1/orgs/{orgId}/members/{membershipId}":                                            openAPIOrganizationMembershipPatchDescriptions,
-		"POST /api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership":                          openAPIOrganizationOwnershipTransferDescriptions,
-		"POST /api/v1/organizations/{orgId}/role-bindings":                                             openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/role-bindings":                                              openAPIRoleBindingRequestDescriptions,
-		"POST /api/v1/projects/{projectId}/skills":                                                     openAPISkillCreateDescriptions,
-		"POST /api/v1/projects/{projectId}/skills/refresh":                                             openAPISkillSyncDescriptions,
-		"PUT /api/v1/skills/{skillId}":                                                                 openAPISkillUpdateDescriptions,
-		"POST /api/v1/skills/{skillId}/bind":                                                           openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/skills/{skillId}/unbind":                                                         openAPISkillBindingTargetDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/bind":                                              openAPISkillBindingDescriptions,
-		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                            openAPISkillBindingDescriptions,
+		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
+		"POST /api/v1/instance/role-bindings":                                               openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/instance/users/{userId}/status":                                       openAPIUserStatusTransitionDescriptions,
+		"POST /api/v1/orgs/{orgId}/invitations":                                             openAPIOrganizationInvitationDescriptions,
+		"POST /api/v1/org-invitations/accept":                                               openAPIOrganizationInvitationAcceptDescriptions,
+		"PATCH /api/v1/orgs/{orgId}/members/{membershipId}":                                 openAPIOrganizationMembershipPatchDescriptions,
+		"POST /api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership":               openAPIOrganizationOwnershipTransferDescriptions,
+		"POST /api/v1/organizations/{orgId}/role-bindings":                                  openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/role-bindings":                                   openAPIRoleBindingRequestDescriptions,
+		"POST /api/v1/projects/{projectId}/skills":                                          openAPISkillCreateDescriptions,
+		"POST /api/v1/projects/{projectId}/skills/refresh":                                  openAPISkillSyncDescriptions,
+		"PUT /api/v1/skills/{skillId}":                                                      openAPISkillUpdateDescriptions,
+		"POST /api/v1/skills/{skillId}/bind":                                                openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/skills/{skillId}/unbind":                                              openAPISkillBindingTargetDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/bind":                                   openAPISkillBindingDescriptions,
+		"POST /api/v1/workflows/{workflowId}/skills/unbind":                                 openAPISkillBindingDescriptions,
 	}
 )
 
@@ -5650,6 +5654,24 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretList.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodGet, secretList)
 
+	orgSecretList, err := b.jsonOperation(
+		"listOrganizationScopedSecrets",
+		"List organization scoped secrets managed from org settings",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretList.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets", http.MethodGet, orgSecretList)
+
 	secretCreate, err := b.jsonOperation(
 		"createScopedSecret",
 		"Create a new encrypted scoped secret",
@@ -5668,6 +5690,25 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	secretCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodPost, secretCreate)
+
+	orgSecretCreate, err := b.jsonOperation(
+		"createOrganizationScopedSecret",
+		"Create a new organization scoped secret",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIScopedSecretResponse{},
+		OpenAPICreateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretCreate.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets", http.MethodPost, orgSecretCreate)
 
 	secretPatch, err := b.jsonOperation(
 		"updateScopedSecretMetadata",
@@ -5708,6 +5749,25 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretRotate.AddParameter(uuidPathParameter("secretId", "Secret ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate", http.MethodPost, secretRotate)
 
+	orgSecretRotate, err := b.jsonOperation(
+		"rotateOrganizationScopedSecret",
+		"Rotate the encrypted value for an organization scoped secret",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		OpenAPIRotateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretRotate.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretRotate.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate", http.MethodPost, orgSecretRotate)
+
 	secretDisable, err := b.jsonOperation(
 		"disableScopedSecret",
 		"Disable a scoped secret so lower-precedence bindings can fall back",
@@ -5726,6 +5786,57 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretDisable.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	secretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable", http.MethodPost, secretDisable)
+
+	orgSecretDisable, err := b.jsonOperation(
+		"disableOrganizationScopedSecret",
+		"Disable an organization scoped secret so lower-precedence bindings can fall back",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	orgSecretDisable.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable", http.MethodPost, orgSecretDisable)
+
+	secretDelete := openapi3.NewOperation()
+	secretDelete.OperationID = "deleteScopedSecret"
+	secretDelete.Summary = "Delete a scoped secret and remove its default bindings"
+	secretDelete.Tags = []string{"security-settings"}
+	secretDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Scoped secret deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		secretDelete.AddResponse(code, errorResponse)
+	}
+	secretDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretDelete.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}", http.MethodDelete, secretDelete)
+
+	orgSecretDelete := openapi3.NewOperation()
+	orgSecretDelete.OperationID = "deleteOrganizationScopedSecret"
+	orgSecretDelete.Summary = "Delete an organization scoped secret and remove its default bindings"
+	orgSecretDelete.Tags = []string{"security-settings"}
+	orgSecretDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Organization scoped secret deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		orgSecretDelete.AddResponse(code, errorResponse)
+	}
+	orgSecretDelete.AddParameter(uuidPathParameter("orgId", "Organization ID."))
+	orgSecretDelete.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}", http.MethodDelete, orgSecretDelete)
 
 	secretResolve, err := b.jsonOperation(
 		"resolveScopedSecretsForRuntime",

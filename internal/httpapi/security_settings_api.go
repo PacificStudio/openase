@@ -94,12 +94,18 @@ type securitySettingsResponse struct {
 }
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
+	api.GET("/orgs/:orgId/security-settings/secrets", s.handleListOrganizationScopedSecrets)
+	api.POST("/orgs/:orgId/security-settings/secrets", s.handleCreateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/rotate", s.handleRotateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/disable", s.handleDisableOrganizationScopedSecret)
+	api.DELETE("/orgs/:orgId/security-settings/secrets/:secretId", s.handleDeleteOrganizationScopedSecret)
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
 	api.GET("/projects/:projectId/security-settings/secrets", s.handleListScopedSecrets)
 	api.POST("/projects/:projectId/security-settings/secrets", s.handleCreateScopedSecret)
 	api.PATCH("/projects/:projectId/security-settings/secrets/:secretId", s.handlePatchScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/:secretId/rotate", s.handleRotateScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/:secretId/disable", s.handleDisableScopedSecret)
+	api.DELETE("/projects/:projectId/security-settings/secrets/:secretId", s.handleDeleteScopedSecret)
 	api.POST("/projects/:projectId/security-settings/secrets/resolve-for-runtime", s.handleResolveScopedSecretsForRuntime)
 	api.PUT("/projects/:projectId/security-settings/oidc-draft", s.handlePutOIDCDraft)
 	api.POST("/projects/:projectId/security-settings/oidc-draft/test", s.handleTestOIDCDraft)
@@ -391,6 +397,21 @@ func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error
 		return uuid.UUID{}, writeCatalogError(c, err)
 	}
 	return projectID, nil
+}
+
+func (s *Server) requireOrganizationSecurityContext(c echo.Context) (uuid.UUID, error) {
+	if s.catalog.Empty() {
+		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+
+	organizationID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if _, err := s.catalog.GetOrganization(c.Request().Context(), organizationID); err != nil {
+		return uuid.UUID{}, writeCatalogError(c, err)
+	}
+	return organizationID, nil
 }
 
 func (s *Server) writeSecuritySettingsResponse(

@@ -1,9 +1,18 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Inbox, Plus, Ellipsis, ArrowLeft, ArrowRight, Archive, Trash2 } from '@lucide/svelte'
+  import { Inbox, Plus, Ellipsis, ArrowLeft, ArrowRight, Archive, Trash2, Gauge } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
+  import * as Tooltip from '$ui/tooltip'
   import type { BoardColumn, BoardStatusOption, BoardTicket } from '../types'
   import TicketCard from './ticket-card.svelte'
+
+  const workflowColors: Record<string, string> = {
+    coding: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+    test: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+    security: 'bg-red-500/15 text-red-600 dark:text-red-400',
+    review: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
+    deploy: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+  }
 
   let {
     column,
@@ -81,6 +90,44 @@
     <span class="size-2.5 rounded-full" style="background-color: {column.color}"></span>
     <span class="text-foreground text-sm font-medium">{column.name}</span>
     <span class="text-muted-foreground text-xs">{column.tickets.length}</span>
+
+    {#if hasConcurrencyLimit}
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger class="text-muted-foreground flex items-center gap-0.5 text-xs">
+            <Gauge class="size-3" />
+            <span>{currentStatus?.maxActiveRuns}</span>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content side="top">
+              Parallel limit: {column.wipInfo}
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    {/if}
+
+    {#each column.pickupWorkflows ?? [] as wf (wf.id)}
+      <Tooltip.Provider>
+        <Tooltip.Root>
+          <Tooltip.Trigger class="inline-flex items-center">
+            <span
+              class={cn(
+                'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
+                workflowColors[wf.type] ?? 'bg-muted text-muted-foreground',
+              )}
+            >
+              {wf.type}
+            </span>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content side="top">
+              Picked up by: {wf.name}
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
+    {/each}
 
     <div class="ml-auto flex items-center">
       <DropdownMenu.Root>

@@ -25,12 +25,19 @@ var (
 )
 
 type Manager interface {
-	ListProjectSecrets(ctx context.Context, projectID uuid.UUID) ([]domain.Secret, error)
+	ListProjectSecretInventory(ctx context.Context, projectID uuid.UUID) ([]domain.InventorySecret, error)
+	ListOrganizationSecretInventory(ctx context.Context, organizationID uuid.UUID) ([]domain.InventorySecret, error)
 	CreateSecret(ctx context.Context, input CreateSecretInput) (domain.Secret, error)
+	CreateOrganizationSecret(ctx context.Context, input CreateOrganizationSecretInput) (domain.Secret, error)
 	UpdateSecretMetadata(ctx context.Context, input UpdateSecretMetadataInput) (domain.Secret, error)
 	RotateSecret(ctx context.Context, input RotateSecretInput) (domain.Secret, error)
+	RotateOrganizationSecret(ctx context.Context, input RotateOrganizationSecretInput) (domain.Secret, error)
 	DisableSecret(ctx context.Context, input DisableSecretInput) (domain.Secret, error)
+	DisableOrganizationSecret(ctx context.Context, input DisableOrganizationSecretInput) (domain.Secret, error)
+	DeleteSecret(ctx context.Context, input DeleteSecretInput) error
+	DeleteOrganizationSecret(ctx context.Context, input DeleteOrganizationSecretInput) error
 	ResolveForRuntime(ctx context.Context, input ResolveRuntimeInput) ([]domain.ResolvedSecret, []string, error)
+	ResolveBoundForRuntime(ctx context.Context, input ResolveBoundRuntimeInput) ([]domain.ResolvedSecret, error)
 }
 
 type CreateSecretInput struct {
@@ -40,6 +47,14 @@ type CreateSecretInput struct {
 	Kind        string
 	Description string
 	Value       string
+}
+
+type CreateOrganizationSecretInput struct {
+	OrganizationID uuid.UUID
+	Name           string
+	Kind           string
+	Description    string
+	Value          string
 }
 
 type UpdateSecretMetadataInput struct {
@@ -55,9 +70,30 @@ type RotateSecretInput struct {
 	Value     string
 }
 
+type RotateOrganizationSecretInput struct {
+	OrganizationID uuid.UUID
+	SecretID       uuid.UUID
+	Value          string
+}
+
 type DisableSecretInput struct {
 	ProjectID uuid.UUID
 	SecretID  uuid.UUID
+}
+
+type DisableOrganizationSecretInput struct {
+	OrganizationID uuid.UUID
+	SecretID       uuid.UUID
+}
+
+type DeleteSecretInput struct {
+	ProjectID uuid.UUID
+	SecretID  uuid.UUID
+}
+
+type DeleteOrganizationSecretInput struct {
+	OrganizationID uuid.UUID
+	SecretID       uuid.UUID
 }
 
 type ResolveRuntimeInput struct {
@@ -66,6 +102,13 @@ type ResolveRuntimeInput struct {
 	TicketID    *uuid.UUID
 	WorkflowID  *uuid.UUID
 	AgentID     *uuid.UUID
+}
+
+type ResolveBoundRuntimeInput struct {
+	ProjectID  uuid.UUID
+	TicketID   *uuid.UUID
+	WorkflowID *uuid.UUID
+	AgentID    *uuid.UUID
 }
 
 type Service struct {
@@ -89,11 +132,18 @@ func New(repository repo.Repository, cipherSeed string) (*Service, error) {
 	return &Service{repo: repository, block: block, now: time.Now}, nil
 }
 
-func (s *Service) ListProjectSecrets(ctx context.Context, projectID uuid.UUID) ([]domain.Secret, error) {
+func (s *Service) ListProjectSecretInventory(ctx context.Context, projectID uuid.UUID) ([]domain.InventorySecret, error) {
 	if s.repo == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListAccessibleSecrets(ctx, projectID)
+	return s.repo.ListProjectSecretInventory(ctx, projectID)
+}
+
+func (s *Service) ListOrganizationSecretInventory(ctx context.Context, organizationID uuid.UUID) ([]domain.InventorySecret, error) {
+	if s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	return s.repo.ListOrganizationSecretInventory(ctx, organizationID)
 }
 
 func (s *Service) CreateSecret(ctx context.Context, input CreateSecretInput) (domain.Secret, error) {
@@ -130,6 +180,37 @@ func (s *Service) CreateSecret(ctx context.Context, input CreateSecretInput) (do
 		StoredValue:    storedValue,
 	}
 	created, err := s.repo.CreateSecret(ctx, item)
+	if err != nil {
+		return domain.Secret{}, mapRepositoryError(err)
+	}
+	return created, nil
+}
+
+func (s *Service) CreateOrganizationSecret(ctx context.Context, input CreateOrganizationSecretInput) (domain.Secret, error) {
+	if s.repo == nil {
+		return domain.Secret{}, ErrUnavailable
+	}
+	name, err := domain.NormalizeName(input.Name)
+	if err != nil {
+		return domain.Secret{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	kind, err := domain.ParseKind(input.Kind)
+	if err != nil {
+		return domain.Secret{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	storedValue, err := s.sealValue(input.Value)
+	if err != nil {
+		return domain.Secret{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	created, err := s.repo.CreateSecret(ctx, domain.Secret{
+		OrganizationID: input.OrganizationID,
+		ProjectID:      uuid.Nil,
+		Scope:          domain.ScopeKindOrganization,
+		Name:           name,
+		Kind:           kind,
+		Description:    strings.TrimSpace(input.Description),
+		StoredValue:    storedValue,
+	})
 	if err != nil {
 		return domain.Secret{}, mapRepositoryError(err)
 	}
@@ -177,6 +258,21 @@ func (s *Service) RotateSecret(ctx context.Context, input RotateSecretInput) (do
 	return updated, nil
 }
 
+func (s *Service) RotateOrganizationSecret(ctx context.Context, input RotateOrganizationSecretInput) (domain.Secret, error) {
+	if s.repo == nil {
+		return domain.Secret{}, ErrUnavailable
+	}
+	storedValue, err := s.sealValue(input.Value)
+	if err != nil {
+		return domain.Secret{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	updated, err := s.repo.RotateOrganizationSecret(ctx, input.OrganizationID, input.SecretID, storedValue)
+	if err != nil {
+		return domain.Secret{}, mapRepositoryError(err)
+	}
+	return updated, nil
+}
+
 func (s *Service) DisableSecret(ctx context.Context, input DisableSecretInput) (domain.Secret, error) {
 	if s.repo == nil {
 		return domain.Secret{}, ErrUnavailable
@@ -186,6 +282,31 @@ func (s *Service) DisableSecret(ctx context.Context, input DisableSecretInput) (
 		return domain.Secret{}, mapRepositoryError(err)
 	}
 	return updated, nil
+}
+
+func (s *Service) DisableOrganizationSecret(ctx context.Context, input DisableOrganizationSecretInput) (domain.Secret, error) {
+	if s.repo == nil {
+		return domain.Secret{}, ErrUnavailable
+	}
+	updated, err := s.repo.DisableOrganizationSecret(ctx, input.OrganizationID, input.SecretID, s.now().UTC())
+	if err != nil {
+		return domain.Secret{}, mapRepositoryError(err)
+	}
+	return updated, nil
+}
+
+func (s *Service) DeleteSecret(ctx context.Context, input DeleteSecretInput) error {
+	if s.repo == nil {
+		return ErrUnavailable
+	}
+	return mapRepositoryError(s.repo.DeleteSecret(ctx, input.ProjectID, input.SecretID))
+}
+
+func (s *Service) DeleteOrganizationSecret(ctx context.Context, input DeleteOrganizationSecretInput) error {
+	if s.repo == nil {
+		return ErrUnavailable
+	}
+	return mapRepositoryError(s.repo.DeleteOrganizationSecret(ctx, input.OrganizationID, input.SecretID))
 }
 
 func (s *Service) ResolveForRuntime(ctx context.Context, input ResolveRuntimeInput) ([]domain.ResolvedSecret, []string, error) {
@@ -200,27 +321,29 @@ func (s *Service) ResolveForRuntime(ctx context.Context, input ResolveRuntimeInp
 	if err != nil {
 		return nil, nil, err
 	}
-	selected, missing, err := domain.SelectBindings(keys, candidates)
+	return s.resolveCandidates(keys, candidates)
+}
+
+func (s *Service) ResolveBoundForRuntime(ctx context.Context, input ResolveBoundRuntimeInput) ([]domain.ResolvedSecret, error) {
+	if s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	candidates, err := s.repo.ListResolutionCandidates(ctx, input.ProjectID, nil, input.TicketID, input.WorkflowID, input.AgentID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	resolved := make([]domain.ResolvedSecret, 0, len(selected))
-	for _, item := range selected {
-		value, err := s.decryptValue(item.Secret.StoredValue)
-		if err != nil {
-			return nil, nil, err
-		}
-		resolved = append(resolved, domain.ResolvedSecret{
-			BindingKey:   item.BindingKey,
-			BindingScope: item.Binding.Scope,
-			SecretID:     item.Secret.ID,
-			SecretName:   item.Secret.Name,
-			SecretScope:  item.Secret.Scope,
-			SecretKind:   item.Secret.Kind,
-			Value:        value,
-		})
+	keys, err := domain.BindingKeysFromCandidates(candidates)
+	if err != nil {
+		return nil, err
 	}
-	return resolved, missing, nil
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	resolved, _, err := s.resolveCandidates(keys, candidates)
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
 }
 
 func (s *Service) sealValue(raw string) (domain.StoredValue, error) {
@@ -282,4 +405,28 @@ func mapRepositoryError(err error) error {
 		return ErrSecretNameConflict
 	}
 	return err
+}
+
+func (s *Service) resolveCandidates(keys []string, candidates []domain.Candidate) ([]domain.ResolvedSecret, []string, error) {
+	selected, missing, err := domain.SelectBindings(keys, candidates)
+	if err != nil {
+		return nil, nil, err
+	}
+	resolved := make([]domain.ResolvedSecret, 0, len(selected))
+	for _, item := range selected {
+		value, err := s.decryptValue(item.Secret.StoredValue)
+		if err != nil {
+			return nil, nil, err
+		}
+		resolved = append(resolved, domain.ResolvedSecret{
+			BindingKey:   item.BindingKey,
+			BindingScope: item.Binding.Scope,
+			SecretID:     item.Secret.ID,
+			SecretName:   item.Secret.Name,
+			SecretScope:  item.Secret.Scope,
+			SecretKind:   item.Secret.Kind,
+			Value:        value,
+		})
+	}
+	return resolved, missing, nil
 }

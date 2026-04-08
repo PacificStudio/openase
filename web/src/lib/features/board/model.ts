@@ -68,6 +68,14 @@ export function buildBoardData(
   activity: ActivityEvent[],
 ): BoardData {
   const workflowTypeById = new Map(workflows.map((workflow) => [workflow.id, workflow.type]))
+  const pickupWorkflowsByStatusId = new Map<string, { id: string; name: string }[]>()
+  for (const wf of workflows) {
+    for (const sid of wf.pickup_status_ids ?? []) {
+      const list = pickupWorkflowsByStatusId.get(sid) ?? []
+      list.push({ id: wf.id, name: wf.name, type: wf.type })
+      pickupWorkflowsByStatusId.set(sid, list)
+    }
+  }
   const { runtimeByTicketId, agentRuntimeByTicketId } = buildTicketRuntimeById(agents, activity)
   const statusMap = new Map(
     statusPayload.statuses.map((s) => [
@@ -88,7 +96,7 @@ export function buildBoardData(
     terminalStatusIds,
     statusMap,
   )
-  const groups = buildBoardGroups(statusPayload, ticketsByStatusId)
+  const groups = buildBoardGroups(statusPayload, ticketsByStatusId, pickupWorkflowsByStatusId)
   const columns = groups.flatMap((group) => group.columns)
 
   const statusOptions: BoardStatusOption[] = statusPayload.statuses

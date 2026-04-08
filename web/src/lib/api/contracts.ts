@@ -59,6 +59,37 @@ export type ProjectTokenUsageDay = ItemOf<NonNullable<ProjectTokenUsageResponse[
 export type ProjectTokenUsageSummary = NonNullable<ProjectTokenUsageResponse['summary']>
 export type ProjectTokenUsagePeakDay = NonNullable<ProjectTokenUsageSummary['peak_day']>
 
+export type ScopedSecretRecord = {
+  id: string
+  organization_id: string
+  project_id?: string | null
+  scope: 'organization' | 'project' | string
+  name: string
+  kind: string
+  description: string
+  disabled: boolean
+  disabled_at?: string | null
+  created_at: string
+  updated_at: string
+  usage_count: number
+  usage_scopes?: string[]
+  encryption: {
+    algorithm: string
+    key_id: string
+    key_source: string
+    rotated_at: string
+    value_preview: string
+  }
+}
+
+export type ScopedSecretsResponse = {
+  secrets: ScopedSecretRecord[]
+}
+
+export type ScopedSecretResponse = {
+  secret: ScopedSecretRecord
+}
+
 type RawAgentProviderListPayload = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'get'>
 type RawAgentProviderResponse = ResponseFor<'/api/v1/orgs/{orgId}/providers', 'post'>
 export type AgentProvider = ShallowRequired<

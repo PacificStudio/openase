@@ -1107,6 +1107,75 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization scoped secrets managed from org settings */
+    get: operations['listOrganizationScopedSecrets']
+    put?: never
+    /** Create a new organization scoped secret */
+    post: operations['createOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an organization scoped secret and remove its default bindings */
+    delete: operations['deleteOrganizationScopedSecret']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable an organization scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an organization scoped secret */
+    post: operations['rotateOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/summary': {
     parameters: {
       query?: never
@@ -1638,7 +1707,8 @@ export interface paths {
     get?: never
     put?: never
     post?: never
-    delete?: never
+    /** Delete a scoped secret and remove its default bindings */
+    delete: operations['deleteScopedSecret']
     options?: never
     head?: never
     /** Update scoped secret metadata without changing the encrypted value */
@@ -10037,6 +10107,499 @@ export interface operations {
       }
     }
   }
+  listOrganizationScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization scoped secrets managed from org settings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new organization scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Organization scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  disableOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable an organization scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an organization scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getOrganizationSummary: {
     parameters: {
       query?: never
@@ -14447,6 +15010,8 @@ export interface operations {
               project_id?: string | null
               scope?: string
               updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
             }[]
           }
         }
@@ -14555,6 +15120,8 @@ export interface operations {
               project_id?: string | null
               scope?: string
               updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
             }
           }
         }
@@ -14729,6 +15296,83 @@ export interface operations {
       }
     }
   }
+  deleteScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
   updateScopedSecretMetadata: {
     parameters: {
       query?: never
@@ -14779,6 +15423,8 @@ export interface operations {
               project_id?: string | null
               scope?: string
               updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
             }
           }
         }
@@ -14885,6 +15531,8 @@ export interface operations {
               project_id?: string | null
               scope?: string
               updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
             }
           }
         }
@@ -14987,6 +15635,8 @@ export interface operations {
               project_id?: string | null
               scope?: string
               updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
             }
           }
         }

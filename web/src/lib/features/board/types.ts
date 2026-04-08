@@ -7,6 +7,7 @@ export type BoardColumn = {
   icon?: string
   tickets: BoardTicket[]
   wipInfo?: string
+  pickupWorkflows?: { id: string; name: string; type: string }[]
 }
 
 export type BoardGroup = {
