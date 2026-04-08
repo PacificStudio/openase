@@ -44,7 +44,12 @@ describe('Security settings human auth sessions', () => {
   it('revokes other sessions from the session governance panel', async () => {
     authStore.hydrate({
       authMode: 'oidc',
+      loginRequired: true,
       authenticated: true,
+      principalKind: 'human_session',
+      authConfigured: true,
+      sessionGovernanceAvailable: true,
+      canManageAuth: true,
       csrfToken: 'csrf-token',
       user: {
         id: 'user-1',
@@ -52,7 +57,7 @@ describe('Security settings human auth sessions', () => {
         displayName: 'Alice Control Plane',
       },
       roles: ['instance_admin'],
-      permissions: ['security.manage'],
+      permissions: ['security_setting.update'],
     })
 
     getSessionGovernance.mockResolvedValue({

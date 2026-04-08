@@ -1820,13 +1820,18 @@ type OpenAPIAuthSessionUser struct {
 }
 
 type OpenAPIAuthSessionResponse struct {
-	AuthMode      string                  `json:"auth_mode"`
-	Authenticated bool                    `json:"authenticated"`
-	IssuerURL     string                  `json:"issuer_url,omitempty"`
-	User          *OpenAPIAuthSessionUser `json:"user,omitempty"`
-	CSRFToken     string                  `json:"csrf_token,omitempty"`
-	Roles         []string                `json:"roles,omitempty"`
-	Permissions   []string                `json:"permissions,omitempty"`
+	AuthMode                   string                  `json:"auth_mode"`
+	LoginRequired              bool                    `json:"login_required"`
+	Authenticated              bool                    `json:"authenticated"`
+	PrincipalKind              string                  `json:"principal_kind"`
+	AuthConfigured             bool                    `json:"auth_configured"`
+	SessionGovernanceAvailable bool                    `json:"session_governance_available"`
+	CanManageAuth              bool                    `json:"can_manage_auth"`
+	IssuerURL                  string                  `json:"issuer_url,omitempty"`
+	User                       *OpenAPIAuthSessionUser `json:"user,omitempty"`
+	CSRFToken                  string                  `json:"csrf_token,omitempty"`
+	Roles                      []string                `json:"roles,omitempty"`
+	Permissions                []string                `json:"permissions,omitempty"`
 }
 
 type OpenAPIAuthSessionDevice struct {
@@ -1961,11 +1966,18 @@ type OpenAPIHumanGroupMembership struct {
 }
 
 type OpenAPIAuthPermissionsResponse struct {
-	User        OpenAPIAuthSessionUser        `json:"user"`
-	Scope       OpenAPIHumanScope             `json:"scope"`
-	Roles       []string                      `json:"roles"`
-	Permissions []string                      `json:"permissions"`
-	Groups      []OpenAPIHumanGroupMembership `json:"groups"`
+	AuthMode                   string                        `json:"auth_mode"`
+	LoginRequired              bool                          `json:"login_required"`
+	Authenticated              bool                          `json:"authenticated"`
+	PrincipalKind              string                        `json:"principal_kind"`
+	AuthConfigured             bool                          `json:"auth_configured"`
+	SessionGovernanceAvailable bool                          `json:"session_governance_available"`
+	CanManageAuth              bool                          `json:"can_manage_auth"`
+	User                       *OpenAPIAuthSessionUser       `json:"user,omitempty"`
+	Scope                      OpenAPIHumanScope             `json:"scope"`
+	Roles                      []string                      `json:"roles"`
+	Permissions                []string                      `json:"permissions"`
+	Groups                     []OpenAPIHumanGroupMembership `json:"groups"`
 }
 
 type OpenAPIRoleBinding struct {
@@ -2962,7 +2974,7 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 
 	myPermissions, err := b.jsonOperation(
 		"getMyEffectivePermissions",
-		"Get effective OpenASE roles and permissions for the authenticated human",
+		"Get effective OpenASE roles and permissions for the current request context",
 		[]string{"auth"},
 		http.StatusOK,
 		OpenAPIAuthPermissionsResponse{},

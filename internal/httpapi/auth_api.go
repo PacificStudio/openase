@@ -20,13 +20,18 @@ type authSessionUserResponse struct {
 }
 
 type authSessionResponse struct {
-	AuthMode      string                   `json:"auth_mode"`
-	Authenticated bool                     `json:"authenticated"`
-	IssuerURL     string                   `json:"issuer_url,omitempty"`
-	User          *authSessionUserResponse `json:"user,omitempty"`
-	CSRFToken     string                   `json:"csrf_token,omitempty"`
-	Roles         []string                 `json:"roles,omitempty"`
-	Permissions   []string                 `json:"permissions,omitempty"`
+	AuthMode                   string                   `json:"auth_mode"`
+	LoginRequired              bool                     `json:"login_required"`
+	Authenticated              bool                     `json:"authenticated"`
+	PrincipalKind              string                   `json:"principal_kind"`
+	AuthConfigured             bool                     `json:"auth_configured"`
+	SessionGovernanceAvailable bool                     `json:"session_governance_available"`
+	CanManageAuth              bool                     `json:"can_manage_auth"`
+	IssuerURL                  string                   `json:"issuer_url,omitempty"`
+	User                       *authSessionUserResponse `json:"user,omitempty"`
+	CSRFToken                  string                   `json:"csrf_token,omitempty"`
+	Roles                      []string                 `json:"roles,omitempty"`
+	Permissions                []string                 `json:"permissions,omitempty"`
 }
 
 type authSessionDeviceResponse struct {
@@ -81,11 +86,11 @@ func (s *Server) registerAuthRoutes(api *echo.Group) {
 	api.GET("/auth/oidc/start", s.handleOIDCStart)
 	api.GET("/auth/oidc/callback", s.handleOIDCCallback)
 	api.GET("/auth/session", s.handleAuthSession)
+	api.GET("/auth/me/permissions", s.handleGetMyPermissions)
 	api.POST("/auth/logout", s.handleLogout)
 }
 
 func (s *Server) registerProtectedAuthRoutes(api *echo.Group) {
-	api.GET("/auth/me/permissions", s.handleGetMyPermissions)
 	api.GET("/auth/sessions", s.handleListSessions)
 	api.DELETE("/auth/sessions/:id", s.handleDeleteSession)
 	api.POST("/auth/sessions/revoke-all", s.handleRevokeAllSessions)
@@ -139,44 +144,24 @@ func (s *Server) handleOIDCCallback(c echo.Context) error {
 }
 
 func (s *Server) handleAuthSession(c echo.Context) error {
-	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	authContext, err := s.resolveAuthRequestContext(c, invalidHumanSessionAsAnonymous)
 	if err != nil {
 		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
 	}
 	response := authSessionResponse{
-		AuthMode: runtimeState.AuthMode.String(),
+		AuthMode:                   authContext.RuntimeState.AuthMode.String(),
+		LoginRequired:              authContext.LoginRequired,
+		Authenticated:              authContext.Authenticated,
+		PrincipalKind:              string(authContext.PrincipalKind),
+		AuthConfigured:             authContext.AuthConfigured,
+		SessionGovernanceAvailable: authContext.SessionGovernanceAvailable,
+		CanManageAuth:              authContext.CanManageAuth,
+		IssuerURL:                  authContext.IssuerURL,
+		User:                       authContext.User,
+		CSRFToken:                  authContext.CSRFToken,
+		Roles:                      roleKeysToStrings(authContext.Roles),
+		Permissions:                permissionKeysToStrings(authContext.Permissions),
 	}
-	if runtimeState.ResolvedOIDCConfig != nil {
-		response.IssuerURL = runtimeState.ResolvedOIDCConfig.IssuerURL
-	}
-	if !runtimeState.LoginRequired || s.humanAuthService == nil {
-		return c.JSON(http.StatusOK, response)
-	}
-	cookie, err := c.Cookie(humanSessionCookieName)
-	if err != nil || strings.TrimSpace(cookie.Value) == "" {
-		return c.JSON(http.StatusOK, response)
-	}
-	principal, err := s.humanAuthService.AuthenticateSession(
-		c.Request().Context(),
-		cookie.Value,
-		c.Request().UserAgent(),
-		c.RealIP(),
-		true,
-	)
-	if err != nil {
-		s.clearHumanSessionCookies(c)
-		return c.JSON(http.StatusOK, response)
-	}
-	response.Authenticated = true
-	response.User = &authSessionUserResponse{
-		ID:           principal.User.ID.String(),
-		PrimaryEmail: principal.User.PrimaryEmail,
-		DisplayName:  principal.User.DisplayName,
-		AvatarURL:    principal.User.AvatarURL,
-	}
-	response.CSRFToken = principal.Session.CSRFSecret
-	response.Roles = roleKeysToStrings(principal.EffectiveRoles)
-	response.Permissions = permissionKeysToStrings(principal.Permissions)
 	return c.JSON(http.StatusOK, response)
 }
 

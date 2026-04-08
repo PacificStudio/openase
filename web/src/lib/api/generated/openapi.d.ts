@@ -200,7 +200,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get effective OpenASE roles and permissions for the authenticated human */
+    /** Get effective OpenASE roles and permissions for the current request context */
     get: operations['getMyEffectivePermissions']
     put?: never
     post?: never
@@ -4035,30 +4035,37 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get effective OpenASE roles and permissions for the authenticated human response. */
+      /** @description Get effective OpenASE roles and permissions for the current request context response. */
       200: {
         headers: {
           [name: string]: unknown
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
+            auth_mode?: string
+            authenticated?: boolean
+            can_manage_auth?: boolean
             groups?: {
               group_key?: string
               group_name?: string
               issuer?: string
             }[]
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
             scope?: {
               id?: string
               kind?: string
             }
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
               id?: string
               primary_email?: string
-            }
+            } | null
           }
         }
       }
@@ -4208,12 +4215,17 @@ export interface operations {
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
             auth_mode?: string
             authenticated?: boolean
+            can_manage_auth?: boolean
             csrf_token?: string
             issuer_url?: string
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
