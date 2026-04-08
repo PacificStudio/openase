@@ -59,6 +59,7 @@ function makeProvider(): AgentProvider {
     cli_command: 'codex',
     cli_args: ['app-server', '--listen', 'stdio://'],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: {
       provider: 'codex',
       raw: { limitId: 'codex' },

@@ -25,6 +25,7 @@ export const providerFixture: AgentProvider = {
   cli_command: 'codex',
   cli_args: ['app-server', '--listen', 'stdio://'],
   auth_config: {},
+  secret_bindings: [],
   cli_rate_limit: null,
   cli_rate_limit_updated_at: null,
   model_name: 'gpt-5.4',

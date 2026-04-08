@@ -12,10 +12,12 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 )
 
 type ClaudeRuntime struct {
 	adapter        provider.ClaudeCodeAdapter
+	secretResolver runtimesecretenv.Resolver
 	activeSessions runtimeCancelRegistry
 	nativeSessions claudeSessionRegistry
 }
@@ -37,6 +39,13 @@ func NewClaudeRuntime(adapter provider.ClaudeCodeAdapter) *ClaudeRuntime {
 	}
 
 	return &ClaudeRuntime{adapter: adapter}
+}
+
+func (r *ClaudeRuntime) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+	if r == nil {
+		return
+	}
+	r.secretResolver = resolver
 }
 
 func (r *ClaudeRuntime) Supports(providerItem catalogdomain.AgentProvider) bool {
@@ -68,6 +77,10 @@ func (r *ClaudeRuntime) RespondInterrupt(
 
 	return r.startSessionTurn(ctx, RuntimeTurnInput{
 		SessionID:              input.SessionID,
+		ProjectID:              input.ProjectID,
+		TicketID:               input.TicketID,
+		WorkflowID:             input.WorkflowID,
+		AgentID:                input.AgentID,
 		Provider:               input.Provider,
 		Message:                message,
 		WorkingDirectory:       input.WorkingDirectory,
@@ -83,7 +96,7 @@ func (r *ClaudeRuntime) startSessionTurn(ctx context.Context, input RuntimeTurnI
 		return TurnStream{}, err
 	}
 
-	sessionSpec, err := r.buildSessionSpec(input)
+	sessionSpec, err := r.buildSessionSpec(ctx, input)
 	if err != nil {
 		return TurnStream{}, err
 	}
@@ -116,7 +129,10 @@ func (r *ClaudeRuntime) CloseSession(sessionID SessionID) bool {
 	return r.activeSessions.Close(sessionID)
 }
 
-func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.ClaudeCodeSessionSpec, error) {
+func (r *ClaudeRuntime) buildSessionSpec(
+	ctx context.Context,
+	input RuntimeTurnInput,
+) (provider.ClaudeCodeSessionSpec, error) {
 	command, err := provider.ParseAgentCLICommand(input.Provider.CliCommand)
 	if err != nil {
 		return provider.ClaudeCodeSessionSpec{}, err
@@ -137,7 +153,10 @@ func (r *ClaudeRuntime) buildSessionSpec(input RuntimeTurnInput) (provider.Claud
 	if maxBudgetUSD > 0 {
 		maxBudgetUSDPointer = &maxBudgetUSD
 	}
-	environment := append(provider.AuthConfigEnvironment(input.Provider.AuthConfig), input.Environment...)
+	environment, err := resolveRuntimeEnvironment(ctx, r.secretResolver, input)
+	if err != nil {
+		return provider.ClaudeCodeSessionSpec{}, err
+	}
 	if input.PersistentConversation && !hasProcessEnvironmentKey(environment, claudeCodeResumeInterruptedTurnEnv) {
 		environment = append(environment, claudeCodeResumeInterruptedTurnEnv+"=1")
 	}

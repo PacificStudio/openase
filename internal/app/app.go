@@ -190,12 +190,17 @@ func (a *App) RunServe(ctx context.Context) error {
 		return fmt.Errorf("construct chat codex adapter: %w", err)
 	}
 	codexRuntime := chatservice.NewCodexRuntime(codexRuntimeAdapter)
+	codexRuntime.ConfigureSecretResolver(secretSvc)
+	claudeRuntime := chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager))
+	claudeRuntime.ConfigureSecretResolver(secretSvc)
+	geminiRuntime := chatservice.NewGeminiRuntime(chatProcessManager)
+	geminiRuntime.ConfigureSecretResolver(secretSvc)
 	chatSvc := chatservice.NewService(
 		a.logger,
 		chatservice.NewRuntime(
-			chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager)),
+			claudeRuntime,
 			codexRuntime,
-			chatservice.NewGeminiRuntime(chatProcessManager),
+			geminiRuntime,
 		),
 		catalogSvc,
 		ticketSvc,
@@ -215,6 +220,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	)
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
+	projectConversationSvc.ConfigureSecretResolver(secretSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
@@ -316,6 +322,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
@@ -335,6 +345,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
+	runtimeLauncher.ConfigureSecretResolver(secretSvc)
 	runtimeLauncher.ConfigureMetrics(a.metrics)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	defer func() {

@@ -271,6 +271,7 @@ export function createProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name: string
     model_temperature?: number
     model_max_tokens?: number
@@ -1280,6 +1281,7 @@ export function updateProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name?: string
     model_temperature?: number
     model_max_tokens?: number

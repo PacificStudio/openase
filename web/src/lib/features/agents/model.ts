@@ -6,6 +6,7 @@ import type {
   ProviderCLIRateLimit,
   ProviderConfig,
   ProviderPermissionProfile,
+  ProviderSecretBinding,
 } from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
 
@@ -31,6 +32,7 @@ export function buildProviderCards(
     cliCommand: provider.cli_command,
     cliArgs: [...provider.cli_args],
     authConfig: { ...provider.auth_config },
+    secretBindings: normalizeProviderSecretBindings(provider.secret_bindings),
     cliRateLimit: normalizeProviderCLIRateLimit(provider.cli_rate_limit),
     cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
     modelName: provider.model_name,
@@ -186,6 +188,7 @@ export function applyUpdatedProviderState(
           cliCommand: updatedProvider.cli_command,
           cliArgs: [...updatedProvider.cli_args],
           authConfig: { ...updatedProvider.auth_config },
+          secretBindings: normalizeProviderSecretBindings(updatedProvider.secret_bindings),
           cliRateLimit: normalizeProviderCLIRateLimit(updatedProvider.cli_rate_limit),
           cliRateLimitUpdatedAt: updatedProvider.cli_rate_limit_updated_at ?? null,
           modelName: updatedProvider.model_name,
@@ -219,6 +222,22 @@ function normalizeProviderPermissionProfile(
   value: string | undefined | null,
 ): ProviderPermissionProfile {
   return value === 'standard' ? 'standard' : 'unrestricted'
+}
+
+function normalizeProviderSecretBindings(
+  value: AgentProvider['secret_bindings'] | null | undefined,
+): ProviderSecretBinding[] {
+  return (value ?? []).map((binding) => ({
+    envVarKey: binding.env_var_key ?? '',
+    bindingKey: binding.binding_key ?? '',
+    configured: binding.configured ?? false,
+    source:
+      binding.source === 'binding' ||
+      binding.source === 'legacy_auth_config' ||
+      binding.source === 'default'
+        ? binding.source
+        : 'default',
+  }))
 }
 
 function normalizeProviderCLIRateLimit(

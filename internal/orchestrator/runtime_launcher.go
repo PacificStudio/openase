@@ -34,6 +34,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -60,6 +61,7 @@ type RuntimeLauncher struct {
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
+	secretResolver runtimesecretenv.Resolver
 	metrics        provider.MetricsProvider
 	now            func() time.Time
 	launchTimeout  time.Duration
@@ -154,6 +156,13 @@ func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatf
 	l.platformAPIURL = strings.TrimSpace(apiURL)
 	l.agentPlatform = agentPlatform
 	l.tickets.ConfigurePlatformEnvironment(apiURL, agentPlatform)
+}
+
+func (l *RuntimeLauncher) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+	if l == nil {
+		return
+	}
+	l.secretResolver = resolver
 }
 
 func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
@@ -1000,7 +1009,18 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageProcessStart, fmt.Errorf("parse agent cli command: %w", err))
 	}
-	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
+	environment, err := l.buildRuntimeAgentEnvironment(
+		ctx,
+		machine.EnvVars,
+		launchContext.project.ID,
+		launchContext.agent.Edges.Provider.AuthConfig,
+		&assignment.ticket.ID,
+		launchContext.ticket.WorkflowID,
+		&assignment.agent.ID,
+	)
+	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
+	}
 	platformAccess, err := l.buildAgentPlatformAccess(ctx, launchContext)
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
@@ -1872,6 +1892,26 @@ func machineCodexReady(resources map[string]any) (bool, string, bool) {
 func buildAgentCLIEnvironment(machineEnv []string, authConfig map[string]any) []string {
 	environment := append([]string(nil), machineEnv...)
 	return append(environment, provider.AuthConfigEnvironment(authConfig)...)
+}
+
+func (l *RuntimeLauncher) buildRuntimeAgentEnvironment(
+	ctx context.Context,
+	machineEnv []string,
+	projectID uuid.UUID,
+	authConfig map[string]any,
+	ticketID *uuid.UUID,
+	workflowID *uuid.UUID,
+	agentID *uuid.UUID,
+) ([]string, error) {
+	baseEnvironment := buildAgentCLIEnvironment(machineEnv, authConfig)
+	return runtimesecretenv.AppendResolvedProviderSecrets(ctx, l.secretResolver, runtimesecretenv.ResolveInput{
+		ProjectID:          projectID,
+		ProviderAuthConfig: authConfig,
+		BaseEnvironment:    baseEnvironment,
+		TicketID:           ticketID,
+		WorkflowID:         workflowID,
+		AgentID:            agentID,
+	})
 }
 
 func requiresMachineCodexReady(command provider.AgentCLICommand, environment []string) bool {
