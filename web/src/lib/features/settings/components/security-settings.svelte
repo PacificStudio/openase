@@ -13,6 +13,7 @@
   import { Separator } from '$ui/separator'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
+  import ProjectScopedSecretsPanel from './project-scoped-secrets-panel.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import SettingsIAMMigrationPanel from './settings-iam-migration-panel.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
@@ -167,6 +168,13 @@
 
     <SettingsIAMMigrationPanel
       auth={security.auth}
+      organizationId={appStore.currentOrg?.id ?? ''}
+    />
+
+    <Separator />
+
+    <ProjectScopedSecretsPanel
+      projectId={appStore.currentProject?.id ?? ''}
       organizationId={appStore.currentOrg?.id ?? ''}
     />
 

@@ -109,6 +109,12 @@ type Secret struct {
 	StoredValue    StoredValue `json:"stored_value"`
 }
 
+type InventorySecret struct {
+	Secret      Secret             `json:"secret"`
+	UsageCount  int                `json:"usage_count"`
+	UsageScopes []BindingScopeKind `json:"usage_scopes"`
+}
+
 type Binding struct {
 	ID              uuid.UUID        `json:"id"`
 	OrganizationID  uuid.UUID        `json:"organization_id"`

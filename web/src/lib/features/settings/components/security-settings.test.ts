@@ -11,23 +11,38 @@ import {
 } from './security-settings.test-helpers'
 
 const {
+  createProjectScopedSecret,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
+  rotateProjectScopedSecret,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
+  createProjectScopedSecret: vi.fn(),
   deleteGitHubOutboundCredential: vi.fn(),
+  deleteProjectScopedSecret: vi.fn(),
+  disableProjectScopedSecret: vi.fn(),
   getSecuritySettings: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  listProjectScopedSecrets: vi.fn(),
+  rotateProjectScopedSecret: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
+  createProjectScopedSecret,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
+  rotateProjectScopedSecret,
   retestGitHubOutboundCredential,
   saveGitHubOutboundCredential,
 }))
@@ -44,6 +59,32 @@ describe('Security settings', () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    listProjectScopedSecrets.mockResolvedValue({
+      secrets: [
+        {
+          id: 'secret-org',
+          organization_id: 'org-1',
+          project_id: null,
+          scope: 'organization',
+          name: 'OPENAI_API_KEY',
+          kind: 'opaque',
+          description: 'Inherited model key',
+          disabled: false,
+          disabled_at: null,
+          created_at: '2026-04-08T12:00:00Z',
+          updated_at: '2026-04-08T12:00:00Z',
+          usage_count: 1,
+          usage_scopes: ['organization'],
+          encryption: {
+            algorithm: 'aes-256-gcm',
+            key_id: 'database-dsn-sha256:v1',
+            key_source: 'database_dsn_sha256',
+            rotated_at: '2026-04-08T12:00:00Z',
+            value_preview: 'sk-live...1234',
+          },
+        },
+      ],
+    })
 
     const { findByRole, findByText } = render(SecuritySettings)
 
@@ -53,6 +94,8 @@ describe('Security settings', () => {
     expect(await findByText('Project access stays here')).toBeTruthy()
     expect(await findByRole('link', { name: 'Open /admin/auth' })).toBeTruthy()
     expect(await findByRole('link', { name: 'Open org admin' })).toBeTruthy()
+    expect(await findByText('Scoped secrets')).toBeTruthy()
+    expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
   })
@@ -61,6 +104,7 @@ describe('Security settings', () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    listProjectScopedSecrets.mockResolvedValue({ secrets: [] })
     saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
@@ -83,6 +127,7 @@ describe('Security settings', () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    listProjectScopedSecrets.mockResolvedValue({ secrets: [] })
     importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: configuredSecurity() })
     retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
@@ -122,6 +167,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({
       security: configuredSecurityWithNullPermissions() as never,
     })
+    listProjectScopedSecrets.mockResolvedValue({ secrets: [] })
 
     const { findByText } = render(SecuritySettings)
 
