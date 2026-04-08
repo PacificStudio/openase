@@ -434,16 +434,7 @@ export function normalizeReturnTo(raw: string | null | undefined) {
   }
 }
 
-export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSession> {
-  const execute = fetchFn ?? window.fetch.bind(window)
-  const response = await execute('/api/v1/auth/session', {
-    method: 'GET',
-    credentials: 'same-origin',
-  })
-  if (!response.ok) {
-    throw new ApiError(response.status, await response.text().catch(() => response.statusText))
-  }
-  const payload = (await response.json()) as RawAuthSessionResponse
+function parseAuthSession(payload: RawAuthSessionResponse): HumanAuthSession {
   const authMode = normalizeAuthMode(payload.auth_mode)
   const loginRequired = normalizeLoginRequired(payload)
   const authenticated = normalizeAuthenticated(payload, loginRequired)
@@ -467,6 +458,18 @@ export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSess
   }
 }
 
+export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSession> {
+  const execute = fetchFn ?? window.fetch.bind(window)
+  const response = await execute('/api/v1/auth/session', {
+    method: 'GET',
+    credentials: 'same-origin',
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text().catch(() => response.statusText))
+  }
+  return parseAuthSession((await response.json()) as RawAuthSessionResponse)
+}
+
 export async function redeemLocalBootstrapAuthorization(input: {
   requestID: string
   code: string
@@ -479,17 +482,7 @@ export async function redeemLocalBootstrapAuthorization(input: {
       nonce: input.nonce,
     },
   })
-  return {
-    authMode: payload.auth_mode?.trim() || 'disabled',
-    authenticated: payload.authenticated === true,
-    issuerURL: payload.issuer_url?.trim() || '',
-    user: parseUser(payload.user),
-    csrfToken: payload.csrf_token?.trim() || '',
-    roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
-    permissions: Array.isArray(payload.permissions)
-      ? payload.permissions.filter((value) => value.trim() !== '')
-      : [],
-  }
+  return parseAuthSession(payload)
 }
 
 export function logoutHumanSession() {
