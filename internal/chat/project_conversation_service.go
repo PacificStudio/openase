@@ -2209,7 +2209,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		}
 	}
 
-	runtimeSecrets, err := s.buildConversationSecretEnvironment(ctx, conversation, project, focus)
+	runtimeSecrets, err := s.buildConversationSecretEnvironment(ctx, project, focus)
 	if err != nil {
 		return nil, err
 	}
@@ -2219,7 +2219,6 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 
 func (s *ProjectConversationService) buildConversationSecretEnvironment(
 	ctx context.Context,
-	conversation domain.Conversation,
 	project catalogdomain.Project,
 	focus *ProjectConversationFocus,
 ) ([]string, error) {
