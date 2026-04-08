@@ -7,7 +7,6 @@ import (
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
-	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -23,8 +22,14 @@ func (s *Server) currentRequestAIPrincipal(c echo.Context) (chatservice.UserID, 
 	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
 		return chatservice.ParseUserID(actor)
 	}
-	if s != nil && s.auth.Mode == config.AuthModeOIDC {
-		return "", humanauthservice.ErrUnauthorized
+	if s != nil {
+		runtimeState, err := s.currentRuntimeAccessControlState(c)
+		if err != nil {
+			return "", err
+		}
+		if runtimeState.LoginRequired {
+			return "", humanauthservice.ErrUnauthorized
+		}
 	}
 	return ensureServerDefinedAIPrincipal(c)
 }

@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,6 +25,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
@@ -64,6 +68,102 @@ func TestOIDCFlowCookiePathMatchesAPICallback(t *testing.T) {
 	}
 	if clearCookies[0].MaxAge != -1 {
 		t.Fatalf("cleared cookie max age = %d, want -1", clearCookies[0].MaxAge)
+	}
+}
+
+func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	issuerServer := newTestOIDCDiscoveryServer(t)
+	defer issuerServer.Close()
+
+	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
+	repository := humanauthrepo.NewEntRepository(client)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithInstanceAuthService(instanceAuthSvc),
+		WithHumanAuthService(humanauthservice.NewService(repository, nil, instanceAuthSvc), humanauthservice.NewAuthorizer(repository)),
+	)
+
+	startDisabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)
+	startDisabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startDisabledRec, startDisabledReq)
+	if startDisabledRec.Code != http.StatusNotFound {
+		t.Fatalf("initial oidc start status = %d, want 404", startDisabledRec.Code)
+	}
+
+	enableReq := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/auth/oidc-enable",
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	enableReq.Header.Set("Content-Type", "application/json")
+	enableRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(enableRec, enableReq)
+	if enableRec.Code != http.StatusOK {
+		t.Fatalf("enable oidc status = %d: %s", enableRec.Code, enableRec.Body.String())
+	}
+
+	sessionEnabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", http.NoBody)
+	sessionEnabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(sessionEnabledRec, sessionEnabledReq)
+	if sessionEnabledRec.Code != http.StatusOK {
+		t.Fatalf("enabled auth session status = %d: %s", sessionEnabledRec.Code, sessionEnabledRec.Body.String())
+	}
+	var enabledSession authSessionResponse
+	if err := json.Unmarshal(sessionEnabledRec.Body.Bytes(), &enabledSession); err != nil {
+		t.Fatalf("unmarshal enabled auth session: %v", err)
+	}
+	if enabledSession.AuthMode != "oidc" {
+		t.Fatalf("enabled auth_mode = %q, want oidc", enabledSession.AuthMode)
+	}
+	if enabledSession.IssuerURL != issuerServer.URL {
+		t.Fatalf("enabled issuer_url = %q, want %q", enabledSession.IssuerURL, issuerServer.URL)
+	}
+
+	startEnabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start?return_to=/projects", http.NoBody)
+	startEnabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startEnabledRec, startEnabledReq)
+	if startEnabledRec.Code != http.StatusFound {
+		t.Fatalf("enabled oidc start status = %d, want 302: %s", startEnabledRec.Code, startEnabledRec.Body.String())
+	}
+	if location := startEnabledRec.Header().Get("Location"); !strings.HasPrefix(location, issuerServer.URL+"/authorize") {
+		t.Fatalf("enabled oidc redirect = %q, want issuer authorize endpoint", location)
+	}
+
+	if _, err := instanceAuthSvc.Disable(context.Background()); err != nil {
+		t.Fatalf("disable auth runtime state: %v", err)
+	}
+
+	sessionDisabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", http.NoBody)
+	sessionDisabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(sessionDisabledRec, sessionDisabledReq)
+	if sessionDisabledRec.Code != http.StatusOK {
+		t.Fatalf("disabled auth session status = %d: %s", sessionDisabledRec.Code, sessionDisabledRec.Body.String())
+	}
+	var disabledSession authSessionResponse
+	if err := json.Unmarshal(sessionDisabledRec.Body.Bytes(), &disabledSession); err != nil {
+		t.Fatalf("unmarshal disabled auth session: %v", err)
+	}
+	if disabledSession.AuthMode != "disabled" {
+		t.Fatalf("disabled auth_mode = %q, want disabled", disabledSession.AuthMode)
+	}
+
+	startDisabledAgainReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)
+	startDisabledAgainRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startDisabledAgainRec, startDisabledAgainReq)
+	if startDisabledAgainRec.Code != http.StatusNotFound {
+		t.Fatalf("final oidc start status = %d, want 404", startDisabledAgainRec.Code)
 	}
 }
 
@@ -1365,13 +1465,21 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 	cfg := config.AuthConfig{
 		Mode: config.AuthModeOIDC,
 		OIDC: config.OIDCConfig{
+			IssuerURL:      "https://idp.example.com",
+			ClientID:       "openase",
 			ClientSecret:   "test-client-secret",
+			RedirectURL:    "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+			Scopes:         []string{"openid", "profile", "email"},
 			SessionTTL:     8 * time.Hour,
 			SessionIdleTTL: 30 * time.Minute,
 		},
 	}
 	repository := humanauthrepo.NewEntRepository(client)
-	service := humanauthservice.NewService(cfg, repository, nil)
+	authStateSvc, err := accesscontrolservice.New(nil, t.Name(), "", "", cfg)
+	if err != nil {
+		t.Fatalf("new access control runtime service: %v", err)
+	}
+	service := humanauthservice.NewService(repository, nil, authStateSvc)
 	authorizer := humanauthservice.NewAuthorizer(repository)
 	catalogSvc := catalogservice.New(
 		catalogrepo.NewEntRepository(client),
@@ -1390,6 +1498,7 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 		catalogSvc,
 		nil,
 		WithHumanAuthConfig(cfg),
+		WithInstanceAuthService(authStateSvc),
 		WithHumanAuthService(service, authorizer),
 	)
 

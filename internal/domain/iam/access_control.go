@@ -136,6 +136,22 @@ type AccessControlState struct {
 	Activation OIDCActivationMetadata
 }
 
+type RuntimePrincipalKind string
+
+const (
+	RuntimePrincipalKindLocal RuntimePrincipalKind = "local_instance_admin"
+	RuntimePrincipalKindHuman RuntimePrincipalKind = "human_user"
+)
+
+type RuntimeAccessControlState struct {
+	Stored                   AccessControlState
+	AuthMode                 AuthMode
+	LoginRequired            bool
+	PrincipalKind            RuntimePrincipalKind
+	SessionGovernanceEnabled bool
+	ResolvedOIDCConfig       *ActiveOIDCConfig
+}
+
 func ParseAccessControlState(input AccessControlStateInput) (AccessControlState, error) {
 	status, err := ParseAccessControlStatus(input.Status)
 	if err != nil {
@@ -178,6 +194,25 @@ func (s AccessControlState) ConfiguredAuthMode() AuthMode {
 		return AuthModeOIDC
 	}
 	return AuthModeDisabled
+}
+
+func ResolveRuntimeAccessControlState(stored AccessControlState) RuntimeAccessControlState {
+	state := RuntimeAccessControlState{
+		Stored:        stored,
+		AuthMode:      AuthModeDisabled,
+		PrincipalKind: RuntimePrincipalKindLocal,
+	}
+	if stored.Active == nil {
+		return state
+	}
+
+	active := *stored.Active
+	state.AuthMode = AuthModeOIDC
+	state.LoginRequired = true
+	state.PrincipalKind = RuntimePrincipalKindHuman
+	state.SessionGovernanceEnabled = true
+	state.ResolvedOIDCConfig = &active
+	return state
 }
 
 func DefaultDraftOIDCConfig() DraftOIDCConfig {

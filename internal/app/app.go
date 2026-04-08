@@ -224,7 +224,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct instance auth service: %w", err)
 	}
-	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
+	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
+		return fmt.Errorf("initialize instance auth runtime state: %w", err)
+	}
+	humanAuthSvc := humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
 	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
@@ -240,7 +243,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
-		httpapi.WithHumanAuthConfig(a.config.Auth),
 		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
