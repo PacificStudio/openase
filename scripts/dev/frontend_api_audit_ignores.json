@@ -104,6 +104,42 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime",
+      "categories": ["backend_only"],
+      "reason": "Runtime secret resolution is a backend control-plane capability and remains intentionally unbound in the browser until the later secret management UI work lands."
+    },
+    {
+      "method": "patch",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}",
       "categories": ["wrapped_but_unused"],
       "reason": "Project pages use summary/list/update flows and do not currently fetch a standalone project detail payload."
