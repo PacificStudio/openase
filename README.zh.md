@@ -432,7 +432,7 @@ OpenASE setup 会自动检测 `PATH` 上的这些工具：
 |-------|---------|
 | **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
 | **Codex** | `npm install -g @openai/codex` |
-| **Gemini CLI** | `npm install -g @anthropic-ai/gemini-cli` |
+| **Gemini CLI** | `npm install -g @google/gemini-cli` |
 
 这些也可以稍后安装 — setup 会自动发现已安装的 Provider。
 
