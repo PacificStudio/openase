@@ -108,7 +108,10 @@ func buildRemoteRuntimePreflightCommand(spec RuntimePreflightSpec) string {
 
 	lines := []string{
 		"set -eu",
-		`fail() { stage="$1"; shift; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*" >&2; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*"; exit 97; }`,
+		// Emit the classification marker on one stream only. Command-session CombinedOutput
+		// merges stdout/stderr without preserving cross-stream line atomicity, so duplicating
+		// the marker on both streams can interleave bytes and break parser classification.
+		`fail() { stage="$1"; shift; printf '%s\n' "$*" >&2; printf '` + runtimePreflightFailurePrefix + `::%s::%s\n' "$stage" "$*"; exit 97; }`,
 		"if [ ! -d " + sshinfra.ShellQuote(workingDirectory) + " ]; then fail workspace " + sshinfra.ShellQuote("working directory does not exist: "+workingDirectory) + "; fi",
 		"cd " + sshinfra.ShellQuote(workingDirectory),
 		"if [ ! -x " + sshinfra.ShellQuote(wrapperPath) + " ]; then fail openase " + sshinfra.ShellQuote("workspace openase wrapper is missing at "+filepath.ToSlash(filepath.Join(workingDirectory, wrapperPath))) + "; fi",
