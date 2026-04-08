@@ -14284,18 +14284,23 @@
               "schema": {
                 "properties": {
                   "description": {
+                    "description": "Human-readable description that explains what the secret is used for.",
                     "type": "string"
                   },
                   "kind": {
+                    "description": "Secret kind. Currently only opaque is supported.",
                     "type": "string"
                   },
                   "name": {
+                    "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
                     "type": "string"
                   },
                   "scope": {
+                    "description": "Secret scope. Supported values are organization and project.",
                     "type": "string"
                   },
                   "value": {
+                    "description": "Plaintext secret value to encrypt and persist at rest.",
                     "type": "string"
                   }
                 },
@@ -14813,6 +14818,7 @@
               "schema": {
                 "properties": {
                   "value": {
+                    "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
                     "type": "string"
                   }
                 },

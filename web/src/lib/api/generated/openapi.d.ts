@@ -10215,10 +10215,15 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
           description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
           kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
           name?: string
+          /** @description Secret scope. Supported values are organization and project. */
           scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
           value?: string
         }
       }
@@ -10507,6 +10512,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
           value?: string
         }
       }
