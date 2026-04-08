@@ -31,7 +31,7 @@
   skipHtml={true}
   urlTransform={markdownUrlTransform}
   class={cn(
-    'min-w-0 break-words text-sm leading-relaxed [&_a]:break-words [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_[data-streamdown="code-block"]]:my-3 [&_[data-streamdown="table-wrapper"]]:my-3',
+    'min-w-0 text-sm leading-relaxed break-words [&_[data-streamdown="code-block"]]:my-3 [&_[data-streamdown="table-wrapper"]]:my-3 [&_a]:break-words [&_p:first-child]:mt-0 [&_p:last-child]:mb-0',
     className,
   )}
 />

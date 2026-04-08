@@ -10,4 +10,4 @@
   } = $props()
 </script>
 
-<MarkdownContent source={source} class={className} />
+<MarkdownContent {source} class={className} />

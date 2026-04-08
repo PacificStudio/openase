@@ -1,8 +1,8 @@
 import { cleanup, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it } from 'vitest'
+import { ProjectUpdateMarkdownContent } from '$lib/features/project-updates'
+import { TicketMarkdownContent } from '$lib/features/ticket-detail'
 import MarkdownContent from './markdown-content.svelte'
-import ProjectUpdateMarkdownContent from '../project-updates/components/project-update-markdown-content.svelte'
-import TicketMarkdownContent from '../ticket-detail/components/ticket-markdown-content.svelte'
 
 describe('MarkdownContent policy', () => {
   afterEach(() => {

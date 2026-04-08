@@ -10,4 +10,4 @@
   } = $props()
 </script>
 
-<MarkdownContent source={source} class={className} streaming={true} />
+<MarkdownContent {source} class={className} streaming={true} />

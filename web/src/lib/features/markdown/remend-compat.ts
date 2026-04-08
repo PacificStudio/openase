@@ -78,11 +78,6 @@ export type { Plugin, RemendHandler, RemendOptions }
 export const parseIncompleteMarkdown = (text: string, options?: RemendOptions): string =>
   remendDefault(text, options)
 
-export {
-  isWithinCodeBlock,
-  isWithinLinkOrImageUrl,
-  isWithinMathBlock,
-  isWordChar,
-}
+export { isWithinCodeBlock, isWithinLinkOrImageUrl, isWithinMathBlock, isWordChar }
 
 export default remendDefault
