@@ -6,9 +6,9 @@ import type {
   ProviderCLIRateLimit,
   ProviderConfig,
   ProviderPermissionProfile,
-  ProviderSecretBinding,
 } from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
+import { normalizeProviderSecretBindings } from './provider-secret-bindings'
 
 export function buildProviderCards(
   providerItems: AgentProvider[],
@@ -222,22 +222,6 @@ function normalizeProviderPermissionProfile(
   value: string | undefined | null,
 ): ProviderPermissionProfile {
   return value === 'standard' ? 'standard' : 'unrestricted'
-}
-
-function normalizeProviderSecretBindings(
-  value: AgentProvider['secret_bindings'] | null | undefined,
-): ProviderSecretBinding[] {
-  return (value ?? []).map((binding) => ({
-    envVarKey: binding.env_var_key ?? '',
-    bindingKey: binding.binding_key ?? '',
-    configured: binding.configured ?? false,
-    source:
-      binding.source === 'binding' ||
-      binding.source === 'legacy_auth_config' ||
-      binding.source === 'default'
-        ? binding.source
-        : 'default',
-  }))
 }
 
 function normalizeProviderCLIRateLimit(

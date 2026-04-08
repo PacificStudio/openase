@@ -42,9 +42,8 @@
   const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
   const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
 
-  function fieldValue(event: Event) {
-    return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
-  }
+  const fieldValue = (event: Event) =>
+    (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
 
   $effect(() => {
     const modelKey = `${draft.adapterType}:${draft.modelName}`

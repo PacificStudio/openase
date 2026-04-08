@@ -1,3 +1,4 @@
+import type { AgentProvider } from '$lib/api/contracts'
 import type { ProviderAdapterType, ProviderSecretBinding } from './types'
 
 const providerSecretBindingEnvVarHints: Record<ProviderAdapterType, string[]> = {
@@ -11,6 +12,22 @@ export function requiredProviderSecretBindingEnvVars(adapterType: ProviderAdapte
   return adapterType in providerSecretBindingEnvVarHints
     ? [...providerSecretBindingEnvVarHints[adapterType as ProviderAdapterType]]
     : []
+}
+
+export function normalizeProviderSecretBindings(
+  value: AgentProvider['secret_bindings'] | null | undefined,
+): ProviderSecretBinding[] {
+  return (value ?? []).map((binding) => ({
+    envVarKey: binding.env_var_key ?? '',
+    bindingKey: binding.binding_key ?? '',
+    configured: binding.configured ?? false,
+    source:
+      binding.source === 'binding' ||
+      binding.source === 'legacy_auth_config' ||
+      binding.source === 'default'
+        ? binding.source
+        : 'default',
+  }))
 }
 
 export function stringifySecretBindingsDraft(bindings: ProviderSecretBinding[]): string {
