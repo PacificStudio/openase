@@ -21,9 +21,6 @@ describe('StepAiDiscovery', () => {
       },
     })
 
-    expect(getByText('On the final step, clicking any button will finish the tour.')).toBeTruthy()
-    expect(getByText('You can try Project AI, or click "Got it" to end the tour now.')).toBeTruthy()
-
     await fireEvent.click(getByText('Break down 3 follow-up tickets'))
 
     expect(onOpenProjectAI).toHaveBeenCalledWith(

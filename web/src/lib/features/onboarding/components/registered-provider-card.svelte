@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { AgentProvider } from '$lib/api/contracts'
   import { adapterDisplayName, adapterIconPath } from '$lib/features/providers'
-  import { providerAvailabilityCheckedAtText } from '$lib/features/providers'
   import {
-    providerAvailabilityDescription,
+    providerAvailabilityCheckedAtText,
     providerAvailabilityHeadline,
   } from '$lib/features/providers'
   import { cn } from '$lib/utils'
@@ -97,9 +96,6 @@
   <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
     <p class="text-foreground leading-snug font-medium">
       {providerAvailabilityHeadline(provider.availability_state, provider.availability_reason)}
-    </p>
-    <p class="text-muted-foreground mt-0.5 leading-snug">
-      {providerAvailabilityDescription(provider.availability_state, provider.availability_reason)}
     </p>
   </div>
 

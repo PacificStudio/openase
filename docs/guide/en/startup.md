@@ -8,7 +8,7 @@ Go to **[Settings](./settings.md)** and complete the following:
 
 - Fill in the project name and description
 - Configure ticket statuses (e.g. `To Do`, `In Progress`, `Done`) — these become columns on the board
-- Connect a code repository (GitHub / GitLab) so agents can access code
+- Connect a code repository so agents can access code. OpenASE supports hosted providers such as GitHub / GitLab as well as machine-local or self-hosted Git sources via `file://`.
 
 ## Step 2: Register a Machine
 

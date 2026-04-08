@@ -1,6 +1,7 @@
 export { default as ProjectUpdatesPage } from './components/project-updates-page.svelte'
 export { default as ProjectUpdateComposer } from './components/project-update-composer.svelte'
 export { default as ProjectUpdateThreadCard } from './components/project-update-thread-card.svelte'
+export { default as ProjectUpdateMarkdownContent } from './components/project-update-markdown-content.svelte'
 export { createProjectUpdatesController } from './project-updates-controller.svelte'
 export { parseProjectUpdateThreads } from './model'
 export type { ProjectUpdateStatus, ProjectUpdateThread } from './types'

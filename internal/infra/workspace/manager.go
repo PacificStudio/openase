@@ -349,6 +349,9 @@ func parseRepositorySource(fieldName string, raw string) (string, error) {
 	if trimmed == "" {
 		return "", fmt.Errorf("%s must not be empty", fieldName)
 	}
+	// Repo sources intentionally support both absolute local paths and file://
+	// URLs so clone/fetch can target repositories reachable on the current
+	// machine without requiring a hosted provider.
 	return trimmed, nil
 }
 

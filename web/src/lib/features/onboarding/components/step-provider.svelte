@@ -135,12 +135,7 @@
 <div class="space-y-8">
   <section>
     <div class="mb-3 flex items-center justify-between gap-3">
-      <div>
-        <h4 class="text-foreground text-sm font-semibold">CLI setup guide</h4>
-        <p class="text-muted-foreground mt-0.5 text-xs">
-          Install, sign in, and verify — then recheck availability.
-        </p>
-      </div>
+      <h4 class="text-foreground text-sm font-semibold">CLI setup guide</h4>
       <Button
         variant="outline"
         size="sm"
@@ -158,7 +153,7 @@
       </Button>
     </div>
 
-    <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+    <div class="flex flex-col gap-2">
       {#each providerGuides as guide (guide.key)}
         <ProviderGuideCard
           {guide}
@@ -173,12 +168,7 @@
   </section>
 
   <section>
-    <div class="mb-3">
-      <h4 class="text-foreground text-sm font-semibold">Registered providers</h4>
-      <p class="text-muted-foreground mt-0.5 text-xs">
-        Machine, model, and real-time availability for each registered instance.
-      </p>
-    </div>
+    <h4 class="text-foreground mb-3 text-sm font-semibold">Registered providers</h4>
 
     {#if providers.length === 0}
       <ProviderEmptyState {orgId} />

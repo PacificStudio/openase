@@ -10,7 +10,7 @@
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Skeleton } from '$ui/skeleton'
-  import { ChevronRight, Link2, Plus, Search } from '@lucide/svelte'
+  import { ChevronRight, Link2, Plus, Search, Wrench } from '@lucide/svelte'
   import SkillsPageCreateSheet from './skills-page-create-sheet.svelte'
 
   type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
@@ -193,12 +193,19 @@
       {/each}
     </div>
   {:else if filteredSkills.length === 0}
-    <div
-      class="animate-fade-in-up text-muted-foreground rounded-lg border border-dashed py-12 text-center text-sm"
-    >
-      {skills.length === 0
-        ? 'No skills yet. Create one to get started.'
-        : 'No skills match your filters.'}
+    <div class="animate-fade-in-up rounded-lg border border-dashed py-14 text-center">
+      {#if skills.length === 0}
+        <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+          <Wrench class="text-muted-foreground size-5" />
+        </div>
+        <p class="text-foreground text-sm font-medium">No skills yet</p>
+        <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+          Skills are reusable tools and prompts agents can call during a ticket run. Create a skill
+          to extend what agents can do in this project.
+        </p>
+      {:else}
+        <p class="text-muted-foreground text-sm">No skills match your filters.</p>
+      {/if}
     </div>
   {:else}
     <div class="divide-border divide-y rounded-lg border">

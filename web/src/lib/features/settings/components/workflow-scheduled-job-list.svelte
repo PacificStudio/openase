@@ -3,7 +3,7 @@
   import { formatRelativeTime } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Switch } from '$ui/switch'
-  import { Pencil, Play, Trash2, Plus } from '@lucide/svelte'
+  import { Pencil, Play, Trash2, Plus, CalendarClock } from '@lucide/svelte'
 
   let {
     jobs,
@@ -26,10 +26,17 @@
 
 {#if jobs.length === 0}
   <div
-    class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
+    class="border-border bg-card animate-fade-in-up rounded-xl border border-dashed px-4 py-14 text-center"
   >
-    <p>No scheduled jobs yet.</p>
-    <Button variant="outline" size="sm" class="mt-3" onclick={() => onNewJob?.()}>
+    <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+      <CalendarClock class="text-muted-foreground size-5" />
+    </div>
+    <p class="text-foreground text-sm font-medium">No scheduled jobs</p>
+    <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+      Scheduled jobs create tickets automatically on a cron schedule — useful for recurring tasks
+      like daily reports or periodic syncs.
+    </p>
+    <Button variant="outline" size="sm" class="mt-4" onclick={() => onNewJob?.()}>
       <Plus class="mr-1.5 size-3.5" />
       Create job
     </Button>

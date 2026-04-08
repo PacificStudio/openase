@@ -561,7 +561,7 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/platform/projects/%s/repos", projectID),
-		`{"name":"worker-tools","repository_url":"https://github.com/acme/worker-tools.git"}`,
+		`{"name":"worker-tools","repository_url":"file:///srv/git/worker-tools.git"}`,
 		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
 	)
 	if forbiddenRepoRec.Code != http.StatusForbidden {
@@ -578,14 +578,14 @@ func TestAgentPlatformPrivilegedRoutesRequireExplicitScopes(t *testing.T) {
 		fmt.Sprintf("/api/v1/platform/projects/%s/repos", projectID),
 		map[string]any{
 			"name":           "worker-tools",
-			"repository_url": "https://github.com/acme/worker-tools.git",
+			"repository_url": "file:///srv/git/worker-tools.git",
 			"default_branch": "main",
 		},
 		map[string]string{echo.HeaderAuthorization: "Bearer " + privilegedToken.Token},
 		http.StatusCreated,
 		&repoResp,
 	)
-	if repoResp.Repo.Name != "worker-tools" {
+	if repoResp.Repo.Name != "worker-tools" || repoResp.Repo.RepositoryURL != "file:///srv/git/worker-tools.git" {
 		t.Fatalf("unexpected repo create payload: %+v", repoResp.Repo)
 	}
 }
@@ -1406,7 +1406,7 @@ func TestAgentPlatformExpandedProjectRoutesRequireExplicitScopes(t *testing.T) {
 		{name: "statuses.delete", scope: agentplatform.ScopeStatusesDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/statuses/%s", fixture.statusDeleteID), wantStatus: http.StatusOK, wantBody: fixture.statusDeleteID.String()},
 		{name: "statuses.reset", scope: agentplatform.ScopeStatusesReset, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/statuses/reset", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"statuses":[`},
 		{name: "repos.read", scope: agentplatform.ScopeReposRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"repos":[`},
-		{name: "repos.update", scope: agentplatform.ScopeReposUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoReadID), body: map[string]any{"name": "platform-primary-updated", "repository_url": "https://github.com/acme/platform-primary-updated.git", "default_branch": "main"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-primary-updated"`},
+		{name: "repos.update", scope: agentplatform.ScopeReposUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoReadID), body: map[string]any{"name": "platform-primary-updated", "repository_url": "file:///srv/git/platform-primary-updated.git", "default_branch": "main"}, wantStatus: http.StatusOK, wantBody: `"repository_url":"file:///srv/git/platform-primary-updated.git"`},
 		{name: "repos.delete", scope: agentplatform.ScopeReposDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.repoDeleteID.String()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

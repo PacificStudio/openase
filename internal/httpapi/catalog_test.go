@@ -233,7 +233,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
-		`{"name":"backend","repository_url":"https://github.com/acme/backend.git","labels":["go","api"]}`,
+		`{"name":"backend","repository_url":"file:///srv/git/backend.git","labels":["go","api"]}`,
 	)
 	if repoRec.Code != http.StatusCreated {
 		t.Fatalf("expected repo create 201, got %d: %s", repoRec.Code, repoRec.Body.String())
@@ -243,7 +243,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, repoRec, &createRepoPayload)
-	if createRepoPayload.Repo.DefaultBranch != "main" {
+	if createRepoPayload.Repo.DefaultBranch != "main" || createRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend.git" {
 		t.Fatalf("unexpected created repo payload: %+v", createRepoPayload.Repo)
 	}
 
@@ -293,7 +293,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
-		`{"workspace_dirname":"services/backend"}`,
+		`{"repository_url":"file:///srv/git/backend-mirror.git","workspace_dirname":"services/backend"}`,
 	)
 	if patchRepoRec.Code != http.StatusOK {
 		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
@@ -303,7 +303,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, patchRepoRec, &patchRepoPayload)
-	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
+	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" || patchRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend-mirror.git" {
 		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
 	}
 

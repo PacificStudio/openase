@@ -6,9 +6,15 @@
 
   let { organizationId }: { organizationId: string } = $props()
 
-  const currentOrg = $derived(appStore.currentOrg)
+  const currentOrg = $derived(
+    appStore.currentOrg?.id === organizationId ? appStore.currentOrg : null,
+  )
   const providers = $derived(appStore.providers)
   let showProviderDialog = $state(false)
+
+  $effect(() => {
+    void organizationId
+  })
 </script>
 
 <div class="space-y-8">

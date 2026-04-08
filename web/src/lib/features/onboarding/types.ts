@@ -21,6 +21,9 @@ export type OnboardingStep = {
   id: OnboardingStepId
   label: string
   description: string
+  purpose: string
+  configHighlights: string[]
+  skipRisks: string[]
   status: OnboardingStepStatus
 }
 
@@ -45,6 +48,7 @@ export type AgentWorkflowState = {
   agents: Agent[]
   workflows: Workflow[]
   statuses: TicketStatus[]
+  selectedPresetKey?: BootstrapPresetKey
 }
 
 export type FirstTicketState = {
@@ -63,7 +67,12 @@ export type OnboardingData = {
   projectStatus: string
 }
 
+export type BootstrapPresetKey = 'fullstack' | 'pm' | 'researcher'
+
 export type ProjectBootstrapPreset = {
+  key: BootstrapPresetKey
+  title: string
+  subtitle: string
   roleName: string
   roleSlug: string
   workflowType: string
@@ -71,4 +80,5 @@ export type ProjectBootstrapPreset = {
   finishStatusName: string
   agentNameSuggestion: string
   exampleTicketTitle: string
+  exampleTicketDescription: string
 }

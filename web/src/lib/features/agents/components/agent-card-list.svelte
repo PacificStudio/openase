@@ -83,15 +83,7 @@
     terminated: 'bg-slate-500',
   }
 
-  function canInterrupt(agent: AgentInstance) {
-    return (
-      agent.runtimeControlState === 'active' &&
-      agent.activeRunCount > 0 &&
-      (agent.status === 'claimed' || agent.status === 'running')
-    )
-  }
-
-  function canPause(agent: AgentInstance) {
+  function canControlActiveRun(agent: AgentInstance) {
     return (
       agent.runtimeControlState === 'active' &&
       agent.activeRunCount > 0 &&
@@ -115,9 +107,16 @@
 
 {#if agents.length === 0}
   <div
-    class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
+    class="border-border bg-card animate-fade-in-up rounded-xl border border-dashed px-4 py-14 text-center"
   >
-    No agent definitions registered yet. Register an agent to get started.
+    <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+      <Bot class="text-muted-foreground size-5" />
+    </div>
+    <p class="text-foreground text-sm font-medium">No agents registered</p>
+    <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+      Agents are AI workers that pick up and execute tickets. Register an agent definition to
+      connect a Claude model to this project's workflow.
+    </p>
   </div>
 {:else}
   <div class="space-y-2">
@@ -210,7 +209,7 @@
               variant="ghost"
               size="icon-xs"
               aria-label="Interrupt agent"
-              disabled={!canInterrupt(agent) || runtimeActionAgentId === agent.id}
+              disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
               title="Interrupt this agent run"
               onclick={() => onInterruptAgent?.(agent.id)}
             >
@@ -232,7 +231,7 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="Pause agent"
-                disabled={!canPause(agent) || runtimeActionAgentId === agent.id}
+                disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
                 title="Pause this agent"
                 onclick={() => onPauseAgent?.(agent.id)}
               >

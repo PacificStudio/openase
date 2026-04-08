@@ -146,7 +146,6 @@
         </button>
       {/if}
     </section>
-
   </div>
 </div>
 

@@ -29,9 +29,7 @@
 </script>
 
 {#if block.kind === 'assistant_message'}
-  <div class="prose prose-sm prose-neutral max-w-none break-words">
-    <ChatMarkdownContent source={block.text} />
-  </div>
+  <ChatMarkdownContent source={block.text} />
 {:else}
   {@const isStderr = block.stream === 'stderr'}
   {@const title = block.command ? truncateInline(block.command, 72) : 'Output'}
