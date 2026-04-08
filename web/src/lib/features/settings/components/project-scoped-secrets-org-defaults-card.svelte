@@ -4,11 +4,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
-  import {
-    formatSecretTimestamp,
-    isOverriddenInProject,
-    usageIndicator,
-  } from '../scoped-secrets'
+  import { formatSecretTimestamp, isOverriddenInProject, usageIndicator } from '../scoped-secrets'
 
   let {
     loading,
@@ -37,7 +33,9 @@
     {#if loading}
       <div class="text-sm text-slate-500">Loading inherited organization defaults…</div>
     {:else if organizationSecrets.length === 0}
-      <div class="text-sm text-slate-500">No organization defaults are available for this project.</div>
+      <div class="text-sm text-slate-500">
+        No organization defaults are available for this project.
+      </div>
     {:else}
       <div class="space-y-3">
         {#each organizationSecrets as secret (secret.id)}
@@ -54,7 +52,9 @@
                     <Badge variant="destructive">Disabled at org</Badge>
                   {/if}
                 </div>
-                <div class="text-sm text-slate-600">{secret.description || 'No description yet.'}</div>
+                <div class="text-sm text-slate-600">
+                  {secret.description || 'No description yet.'}
+                </div>
                 <div class="text-xs text-slate-500">
                   Preview {secret.encryption.value_preview} · {usageIndicator(secret)} · updated {formatSecretTimestamp(
                     secret.updated_at,

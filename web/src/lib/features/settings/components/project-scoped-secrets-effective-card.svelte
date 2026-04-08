@@ -24,8 +24,8 @@
   <Card.Header>
     <Card.Title>Effective inventory</Card.Title>
     <Card.Description>
-      The secrets that currently resolve for this project after org inheritance and project
-      override precedence.
+      The secrets that currently resolve for this project after org inheritance and project override
+      precedence.
     </Card.Description>
   </Card.Header>
   <Card.Content>
@@ -48,7 +48,9 @@
                     <Badge variant="outline">Overrides org secret</Badge>
                   {/if}
                 </div>
-                <div class="text-sm text-slate-600">{secret.description || 'No description yet.'}</div>
+                <div class="text-sm text-slate-600">
+                  {secret.description || 'No description yet.'}
+                </div>
                 <div class="text-xs text-slate-500">
                   Preview {secret.encryption.value_preview} · rotated {formatSecretTimestamp(
                     secret.encryption.rotated_at,

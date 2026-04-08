@@ -6,11 +6,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
-  import {
-    formatSecretTimestamp,
-    isProjectOverride,
-    usageIndicator,
-  } from '../scoped-secrets'
+  import { formatSecretTimestamp, isProjectOverride, usageIndicator } from '../scoped-secrets'
 
   let {
     loading,
@@ -43,8 +39,8 @@
   <Card.Header>
     <Card.Title>Project overrides</Card.Title>
     <Card.Description>
-      Project-scoped secrets can supersede org defaults with the same name or provide a
-      project-only value.
+      Project-scoped secrets can supersede org defaults with the same name or provide a project-only
+      value.
     </Card.Description>
   </Card.Header>
   <Card.Content>
@@ -70,7 +66,9 @@
                     <Badge variant="destructive">Disabled</Badge>
                   {/if}
                 </div>
-                <div class="text-sm text-slate-600">{secret.description || 'No description yet.'}</div>
+                <div class="text-sm text-slate-600">
+                  {secret.description || 'No description yet.'}
+                </div>
                 <div class="text-xs text-slate-500">
                   Preview {secret.encryption.value_preview} · {usageIndicator(secret)} · updated {formatSecretTimestamp(
                     secret.updated_at,

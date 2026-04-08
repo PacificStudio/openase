@@ -6,11 +6,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
-  import {
-    formatSecretTimestamp,
-    normalizeUsageScopes,
-    usageIndicator,
-  } from '../scoped-secrets'
+  import { formatSecretTimestamp, normalizeUsageScopes, usageIndicator } from '../scoped-secrets'
 
   let {
     loading,
@@ -41,8 +37,8 @@
   <Card.Header>
     <Card.Title>Inventory</Card.Title>
     <Card.Description>
-      Operators can inspect masked previews, usage signals, and the latest rotation metadata
-      without exposing plaintext values.
+      Operators can inspect masked previews, usage signals, and the latest rotation metadata without
+      exposing plaintext values.
     </Card.Description>
   </Card.Header>
   <Card.Content>
@@ -63,7 +59,9 @@
                     <Badge variant="destructive">Disabled</Badge>
                   {/if}
                 </div>
-                <div class="text-sm text-slate-600">{secret.description || 'No description yet.'}</div>
+                <div class="text-sm text-slate-600">
+                  {secret.description || 'No description yet.'}
+                </div>
                 <div class="text-xs text-slate-500">
                   Preview {secret.encryption.value_preview} · rotated {formatSecretTimestamp(
                     secret.encryption.rotated_at,

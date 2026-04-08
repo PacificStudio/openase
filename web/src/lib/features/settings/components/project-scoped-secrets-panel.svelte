@@ -1,6 +1,12 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
-  import { createProjectScopedSecret, deleteProjectScopedSecret, disableProjectScopedSecret, listProjectScopedSecrets, rotateProjectScopedSecret } from '$lib/api/openase'
+  import {
+    createProjectScopedSecret,
+    deleteProjectScopedSecret,
+    disableProjectScopedSecret,
+    listProjectScopedSecrets,
+    rotateProjectScopedSecret,
+  } from '$lib/api/openase'
   import type { ScopedSecretRecord } from '$lib/api/contracts'
   import { organizationPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
