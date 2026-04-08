@@ -446,8 +446,11 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("unmarshal response: %v", err)
 	}
-	if payload.Activation.Status != "configured" || !payload.Activation.RestartRequired {
+	if payload.Activation.Status != "configured" || payload.Activation.RestartRequired {
 		t.Fatalf("unexpected activation payload: %+v", payload.Activation)
+	}
+	if payload.Security.Auth.ActiveMode != "oidc" {
+		t.Fatalf("active mode = %q, want oidc", payload.Security.Auth.ActiveMode)
 	}
 	if payload.Security.Auth.ConfiguredMode != "oidc" {
 		t.Fatalf("configured mode = %q, want oidc", payload.Security.Auth.ConfiguredMode)

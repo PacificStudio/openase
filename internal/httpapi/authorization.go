@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
@@ -62,11 +61,15 @@ func (s *Server) registerRoleBindingRoutes(api *echo.Group) {
 
 func (s *Server) authorizeHumanAPI(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if s.auth.Mode == config.AuthModeOIDC && s.humanAuthorizer == nil {
+		runtimeState, err := s.currentRuntimeAccessControlState(c)
+		if err != nil {
+			return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+		}
+		if runtimeState.LoginRequired && s.humanAuthorizer == nil {
 			return writeAPIError(c, http.StatusServiceUnavailable, "AUTHORIZATION_UNAVAILABLE", "authorization service unavailable")
 		}
 		principal, ok := currentHumanPrincipal(c)
-		if !ok || s.auth.Mode != config.AuthModeOIDC {
+		if !ok || !runtimeState.LoginRequired {
 			return next(c)
 		}
 		scope, permission, checkRequired, err := s.requiredScopeAndPermission(c, principal)
@@ -874,7 +877,11 @@ func (s *Server) requireHumanPermission(
 	scope humanauthdomain.ScopeRef,
 	permission humanauthdomain.PermissionKey,
 ) error {
-	if s.auth.Mode != config.AuthModeOIDC {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.LoginRequired {
 		return nil
 	}
 	if s.humanAuthorizer == nil {

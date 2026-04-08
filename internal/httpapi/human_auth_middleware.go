@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/labstack/echo/v4"
@@ -14,7 +13,11 @@ import (
 
 func (s *Server) requireHumanSession(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+		runtimeState, err := s.currentRuntimeAccessControlState(c)
+		if err != nil {
+			return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+		}
+		if !runtimeState.LoginRequired || s.humanAuthService == nil {
 			return next(c)
 		}
 		cookie, err := c.Cookie(humanSessionCookieName)
