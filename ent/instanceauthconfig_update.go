@@ -84,6 +84,20 @@ func (_u *InstanceAuthConfigUpdate) ClearClientSecretEncrypted() *InstanceAuthCo
 	return _u
 }
 
+// SetRedirectMode sets the "redirect_mode" field.
+func (_u *InstanceAuthConfigUpdate) SetRedirectMode(v string) *InstanceAuthConfigUpdate {
+	_u.mutation.SetRedirectMode(v)
+	return _u
+}
+
+// SetNillableRedirectMode sets the "redirect_mode" field if the given value is not nil.
+func (_u *InstanceAuthConfigUpdate) SetNillableRedirectMode(v *string) *InstanceAuthConfigUpdate {
+	if v != nil {
+		_u.SetRedirectMode(*v)
+	}
+	return _u
+}
+
 // SetRedirectURL sets the "redirect_url" field.
 func (_u *InstanceAuthConfigUpdate) SetRedirectURL(v string) *InstanceAuthConfigUpdate {
 	_u.mutation.SetRedirectURL(v)
@@ -317,6 +331,9 @@ func (_u *InstanceAuthConfigUpdate) sqlSave(ctx context.Context) (_node int, err
 	if _u.mutation.ClientSecretEncryptedCleared() {
 		_spec.ClearField(instanceauthconfig.FieldClientSecretEncrypted, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.RedirectMode(); ok {
+		_spec.SetField(instanceauthconfig.FieldRedirectMode, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.RedirectURL(); ok {
 		_spec.SetField(instanceauthconfig.FieldRedirectURL, field.TypeString, value)
 	}
@@ -436,6 +453,20 @@ func (_u *InstanceAuthConfigUpdateOne) SetClientSecretEncrypted(v *iam.Encrypted
 // ClearClientSecretEncrypted clears the value of the "client_secret_encrypted" field.
 func (_u *InstanceAuthConfigUpdateOne) ClearClientSecretEncrypted() *InstanceAuthConfigUpdateOne {
 	_u.mutation.ClearClientSecretEncrypted()
+	return _u
+}
+
+// SetRedirectMode sets the "redirect_mode" field.
+func (_u *InstanceAuthConfigUpdateOne) SetRedirectMode(v string) *InstanceAuthConfigUpdateOne {
+	_u.mutation.SetRedirectMode(v)
+	return _u
+}
+
+// SetNillableRedirectMode sets the "redirect_mode" field if the given value is not nil.
+func (_u *InstanceAuthConfigUpdateOne) SetNillableRedirectMode(v *string) *InstanceAuthConfigUpdateOne {
+	if v != nil {
+		_u.SetRedirectMode(*v)
+	}
 	return _u
 }
 
@@ -701,6 +732,9 @@ func (_u *InstanceAuthConfigUpdateOne) sqlSave(ctx context.Context) (_node *Inst
 	}
 	if _u.mutation.ClientSecretEncryptedCleared() {
 		_spec.ClearField(instanceauthconfig.FieldClientSecretEncrypted, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.RedirectMode(); ok {
+		_spec.SetField(instanceauthconfig.FieldRedirectMode, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.RedirectURL(); ok {
 		_spec.SetField(instanceauthconfig.FieldRedirectURL, field.TypeString, value)

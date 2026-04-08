@@ -44,8 +44,18 @@ func TestParseAccessControlStateSupportsAbsentDraftAndActive(t *testing.T) {
 	if draft.Draft.IssuerURL != "https://issuer.example.com" {
 		t.Fatalf("draft issuer = %q", draft.Draft.IssuerURL)
 	}
-	if draft.Draft.RedirectURL != setupDefaultOIDCRedirectURL {
-		t.Fatalf("draft redirect = %q", draft.Draft.RedirectURL)
+	if draft.Draft.RedirectMode != OIDCRedirectModeAuto {
+		t.Fatalf("draft redirect mode = %q", draft.Draft.RedirectMode)
+	}
+	if draft.Draft.FixedRedirectURL != "" {
+		t.Fatalf("draft fixed redirect = %q", draft.Draft.FixedRedirectURL)
+	}
+	redirectURL, err := draft.Draft.EffectiveRedirectURL("https://desktop.example.com:43123")
+	if err != nil {
+		t.Fatalf("draft EffectiveRedirectURL() error = %v", err)
+	}
+	if redirectURL != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("draft effective redirect = %q", redirectURL)
 	}
 	if len(draft.Draft.AllowedEmailDomains) != 1 || draft.Draft.AllowedEmailDomains[0] != "example.com" {
 		t.Fatalf("draft allowed domains = %#v", draft.Draft.AllowedEmailDomains)
@@ -68,7 +78,8 @@ func TestParseAccessControlStateSupportsAbsentDraftAndActive(t *testing.T) {
 		IssuerURL:            "https://issuer.example.com",
 		ClientID:             "openase",
 		ClientSecret:         "super-secret",
-		RedirectURL:          "https://openase.example.com/api/v1/auth/oidc/callback",
+		RedirectMode:         "fixed",
+		FixedRedirectURL:     "https://openase.example.com/api/v1/auth/oidc/callback",
 		Scopes:               []string{"openid", "profile", "email"},
 		AllowedEmailDomains:  []string{"example.com"},
 		BootstrapAdminEmails: []string{"admin@example.com"},
@@ -84,6 +95,12 @@ func TestParseAccessControlStateSupportsAbsentDraftAndActive(t *testing.T) {
 	}
 	if active.Active.ClientSecret != "super-secret" {
 		t.Fatalf("active client secret = %q", active.Active.ClientSecret)
+	}
+	if active.Active.RedirectMode != OIDCRedirectModeFixed {
+		t.Fatalf("active redirect mode = %q", active.Active.RedirectMode)
+	}
+	if active.Active.FixedRedirectURL != "https://openase.example.com/api/v1/auth/oidc/callback" {
+		t.Fatalf("active fixed redirect = %q", active.Active.FixedRedirectURL)
 	}
 	if active.ConfiguredAuthMode() != AuthModeOIDC {
 		t.Fatalf("active configured auth mode = %q", active.ConfiguredAuthMode())
@@ -125,24 +142,26 @@ func TestParseAccessControlStateRejectsInvalidActiveConfig(t *testing.T) {
 	t.Parallel()
 
 	_, err := ParseAccessControlState(AccessControlStateInput{
-		Status:         "active",
-		IssuerURL:      "https://issuer.example.com",
-		ClientID:       "openase",
-		RedirectURL:    "https://openase.example.com/api/v1/auth/oidc/callback",
-		SessionTTL:     "30m",
-		SessionIdleTTL: "2h",
+		Status:           "active",
+		IssuerURL:        "https://issuer.example.com",
+		ClientID:         "openase",
+		RedirectMode:     "fixed",
+		FixedRedirectURL: "https://openase.example.com/api/v1/auth/oidc/callback",
+		SessionTTL:       "30m",
+		SessionIdleTTL:   "2h",
 	})
 	if err == nil {
 		t.Fatal("expected ParseAccessControlState(active) to fail")
 	}
 
 	_, err = ParseAccessControlState(AccessControlStateInput{
-		Status:         "active",
-		ClientID:       "openase",
-		ClientSecret:   "secret",
-		RedirectURL:    "https://openase.example.com/api/v1/auth/oidc/callback",
-		SessionTTL:     "30m",
-		SessionIdleTTL: "15m",
+		Status:           "active",
+		ClientID:         "openase",
+		ClientSecret:     "secret",
+		RedirectMode:     "fixed",
+		FixedRedirectURL: "https://openase.example.com/api/v1/auth/oidc/callback",
+		SessionTTL:       "30m",
+		SessionIdleTTL:   "15m",
 	})
 	if err == nil || !strings.Contains(err.Error(), "issuer_url is required") {
 		t.Fatalf("expected missing issuer error, got %v", err)
@@ -258,13 +277,14 @@ func TestParseAccessControlStateCoversDraftAndActiveErrors(t *testing.T) {
 	}
 
 	base := AccessControlStateInput{
-		IssuerURL:      "https://issuer.example.com",
-		ClientID:       "openase",
-		ClientSecret:   "secret",
-		RedirectURL:    "https://openase.example.com/callback",
-		Scopes:         []string{"openid"},
-		SessionTTL:     "2h",
-		SessionIdleTTL: "15m",
+		IssuerURL:        "https://issuer.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "secret",
+		RedirectMode:     "fixed",
+		FixedRedirectURL: "https://openase.example.com/callback",
+		Scopes:           []string{"openid"},
+		SessionTTL:       "2h",
+		SessionIdleTTL:   "15m",
 	}
 	cases := []struct {
 		name   string
@@ -285,6 +305,11 @@ func TestParseAccessControlStateCoversDraftAndActiveErrors(t *testing.T) {
 			name:   "missing client secret",
 			mutate: func(input *AccessControlStateInput) { input.ClientSecret = "" },
 			want:   "client_secret is required",
+		},
+		{
+			name:   "missing fixed redirect",
+			mutate: func(input *AccessControlStateInput) { input.FixedRedirectURL = "" },
+			want:   "fixed_redirect_url is required",
 		},
 	}
 	for _, tc := range cases {

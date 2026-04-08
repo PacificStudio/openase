@@ -77,7 +77,8 @@ type MockSecuritySettings = {
       issuer_url: string
       client_id: string
       client_secret_configured: boolean
-      redirect_url: string
+      redirect_mode: string
+      fixed_redirect_url: string
       scopes: string[]
       allowed_email_domains: string[]
       bootstrap_admin_emails: string[]
@@ -2025,7 +2026,8 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
         issuer_url: 'https://idp.example.com',
         client_id: 'openase',
         client_secret_configured: true,
-        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        redirect_mode: 'fixed',
+        fixed_redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
         scopes: ['openid', 'profile', 'email', 'groups'],
         allowed_email_domains: ['example.com'],
         bootstrap_admin_emails: ['admin@example.com'],

@@ -76,6 +76,11 @@ func ClientID(v string) predicate.InstanceAuthConfig {
 	return predicate.InstanceAuthConfig(sql.FieldEQ(FieldClientID, v))
 }
 
+// RedirectMode applies equality check predicate on the "redirect_mode" field. It's identical to RedirectModeEQ.
+func RedirectMode(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldEQ(FieldRedirectMode, v))
+}
+
 // RedirectURL applies equality check predicate on the "redirect_url" field. It's identical to RedirectURLEQ.
 func RedirectURL(v string) predicate.InstanceAuthConfig {
 	return predicate.InstanceAuthConfig(sql.FieldEQ(FieldRedirectURL, v))
@@ -404,6 +409,71 @@ func ClientSecretEncryptedIsNil() predicate.InstanceAuthConfig {
 // ClientSecretEncryptedNotNil applies the NotNil predicate on the "client_secret_encrypted" field.
 func ClientSecretEncryptedNotNil() predicate.InstanceAuthConfig {
 	return predicate.InstanceAuthConfig(sql.FieldNotNull(FieldClientSecretEncrypted))
+}
+
+// RedirectModeEQ applies the EQ predicate on the "redirect_mode" field.
+func RedirectModeEQ(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldEQ(FieldRedirectMode, v))
+}
+
+// RedirectModeNEQ applies the NEQ predicate on the "redirect_mode" field.
+func RedirectModeNEQ(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldNEQ(FieldRedirectMode, v))
+}
+
+// RedirectModeIn applies the In predicate on the "redirect_mode" field.
+func RedirectModeIn(vs ...string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldIn(FieldRedirectMode, vs...))
+}
+
+// RedirectModeNotIn applies the NotIn predicate on the "redirect_mode" field.
+func RedirectModeNotIn(vs ...string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldNotIn(FieldRedirectMode, vs...))
+}
+
+// RedirectModeGT applies the GT predicate on the "redirect_mode" field.
+func RedirectModeGT(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldGT(FieldRedirectMode, v))
+}
+
+// RedirectModeGTE applies the GTE predicate on the "redirect_mode" field.
+func RedirectModeGTE(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldGTE(FieldRedirectMode, v))
+}
+
+// RedirectModeLT applies the LT predicate on the "redirect_mode" field.
+func RedirectModeLT(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldLT(FieldRedirectMode, v))
+}
+
+// RedirectModeLTE applies the LTE predicate on the "redirect_mode" field.
+func RedirectModeLTE(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldLTE(FieldRedirectMode, v))
+}
+
+// RedirectModeContains applies the Contains predicate on the "redirect_mode" field.
+func RedirectModeContains(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldContains(FieldRedirectMode, v))
+}
+
+// RedirectModeHasPrefix applies the HasPrefix predicate on the "redirect_mode" field.
+func RedirectModeHasPrefix(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldHasPrefix(FieldRedirectMode, v))
+}
+
+// RedirectModeHasSuffix applies the HasSuffix predicate on the "redirect_mode" field.
+func RedirectModeHasSuffix(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldHasSuffix(FieldRedirectMode, v))
+}
+
+// RedirectModeEqualFold applies the EqualFold predicate on the "redirect_mode" field.
+func RedirectModeEqualFold(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldEqualFold(FieldRedirectMode, v))
+}
+
+// RedirectModeContainsFold applies the ContainsFold predicate on the "redirect_mode" field.
+func RedirectModeContainsFold(v string) predicate.InstanceAuthConfig {
+	return predicate.InstanceAuthConfig(sql.FieldContainsFold(FieldRedirectMode, v))
 }
 
 // RedirectURLEQ applies the EQ predicate on the "redirect_url" field.

@@ -318,7 +318,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
-		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -343,6 +343,9 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	}
 	if payload.Security.Auth.OIDCDraft.IssuerURL != "https://idp.example.com" {
 		t.Fatalf("issuer_url = %q", payload.Security.Auth.OIDCDraft.IssuerURL)
+	}
+	if payload.Security.Auth.OIDCDraft.RedirectMode != "fixed" {
+		t.Fatalf("redirect_mode = %q, want fixed", payload.Security.Auth.OIDCDraft.RedirectMode)
 	}
 	if !payload.Security.Auth.OIDCDraft.ClientSecretConfigured {
 		t.Fatal("expected saved oidc client secret to be marked as configured")
@@ -384,9 +387,12 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft/test",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "desktop.example.com")
+	req.Header.Set("X-Forwarded-Port", "43123")
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -403,6 +409,9 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	}
 	if payload.AuthorizationEndpoint == "" || payload.TokenEndpoint == "" {
 		t.Fatalf("expected discovery endpoints, got %+v", payload)
+	}
+	if payload.RedirectURL != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("redirect_url = %q", payload.RedirectURL)
 	}
 }
 
@@ -432,7 +441,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

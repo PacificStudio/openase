@@ -529,7 +529,8 @@ export type SecurityOIDCDraft = {
   issuer_url: string
   client_id: string
   client_secret_configured: boolean
-  redirect_url: string
+  redirect_mode: string
+  fixed_redirect_url: string
   scopes: string[]
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]

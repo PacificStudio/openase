@@ -1579,7 +1579,8 @@ type OpenAPISecurityOIDCDraft struct {
 	IssuerURL              string   `json:"issuer_url"`
 	ClientID               string   `json:"client_id"`
 	ClientSecretConfigured bool     `json:"client_secret_configured"`
-	RedirectURL            string   `json:"redirect_url"`
+	RedirectMode           string   `json:"redirect_mode"`
+	FixedRedirectURL       string   `json:"fixed_redirect_url"`
 	Scopes                 []string `json:"scopes"`
 	AllowedEmailDomains    []string `json:"allowed_email_domains"`
 	BootstrapAdminEmails   []string `json:"bootstrap_admin_emails"`
@@ -2198,7 +2199,9 @@ var (
 		"issuer_url":             "OIDC issuer discovery URL used to resolve the provider metadata document.",
 		"client_id":              "OAuth client ID registered for the OpenASE browser login application.",
 		"client_secret":          "OAuth client secret stored server-side for the configured OIDC client.",
-		"redirect_url":           "Browser callback URL that must match the OIDC provider client registration.",
+		"redirect_mode":          "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+		"fixed_redirect_url":     "Explicit browser callback URL used only when redirect_mode=fixed.",
+		"redirect_url":           "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
 		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
 		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
 		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",

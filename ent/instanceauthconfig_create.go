@@ -85,6 +85,20 @@ func (_c *InstanceAuthConfigCreate) SetClientSecretEncrypted(v *iam.EncryptedSec
 	return _c
 }
 
+// SetRedirectMode sets the "redirect_mode" field.
+func (_c *InstanceAuthConfigCreate) SetRedirectMode(v string) *InstanceAuthConfigCreate {
+	_c.mutation.SetRedirectMode(v)
+	return _c
+}
+
+// SetNillableRedirectMode sets the "redirect_mode" field if the given value is not nil.
+func (_c *InstanceAuthConfigCreate) SetNillableRedirectMode(v *string) *InstanceAuthConfigCreate {
+	if v != nil {
+		_c.SetRedirectMode(*v)
+	}
+	return _c
+}
+
 // SetRedirectURL sets the "redirect_url" field.
 func (_c *InstanceAuthConfigCreate) SetRedirectURL(v string) *InstanceAuthConfigCreate {
 	_c.mutation.SetRedirectURL(v)
@@ -322,6 +336,10 @@ func (_c *InstanceAuthConfigCreate) defaults() {
 		v := instanceauthconfig.DefaultClientID
 		_c.mutation.SetClientID(v)
 	}
+	if _, ok := _c.mutation.RedirectMode(); !ok {
+		v := instanceauthconfig.DefaultRedirectMode
+		_c.mutation.SetRedirectMode(v)
+	}
 	if _, ok := _c.mutation.RedirectURL(); !ok {
 		v := instanceauthconfig.DefaultRedirectURL
 		_c.mutation.SetRedirectURL(v)
@@ -385,6 +403,9 @@ func (_c *InstanceAuthConfigCreate) check() error {
 	}
 	if _, ok := _c.mutation.ClientID(); !ok {
 		return &ValidationError{Name: "client_id", err: errors.New(`ent: missing required field "InstanceAuthConfig.client_id"`)}
+	}
+	if _, ok := _c.mutation.RedirectMode(); !ok {
+		return &ValidationError{Name: "redirect_mode", err: errors.New(`ent: missing required field "InstanceAuthConfig.redirect_mode"`)}
 	}
 	if _, ok := _c.mutation.RedirectURL(); !ok {
 		return &ValidationError{Name: "redirect_url", err: errors.New(`ent: missing required field "InstanceAuthConfig.redirect_url"`)}
@@ -473,6 +494,10 @@ func (_c *InstanceAuthConfigCreate) createSpec() (*InstanceAuthConfig, *sqlgraph
 	if value, ok := _c.mutation.ClientSecretEncrypted(); ok {
 		_spec.SetField(instanceauthconfig.FieldClientSecretEncrypted, field.TypeJSON, value)
 		_node.ClientSecretEncrypted = value
+	}
+	if value, ok := _c.mutation.RedirectMode(); ok {
+		_spec.SetField(instanceauthconfig.FieldRedirectMode, field.TypeString, value)
+		_node.RedirectMode = value
 	}
 	if value, ok := _c.mutation.RedirectURL(); ok {
 		_spec.SetField(instanceauthconfig.FieldRedirectURL, field.TypeString, value)

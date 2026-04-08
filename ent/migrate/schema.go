@@ -729,6 +729,7 @@ var (
 		{Name: "issuer_url", Type: field.TypeString, Default: ""},
 		{Name: "client_id", Type: field.TypeString, Default: ""},
 		{Name: "client_secret_encrypted", Type: field.TypeJSON, Nullable: true},
+		{Name: "redirect_mode", Type: field.TypeString, Default: ""},
 		{Name: "redirect_url", Type: field.TypeString, Default: ""},
 		{Name: "scopes", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "email_claim", Type: field.TypeString, Default: "email"},

@@ -2,6 +2,7 @@ package iam
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -42,6 +43,31 @@ type OIDCSessionPolicy struct {
 	SessionIdleTTL time.Duration
 }
 
+type OIDCRedirectMode string
+
+const (
+	OIDCRedirectModeAuto  OIDCRedirectMode = "auto"
+	OIDCRedirectModeFixed OIDCRedirectMode = "fixed"
+)
+
+func ParseOIDCRedirectMode(raw string, fixedRedirectURL string) (OIDCRedirectMode, error) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "":
+		if strings.TrimSpace(fixedRedirectURL) != "" {
+			return OIDCRedirectModeFixed, nil
+		}
+		return OIDCRedirectModeAuto, nil
+	case string(OIDCRedirectModeAuto):
+		return OIDCRedirectModeAuto, nil
+	case string(OIDCRedirectModeFixed):
+		return OIDCRedirectModeFixed, nil
+	default:
+		return "", fmt.Errorf("redirect_mode must be one of auto, fixed")
+	}
+}
+
+func (m OIDCRedirectMode) String() string { return string(m) }
+
 type EncryptedSecret struct {
 	Algorithm  string    `json:"algorithm"`
 	Nonce      string    `json:"nonce"`
@@ -71,7 +97,8 @@ type DraftOIDCConfig struct {
 	IssuerURL            string
 	ClientID             string
 	ClientSecret         string
-	RedirectURL          string
+	RedirectMode         OIDCRedirectMode
+	FixedRedirectURL     string
 	Scopes               []string
 	Claims               OIDCClaims
 	AllowedEmailDomains  []string
@@ -83,7 +110,8 @@ type ActiveOIDCConfig struct {
 	IssuerURL            string
 	ClientID             string
 	ClientSecret         string
-	RedirectURL          string
+	RedirectMode         OIDCRedirectMode
+	FixedRedirectURL     string
 	Scopes               []string
 	Claims               OIDCClaims
 	AllowedEmailDomains  []string
@@ -96,6 +124,8 @@ type AccessControlStateInput struct {
 	IssuerURL            string
 	ClientID             string
 	ClientSecret         string
+	RedirectMode         string
+	FixedRedirectURL     string
 	RedirectURL          string
 	Scopes               []string
 	EmailClaim           string
@@ -217,9 +247,9 @@ func ResolveRuntimeAccessControlState(stored AccessControlState) RuntimeAccessCo
 
 func DefaultDraftOIDCConfig() DraftOIDCConfig {
 	return DraftOIDCConfig{
-		RedirectURL: setupDefaultOIDCRedirectURL,
-		Scopes:      defaultOIDCScopes(),
-		Claims:      defaultOIDCClaims(),
+		RedirectMode: OIDCRedirectModeAuto,
+		Scopes:       defaultOIDCScopes(),
+		Claims:       defaultOIDCClaims(),
 		SessionPolicy: OIDCSessionPolicy{
 			SessionTTL:     defaultOIDCSessionTTL,
 			SessionIdleTTL: defaultOIDCIdleTTL,
@@ -228,10 +258,9 @@ func DefaultDraftOIDCConfig() DraftOIDCConfig {
 }
 
 const (
-	// #nosec G101 -- This is the local default callback URL template, not a credential.
-	setupDefaultOIDCRedirectURL = "http://127.0.0.1:19836/api/v1/auth/oidc/callback"
-	defaultOIDCSessionTTL       = 8 * time.Hour
-	defaultOIDCIdleTTL          = 30 * time.Minute
+	oidcCallbackPath      = "/api/v1/auth/oidc/callback"
+	defaultOIDCSessionTTL = 8 * time.Hour
+	defaultOIDCIdleTTL    = 30 * time.Minute
 )
 
 func defaultOIDCScopes() []string {
@@ -267,12 +296,18 @@ func parseDraftOIDCConfig(input AccessControlStateInput) (DraftOIDCConfig, error
 		UsernameClaim: fallbackTrimmed(input.UsernameClaim, template.Claims.UsernameClaim),
 		GroupsClaim:   fallbackTrimmed(input.GroupsClaim, template.Claims.GroupsClaim),
 	}
+	fixedRedirectURL := firstNonEmptyTrimmed(input.FixedRedirectURL, input.RedirectURL)
+	redirectMode, err := ParseOIDCRedirectMode(input.RedirectMode, fixedRedirectURL)
+	if err != nil {
+		return DraftOIDCConfig{}, err
+	}
 
 	return DraftOIDCConfig{
 		IssuerURL:            strings.TrimSpace(input.IssuerURL),
 		ClientID:             strings.TrimSpace(input.ClientID),
 		ClientSecret:         strings.TrimSpace(input.ClientSecret),
-		RedirectURL:          fallbackTrimmed(input.RedirectURL, template.RedirectURL),
+		RedirectMode:         redirectMode,
+		FixedRedirectURL:     fixedRedirectURL,
 		Scopes:               normalizeList(input.Scopes, false, template.Scopes),
 		Claims:               claims,
 		AllowedEmailDomains:  normalizeList(input.AllowedEmailDomains, true, nil),
@@ -297,6 +332,14 @@ func parseActiveOIDCConfig(input AccessControlStateInput) (ActiveOIDCConfig, err
 	}
 	if draft.ClientSecret == "" {
 		return ActiveOIDCConfig{}, fmt.Errorf("client_secret is required for active oidc config")
+	}
+	if draft.RedirectMode == OIDCRedirectModeFixed {
+		if draft.FixedRedirectURL == "" {
+			return ActiveOIDCConfig{}, fmt.Errorf("fixed_redirect_url is required when redirect_mode=fixed")
+		}
+		if _, err := parseAbsoluteURL(draft.FixedRedirectURL); err != nil {
+			return ActiveOIDCConfig{}, fmt.Errorf("fixed_redirect_url must be a valid absolute URL")
+		}
 	}
 	return ActiveOIDCConfig(draft), nil
 }
@@ -372,6 +415,52 @@ func fallbackTrimmed(raw string, fallback string) string {
 		return fallback
 	}
 	return trimmed
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func parseAbsoluteURL(raw string) (*url.URL, error) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return nil, err
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return nil, fmt.Errorf("absolute url is required")
+	}
+	return parsed, nil
+}
+
+func resolveAutoRedirectURL(externalBaseURL string) (string, error) {
+	base, err := parseAbsoluteURL(externalBaseURL)
+	if err != nil {
+		return "", fmt.Errorf("external base url must be a valid absolute URL")
+	}
+	return (&url.URL{
+		Scheme: strings.ToLower(base.Scheme),
+		Host:   base.Host,
+		Path:   oidcCallbackPath,
+	}).String(), nil
+}
+
+func (c DraftOIDCConfig) EffectiveRedirectURL(externalBaseURL string) (string, error) {
+	if c.RedirectMode == OIDCRedirectModeFixed {
+		return strings.TrimSpace(c.FixedRedirectURL), nil
+	}
+	return resolveAutoRedirectURL(externalBaseURL)
+}
+
+func (c ActiveOIDCConfig) EffectiveRedirectURL(externalBaseURL string) (string, error) {
+	if c.RedirectMode == OIDCRedirectModeFixed {
+		return strings.TrimSpace(c.FixedRedirectURL), nil
+	}
+	return resolveAutoRedirectURL(externalBaseURL)
 }
 
 func cloneTime(raw *time.Time) *time.Time {

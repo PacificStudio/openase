@@ -101,7 +101,15 @@ func (s *Server) handleOIDCStart(c echo.Context) error {
 	if !runtimeState.LoginRequired || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "oidc login is not enabled")
 	}
-	start, err := s.humanAuthService.StartLogin(c.Request().Context(), humanauthservice.NormalizeReturnTo(c.QueryParam("return_to")))
+	redirectURL, err := runtimeState.ResolvedOIDCConfig.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadGateway, "OIDC_LOGIN_FAILED", err.Error())
+	}
+	start, err := s.humanAuthService.StartLogin(
+		c.Request().Context(),
+		humanauthservice.NormalizeReturnTo(c.QueryParam("return_to")),
+		redirectURL,
+	)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_LOGIN_FAILED", err.Error())
 	}
@@ -128,6 +136,7 @@ func (s *Server) handleOIDCCallback(c echo.Context) error {
 		flowCookie.Value,
 		c.Request().UserAgent(),
 		c.RealIP(),
+		requestExternalBaseURL(c.Request()),
 	)
 	if err != nil {
 		s.clearOIDCFlowCookie(c)

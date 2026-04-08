@@ -50,7 +50,8 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 		IssuerURL:            "https://issuer.example.com",
 		ClientID:             "openase",
 		ClientSecret:         "super-secret",
-		RedirectURL:          "https://openase.example.com/api/v1/auth/oidc/callback",
+		RedirectMode:         iam.OIDCRedirectModeFixed,
+		FixedRedirectURL:     "https://openase.example.com/api/v1/auth/oidc/callback",
 		Scopes:               []string{"openid", "profile", "email"},
 		Claims:               iam.DefaultDraftOIDCConfig().Claims,
 		AllowedEmailDomains:  []string{"example.com"},
@@ -80,6 +81,12 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	if storedDraft.ClientSecretEncrypted == nil {
 		t.Fatal("expected encrypted secret to be stored")
 	}
+	if storedDraft.RedirectMode != iam.OIDCRedirectModeFixed.String() {
+		t.Fatalf("stored draft redirect mode = %q", storedDraft.RedirectMode)
+	}
+	if storedDraft.RedirectURL != "https://openase.example.com/api/v1/auth/oidc/callback" {
+		t.Fatalf("stored draft fixed redirect = %q", storedDraft.RedirectURL)
+	}
 	if strings.Contains(storedDraft.ClientSecretEncrypted.Ciphertext, "super-secret") {
 		t.Fatalf("expected encrypted ciphertext, got %+v", storedDraft.ClientSecretEncrypted)
 	}
@@ -89,7 +96,8 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 		IssuerURL:            "https://issuer.example.com",
 		ClientID:             "openase",
 		ClientSecret:         "super-secret",
-		RedirectURL:          "https://openase.example.com/api/v1/auth/oidc/callback",
+		RedirectMode:         iam.OIDCRedirectModeFixed,
+		FixedRedirectURL:     "https://openase.example.com/api/v1/auth/oidc/callback",
 		Scopes:               []string{"openid", "profile", "email"},
 		Claims:               iam.DefaultDraftOIDCConfig().Claims,
 		AllowedEmailDomains:  []string{"example.com"},

@@ -5,13 +5,15 @@
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
 
   type OIDCFormState = {
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -44,7 +46,8 @@
     onIssuerURL,
     onClientID,
     onClientSecret,
-    onRedirectURL,
+    onRedirectMode,
+    onFixedRedirectURL,
     onScopes,
     onAllowedDomains,
     onBootstrapAdmins,
@@ -61,7 +64,8 @@
     onIssuerURL: (value: string) => void
     onClientID: (value: string) => void
     onClientSecret: (value: string) => void
-    onRedirectURL: (value: string) => void
+    onRedirectMode: (value: 'auto' | 'fixed') => void
+    onFixedRedirectURL: (value: string) => void
     onScopes: (value: string) => void
     onAllowedDomains: (value: string) => void
     onBootstrapAdmins: (value: string) => void
@@ -171,13 +175,45 @@
         </p>
       </div>
       <div class="space-y-2">
-        <Label for="oidc-redirect-url">Redirect URL</Label>
+        <Label for="oidc-redirect-mode">Redirect mode</Label>
+        <Select.Root
+          type="single"
+          value={form.redirectMode}
+          onValueChange={(value) => {
+            if (value === 'auto' || value === 'fixed') {
+              onRedirectMode(value)
+            }
+          }}
+        >
+          <Select.Trigger id="oidc-redirect-mode" class="h-10 w-full text-sm">
+            {form.redirectMode === 'fixed'
+              ? 'Fixed redirect URL'
+              : 'Auto-derived from current request'}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="auto">Auto-derived from current request</Select.Item>
+            <Select.Item value="fixed">Fixed redirect URL</Select.Item>
+          </Select.Content>
+        </Select.Root>
+        <p class="text-muted-foreground text-[11px]">
+          Auto derives <code>/api/v1/auth/oidc/callback</code> from the current public scheme and host,
+          which is the safest option for desktop ports, proxies, and multiple environments.
+        </p>
+      </div>
+      <div class="space-y-2">
+        <Label for="oidc-fixed-redirect-url">Fixed redirect URL</Label>
         <Input
-          id="oidc-redirect-url"
-          value={form.redirectURL}
-          placeholder="http://127.0.0.1:19836/api/v1/auth/oidc/callback"
-          oninput={(event) => onRedirectURL((event.currentTarget as HTMLInputElement).value)}
+          id="oidc-fixed-redirect-url"
+          value={form.fixedRedirectURL}
+          placeholder="https://openase.example.com/api/v1/auth/oidc/callback"
+          disabled={form.redirectMode !== 'fixed'}
+          oninput={(event) => onFixedRedirectURL((event.currentTarget as HTMLInputElement).value)}
         />
+        <p class="text-muted-foreground text-[11px]">
+          {form.redirectMode === 'fixed'
+            ? 'Use this only when the identity provider requires one exact registered callback URL.'
+            : 'Optional saved override for strict IdPs. Auto mode ignores this field until you switch back to fixed.'}
+        </p>
       </div>
       <div class="space-y-2 lg:col-span-2">
         <Label for="oidc-scopes">Scopes</Label>

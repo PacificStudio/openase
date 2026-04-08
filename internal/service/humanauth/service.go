@@ -61,7 +61,6 @@ type Service struct {
 	providerKey   string
 	provider      *oidc.Provider
 	verifier      *oidc.IDTokenVerifier
-	oauth         *oauth2.Config
 }
 
 type AccessControlStateResolver interface {
@@ -106,6 +105,7 @@ type flowState struct {
 	State        string    `json:"state"`
 	Nonce        string    `json:"nonce"`
 	CodeVerifier string    `json:"code_verifier"`
+	RedirectURL  string    `json:"redirect_url"`
 	ReturnTo     string    `json:"return_to"`
 	IssuedAt     time.Time `json:"issued_at"`
 }
@@ -125,6 +125,7 @@ func InspectOIDCProvider(
 	ctx context.Context,
 	cfg config.AuthConfig,
 	httpClient *http.Client,
+	redirectURL string,
 ) (OIDCProviderDiagnostics, error) {
 	resolver, err := newStaticAccessControlResolver(cfg)
 	if err != nil {
@@ -135,7 +136,7 @@ func InspectOIDCProvider(
 	if err != nil {
 		return OIDCProviderDiagnostics{}, err
 	}
-	if _, err := service.oauthConfig(ctx, oidcConfig); err != nil {
+	if _, err := service.oauthConfig(ctx, oidcConfig, redirectURL); err != nil {
 		return OIDCProviderDiagnostics{}, err
 	}
 	return OIDCProviderDiagnostics{
@@ -145,7 +146,7 @@ func InspectOIDCProvider(
 	}, nil
 }
 
-func (s *Service) StartLogin(ctx context.Context, returnTo string) (LoginStart, error) {
+func (s *Service) StartLogin(ctx context.Context, returnTo string, redirectURL string) (LoginStart, error) {
 	state, err := randomToken(24)
 	if err != nil {
 		return LoginStart{}, fmt.Errorf("generate state: %w", err)
@@ -166,24 +167,25 @@ func (s *Service) StartLogin(ctx context.Context, returnTo string) (LoginStart, 
 		State:        state,
 		Nonce:        nonce,
 		CodeVerifier: codeVerifier,
+		RedirectURL:  strings.TrimSpace(redirectURL),
 		ReturnTo:     returnTo,
 		IssuedAt:     time.Now().UTC(),
 	}, oidcConfig)
 	if err != nil {
 		return LoginStart{}, err
 	}
-	oauthConfig, err := s.oauthConfig(ctx, oidcConfig)
+	oauthConfig, err := s.oauthConfig(ctx, oidcConfig, redirectURL)
 	if err != nil {
 		return LoginStart{}, err
 	}
-	redirectURL := oauthConfig.AuthCodeURL(
+	authRedirectURL := oauthConfig.AuthCodeURL(
 		state,
 		oidc.Nonce(nonce),
 		oauth2.AccessTypeOffline,
 		oauth2.S256ChallengeOption(codeVerifier),
 	)
 	return LoginStart{
-		RedirectURL:     redirectURL,
+		RedirectURL:     authRedirectURL,
 		FlowCookieValue: encodedFlow,
 	}, nil
 }
@@ -195,6 +197,7 @@ func (s *Service) HandleCallback(
 	flowCookieValue string,
 	userAgent string,
 	ip string,
+	redirectURL string,
 ) (result CallbackResult, err error) {
 	oidcConfig, err := s.currentOIDCConfig(ctx)
 	if err != nil {
@@ -226,7 +229,11 @@ func (s *Service) HandleCallback(
 	if time.Since(flow.IssuedAt) > flowCookieTTL || strings.TrimSpace(flow.State) != strings.TrimSpace(state) {
 		return CallbackResult{}, ErrInvalidFlowState
 	}
-	oauthConfig, err := s.oauthConfig(ctx, oidcConfig)
+	effectiveRedirectURL := strings.TrimSpace(flow.RedirectURL)
+	if effectiveRedirectURL == "" {
+		effectiveRedirectURL = strings.TrimSpace(redirectURL)
+	}
+	oauthConfig, err := s.oauthConfig(ctx, oidcConfig, effectiveRedirectURL)
 	if err != nil {
 		return CallbackResult{}, err
 	}
@@ -787,11 +794,21 @@ func (s *Service) currentOIDCConfig(ctx context.Context) (iam.ActiveOIDCConfig, 
 	return *state.ResolvedOIDCConfig, nil
 }
 
-func (s *Service) oauthConfig(ctx context.Context, oidcConfig iam.ActiveOIDCConfig) (*oauth2.Config, error) {
+func (s *Service) oauthConfig(
+	ctx context.Context,
+	oidcConfig iam.ActiveOIDCConfig,
+	redirectURL string,
+) (*oauth2.Config, error) {
 	if err := s.ensureProvider(ctx, oidcConfig); err != nil {
 		return nil, err
 	}
-	return s.oauth, nil
+	return &oauth2.Config{
+		ClientID:     oidcConfig.ClientID,
+		ClientSecret: oidcConfig.ClientSecret,
+		Endpoint:     s.provider.Endpoint(),
+		RedirectURL:  strings.TrimSpace(redirectURL),
+		Scopes:       append([]string(nil), oidcConfig.Scopes...),
+	}, nil
 }
 
 func (s *Service) idTokenVerifier(ctx context.Context, oidcConfig iam.ActiveOIDCConfig) (*oidc.IDTokenVerifier, error) {
@@ -805,7 +822,7 @@ func (s *Service) ensureProvider(ctx context.Context, oidcConfig iam.ActiveOIDCC
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := oidcConfigFingerprint(oidcConfig)
-	if s.provider != nil && s.oauth != nil && s.verifier != nil && s.providerKey == key {
+	if s.provider != nil && s.verifier != nil && s.providerKey == key {
 		return nil
 	}
 	oidcCtx := oidc.ClientContext(ctx, s.httpClient)
@@ -816,13 +833,6 @@ func (s *Service) ensureProvider(ctx context.Context, oidcConfig iam.ActiveOIDCC
 	s.provider = provider
 	s.providerKey = key
 	s.verifier = provider.Verifier(&oidc.Config{ClientID: oidcConfig.ClientID})
-	s.oauth = &oauth2.Config{
-		ClientID:     oidcConfig.ClientID,
-		ClientSecret: oidcConfig.ClientSecret,
-		Endpoint:     provider.Endpoint(),
-		RedirectURL:  oidcConfig.RedirectURL,
-		Scopes:       append([]string(nil), oidcConfig.Scopes...),
-	}
 	return nil
 }
 
@@ -958,7 +968,8 @@ func oidcConfigFingerprint(oidcConfig iam.ActiveOIDCConfig) string {
 		oidcConfig.IssuerURL,
 		oidcConfig.ClientID,
 		oidcConfig.ClientSecret,
-		oidcConfig.RedirectURL,
+		oidcConfig.RedirectMode.String(),
+		oidcConfig.FixedRedirectURL,
 		strings.Join(oidcConfig.Scopes, ","),
 		oidcConfig.Claims.EmailClaim,
 		oidcConfig.Claims.NameClaim,

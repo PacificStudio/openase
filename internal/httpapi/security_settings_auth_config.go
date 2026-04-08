@@ -23,7 +23,8 @@ type securityOIDCDraftResponse struct {
 	IssuerURL              string   `json:"issuer_url"`
 	ClientID               string   `json:"client_id"`
 	ClientSecretConfigured bool     `json:"client_secret_configured"`
-	RedirectURL            string   `json:"redirect_url"`
+	RedirectMode           string   `json:"redirect_mode"`
+	FixedRedirectURL       string   `json:"fixed_redirect_url"`
 	Scopes                 []string `json:"scopes"`
 	AllowedEmailDomains    []string `json:"allowed_email_domains"`
 	BootstrapAdminEmails   []string `json:"bootstrap_admin_emails"`
@@ -347,14 +348,15 @@ func buildSecurityOIDCDraftResponseFromAccessControl(state iam.AccessControlStat
 		IssuerURL:              strings.TrimSpace(draft.IssuerURL),
 		ClientID:               strings.TrimSpace(draft.ClientID),
 		ClientSecretConfigured: strings.TrimSpace(draft.ClientSecret) != "",
-		RedirectURL:            strings.TrimSpace(draft.RedirectURL),
+		RedirectMode:           draft.RedirectMode.String(),
+		FixedRedirectURL:       strings.TrimSpace(draft.FixedRedirectURL),
 		Scopes:                 append([]string(nil), draft.Scopes...),
 		AllowedEmailDomains:    append([]string(nil), draft.AllowedEmailDomains...),
 		BootstrapAdminEmails:   append([]string(nil), draft.BootstrapAdminEmails...),
 	}
 }
 
-func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.AccessControlState) iam.DraftOIDCConfig {
+func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.AccessControlState) (iam.DraftOIDCConfig, error) {
 	defaultDraft := iam.DefaultDraftOIDCConfig()
 	existing := defaultDraft
 	switch {
@@ -363,17 +365,26 @@ func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.Acc
 	case current.Draft != nil:
 		existing = *current.Draft
 	}
+	fixedRedirectURL := strings.TrimSpace(raw.FixedRedirectURL)
+	if fixedRedirectURL == "" {
+		fixedRedirectURL = strings.TrimSpace(raw.RedirectURL)
+	}
+	redirectMode, err := iam.ParseOIDCRedirectMode(raw.RedirectMode, fixedRedirectURL)
+	if err != nil {
+		return iam.DraftOIDCConfig{}, err
+	}
 	return iam.DraftOIDCConfig{
 		IssuerURL:            strings.TrimSpace(raw.IssuerURL),
 		ClientID:             strings.TrimSpace(raw.ClientID),
 		ClientSecret:         preserveSecret(raw.ClientSecret, existing.ClientSecret),
-		RedirectURL:          strings.TrimSpace(raw.RedirectURL),
+		RedirectMode:         redirectMode,
+		FixedRedirectURL:     fixedRedirectURL,
 		Scopes:               fallbackList(normalizeStringList(raw.Scopes, false), existing.Scopes),
 		Claims:               existing.Claims,
 		AllowedEmailDomains:  normalizeStringList(raw.AllowedEmailDomains, true),
 		BootstrapAdminEmails: normalizeStringList(raw.BootstrapAdminEmails, true),
 		SessionPolicy:        existing.SessionPolicy,
-	}
+	}, nil
 }
 
 func activeOIDCConfigFromDraft(draft iam.DraftOIDCConfig) (iam.ActiveOIDCConfig, error) {
@@ -382,7 +393,8 @@ func activeOIDCConfigFromDraft(draft iam.DraftOIDCConfig) (iam.ActiveOIDCConfig,
 		IssuerURL:            draft.IssuerURL,
 		ClientID:             draft.ClientID,
 		ClientSecret:         draft.ClientSecret,
-		RedirectURL:          draft.RedirectURL,
+		RedirectMode:         draft.RedirectMode.String(),
+		FixedRedirectURL:     draft.FixedRedirectURL,
 		Scopes:               draft.Scopes,
 		EmailClaim:           draft.Claims.EmailClaim,
 		NameClaim:            draft.Claims.NameClaim,
@@ -409,7 +421,7 @@ func completeOIDCAuthConfigFromAccessControl(active iam.ActiveOIDCConfig) config
 			IssuerURL:            active.IssuerURL,
 			ClientID:             active.ClientID,
 			ClientSecret:         active.ClientSecret,
-			RedirectURL:          active.RedirectURL,
+			RedirectURL:          strings.TrimSpace(active.FixedRedirectURL),
 			Scopes:               append([]string(nil), active.Scopes...),
 			EmailClaim:           active.Claims.EmailClaim,
 			NameClaim:            active.Claims.NameClaim,

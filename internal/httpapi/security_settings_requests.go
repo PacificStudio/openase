@@ -22,7 +22,9 @@ type rawSecurityOIDCDraftRequest struct {
 	IssuerURL            string   `json:"issuer_url"`
 	ClientID             string   `json:"client_id"`
 	ClientSecret         string   `json:"client_secret,omitempty"`
-	RedirectURL          string   `json:"redirect_url"`
+	RedirectMode         string   `json:"redirect_mode,omitempty"`
+	FixedRedirectURL     string   `json:"fixed_redirect_url,omitempty"`
+	RedirectURL          string   `json:"redirect_url,omitempty"`
 	Scopes               []string `json:"scopes"`
 	AllowedEmailDomains  []string `json:"allowed_email_domains,omitempty"`
 	BootstrapAdminEmails []string `json:"bootstrap_admin_emails,omitempty"`
