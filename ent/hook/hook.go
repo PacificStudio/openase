@@ -417,6 +417,30 @@ func (f ScheduledJobFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ScheduledJobMutation", m)
 }
 
+// The SecretFunc type is an adapter to allow the use of ordinary
+// function as Secret mutator.
+type SecretFunc func(context.Context, *ent.SecretMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SecretFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SecretMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SecretMutation", m)
+}
+
+// The SecretBindingFunc type is an adapter to allow the use of ordinary
+// function as SecretBinding mutator.
+type SecretBindingFunc func(context.Context, *ent.SecretBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f SecretBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.SecretBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.SecretBindingMutation", m)
+}
+
 // The SkillFunc type is an adapter to allow the use of ordinary
 // function as Skill mutator.
 type SkillFunc func(context.Context, *ent.SkillMutation) (ent.Value, error)

@@ -40,6 +40,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
+	"github.com/BetterAndBetterII/openase/ent/secret"
+	"github.com/BetterAndBetterII/openase/ent/secretbinding"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -1021,6 +1023,88 @@ func init() {
 	scheduledjobDescID := scheduledjobFields[0].Descriptor()
 	// scheduledjob.DefaultID holds the default value on creation for the id field.
 	scheduledjob.DefaultID = scheduledjobDescID.Default.(func() uuid.UUID)
+	secretFields := schema.Secret{}.Fields()
+	_ = secretFields
+	// secretDescProjectID is the schema descriptor for project_id field.
+	secretDescProjectID := secretFields[2].Descriptor()
+	// secret.DefaultProjectID holds the default value on creation for the project_id field.
+	secret.DefaultProjectID = secretDescProjectID.Default.(func() uuid.UUID)
+	// secretDescName is the schema descriptor for name field.
+	secretDescName := secretFields[4].Descriptor()
+	// secret.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	secret.NameValidator = secretDescName.Validators[0].(func(string) error)
+	// secretDescDescription is the schema descriptor for description field.
+	secretDescDescription := secretFields[6].Descriptor()
+	// secret.DefaultDescription holds the default value on creation for the description field.
+	secret.DefaultDescription = secretDescDescription.Default.(string)
+	// secretDescAlgorithm is the schema descriptor for algorithm field.
+	secretDescAlgorithm := secretFields[7].Descriptor()
+	// secret.AlgorithmValidator is a validator for the "algorithm" field. It is called by the builders before save.
+	secret.AlgorithmValidator = secretDescAlgorithm.Validators[0].(func(string) error)
+	// secretDescKeySource is the schema descriptor for key_source field.
+	secretDescKeySource := secretFields[8].Descriptor()
+	// secret.KeySourceValidator is a validator for the "key_source" field. It is called by the builders before save.
+	secret.KeySourceValidator = secretDescKeySource.Validators[0].(func(string) error)
+	// secretDescKeyID is the schema descriptor for key_id field.
+	secretDescKeyID := secretFields[9].Descriptor()
+	// secret.KeyIDValidator is a validator for the "key_id" field. It is called by the builders before save.
+	secret.KeyIDValidator = secretDescKeyID.Validators[0].(func(string) error)
+	// secretDescValuePreview is the schema descriptor for value_preview field.
+	secretDescValuePreview := secretFields[10].Descriptor()
+	// secret.ValuePreviewValidator is a validator for the "value_preview" field. It is called by the builders before save.
+	secret.ValuePreviewValidator = secretDescValuePreview.Validators[0].(func(string) error)
+	// secretDescNonce is the schema descriptor for nonce field.
+	secretDescNonce := secretFields[11].Descriptor()
+	// secret.NonceValidator is a validator for the "nonce" field. It is called by the builders before save.
+	secret.NonceValidator = secretDescNonce.Validators[0].(func(string) error)
+	// secretDescCiphertext is the schema descriptor for ciphertext field.
+	secretDescCiphertext := secretFields[12].Descriptor()
+	// secret.CiphertextValidator is a validator for the "ciphertext" field. It is called by the builders before save.
+	secret.CiphertextValidator = secretDescCiphertext.Validators[0].(func(string) error)
+	// secretDescRotatedAt is the schema descriptor for rotated_at field.
+	secretDescRotatedAt := secretFields[13].Descriptor()
+	// secret.DefaultRotatedAt holds the default value on creation for the rotated_at field.
+	secret.DefaultRotatedAt = secretDescRotatedAt.Default.(func() time.Time)
+	// secret.UpdateDefaultRotatedAt holds the default value on update for the rotated_at field.
+	secret.UpdateDefaultRotatedAt = secretDescRotatedAt.UpdateDefault.(func() time.Time)
+	// secretDescCreatedAt is the schema descriptor for created_at field.
+	secretDescCreatedAt := secretFields[15].Descriptor()
+	// secret.DefaultCreatedAt holds the default value on creation for the created_at field.
+	secret.DefaultCreatedAt = secretDescCreatedAt.Default.(func() time.Time)
+	// secretDescUpdatedAt is the schema descriptor for updated_at field.
+	secretDescUpdatedAt := secretFields[16].Descriptor()
+	// secret.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	secret.DefaultUpdatedAt = secretDescUpdatedAt.Default.(func() time.Time)
+	// secret.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	secret.UpdateDefaultUpdatedAt = secretDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// secretDescID is the schema descriptor for id field.
+	secretDescID := secretFields[0].Descriptor()
+	// secret.DefaultID holds the default value on creation for the id field.
+	secret.DefaultID = secretDescID.Default.(func() uuid.UUID)
+	secretbindingFields := schema.SecretBinding{}.Fields()
+	_ = secretbindingFields
+	// secretbindingDescProjectID is the schema descriptor for project_id field.
+	secretbindingDescProjectID := secretbindingFields[2].Descriptor()
+	// secretbinding.DefaultProjectID holds the default value on creation for the project_id field.
+	secretbinding.DefaultProjectID = secretbindingDescProjectID.Default.(func() uuid.UUID)
+	// secretbindingDescBindingKey is the schema descriptor for binding_key field.
+	secretbindingDescBindingKey := secretbindingFields[6].Descriptor()
+	// secretbinding.BindingKeyValidator is a validator for the "binding_key" field. It is called by the builders before save.
+	secretbinding.BindingKeyValidator = secretbindingDescBindingKey.Validators[0].(func(string) error)
+	// secretbindingDescCreatedAt is the schema descriptor for created_at field.
+	secretbindingDescCreatedAt := secretbindingFields[7].Descriptor()
+	// secretbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	secretbinding.DefaultCreatedAt = secretbindingDescCreatedAt.Default.(func() time.Time)
+	// secretbindingDescUpdatedAt is the schema descriptor for updated_at field.
+	secretbindingDescUpdatedAt := secretbindingFields[8].Descriptor()
+	// secretbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	secretbinding.DefaultUpdatedAt = secretbindingDescUpdatedAt.Default.(func() time.Time)
+	// secretbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	secretbinding.UpdateDefaultUpdatedAt = secretbindingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// secretbindingDescID is the schema descriptor for id field.
+	secretbindingDescID := secretbindingFields[0].Descriptor()
+	// secretbinding.DefaultID holds the default value on creation for the id field.
+	secretbinding.DefaultID = secretbindingDescID.Default.(func() uuid.UUID)
 	skillFields := schema.Skill{}.Fields()
 	_ = skillFields
 	// skillDescName is the schema descriptor for name field.

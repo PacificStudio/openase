@@ -1679,6 +1679,52 @@ type OpenAPISecuritySettingsResponse struct {
 	Security OpenAPISecuritySettings `json:"security"`
 }
 
+type OpenAPIScopedSecretEncryption struct {
+	Algorithm    string `json:"algorithm"`
+	KeySource    string `json:"key_source"`
+	KeyID        string `json:"key_id"`
+	ValuePreview string `json:"value_preview"`
+	RotatedAt    string `json:"rotated_at"`
+}
+
+type OpenAPIScopedSecret struct {
+	ID             string                        `json:"id"`
+	OrganizationID string                        `json:"organization_id"`
+	ProjectID      *string                       `json:"project_id,omitempty"`
+	Scope          string                        `json:"scope"`
+	Name           string                        `json:"name"`
+	Kind           string                        `json:"kind"`
+	Description    string                        `json:"description"`
+	Disabled       bool                          `json:"disabled"`
+	DisabledAt     *string                       `json:"disabled_at,omitempty"`
+	CreatedAt      string                        `json:"created_at"`
+	UpdatedAt      string                        `json:"updated_at"`
+	Encryption     OpenAPIScopedSecretEncryption `json:"encryption"`
+}
+
+type OpenAPIScopedSecretsResponse struct {
+	Secrets []OpenAPIScopedSecret `json:"secrets"`
+}
+
+type OpenAPIScopedSecretResponse struct {
+	Secret OpenAPIScopedSecret `json:"secret"`
+}
+
+type OpenAPIResolvedRuntimeSecret struct {
+	BindingKey   string `json:"binding_key"`
+	BindingScope string `json:"binding_scope"`
+	SecretID     string `json:"secret_id"`
+	SecretName   string `json:"secret_name"`
+	SecretScope  string `json:"secret_scope"`
+	SecretKind   string `json:"secret_kind"`
+	Value        string `json:"value"`
+}
+
+type OpenAPIResolveScopedSecretsResponse struct {
+	Resolved    []OpenAPIResolvedRuntimeSecret `json:"resolved"`
+	MissingKeys []string                       `json:"missing_keys"`
+}
+
 type OpenAPISecurityOIDCTestResponse struct {
 	Status                string   `json:"status"`
 	Message               string   `json:"message"`
@@ -1980,6 +2026,10 @@ type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryReque
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
 type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
+type OpenAPICreateScopedSecretRequest rawCreateScopedSecretRequest
+type OpenAPIUpdateScopedSecretRequest rawPatchScopedSecretRequest
+type OpenAPIRotateScopedSecretRequest rawRotateScopedSecretRequest
+type OpenAPIResolveScopedSecretsRequest rawResolveScopedSecretsRequest
 type OpenAPICreateTicketRepoScopeRequest catalogdomain.TicketRepoScopeInput
 type OpenAPIUpdateTicketRepoScopeRequest ticketRepoScopePatchRequest
 type OpenAPICreateAgentRequest catalogdomain.AgentInput
@@ -2120,6 +2170,26 @@ var (
 	openAPIGitHubCredentialDescriptions = map[string]string{
 		"scope": "Credential scope to mutate. Supported values are organization and project.",
 		"token": "GitHub token value copied into platform-managed secret storage.",
+	}
+	openAPICreateScopedSecretDescriptions = map[string]string{
+		"scope":       "Secret scope. Supported values are organization and project.",
+		"name":        "Stable secret name. Names are normalized to upper snake case before persistence.",
+		"kind":        "Secret kind. Currently only opaque is supported.",
+		"description": "Human-readable description that explains what the secret is used for.",
+		"value":       "Plaintext secret value to encrypt and persist at rest.",
+	}
+	openAPIUpdateScopedSecretDescriptions = map[string]string{
+		"name":        "Updated secret name. Names are normalized to upper snake case when provided.",
+		"description": "Updated human-readable description for the secret.",
+	}
+	openAPIRotateScopedSecretDescriptions = map[string]string{
+		"value": "New plaintext secret value to encrypt and store as the latest rotated material.",
+	}
+	openAPIResolveScopedSecretsDescriptions = map[string]string{
+		"binding_keys": "Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated.",
+		"ticket_id":    "Optional ticket ID included in the resolution precedence chain.",
+		"workflow_id":  "Optional workflow ID included in the resolution precedence chain.",
+		"agent_id":     "Optional agent ID included in the resolution precedence chain.",
 	}
 	// #nosec G101 -- "client_secret" is an OpenAPI field name/description, not a credential literal.
 	openAPIOIDCDraftDescriptions = map[string]string{
@@ -2399,6 +2469,10 @@ var (
 		"POST /api/v1/projects/{projectId}/repos":                                                      openAPIRepoRequestDescriptions,
 		"PATCH /api/v1/projects/{projectId}/repos/{repoId}":                                            openAPIRepoRequestDescriptions,
 		"POST /api/v1/projects/{projectId}/github/repos":                                               openAPIGitHubRepositoryDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/secrets":                                  openAPICreateScopedSecretDescriptions,
+		"PATCH /api/v1/projects/{projectId}/security-settings/secrets/{secretId}":                      openAPIUpdateScopedSecretDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate":                openAPIRotateScopedSecretDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime":              openAPIResolveScopedSecretsDescriptions,
 		"PUT /api/v1/projects/{projectId}/security-settings/github-outbound-credential":                openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/import-gh-cli": openAPIGitHubCredentialDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/github-outbound-credential/retest":        openAPIGitHubCredentialDescriptions,
@@ -5557,6 +5631,120 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	}
 	securityGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings", http.MethodGet, securityGet)
+
+	secretList, err := b.jsonOperation(
+		"listScopedSecrets",
+		"List organization and project scoped secrets that are accessible from this project",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretList.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodGet, secretList)
+
+	secretCreate, err := b.jsonOperation(
+		"createScopedSecret",
+		"Create a new encrypted scoped secret",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIScopedSecretResponse{},
+		OpenAPICreateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodPost, secretCreate)
+
+	secretPatch, err := b.jsonOperation(
+		"updateScopedSecretMetadata",
+		"Update scoped secret metadata without changing the encrypted value",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		OpenAPIUpdateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretPatch.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretPatch.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}", http.MethodPatch, secretPatch)
+
+	secretRotate, err := b.jsonOperation(
+		"rotateScopedSecret",
+		"Rotate the encrypted value for an existing scoped secret",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		OpenAPIRotateScopedSecretRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretRotate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretRotate.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate", http.MethodPost, secretRotate)
+
+	secretDisable, err := b.jsonOperation(
+		"disableScopedSecret",
+		"Disable a scoped secret so lower-precedence bindings can fall back",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretDisable.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable", http.MethodPost, secretDisable)
+
+	secretResolve, err := b.jsonOperation(
+		"resolveScopedSecretsForRuntime",
+		"Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIResolveScopedSecretsResponse{},
+		OpenAPIResolveScopedSecretsRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretResolve.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime", http.MethodPost, secretResolve)
 
 	oidcDraftPut, err := b.jsonOperation(
 		"saveOIDCDraft",

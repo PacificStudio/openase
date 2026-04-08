@@ -46,6 +46,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/secret"
+	"github.com/BetterAndBetterII/openase/ent/secretbinding"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -158,6 +160,8 @@ func checkColumn(t, c string) error {
 			projectupdatethreadrevision.Table:   projectupdatethreadrevision.ValidColumn,
 			rolebinding.Table:                   rolebinding.ValidColumn,
 			scheduledjob.Table:                  scheduledjob.ValidColumn,
+			secret.Table:                        secret.ValidColumn,
+			secretbinding.Table:                 secretbinding.ValidColumn,
 			skill.Table:                         skill.ValidColumn,
 			skillblob.Table:                     skillblob.ValidColumn,
 			skillversion.Table:                  skillversion.ValidColumn,

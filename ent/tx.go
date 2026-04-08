@@ -80,6 +80,10 @@ type Tx struct {
 	RoleBinding *RoleBindingClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
+	// Secret is the client for interacting with the Secret builders.
+	Secret *SecretClient
+	// SecretBinding is the client for interacting with the SecretBinding builders.
+	SecretBinding *SecretBindingClient
 	// Skill is the client for interacting with the Skill builders.
 	Skill *SkillClient
 	// SkillBlob is the client for interacting with the SkillBlob builders.
@@ -281,6 +285,8 @@ func (tx *Tx) init() {
 	tx.ProjectUpdateThreadRevision = NewProjectUpdateThreadRevisionClient(tx.config)
 	tx.RoleBinding = NewRoleBindingClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
+	tx.Secret = NewSecretClient(tx.config)
+	tx.SecretBinding = NewSecretBindingClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
 	tx.SkillBlob = NewSkillBlobClient(tx.config)
 	tx.SkillVersion = NewSkillVersionClient(tx.config)
