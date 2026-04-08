@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
@@ -33,6 +34,9 @@ type Service struct {
 	homeDir        string
 	bootstrap      config.AuthConfig
 	now            func() time.Time
+	snapshotMu     sync.RWMutex
+	snapshot       ReadResult
+	snapshotLoaded bool
 }
 
 type ReadResult struct {
@@ -92,6 +96,40 @@ func New(repository repo.Repository, cipherSeed string, configFilePath string, h
 }
 
 func (s *Service) Read(ctx context.Context) (ReadResult, error) {
+	s.snapshotMu.RLock()
+	if s.snapshotLoaded {
+		snapshot := s.snapshot
+		s.snapshotMu.RUnlock()
+		return snapshot, nil
+	}
+	s.snapshotMu.RUnlock()
+
+	snapshot, err := s.loadSnapshot(ctx)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	s.storeSnapshot(snapshot)
+	return snapshot, nil
+}
+
+func (s *Service) RuntimeState(ctx context.Context) (iam.RuntimeAccessControlState, error) {
+	current, err := s.Read(ctx)
+	if err != nil {
+		return iam.RuntimeAccessControlState{}, err
+	}
+	return iam.ResolveRuntimeAccessControlState(current.State), nil
+}
+
+func (s *Service) Refresh(ctx context.Context) (ReadResult, error) {
+	snapshot, err := s.loadSnapshot(ctx)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	s.storeSnapshot(snapshot)
+	return snapshot, nil
+}
+
+func (s *Service) loadSnapshot(ctx context.Context) (ReadResult, error) {
 	if s.repo != nil {
 		record, err := s.repo.Get(ctx)
 		if err != nil {
@@ -117,6 +155,13 @@ func (s *Service) Read(ctx context.Context) (ReadResult, error) {
 	return ReadResult{State: state, StorageLocation: location}, nil
 }
 
+func (s *Service) storeSnapshot(snapshot ReadResult) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	s.snapshot = snapshot
+	s.snapshotLoaded = true
+}
+
 func (s *Service) SaveDraft(ctx context.Context, draft iam.DraftOIDCConfig) (ReadResult, error) {
 	current, err := s.Read(ctx)
 	if err != nil {
@@ -129,7 +174,13 @@ func (s *Service) SaveDraft(ctx context.Context, draft iam.DraftOIDCConfig) (Rea
 	if err := s.persist(ctx, record); err != nil {
 		return ReadResult{}, err
 	}
-	return s.Read(ctx)
+	state, err := s.parseStoredRecord(record)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	result := ReadResult{State: state, StorageLocation: storageLocationDB}
+	s.storeSnapshot(result)
+	return result, nil
 }
 
 func (s *Service) SaveValidation(ctx context.Context, validation iam.OIDCValidationMetadata) error {
@@ -142,7 +193,15 @@ func (s *Service) SaveValidation(ctx context.Context, validation iam.OIDCValidat
 		return err
 	}
 	record.Validation = validationInputFromDomain(validation)
-	return s.persist(ctx, record)
+	if err := s.persist(ctx, record); err != nil {
+		return err
+	}
+	state, err := s.parseStoredRecord(record)
+	if err != nil {
+		return err
+	}
+	s.storeSnapshot(ReadResult{State: state, StorageLocation: storageLocationDB})
+	return nil
 }
 
 func (s *Service) Activate(ctx context.Context, active iam.ActiveOIDCConfig, activation iam.OIDCActivationMetadata) (ReadResult, error) {
@@ -157,7 +216,13 @@ func (s *Service) Activate(ctx context.Context, active iam.ActiveOIDCConfig, act
 	if err := s.persist(ctx, record); err != nil {
 		return ReadResult{}, err
 	}
-	return s.Read(ctx)
+	state, err := s.parseStoredRecord(record)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	result := ReadResult{State: state, StorageLocation: storageLocationDB}
+	s.storeSnapshot(result)
+	return result, nil
 }
 
 func (s *Service) Disable(ctx context.Context) (ReadResult, error) {
@@ -186,7 +251,13 @@ func (s *Service) Disable(ctx context.Context) (ReadResult, error) {
 	if err := s.persist(ctx, record); err != nil {
 		return ReadResult{}, err
 	}
-	return s.Read(ctx)
+	state, err := s.parseStoredRecord(record)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	result := ReadResult{State: state, StorageLocation: storageLocationDB}
+	s.storeSnapshot(result)
+	return result, nil
 }
 
 func (s *Service) recordFromState(state iam.AccessControlState) (repo.StoredConfigRecord, error) {

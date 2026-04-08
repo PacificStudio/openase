@@ -20,13 +20,16 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
+	secretsrepo "github.com/BetterAndBetterII/openase/internal/repo/secrets"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	git "github.com/go-git/go-git/v5"
@@ -397,7 +400,23 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 		MachineHost:    catalogdomain.LocalMachineHost,
 	}
 
-	environment := service.buildConversationRuntimeEnvironment(
+	secretManager := &fakeProjectConversationSecretManager{
+		resolveBoundForRuntime: func(_ context.Context, input secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error) {
+			if input.ProjectID != projectID {
+				t.Fatalf("ResolveBoundForRuntime project_id = %s, want %s", input.ProjectID, projectID)
+			}
+			if input.TicketID != nil && *input.TicketID == ticketID {
+				return []secretsdomain.ResolvedSecret{{BindingKey: "OPENAI_API_KEY", Value: "sk-ticket-conversation"}}, nil
+			}
+			if input.TicketID != nil {
+				t.Fatalf("ResolveBoundForRuntime ticket_id = %s, want %s", *input.TicketID, ticketID)
+			}
+			return []secretsdomain.ResolvedSecret{{BindingKey: "OPENAI_API_KEY", Value: "sk-project-conversation"}}, nil
+		},
+	}
+	service.ConfigureSecretManager(secretManager)
+
+	environment, err := service.buildConversationRuntimeEnvironment(
 		ctx,
 		conversation,
 		project,
@@ -412,6 +431,9 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 			},
 		},
 	)
+	if err != nil {
+		t.Fatalf("build conversation runtime environment with ticket focus: %v", err)
+	}
 	if !containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID="+ticketID.String()) {
 		t.Fatalf("expected OPENASE_TICKET_ID in environment, got %+v", environment)
 	}
@@ -430,9 +452,15 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
 		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
 	}
+	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-ticket-conversation" {
+		t.Fatalf("expected ticket-bound OPENAI_API_KEY in environment, got %+v", environment)
+	}
 
 	platform.lastInput = agentplatform.IssueInput{}
-	environment = service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	environment, err = service.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, nil)
+	if err != nil {
+		t.Fatalf("build conversation runtime environment without ticket focus: %v", err)
+	}
 	if containsEnvironmentPrefix(environment, "OPENASE_TICKET_ID=") {
 		t.Fatalf("did not expect OPENASE_TICKET_ID without ticket focus, got %+v", environment)
 	}
@@ -447,6 +475,9 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	}
 	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
 		t.Fatalf("non-ticket project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-project-conversation" {
+		t.Fatalf("expected project-bound OPENAI_API_KEY without ticket focus, got %+v", environment)
 	}
 }
 
@@ -3991,6 +4022,30 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	)
 	platform := &fakeProjectConversationAgentPlatform{}
 	service.ConfigurePlatformEnvironment("http://127.0.0.1:19836/api/v1/platform", platform)
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), "project-conversation-start-turn-secret-test")
+	if err != nil {
+		t.Fatalf("create secret service: %v", err)
+	}
+	projectSecret, err := secretSvc.CreateSecret(ctx, secretsservice.CreateSecretInput{
+		ProjectID: project.ID,
+		Scope:     string(secretsdomain.ScopeKindProject),
+		Name:      "PROJECT_START_TURN_KEY",
+		Value:     "sk-start-turn",
+	})
+	if err != nil {
+		t.Fatalf("create project secret: %v", err)
+	}
+	if _, err := secretsrepo.NewEntRepository(client).CreateBinding(ctx, secretsdomain.Binding{
+		OrganizationID:  org.ID,
+		ProjectID:       project.ID,
+		SecretID:        projectSecret.ID,
+		Scope:           secretsdomain.BindingScopeKindProject,
+		ScopeResourceID: project.ID,
+		BindingKey:      "OPENAI_API_KEY",
+	}); err != nil {
+		t.Fatalf("create project secret binding: %v", err)
+	}
+	service.ConfigureSecretManager(secretSvc)
 
 	if _, err := service.StartTurn(ctx, UserID("user:conversation"), conversation.ID, "Inspect the project", nil); err != nil {
 		t.Fatalf("start conversation turn: %v", err)
@@ -4046,6 +4101,9 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	}
 	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix()) {
 		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
+	}
+	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-start-turn" {
+		t.Fatalf("expected secret-bound OPENAI_API_KEY in environment, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
 		t.Fatalf("expected project conversation principal token, got %+v", platform.lastInput)
@@ -4669,6 +4727,20 @@ func (p *capturingProjectConversationAgentPlatform) IssueToken(
 ) (agentplatform.IssuedToken, error) {
 	p.lastInput = input
 	return agentplatform.IssuedToken{Token: "project-conversation-placeholder"}, nil
+}
+
+type fakeProjectConversationSecretManager struct {
+	resolveBoundForRuntime func(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
+}
+
+func (m *fakeProjectConversationSecretManager) ResolveBoundForRuntime(
+	ctx context.Context,
+	input secretsservice.ResolveBoundRuntimeInput,
+) ([]secretsdomain.ResolvedSecret, error) {
+	if m == nil || m.resolveBoundForRuntime == nil {
+		return nil, nil
+	}
+	return m.resolveBoundForRuntime(ctx, input)
 }
 
 func newProjectConversationTestSSHPool(t *testing.T, client sshinfra.Client) *sshinfra.Pool {

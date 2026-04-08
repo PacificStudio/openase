@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 )
 
@@ -99,6 +101,12 @@ func TestAdminAuthRouteEnablesAndDisablesOIDC(t *testing.T) {
 	if enablePayload.Transition.Status != "configured" {
 		t.Fatalf("transition.status = %q, want configured", enablePayload.Transition.Status)
 	}
+	if enablePayload.Transition.RestartRequired {
+		t.Fatalf("restart_required = true, want false")
+	}
+	if enablePayload.Auth.ActiveMode != "oidc" {
+		t.Fatalf("active_mode = %q, want oidc", enablePayload.Auth.ActiveMode)
+	}
 	if enablePayload.Auth.ConfiguredMode != "oidc" {
 		t.Fatalf("configured_mode = %q, want oidc", enablePayload.Auth.ConfiguredMode)
 	}
@@ -106,23 +114,16 @@ func TestAdminAuthRouteEnablesAndDisablesOIDC(t *testing.T) {
 		t.Fatalf("last_validation.status = %q, want ok", enablePayload.Auth.LastValidation.Status)
 	}
 
-	disableReq := httptest.NewRequest(http.MethodPost, "/api/v1/admin/auth/disable", http.NoBody)
-	disableRec := httptest.NewRecorder()
-	server.Handler().ServeHTTP(disableRec, disableReq)
-
-	if disableRec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", disableRec.Code, disableRec.Body.String())
+	storedDisabled, err := instanceAuthSvc.Disable(context.Background())
+	if err != nil {
+		t.Fatalf("Disable() error = %v", err)
 	}
-
-	var disablePayload adminAuthModeTransitionResponse
-	if err := json.Unmarshal(disableRec.Body.Bytes(), &disablePayload); err != nil {
-		t.Fatalf("unmarshal disable response: %v", err)
+	disableAuth := buildSecurityAuthSettingsResponseFromAccessControl(iam.ResolveRuntimeAccessControlState(storedDisabled.State), storedDisabled.State, storedDisabled.StorageLocation, "0.0.0.0")
+	if disableAuth.ActiveMode != "disabled" {
+		t.Fatalf("active_mode = %q, want disabled", disableAuth.ActiveMode)
 	}
-	if disablePayload.Transition.Status != "disabled" {
-		t.Fatalf("transition.status = %q, want disabled", disablePayload.Transition.Status)
-	}
-	if disablePayload.Auth.ConfiguredMode != "disabled" {
-		t.Fatalf("configured_mode = %q, want disabled", disablePayload.Auth.ConfiguredMode)
+	if disableAuth.ConfiguredMode != "disabled" {
+		t.Fatalf("configured_mode = %q, want disabled", disableAuth.ConfiguredMode)
 	}
 
 	stored, err := client.InstanceAuthConfig.Query().Only(enableReq.Context())

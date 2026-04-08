@@ -37,6 +37,7 @@ type Manager interface {
 	DisableSecret(ctx context.Context, input DisableSecretInput) (domain.Secret, error)
 	DeleteBinding(ctx context.Context, input DeleteBindingInput) error
 	ResolveForRuntime(ctx context.Context, input ResolveRuntimeInput) ([]domain.ResolvedSecret, []string, error)
+	ResolveBoundForRuntime(ctx context.Context, input ResolveBoundRuntimeInput) ([]domain.ResolvedSecret, error)
 }
 
 type CreateSecretInput struct {
@@ -85,6 +86,13 @@ type ResolveRuntimeInput struct {
 	TicketID    *uuid.UUID
 	WorkflowID  *uuid.UUID
 	AgentID     *uuid.UUID
+}
+
+type ResolveBoundRuntimeInput struct {
+	ProjectID  uuid.UUID
+	TicketID   *uuid.UUID
+	WorkflowID *uuid.UUID
+	AgentID    *uuid.UUID
 }
 
 type Service struct {
@@ -280,27 +288,29 @@ func (s *Service) ResolveForRuntime(ctx context.Context, input ResolveRuntimeInp
 	if err != nil {
 		return nil, nil, err
 	}
-	selected, missing, err := domain.SelectBindings(keys, candidates)
+	return s.resolveCandidates(keys, candidates)
+}
+
+func (s *Service) ResolveBoundForRuntime(ctx context.Context, input ResolveBoundRuntimeInput) ([]domain.ResolvedSecret, error) {
+	if s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	candidates, err := s.repo.ListResolutionCandidates(ctx, input.ProjectID, nil, input.TicketID, input.WorkflowID, input.AgentID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	resolved := make([]domain.ResolvedSecret, 0, len(selected))
-	for _, item := range selected {
-		value, err := s.decryptValue(item.Secret.StoredValue)
-		if err != nil {
-			return nil, nil, err
-		}
-		resolved = append(resolved, domain.ResolvedSecret{
-			BindingKey:   item.BindingKey,
-			BindingScope: item.Binding.Scope,
-			SecretID:     item.Secret.ID,
-			SecretName:   item.Secret.Name,
-			SecretScope:  item.Secret.Scope,
-			SecretKind:   item.Secret.Kind,
-			Value:        value,
-		})
+	keys, err := domain.BindingKeysFromCandidates(candidates)
+	if err != nil {
+		return nil, err
 	}
-	return resolved, missing, nil
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	resolved, _, err := s.resolveCandidates(keys, candidates)
+	if err != nil {
+		return nil, err
+	}
+	return resolved, nil
 }
 
 func (s *Service) sealValue(raw string) (domain.StoredValue, error) {
@@ -371,4 +381,28 @@ func mapRepositoryError(err error) error {
 		return ErrBindingTarget
 	}
 	return err
+}
+
+func (s *Service) resolveCandidates(keys []string, candidates []domain.Candidate) ([]domain.ResolvedSecret, []string, error) {
+	selected, missing, err := domain.SelectBindings(keys, candidates)
+	if err != nil {
+		return nil, nil, err
+	}
+	resolved := make([]domain.ResolvedSecret, 0, len(selected))
+	for _, item := range selected {
+		value, err := s.decryptValue(item.Secret.StoredValue)
+		if err != nil {
+			return nil, nil, err
+		}
+		resolved = append(resolved, domain.ResolvedSecret{
+			BindingKey:   item.BindingKey,
+			BindingScope: item.Binding.Scope,
+			SecretID:     item.Secret.ID,
+			SecretName:   item.Secret.Name,
+			SecretScope:  item.Secret.Scope,
+			SecretKind:   item.Secret.Kind,
+			Value:        value,
+		})
+	}
+	return resolved, missing, nil
 }
