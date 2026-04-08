@@ -17,7 +17,6 @@ import (
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -32,7 +31,7 @@ type projectConversationRuntimeManager struct {
 	sshPool             *sshinfra.Pool
 	transports          *machinetransport.Resolver
 	githubAuth          githubauthservice.TokenResolver
-	secretResolver      runtimesecretenv.Resolver
+	secretResolver      RuntimeEnvironmentResolver
 	newCodexRuntime     func(manager provider.AgentCLIProcessManager) (projectConversationCodexRuntime, error)
 
 	mu   sync.Mutex
@@ -69,7 +68,7 @@ func (m *projectConversationRuntimeManager) ConfigureGitHubCredentials(resolver 
 	m.githubAuth = resolver
 }
 
-func (m *projectConversationRuntimeManager) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+func (m *projectConversationRuntimeManager) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
 	if m == nil {
 		return
 	}

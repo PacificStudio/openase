@@ -11,12 +11,11 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 )
 
 type GeminiRuntime struct {
 	processManager provider.AgentCLIProcessManager
-	secretResolver runtimesecretenv.Resolver
+	secretResolver RuntimeEnvironmentResolver
 	mu             sync.Mutex
 	sessions       map[SessionID]*geminiRuntimeSession
 }
@@ -44,7 +43,7 @@ func NewGeminiRuntime(processManager provider.AgentCLIProcessManager) *GeminiRun
 	return &GeminiRuntime{processManager: processManager}
 }
 
-func (r *GeminiRuntime) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+func (r *GeminiRuntime) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
 	if r == nil {
 		return
 	}

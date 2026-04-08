@@ -23,7 +23,6 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
-	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -114,7 +113,7 @@ type ProjectConversationService struct {
 	platformAPIURL      string
 	agentPlatform       projectConversationAgentPlatform
 	githubAuth          githubauthservice.TokenResolver
-	secretResolver      runtimesecretenv.Resolver
+	secretResolver      RuntimeEnvironmentResolver
 
 	streamBroker    *projectConversationStreamBroker
 	muxBroker       *projectConversationMuxBroker
@@ -201,7 +200,7 @@ func (s *ProjectConversationService) ConfigureGitHubCredentials(resolver githuba
 	}
 }
 
-func (s *ProjectConversationService) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+func (s *ProjectConversationService) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
 	if s == nil {
 		return
 	}

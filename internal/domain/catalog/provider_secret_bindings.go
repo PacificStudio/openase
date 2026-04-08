@@ -13,7 +13,8 @@ const agentProviderSecretRefsField = "secret_refs"
 type AgentProviderSecretBindingSource string
 
 const (
-	AgentProviderSecretBindingSourceBinding          AgentProviderSecretBindingSource = "binding"
+	AgentProviderSecretBindingSourceBinding AgentProviderSecretBindingSource = "binding"
+	// #nosec G101 -- descriptive source label, not a credential literal.
 	AgentProviderSecretBindingSourceLegacyAuthConfig AgentProviderSecretBindingSource = "legacy_auth_config"
 	AgentProviderSecretBindingSourceDefault          AgentProviderSecretBindingSource = "default"
 )

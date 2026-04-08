@@ -10,12 +10,11 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 )
 
 type CodexRuntime struct {
 	adapter        *codexadapter.Adapter
-	secretResolver runtimesecretenv.Resolver
+	secretResolver RuntimeEnvironmentResolver
 	mu             sync.Mutex
 	sessions       map[SessionID]*codexRuntimeSession
 }
@@ -95,7 +94,7 @@ func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
 	return &CodexRuntime{adapter: adapter}
 }
 
-func (r *CodexRuntime) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+func (r *CodexRuntime) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
 	if r == nil {
 		return
 	}

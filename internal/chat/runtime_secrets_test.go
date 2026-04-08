@@ -6,31 +6,27 @@ import (
 	"testing"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
-	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
-	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	"github.com/google/uuid"
 )
 
 type fakeChatSecretResolver struct {
-	inputs   []secretsservice.ResolveRuntimeInput
-	resolved []secretsdomain.ResolvedSecret
+	inputs      []RuntimeEnvironmentResolveInput
+	environment []string
 }
 
-func (r *fakeChatSecretResolver) ResolveForRuntime(
+func (r *fakeChatSecretResolver) ResolveProviderEnvironment(
 	_ context.Context,
-	input secretsservice.ResolveRuntimeInput,
-) ([]secretsdomain.ResolvedSecret, []string, error) {
+	input RuntimeEnvironmentResolveInput,
+) ([]string, error) {
 	r.inputs = append(r.inputs, input)
-	return append([]secretsdomain.ResolvedSecret(nil), r.resolved...), nil, nil
+	return append([]string(nil), r.environment...), nil
 }
 
 func TestResolveRuntimeEnvironmentAppendsExplicitProviderSecrets(t *testing.T) {
 	projectID := uuid.New()
 	ticketID := uuid.New()
 	resolver := &fakeChatSecretResolver{
-		resolved: []secretsdomain.ResolvedSecret{
-			{BindingKey: "PROJECT_OPENAI_KEY", Value: "sk-explicit"},
-		},
+		environment: []string{"OPENAI_API_KEY=legacy-inline", "OPENASE_TICKET_ID=" + ticketID.String(), "OPENAI_API_KEY=sk-explicit"},
 	}
 
 	environment, err := resolveRuntimeEnvironment(context.Background(), resolver, RuntimeTurnInput{
@@ -59,6 +55,9 @@ func TestResolveRuntimeEnvironmentAppendsExplicitProviderSecrets(t *testing.T) {
 	}
 	if resolver.inputs[0].TicketID == nil || *resolver.inputs[0].TicketID != ticketID {
 		t.Fatalf("resolver ticket id = %#v, want %s", resolver.inputs[0].TicketID, ticketID)
+	}
+	if !slices.Contains(resolver.inputs[0].BaseEnvironment, "OPENAI_API_KEY=legacy-inline") {
+		t.Fatalf("resolver base environment = %v, want legacy auth env", resolver.inputs[0].BaseEnvironment)
 	}
 	if !slices.Contains(environment, "OPENAI_API_KEY=legacy-inline") {
 		t.Fatalf("environment = %v, want preserved legacy auth env", environment)

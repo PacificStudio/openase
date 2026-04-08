@@ -12,12 +12,11 @@ import (
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	"github.com/BetterAndBetterII/openase/internal/provider"
-	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 )
 
 type ClaudeRuntime struct {
 	adapter        provider.ClaudeCodeAdapter
-	secretResolver runtimesecretenv.Resolver
+	secretResolver RuntimeEnvironmentResolver
 	activeSessions runtimeCancelRegistry
 	nativeSessions claudeSessionRegistry
 }
@@ -41,7 +40,7 @@ func NewClaudeRuntime(adapter provider.ClaudeCodeAdapter) *ClaudeRuntime {
 	return &ClaudeRuntime{adapter: adapter}
 }
 
-func (r *ClaudeRuntime) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+func (r *ClaudeRuntime) ConfigureSecretResolver(resolver RuntimeEnvironmentResolver) {
 	if r == nil {
 		return
 	}
