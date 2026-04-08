@@ -1,0 +1,39 @@
+services:
+  openase:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: openase:latest
+    restart: unless-stopped
+    environment:
+      HOME: /var/lib/openase
+      OPENASE_SERVER_HOST: 0.0.0.0
+      OPENASE_SERVER_PORT: ${OPENASE_SERVER_PORT:-40023}
+      OPENASE_DATABASE_DSN: ${OPENASE_DATABASE_DSN}
+      OPENASE_AUTH_MODE: ${OPENASE_AUTH_MODE:-disabled}
+      OPENASE_EVENT_DRIVER: ${OPENASE_EVENT_DRIVER:-auto}
+      OPENASE_ORCHESTRATOR_TICK_INTERVAL: ${OPENASE_ORCHESTRATOR_TICK_INTERVAL:-5s}
+      OPENASE_LOG_LEVEL: ${OPENASE_LOG_LEVEL:-info}
+      OPENASE_LOG_FORMAT: ${OPENASE_LOG_FORMAT:-json}
+      OPENASE_AUTH_OIDC_ISSUER_URL: ${OPENASE_AUTH_OIDC_ISSUER_URL:-}
+      OPENASE_AUTH_OIDC_CLIENT_ID: ${OPENASE_AUTH_OIDC_CLIENT_ID:-}
+      OPENASE_AUTH_OIDC_CLIENT_SECRET: ${OPENASE_AUTH_OIDC_CLIENT_SECRET:-}
+      OPENASE_AUTH_OIDC_REDIRECT_URL: ${OPENASE_AUTH_OIDC_REDIRECT_URL:-}
+      OPENASE_AUTH_OIDC_SCOPES: ${OPENASE_AUTH_OIDC_SCOPES:-openid,profile,email,groups}
+      OPENASE_AUTH_OIDC_ALLOWED_EMAIL_DOMAINS: ${OPENASE_AUTH_OIDC_ALLOWED_EMAIL_DOMAINS:-}
+      OPENASE_AUTH_OIDC_BOOTSTRAP_ADMIN_EMAILS: ${OPENASE_AUTH_OIDC_BOOTSTRAP_ADMIN_EMAILS:-}
+      OPENASE_AUTH_OIDC_SESSION_TTL: ${OPENASE_AUTH_OIDC_SESSION_TTL:-8h}
+      OPENASE_AUTH_OIDC_SESSION_IDLE_TTL: ${OPENASE_AUTH_OIDC_SESSION_IDLE_TTL:-30m}
+    ports:
+      - ${OPENASE_PUBLISH_PORT:-40023}:${OPENASE_SERVER_PORT:-40023}
+    volumes:
+      - openase-data:/var/lib/openase
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:${OPENASE_SERVER_PORT:-40023}/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  openase-data:
