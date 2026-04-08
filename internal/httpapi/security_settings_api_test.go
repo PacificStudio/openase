@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -300,6 +299,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	catalog := newFakeCatalogService()
 	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
 	server := NewServer(
 		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
 		config.GitHubConfig{},
@@ -312,6 +312,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 		nil,
 		WithRuntimeConfigFile(configPath),
 		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+		WithInstanceAuthService(instanceAuthSvc),
 	)
 
 	req := httptest.NewRequest(
@@ -346,17 +347,15 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	if !payload.Security.Auth.OIDCDraft.ClientSecretConfigured {
 		t.Fatal("expected saved oidc client secret to be marked as configured")
 	}
-
-	// #nosec G304 -- configPath is created inside this test's TempDir.
-	written, err := os.ReadFile(configPath)
+	stored, err := client.InstanceAuthConfig.Query().Only(req.Context())
 	if err != nil {
-		t.Fatalf("read config file: %v", err)
+		t.Fatalf("load instance auth config: %v", err)
 	}
-	if !strings.Contains(string(written), "mode: disabled") {
-		t.Fatalf("expected disabled mode to remain in config, got %s", written)
+	if stored.Status != "draft" {
+		t.Fatalf("stored status = %q, want draft", stored.Status)
 	}
-	if !strings.Contains(string(written), "issuer_url: https://idp.example.com") {
-		t.Fatalf("expected issuer_url in config, got %s", written)
+	if stored.ClientSecretEncrypted == nil {
+		t.Fatal("expected encrypted client secret to be persisted")
 	}
 }
 
@@ -367,6 +366,7 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	issuerServer := newTestOIDCDiscoveryServer(t)
 	defer issuerServer.Close()
+	_, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
 	server := NewServer(
 		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
 		config.GitHubConfig{},
@@ -378,6 +378,7 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 		catalog,
 		nil,
 		WithRuntimeConfigFile(configPath),
+		WithInstanceAuthService(instanceAuthSvc),
 	)
 
 	req := httptest.NewRequest(
@@ -412,6 +413,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	issuerServer := newTestOIDCDiscoveryServer(t)
 	defer issuerServer.Close()
+	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
 	server := NewServer(
 		config.ServerConfig{Port: 40023, Host: "0.0.0.0"},
 		config.GitHubConfig{},
@@ -424,6 +426,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 		nil,
 		WithRuntimeConfigFile(configPath),
 		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+		WithInstanceAuthService(instanceAuthSvc),
 	)
 
 	req := httptest.NewRequest(
@@ -449,14 +452,12 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	if payload.Security.Auth.ConfiguredMode != "oidc" {
 		t.Fatalf("configured mode = %q, want oidc", payload.Security.Auth.ConfiguredMode)
 	}
-
-	// #nosec G304 -- configPath is created inside this test's TempDir.
-	written, err := os.ReadFile(configPath)
+	stored, err := client.InstanceAuthConfig.Query().Only(req.Context())
 	if err != nil {
-		t.Fatalf("read config file: %v", err)
+		t.Fatalf("load instance auth config: %v", err)
 	}
-	if !strings.Contains(string(written), "mode: oidc") {
-		t.Fatalf("expected oidc mode in config, got %s", written)
+	if stored.Status != "active" {
+		t.Fatalf("stored status = %q, want active", stored.Status)
 	}
 }
 

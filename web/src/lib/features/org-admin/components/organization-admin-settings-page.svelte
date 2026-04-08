@@ -17,7 +17,7 @@
   })
 </script>
 
-<div class="space-y-8">
+<div class="space-y-8" data-organization-id={organizationId}>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <div class="text-sm font-semibold">Providers</div>

@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -44,6 +45,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
@@ -212,6 +214,16 @@ func (a *App) RunServe(ctx context.Context) error {
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
 	)
 	ticketWorkspaceResetSvc := orchestrator.NewTicketWorkspaceResetService(client, a.logger, sshPool)
+	instanceAuthSvc, err := accesscontrolservice.New(
+		accesscontrolrepo.NewEntRepository(client),
+		a.config.Database.DSN,
+		a.config.Metadata.ConfigFile,
+		homeDir,
+		a.config.Auth,
+	)
+	if err != nil {
+		return fmt.Errorf("construct instance auth service: %w", err)
+	}
 	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
@@ -229,6 +241,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
 		httpapi.WithHumanAuthConfig(a.config.Auth),
+		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
 		httpapi.WithHomeDir(homeDir),

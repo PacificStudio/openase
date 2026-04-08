@@ -15,7 +15,7 @@
 
 <div class="border-border bg-card space-y-4 rounded-2xl border p-5">
   <div class="flex items-center justify-between gap-3">
-    <div class="text-sm font-semibold">Last validation</div>
+    <div class="text-sm font-semibold">Last validation diagnostics</div>
     <Badge
       variant={auth.last_validation.status === 'ok'
         ? 'secondary'

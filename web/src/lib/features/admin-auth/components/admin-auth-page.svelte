@@ -15,6 +15,7 @@
   } from '$lib/api/openase'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { SettingsIAMMigrationPanel } from '$lib/features/settings'
   import AdminAuthDiagnostics from './admin-auth-diagnostics.svelte'
   import AdminAuthForm from './admin-auth-form.svelte'
   import AdminAuthOverview from './admin-auth-overview.svelte'
@@ -217,6 +218,8 @@
     </div>
   {:else if auth}
     <div class="space-y-6">
+      <SettingsIAMMigrationPanel {auth} showDocs={true} />
+
       <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <AdminAuthOverview {auth} user={authStore.user} />
         <AdminAuthDiagnostics {auth} {transition} />

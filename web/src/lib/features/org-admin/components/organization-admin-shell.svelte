@@ -11,6 +11,7 @@
   import { ApiError } from '$lib/api/client'
   import { getOrganizationSummary, getOrganizationTokenUsage } from '$lib/api/openase'
   import { PageScaffold } from '$lib/components/layout'
+  import { SettingsIAMMigrationPanel } from '$lib/features/settings'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
@@ -148,6 +149,8 @@
         </div>
       </div>
     </div>
+
+    <SettingsIAMMigrationPanel auth={null} {organizationId} projectAccessHref="/settings#access" />
 
     <div class="flex flex-wrap gap-2 rounded-3xl border bg-white p-2 shadow-sm">
       {#each adminTabs as tab (tab.href)}

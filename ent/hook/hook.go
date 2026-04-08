@@ -177,6 +177,18 @@ func (f ChatTurnFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, er
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ChatTurnMutation", m)
 }
 
+// The InstanceAuthConfigFunc type is an adapter to allow the use of ordinary
+// function as InstanceAuthConfig mutator.
+type InstanceAuthConfigFunc func(context.Context, *ent.InstanceAuthConfigMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f InstanceAuthConfigFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.InstanceAuthConfigMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InstanceAuthConfigMutation", m)
+}
+
 // The MachineFunc type is an adapter to allow the use of ordinary
 // function as Machine mutator.
 type MachineFunc func(context.Context, *ent.MachineMutation) (ent.Value, error)

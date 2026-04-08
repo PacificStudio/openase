@@ -192,8 +192,8 @@
       {:else}
         <p class="text-muted-foreground text-xs">
           Supports <code class="font-mono text-[11px]">https://</code> and
-          <code class="font-mono text-[11px]">git@</code> SSH URLs. Works with GitHub, GitLab,
-          Gitea, and any hosted or self-hosted Git server reachable from the agent machine.
+          <code class="font-mono text-[11px]">git@</code> SSH URLs. Works with GitHub, GitLab, Gitea,
+          and any hosted or self-hosted Git server reachable from the agent machine.
         </p>
       {/if}
     </div>
