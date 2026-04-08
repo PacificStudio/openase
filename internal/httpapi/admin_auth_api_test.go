@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -63,6 +62,7 @@ func TestAdminAuthRouteEnablesAndDisablesOIDC(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	issuerServer := newTestOIDCDiscoveryServer(t)
 	defer issuerServer.Close()
+	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
 	server := NewServer(
 		config.ServerConfig{Port: 40023, Host: "0.0.0.0"},
 		config.GitHubConfig{},
@@ -75,6 +75,7 @@ func TestAdminAuthRouteEnablesAndDisablesOIDC(t *testing.T) {
 		nil,
 		WithRuntimeConfigFile(configPath),
 		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+		WithInstanceAuthService(instanceAuthSvc),
 	)
 
 	enableReq := httptest.NewRequest(
@@ -124,16 +125,18 @@ func TestAdminAuthRouteEnablesAndDisablesOIDC(t *testing.T) {
 		t.Fatalf("configured_mode = %q, want disabled", disablePayload.Auth.ConfiguredMode)
 	}
 
-	// #nosec G304 -- configPath is created inside this test's TempDir.
-	written, err := os.ReadFile(configPath)
+	stored, err := client.InstanceAuthConfig.Query().Only(enableReq.Context())
 	if err != nil {
-		t.Fatalf("read config file: %v", err)
+		t.Fatalf("load instance auth config: %v", err)
 	}
-	if !strings.Contains(string(written), "mode: disabled") {
-		t.Fatalf("expected disabled mode in config, got %s", written)
+	if stored.Status != "draft" {
+		t.Fatalf("stored status = %q, want draft", stored.Status)
 	}
-	if !strings.Contains(string(written), "last_validation:") {
-		t.Fatalf("expected last_validation to be persisted, got %s", written)
+	if stored.ClientSecretEncrypted == nil {
+		t.Fatal("expected encrypted client secret to be stored")
+	}
+	if strings.Contains(stored.ClientSecretEncrypted.Ciphertext, "secret") {
+		t.Fatalf("expected encrypted client secret, got %+v", stored.ClientSecretEncrypted)
 	}
 }
 

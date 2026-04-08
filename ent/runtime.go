@@ -19,6 +19,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -60,6 +61,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/google/uuid"
 )
 
@@ -491,6 +493,74 @@ func init() {
 	chatturnDescID := chatturnFields[0].Descriptor()
 	// chatturn.DefaultID holds the default value on creation for the id field.
 	chatturn.DefaultID = chatturnDescID.Default.(func() uuid.UUID)
+	instanceauthconfigFields := schema.InstanceAuthConfig{}.Fields()
+	_ = instanceauthconfigFields
+	// instanceauthconfigDescScopeKey is the schema descriptor for scope_key field.
+	instanceauthconfigDescScopeKey := instanceauthconfigFields[1].Descriptor()
+	// instanceauthconfig.DefaultScopeKey holds the default value on creation for the scope_key field.
+	instanceauthconfig.DefaultScopeKey = instanceauthconfigDescScopeKey.Default.(string)
+	// instanceauthconfigDescStatus is the schema descriptor for status field.
+	instanceauthconfigDescStatus := instanceauthconfigFields[2].Descriptor()
+	// instanceauthconfig.DefaultStatus holds the default value on creation for the status field.
+	instanceauthconfig.DefaultStatus = instanceauthconfigDescStatus.Default.(string)
+	// instanceauthconfigDescIssuerURL is the schema descriptor for issuer_url field.
+	instanceauthconfigDescIssuerURL := instanceauthconfigFields[3].Descriptor()
+	// instanceauthconfig.DefaultIssuerURL holds the default value on creation for the issuer_url field.
+	instanceauthconfig.DefaultIssuerURL = instanceauthconfigDescIssuerURL.Default.(string)
+	// instanceauthconfigDescClientID is the schema descriptor for client_id field.
+	instanceauthconfigDescClientID := instanceauthconfigFields[4].Descriptor()
+	// instanceauthconfig.DefaultClientID holds the default value on creation for the client_id field.
+	instanceauthconfig.DefaultClientID = instanceauthconfigDescClientID.Default.(string)
+	// instanceauthconfigDescRedirectURL is the schema descriptor for redirect_url field.
+	instanceauthconfigDescRedirectURL := instanceauthconfigFields[6].Descriptor()
+	// instanceauthconfig.DefaultRedirectURL holds the default value on creation for the redirect_url field.
+	instanceauthconfig.DefaultRedirectURL = instanceauthconfigDescRedirectURL.Default.(string)
+	// instanceauthconfigDescEmailClaim is the schema descriptor for email_claim field.
+	instanceauthconfigDescEmailClaim := instanceauthconfigFields[8].Descriptor()
+	// instanceauthconfig.DefaultEmailClaim holds the default value on creation for the email_claim field.
+	instanceauthconfig.DefaultEmailClaim = instanceauthconfigDescEmailClaim.Default.(string)
+	// instanceauthconfigDescNameClaim is the schema descriptor for name_claim field.
+	instanceauthconfigDescNameClaim := instanceauthconfigFields[9].Descriptor()
+	// instanceauthconfig.DefaultNameClaim holds the default value on creation for the name_claim field.
+	instanceauthconfig.DefaultNameClaim = instanceauthconfigDescNameClaim.Default.(string)
+	// instanceauthconfigDescUsernameClaim is the schema descriptor for username_claim field.
+	instanceauthconfigDescUsernameClaim := instanceauthconfigFields[10].Descriptor()
+	// instanceauthconfig.DefaultUsernameClaim holds the default value on creation for the username_claim field.
+	instanceauthconfig.DefaultUsernameClaim = instanceauthconfigDescUsernameClaim.Default.(string)
+	// instanceauthconfigDescGroupsClaim is the schema descriptor for groups_claim field.
+	instanceauthconfigDescGroupsClaim := instanceauthconfigFields[11].Descriptor()
+	// instanceauthconfig.DefaultGroupsClaim holds the default value on creation for the groups_claim field.
+	instanceauthconfig.DefaultGroupsClaim = instanceauthconfigDescGroupsClaim.Default.(string)
+	// instanceauthconfigDescSessionTTL is the schema descriptor for session_ttl field.
+	instanceauthconfigDescSessionTTL := instanceauthconfigFields[14].Descriptor()
+	// instanceauthconfig.DefaultSessionTTL holds the default value on creation for the session_ttl field.
+	instanceauthconfig.DefaultSessionTTL = instanceauthconfigDescSessionTTL.Default.(string)
+	// instanceauthconfigDescSessionIdleTTL is the schema descriptor for session_idle_ttl field.
+	instanceauthconfigDescSessionIdleTTL := instanceauthconfigFields[15].Descriptor()
+	// instanceauthconfig.DefaultSessionIdleTTL holds the default value on creation for the session_idle_ttl field.
+	instanceauthconfig.DefaultSessionIdleTTL = instanceauthconfigDescSessionIdleTTL.Default.(string)
+	// instanceauthconfigDescValidationMetadata is the schema descriptor for validation_metadata field.
+	instanceauthconfigDescValidationMetadata := instanceauthconfigFields[16].Descriptor()
+	// instanceauthconfig.DefaultValidationMetadata holds the default value on creation for the validation_metadata field.
+	instanceauthconfig.DefaultValidationMetadata = instanceauthconfigDescValidationMetadata.Default.(func() iam.OIDCValidationMetadata)
+	// instanceauthconfigDescActivationMetadata is the schema descriptor for activation_metadata field.
+	instanceauthconfigDescActivationMetadata := instanceauthconfigFields[17].Descriptor()
+	// instanceauthconfig.DefaultActivationMetadata holds the default value on creation for the activation_metadata field.
+	instanceauthconfig.DefaultActivationMetadata = instanceauthconfigDescActivationMetadata.Default.(func() iam.OIDCActivationMetadata)
+	// instanceauthconfigDescCreatedAt is the schema descriptor for created_at field.
+	instanceauthconfigDescCreatedAt := instanceauthconfigFields[18].Descriptor()
+	// instanceauthconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	instanceauthconfig.DefaultCreatedAt = instanceauthconfigDescCreatedAt.Default.(func() time.Time)
+	// instanceauthconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	instanceauthconfigDescUpdatedAt := instanceauthconfigFields[19].Descriptor()
+	// instanceauthconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	instanceauthconfig.DefaultUpdatedAt = instanceauthconfigDescUpdatedAt.Default.(func() time.Time)
+	// instanceauthconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	instanceauthconfig.UpdateDefaultUpdatedAt = instanceauthconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// instanceauthconfigDescID is the schema descriptor for id field.
+	instanceauthconfigDescID := instanceauthconfigFields[0].Descriptor()
+	// instanceauthconfig.DefaultID holds the default value on creation for the id field.
+	instanceauthconfig.DefaultID = instanceauthconfigDescID.Default.(func() uuid.UUID)
 	machineFields := schema.Machine{}.Fields()
 	_ = machineFields
 	// machineDescName is the schema descriptor for name field.

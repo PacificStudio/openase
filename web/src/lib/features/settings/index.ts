@@ -1,4 +1,5 @@
 export { default as SettingsPage } from './components/settings-page.svelte'
+export { default as SettingsIAMMigrationPanel } from './components/settings-iam-migration-panel.svelte'
 export { default as SecuritySettingsHumanAuthGuideLinks } from './components/security-settings-human-auth-guide-links.svelte'
 export { default as SecuritySettingsHumanAuthSessions } from './components/security-settings-human-auth-sessions.svelte'
 export { default as SecuritySettingsHumanAuthSummary } from './components/security-settings-human-auth-summary.svelte'

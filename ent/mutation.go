@@ -25,6 +25,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -67,6 +68,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	"github.com/google/uuid"
 )
@@ -94,6 +96,7 @@ const (
 	TypeChatEntry                     = "ChatEntry"
 	TypeChatPendingInterrupt          = "ChatPendingInterrupt"
 	TypeChatTurn                      = "ChatTurn"
+	TypeInstanceAuthConfig            = "InstanceAuthConfig"
 	TypeMachine                       = "Machine"
 	TypeMachineChannelToken           = "MachineChannelToken"
 	TypeNotificationChannel           = "NotificationChannel"
@@ -17373,6 +17376,1389 @@ func (m *ChatTurnMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown ChatTurn edge %s", name)
+}
+
+// InstanceAuthConfigMutation represents an operation that mutates the InstanceAuthConfig nodes in the graph.
+type InstanceAuthConfigMutation struct {
+	config
+	op                      Op
+	typ                     string
+	id                      *uuid.UUID
+	scope_key               *string
+	status                  *string
+	issuer_url              *string
+	client_id               *string
+	client_secret_encrypted **iam.EncryptedSecret
+	redirect_url            *string
+	scopes                  *pgarray.StringArray
+	email_claim             *string
+	name_claim              *string
+	username_claim          *string
+	groups_claim            *string
+	allowed_email_domains   *pgarray.StringArray
+	bootstrap_admin_emails  *pgarray.StringArray
+	session_ttl             *string
+	session_idle_ttl        *string
+	validation_metadata     *iam.OIDCValidationMetadata
+	activation_metadata     *iam.OIDCActivationMetadata
+	created_at              *time.Time
+	updated_at              *time.Time
+	clearedFields           map[string]struct{}
+	done                    bool
+	oldValue                func(context.Context) (*InstanceAuthConfig, error)
+	predicates              []predicate.InstanceAuthConfig
+}
+
+var _ ent.Mutation = (*InstanceAuthConfigMutation)(nil)
+
+// instanceauthconfigOption allows management of the mutation configuration using functional options.
+type instanceauthconfigOption func(*InstanceAuthConfigMutation)
+
+// newInstanceAuthConfigMutation creates new mutation for the InstanceAuthConfig entity.
+func newInstanceAuthConfigMutation(c config, op Op, opts ...instanceauthconfigOption) *InstanceAuthConfigMutation {
+	m := &InstanceAuthConfigMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeInstanceAuthConfig,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withInstanceAuthConfigID sets the ID field of the mutation.
+func withInstanceAuthConfigID(id uuid.UUID) instanceauthconfigOption {
+	return func(m *InstanceAuthConfigMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *InstanceAuthConfig
+		)
+		m.oldValue = func(ctx context.Context) (*InstanceAuthConfig, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().InstanceAuthConfig.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withInstanceAuthConfig sets the old InstanceAuthConfig of the mutation.
+func withInstanceAuthConfig(node *InstanceAuthConfig) instanceauthconfigOption {
+	return func(m *InstanceAuthConfigMutation) {
+		m.oldValue = func(context.Context) (*InstanceAuthConfig, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m InstanceAuthConfigMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m InstanceAuthConfigMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of InstanceAuthConfig entities.
+func (m *InstanceAuthConfigMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *InstanceAuthConfigMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *InstanceAuthConfigMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().InstanceAuthConfig.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetScopeKey sets the "scope_key" field.
+func (m *InstanceAuthConfigMutation) SetScopeKey(s string) {
+	m.scope_key = &s
+}
+
+// ScopeKey returns the value of the "scope_key" field in the mutation.
+func (m *InstanceAuthConfigMutation) ScopeKey() (r string, exists bool) {
+	v := m.scope_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScopeKey returns the old "scope_key" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldScopeKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScopeKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScopeKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScopeKey: %w", err)
+	}
+	return oldValue.ScopeKey, nil
+}
+
+// ResetScopeKey resets all changes to the "scope_key" field.
+func (m *InstanceAuthConfigMutation) ResetScopeKey() {
+	m.scope_key = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *InstanceAuthConfigMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *InstanceAuthConfigMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *InstanceAuthConfigMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetIssuerURL sets the "issuer_url" field.
+func (m *InstanceAuthConfigMutation) SetIssuerURL(s string) {
+	m.issuer_url = &s
+}
+
+// IssuerURL returns the value of the "issuer_url" field in the mutation.
+func (m *InstanceAuthConfigMutation) IssuerURL() (r string, exists bool) {
+	v := m.issuer_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIssuerURL returns the old "issuer_url" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldIssuerURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIssuerURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIssuerURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIssuerURL: %w", err)
+	}
+	return oldValue.IssuerURL, nil
+}
+
+// ResetIssuerURL resets all changes to the "issuer_url" field.
+func (m *InstanceAuthConfigMutation) ResetIssuerURL() {
+	m.issuer_url = nil
+}
+
+// SetClientID sets the "client_id" field.
+func (m *InstanceAuthConfigMutation) SetClientID(s string) {
+	m.client_id = &s
+}
+
+// ClientID returns the value of the "client_id" field in the mutation.
+func (m *InstanceAuthConfigMutation) ClientID() (r string, exists bool) {
+	v := m.client_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientID returns the old "client_id" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldClientID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientID: %w", err)
+	}
+	return oldValue.ClientID, nil
+}
+
+// ResetClientID resets all changes to the "client_id" field.
+func (m *InstanceAuthConfigMutation) ResetClientID() {
+	m.client_id = nil
+}
+
+// SetClientSecretEncrypted sets the "client_secret_encrypted" field.
+func (m *InstanceAuthConfigMutation) SetClientSecretEncrypted(is *iam.EncryptedSecret) {
+	m.client_secret_encrypted = &is
+}
+
+// ClientSecretEncrypted returns the value of the "client_secret_encrypted" field in the mutation.
+func (m *InstanceAuthConfigMutation) ClientSecretEncrypted() (r *iam.EncryptedSecret, exists bool) {
+	v := m.client_secret_encrypted
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClientSecretEncrypted returns the old "client_secret_encrypted" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldClientSecretEncrypted(ctx context.Context) (v *iam.EncryptedSecret, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClientSecretEncrypted is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClientSecretEncrypted requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClientSecretEncrypted: %w", err)
+	}
+	return oldValue.ClientSecretEncrypted, nil
+}
+
+// ClearClientSecretEncrypted clears the value of the "client_secret_encrypted" field.
+func (m *InstanceAuthConfigMutation) ClearClientSecretEncrypted() {
+	m.client_secret_encrypted = nil
+	m.clearedFields[instanceauthconfig.FieldClientSecretEncrypted] = struct{}{}
+}
+
+// ClientSecretEncryptedCleared returns if the "client_secret_encrypted" field was cleared in this mutation.
+func (m *InstanceAuthConfigMutation) ClientSecretEncryptedCleared() bool {
+	_, ok := m.clearedFields[instanceauthconfig.FieldClientSecretEncrypted]
+	return ok
+}
+
+// ResetClientSecretEncrypted resets all changes to the "client_secret_encrypted" field.
+func (m *InstanceAuthConfigMutation) ResetClientSecretEncrypted() {
+	m.client_secret_encrypted = nil
+	delete(m.clearedFields, instanceauthconfig.FieldClientSecretEncrypted)
+}
+
+// SetRedirectURL sets the "redirect_url" field.
+func (m *InstanceAuthConfigMutation) SetRedirectURL(s string) {
+	m.redirect_url = &s
+}
+
+// RedirectURL returns the value of the "redirect_url" field in the mutation.
+func (m *InstanceAuthConfigMutation) RedirectURL() (r string, exists bool) {
+	v := m.redirect_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRedirectURL returns the old "redirect_url" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldRedirectURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRedirectURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRedirectURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRedirectURL: %w", err)
+	}
+	return oldValue.RedirectURL, nil
+}
+
+// ResetRedirectURL resets all changes to the "redirect_url" field.
+func (m *InstanceAuthConfigMutation) ResetRedirectURL() {
+	m.redirect_url = nil
+}
+
+// SetScopes sets the "scopes" field.
+func (m *InstanceAuthConfigMutation) SetScopes(pa pgarray.StringArray) {
+	m.scopes = &pa
+}
+
+// Scopes returns the value of the "scopes" field in the mutation.
+func (m *InstanceAuthConfigMutation) Scopes() (r pgarray.StringArray, exists bool) {
+	v := m.scopes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldScopes returns the old "scopes" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldScopes(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldScopes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldScopes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldScopes: %w", err)
+	}
+	return oldValue.Scopes, nil
+}
+
+// ClearScopes clears the value of the "scopes" field.
+func (m *InstanceAuthConfigMutation) ClearScopes() {
+	m.scopes = nil
+	m.clearedFields[instanceauthconfig.FieldScopes] = struct{}{}
+}
+
+// ScopesCleared returns if the "scopes" field was cleared in this mutation.
+func (m *InstanceAuthConfigMutation) ScopesCleared() bool {
+	_, ok := m.clearedFields[instanceauthconfig.FieldScopes]
+	return ok
+}
+
+// ResetScopes resets all changes to the "scopes" field.
+func (m *InstanceAuthConfigMutation) ResetScopes() {
+	m.scopes = nil
+	delete(m.clearedFields, instanceauthconfig.FieldScopes)
+}
+
+// SetEmailClaim sets the "email_claim" field.
+func (m *InstanceAuthConfigMutation) SetEmailClaim(s string) {
+	m.email_claim = &s
+}
+
+// EmailClaim returns the value of the "email_claim" field in the mutation.
+func (m *InstanceAuthConfigMutation) EmailClaim() (r string, exists bool) {
+	v := m.email_claim
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailClaim returns the old "email_claim" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldEmailClaim(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailClaim is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailClaim requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailClaim: %w", err)
+	}
+	return oldValue.EmailClaim, nil
+}
+
+// ResetEmailClaim resets all changes to the "email_claim" field.
+func (m *InstanceAuthConfigMutation) ResetEmailClaim() {
+	m.email_claim = nil
+}
+
+// SetNameClaim sets the "name_claim" field.
+func (m *InstanceAuthConfigMutation) SetNameClaim(s string) {
+	m.name_claim = &s
+}
+
+// NameClaim returns the value of the "name_claim" field in the mutation.
+func (m *InstanceAuthConfigMutation) NameClaim() (r string, exists bool) {
+	v := m.name_claim
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNameClaim returns the old "name_claim" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldNameClaim(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNameClaim is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNameClaim requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNameClaim: %w", err)
+	}
+	return oldValue.NameClaim, nil
+}
+
+// ResetNameClaim resets all changes to the "name_claim" field.
+func (m *InstanceAuthConfigMutation) ResetNameClaim() {
+	m.name_claim = nil
+}
+
+// SetUsernameClaim sets the "username_claim" field.
+func (m *InstanceAuthConfigMutation) SetUsernameClaim(s string) {
+	m.username_claim = &s
+}
+
+// UsernameClaim returns the value of the "username_claim" field in the mutation.
+func (m *InstanceAuthConfigMutation) UsernameClaim() (r string, exists bool) {
+	v := m.username_claim
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsernameClaim returns the old "username_claim" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldUsernameClaim(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsernameClaim is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsernameClaim requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsernameClaim: %w", err)
+	}
+	return oldValue.UsernameClaim, nil
+}
+
+// ResetUsernameClaim resets all changes to the "username_claim" field.
+func (m *InstanceAuthConfigMutation) ResetUsernameClaim() {
+	m.username_claim = nil
+}
+
+// SetGroupsClaim sets the "groups_claim" field.
+func (m *InstanceAuthConfigMutation) SetGroupsClaim(s string) {
+	m.groups_claim = &s
+}
+
+// GroupsClaim returns the value of the "groups_claim" field in the mutation.
+func (m *InstanceAuthConfigMutation) GroupsClaim() (r string, exists bool) {
+	v := m.groups_claim
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldGroupsClaim returns the old "groups_claim" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldGroupsClaim(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldGroupsClaim is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldGroupsClaim requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldGroupsClaim: %w", err)
+	}
+	return oldValue.GroupsClaim, nil
+}
+
+// ResetGroupsClaim resets all changes to the "groups_claim" field.
+func (m *InstanceAuthConfigMutation) ResetGroupsClaim() {
+	m.groups_claim = nil
+}
+
+// SetAllowedEmailDomains sets the "allowed_email_domains" field.
+func (m *InstanceAuthConfigMutation) SetAllowedEmailDomains(pa pgarray.StringArray) {
+	m.allowed_email_domains = &pa
+}
+
+// AllowedEmailDomains returns the value of the "allowed_email_domains" field in the mutation.
+func (m *InstanceAuthConfigMutation) AllowedEmailDomains() (r pgarray.StringArray, exists bool) {
+	v := m.allowed_email_domains
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAllowedEmailDomains returns the old "allowed_email_domains" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldAllowedEmailDomains(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAllowedEmailDomains is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAllowedEmailDomains requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAllowedEmailDomains: %w", err)
+	}
+	return oldValue.AllowedEmailDomains, nil
+}
+
+// ClearAllowedEmailDomains clears the value of the "allowed_email_domains" field.
+func (m *InstanceAuthConfigMutation) ClearAllowedEmailDomains() {
+	m.allowed_email_domains = nil
+	m.clearedFields[instanceauthconfig.FieldAllowedEmailDomains] = struct{}{}
+}
+
+// AllowedEmailDomainsCleared returns if the "allowed_email_domains" field was cleared in this mutation.
+func (m *InstanceAuthConfigMutation) AllowedEmailDomainsCleared() bool {
+	_, ok := m.clearedFields[instanceauthconfig.FieldAllowedEmailDomains]
+	return ok
+}
+
+// ResetAllowedEmailDomains resets all changes to the "allowed_email_domains" field.
+func (m *InstanceAuthConfigMutation) ResetAllowedEmailDomains() {
+	m.allowed_email_domains = nil
+	delete(m.clearedFields, instanceauthconfig.FieldAllowedEmailDomains)
+}
+
+// SetBootstrapAdminEmails sets the "bootstrap_admin_emails" field.
+func (m *InstanceAuthConfigMutation) SetBootstrapAdminEmails(pa pgarray.StringArray) {
+	m.bootstrap_admin_emails = &pa
+}
+
+// BootstrapAdminEmails returns the value of the "bootstrap_admin_emails" field in the mutation.
+func (m *InstanceAuthConfigMutation) BootstrapAdminEmails() (r pgarray.StringArray, exists bool) {
+	v := m.bootstrap_admin_emails
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBootstrapAdminEmails returns the old "bootstrap_admin_emails" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldBootstrapAdminEmails(ctx context.Context) (v pgarray.StringArray, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBootstrapAdminEmails is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBootstrapAdminEmails requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBootstrapAdminEmails: %w", err)
+	}
+	return oldValue.BootstrapAdminEmails, nil
+}
+
+// ClearBootstrapAdminEmails clears the value of the "bootstrap_admin_emails" field.
+func (m *InstanceAuthConfigMutation) ClearBootstrapAdminEmails() {
+	m.bootstrap_admin_emails = nil
+	m.clearedFields[instanceauthconfig.FieldBootstrapAdminEmails] = struct{}{}
+}
+
+// BootstrapAdminEmailsCleared returns if the "bootstrap_admin_emails" field was cleared in this mutation.
+func (m *InstanceAuthConfigMutation) BootstrapAdminEmailsCleared() bool {
+	_, ok := m.clearedFields[instanceauthconfig.FieldBootstrapAdminEmails]
+	return ok
+}
+
+// ResetBootstrapAdminEmails resets all changes to the "bootstrap_admin_emails" field.
+func (m *InstanceAuthConfigMutation) ResetBootstrapAdminEmails() {
+	m.bootstrap_admin_emails = nil
+	delete(m.clearedFields, instanceauthconfig.FieldBootstrapAdminEmails)
+}
+
+// SetSessionTTL sets the "session_ttl" field.
+func (m *InstanceAuthConfigMutation) SetSessionTTL(s string) {
+	m.session_ttl = &s
+}
+
+// SessionTTL returns the value of the "session_ttl" field in the mutation.
+func (m *InstanceAuthConfigMutation) SessionTTL() (r string, exists bool) {
+	v := m.session_ttl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionTTL returns the old "session_ttl" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldSessionTTL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionTTL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionTTL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionTTL: %w", err)
+	}
+	return oldValue.SessionTTL, nil
+}
+
+// ResetSessionTTL resets all changes to the "session_ttl" field.
+func (m *InstanceAuthConfigMutation) ResetSessionTTL() {
+	m.session_ttl = nil
+}
+
+// SetSessionIdleTTL sets the "session_idle_ttl" field.
+func (m *InstanceAuthConfigMutation) SetSessionIdleTTL(s string) {
+	m.session_idle_ttl = &s
+}
+
+// SessionIdleTTL returns the value of the "session_idle_ttl" field in the mutation.
+func (m *InstanceAuthConfigMutation) SessionIdleTTL() (r string, exists bool) {
+	v := m.session_idle_ttl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSessionIdleTTL returns the old "session_idle_ttl" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldSessionIdleTTL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSessionIdleTTL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSessionIdleTTL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSessionIdleTTL: %w", err)
+	}
+	return oldValue.SessionIdleTTL, nil
+}
+
+// ResetSessionIdleTTL resets all changes to the "session_idle_ttl" field.
+func (m *InstanceAuthConfigMutation) ResetSessionIdleTTL() {
+	m.session_idle_ttl = nil
+}
+
+// SetValidationMetadata sets the "validation_metadata" field.
+func (m *InstanceAuthConfigMutation) SetValidationMetadata(ivm iam.OIDCValidationMetadata) {
+	m.validation_metadata = &ivm
+}
+
+// ValidationMetadata returns the value of the "validation_metadata" field in the mutation.
+func (m *InstanceAuthConfigMutation) ValidationMetadata() (r iam.OIDCValidationMetadata, exists bool) {
+	v := m.validation_metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldValidationMetadata returns the old "validation_metadata" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldValidationMetadata(ctx context.Context) (v iam.OIDCValidationMetadata, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldValidationMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldValidationMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldValidationMetadata: %w", err)
+	}
+	return oldValue.ValidationMetadata, nil
+}
+
+// ResetValidationMetadata resets all changes to the "validation_metadata" field.
+func (m *InstanceAuthConfigMutation) ResetValidationMetadata() {
+	m.validation_metadata = nil
+}
+
+// SetActivationMetadata sets the "activation_metadata" field.
+func (m *InstanceAuthConfigMutation) SetActivationMetadata(iam iam.OIDCActivationMetadata) {
+	m.activation_metadata = &iam
+}
+
+// ActivationMetadata returns the value of the "activation_metadata" field in the mutation.
+func (m *InstanceAuthConfigMutation) ActivationMetadata() (r iam.OIDCActivationMetadata, exists bool) {
+	v := m.activation_metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivationMetadata returns the old "activation_metadata" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldActivationMetadata(ctx context.Context) (v iam.OIDCActivationMetadata, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivationMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivationMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivationMetadata: %w", err)
+	}
+	return oldValue.ActivationMetadata, nil
+}
+
+// ResetActivationMetadata resets all changes to the "activation_metadata" field.
+func (m *InstanceAuthConfigMutation) ResetActivationMetadata() {
+	m.activation_metadata = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *InstanceAuthConfigMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *InstanceAuthConfigMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *InstanceAuthConfigMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *InstanceAuthConfigMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *InstanceAuthConfigMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *InstanceAuthConfigMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the InstanceAuthConfigMutation builder.
+func (m *InstanceAuthConfigMutation) Where(ps ...predicate.InstanceAuthConfig) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the InstanceAuthConfigMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *InstanceAuthConfigMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.InstanceAuthConfig, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *InstanceAuthConfigMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *InstanceAuthConfigMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (InstanceAuthConfig).
+func (m *InstanceAuthConfigMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *InstanceAuthConfigMutation) Fields() []string {
+	fields := make([]string, 0, 19)
+	if m.scope_key != nil {
+		fields = append(fields, instanceauthconfig.FieldScopeKey)
+	}
+	if m.status != nil {
+		fields = append(fields, instanceauthconfig.FieldStatus)
+	}
+	if m.issuer_url != nil {
+		fields = append(fields, instanceauthconfig.FieldIssuerURL)
+	}
+	if m.client_id != nil {
+		fields = append(fields, instanceauthconfig.FieldClientID)
+	}
+	if m.client_secret_encrypted != nil {
+		fields = append(fields, instanceauthconfig.FieldClientSecretEncrypted)
+	}
+	if m.redirect_url != nil {
+		fields = append(fields, instanceauthconfig.FieldRedirectURL)
+	}
+	if m.scopes != nil {
+		fields = append(fields, instanceauthconfig.FieldScopes)
+	}
+	if m.email_claim != nil {
+		fields = append(fields, instanceauthconfig.FieldEmailClaim)
+	}
+	if m.name_claim != nil {
+		fields = append(fields, instanceauthconfig.FieldNameClaim)
+	}
+	if m.username_claim != nil {
+		fields = append(fields, instanceauthconfig.FieldUsernameClaim)
+	}
+	if m.groups_claim != nil {
+		fields = append(fields, instanceauthconfig.FieldGroupsClaim)
+	}
+	if m.allowed_email_domains != nil {
+		fields = append(fields, instanceauthconfig.FieldAllowedEmailDomains)
+	}
+	if m.bootstrap_admin_emails != nil {
+		fields = append(fields, instanceauthconfig.FieldBootstrapAdminEmails)
+	}
+	if m.session_ttl != nil {
+		fields = append(fields, instanceauthconfig.FieldSessionTTL)
+	}
+	if m.session_idle_ttl != nil {
+		fields = append(fields, instanceauthconfig.FieldSessionIdleTTL)
+	}
+	if m.validation_metadata != nil {
+		fields = append(fields, instanceauthconfig.FieldValidationMetadata)
+	}
+	if m.activation_metadata != nil {
+		fields = append(fields, instanceauthconfig.FieldActivationMetadata)
+	}
+	if m.created_at != nil {
+		fields = append(fields, instanceauthconfig.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, instanceauthconfig.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *InstanceAuthConfigMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case instanceauthconfig.FieldScopeKey:
+		return m.ScopeKey()
+	case instanceauthconfig.FieldStatus:
+		return m.Status()
+	case instanceauthconfig.FieldIssuerURL:
+		return m.IssuerURL()
+	case instanceauthconfig.FieldClientID:
+		return m.ClientID()
+	case instanceauthconfig.FieldClientSecretEncrypted:
+		return m.ClientSecretEncrypted()
+	case instanceauthconfig.FieldRedirectURL:
+		return m.RedirectURL()
+	case instanceauthconfig.FieldScopes:
+		return m.Scopes()
+	case instanceauthconfig.FieldEmailClaim:
+		return m.EmailClaim()
+	case instanceauthconfig.FieldNameClaim:
+		return m.NameClaim()
+	case instanceauthconfig.FieldUsernameClaim:
+		return m.UsernameClaim()
+	case instanceauthconfig.FieldGroupsClaim:
+		return m.GroupsClaim()
+	case instanceauthconfig.FieldAllowedEmailDomains:
+		return m.AllowedEmailDomains()
+	case instanceauthconfig.FieldBootstrapAdminEmails:
+		return m.BootstrapAdminEmails()
+	case instanceauthconfig.FieldSessionTTL:
+		return m.SessionTTL()
+	case instanceauthconfig.FieldSessionIdleTTL:
+		return m.SessionIdleTTL()
+	case instanceauthconfig.FieldValidationMetadata:
+		return m.ValidationMetadata()
+	case instanceauthconfig.FieldActivationMetadata:
+		return m.ActivationMetadata()
+	case instanceauthconfig.FieldCreatedAt:
+		return m.CreatedAt()
+	case instanceauthconfig.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *InstanceAuthConfigMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case instanceauthconfig.FieldScopeKey:
+		return m.OldScopeKey(ctx)
+	case instanceauthconfig.FieldStatus:
+		return m.OldStatus(ctx)
+	case instanceauthconfig.FieldIssuerURL:
+		return m.OldIssuerURL(ctx)
+	case instanceauthconfig.FieldClientID:
+		return m.OldClientID(ctx)
+	case instanceauthconfig.FieldClientSecretEncrypted:
+		return m.OldClientSecretEncrypted(ctx)
+	case instanceauthconfig.FieldRedirectURL:
+		return m.OldRedirectURL(ctx)
+	case instanceauthconfig.FieldScopes:
+		return m.OldScopes(ctx)
+	case instanceauthconfig.FieldEmailClaim:
+		return m.OldEmailClaim(ctx)
+	case instanceauthconfig.FieldNameClaim:
+		return m.OldNameClaim(ctx)
+	case instanceauthconfig.FieldUsernameClaim:
+		return m.OldUsernameClaim(ctx)
+	case instanceauthconfig.FieldGroupsClaim:
+		return m.OldGroupsClaim(ctx)
+	case instanceauthconfig.FieldAllowedEmailDomains:
+		return m.OldAllowedEmailDomains(ctx)
+	case instanceauthconfig.FieldBootstrapAdminEmails:
+		return m.OldBootstrapAdminEmails(ctx)
+	case instanceauthconfig.FieldSessionTTL:
+		return m.OldSessionTTL(ctx)
+	case instanceauthconfig.FieldSessionIdleTTL:
+		return m.OldSessionIdleTTL(ctx)
+	case instanceauthconfig.FieldValidationMetadata:
+		return m.OldValidationMetadata(ctx)
+	case instanceauthconfig.FieldActivationMetadata:
+		return m.OldActivationMetadata(ctx)
+	case instanceauthconfig.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case instanceauthconfig.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown InstanceAuthConfig field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *InstanceAuthConfigMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case instanceauthconfig.FieldScopeKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScopeKey(v)
+		return nil
+	case instanceauthconfig.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case instanceauthconfig.FieldIssuerURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIssuerURL(v)
+		return nil
+	case instanceauthconfig.FieldClientID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientID(v)
+		return nil
+	case instanceauthconfig.FieldClientSecretEncrypted:
+		v, ok := value.(*iam.EncryptedSecret)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClientSecretEncrypted(v)
+		return nil
+	case instanceauthconfig.FieldRedirectURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRedirectURL(v)
+		return nil
+	case instanceauthconfig.FieldScopes:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetScopes(v)
+		return nil
+	case instanceauthconfig.FieldEmailClaim:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailClaim(v)
+		return nil
+	case instanceauthconfig.FieldNameClaim:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNameClaim(v)
+		return nil
+	case instanceauthconfig.FieldUsernameClaim:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsernameClaim(v)
+		return nil
+	case instanceauthconfig.FieldGroupsClaim:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetGroupsClaim(v)
+		return nil
+	case instanceauthconfig.FieldAllowedEmailDomains:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAllowedEmailDomains(v)
+		return nil
+	case instanceauthconfig.FieldBootstrapAdminEmails:
+		v, ok := value.(pgarray.StringArray)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBootstrapAdminEmails(v)
+		return nil
+	case instanceauthconfig.FieldSessionTTL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionTTL(v)
+		return nil
+	case instanceauthconfig.FieldSessionIdleTTL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSessionIdleTTL(v)
+		return nil
+	case instanceauthconfig.FieldValidationMetadata:
+		v, ok := value.(iam.OIDCValidationMetadata)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetValidationMetadata(v)
+		return nil
+	case instanceauthconfig.FieldActivationMetadata:
+		v, ok := value.(iam.OIDCActivationMetadata)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivationMetadata(v)
+		return nil
+	case instanceauthconfig.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case instanceauthconfig.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown InstanceAuthConfig field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *InstanceAuthConfigMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *InstanceAuthConfigMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *InstanceAuthConfigMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown InstanceAuthConfig numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *InstanceAuthConfigMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(instanceauthconfig.FieldClientSecretEncrypted) {
+		fields = append(fields, instanceauthconfig.FieldClientSecretEncrypted)
+	}
+	if m.FieldCleared(instanceauthconfig.FieldScopes) {
+		fields = append(fields, instanceauthconfig.FieldScopes)
+	}
+	if m.FieldCleared(instanceauthconfig.FieldAllowedEmailDomains) {
+		fields = append(fields, instanceauthconfig.FieldAllowedEmailDomains)
+	}
+	if m.FieldCleared(instanceauthconfig.FieldBootstrapAdminEmails) {
+		fields = append(fields, instanceauthconfig.FieldBootstrapAdminEmails)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *InstanceAuthConfigMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *InstanceAuthConfigMutation) ClearField(name string) error {
+	switch name {
+	case instanceauthconfig.FieldClientSecretEncrypted:
+		m.ClearClientSecretEncrypted()
+		return nil
+	case instanceauthconfig.FieldScopes:
+		m.ClearScopes()
+		return nil
+	case instanceauthconfig.FieldAllowedEmailDomains:
+		m.ClearAllowedEmailDomains()
+		return nil
+	case instanceauthconfig.FieldBootstrapAdminEmails:
+		m.ClearBootstrapAdminEmails()
+		return nil
+	}
+	return fmt.Errorf("unknown InstanceAuthConfig nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *InstanceAuthConfigMutation) ResetField(name string) error {
+	switch name {
+	case instanceauthconfig.FieldScopeKey:
+		m.ResetScopeKey()
+		return nil
+	case instanceauthconfig.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case instanceauthconfig.FieldIssuerURL:
+		m.ResetIssuerURL()
+		return nil
+	case instanceauthconfig.FieldClientID:
+		m.ResetClientID()
+		return nil
+	case instanceauthconfig.FieldClientSecretEncrypted:
+		m.ResetClientSecretEncrypted()
+		return nil
+	case instanceauthconfig.FieldRedirectURL:
+		m.ResetRedirectURL()
+		return nil
+	case instanceauthconfig.FieldScopes:
+		m.ResetScopes()
+		return nil
+	case instanceauthconfig.FieldEmailClaim:
+		m.ResetEmailClaim()
+		return nil
+	case instanceauthconfig.FieldNameClaim:
+		m.ResetNameClaim()
+		return nil
+	case instanceauthconfig.FieldUsernameClaim:
+		m.ResetUsernameClaim()
+		return nil
+	case instanceauthconfig.FieldGroupsClaim:
+		m.ResetGroupsClaim()
+		return nil
+	case instanceauthconfig.FieldAllowedEmailDomains:
+		m.ResetAllowedEmailDomains()
+		return nil
+	case instanceauthconfig.FieldBootstrapAdminEmails:
+		m.ResetBootstrapAdminEmails()
+		return nil
+	case instanceauthconfig.FieldSessionTTL:
+		m.ResetSessionTTL()
+		return nil
+	case instanceauthconfig.FieldSessionIdleTTL:
+		m.ResetSessionIdleTTL()
+		return nil
+	case instanceauthconfig.FieldValidationMetadata:
+		m.ResetValidationMetadata()
+		return nil
+	case instanceauthconfig.FieldActivationMetadata:
+		m.ResetActivationMetadata()
+		return nil
+	case instanceauthconfig.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case instanceauthconfig.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown InstanceAuthConfig field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *InstanceAuthConfigMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *InstanceAuthConfigMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *InstanceAuthConfigMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *InstanceAuthConfigMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *InstanceAuthConfigMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *InstanceAuthConfigMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *InstanceAuthConfigMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown InstanceAuthConfig unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *InstanceAuthConfigMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown InstanceAuthConfig edge %s", name)
 }
 
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.

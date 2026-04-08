@@ -100,7 +100,7 @@
           <div class="mt-1 font-medium">{auth.bootstrap_state.summary}</div>
         </div>
         <div class="sm:col-span-2">
-          <div class="text-muted-foreground">Config path</div>
+          <div class="text-muted-foreground">Stored in</div>
           <div class="mt-1 font-mono break-all">{auth.config_path || 'Not available'}</div>
         </div>
       </div>
@@ -128,9 +128,9 @@
     <div>
       <h4 class="text-sm font-semibold">Draft OIDC configuration</h4>
       <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-        Save stores the draft on disk without changing the active auth mode. Test checks provider
-        discovery. Enable OIDC updates the configured auth mode and then tells you the next rollout
-        step.
+        Save stores the draft for this instance without changing the active auth mode. Test checks
+        provider discovery. Enable OIDC updates the configured auth mode and then tells you the next
+        rollout step.
       </p>
     </div>
 

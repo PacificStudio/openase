@@ -66,7 +66,7 @@ describe('Access settings', () => {
 
     const { findByText, queryByText } = render(AccessSettings)
 
-    expect(await findByText('Compatibility notice')).toBeTruthy()
+    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Current surface')).toBeTruthy()
     expect(await findByText('Disabled-mode project access')).toBeTruthy()
     expect(queryByText('Project effective access')).toBeNull()

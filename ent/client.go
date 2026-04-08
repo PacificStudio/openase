@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -105,6 +106,8 @@ type Client struct {
 	ChatPendingInterrupt *ChatPendingInterruptClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
 	ChatTurn *ChatTurnClient
+	// InstanceAuthConfig is the client for interacting with the InstanceAuthConfig builders.
+	InstanceAuthConfig *InstanceAuthConfigClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// MachineChannelToken is the client for interacting with the MachineChannelToken builders.
@@ -210,6 +213,7 @@ func (c *Client) init() {
 	c.ChatEntry = NewChatEntryClient(c.config)
 	c.ChatPendingInterrupt = NewChatPendingInterruptClient(c.config)
 	c.ChatTurn = NewChatTurnClient(c.config)
+	c.InstanceAuthConfig = NewInstanceAuthConfigClient(c.config)
 	c.Machine = NewMachineClient(c.config)
 	c.MachineChannelToken = NewMachineChannelTokenClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
@@ -356,6 +360,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChatEntry:                     NewChatEntryClient(cfg),
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
+		InstanceAuthConfig:            NewInstanceAuthConfigClient(cfg),
 		Machine:                       NewMachineClient(cfg),
 		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
@@ -429,6 +434,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChatEntry:                     NewChatEntryClient(cfg),
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
+		InstanceAuthConfig:            NewInstanceAuthConfigClient(cfg),
 		Machine:                       NewMachineClient(cfg),
 		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
@@ -501,12 +507,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
 		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
-		c.ChatTurn, c.Machine, c.MachineChannelToken, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage,
-		c.OrganizationInvitation, c.OrganizationMembership, c.Project,
-		c.ProjectConversationPrincipal, c.ProjectConversationRun,
-		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
-		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ChatTurn, c.InstanceAuthConfig, c.Machine, c.MachineChannelToken,
+		c.NotificationChannel, c.NotificationRule, c.Organization,
+		c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
+		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
+		c.ProjectConversationRun, c.ProjectConversationStepEvent,
+		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
+		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Secret,
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
@@ -525,12 +532,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
 		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
-		c.ChatTurn, c.Machine, c.MachineChannelToken, c.NotificationChannel,
-		c.NotificationRule, c.Organization, c.OrganizationDailyTokenUsage,
-		c.OrganizationInvitation, c.OrganizationMembership, c.Project,
-		c.ProjectConversationPrincipal, c.ProjectConversationRun,
-		c.ProjectConversationStepEvent, c.ProjectConversationTraceEvent, c.ProjectRepo,
-		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ChatTurn, c.InstanceAuthConfig, c.Machine, c.MachineChannelToken,
+		c.NotificationChannel, c.NotificationRule, c.Organization,
+		c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
+		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
+		c.ProjectConversationRun, c.ProjectConversationStepEvent,
+		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
+		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Secret,
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
@@ -573,6 +581,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatPendingInterrupt.mutate(ctx, m)
 	case *ChatTurnMutation:
 		return c.ChatTurn.mutate(ctx, m)
+	case *InstanceAuthConfigMutation:
+		return c.InstanceAuthConfig.mutate(ctx, m)
 	case *MachineMutation:
 		return c.Machine.mutate(ctx, m)
 	case *MachineChannelTokenMutation:
@@ -3317,6 +3327,139 @@ func (c *ChatTurnClient) mutate(ctx context.Context, m *ChatTurnMutation) (Value
 		return (&ChatTurnDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ChatTurn mutation op: %q", m.Op())
+	}
+}
+
+// InstanceAuthConfigClient is a client for the InstanceAuthConfig schema.
+type InstanceAuthConfigClient struct {
+	config
+}
+
+// NewInstanceAuthConfigClient returns a client for the InstanceAuthConfig from the given config.
+func NewInstanceAuthConfigClient(c config) *InstanceAuthConfigClient {
+	return &InstanceAuthConfigClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `instanceauthconfig.Hooks(f(g(h())))`.
+func (c *InstanceAuthConfigClient) Use(hooks ...Hook) {
+	c.hooks.InstanceAuthConfig = append(c.hooks.InstanceAuthConfig, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `instanceauthconfig.Intercept(f(g(h())))`.
+func (c *InstanceAuthConfigClient) Intercept(interceptors ...Interceptor) {
+	c.inters.InstanceAuthConfig = append(c.inters.InstanceAuthConfig, interceptors...)
+}
+
+// Create returns a builder for creating a InstanceAuthConfig entity.
+func (c *InstanceAuthConfigClient) Create() *InstanceAuthConfigCreate {
+	mutation := newInstanceAuthConfigMutation(c.config, OpCreate)
+	return &InstanceAuthConfigCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of InstanceAuthConfig entities.
+func (c *InstanceAuthConfigClient) CreateBulk(builders ...*InstanceAuthConfigCreate) *InstanceAuthConfigCreateBulk {
+	return &InstanceAuthConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *InstanceAuthConfigClient) MapCreateBulk(slice any, setFunc func(*InstanceAuthConfigCreate, int)) *InstanceAuthConfigCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &InstanceAuthConfigCreateBulk{err: fmt.Errorf("calling to InstanceAuthConfigClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*InstanceAuthConfigCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &InstanceAuthConfigCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for InstanceAuthConfig.
+func (c *InstanceAuthConfigClient) Update() *InstanceAuthConfigUpdate {
+	mutation := newInstanceAuthConfigMutation(c.config, OpUpdate)
+	return &InstanceAuthConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *InstanceAuthConfigClient) UpdateOne(_m *InstanceAuthConfig) *InstanceAuthConfigUpdateOne {
+	mutation := newInstanceAuthConfigMutation(c.config, OpUpdateOne, withInstanceAuthConfig(_m))
+	return &InstanceAuthConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *InstanceAuthConfigClient) UpdateOneID(id uuid.UUID) *InstanceAuthConfigUpdateOne {
+	mutation := newInstanceAuthConfigMutation(c.config, OpUpdateOne, withInstanceAuthConfigID(id))
+	return &InstanceAuthConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for InstanceAuthConfig.
+func (c *InstanceAuthConfigClient) Delete() *InstanceAuthConfigDelete {
+	mutation := newInstanceAuthConfigMutation(c.config, OpDelete)
+	return &InstanceAuthConfigDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *InstanceAuthConfigClient) DeleteOne(_m *InstanceAuthConfig) *InstanceAuthConfigDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *InstanceAuthConfigClient) DeleteOneID(id uuid.UUID) *InstanceAuthConfigDeleteOne {
+	builder := c.Delete().Where(instanceauthconfig.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &InstanceAuthConfigDeleteOne{builder}
+}
+
+// Query returns a query builder for InstanceAuthConfig.
+func (c *InstanceAuthConfigClient) Query() *InstanceAuthConfigQuery {
+	return &InstanceAuthConfigQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeInstanceAuthConfig},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a InstanceAuthConfig entity by its id.
+func (c *InstanceAuthConfigClient) Get(ctx context.Context, id uuid.UUID) (*InstanceAuthConfig, error) {
+	return c.Query().Where(instanceauthconfig.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *InstanceAuthConfigClient) GetX(ctx context.Context, id uuid.UUID) *InstanceAuthConfig {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *InstanceAuthConfigClient) Hooks() []Hook {
+	return c.hooks.InstanceAuthConfig
+}
+
+// Interceptors returns the client interceptors.
+func (c *InstanceAuthConfigClient) Interceptors() []Interceptor {
+	return c.inters.InstanceAuthConfig
+}
+
+func (c *InstanceAuthConfigClient) mutate(ctx context.Context, m *InstanceAuthConfigMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&InstanceAuthConfigCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&InstanceAuthConfigUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&InstanceAuthConfigUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&InstanceAuthConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown InstanceAuthConfig mutation op: %q", m.Op())
 	}
 }
 
@@ -10469,10 +10612,11 @@ type (
 	hooks struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
-		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn, Machine,
-		MachineChannelToken, NotificationChannel, NotificationRule, Organization,
-		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
-		Project, ProjectConversationPrincipal, ProjectConversationRun,
+		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
+		InstanceAuthConfig, Machine, MachineChannelToken, NotificationChannel,
+		NotificationRule, Organization, OrganizationDailyTokenUsage,
+		OrganizationInvitation, OrganizationMembership, Project,
+		ProjectConversationPrincipal, ProjectConversationRun,
 		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
 		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
 		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,
@@ -10484,10 +10628,11 @@ type (
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
-		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn, Machine,
-		MachineChannelToken, NotificationChannel, NotificationRule, Organization,
-		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
-		Project, ProjectConversationPrincipal, ProjectConversationRun,
+		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
+		InstanceAuthConfig, Machine, MachineChannelToken, NotificationChannel,
+		NotificationRule, Organization, OrganizationDailyTokenUsage,
+		OrganizationInvitation, OrganizationMembership, Project,
+		ProjectConversationPrincipal, ProjectConversationRun,
 		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
 		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
 		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,

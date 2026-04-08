@@ -35,7 +35,7 @@
 <div class="space-y-4">
   <div class="rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-950">
     <div class="flex flex-wrap items-center gap-2">
-      <Badge variant="outline">Compatibility notice</Badge>
+      <Badge variant="outline">Migration note</Badge>
       <Badge variant="secondary">Active: {activeMode}</Badge>
       <Badge variant="outline">Configured: {configuredMode}</Badge>
     </div>
