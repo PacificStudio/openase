@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import { svelteTesting } from '@testing-library/svelte/vite'
 import { sveltekit } from '@sveltejs/kit/vite'
@@ -7,6 +8,9 @@ import { handleMockApi } from './src/lib/testing/e2e/mock-api'
 
 const defaultDevHost = '127.0.0.1'
 const defaultDevPort = 4173
+const remendCompatPath = fileURLToPath(
+  new URL('./src/lib/features/markdown/remend-compat.ts', import.meta.url),
+)
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -17,6 +21,13 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [tailwindcss(), sveltekit(), svelteTesting(), e2eMockApiPlugin(e2eMockEnabled)],
+    resolve: {
+      alias: [
+        // `streamdown-svelte` currently expects a parser class that `remend@1.3.0`
+        // does not export, so route only its `remend` import through a local shim.
+        { find: /^remend$/, replacement: remendCompatPath },
+      ],
+    },
     server: proxyTarget
       ? {
           host: devHost,
@@ -36,6 +47,11 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
       exclude: [...configDefaults.exclude, 'tests/e2e/**'],
+      server: {
+        deps: {
+          inline: ['streamdown-svelte', 'katex'],
+        },
+      },
     },
   }
 })
