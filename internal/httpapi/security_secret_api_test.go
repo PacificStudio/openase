@@ -388,6 +388,7 @@ type stubSecretService struct {
 	deleteSecret                    func(context.Context, secretsservice.DeleteSecretInput) error
 	deleteOrganizationSecret        func(context.Context, secretsservice.DeleteOrganizationSecretInput) error
 	resolveForRuntime               func(context.Context, secretsservice.ResolveRuntimeInput) ([]secretsdomain.ResolvedSecret, []string, error)
+	resolveBound                    func(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
 func (s *stubSecretService) ListProjectSecretInventory(ctx context.Context, projectID uuid.UUID) ([]secretsdomain.InventorySecret, error) {
@@ -472,4 +473,11 @@ func (s *stubSecretService) ResolveForRuntime(ctx context.Context, input secrets
 		return nil, nil, nil
 	}
 	return s.resolveForRuntime(ctx, input)
+}
+
+func (s *stubSecretService) ResolveBoundForRuntime(ctx context.Context, input secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error) {
+	if s.resolveBound == nil {
+		return nil, nil
+	}
+	return s.resolveBound(ctx, input)
 }

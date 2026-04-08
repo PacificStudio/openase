@@ -17,6 +17,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
 	claudecodeadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/claudecode"
 	codexadapter "github.com/BetterAndBetterII/openase/internal/infra/adapter/codex"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
@@ -24,6 +25,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -53,6 +55,10 @@ type projectConversationSkillSync interface {
 
 type projectConversationAgentPlatform interface {
 	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
+}
+
+type projectConversationSecretManager interface {
+	ResolveBoundForRuntime(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
 type liveProjectConversation struct {
@@ -113,6 +119,7 @@ type ProjectConversationService struct {
 	platformAPIURL      string
 	agentPlatform       projectConversationAgentPlatform
 	githubAuth          githubauthservice.TokenResolver
+	secretManager       projectConversationSecretManager
 
 	streamBroker    *projectConversationStreamBroker
 	muxBroker       *projectConversationMuxBroker
@@ -195,6 +202,13 @@ func (s *ProjectConversationService) ConfigureGitHubCredentials(resolver githuba
 	if s.runtimeManager != nil {
 		s.runtimeManager.ConfigureGitHubCredentials(resolver)
 	}
+}
+
+func (s *ProjectConversationService) ConfigureSecretManager(manager projectConversationSecretManager) {
+	if s == nil {
+		return
+	}
+	s.secretManager = manager
 }
 
 func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
@@ -445,7 +459,7 @@ func (s *ProjectConversationService) StartTurn(
 			if resumePromptErr != nil {
 				return domain.Turn{}, resumePromptErr
 			}
-			resumeErr := live.codex.EnsureSession(ctx, s.buildConversationRuntimeInput(
+			runtimeInput, inputErr := s.buildConversationRuntimeInput(
 				ctx,
 				conversation,
 				project,
@@ -455,7 +469,11 @@ func (s *ProjectConversationService) StartTurn(
 				resumeThreadID,
 				resumeTurnID,
 				promptFocus,
-			))
+			)
+			if inputErr != nil {
+				return domain.Turn{}, inputErr
+			}
+			resumeErr := live.codex.EnsureSession(ctx, runtimeInput)
 			switch {
 			case resumeErr == nil:
 				includeRecovery = false
@@ -534,13 +552,17 @@ func (s *ProjectConversationService) StartTurn(
 		live.principal = principal
 	}
 
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, promptFocus)
+	if err != nil {
+		return domain.Turn{}, err
+	}
 	stream, err := live.runtime.StartTurn(ctx, RuntimeTurnInput{
 		SessionID:              SessionID(conversationID.String()),
 		Provider:               providerItem,
 		Message:                strings.TrimSpace(message),
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       live.workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, promptFocus),
+		Environment:            environment,
 		ResumeProviderThreadID: resumeThreadID,
 		ResumeProviderTurnID:   resumeTurnID,
 		MaxTurns:               0,
@@ -650,7 +672,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 			if promptErr != nil {
 				return domain.PendingInterrupt{}, promptErr
 			}
-			ensureErr = live.codex.EnsureSession(ctx, s.buildConversationRuntimeInput(
+			runtimeInput, inputErr := s.buildConversationRuntimeInput(
 				ctx,
 				conversation,
 				project,
@@ -660,7 +682,11 @@ func (s *ProjectConversationService) RespondInterrupt(
 				strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
 				strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
 				storedFocus,
-			))
+			)
+			if inputErr != nil {
+				return domain.PendingInterrupt{}, inputErr
+			}
+			ensureErr = live.codex.EnsureSession(ctx, runtimeInput)
 			if ensureErr != nil {
 				if codexadapter.IsThreadNotFoundError(ensureErr) {
 					return domain.PendingInterrupt{}, ErrConversationRuntimeAbsent
@@ -675,6 +701,10 @@ func (s *ProjectConversationService) RespondInterrupt(
 	if err != nil {
 		return domain.PendingInterrupt{}, err
 	}
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, storedFocus)
+	if err != nil {
+		return domain.PendingInterrupt{}, err
+	}
 	stream, err := live.interrupt.RespondInterrupt(ctx, RuntimeInterruptResponseInput{
 		SessionID:              SessionID(conversationID.String()),
 		Provider:               live.provider,
@@ -684,7 +714,7 @@ func (s *ProjectConversationService) RespondInterrupt(
 		Answer:                 cloneMapAny(response.Answer),
 		Payload:                cloneMapAny(interrupt.Payload),
 		WorkingDirectory:       live.workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, storedFocus),
+		Environment:            environment,
 		ResumeProviderThreadID: strings.TrimSpace(stringPointerValue(conversation.ProviderThreadID)),
 		ResumeProviderTurnID:   strings.TrimSpace(stringPointerValue(conversation.LastTurnID)),
 		PersistentConversation: true,
@@ -1626,20 +1656,24 @@ func (s *ProjectConversationService) buildConversationRuntimeInput(
 	resumeThreadID string,
 	resumeTurnID string,
 	focus *ProjectConversationFocus,
-) RuntimeTurnInput {
+) (RuntimeTurnInput, error) {
+	environment, err := s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, focus)
+	if err != nil {
+		return RuntimeTurnInput{}, err
+	}
 	return RuntimeTurnInput{
 		SessionID:              SessionID(conversation.ID.String()),
 		Provider:               providerItem,
 		Message:                "",
 		SystemPrompt:           systemPrompt,
 		WorkingDirectory:       workspace,
-		Environment:            s.buildConversationRuntimeEnvironment(ctx, conversation, project, providerItem, focus),
+		Environment:            environment,
 		ResumeProviderThreadID: strings.TrimSpace(resumeThreadID),
 		ResumeProviderTurnID:   strings.TrimSpace(resumeTurnID),
 		MaxTurns:               0,
 		MaxBudgetUSD:           0,
 		PersistentConversation: true,
-	}
+	}, nil
 }
 
 func conversationAnchorsFromRuntimeAnchor(anchor RuntimeSessionAnchor, rollingSummary string) domain.ConversationAnchors {
@@ -2102,6 +2136,13 @@ func optionalString(value string) *string {
 	return &trimmed
 }
 
+func uuidPointer(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+	return &value
+}
+
 func stringPointerValue(value *string) string {
 	if value == nil {
 		return ""
@@ -2126,7 +2167,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
 	focus *ProjectConversationFocus,
-) []string {
+) ([]string, error) {
 	environment := make([]string, 0, 6)
 	if providerItem.MachineHost == "" || providerItem.MachineHost == catalogdomain.LocalMachineHost {
 		if executable, err := os.Executable(); err == nil && strings.TrimSpace(executable) != "" {
@@ -2134,43 +2175,74 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		}
 	}
 
-	if s == nil || s.agentPlatform == nil || s.catalog == nil || strings.TrimSpace(s.platformAPIURL) == "" {
-		return environment
+	if s != nil && s.agentPlatform != nil && s.catalog != nil && strings.TrimSpace(s.platformAPIURL) != "" {
+		principal, err := s.runtimeStore.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
+			ConversationID: conversation.ID,
+			ProjectID:      conversation.ProjectID,
+			ProviderID:     conversation.ProviderID,
+			Name:           projectConversationPrincipalName(conversation.ID),
+		})
+		if err != nil {
+			s.logger.Warn("ensure project conversation principal failed", "conversation_id", conversation.ID, "error", err)
+		} else {
+			scopes := append(agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation), agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...)
+			scopes = slices.Compact(scopes)
+			issued, issueErr := s.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
+				PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+				PrincipalID:    principal.ID,
+				PrincipalName:  principal.Name,
+				ProjectID:      project.ID,
+				ConversationID: conversation.ID,
+				Scopes:         scopes,
+			})
+			if issueErr != nil {
+				s.logger.Warn("issue project conversation platform token failed", "conversation_id", conversation.ID, "error", issueErr)
+			} else {
+				contractScopes := issued.Scopes
+				if len(contractScopes) == 0 {
+					contractScopes = scopes
+				}
+				environment = append(environment, agentplatform.BuildRuntimeEnvironment(
+					s.projectConversationPlatformContractInput(conversation, project, focus, issued.Token, contractScopes),
+				)...)
+			}
+		}
 	}
 
-	principal, err := s.runtimeStore.EnsurePrincipal(ctx, domain.EnsurePrincipalInput{
-		ConversationID: conversation.ID,
-		ProjectID:      conversation.ProjectID,
-		ProviderID:     conversation.ProviderID,
-		Name:           projectConversationPrincipalName(conversation.ID),
-	})
+	runtimeSecrets, err := s.buildConversationSecretEnvironment(ctx, project, focus)
 	if err != nil {
-		s.logger.Warn("ensure project conversation principal failed", "conversation_id", conversation.ID, "error", err)
-		return environment
+		return nil, err
 	}
-	scopes := append(agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation), agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...)
-	scopes = slices.Compact(scopes)
-	issued, err := s.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
-		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
-		PrincipalID:    principal.ID,
-		PrincipalName:  principal.Name,
-		ProjectID:      project.ID,
-		ConversationID: conversation.ID,
-		Scopes:         scopes,
-	})
-	if err != nil {
-		s.logger.Warn("issue project conversation platform token failed", "conversation_id", conversation.ID, "error", err)
-		return environment
-	}
-	contractScopes := issued.Scopes
-	if len(contractScopes) == 0 {
-		contractScopes = scopes
+	environment = append(environment, runtimeSecrets...)
+	return environment, nil
+}
+
+func (s *ProjectConversationService) buildConversationSecretEnvironment(
+	ctx context.Context,
+	project catalogdomain.Project,
+	focus *ProjectConversationFocus,
+) ([]string, error) {
+	if s == nil || s.secretManager == nil {
+		return nil, nil
 	}
 
-	environment = append(environment, agentplatform.BuildRuntimeEnvironment(
-		s.projectConversationPlatformContractInput(conversation, project, focus, issued.Token, contractScopes),
-	)...)
-	return environment
+	var ticketID *uuid.UUID
+	if focus != nil && focus.Kind == ProjectConversationFocusTicket && focus.Ticket != nil {
+		ticketID = uuidPointer(focus.Ticket.ID)
+	}
+
+	resolved, err := s.secretManager.ResolveBoundForRuntime(ctx, secretsservice.ResolveBoundRuntimeInput{
+		ProjectID: project.ID,
+		TicketID:  ticketID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("resolve conversation secret bindings: %w", err)
+	}
+	environment, err := secretsservice.BuildRuntimeEnvironment(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("build conversation secret environment: %w", err)
+	}
+	return environment, nil
 }
 
 func conversationWorkspaceArtifactPaths(workspaceRoot string, adapterType string) []string {

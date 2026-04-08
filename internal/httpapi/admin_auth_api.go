@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
@@ -35,7 +34,7 @@ func (s *Server) handleGetAdminAuth(c echo.Context) error {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusOK, adminAuthResponse{
-		Auth: buildSecurityAuthSettingsResponseFromAccessControl(s.auth, stored.State, stored.StorageLocation, s.cfg.Host),
+		Auth: buildSecurityAuthSettingsResponseFromAccessControl(iam.ResolveRuntimeAccessControlState(stored.State), stored.State, stored.StorageLocation, s.cfg.Host),
 	})
 }
 
@@ -61,7 +60,7 @@ func (s *Server) handlePutAdminOIDCDraft(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, adminAuthResponse{
-		Auth: buildSecurityAuthSettingsResponseFromAccessControl(s.auth, stored.State, stored.StorageLocation, s.cfg.Host),
+		Auth: buildSecurityAuthSettingsResponseFromAccessControl(iam.ResolveRuntimeAccessControlState(stored.State), stored.State, stored.StorageLocation, s.cfg.Host),
 	})
 }
 
@@ -74,6 +73,7 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
 	}
+	runtimeState := iam.ResolveRuntimeAccessControlState(current.State)
 
 	var raw rawSecurityOIDCDraftRequest
 	if err := c.Bind(&raw); err != nil {
@@ -83,14 +83,14 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 	draft := draftOIDCConfigFromRequest(raw, current.State)
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 	authCfg := completeOIDCAuthConfigFromAccessControl(active)
 
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
 
@@ -101,7 +101,7 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
 		RedirectURL:           authCfg.OIDC.RedirectURL,
-		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	}
 	if err := service.SaveValidation(c.Request().Context(), securityOIDCValidationSuccessMetadata(response)); err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
@@ -118,6 +118,7 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
 	}
+	runtimeState := iam.ResolveRuntimeAccessControlState(current.State)
 
 	var raw rawSecurityOIDCDraftRequest
 	if err := c.Bind(&raw); err != nil {
@@ -127,14 +128,14 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 	draft := draftOIDCConfigFromRequest(raw, current.State)
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 	authCfg := completeOIDCAuthConfigFromAccessControl(active)
 
 	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, s.auth.Mode))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
 
@@ -145,7 +146,7 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
 		RedirectURL:           authCfg.OIDC.RedirectURL,
-		Warnings:              securityPublicExposureWarnings(s.cfg.Host, s.auth.Mode),
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	})
 	if err := service.SaveValidation(c.Request().Context(), successValidation); err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
@@ -157,7 +158,7 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 			return &now
 		}(),
 		Source:  "admin_auth_api",
-		Message: "OIDC is now the configured auth mode for this instance. Restart the service and complete the first OIDC sign-in with a bootstrap admin email to activate it in the running control plane.",
+		Message: "OIDC is now active for this instance. Complete the first OIDC sign-in with a bootstrap admin email to continue with managed access control.",
 	})
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
@@ -166,15 +167,14 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 	return c.JSON(http.StatusOK, adminAuthModeTransitionResponse{
 		Transition: securityOIDCActivationResponse{
 			Status:          "configured",
-			Message:         "OIDC is now the configured auth mode for this instance. Restart the service and complete the first OIDC sign-in with a bootstrap admin email to activate it in the running control plane.",
-			RestartRequired: true,
+			Message:         "OIDC is now active for this instance. Complete the first OIDC sign-in with a bootstrap admin email to continue with managed access control.",
+			RestartRequired: false,
 			NextSteps: []string{
-				"Restart OpenASE so the running control plane picks up auth.mode=oidc.",
 				"Sign in through the browser with a bootstrap admin email.",
 				"Verify instance, organization, and project role bindings after the first login, then narrow the bootstrap admin list.",
 			},
 		},
-		Auth: buildSecurityAuthSettingsResponseFromAccessControl(s.auth, stored.State, stored.StorageLocation, s.cfg.Host),
+		Auth: buildSecurityAuthSettingsResponseFromAccessControl(iam.ResolveRuntimeAccessControlState(stored.State), stored.State, stored.StorageLocation, s.cfg.Host),
 	})
 }
 
@@ -189,26 +189,20 @@ func (s *Server) handleDisableAdminAuth(c echo.Context) error {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
 	}
 
-	restartRequired := s.auth.Mode != config.AuthModeDisabled
 	nextSteps := []string{
+		"Confirm the local instance admin path is reachable again before exposing the service.",
 		"Keep the saved OIDC draft so you can retest before the next rollout attempt.",
 		"Use disabled mode only for trusted personal or local-only deployments.",
-	}
-	if restartRequired {
-		nextSteps = append([]string{
-			"Restart OpenASE so the running control plane returns to disabled mode.",
-			"Confirm the local instance admin path is reachable again before exposing the service.",
-		}, nextSteps...)
 	}
 
 	return c.JSON(http.StatusOK, adminAuthModeTransitionResponse{
 		Transition: securityOIDCActivationResponse{
 			Status:          "disabled",
 			Message:         "Disabled mode is now the configured auth mode for this instance. The saved OIDC draft stays available for future rollout attempts.",
-			RestartRequired: restartRequired,
+			RestartRequired: false,
 			NextSteps:       nextSteps,
 		},
-		Auth: buildSecurityAuthSettingsResponseFromAccessControl(s.auth, stored.State, stored.StorageLocation, s.cfg.Host),
+		Auth: buildSecurityAuthSettingsResponseFromAccessControl(iam.ResolveRuntimeAccessControlState(stored.State), stored.State, stored.StorageLocation, s.cfg.Host),
 	})
 }
 

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
-	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
@@ -332,8 +331,14 @@ func (s *Server) currentProjectConversationUserID(c echo.Context) (chatservice.U
 	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
 		return chatservice.ParseUserID(actor)
 	}
-	if s != nil && s.auth.Mode == config.AuthModeOIDC {
-		return "", humanauthservice.ErrUnauthorized
+	if s != nil {
+		runtimeState, err := s.currentRuntimeAccessControlState(c)
+		if err != nil {
+			return "", err
+		}
+		if runtimeState.LoginRequired {
+			return "", humanauthservice.ErrUnauthorized
+		}
 	}
 	// Auth-disabled mode is a local-instance fallback, so persistent project
 	// conversations use one stable server-defined principal instead of a

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
@@ -95,7 +94,11 @@ func (s *Server) registerProtectedAuthRoutes(api *echo.Group) {
 }
 
 func (s *Server) handleOIDCStart(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.LoginRequired || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "oidc login is not enabled")
 	}
 	start, err := s.humanAuthService.StartLogin(c.Request().Context(), humanauthservice.NormalizeReturnTo(c.QueryParam("return_to")))
@@ -107,7 +110,11 @@ func (s *Server) handleOIDCStart(c echo.Context) error {
 }
 
 func (s *Server) handleOIDCCallback(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.LoginRequired || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "oidc login is not enabled")
 	}
 	flowCookie, err := c.Cookie(oidcFlowCookieName)
@@ -132,13 +139,17 @@ func (s *Server) handleOIDCCallback(c echo.Context) error {
 }
 
 func (s *Server) handleAuthSession(c echo.Context) error {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
 	response := authSessionResponse{
-		AuthMode: string(s.auth.Mode),
+		AuthMode: runtimeState.AuthMode.String(),
 	}
-	if s.auth.Mode == config.AuthModeOIDC {
-		response.IssuerURL = s.auth.OIDC.IssuerURL
+	if runtimeState.ResolvedOIDCConfig != nil {
+		response.IssuerURL = runtimeState.ResolvedOIDCConfig.IssuerURL
 	}
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	if !runtimeState.LoginRequired || s.humanAuthService == nil {
 		return c.JSON(http.StatusOK, response)
 	}
 	cookie, err := c.Cookie(humanSessionCookieName)
@@ -170,7 +181,11 @@ func (s *Server) handleAuthSession(c echo.Context) error {
 }
 
 func (s *Server) handleLogout(c echo.Context) error {
-	if s.auth.Mode == config.AuthModeOIDC && s.humanAuthService != nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if runtimeState.LoginRequired && s.humanAuthService != nil {
 		if cookie, err := c.Cookie(humanSessionCookieName); err == nil && strings.TrimSpace(cookie.Value) != "" {
 			principal, authErr := s.humanAuthService.AuthenticateSession(
 				c.Request().Context(),
@@ -193,13 +208,17 @@ func (s *Server) handleLogout(c echo.Context) error {
 }
 
 func (s *Server) handleListSessions(c echo.Context) error {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
 	response := authSessionsResponse{
-		AuthMode:    string(s.auth.Mode),
+		AuthMode:    runtimeState.AuthMode.String(),
 		Sessions:    []authManagedSessionResponse{},
 		AuditEvents: []authAuditEventResponse{},
 		StepUp:      mapStepUpCapability(humanauthservice.ReservedStepUpCapability()),
 	}
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	if !runtimeState.SessionGovernanceEnabled || s.humanAuthService == nil {
 		return c.JSON(http.StatusOK, response)
 	}
 	principal, ok := currentHumanPrincipal(c)
@@ -222,7 +241,11 @@ func (s *Server) handleListSessions(c echo.Context) error {
 }
 
 func (s *Server) handleDeleteSession(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.SessionGovernanceEnabled || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
 	}
 	principal, ok := currentHumanPrincipal(c)
@@ -249,7 +272,11 @@ func (s *Server) handleDeleteSession(c echo.Context) error {
 }
 
 func (s *Server) handleRevokeAllSessions(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.SessionGovernanceEnabled || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
 	}
 	principal, ok := currentHumanPrincipal(c)
@@ -266,7 +293,11 @@ func (s *Server) handleRevokeAllSessions(c echo.Context) error {
 }
 
 func (s *Server) handleAdminRevokeUserSessions(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.SessionGovernanceEnabled || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
 	}
 	principal, ok := currentHumanPrincipal(c)
@@ -292,7 +323,11 @@ func (s *Server) handleAdminRevokeUserSessions(c echo.Context) error {
 }
 
 func (s *Server) handleAdminRevokeSession(c echo.Context) error {
-	if s.auth.Mode != config.AuthModeOIDC || s.humanAuthService == nil {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if !runtimeState.SessionGovernanceEnabled || s.humanAuthService == nil {
 		return writeAPIError(c, http.StatusNotFound, "AUTH_DISABLED", "session governance is only available when oidc auth is enabled")
 	}
 	principal, ok := currentHumanPrincipal(c)

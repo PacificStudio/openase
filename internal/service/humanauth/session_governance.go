@@ -2,10 +2,10 @@ package humanauth
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	repo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	"github.com/google/uuid"
@@ -47,8 +47,10 @@ func (s *Service) ListSessionGovernance(
 		AuditEvents: []domain.AuthAuditEvent{},
 		StepUp:      ReservedStepUpCapability(),
 	}
-	if s.cfg.Mode != config.AuthModeOIDC {
+	if _, err := s.currentOIDCConfig(ctx); errors.Is(err, ErrAuthDisabled) {
 		return snapshot, nil
+	} else if err != nil {
+		return SessionGovernanceSnapshot{}, err
 	}
 
 	sessions, err := s.repo.ListBrowserSessionsByUser(ctx, principal.User.ID)
@@ -258,8 +260,12 @@ func (s *Service) expireSession(ctx context.Context, session domain.BrowserSessi
 }
 
 func (s *Service) recordAuditEvent(ctx context.Context, input repo.CreateAuthAuditEventInput) error {
+	authMode := "disabled"
+	if runtimeState, err := s.runtimeState(ctx); err == nil {
+		authMode = runtimeState.AuthMode.String()
+	}
 	metadata := map[string]any{
-		"auth_mode": string(s.cfg.Mode),
+		"auth_mode": authMode,
 	}
 	for key, value := range input.Metadata {
 		metadata[key] = value

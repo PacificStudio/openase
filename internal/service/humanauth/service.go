@@ -19,6 +19,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	repo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
@@ -53,13 +54,18 @@ func permissionDeniedf(message string) error {
 const flowCookieTTL = 10 * time.Minute
 
 type Service struct {
-	cfg        config.AuthConfig
-	repo       *repo.Repository
-	httpClient *http.Client
-	mu         sync.Mutex
-	provider   *oidc.Provider
-	verifier   *oidc.IDTokenVerifier
-	oauth      *oauth2.Config
+	repo          *repo.Repository
+	httpClient    *http.Client
+	stateResolver AccessControlStateResolver
+	mu            sync.Mutex
+	providerKey   string
+	provider      *oidc.Provider
+	verifier      *oidc.IDTokenVerifier
+	oauth         *oauth2.Config
+}
+
+type AccessControlStateResolver interface {
+	RuntimeState(ctx context.Context) (iam.RuntimeAccessControlState, error)
 }
 
 type LoginStart struct {
@@ -104,14 +110,14 @@ type flowState struct {
 	IssuedAt     time.Time `json:"issued_at"`
 }
 
-func NewService(cfg config.AuthConfig, repository *repo.Repository, httpClient *http.Client) *Service {
+func NewService(repository *repo.Repository, httpClient *http.Client, stateResolver AccessControlStateResolver) *Service {
 	if httpClient == nil {
 		httpClient = http.DefaultClient
 	}
 	return &Service{
-		cfg:        cfg,
-		repo:       repository,
-		httpClient: httpClient,
+		repo:          repository,
+		httpClient:    httpClient,
+		stateResolver: stateResolver,
 	}
 }
 
@@ -120,25 +126,26 @@ func InspectOIDCProvider(
 	cfg config.AuthConfig,
 	httpClient *http.Client,
 ) (OIDCProviderDiagnostics, error) {
-	service := NewService(cfg, nil, httpClient)
-	if _, err := service.oauthConfig(ctx); err != nil {
+	resolver, err := newStaticAccessControlResolver(cfg)
+	if err != nil {
+		return OIDCProviderDiagnostics{}, err
+	}
+	service := NewService(nil, httpClient, resolver)
+	oidcConfig, err := service.currentOIDCConfig(ctx)
+	if err != nil {
+		return OIDCProviderDiagnostics{}, err
+	}
+	if _, err := service.oauthConfig(ctx, oidcConfig); err != nil {
 		return OIDCProviderDiagnostics{}, err
 	}
 	return OIDCProviderDiagnostics{
-		IssuerURL:             strings.TrimSpace(cfg.OIDC.IssuerURL),
+		IssuerURL:             strings.TrimSpace(oidcConfig.IssuerURL),
 		AuthorizationEndpoint: service.provider.Endpoint().AuthURL,
 		TokenEndpoint:         service.provider.Endpoint().TokenURL,
 	}, nil
 }
 
-func (s *Service) Mode() config.AuthMode {
-	return s.cfg.Mode
-}
-
-func (s *Service) StartLogin(_ context.Context, returnTo string) (LoginStart, error) {
-	if s.cfg.Mode != config.AuthModeOIDC {
-		return LoginStart{}, ErrAuthDisabled
-	}
+func (s *Service) StartLogin(ctx context.Context, returnTo string) (LoginStart, error) {
 	state, err := randomToken(24)
 	if err != nil {
 		return LoginStart{}, fmt.Errorf("generate state: %w", err)
@@ -151,17 +158,21 @@ func (s *Service) StartLogin(_ context.Context, returnTo string) (LoginStart, er
 	if strings.TrimSpace(returnTo) == "" {
 		returnTo = "/"
 	}
+	oidcConfig, err := s.currentOIDCConfig(ctx)
+	if err != nil {
+		return LoginStart{}, err
+	}
 	encodedFlow, err := s.encodeFlowState(flowState{
 		State:        state,
 		Nonce:        nonce,
 		CodeVerifier: codeVerifier,
 		ReturnTo:     returnTo,
 		IssuedAt:     time.Now().UTC(),
-	})
+	}, oidcConfig)
 	if err != nil {
 		return LoginStart{}, err
 	}
-	oauthConfig, err := s.oauthConfig(context.Background())
+	oauthConfig, err := s.oauthConfig(ctx, oidcConfig)
 	if err != nil {
 		return LoginStart{}, err
 	}
@@ -185,8 +196,9 @@ func (s *Service) HandleCallback(
 	userAgent string,
 	ip string,
 ) (result CallbackResult, err error) {
-	if s.cfg.Mode != config.AuthModeOIDC {
-		return CallbackResult{}, ErrAuthDisabled
+	oidcConfig, err := s.currentOIDCConfig(ctx)
+	if err != nil {
+		return CallbackResult{}, err
 	}
 	var auditUserID *uuid.UUID
 	defer func() {
@@ -207,14 +219,14 @@ func (s *Service) HandleCallback(
 		})
 	}()
 
-	flow, err := s.decodeFlowState(flowCookieValue)
+	flow, err := s.decodeFlowState(flowCookieValue, oidcConfig)
 	if err != nil {
 		return CallbackResult{}, err
 	}
 	if time.Since(flow.IssuedAt) > flowCookieTTL || strings.TrimSpace(flow.State) != strings.TrimSpace(state) {
 		return CallbackResult{}, ErrInvalidFlowState
 	}
-	oauthConfig, err := s.oauthConfig(ctx)
+	oauthConfig, err := s.oauthConfig(ctx, oidcConfig)
 	if err != nil {
 		return CallbackResult{}, err
 	}
@@ -230,7 +242,7 @@ func (s *Service) HandleCallback(
 	if strings.TrimSpace(rawIDToken) == "" {
 		return CallbackResult{}, errors.New("oidc callback missing id_token")
 	}
-	verifier, err := s.idTokenVerifier(ctx)
+	verifier, err := s.idTokenVerifier(ctx, oidcConfig)
 	if err != nil {
 		return CallbackResult{}, err
 	}
@@ -238,11 +250,11 @@ func (s *Service) HandleCallback(
 	if err != nil {
 		return CallbackResult{}, fmt.Errorf("verify oidc id_token: %w", err)
 	}
-	profile, err := s.parseOIDCProfile(idToken)
+	profile, err := s.parseOIDCProfile(idToken, oidcConfig)
 	if err != nil {
 		return CallbackResult{}, err
 	}
-	if err := s.validateProfile(profile); err != nil {
+	if err := s.validateProfile(profile, oidcConfig); err != nil {
 		return CallbackResult{}, err
 	}
 	user, identity, groups, err := s.repo.UpsertUserFromOIDC(ctx, profile)
@@ -262,7 +274,7 @@ func (s *Service) HandleCallback(
 		})
 		return CallbackResult{}, ErrUserDisabled
 	}
-	if s.shouldBootstrapAdmin(user) {
+	if s.shouldBootstrapAdmin(user, oidcConfig) {
 		if _, err := s.repo.EnsureBootstrapRoleBinding(ctx, user, "system:bootstrap-admin"); err != nil {
 			return CallbackResult{}, err
 		}
@@ -283,8 +295,8 @@ func (s *Service) HandleCallback(
 		DeviceOS:      device.OS,
 		DeviceBrowser: device.Browser,
 		DeviceLabel:   device.Label,
-		ExpiresAt:     time.Now().Add(s.cfg.OIDC.SessionTTL),
-		IdleExpiresAt: time.Now().Add(s.cfg.OIDC.SessionIdleTTL),
+		ExpiresAt:     time.Now().Add(oidcConfig.SessionPolicy.SessionTTL),
+		IdleExpiresAt: time.Now().Add(oidcConfig.SessionPolicy.SessionIdleTTL),
 		CSRFSecret:    csrfToken,
 		UserAgentHash: hashValue(userAgent),
 		IPPrefix:      ipPrefix(ip),
@@ -325,8 +337,9 @@ func (s *Service) AuthenticateSession(
 	ip string,
 	touch bool,
 ) (domain.AuthenticatedPrincipal, error) {
-	if s.cfg.Mode != config.AuthModeOIDC {
-		return domain.AuthenticatedPrincipal{}, ErrAuthDisabled
+	oidcConfig, err := s.currentOIDCConfig(ctx)
+	if err != nil {
+		return domain.AuthenticatedPrincipal{}, err
 	}
 	session, err := s.repo.GetBrowserSessionByHash(ctx, hashToken(sessionToken))
 	if err != nil {
@@ -363,7 +376,7 @@ func (s *Service) AuthenticateSession(
 		return domain.AuthenticatedPrincipal{}, ErrInvalidSession
 	}
 	if touch {
-		session, err = s.repo.TouchBrowserSession(ctx, session.ID, now.Add(s.cfg.OIDC.SessionIdleTTL))
+		session, err = s.repo.TouchBrowserSession(ctx, session.ID, now.Add(oidcConfig.SessionPolicy.SessionIdleTTL))
 		if err != nil {
 			return domain.AuthenticatedPrincipal{}, fmt.Errorf("extend session idle ttl: %w", err)
 		}
@@ -372,8 +385,10 @@ func (s *Service) AuthenticateSession(
 }
 
 func (s *Service) Logout(ctx context.Context, sessionToken string) error {
-	if s.cfg.Mode != config.AuthModeOIDC {
+	if _, err := s.currentOIDCConfig(ctx); errors.Is(err, ErrAuthDisabled) {
 		return nil
+	} else if err != nil {
+		return err
 	}
 	session, err := s.repo.GetBrowserSessionByHash(ctx, hashToken(sessionToken))
 	if err != nil {
@@ -684,8 +699,8 @@ func isPrivilegedOrganizationRole(role domain.RoleKey) bool {
 }
 
 func (s *Service) CountApprovalPolicies(ctx context.Context) (int, error) {
-	if s.cfg.Mode != config.AuthModeOIDC {
-		return 0, ErrAuthDisabled
+	if _, err := s.currentOIDCConfig(ctx); err != nil {
+		return 0, err
 	}
 	return s.repo.CountApprovalPolicies(ctx)
 }
@@ -754,44 +769,64 @@ func (s *Service) buildPrincipal(
 	}, nil
 }
 
-func (s *Service) oauthConfig(ctx context.Context) (*oauth2.Config, error) {
-	if err := s.ensureProvider(ctx); err != nil {
+func (s *Service) runtimeState(ctx context.Context) (iam.RuntimeAccessControlState, error) {
+	if s.stateResolver == nil {
+		return iam.RuntimeAccessControlState{}, ErrAuthDisabled
+	}
+	return s.stateResolver.RuntimeState(ctx)
+}
+
+func (s *Service) currentOIDCConfig(ctx context.Context) (iam.ActiveOIDCConfig, error) {
+	state, err := s.runtimeState(ctx)
+	if err != nil {
+		return iam.ActiveOIDCConfig{}, err
+	}
+	if !state.LoginRequired || state.ResolvedOIDCConfig == nil {
+		return iam.ActiveOIDCConfig{}, ErrAuthDisabled
+	}
+	return *state.ResolvedOIDCConfig, nil
+}
+
+func (s *Service) oauthConfig(ctx context.Context, oidcConfig iam.ActiveOIDCConfig) (*oauth2.Config, error) {
+	if err := s.ensureProvider(ctx, oidcConfig); err != nil {
 		return nil, err
 	}
 	return s.oauth, nil
 }
 
-func (s *Service) idTokenVerifier(ctx context.Context) (*oidc.IDTokenVerifier, error) {
-	if err := s.ensureProvider(ctx); err != nil {
+func (s *Service) idTokenVerifier(ctx context.Context, oidcConfig iam.ActiveOIDCConfig) (*oidc.IDTokenVerifier, error) {
+	if err := s.ensureProvider(ctx, oidcConfig); err != nil {
 		return nil, err
 	}
 	return s.verifier, nil
 }
 
-func (s *Service) ensureProvider(ctx context.Context) error {
+func (s *Service) ensureProvider(ctx context.Context, oidcConfig iam.ActiveOIDCConfig) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.provider != nil && s.oauth != nil && s.verifier != nil {
+	key := oidcConfigFingerprint(oidcConfig)
+	if s.provider != nil && s.oauth != nil && s.verifier != nil && s.providerKey == key {
 		return nil
 	}
 	oidcCtx := oidc.ClientContext(ctx, s.httpClient)
-	provider, err := oidc.NewProvider(oidcCtx, s.cfg.OIDC.IssuerURL)
+	provider, err := oidc.NewProvider(oidcCtx, oidcConfig.IssuerURL)
 	if err != nil {
 		return fmt.Errorf("initialize oidc provider: %w", err)
 	}
 	s.provider = provider
-	s.verifier = provider.Verifier(&oidc.Config{ClientID: s.cfg.OIDC.ClientID})
+	s.providerKey = key
+	s.verifier = provider.Verifier(&oidc.Config{ClientID: oidcConfig.ClientID})
 	s.oauth = &oauth2.Config{
-		ClientID:     s.cfg.OIDC.ClientID,
-		ClientSecret: s.cfg.OIDC.ClientSecret,
+		ClientID:     oidcConfig.ClientID,
+		ClientSecret: oidcConfig.ClientSecret,
 		Endpoint:     provider.Endpoint(),
-		RedirectURL:  s.cfg.OIDC.RedirectURL,
-		Scopes:       append([]string(nil), s.cfg.OIDC.Scopes...),
+		RedirectURL:  oidcConfig.RedirectURL,
+		Scopes:       append([]string(nil), oidcConfig.Scopes...),
 	}
 	return nil
 }
 
-func (s *Service) parseOIDCProfile(idToken *oidc.IDToken) (domain.OIDCProfile, error) {
+func (s *Service) parseOIDCProfile(idToken *oidc.IDToken, oidcConfig iam.ActiveOIDCConfig) (domain.OIDCProfile, error) {
 	claims := map[string]any{}
 	if err := idToken.Claims(&claims); err != nil {
 		return domain.OIDCProfile{}, fmt.Errorf("decode oidc claims: %w", err)
@@ -800,26 +835,26 @@ func (s *Service) parseOIDCProfile(idToken *oidc.IDToken) (domain.OIDCProfile, e
 	if err != nil {
 		return domain.OIDCProfile{}, fmt.Errorf("marshal oidc claims: %w", err)
 	}
-	email := strings.ToLower(strings.TrimSpace(stringClaim(claims, s.cfg.OIDC.EmailClaim)))
+	email := strings.ToLower(strings.TrimSpace(stringClaim(claims, oidcConfig.Claims.EmailClaim)))
 	if email == "" {
 		return domain.OIDCProfile{}, errors.New("oidc claims missing email")
 	}
-	groups := parseGroupsClaim(claims[s.cfg.OIDC.GroupsClaim])
+	groups := parseGroupsClaim(claims[oidcConfig.Claims.GroupsClaim])
 	return domain.OIDCProfile{
 		Issuer:        idToken.Issuer,
 		Subject:       idToken.Subject,
 		Email:         email,
 		EmailVerified: boolClaim(claims, "email_verified"),
-		DisplayName:   strings.TrimSpace(stringClaim(claims, s.cfg.OIDC.NameClaim)),
-		Username:      strings.TrimSpace(stringClaim(claims, s.cfg.OIDC.UsernameClaim)),
+		DisplayName:   strings.TrimSpace(stringClaim(claims, oidcConfig.Claims.NameClaim)),
+		Username:      strings.TrimSpace(stringClaim(claims, oidcConfig.Claims.UsernameClaim)),
 		AvatarURL:     strings.TrimSpace(stringClaim(claims, "picture")),
 		Groups:        groups,
 		RawClaimsJSON: string(rawClaims),
 	}, nil
 }
 
-func (s *Service) validateProfile(profile domain.OIDCProfile) error {
-	if len(s.cfg.OIDC.AllowedEmailDomains) == 0 {
+func (s *Service) validateProfile(profile domain.OIDCProfile, oidcConfig iam.ActiveOIDCConfig) error {
+	if len(oidcConfig.AllowedEmailDomains) == 0 {
 		return nil
 	}
 	at := strings.LastIndex(profile.Email, "@")
@@ -827,7 +862,7 @@ func (s *Service) validateProfile(profile domain.OIDCProfile) error {
 		return errors.New("oidc email claim must be a valid email address")
 	}
 	domainPart := profile.Email[at+1:]
-	for _, allowed := range s.cfg.OIDC.AllowedEmailDomains {
+	for _, allowed := range oidcConfig.AllowedEmailDomains {
 		if strings.EqualFold(domainPart, allowed) {
 			return nil
 		}
@@ -835,9 +870,9 @@ func (s *Service) validateProfile(profile domain.OIDCProfile) error {
 	return errors.New("oidc email domain is not allowed")
 }
 
-func (s *Service) shouldBootstrapAdmin(user domain.User) bool {
+func (s *Service) shouldBootstrapAdmin(user domain.User, oidcConfig iam.ActiveOIDCConfig) bool {
 	email := strings.ToLower(strings.TrimSpace(user.PrimaryEmail))
-	for _, candidate := range s.cfg.OIDC.BootstrapAdminEmails {
+	for _, candidate := range oidcConfig.BootstrapAdminEmails {
 		if email == strings.ToLower(strings.TrimSpace(candidate)) {
 			return true
 		}
@@ -845,24 +880,24 @@ func (s *Service) shouldBootstrapAdmin(user domain.User) bool {
 	return false
 }
 
-func (s *Service) encodeFlowState(state flowState) (string, error) {
+func (s *Service) encodeFlowState(state flowState, oidcConfig iam.ActiveOIDCConfig) (string, error) {
 	body, err := json.Marshal(state)
 	if err != nil {
 		return "", fmt.Errorf("encode oidc flow state: %w", err)
 	}
 	payload := base64.RawURLEncoding.EncodeToString(body)
-	mac := hmac.New(sha256.New, []byte(s.cfg.OIDC.ClientSecret))
+	mac := hmac.New(sha256.New, []byte(oidcConfig.ClientSecret))
 	_, _ = mac.Write([]byte(payload))
 	signature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	return payload + "." + signature, nil
 }
 
-func (s *Service) decodeFlowState(raw string) (flowState, error) {
+func (s *Service) decodeFlowState(raw string, oidcConfig iam.ActiveOIDCConfig) (flowState, error) {
 	parts := strings.Split(strings.TrimSpace(raw), ".")
 	if len(parts) != 2 {
 		return flowState{}, ErrInvalidFlowState
 	}
-	mac := hmac.New(sha256.New, []byte(s.cfg.OIDC.ClientSecret))
+	mac := hmac.New(sha256.New, []byte(oidcConfig.ClientSecret))
 	_, _ = mac.Write([]byte(parts[0]))
 	expected := mac.Sum(nil)
 	actual, err := base64.RawURLEncoding.DecodeString(parts[1])
@@ -878,6 +913,60 @@ func (s *Service) decodeFlowState(raw string) (flowState, error) {
 		return flowState{}, ErrInvalidFlowState
 	}
 	return state, nil
+}
+
+type staticAccessControlResolver struct {
+	runtimeState iam.RuntimeAccessControlState
+}
+
+func newStaticAccessControlResolver(cfg config.AuthConfig) (staticAccessControlResolver, error) {
+	var mode string
+	switch strings.ToLower(strings.TrimSpace(string(cfg.Mode))) {
+	case string(config.AuthModeOIDC):
+		mode = iam.AccessControlStatusActive.String()
+	default:
+		mode = iam.AccessControlStatusAbsent.String()
+	}
+	state, err := iam.ParseAccessControlState(iam.AccessControlStateInput{
+		Status:               mode,
+		IssuerURL:            strings.TrimSpace(cfg.OIDC.IssuerURL),
+		ClientID:             strings.TrimSpace(cfg.OIDC.ClientID),
+		ClientSecret:         strings.TrimSpace(cfg.OIDC.ClientSecret),
+		RedirectURL:          strings.TrimSpace(cfg.OIDC.RedirectURL),
+		Scopes:               append([]string(nil), cfg.OIDC.Scopes...),
+		EmailClaim:           strings.TrimSpace(cfg.OIDC.EmailClaim),
+		NameClaim:            strings.TrimSpace(cfg.OIDC.NameClaim),
+		UsernameClaim:        strings.TrimSpace(cfg.OIDC.UsernameClaim),
+		GroupsClaim:          strings.TrimSpace(cfg.OIDC.GroupsClaim),
+		AllowedEmailDomains:  append([]string(nil), cfg.OIDC.AllowedEmailDomains...),
+		BootstrapAdminEmails: append([]string(nil), cfg.OIDC.BootstrapAdminEmails...),
+		SessionTTL:           cfg.OIDC.SessionTTL.String(),
+		SessionIdleTTL:       cfg.OIDC.SessionIdleTTL.String(),
+	})
+	if err != nil {
+		return staticAccessControlResolver{}, err
+	}
+	return staticAccessControlResolver{runtimeState: iam.ResolveRuntimeAccessControlState(state)}, nil
+}
+
+func (r staticAccessControlResolver) RuntimeState(context.Context) (iam.RuntimeAccessControlState, error) {
+	return r.runtimeState, nil
+}
+
+func oidcConfigFingerprint(oidcConfig iam.ActiveOIDCConfig) string {
+	return strings.Join([]string{
+		oidcConfig.IssuerURL,
+		oidcConfig.ClientID,
+		oidcConfig.ClientSecret,
+		oidcConfig.RedirectURL,
+		strings.Join(oidcConfig.Scopes, ","),
+		oidcConfig.Claims.EmailClaim,
+		oidcConfig.Claims.NameClaim,
+		oidcConfig.Claims.UsernameClaim,
+		oidcConfig.Claims.GroupsClaim,
+		oidcConfig.SessionPolicy.SessionTTL.String(),
+		oidcConfig.SessionPolicy.SessionIdleTTL.String(),
+	}, "|")
 }
 
 func randomToken(length int) (string, error) {

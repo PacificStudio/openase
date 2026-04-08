@@ -709,35 +709,28 @@ func defaultSecurityDocumentationLinks() []securityDocumentationLinkResponse {
 }
 
 func buildSecurityAuthSettingsResponseFromAccessControl(
-	active config.AuthConfig,
+	runtimeState iam.RuntimeAccessControlState,
 	stored iam.AccessControlState,
 	storageLocation string,
 	host string,
 ) securityAuthSettingsResponse {
-	publicExposureRisk, warnings := securityPublicExposure(host, active.Mode)
+	activeMode := runtimeConfigAuthMode(runtimeState)
+	publicExposureRisk, warnings := securityPublicExposure(host, activeMode)
 	configuredMode := stored.ConfiguredAuthMode().String()
-	issuerURL := strings.TrimSpace(active.OIDC.IssuerURL)
-	if issuerURL == "" {
-		switch {
-		case stored.Active != nil:
-			issuerURL = strings.TrimSpace(stored.Active.IssuerURL)
-		case stored.Draft != nil:
-			issuerURL = strings.TrimSpace(stored.Draft.IssuerURL)
-		}
-	}
+	issuerURL := runtimeAccessControlIssuerURL(runtimeState, stored)
 	return securityAuthSettingsResponse{
-		ActiveMode:         string(active.Mode),
+		ActiveMode:         string(activeMode),
 		ConfiguredMode:     configuredMode,
 		IssuerURL:          issuerURL,
 		LocalPrincipal:     "local_instance_admin:default",
-		ModeSummary:        securityModeSummary(active.Mode),
-		RecommendedMode:    securityRecommendedMode(active.Mode),
+		ModeSummary:        securityModeSummary(activeMode),
+		RecommendedMode:    securityRecommendedMode(activeMode),
 		PublicExposureRisk: publicExposureRisk,
 		Warnings:           warnings,
-		NextSteps:          securityNextSteps(active.Mode, configuredMode),
+		NextSteps:          securityNextSteps(activeMode, configuredMode),
 		ConfigPath:         storageLocation,
 		BootstrapState:     buildBootstrapStateFromAccessControl(stored),
-		SessionPolicy:      buildSecuritySessionPolicyResponseFromAccessControl(stored, active),
+		SessionPolicy:      buildSecuritySessionPolicyResponseFromAccessControl(stored, runtimeState),
 		LastValidation:     buildSecurityValidationDiagnosticsResponseFromAccessControl(stored.Validation),
 		OIDCDraft:          buildSecurityOIDCDraftResponseFromAccessControl(stored),
 		Docs:               defaultSecurityDocumentationLinks(),
@@ -746,10 +739,14 @@ func buildSecurityAuthSettingsResponseFromAccessControl(
 
 func buildSecuritySessionPolicyResponseFromAccessControl(
 	stored iam.AccessControlState,
-	active config.AuthConfig,
+	runtimeState iam.RuntimeAccessControlState,
 ) securityAuthSessionPolicyResponse {
-	sessionTTL := active.OIDC.SessionTTL
-	sessionIdleTTL := active.OIDC.SessionIdleTTL
+	sessionTTL := time.Duration(0)
+	sessionIdleTTL := time.Duration(0)
+	if runtimeState.ResolvedOIDCConfig != nil {
+		sessionTTL = runtimeState.ResolvedOIDCConfig.SessionPolicy.SessionTTL
+		sessionIdleTTL = runtimeState.ResolvedOIDCConfig.SessionPolicy.SessionIdleTTL
+	}
 	switch {
 	case stored.Active != nil:
 		sessionTTL = stored.Active.SessionPolicy.SessionTTL

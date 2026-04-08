@@ -88,6 +88,37 @@ func TestParseAccessControlStateSupportsAbsentDraftAndActive(t *testing.T) {
 	if active.ConfiguredAuthMode() != AuthModeOIDC {
 		t.Fatalf("active configured auth mode = %q", active.ConfiguredAuthMode())
 	}
+
+	absentRuntime := ResolveRuntimeAccessControlState(absent)
+	if absentRuntime.AuthMode != AuthModeDisabled {
+		t.Fatalf("absent runtime auth mode = %q", absentRuntime.AuthMode)
+	}
+	if absentRuntime.LoginRequired {
+		t.Fatal("absent runtime should not require login")
+	}
+	if absentRuntime.PrincipalKind != RuntimePrincipalKindLocal {
+		t.Fatalf("absent runtime principal kind = %q", absentRuntime.PrincipalKind)
+	}
+	if absentRuntime.ResolvedOIDCConfig != nil {
+		t.Fatalf("absent runtime resolved oidc config = %#v, want nil", absentRuntime.ResolvedOIDCConfig)
+	}
+
+	activeRuntime := ResolveRuntimeAccessControlState(active)
+	if activeRuntime.AuthMode != AuthModeOIDC {
+		t.Fatalf("active runtime auth mode = %q", activeRuntime.AuthMode)
+	}
+	if !activeRuntime.LoginRequired {
+		t.Fatal("active runtime should require login")
+	}
+	if !activeRuntime.SessionGovernanceEnabled {
+		t.Fatal("active runtime should enable session governance")
+	}
+	if activeRuntime.PrincipalKind != RuntimePrincipalKindHuman {
+		t.Fatalf("active runtime principal kind = %q", activeRuntime.PrincipalKind)
+	}
+	if activeRuntime.ResolvedOIDCConfig == nil || activeRuntime.ResolvedOIDCConfig.ClientID != "openase" {
+		t.Fatalf("active runtime oidc config = %#v", activeRuntime.ResolvedOIDCConfig)
+	}
 }
 
 func TestParseAccessControlStateRejectsInvalidActiveConfig(t *testing.T) {
