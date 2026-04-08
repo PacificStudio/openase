@@ -9811,7 +9811,9 @@ export interface operations {
           }
           /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
           secret_bindings?: {
+            /** @description Secret binding alias to resolve for the matching runtime environment variable. */
             binding_key?: string
+            /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
             env_var_key?: string
           }[]
         }
@@ -18447,7 +18449,9 @@ export interface operations {
           /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
           secret_bindings?:
             | {
+                /** @description Secret binding alias to resolve for the matching runtime environment variable. */
                 binding_key?: string
+                /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
                 env_var_key?: string
               }[]
             | null

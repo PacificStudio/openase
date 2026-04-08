@@ -13592,9 +13592,11 @@
                     "items": {
                       "properties": {
                         "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
                           "type": "string"
                         },
                         "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
                           "type": "string"
                         }
                       },
@@ -31499,9 +31501,11 @@
                     "items": {
                       "properties": {
                         "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
                           "type": "string"
                         },
                         "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
                           "type": "string"
                         }
                       },

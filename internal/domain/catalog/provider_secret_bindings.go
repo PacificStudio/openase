@@ -110,9 +110,6 @@ func AgentProviderSecretBindings(
 	keys := make([]string, 0, len(parts.explicitRefs)+len(legacyByEnv)+len(requiredProviderSecretEnvVars(aAdapterType)))
 	seen := make(map[string]struct{}, len(parts.explicitRefs)+len(legacyByEnv))
 	for _, envVarKey := range requiredProviderSecretEnvVars(aAdapterType) {
-		if _, ok := seen[envVarKey]; ok {
-			continue
-		}
 		seen[envVarKey] = struct{}{}
 		keys = append(keys, envVarKey)
 	}

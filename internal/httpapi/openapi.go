@@ -2146,6 +2146,8 @@ var (
 		"cli_args":              "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
 		"auth_config":           "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
 		"secret_bindings":       "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+		"secret_bindings[].env_var_key": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+		"secret_bindings[].binding_key": "Secret binding alias to resolve for the matching runtime environment variable.",
 		"model_name":            "Model name configured for the provider.",
 		"model_temperature":     "Sampling temperature configured for the provider model.",
 		"model_max_tokens":      "Maximum number of output tokens allowed for the provider model.",
