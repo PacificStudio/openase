@@ -795,14 +795,6 @@ func buildSecurityValidationDiagnosticsResponseFromAccessControl(
 	return response
 }
 
-func defaultSecurityOIDCValidationMetadata() iam.OIDCValidationMetadata {
-	return iam.OIDCValidationMetadata{
-		Status:   "not_tested",
-		Message:  "No OIDC validation has been recorded yet.",
-		Warnings: []string{},
-	}
-}
-
 func securityOIDCValidationSuccessMetadata(response securityOIDCTestResultResponse) iam.OIDCValidationMetadata {
 	now := time.Now().UTC()
 	return iam.OIDCValidationMetadata{
@@ -950,12 +942,4 @@ func fallbackList(items []string, fallback []string) []string {
 		return append([]string(nil), fallback...)
 	}
 	return items
-}
-
-func fallbackString(raw string, fallback string) string {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return fallback
-	}
-	return trimmed
 }

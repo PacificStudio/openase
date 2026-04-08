@@ -47,7 +47,7 @@ describe('Security settings', () => {
 
     const { findByRole, findByText } = render(SecuritySettings)
 
-    expect(await findByText('Compatibility notice')).toBeTruthy()
+    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Instance auth and directory')).toBeTruthy()
     expect(await findByText('Org members, invites, and roles')).toBeTruthy()
     expect(await findByText('Project access stays here')).toBeTruthy()

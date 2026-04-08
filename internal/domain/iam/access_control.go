@@ -150,28 +150,27 @@ func ParseAccessControlState(input AccessControlStateInput) (AccessControlState,
 		Activation: activation,
 	}
 
-	switch status {
-	case AccessControlStatusAbsent:
+	if status == AccessControlStatusAbsent {
 		return state, nil
-	case AccessControlStatusDraft:
-		draft, err := parseDraftOIDCConfig(input)
-		if err != nil {
-			return AccessControlState{}, err
-		}
-		state.Draft = &draft
-		return state, nil
-	case AccessControlStatusActive:
-		active, err := parseActiveOIDCConfig(input)
-		if err != nil {
-			return AccessControlState{}, err
-		}
-		state.Active = &active
-		draft := DraftOIDCConfig(active)
-		state.Draft = &draft
-		return state, nil
-	default:
-		return AccessControlState{}, fmt.Errorf("unsupported access control status %q", status)
 	}
+
+	draft, err := parseDraftOIDCConfig(input)
+	if err != nil {
+		return AccessControlState{}, err
+	}
+	state.Draft = &draft
+	if status == AccessControlStatusDraft {
+		return state, nil
+	}
+
+	active, err := parseActiveOIDCConfig(input)
+	if err != nil {
+		return AccessControlState{}, err
+	}
+	state.Active = &active
+	draft = DraftOIDCConfig(active)
+	state.Draft = &draft
+	return state, nil
 }
 
 func (s AccessControlState) ConfiguredAuthMode() AuthMode {
@@ -194,6 +193,7 @@ func DefaultDraftOIDCConfig() DraftOIDCConfig {
 }
 
 const (
+	// #nosec G101 -- This is the local default callback URL template, not a credential.
 	setupDefaultOIDCRedirectURL = "http://127.0.0.1:19836/api/v1/auth/oidc/callback"
 	defaultOIDCSessionTTL       = 8 * time.Hour
 	defaultOIDCIdleTTL          = 30 * time.Minute
@@ -262,12 +262,6 @@ func parseActiveOIDCConfig(input AccessControlStateInput) (ActiveOIDCConfig, err
 	}
 	if draft.ClientSecret == "" {
 		return ActiveOIDCConfig{}, fmt.Errorf("client_secret is required for active oidc config")
-	}
-	if draft.RedirectURL == "" {
-		return ActiveOIDCConfig{}, fmt.Errorf("redirect_url is required for active oidc config")
-	}
-	if len(draft.Scopes) == 0 {
-		return ActiveOIDCConfig{}, fmt.Errorf("scopes must not be empty for active oidc config")
 	}
 	return ActiveOIDCConfig(draft), nil
 }

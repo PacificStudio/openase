@@ -28,7 +28,7 @@ describe('Security settings disabled auth migration', () => {
 
     const { findByRole, findByText, queryByLabelText } = render(SecuritySettings)
 
-    expect(await findByText('Compatibility notice')).toBeTruthy()
+    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Active: disabled')).toBeTruthy()
     expect(await findByRole('link', { name: 'Open /admin/auth' })).toBeTruthy()
     expect(await findByRole('link', { name: 'Open org admin' })).toBeTruthy()

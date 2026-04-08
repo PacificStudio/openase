@@ -341,6 +341,7 @@ func (s *Service) readLegacyFallback() (iam.AccessControlStateInput, string, err
 	if resolvedPath == "" {
 		return input, "runtime:bootstrap", nil
 	}
+	// #nosec G304 -- The resolved config path comes from trusted bootstrap runtime configuration.
 	payload, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

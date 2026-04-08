@@ -129,8 +129,8 @@
       <h4 class="text-sm font-semibold">Draft OIDC configuration</h4>
       <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
         Save stores the draft for this instance without changing the active auth mode. Test checks
-        provider discovery. Enable OIDC updates the configured auth mode and then tells you the
-        next rollout step.
+        provider discovery. Enable OIDC updates the configured auth mode and then tells you the next
+        rollout step.
       </p>
     </div>
 

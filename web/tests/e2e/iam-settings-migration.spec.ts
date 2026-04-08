@@ -9,7 +9,7 @@ test('project settings route admins to /admin and org admin surfaces', async ({
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Security', exact: true }).click()
-  await expect(page.getByText('Compatibility notice')).toBeVisible()
+  await expect(page.getByText('Migration note')).toBeVisible()
   await expect(
     page.getByText('Project-owned credentials, webhook boundaries, and runtime token policies.'),
   ).toBeVisible()

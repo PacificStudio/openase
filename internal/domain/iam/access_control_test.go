@@ -1,6 +1,7 @@
 package iam
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -102,5 +103,168 @@ func TestParseAccessControlStateRejectsInvalidActiveConfig(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected ParseAccessControlState(active) to fail")
+	}
+
+	_, err = ParseAccessControlState(AccessControlStateInput{
+		Status:         "active",
+		ClientID:       "openase",
+		ClientSecret:   "secret",
+		RedirectURL:    "https://openase.example.com/api/v1/auth/oidc/callback",
+		SessionTTL:     "30m",
+		SessionIdleTTL: "15m",
+	})
+	if err == nil || !strings.Contains(err.Error(), "issuer_url is required") {
+		t.Fatalf("expected missing issuer error, got %v", err)
+	}
+}
+
+func TestAccessControlStatusAndHelperNormalization(t *testing.T) {
+	t.Parallel()
+
+	status, err := ParseAccessControlStatus(" draft ")
+	if err != nil {
+		t.Fatalf("ParseAccessControlStatus(draft) error = %v", err)
+	}
+	if status != AccessControlStatusDraft {
+		t.Fatalf("status = %q, want %q", status, AccessControlStatusDraft)
+	}
+	if status.String() != "draft" {
+		t.Fatalf("status.String() = %q", status.String())
+	}
+	if _, err := ParseAccessControlStatus("mystery"); err == nil {
+		t.Fatal("expected unsupported access control status error")
+	}
+
+	checkedAt := time.Date(2026, time.April, 8, 12, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
+	activatedAt := time.Date(2026, time.April, 8, 13, 0, 0, 0, time.FixedZone("UTC-5", -5*60*60))
+	state, err := ParseAccessControlState(AccessControlStateInput{
+		Status: "draft",
+		Validation: OIDCValidationMetadataInput{
+			CheckedAt: &checkedAt,
+			Warnings:  []string{" B ", "a", "b"},
+		},
+		Activation: OIDCActivationMetadataInput{
+			ActivatedAt: &activatedAt,
+			ActivatedBy: " admin@example.com ",
+			Source:      " test ",
+			Message:     " enabled ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseAccessControlState(draft metadata) error = %v", err)
+	}
+	if state.Validation.Status != "not_tested" {
+		t.Fatalf("validation status = %q", state.Validation.Status)
+	}
+	if state.Validation.Message != "No OIDC validation has been recorded yet." {
+		t.Fatalf("validation message = %q", state.Validation.Message)
+	}
+	if state.Validation.CheckedAt == nil || state.Validation.CheckedAt.Location() != time.UTC {
+		t.Fatalf("checked_at = %#v, want UTC clone", state.Validation.CheckedAt)
+	}
+	if got := strings.Join(state.Validation.Warnings, ","); got != "B,a,b" {
+		t.Fatalf("validation warnings = %q", got)
+	}
+	if state.Activation.ActivatedAt == nil || state.Activation.ActivatedAt.Location() != time.UTC {
+		t.Fatalf("activated_at = %#v, want UTC clone", state.Activation.ActivatedAt)
+	}
+	if state.Activation.ActivatedBy != "admin@example.com" {
+		t.Fatalf("activated_by = %q", state.Activation.ActivatedBy)
+	}
+	if state.Activation.Source != "test" {
+		t.Fatalf("source = %q", state.Activation.Source)
+	}
+	if state.Activation.Message != "enabled" {
+		t.Fatalf("message = %q", state.Activation.Message)
+	}
+
+	if cloneTime(nil) != nil {
+		t.Fatal("cloneTime(nil) should return nil")
+	}
+
+	if got := normalizeList(nil, false, []string{"openid"}); len(got) != 1 || got[0] != "openid" {
+		t.Fatalf("normalizeList fallback = %#v", got)
+	}
+	if got := normalizeList([]string{" B ", "a", "b", ""}, true, nil); strings.Join(got, ",") != "a,b" {
+		t.Fatalf("normalizeList lower+compact = %#v", got)
+	}
+}
+
+func TestParseAccessControlStateCoversDraftAndActiveErrors(t *testing.T) {
+	t.Parallel()
+
+	if _, err := ParseAccessControlState(AccessControlStateInput{Status: "mystery"}); err == nil {
+		t.Fatal("expected ParseAccessControlState to reject unknown status")
+	}
+
+	_, err := ParseAccessControlState(AccessControlStateInput{
+		Status:         "draft",
+		SessionTTL:     "nope",
+		SessionIdleTTL: "5m",
+	})
+	if err == nil || !strings.Contains(err.Error(), "session_ttl must be a valid duration") {
+		t.Fatalf("expected session_ttl parse error, got %v", err)
+	}
+
+	_, err = ParseAccessControlState(AccessControlStateInput{
+		Status:         "draft",
+		SessionTTL:     "1h",
+		SessionIdleTTL: "0s",
+	})
+	if err == nil || !strings.Contains(err.Error(), "session_idle_ttl must be greater than zero") {
+		t.Fatalf("expected session_idle_ttl > 0 error, got %v", err)
+	}
+
+	_, err = parseActiveOIDCConfig(AccessControlStateInput{
+		IssuerURL:      "https://issuer.example.com",
+		ClientID:       "openase",
+		ClientSecret:   "secret",
+		SessionTTL:     "bad",
+		SessionIdleTTL: "5m",
+	})
+	if err == nil || !strings.Contains(err.Error(), "session_ttl must be a valid duration") {
+		t.Fatalf("expected parseActiveOIDCConfig duration error, got %v", err)
+	}
+
+	base := AccessControlStateInput{
+		IssuerURL:      "https://issuer.example.com",
+		ClientID:       "openase",
+		ClientSecret:   "secret",
+		RedirectURL:    "https://openase.example.com/callback",
+		Scopes:         []string{"openid"},
+		SessionTTL:     "2h",
+		SessionIdleTTL: "15m",
+	}
+	cases := []struct {
+		name   string
+		mutate func(*AccessControlStateInput)
+		want   string
+	}{
+		{
+			name:   "missing issuer",
+			mutate: func(input *AccessControlStateInput) { input.IssuerURL = "" },
+			want:   "issuer_url is required",
+		},
+		{
+			name:   "missing client id",
+			mutate: func(input *AccessControlStateInput) { input.ClientID = "" },
+			want:   "client_id is required",
+		},
+		{
+			name:   "missing client secret",
+			mutate: func(input *AccessControlStateInput) { input.ClientSecret = "" },
+			want:   "client_secret is required",
+		},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			input := base
+			tc.mutate(&input)
+			_, err := parseActiveOIDCConfig(input)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected error containing %q, got %v", tc.want, err)
+			}
+		})
 	}
 }
