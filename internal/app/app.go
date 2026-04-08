@@ -39,6 +39,7 @@ import (
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
+	secretsrepo "github.com/BetterAndBetterII/openase/internal/repo/secrets"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
@@ -50,6 +51,7 @@ import (
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -142,6 +144,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	humanAuthRepo := humanauthrepo.NewEntRepository(client)
 	humanVisibility := humanauthservice.NewVisibilityResolver(humanAuthRepo)
 	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), a.config.Database.DSN)
 	if err != nil {
 		return err
 	}
@@ -243,6 +249,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
+		httpapi.WithSecretService(secretSvc),
 		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),

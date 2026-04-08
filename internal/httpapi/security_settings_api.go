@@ -95,6 +95,12 @@ type securitySettingsResponse struct {
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
+	api.GET("/projects/:projectId/security-settings/secrets", s.handleListScopedSecrets)
+	api.POST("/projects/:projectId/security-settings/secrets", s.handleCreateScopedSecret)
+	api.PATCH("/projects/:projectId/security-settings/secrets/:secretId", s.handlePatchScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/:secretId/rotate", s.handleRotateScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/:secretId/disable", s.handleDisableScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/resolve-for-runtime", s.handleResolveScopedSecretsForRuntime)
 	api.PUT("/projects/:projectId/security-settings/oidc-draft", s.handlePutOIDCDraft)
 	api.POST("/projects/:projectId/security-settings/oidc-draft/test", s.handleTestOIDCDraft)
 	api.POST("/projects/:projectId/security-settings/oidc-enable", s.handleEnableOIDC)
