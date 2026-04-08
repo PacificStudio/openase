@@ -21,8 +21,20 @@ COPY deploy ./deploy
 COPY --from=web-builder /src/internal/webui/static ./internal/webui/static
 RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/openase ./cmd/openase
 
-FROM alpine:3.22 AS runtime
-RUN apk add --no-cache ca-certificates tzdata wget \
+ARG CODEX_VERSION=0.118.0
+ARG CLAUDE_CODE_VERSION=2.1.96
+ARG GEMINI_CLI_VERSION=0.36.0
+
+FROM node:22-alpine AS runtime
+ARG CODEX_VERSION
+ARG CLAUDE_CODE_VERSION
+ARG GEMINI_CLI_VERSION
+RUN apk add --no-cache ca-certificates tzdata wget git bash ripgrep coreutils \
+    && npm install -g \
+        "@openai/codex@${CODEX_VERSION}" \
+        "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" \
+        "@google/gemini-cli@${GEMINI_CLI_VERSION}" \
+    && npm cache clean --force \
     && addgroup -S openase \
     && adduser -S -D -h /var/lib/openase -s /sbin/nologin -G openase openase \
     && mkdir -p /var/lib/openase /app

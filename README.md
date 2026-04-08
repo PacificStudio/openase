@@ -432,7 +432,7 @@ OpenASE setup will auto-detect these if present on `PATH`:
 |-------|---------|
 | **Claude Code** | `npm install -g @anthropic-ai/claude-code` |
 | **Codex** | `npm install -g @openai/codex` |
-| **Gemini CLI** | `npm install -g @anthropic-ai/gemini-cli` |
+| **Gemini CLI** | `npm install -g @google/gemini-cli` |
 
 These can also be installed later — setup will seed detected providers.
 
