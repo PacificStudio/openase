@@ -920,12 +920,10 @@ type staticAccessControlResolver struct {
 }
 
 func newStaticAccessControlResolver(cfg config.AuthConfig) (staticAccessControlResolver, error) {
-	mode := iam.AccessControlStatusAbsent.String()
+	var mode string
 	switch strings.ToLower(strings.TrimSpace(string(cfg.Mode))) {
 	case string(config.AuthModeOIDC):
 		mode = iam.AccessControlStatusActive.String()
-	case string(config.AuthModeDisabled), "":
-		mode = iam.AccessControlStatusAbsent.String()
 	default:
 		mode = iam.AccessControlStatusAbsent.String()
 	}
