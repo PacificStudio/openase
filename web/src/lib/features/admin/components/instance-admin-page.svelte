@@ -72,7 +72,7 @@
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
         <div class="flex items-center gap-2">
           <ShieldCheck class="text-muted-foreground size-4" />
-        <div class="text-sm font-semibold">Your session</div>
+          <div class="text-sm font-semibold">Your session</div>
         </div>
         <div class="flex flex-wrap gap-2 text-xs">
           <Badge variant="secondary">{authStore.loginRequired ? 'OIDC' : 'Local bootstrap'}</Badge>
@@ -137,8 +137,7 @@
           <div class="font-medium">Instance admin access required</div>
           <div class="text-muted-foreground mt-1 text-xs">
             This page needs instance-level <code>security_setting.read</code> to browse the
-            directory and <code>security_setting.update</code> for lifecycle and session
-            governance actions.
+            directory and <code>security_setting.update</code> for lifecycle and session governance actions.
           </div>
         </div>
       {:else}
