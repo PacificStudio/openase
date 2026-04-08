@@ -241,6 +241,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	projectConversationSvc.ConfigureSecretResolver(chatSecretResolver)
+	projectConversationSvc.ConfigureSecretManager(secretSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
@@ -256,7 +257,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct instance auth service: %w", err)
 	}
-	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
+	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
+		return fmt.Errorf("initialize instance auth runtime state: %w", err)
+	}
+	humanAuthSvc := humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
 	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
@@ -273,7 +277,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
 		httpapi.WithSecretService(secretSvc),
-		httpapi.WithHumanAuthConfig(a.config.Auth),
 		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
@@ -368,6 +371,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	runtimeLauncher.ConfigureSecretResolver(secretSvc)
 	runtimeLauncher.ConfigureMetrics(a.metrics)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
+	runtimeLauncher.ConfigureSecretManager(secretSvc)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

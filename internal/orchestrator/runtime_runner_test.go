@@ -35,73 +35,42 @@ func (runtimeRunnerFailingSession) Diagnostic() agentSessionDiagnostic {
 	return agentSessionDiagnostic{}
 }
 
+type runtimeRunnerClosedSession struct {
+	err        error
+	diagnostic agentSessionDiagnostic
+}
+
+func (s runtimeRunnerClosedSession) SessionID() (string, bool) {
+	if strings.TrimSpace(s.diagnostic.SessionID) == "" {
+		return "", false
+	}
+	return s.diagnostic.SessionID, true
+}
+
+func (runtimeRunnerClosedSession) Events() <-chan agentEvent {
+	stream := make(chan agentEvent)
+	close(stream)
+	return stream
+}
+
+func (runtimeRunnerClosedSession) SendPrompt(context.Context, string) (agentTurnStartResult, error) {
+	return agentTurnStartResult{}, nil
+}
+
+func (runtimeRunnerClosedSession) Stop(context.Context) error { return nil }
+
+func (s runtimeRunnerClosedSession) Err() error { return s.err }
+
+func (s runtimeRunnerClosedSession) Diagnostic() agentSessionDiagnostic {
+	return s.diagnostic
+}
+
 func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
-	process := newRuntimeRunnerFakeProcess()
-	adapter, err := codex.NewAdapter(codex.AdapterOptions{ProcessManager: &runtimeRunnerFakeProcessManager{process: process}})
-	if err != nil {
-		t.Fatalf("NewAdapter returned error: %v", err)
-	}
-
-	serverDone := make(chan error, 1)
-	go func() {
-		serverDone <- runRuntimeRunnerProtocolServer(process, func(decoder *json.Decoder, encoder *json.Encoder) error {
-			if err := runtimeRunnerCompleteHandshake(decoder, encoder); err != nil {
-				return err
-			}
-
-			turnStart, err := runtimeRunnerReadMessage(decoder)
-			if err != nil {
-				return err
-			}
-			if turnStart.Method != "turn/start" {
-				return errors.New("expected turn/start request")
-			}
-			if err := encoder.Encode(runtimeRunnerJSONRPCMessage{
-				JSONRPC: "2.0",
-				ID:      turnStart.ID,
-				Result:  mustMarshalJSON(map[string]any{"turn": map[string]any{"id": "turn-eof", "status": "inProgress"}}),
-			}); err != nil {
-				return err
-			}
-
-			if _, err := io.WriteString(process.stderrWrite, "fatal: app-server crashed"); err != nil {
-				return err
-			}
-			process.finish(errors.New("exit status 2"))
-			return nil
-		})
-	}()
-
-	processSpec, err := provider.NewAgentCLIProcessSpec(
-		provider.MustParseAgentCLICommand("codex"),
-		[]string{"app-server", "--listen", "stdio://"},
-		nil,
-		nil,
-	)
-	if err != nil {
-		t.Fatalf("NewAgentCLIProcessSpec returned error: %v", err)
-	}
-
-	session, err := adapter.Start(context.Background(), codex.StartRequest{
-		Process: processSpec,
-		Thread: codex.ThreadStartParams{
-			WorkingDirectory: "/tmp/openase",
-		},
-	})
-	if err != nil {
-		t.Fatalf("Start returned error: %v", err)
-	}
-	agentSession := newCodexAgentSession(session)
-
-	turn, err := session.SendPrompt(context.Background(), "Keep working.")
-	if err != nil {
-		t.Fatalf("SendPrompt returned error: %v", err)
-	}
-
 	logHandler := &runtimeRunnerLogHandler{}
 	launcher := &RuntimeLauncher{logger: slog.New(logHandler)}
 	highWater := tokenUsageHighWater{}
-	err = launcher.consumeTurn(
+	sessionErr := errors.New("codex app server exited: exit status 2: fatal: app-server crashed")
+	err := launcher.consumeTurn(
 		context.Background(),
 		uuid.Nil,
 		uuid.Nil,
@@ -109,8 +78,16 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 		uuid.Nil,
 		entagentprovider.AdapterTypeCodexAppServer,
 		uuid.Nil,
-		agentSession,
-		turn.TurnID,
+		runtimeRunnerClosedSession{
+			err: sessionErr,
+			diagnostic: agentSessionDiagnostic{
+				PID:       4242,
+				SessionID: "thread-1",
+				Error:     sessionErr.Error(),
+				Stderr:    "fatal: app-server crashed",
+			},
+		},
+		"turn-eof",
 		&highWater,
 	)
 	if err == nil {
@@ -142,10 +119,6 @@ func TestRuntimeLauncherConsumeTurnIncludesSessionExitCause(t *testing.T) {
 	}
 	if got := record.Attrs["provider_session_error"]; got != "codex app server exited: exit status 2: fatal: app-server crashed" {
 		t.Fatalf("unexpected provider_session_error attr: %+v", record.Attrs)
-	}
-
-	if err := <-serverDone; err != nil {
-		t.Fatalf("fake server returned error: %v", err)
 	}
 }
 

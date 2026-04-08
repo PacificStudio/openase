@@ -88,6 +88,7 @@ func (l *RuntimeLauncher) ensureCompletionSummaryCoordinator() *runtimeCompletio
 	l.completionSummaries.transports = l.transports
 	l.completionSummaries.workflow = l.workflow
 	l.completionSummaries.secretResolver = l.secretResolver
+	l.completionSummaries.secretManager = l.secretManager
 	l.completionSummaries.now = now
 	return l.completionSummaries
 }

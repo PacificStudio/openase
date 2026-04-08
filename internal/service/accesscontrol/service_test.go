@@ -38,6 +38,13 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	if absent.State.Status != iam.AccessControlStatusAbsent {
 		t.Fatalf("initial status = %q, want absent", absent.State.Status)
 	}
+	absentRuntime, err := service.RuntimeState(ctx)
+	if err != nil {
+		t.Fatalf("RuntimeState(absent) error = %v", err)
+	}
+	if absentRuntime.LoginRequired {
+		t.Fatal("absent runtime state should not require login")
+	}
 
 	draftResult, err := service.SaveDraft(ctx, iam.DraftOIDCConfig{
 		IssuerURL:            "https://issuer.example.com",
@@ -55,6 +62,13 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	}
 	if draftResult.State.Status != iam.AccessControlStatusDraft {
 		t.Fatalf("draft status = %q, want draft", draftResult.State.Status)
+	}
+	draftRuntime, err := service.RuntimeState(ctx)
+	if err != nil {
+		t.Fatalf("RuntimeState(draft) error = %v", err)
+	}
+	if draftRuntime.LoginRequired {
+		t.Fatal("draft runtime state should stay in disabled mode")
 	}
 	storedDraft, err := client.InstanceAuthConfig.Query().Only(ctx)
 	if err != nil {
@@ -88,6 +102,13 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	if activeResult.State.Status != iam.AccessControlStatusActive {
 		t.Fatalf("active status = %q, want active", activeResult.State.Status)
 	}
+	activeRuntime, err := service.RuntimeState(ctx)
+	if err != nil {
+		t.Fatalf("RuntimeState(active) error = %v", err)
+	}
+	if !activeRuntime.LoginRequired || activeRuntime.ResolvedOIDCConfig == nil {
+		t.Fatalf("active runtime state = %#v, want oidc login required", activeRuntime)
+	}
 	storedActive, err := client.InstanceAuthConfig.Query().Only(ctx)
 	if err != nil {
 		t.Fatalf("query stored active: %v", err)
@@ -102,6 +123,13 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	}
 	if disabledResult.State.Status != iam.AccessControlStatusDraft {
 		t.Fatalf("disabled status = %q, want draft", disabledResult.State.Status)
+	}
+	disabledRuntime, err := service.RuntimeState(ctx)
+	if err != nil {
+		t.Fatalf("RuntimeState(disabled) error = %v", err)
+	}
+	if disabledRuntime.LoginRequired {
+		t.Fatal("disabled runtime state should stop requiring login immediately")
 	}
 	storedDisabled, err := client.InstanceAuthConfig.Query().Only(ctx)
 	if err != nil {

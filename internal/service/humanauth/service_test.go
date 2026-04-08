@@ -4,14 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
-
-	"github.com/BetterAndBetterII/openase/internal/config"
 )
 
 func TestCountApprovalPoliciesReturnsAuthDisabledWhenOIDCDisabled(t *testing.T) {
-	service := &Service{
-		cfg: config.AuthConfig{Mode: config.AuthModeDisabled},
-	}
+	service := NewService(nil, nil, nil)
 
 	count, err := service.CountApprovalPolicies(context.Background())
 	if !errors.Is(err, ErrAuthDisabled) {
