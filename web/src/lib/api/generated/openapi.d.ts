@@ -1593,6 +1593,92 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization and project scoped secrets that are accessible from this project */
+    get: operations['listScopedSecrets']
+    put?: never
+    /** Create a new encrypted scoped secret */
+    post: operations['createScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence */
+    post: operations['resolveScopedSecretsForRuntime']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update scoped secret metadata without changing the encrypted value */
+    patch: operations['updateScopedSecretMetadata']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable a scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an existing scoped secret */
+    post: operations['rotateScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/skills': {
     parameters: {
       query?: never
@@ -14299,6 +14385,638 @@ export interface operations {
       }
       /** @description Bad Gateway response. */
       502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization and project scoped secrets that are accessible from this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new encrypted scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new encrypted scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resolveScopedSecretsForRuntime: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional agent ID included in the resolution precedence chain. */
+          agent_id?: string | null
+          /** @description Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated. */
+          binding_keys?: string[]
+          /** @description Optional ticket ID included in the resolution precedence chain. */
+          ticket_id?: string | null
+          /** @description Optional workflow ID included in the resolution precedence chain. */
+          workflow_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            missing_keys?: string[]
+            resolved?: {
+              binding_key?: string
+              binding_scope?: string
+              secret_id?: string
+              secret_kind?: string
+              secret_name?: string
+              secret_scope?: string
+              value?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateScopedSecretMetadata: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Update scoped secret metadata without changing the encrypted value request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Updated human-readable description for the secret. */
+          description?: string | null
+          /** @description Updated secret name. Names are normalized to upper snake case when provided. */
+          name?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update scoped secret metadata without changing the encrypted value response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable a scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an existing scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an existing scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }

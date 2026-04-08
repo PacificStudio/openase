@@ -111,6 +111,12 @@ type RoleBinding func(*sql.Selector)
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
 
+// Secret is the predicate function for secret builders.
+type Secret func(*sql.Selector)
+
+// SecretBinding is the predicate function for secretbinding builders.
+type SecretBinding func(*sql.Selector)
+
 // Skill is the predicate function for skill builders.
 type Skill func(*sql.Selector)
 
