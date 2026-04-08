@@ -27,6 +27,7 @@ export function buildDashboardStats(
   return {
     runningAgents,
     activeTickets: activeTickets.length,
+    totalTickets: tickets.length,
     pendingApprovals: 0,
     ticketSpendToday: options?.ticketSpendToday ?? 0,
     ticketSpendTotal,
@@ -60,14 +61,14 @@ export function buildProjectSummary(
 export function shouldShowProjectOnboarding(params: {
   dismissed: boolean
   loading: boolean
-  stats: Pick<DashboardStats, 'activeTickets' | 'runningAgents'>
+  stats: Pick<DashboardStats, 'totalTickets' | 'runningAgents'>
   projectId?: string | null
   orgId?: string | null
 }) {
   return (
     !params.dismissed &&
     !params.loading &&
-    params.stats.activeTickets === 0 &&
+    params.stats.totalTickets === 0 &&
     params.stats.runningAgents === 0 &&
     Boolean(params.projectId) &&
     Boolean(params.orgId)

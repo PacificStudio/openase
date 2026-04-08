@@ -8,6 +8,6 @@
   {organizationId}
   mode="members"
   heading="Members"
-  description="Manage accepted members, clarify who belongs to the organization, and review which role changes flow into descendant projects."
-  emptyMessage="No accepted or historical memberships yet."
+  description="Active members and their roles. Role changes apply to all projects in this org."
+  emptyMessage="No accepted memberships yet."
 />

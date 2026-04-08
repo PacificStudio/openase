@@ -15,12 +15,7 @@
 
 <div class="border-border bg-card space-y-4 rounded-2xl border p-5">
   <div class="flex items-center justify-between gap-3">
-    <div>
-      <div class="text-sm font-semibold">Last validation diagnostics</div>
-      <div class="text-muted-foreground mt-1 text-xs">
-        The most recent OIDC discovery result is persisted server-side for rollout troubleshooting.
-      </div>
-    </div>
+    <div class="text-sm font-semibold">Last validation</div>
     <Badge
       variant={auth.last_validation.status === 'ok'
         ? 'secondary'

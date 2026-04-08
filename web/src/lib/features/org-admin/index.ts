@@ -2,3 +2,4 @@ export { default as OrganizationAdminShell } from './components/organization-adm
 export { default as OrganizationAdminMembersPage } from './components/organization-admin-members-page.svelte'
 export { default as OrganizationAdminInvitationsPage } from './components/organization-admin-invitations-page.svelte'
 export { default as OrganizationAdminRolesPage } from './components/organization-admin-roles-page.svelte'
+export { default as OrganizationAdminSettingsPage } from './components/organization-admin-settings-page.svelte'

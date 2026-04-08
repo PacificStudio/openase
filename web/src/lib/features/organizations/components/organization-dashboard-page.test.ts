@@ -118,11 +118,15 @@ describe('OrganizationDashboardPage', () => {
 
   it('renders the org detail page from org-scoped app context', async () => {
     const view = render(OrganizationDashboardPage)
+    const scrollContainer = view.getByTestId('route-scroll-container')
 
     expect(view.getByRole('heading', { name: 'Acme' })).toBeTruthy()
     expect(view.getByText('1 project · 1 provider')).toBeTruthy()
     expect(view.getByText('Todo App')).toBeTruthy()
     expect(view.getByText('Codex')).toBeTruthy()
+    expect(scrollContainer.className).toContain('min-h-0')
+    expect(scrollContainer.className).toContain('flex-1')
+    expect(scrollContainer.className).toContain('overflow-y-auto')
 
     await waitFor(() => {
       expect(loadOrganizationDashboardSummary).toHaveBeenCalledWith(

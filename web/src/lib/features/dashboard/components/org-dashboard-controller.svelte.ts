@@ -34,6 +34,7 @@ const systemDashboardRefreshIntervalMs = 10_000
 const emptyDashboardStats: DashboardStats = {
   runningAgents: 0,
   activeTickets: 0,
+  totalTickets: 0,
   pendingApprovals: 0,
   ticketSpendToday: 0,
   ticketSpendTotal: 0,
@@ -225,7 +226,13 @@ export function createOrgDashboardController() {
 
           if (cancelled) return
           if (agentPayload) cachedAgents = agentPayload.agents
-          if (ticketPayload) cachedTickets = ticketPayload.tickets
+          if (ticketPayload) {
+            cachedTickets = ticketPayload.tickets
+            if (cachedTickets.length > 0 && !onboardingDismissed && projectId) {
+              markProjectOnboardingCompleted(projectId)
+              onboardingDismissed = true
+            }
+          }
 
           if (
             sections.includes('agents') ||

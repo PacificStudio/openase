@@ -217,28 +217,6 @@
     </div>
   {:else if auth}
     <div class="space-y-6">
-      <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
-        <div class="flex flex-wrap items-center gap-2">
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Migration note</span
-          >
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Active: {auth.active_mode}</span
-          >
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Configured: {auth.configured_mode}</span
-          >
-        </div>
-        <p class="mt-2 leading-6">
-          This page replaces the legacy project Settings -&gt; Security OIDC setup. Instance auth
-          mode, bootstrap admins, rollout diagnostics, and rollback guidance now stay under
-          <code>/admin/auth</code> so project settings can focus on project-local access and credentials.
-        </p>
-      </div>
-
       <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <AdminAuthOverview {auth} user={authStore.user} />
         <AdminAuthDiagnostics {auth} {transition} />

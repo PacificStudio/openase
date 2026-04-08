@@ -44,6 +44,7 @@ if [ "$#" -gt 0 ]; then
 fi
 
 export HOME="${HOME:-/var/lib/openase}"
+export CODEX_CONFIG_SOURCE_PATH="${CODEX_CONFIG_SOURCE_PATH:-/run/coolify-secrets/codex-config.toml}"
 export OPENASE_SERVER_HOST="${OPENASE_SERVER_HOST:-0.0.0.0}"
 export OPENASE_SERVER_PORT="${OPENASE_SERVER_PORT:-40023}"
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL="${OPENASE_ORCHESTRATOR_TICK_INTERVAL:-5s}"
@@ -66,13 +67,20 @@ case "$OPENASE_LOG_FORMAT" in
 esac
 
 mkdir -p \
+  "$HOME/.codex" \
   "$HOME/.openase" \
   "$HOME/.openase/chat" \
   "$HOME/.openase/logs" \
   "$HOME/.openase/projects" \
   "$HOME/.openase/workspace"
 
+[ -w "$HOME/.codex" ] || fail "${HOME}/.codex is not writable"
 [ -w "$HOME/.openase" ] || fail "${HOME}/.openase is not writable"
+
+if [ -f "$CODEX_CONFIG_SOURCE_PATH" ]; then
+  cp "$CODEX_CONFIG_SOURCE_PATH" "$HOME/.codex/config.toml"
+  chmod 600 "$HOME/.codex/config.toml"
+fi
 
 printf 'openase-entrypoint: starting openase all-in-one on %s:%s\n' \
   "$OPENASE_SERVER_HOST" "$OPENASE_SERVER_PORT" >&2

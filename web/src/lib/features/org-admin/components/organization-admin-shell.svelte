@@ -13,9 +13,7 @@
   import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
-  import { authStore } from '$lib/stores/auth.svelte'
   import { cn } from '$lib/utils'
-  import { Badge } from '$ui/badge'
   import type { Snippet } from 'svelte'
 
   let {
@@ -40,6 +38,7 @@
     { label: 'Members', href: `${organizationPath(organizationId)}/admin/members` },
     { label: 'Invitations', href: `${organizationPath(organizationId)}/admin/invitations` },
     { label: 'Roles', href: `${organizationPath(organizationId)}/admin/roles` },
+    { label: 'Settings', href: `${organizationPath(organizationId)}/admin/settings` },
   ])
 
   function dateRange() {
@@ -114,42 +113,9 @@
 
 <PageScaffold
   title="Organization admin"
-  description="Run member lifecycle, invitations, and org-scoped RBAC without crossing into instance-wide `/admin` controls. Project access still inherits from these org decisions."
+  description="Members, invitations, roles, and organization settings."
 >
   <div class="space-y-6">
-    <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
-      <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Migration note</Badge>
-        <Badge variant="secondary"
-          >{authStore.authMode === 'oidc' ? 'OIDC mode' : 'Disabled mode'}</Badge
-        >
-      </div>
-      <p class="mt-2 leading-6">
-        Organization members, invitations, and org-scoped roles now live here instead of project
-        Settings -&gt; Security. Keep installation-wide auth in <code>/admin</code>, and keep
-        project-local role bindings in each project's Settings -&gt; Access section.
-      </p>
-      <p class="mt-2 text-xs leading-5 opacity-90">
-        {authStore.authMode === 'oidc'
-          ? 'OIDC mode enforces real org owners and org admins here; instance-wide authority still does not collapse back into project settings.'
-          : 'Disabled mode still reaches this route through the local bootstrap principal, but the ownership model remains organization scope rather than project security scope.'}
-      </p>
-    </div>
-
-    <div class="rounded-3xl border border-amber-200/80 bg-amber-50/80 p-4 text-sm text-amber-950">
-      <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Org scope only</Badge>
-        {#if permissions?.roles?.length}
-          <Badge variant="secondary">Your roles: {permissions.roles.join(', ')}</Badge>
-        {/if}
-      </div>
-      <p class="mt-2 leading-6">
-        Org admin manages people and org bindings here. Instance auth mode, user directory, session
-        governance, and installation-wide security stay under <code>/admin</code> and remain intentionally
-        out of reach.
-      </p>
-    </div>
-
     <div class="grid gap-4 lg:grid-cols-4">
       <div class="rounded-3xl border bg-white p-4 shadow-sm">
         <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Members</div>

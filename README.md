@@ -808,6 +808,16 @@ make lint-all                    # Full lint suite
 
 ---
 
+## ⭐ Star History
+
+<p align="center">
+  <a href="https://star-history.com/#PacificStudio/openase&Date">
+    <img src="https://api.star-history.com/svg?repos=PacificStudio/openase&type=Date" alt="Star History Chart for PacificStudio/openase" width="100%" />
+  </a>
+</p>
+
+---
+
 ## 📄 License
 
 See [LICENSE](LICENSE).

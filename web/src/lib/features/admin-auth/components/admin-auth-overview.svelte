@@ -71,7 +71,7 @@
   </div>
 
   <div class="space-y-2">
-    <div class="text-sm font-semibold">Operator checklist</div>
+    <div class="text-sm font-semibold">Next steps</div>
     <ol class="list-inside list-decimal space-y-1 text-sm leading-relaxed">
       {#each auth.next_steps as step (step)}
         <li>{step}</li>
