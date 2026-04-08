@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
 	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	"github.com/google/uuid"
@@ -132,6 +135,23 @@ func (s *Server) handleCreateScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitSecretActivity(
+		c.Request().Context(),
+		projectID,
+		activityevent.TypeSecretCreated,
+		"Created scoped secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"secret_kind":     string(item.Kind),
+			"value_preview":   item.StoredValue.Preview,
+			"changed_fields":  []string{"secret"},
+			"operation_scope": "project",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusCreated, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
 }
 
@@ -150,6 +170,23 @@ func (s *Server) handleCreateOrganizationScopedSecret(c echo.Context) error {
 	item, err := s.secretService.CreateOrganizationSecret(c.Request().Context(), parseCreateOrganizationScopedSecretRequest(organizationID, raw))
 	if err != nil {
 		return writeScopedSecretError(c, err)
+	}
+	if err := s.emitOrganizationSecretActivity(
+		c.Request().Context(),
+		organizationID,
+		activityevent.TypeSecretCreated,
+		"Created organization secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"secret_kind":     string(item.Kind),
+			"value_preview":   item.StoredValue.Preview,
+			"changed_fields":  []string{"secret"},
+			"operation_scope": "organization",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
 }
@@ -192,6 +229,30 @@ func (s *Server) handleCreateScopedSecretBinding(c echo.Context) error {
 	item, err := s.secretService.CreateBinding(c.Request().Context(), input)
 	if err != nil {
 		return writeScopedSecretError(c, err)
+	}
+	if err := s.emitSecretActivity(
+		c.Request().Context(),
+		projectID,
+		activityevent.TypeSecretBound,
+		"Bound secret "+item.Secret.Name+" to "+item.Target.Name,
+		map[string]any{
+			"binding_id":         item.Binding.ID.String(),
+			"binding_key":        item.Binding.BindingKey,
+			"binding_scope":      string(item.Binding.Scope),
+			"scope_resource_id":  item.Binding.ScopeResourceID.String(),
+			"secret_id":          item.Secret.ID.String(),
+			"secret_name":        item.Secret.Name,
+			"secret_scope":       string(item.Secret.Scope),
+			"target_id":          item.Target.ID.String(),
+			"target_name":        item.Target.Name,
+			"target_scope":       string(item.Target.Scope),
+			"target_identifier":  item.Target.Identifier,
+			"changed_fields":     []string{"binding"},
+			"operation_scope":    "project",
+			"operation_resource": "runtime_binding",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
 	}
 	return c.JSON(http.StatusCreated, map[string]any{"binding": mapScopedSecretBindingResponse(item)})
 }
@@ -237,6 +298,9 @@ func (s *Server) handleDeleteScopedSecretBinding(c echo.Context) error {
 	}); err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitSecretUnboundActivity(c.Request().Context(), projectID, bindingID); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -260,6 +324,23 @@ func (s *Server) handleRotateScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitSecretActivity(
+		c.Request().Context(),
+		projectID,
+		activityevent.TypeSecretRotated,
+		"Rotated scoped secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"value_preview":   item.StoredValue.Preview,
+			"rotated_at":      item.StoredValue.RotatedAt.UTC().Format(time.RFC3339),
+			"changed_fields":  []string{"value"},
+			"operation_scope": "project",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
 }
 
@@ -279,6 +360,22 @@ func (s *Server) handleDisableScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitSecretActivity(
+		c.Request().Context(),
+		projectID,
+		activityevent.TypeSecretDisabled,
+		"Disabled scoped secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"disabled_at":     timePointerRFC3339(item.DisabledAt),
+			"changed_fields":  []string{"disabled"},
+			"operation_scope": "project",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{"secret": s.projectSecretResponse(c, projectID, item)})
 }
 
@@ -296,6 +393,9 @@ func (s *Server) handleDeleteScopedSecret(c echo.Context) error {
 	}
 	if err := s.secretService.DeleteSecret(c.Request().Context(), secretsservice.DeleteSecretInput{ProjectID: projectID, SecretID: secretID}); err != nil {
 		return writeScopedSecretError(c, err)
+	}
+	if err := s.emitSecretDeletedActivity(c.Request().Context(), projectID, secretID); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -324,6 +424,23 @@ func (s *Server) handleRotateOrganizationScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitOrganizationSecretActivity(
+		c.Request().Context(),
+		organizationID,
+		activityevent.TypeSecretRotated,
+		"Rotated organization secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"value_preview":   item.StoredValue.Preview,
+			"rotated_at":      item.StoredValue.RotatedAt.UTC().Format(time.RFC3339),
+			"changed_fields":  []string{"value"},
+			"operation_scope": "organization",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
 }
 
@@ -346,6 +463,22 @@ func (s *Server) handleDisableOrganizationScopedSecret(c echo.Context) error {
 	if err != nil {
 		return writeScopedSecretError(c, err)
 	}
+	if err := s.emitOrganizationSecretActivity(
+		c.Request().Context(),
+		organizationID,
+		activityevent.TypeSecretDisabled,
+		"Disabled organization secret "+item.Name,
+		map[string]any{
+			"secret_id":       item.ID.String(),
+			"secret_name":     item.Name,
+			"secret_scope":    string(item.Scope),
+			"disabled_at":     timePointerRFC3339(item.DisabledAt),
+			"changed_fields":  []string{"disabled"},
+			"operation_scope": "organization",
+		},
+	); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{"secret": s.organizationSecretResponse(c, organizationID, item)})
 }
 
@@ -366,6 +499,9 @@ func (s *Server) handleDeleteOrganizationScopedSecret(c echo.Context) error {
 		SecretID:       secretID,
 	}); err != nil {
 		return writeScopedSecretError(c, err)
+	}
+	if err := s.emitOrganizationSecretDeletedActivity(c.Request().Context(), organizationID, secretID); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECRET_ACTIVITY_FAILED", err.Error())
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -399,13 +535,158 @@ func (s *Server) handleResolveScopedSecretsForRuntime(c echo.Context) error {
 			SecretName:   item.SecretName,
 			SecretScope:  string(item.SecretScope),
 			SecretKind:   string(item.SecretKind),
-			Value:        item.Value,
+			Value:        secretsdomain.RedactValue(item.Value),
 		})
 	}
 	return c.JSON(http.StatusOK, map[string]any{
 		"resolved":     response,
 		"missing_keys": missing,
 	})
+}
+
+func (s *Server) emitSecretActivity(
+	ctx context.Context,
+	projectID uuid.UUID,
+	eventType activityevent.Type,
+	message string,
+	metadata map[string]any,
+) error {
+	return s.emitActivity(ctx, activitysvc.RecordInput{
+		ProjectID: projectID,
+		EventType: eventType,
+		Message:   message,
+		Metadata:  cloneSecretActivityMetadata(metadata),
+	})
+}
+
+func (s *Server) emitOrganizationSecretActivity(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	eventType activityevent.Type,
+	message string,
+	metadata map[string]any,
+) error {
+	if s == nil || s.catalog.Empty() || s.catalog.ProjectService == nil || organizationID == uuid.Nil {
+		return nil
+	}
+	projects, err := s.catalog.ListProjects(ctx, organizationID)
+	if err != nil {
+		return err
+	}
+	for _, item := range projects {
+		if err := s.emitSecretActivity(ctx, item.ID, eventType, message, metadata); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) emitSecretUnboundActivity(ctx context.Context, projectID uuid.UUID, bindingID uuid.UUID) error {
+	if s == nil || s.secretService == nil {
+		return nil
+	}
+	metadata := map[string]any{
+		"binding_id":         bindingID.String(),
+		"changed_fields":     []string{"binding"},
+		"operation_scope":    "project",
+		"operation_resource": "runtime_binding",
+	}
+	message := "Removed scoped secret binding"
+	items, err := s.secretService.ListProjectBindings(ctx, projectID)
+	if err == nil {
+		for _, item := range items {
+			if item.Binding.ID != bindingID {
+				continue
+			}
+			message = "Unbound secret " + item.Secret.Name + " from " + item.Target.Name
+			metadata["binding_key"] = item.Binding.BindingKey
+			metadata["binding_scope"] = string(item.Binding.Scope)
+			metadata["scope_resource_id"] = item.Binding.ScopeResourceID.String()
+			metadata["secret_id"] = item.Secret.ID.String()
+			metadata["secret_name"] = item.Secret.Name
+			metadata["secret_scope"] = string(item.Secret.Scope)
+			metadata["target_id"] = item.Target.ID.String()
+			metadata["target_name"] = item.Target.Name
+			metadata["target_scope"] = string(item.Target.Scope)
+			metadata["target_identifier"] = item.Target.Identifier
+			break
+		}
+	}
+	return s.emitSecretActivity(ctx, projectID, activityevent.TypeSecretUnbound, message, metadata)
+}
+
+func (s *Server) emitSecretDeletedActivity(ctx context.Context, projectID uuid.UUID, secretID uuid.UUID) error {
+	if s == nil || s.secretService == nil {
+		return nil
+	}
+	metadata := map[string]any{
+		"secret_id":       secretID.String(),
+		"changed_fields":  []string{"secret"},
+		"operation_scope": "project",
+	}
+	message := "Deleted scoped secret"
+	items, err := s.secretService.ListProjectSecretInventory(ctx, projectID)
+	if err == nil {
+		for _, item := range items {
+			if item.Secret.ID != secretID {
+				continue
+			}
+			message = "Deleted scoped secret " + item.Secret.Name
+			metadata["secret_name"] = item.Secret.Name
+			metadata["secret_scope"] = string(item.Secret.Scope)
+			metadata["secret_kind"] = string(item.Secret.Kind)
+			break
+		}
+	}
+	return s.emitSecretActivity(ctx, projectID, activityevent.TypeSecretDeleted, message, metadata)
+}
+
+func (s *Server) emitOrganizationSecretDeletedActivity(
+	ctx context.Context,
+	organizationID uuid.UUID,
+	secretID uuid.UUID,
+) error {
+	metadata := map[string]any{
+		"secret_id":       secretID.String(),
+		"changed_fields":  []string{"secret"},
+		"operation_scope": "organization",
+	}
+	message := "Deleted organization secret"
+	if s != nil && s.secretService != nil {
+		items, err := s.secretService.ListOrganizationSecretInventory(ctx, organizationID)
+		if err == nil {
+			for _, item := range items {
+				if item.Secret.ID != secretID {
+					continue
+				}
+				message = "Deleted organization secret " + item.Secret.Name
+				metadata["secret_name"] = item.Secret.Name
+				metadata["secret_scope"] = string(item.Secret.Scope)
+				metadata["secret_kind"] = string(item.Secret.Kind)
+				break
+			}
+		}
+	}
+	return s.emitOrganizationSecretActivity(ctx, organizationID, activityevent.TypeSecretDeleted, message, metadata)
+}
+
+func cloneSecretActivityMetadata(raw map[string]any) map[string]any {
+	if len(raw) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(raw))
+	for key, value := range raw {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func timePointerRFC3339(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339)
+	return &formatted
 }
 
 func mapScopedSecretResponse(item secretsdomain.Secret) securityScopedSecretResponse {

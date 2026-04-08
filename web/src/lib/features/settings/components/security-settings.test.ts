@@ -137,6 +137,8 @@ describe('Security settings', () => {
       await findByText('Fullstack Developer Workflow', { selector: 'div.text-sm.font-medium' }),
     ).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
+    expect(await findByText('Migrate inline provider auth_config secrets')).toBeTruthy()
+    expect(await findByText('2 inline secrets across 1 providers')).toBeTruthy()
   })
 
   it('saves a project override token from the security surface', async () => {

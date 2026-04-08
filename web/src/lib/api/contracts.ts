@@ -573,6 +573,20 @@ export type SecurityAuthSettings = {
 export type SecuritySettingsResponse = Omit<RawSecuritySettingsResponse, 'security'> & {
   security: RawSecuritySettingsResponse['security'] & {
     auth: SecurityAuthSettings
+    secret_hygiene: NonNullable<RawSecuritySettingsResponse['security']>['secret_hygiene'] & {
+      machine_env_vars_redacted: boolean
+      runtime_secret_responses_redacted: boolean
+      legacy_providers_requiring_migration: number
+      legacy_provider_inline_secret_bindings: number
+      legacy_machines_requiring_migration: number
+      legacy_machine_secret_env_vars: number
+      rollout_checklist: Array<{
+        key: string
+        title: string
+        status: string
+        summary: string
+      }>
+    }
   }
 }
 export type ScopedSecretPayload = DeepRequired<
