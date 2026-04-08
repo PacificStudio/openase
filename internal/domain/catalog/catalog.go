@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -328,11 +329,32 @@ func parseProjectRepoRepositoryURL(fieldName string, raw string) (string, error)
 		return "", fmt.Errorf("%s must use https://github.com/...git; ssh GitHub URLs are not allowed", fieldName)
 	}
 
+	if fileURL, ok, err := parseSupportedFileRepositoryURL(trimmed); ok {
+		if err != nil {
+			return "", fmt.Errorf("%s %w", fieldName, err)
+		}
+		return fileURL, nil
+	}
+
 	if normalized, ok := githubauthdomain.NormalizeGitHubRepositoryURL(trimmed); ok {
 		return normalized, nil
 	}
 
 	return trimmed, nil
+}
+
+func parseSupportedFileRepositoryURL(raw string) (string, bool, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return "", false, fmt.Errorf("must be a valid file:// URL: %w", err)
+	}
+	if !strings.EqualFold(parsed.Scheme, "file") {
+		return "", false, nil
+	}
+	if strings.TrimSpace(parsed.Path) == "" {
+		return "", true, fmt.Errorf("must include an absolute path for file:// URLs")
+	}
+	return raw, true, nil
 }
 
 func ParseCreateTicketRepoScope(projectID uuid.UUID, ticketID uuid.UUID, raw TicketRepoScopeInput) (CreateTicketRepoScope, error) {

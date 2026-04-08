@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -3536,6 +3537,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 
 	repoRoot := t.TempDir()
+	repoURL := (&url.URL{Scheme: "file", Path: repoRoot}).String()
 	initRuntimeLauncherRepo(t, repoRoot)
 	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
@@ -3574,7 +3576,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	repoItem, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("backend").
-		SetRepositoryURL(repoRoot).
+		SetRepositoryURL(repoURL).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
 		Save(ctx)
