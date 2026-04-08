@@ -2,8 +2,10 @@
   import { goto } from '$app/navigation'
   import { onMount } from 'svelte'
 
-  import { ApiError } from '$lib/api/client'
-  import { redeemLocalBootstrapAuthorization } from '$lib/api/auth'
+  import {
+    describeLocalBootstrapRedeemError,
+    redeemLocalBootstrapBrowserSession,
+  } from '$lib/features/auth/local-bootstrap'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
   import type { PageData } from './$types'
@@ -23,7 +25,7 @@
     pending = true
     message = 'Authorizing this browser session...'
     try {
-      await redeemLocalBootstrapAuthorization({
+      await redeemLocalBootstrapBrowserSession({
         requestID: data.requestID,
         code: data.code,
         nonce: data.nonce,
@@ -31,10 +33,7 @@
       message = 'Authorization succeeded. Redirecting into OpenASE...'
       await goto(data.returnTo, { replaceState: true })
     } catch (error) {
-      message =
-        error instanceof ApiError
-          ? error.detail || 'Local bootstrap authorization failed.'
-          : 'Local bootstrap authorization failed.'
+      message = describeLocalBootstrapRedeemError(error)
     } finally {
       pending = false
     }
