@@ -56,10 +56,10 @@
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
           <MessageSquare class="text-muted-foreground size-5" />
         </div>
-        <p class="text-sm font-medium">No curated updates yet</p>
+        <p class="text-sm font-medium">No updates yet</p>
         <p class="text-muted-foreground mt-1 max-w-md text-sm">
-          Post the first project update to capture current delivery status. Raw agent and workflow
-          events continue to appear in Activity.
+          Updates are hand-written progress snapshots for stakeholders. Use the composer above to
+          post the first one — raw agent events stay in Activity.
         </p>
       </div>
     {:else}

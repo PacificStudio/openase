@@ -12,12 +12,14 @@
   import { Textarea } from '$ui/textarea'
   import * as Select from '$ui/select'
   import { Loader2, Ticket, Info, CheckCircle2 } from '@lucide/svelte'
-  import { getBootstrapPreset } from '../model'
+  import { bootstrapPresets, getBootstrapPreset } from '../model'
+  import type { BootstrapPresetKey } from '../types'
 
   let {
     projectId,
     orgId,
     projectStatus,
+    selectedPresetKey,
     statuses,
     ticketCount,
     onComplete,
@@ -25,15 +27,21 @@
     projectId: string
     orgId: string
     projectStatus: string
+    selectedPresetKey?: BootstrapPresetKey
     statuses: TicketStatus[]
     ticketCount: number
     onComplete: () => void
   } = $props()
 
-  const preset = $derived(getBootstrapPreset(projectStatus))
+  const preset = $derived(
+    selectedPresetKey
+      ? (bootstrapPresets.find((p) => p.key === selectedPresetKey) ??
+          getBootstrapPreset(projectStatus))
+      : getBootstrapPreset(projectStatus),
+  )
 
   let title = $state(untrack(() => preset.exampleTicketTitle))
-  let description = $state('')
+  let description = $state(untrack(() => preset.exampleTicketDescription))
   let creating = $state(false)
   let repos = $state<ProjectRepoRecord[]>([])
   let selectedRepoId = $state('')
@@ -138,8 +146,8 @@
         <p class="text-foreground mb-1 text-xs font-medium">Description (optional)</p>
         <Textarea
           bind:value={description}
-          placeholder="Describe the task..."
-          rows={2}
+          placeholder={preset.exampleTicketDescription}
+          rows={3}
           class="text-sm"
         />
       </div>

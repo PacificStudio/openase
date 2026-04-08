@@ -91,7 +91,7 @@
           <LockKeyhole class="text-muted-foreground size-4" />
           <div class="text-sm font-semibold">Recovery</div>
         </div>
-        <ul class="text-muted-foreground space-y-1 text-xs list-disc list-inside">
+        <ul class="text-muted-foreground list-inside list-disc space-y-1 text-xs">
           <li>Keep at least one admin able to sign in before changing auth settings</li>
           <li>OIDC failure: set <code>auth.mode: disabled</code> to restore local admin access</li>
           <li>Emergency offboarding: disable user + revoke sessions</li>
@@ -120,8 +120,8 @@
       <div class="border-border bg-card flex items-center gap-3 rounded-lg border p-4">
         <Users class="text-muted-foreground size-4 shrink-0" />
         <p class="text-muted-foreground text-sm">
-          Running in single-user disabled mode. Switch to OIDC for per-user governance and
-          audit logs.
+          Running in single-user disabled mode. Switch to OIDC for per-user governance and audit
+          logs.
         </p>
       </div>
     {:else}
