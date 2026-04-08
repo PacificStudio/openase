@@ -29,9 +29,9 @@ describe('OnboardingPanel', () => {
     vi.clearAllMocks()
   })
 
-  it('lets users skip onboarding from the current step and finish immediately', async () => {
+  it('requires a second confirmation before skipping onboarding', async () => {
     const onOnboardingComplete = vi.fn()
-    const { findByText, getByText } = render(OnboardingPanel, {
+    const { findByText, getByRole, getByText } = render(OnboardingPanel, {
       props: {
         projectId: 'project-1',
         orgId: 'org-1',
@@ -42,11 +42,14 @@ describe('OnboardingPanel', () => {
     })
 
     expect(await findByText('Skip tour')).toBeTruthy()
-    expect(
-      getByText('If you do not want to continue setup, you can skip the tour and finish now.'),
-    ).toBeTruthy()
 
     await fireEvent.click(getByText('Skip tour'))
+
+    expect(onOnboardingComplete).not.toHaveBeenCalled()
+    expect(await findByText('Skip onboarding?')).toBeTruthy()
+    expect(getByText('Continue setup')).toBeTruthy()
+
+    await fireEvent.click(getByRole('button', { name: 'Skip anyway' }))
 
     await waitFor(() => {
       expect(onOnboardingComplete).toHaveBeenCalledTimes(1)

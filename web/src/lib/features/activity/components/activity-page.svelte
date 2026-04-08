@@ -222,8 +222,9 @@
         </div>
         {#if entries.length === 0}
           <p class="text-foreground text-sm font-medium">No activity yet</p>
-          <p class="text-muted-foreground mt-1 text-sm">
-            Events will appear here as agents and tickets run.
+          <p class="text-muted-foreground mt-1 max-w-sm text-sm">
+            Activity captures every agent run, ticket transition, and workflow event in real time.
+            Create a ticket or trigger a workflow to see events here.
           </p>
         {:else}
           <p class="text-foreground text-sm font-medium">No matching events</p>

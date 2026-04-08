@@ -152,8 +152,9 @@
         <Server class="text-muted-foreground size-5" />
       </div>
       <p class="text-foreground text-sm font-medium">No machines configured</p>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Register a remote worker to make it available for orchestration and routing.
+      <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+        Machines are remote workers that run agent tasks. Register one to connect a development
+        environment and make it available for ticket execution.
       </p>
       <div class="mt-4">
         <Button onclick={onCreate}>New machine</Button>

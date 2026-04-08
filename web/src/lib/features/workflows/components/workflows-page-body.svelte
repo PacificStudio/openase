@@ -10,6 +10,8 @@
   } from '../types'
   import type { HarnessValidationIssue } from '$lib/api/contracts'
   import type { SkillState } from '../model'
+  import { Button } from '$ui/button'
+  import { GitBranch } from '@lucide/svelte'
   import * as Sheet from '$ui/sheet'
   import WorkflowCreationDialog from './workflow-creation-dialog.svelte'
   import WorkflowEditorPanel from './workflow-editor-panel.svelte'
@@ -93,6 +95,22 @@
       </a>
     </div>
   {/if}
+{:else if workflows.length === 0}
+  <div
+    class="border-border bg-card animate-fade-in-up flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-4 py-14 text-center"
+  >
+    <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
+      <GitBranch class="text-muted-foreground size-5" />
+    </div>
+    <p class="text-foreground text-sm font-medium">No workflows yet</p>
+    <p class="text-muted-foreground mt-1 max-w-sm text-sm">
+      Workflows define how agents process tickets — sequencing steps, branching on conditions, and
+      calling skills. Create one to automate a repeatable process.
+    </p>
+    <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
+      Create workflow
+    </Button>
+  </div>
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
     {#if showList}

@@ -4,6 +4,7 @@
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
   import { ChevronDown } from '@lucide/svelte'
+  import { cn } from '$lib/utils'
   import type { RepositoryDraft } from '../repositories-model'
 
   let {
@@ -18,9 +19,25 @@
 
   let showAdvanced = $state(false)
 
+  type UrlType = 'remote' | 'file'
+
+  let urlType = $state<UrlType>(draft.repositoryURL.startsWith('file://') ? 'file' : 'remote')
+
   function update(field: keyof RepositoryDraft, event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement
     onDraftChange?.(field, target.value)
+  }
+
+  function switchUrlType(type: UrlType) {
+    if (urlType === type) return
+    urlType = type
+    // Pre-fill with scheme hint when field is empty or only contains the other scheme hint
+    const current = draft.repositoryURL.trim()
+    if (type === 'file' && (!current || current === 'https://' || current === 'git@')) {
+      onDraftChange?.('repositoryURL', 'file://')
+    } else if (type === 'remote' && (!current || current === 'file://')) {
+      onDraftChange?.('repositoryURL', '')
+    }
   }
 </script>
 
@@ -49,14 +66,53 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label for="repo-url" class="text-xs">Repository URL</Label>
+    <Label class="text-xs">Repository URL</Label>
+    <div class="bg-muted flex rounded-md p-0.5 text-xs">
+      <button
+        type="button"
+        class={cn(
+          'flex-1 rounded px-3 py-1 font-medium transition-colors',
+          urlType === 'remote'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+        onclick={() => switchUrlType('remote')}
+      >
+        Remote
+      </button>
+      <button
+        type="button"
+        class={cn(
+          'flex-1 rounded px-3 py-1 font-medium transition-colors',
+          urlType === 'file'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground',
+        )}
+        onclick={() => switchUrlType('file')}
+      >
+        Local path
+      </button>
+    </div>
     <Input
       id="repo-url"
       value={draft.repositoryURL}
-      placeholder="https://github.com/acme/backend.git"
+      placeholder={urlType === 'file'
+        ? 'file:///home/user/repos/backend.git'
+        : 'https://github.com/acme/backend.git'}
       class="h-9 text-sm"
       oninput={(event) => update('repositoryURL', event)}
     />
+    {#if urlType === 'file'}
+      <p class="text-muted-foreground text-[11px]">
+        Uses a local Git repository on the machine running the agent. The path must be accessible
+        from that machine at clone/fetch time.
+      </p>
+    {:else}
+      <p class="text-muted-foreground text-[11px]">
+        Supports <code class="font-mono">https://</code> and <code class="font-mono">git@</code>
+        SSH URLs. Works with GitHub, GitLab, Gitea, and any hosted or self-hosted Git server.
+      </p>
+    {/if}
   </div>
 
   {#if !compact}
