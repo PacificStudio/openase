@@ -394,6 +394,31 @@ export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSess
   }
 }
 
+export async function redeemLocalBootstrapAuthorization(input: {
+  requestID: string
+  code: string
+  nonce: string
+}): Promise<HumanAuthSession> {
+  const payload = await api.post<RawAuthSessionResponse>('/api/v1/auth/local-bootstrap/redeem', {
+    body: {
+      request_id: input.requestID,
+      code: input.code,
+      nonce: input.nonce,
+    },
+  })
+  return {
+    authMode: payload.auth_mode?.trim() || 'disabled',
+    authenticated: payload.authenticated === true,
+    issuerURL: payload.issuer_url?.trim() || '',
+    user: parseUser(payload.user),
+    csrfToken: payload.csrf_token?.trim() || '',
+    roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
+    permissions: Array.isArray(payload.permissions)
+      ? payload.permissions.filter((value) => value.trim() !== '')
+      : [],
+  }
+}
+
 export function logoutHumanSession() {
   return api.post<void>('/api/v1/auth/logout')
 }

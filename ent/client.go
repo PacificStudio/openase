@@ -31,6 +31,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -108,6 +109,8 @@ type Client struct {
 	ChatTurn *ChatTurnClient
 	// InstanceAuthConfig is the client for interacting with the InstanceAuthConfig builders.
 	InstanceAuthConfig *InstanceAuthConfigClient
+	// LocalBootstrapAuthRequest is the client for interacting with the LocalBootstrapAuthRequest builders.
+	LocalBootstrapAuthRequest *LocalBootstrapAuthRequestClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// MachineChannelToken is the client for interacting with the MachineChannelToken builders.
@@ -214,6 +217,7 @@ func (c *Client) init() {
 	c.ChatPendingInterrupt = NewChatPendingInterruptClient(c.config)
 	c.ChatTurn = NewChatTurnClient(c.config)
 	c.InstanceAuthConfig = NewInstanceAuthConfigClient(c.config)
+	c.LocalBootstrapAuthRequest = NewLocalBootstrapAuthRequestClient(c.config)
 	c.Machine = NewMachineClient(c.config)
 	c.MachineChannelToken = NewMachineChannelTokenClient(c.config)
 	c.NotificationChannel = NewNotificationChannelClient(c.config)
@@ -361,6 +365,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
 		InstanceAuthConfig:            NewInstanceAuthConfigClient(cfg),
+		LocalBootstrapAuthRequest:     NewLocalBootstrapAuthRequestClient(cfg),
 		Machine:                       NewMachineClient(cfg),
 		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
@@ -435,6 +440,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChatPendingInterrupt:          NewChatPendingInterruptClient(cfg),
 		ChatTurn:                      NewChatTurnClient(cfg),
 		InstanceAuthConfig:            NewInstanceAuthConfigClient(cfg),
+		LocalBootstrapAuthRequest:     NewLocalBootstrapAuthRequestClient(cfg),
 		Machine:                       NewMachineClient(cfg),
 		MachineChannelToken:           NewMachineChannelTokenClient(cfg),
 		NotificationChannel:           NewNotificationChannelClient(cfg),
@@ -507,9 +513,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
 		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
-		c.ChatTurn, c.InstanceAuthConfig, c.Machine, c.MachineChannelToken,
-		c.NotificationChannel, c.NotificationRule, c.Organization,
-		c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
+		c.ChatTurn, c.InstanceAuthConfig, c.LocalBootstrapAuthRequest, c.Machine,
+		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
+		c.Organization, c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
 		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
 		c.ProjectConversationRun, c.ProjectConversationStepEvent,
 		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
@@ -532,9 +538,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ActivityEvent, c.Agent, c.AgentProvider, c.AgentRun, c.AgentStepEvent,
 		c.AgentToken, c.AgentTraceEvent, c.ApprovalPolicyRule, c.AuthAuditEvent,
 		c.BrowserSession, c.ChatConversation, c.ChatEntry, c.ChatPendingInterrupt,
-		c.ChatTurn, c.InstanceAuthConfig, c.Machine, c.MachineChannelToken,
-		c.NotificationChannel, c.NotificationRule, c.Organization,
-		c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
+		c.ChatTurn, c.InstanceAuthConfig, c.LocalBootstrapAuthRequest, c.Machine,
+		c.MachineChannelToken, c.NotificationChannel, c.NotificationRule,
+		c.Organization, c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
 		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
 		c.ProjectConversationRun, c.ProjectConversationStepEvent,
 		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
@@ -583,6 +589,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ChatTurn.mutate(ctx, m)
 	case *InstanceAuthConfigMutation:
 		return c.InstanceAuthConfig.mutate(ctx, m)
+	case *LocalBootstrapAuthRequestMutation:
+		return c.LocalBootstrapAuthRequest.mutate(ctx, m)
 	case *MachineMutation:
 		return c.Machine.mutate(ctx, m)
 	case *MachineChannelTokenMutation:
@@ -3460,6 +3468,139 @@ func (c *InstanceAuthConfigClient) mutate(ctx context.Context, m *InstanceAuthCo
 		return (&InstanceAuthConfigDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown InstanceAuthConfig mutation op: %q", m.Op())
+	}
+}
+
+// LocalBootstrapAuthRequestClient is a client for the LocalBootstrapAuthRequest schema.
+type LocalBootstrapAuthRequestClient struct {
+	config
+}
+
+// NewLocalBootstrapAuthRequestClient returns a client for the LocalBootstrapAuthRequest from the given config.
+func NewLocalBootstrapAuthRequestClient(c config) *LocalBootstrapAuthRequestClient {
+	return &LocalBootstrapAuthRequestClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `localbootstrapauthrequest.Hooks(f(g(h())))`.
+func (c *LocalBootstrapAuthRequestClient) Use(hooks ...Hook) {
+	c.hooks.LocalBootstrapAuthRequest = append(c.hooks.LocalBootstrapAuthRequest, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `localbootstrapauthrequest.Intercept(f(g(h())))`.
+func (c *LocalBootstrapAuthRequestClient) Intercept(interceptors ...Interceptor) {
+	c.inters.LocalBootstrapAuthRequest = append(c.inters.LocalBootstrapAuthRequest, interceptors...)
+}
+
+// Create returns a builder for creating a LocalBootstrapAuthRequest entity.
+func (c *LocalBootstrapAuthRequestClient) Create() *LocalBootstrapAuthRequestCreate {
+	mutation := newLocalBootstrapAuthRequestMutation(c.config, OpCreate)
+	return &LocalBootstrapAuthRequestCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of LocalBootstrapAuthRequest entities.
+func (c *LocalBootstrapAuthRequestClient) CreateBulk(builders ...*LocalBootstrapAuthRequestCreate) *LocalBootstrapAuthRequestCreateBulk {
+	return &LocalBootstrapAuthRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *LocalBootstrapAuthRequestClient) MapCreateBulk(slice any, setFunc func(*LocalBootstrapAuthRequestCreate, int)) *LocalBootstrapAuthRequestCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &LocalBootstrapAuthRequestCreateBulk{err: fmt.Errorf("calling to LocalBootstrapAuthRequestClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*LocalBootstrapAuthRequestCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &LocalBootstrapAuthRequestCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for LocalBootstrapAuthRequest.
+func (c *LocalBootstrapAuthRequestClient) Update() *LocalBootstrapAuthRequestUpdate {
+	mutation := newLocalBootstrapAuthRequestMutation(c.config, OpUpdate)
+	return &LocalBootstrapAuthRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *LocalBootstrapAuthRequestClient) UpdateOne(_m *LocalBootstrapAuthRequest) *LocalBootstrapAuthRequestUpdateOne {
+	mutation := newLocalBootstrapAuthRequestMutation(c.config, OpUpdateOne, withLocalBootstrapAuthRequest(_m))
+	return &LocalBootstrapAuthRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *LocalBootstrapAuthRequestClient) UpdateOneID(id uuid.UUID) *LocalBootstrapAuthRequestUpdateOne {
+	mutation := newLocalBootstrapAuthRequestMutation(c.config, OpUpdateOne, withLocalBootstrapAuthRequestID(id))
+	return &LocalBootstrapAuthRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for LocalBootstrapAuthRequest.
+func (c *LocalBootstrapAuthRequestClient) Delete() *LocalBootstrapAuthRequestDelete {
+	mutation := newLocalBootstrapAuthRequestMutation(c.config, OpDelete)
+	return &LocalBootstrapAuthRequestDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *LocalBootstrapAuthRequestClient) DeleteOne(_m *LocalBootstrapAuthRequest) *LocalBootstrapAuthRequestDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *LocalBootstrapAuthRequestClient) DeleteOneID(id uuid.UUID) *LocalBootstrapAuthRequestDeleteOne {
+	builder := c.Delete().Where(localbootstrapauthrequest.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &LocalBootstrapAuthRequestDeleteOne{builder}
+}
+
+// Query returns a query builder for LocalBootstrapAuthRequest.
+func (c *LocalBootstrapAuthRequestClient) Query() *LocalBootstrapAuthRequestQuery {
+	return &LocalBootstrapAuthRequestQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeLocalBootstrapAuthRequest},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a LocalBootstrapAuthRequest entity by its id.
+func (c *LocalBootstrapAuthRequestClient) Get(ctx context.Context, id uuid.UUID) (*LocalBootstrapAuthRequest, error) {
+	return c.Query().Where(localbootstrapauthrequest.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *LocalBootstrapAuthRequestClient) GetX(ctx context.Context, id uuid.UUID) *LocalBootstrapAuthRequest {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *LocalBootstrapAuthRequestClient) Hooks() []Hook {
+	return c.hooks.LocalBootstrapAuthRequest
+}
+
+// Interceptors returns the client interceptors.
+func (c *LocalBootstrapAuthRequestClient) Interceptors() []Interceptor {
+	return c.inters.LocalBootstrapAuthRequest
+}
+
+func (c *LocalBootstrapAuthRequestClient) mutate(ctx context.Context, m *LocalBootstrapAuthRequestMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&LocalBootstrapAuthRequestCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&LocalBootstrapAuthRequestUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&LocalBootstrapAuthRequestUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&LocalBootstrapAuthRequestDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown LocalBootstrapAuthRequest mutation op: %q", m.Op())
 	}
 }
 
@@ -10613,10 +10754,10 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
 		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		InstanceAuthConfig, Machine, MachineChannelToken, NotificationChannel,
-		NotificationRule, Organization, OrganizationDailyTokenUsage,
-		OrganizationInvitation, OrganizationMembership, Project,
-		ProjectConversationPrincipal, ProjectConversationRun,
+		InstanceAuthConfig, LocalBootstrapAuthRequest, Machine, MachineChannelToken,
+		NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
+		Project, ProjectConversationPrincipal, ProjectConversationRun,
 		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
 		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
 		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,
@@ -10629,10 +10770,10 @@ type (
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
 		AgentTraceEvent, ApprovalPolicyRule, AuthAuditEvent, BrowserSession,
 		ChatConversation, ChatEntry, ChatPendingInterrupt, ChatTurn,
-		InstanceAuthConfig, Machine, MachineChannelToken, NotificationChannel,
-		NotificationRule, Organization, OrganizationDailyTokenUsage,
-		OrganizationInvitation, OrganizationMembership, Project,
-		ProjectConversationPrincipal, ProjectConversationRun,
+		InstanceAuthConfig, LocalBootstrapAuthRequest, Machine, MachineChannelToken,
+		NotificationChannel, NotificationRule, Organization,
+		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
+		Project, ProjectConversationPrincipal, ProjectConversationRun,
 		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
 		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
 		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,
