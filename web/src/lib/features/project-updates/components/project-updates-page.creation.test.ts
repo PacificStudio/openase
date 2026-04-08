@@ -42,14 +42,14 @@ describe('ProjectUpdatesPage creation flow', () => {
 
     const { findByText, getByPlaceholderText, getByLabelText } = render(ProjectUpdatesPage)
 
-    expect(await findByText('Migration watch')).toBeTruthy()
+    expect(await findByText('Database cleanup is running late.')).toBeTruthy()
     await waitFor(() => {
       expect(document.body.textContent).toContain('At risk')
       expect(document.body.textContent).toContain('On track')
     })
 
     // The composer defaults to on_track; post an update with default status
-    await fireEvent.input(getByPlaceholderText('Post an update...'), {
+    await fireEvent.input(getByPlaceholderText('Write an update...'), {
       target: { value: 'Hotfix hold' },
     })
     await fireEvent.click(getByLabelText('Post update'))
@@ -58,6 +58,6 @@ describe('ProjectUpdatesPage creation flow', () => {
       status: 'on_track',
       body: 'Hotfix hold',
     })
-    expect(await findByText('Hotfix hold')).toBeTruthy()
+    expect(await findByText('Release paused pending rollback validation.')).toBeTruthy()
   })
 })

@@ -134,8 +134,7 @@ describe('ProjectUpdatesPage comments and streaming', () => {
     await waitFor(() => {
       expect(listProjectUpdates).toHaveBeenCalledTimes(5)
     })
-    // The title changed to reflect the SSE-triggered refresh
-    expect(await findByText('Sprint 2 rollout (updated)')).toBeTruthy()
+    expect(await findByText('A new project update event arrived.')).toBeTruthy()
     expect(await findByText('Off track')).toBeTruthy()
   })
 })

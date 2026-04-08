@@ -11,6 +11,10 @@
   )
   const providers = $derived(appStore.providers)
   let showProviderDialog = $state(false)
+
+  $effect(() => {
+    void organizationId
+  })
 </script>
 
 <div class="space-y-8">
