@@ -14,14 +14,11 @@
     stringifyProviderPricingConfig,
     suggestPricingDraftValues,
   } from '../provider-pricing'
-  import {
-    providerAdapterOptions,
-    providerPermissionProfileOptions,
-    requiredProviderSecretBindingEnvVars,
-  } from '../provider-draft'
+  import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderDraft, ProviderDraftField } from '../types'
   import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
+  import ProviderSecretBindingsFields from './provider-secret-bindings-fields.svelte'
 
   let {
     draft,
@@ -44,17 +41,6 @@
   const pricingStatus = $derived(providerPricingStatusText(pricingConfig))
   const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
   const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
-  const requiredSecretEnvVars = $derived(requiredProviderSecretBindingEnvVars(draft.adapterType))
-  const secretBindingsPlaceholder = $derived.by(() => {
-    if (requiredSecretEnvVars.length === 0) {
-      return `{\n  "ENV_VAR_NAME": "PROJECT_SECRET_ALIAS"\n}`
-    }
-
-    const example = Object.fromEntries(
-      requiredSecretEnvVars.map((envVarKey) => [envVarKey, envVarKey]),
-    )
-    return JSON.stringify(example, null, 2)
-  })
 
   function fieldValue(event: Event) {
     return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
@@ -264,25 +250,11 @@
           </p>
         </div>
 
-        <div class="space-y-2">
-          <Label for="provider-secret-bindings">Secret bindings</Label>
-          <Textarea
-            id="provider-secret-bindings"
-            rows={5}
-            value={draft.secretBindings}
-            placeholder={secretBindingsPlaceholder}
-            oninput={(event) => onFieldChange?.('secretBindings', fieldValue(event))}
-          />
-          <p class="text-muted-foreground text-xs">
-            JSON object mapping runtime env vars to OpenASE secret aliases. Leave blank to keep
-            using legacy inline secrets during migration.
-          </p>
-          {#if requiredSecretEnvVars.length > 0}
-            <p class="text-muted-foreground text-xs">
-              Recommended env vars for this adapter: {requiredSecretEnvVars.join(', ')}.
-            </p>
-          {/if}
-        </div>
+        <ProviderSecretBindingsFields
+          adapterType={draft.adapterType}
+          value={draft.secretBindings}
+          onValueChange={(value) => onFieldChange?.('secretBindings', value)}
+        />
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
