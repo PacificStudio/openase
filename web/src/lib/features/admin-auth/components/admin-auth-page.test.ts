@@ -108,13 +108,10 @@ describe('Admin auth page', () => {
 
     const { findByText, findByLabelText } = render(AdminAuthPage)
 
-    expect(await findByText('Instance scope')).toBeTruthy()
-    expect(await findByText('Last validation diagnostics')).toBeTruthy()
-    expect(await findByText('Draft, validation, and activation')).toBeTruthy()
+    expect(await findByText('OIDC Configuration')).toBeTruthy()
+    expect(await findByText('Validation')).toBeTruthy()
     expect(await findByLabelText('Issuer URL')).toBeTruthy()
-    expect(await findByText('8h0m0s')).toBeTruthy()
-    expect(await findByText('Source of truth')).toBeTruthy()
-    expect(await findByText('db:instance_auth_configs')).toBeTruthy()
+    expect(await findByText('Runtime details')).toBeTruthy()
   })
 
   it('saves, tests, enables, and disables instance auth explicitly', async () => {
@@ -174,7 +171,7 @@ describe('Admin auth page', () => {
       })
     })
 
-    await fireEvent.click(await findByRole('button', { name: 'Validate draft' }))
+    await fireEvent.click(await findByRole('button', { name: 'Validate' }))
     await waitFor(() => {
       expect(testAdminOIDCDraft).toHaveBeenCalledTimes(1)
     })
@@ -184,9 +181,9 @@ describe('Admin auth page', () => {
     await waitFor(() => {
       expect(enableAdminOIDC).toHaveBeenCalledTimes(1)
     })
-    expect((await findAllByText('Configured: oidc')).length).toBeGreaterThan(0)
+    expect((await findAllByText('Draft: oidc')).length).toBeGreaterThan(0)
 
-    await fireEvent.click(await findByRole('button', { name: 'Keep local bootstrap' }))
+    await fireEvent.click(await findByRole('button', { name: 'Revert to local' }))
     await waitFor(() => {
       expect(disableAdminAuth).toHaveBeenCalledTimes(1)
     })
