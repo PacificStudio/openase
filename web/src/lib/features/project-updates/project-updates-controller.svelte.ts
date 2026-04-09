@@ -10,7 +10,7 @@ import {
 } from './project-updates-controller-helpers'
 import { createProjectUpdateMutationHandlers } from './project-updates-controller-mutations'
 import { markProjectUpdatesCacheDirty, readProjectUpdatesCache } from './project-updates-cache'
-import type { ProjectUpdateStatus, ProjectUpdateThread } from './types'
+import type { ProjectUpdateThread } from './types'
 
 type CreateProjectUpdatesControllerInput = {
   getProjectId: () => string
