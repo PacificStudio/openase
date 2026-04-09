@@ -1,4 +1,5 @@
 import type { WorkflowStatusOption, WorkflowSummary } from './types'
+import { ensureWorkflowRequiredPlatformScopes } from './workflow-requirements'
 
 export type WorkflowLifecycleDraft = {
   agentId: string
@@ -42,7 +43,9 @@ export function createWorkflowLifecycleDraft(workflow: WorkflowSummary): Workflo
     typeLabel: workflow.type,
     roleName: workflow.roleName ?? workflow.name,
     roleDescription: workflow.roleDescription ?? '',
-    platformAccessAllowed: (workflow.platformAccessAllowed ?? []).join('\n'),
+    platformAccessAllowed: ensureWorkflowRequiredPlatformScopes(
+      workflow.platformAccessAllowed,
+    ).join('\n'),
     pickupStatusIds: [...workflow.pickupStatusIds],
     finishStatusIds: [...workflow.finishStatusIds],
     maxConcurrent: workflow.maxConcurrent > 0 ? String(workflow.maxConcurrent) : '',
@@ -101,7 +104,9 @@ export function parseWorkflowLifecycleDraft(
       type: draft.typeLabel.trim(),
       role_description: draft.roleDescription?.trim() || '',
       role_name: roleName,
-      platform_access_allowed: parseStringList(draft.platformAccessAllowed ?? ''),
+      platform_access_allowed: ensureWorkflowRequiredPlatformScopes(
+        parseStringList(draft.platformAccessAllowed ?? ''),
+      ),
       pickup_status_ids: [...draft.pickupStatusIds],
       stall_timeout_minutes: stallTimeoutMinutes.value,
       timeout_minutes: timeoutMinutes.value,

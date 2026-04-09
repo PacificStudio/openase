@@ -13,6 +13,8 @@ export type SkillState = {
   description: string
   path: string
   bound: boolean
+  required: boolean
+  lockReason: string
 }
 
 export function normalizeWorkflowType(type: string): string {
