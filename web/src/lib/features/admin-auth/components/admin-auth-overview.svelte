@@ -2,9 +2,9 @@
   import type { HumanAuthUser } from '$lib/stores/auth.svelte'
   import { authStore } from '$lib/stores/auth.svelte'
   import type { SecurityAuthSettings } from '$lib/api/contracts'
-  import { SecuritySettingsHumanAuthSummary } from '$lib/features/settings'
   import { Badge } from '$ui/badge'
-  import { AlertTriangle } from '@lucide/svelte'
+  import { Separator } from '$ui/separator'
+  import { AlertTriangle, Shield, ShieldCheck } from '@lucide/svelte'
 
   let {
     auth,
@@ -23,79 +23,105 @@
           ? 'OIDC login'
           : 'Local bootstrap link',
   )
+
+  const isOIDCActive = $derived(auth.active_mode === 'oidc')
 </script>
 
-<div class="border-border bg-card space-y-4 rounded-2xl border p-5">
-  <div class="flex flex-wrap items-center gap-2">
-    <Badge variant="outline">Instance scope</Badge>
-    <Badge variant={authStore.usesOIDC || auth.active_mode === 'oidc' ? 'default' : 'secondary'}>
-      Current interactive auth: {currentAuthMethodLabel}
-    </Badge>
-    <Badge variant="outline">Active runtime: {auth.active_mode}</Badge>
-    {#if auth.configured_mode !== auth.active_mode}
-      <Badge variant="outline">Draft ready: {auth.configured_mode}</Badge>
-    {/if}
-    <Badge variant={auth.public_exposure_risk === 'high' ? 'destructive' : 'secondary'}>
-      {auth.public_exposure_risk === 'high' ? 'Public exposure risk' : 'Local-ready posture'}
-    </Badge>
-  </div>
-
-  <SecuritySettingsHumanAuthSummary
-    authMode={auth.active_mode}
-    configuredMode={auth.configured_mode}
-    issuerURL={auth.issuer_url ?? ''}
-    {user}
-    bootstrapSummary={auth.bootstrap_state.summary}
-    publicExposureRisk={auth.public_exposure_risk}
-    localPrincipal={auth.local_principal}
-  />
-
-  <div class="grid gap-3 md:grid-cols-2">
-    {#each auth.warnings as warning (warning)}
-      <div
-        class={`rounded-xl border px-3 py-2 text-xs leading-relaxed ${
-          auth.public_exposure_risk === 'high'
-            ? 'border-amber-300 bg-amber-50 text-amber-950'
-            : 'border-sky-200 bg-sky-50 text-sky-950'
-        }`}
-      >
-        <div class="flex items-start gap-2">
-          <AlertTriangle class="mt-0.5 size-4 shrink-0" />
-          <span>{warning}</span>
+<div class="border-border bg-card rounded-2xl border">
+  <!-- High-risk alert -->
+  {#if auth.public_exposure_risk === 'high'}
+    <div class="rounded-t-2xl border-b border-amber-300 bg-amber-50 px-6 py-4 text-amber-950">
+      <div class="flex items-start gap-3">
+        <AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-600" />
+        <div class="space-y-1">
+          <div class="text-sm font-semibold">Public exposure risk</div>
+          {#each auth.warnings as warning (warning)}
+            <p class="text-xs leading-relaxed">{warning}</p>
+          {/each}
         </div>
       </div>
-    {/each}
-  </div>
-
-  <div class="grid gap-3 md:grid-cols-2">
-    <div class="rounded-xl border border-dashed p-3">
-      <div class="text-muted-foreground text-xs">Configured session TTL</div>
-      <div class="mt-1 text-sm font-medium">{auth.session_policy.session_ttl}</div>
-    </div>
-    <div class="rounded-xl border border-dashed p-3">
-      <div class="text-muted-foreground text-xs">Idle session TTL</div>
-      <div class="mt-1 text-sm font-medium">{auth.session_policy.session_idle_ttl}</div>
-    </div>
-    <div class="rounded-xl border border-dashed p-3 md:col-span-2">
-      <div class="text-muted-foreground text-xs">Source of truth</div>
-      <div class="mt-1 font-mono text-xs break-all">{auth.config_path || 'Not available'}</div>
-    </div>
-  </div>
-
-  {#if currentAuthMethodLabel === 'Local bootstrap link'}
-    <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
-      Browser access currently enters through the local bootstrap auth gate. Generate a one-time
-      authorization bundle from the host machine with <code>openase auth bootstrap create-link</code
-      >, then paste the CLI output into the browser gate.
     </div>
   {/if}
 
-  <div class="space-y-2">
-    <div class="text-sm font-semibold">Next steps</div>
-    <ol class="list-inside list-decimal space-y-1 text-sm leading-relaxed">
-      {#each auth.next_steps as step (step)}
-        <li>{step}</li>
-      {/each}
-    </ol>
+  <div class="p-6">
+    <!-- Primary status: large auth mode display -->
+    <div class="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+      <div class="flex items-start gap-4">
+        <div
+          class={`flex size-12 items-center justify-center rounded-xl ${isOIDCActive ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}`}
+        >
+          {#if isOIDCActive}
+            <ShieldCheck class="size-6" />
+          {:else}
+            <Shield class="size-6" />
+          {/if}
+        </div>
+        <div>
+          <div class="text-2xl font-bold tracking-tight uppercase">
+            {auth.active_mode === 'oidc' ? 'OIDC' : 'Disabled'}
+          </div>
+          <div class="text-muted-foreground mt-0.5 text-sm">{currentAuthMethodLabel}</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <Badge variant={isOIDCActive ? 'default' : 'secondary'}>
+          {auth.active_mode}
+        </Badge>
+        {#if auth.configured_mode !== auth.active_mode}
+          <Badge variant="outline">Draft: {auth.configured_mode}</Badge>
+        {/if}
+      </div>
+    </div>
+
+    <Separator class="my-5" />
+
+    <!-- Key info grid -->
+    <div class="grid gap-x-8 gap-y-4 sm:grid-cols-3">
+      <div>
+        <div class="text-muted-foreground text-xs font-medium">Issuer</div>
+        <div class="mt-1 font-mono text-sm break-all">
+          {auth.issuer_url || 'Not configured'}
+        </div>
+      </div>
+      <div>
+        <div class="text-muted-foreground text-xs font-medium">
+          {user ? 'Current user' : 'Local principal'}
+        </div>
+        <div class="mt-1 text-sm font-medium">
+          {user?.displayName || auth.local_principal || 'Anonymous'}
+        </div>
+        {#if user?.primaryEmail}
+          <div class="text-muted-foreground mt-0.5 text-xs break-all">{user.primaryEmail}</div>
+        {/if}
+      </div>
+      <div>
+        <div class="text-muted-foreground text-xs font-medium">Bootstrap</div>
+        <div class="text-foreground mt-1 text-sm leading-relaxed">
+          {auth.bootstrap_state.summary || 'No admins configured'}
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- Bootstrap link hint -->
+  {#if currentAuthMethodLabel === 'Local bootstrap link'}
+    <div class="border-t px-6 py-4">
+      <details class="group">
+        <summary
+          class="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 text-xs select-none"
+        >
+          <span
+            class="border-muted-foreground/40 group-open:border-foreground/40 flex size-3.5 items-center justify-center rounded-full border text-[9px] leading-none font-bold transition-colors"
+            >?</span
+          >
+          Browser access
+        </summary>
+        <div class="bg-muted/50 mt-2 rounded-lg px-3 py-3">
+          <code class="bg-muted block rounded px-2 py-1.5 font-mono text-xs">
+            openase auth bootstrap create-link
+          </code>
+        </div>
+      </details>
+    </div>
+  {/if}
 </div>
