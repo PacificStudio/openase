@@ -257,7 +257,14 @@ func (a *App) RunServe(ctx context.Context) error {
 		return fmt.Errorf("construct instance auth service: %w", err)
 	}
 	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
-		return fmt.Errorf("initialize instance auth runtime state: %w", err)
+		if a.config.Auth.Mode == config.AuthModeOIDC {
+			return fmt.Errorf("initialize instance auth runtime state: %w", err)
+		}
+		a.logger.Warn(
+			"instance auth runtime state unavailable; continuing with configured bootstrap auth mode",
+			"error", err,
+			"configured_auth_mode", a.config.Auth.Mode,
+		)
 	}
 	humanAuthSvc := humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)

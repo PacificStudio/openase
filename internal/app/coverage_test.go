@@ -15,7 +15,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
+	"github.com/BetterAndBetterII/openase/internal/runtime/database"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 )
 
 func TestAppNewProvidesTelemetryDefaults(t *testing.T) {
@@ -250,6 +254,72 @@ func TestAppRunServeBuildsRuntimeBeforeListenerFailure(t *testing.T) {
 	err := app.RunServe(context.Background())
 	if err == nil {
 		t.Fatal("RunServe() expected listener error for invalid host")
+	}
+	if !strings.Contains(err.Error(), "listen tcp") && !strings.Contains(err.Error(), "missing port in address") && !strings.Contains(err.Error(), "no suitable address found") {
+		t.Fatalf("RunServe() error = %v", err)
+	}
+}
+
+func TestAppRunServeConfiguredDisabledModeIgnoresUnreadableStoredInstanceAuth(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := testPostgres.NewIsolatedDatabase(t)
+	client, err := database.Open(ctx, db.DSN)
+	if err != nil {
+		t.Fatalf("open seed database: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close seed client: %v", err)
+		}
+	})
+
+	seedSvc, err := accesscontrolservice.New(accesscontrolrepo.NewEntRepository(client), "seed-a", "", "")
+	if err != nil {
+		t.Fatalf("new seed access control service: %v", err)
+	}
+	now := time.Now().UTC()
+	if _, err := seedSvc.Activate(ctx, iam.ActiveOIDCConfig{
+		IssuerURL:        "https://idp.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "super-secret",
+		RedirectMode:     iam.OIDCRedirectModeFixed,
+		FixedRedirectURL: "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		Scopes:           []string{"openid", "profile", "email"},
+		Claims:           iam.DefaultDraftOIDCConfig().Claims,
+		SessionPolicy:    iam.DefaultDraftOIDCConfig().SessionPolicy,
+	}, iam.OIDCActivationMetadata{ActivatedAt: &now, Source: "test"}); err != nil {
+		t.Fatalf("seed active oidc config: %v", err)
+	}
+
+	app := New(
+		config.Config{
+			Server: config.ServerConfig{
+				Mode:            config.ServerModeServe,
+				Host:            "300.300.300.300",
+				Port:            int(freeAppPort(t)),
+				ReadTimeout:     time.Second,
+				WriteTimeout:    time.Second,
+				ShutdownTimeout: 2 * time.Second,
+			},
+			Database: config.DatabaseConfig{DSN: db.DSN},
+			Auth:     config.AuthConfig{Mode: config.AuthModeDisabled},
+			Event:    config.EventConfig{Driver: config.EventDriverChannel},
+		},
+		slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)),
+		&managedAppEventProvider{},
+		nil,
+		nil,
+		http.NotFoundHandler(),
+	)
+
+	err = app.RunServe(ctx)
+	if err == nil {
+		t.Fatal("RunServe() expected listener error for invalid host")
+	}
+	if strings.Contains(err.Error(), "initialize instance auth runtime state") {
+		t.Fatalf("RunServe() should not fail on unreadable stored instance auth in disabled mode: %v", err)
 	}
 	if !strings.Contains(err.Error(), "listen tcp") && !strings.Contains(err.Error(), "missing port in address") && !strings.Contains(err.Error(), "no suitable address found") {
 		t.Fatalf("RunServe() error = %v", err)

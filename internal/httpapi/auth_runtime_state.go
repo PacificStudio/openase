@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) currentRuntimeAccessControlState(c echo.Context) (iam.RuntimeAccessControlState, error) {
-	if s.instanceAuthService == nil {
+	if s.auth.Mode != config.AuthModeOIDC || s.instanceAuthService == nil {
 		return bootstrapRuntimeAccessControlState(s.auth), nil
 	}
 	stored, err := s.readInstanceAccessControlState(c)
