@@ -97,7 +97,10 @@ describe('WorkflowEditorPanel', () => {
     await fireEvent.click(trigger as HTMLElement)
   }
 
-  function getSkillToggle(skillName: string, actionTitle: 'Bind skill' | 'Unbind skill') {
+  function getSkillToggle(
+    skillName: string,
+    actionTitle: 'Bind skill' | 'Unbind skill' | 'Required skill',
+  ) {
     const row = within(document.body).getByText(skillName).closest('button')
     expect(row).toBeTruthy()
     return within(row as HTMLElement).getByTitle(actionTitle)
