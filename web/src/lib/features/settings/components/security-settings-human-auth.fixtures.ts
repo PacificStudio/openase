@@ -14,7 +14,12 @@ export function oidcUser() {
 export function hydrateOidcAuth() {
   authStore.hydrate({
     authMode: 'oidc',
+    loginRequired: true,
     authenticated: true,
+    principalKind: 'human_session',
+    authConfigured: true,
+    sessionGovernanceAvailable: true,
+    canManageAuth: true,
     issuerURL: 'https://idp.example.com',
     csrfToken: 'csrf-token',
     user: oidcUser(),
@@ -39,7 +44,7 @@ export function effectivePermissionsMock(scope: MockScope, id = '') {
           : ['project_admin'],
     permissions:
       scope === 'instance'
-        ? ['rbac.manage', 'security.read', 'security.manage']
+        ? ['rbac.manage', 'security_setting.read', 'security_setting.update']
         : [`${scope}.read`, 'rbac.manage'],
     groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
   }

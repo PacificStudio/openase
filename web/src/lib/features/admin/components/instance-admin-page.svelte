@@ -15,14 +15,17 @@
   let instancePermissions = $state<EffectivePermissionsResponse | null>(null)
 
   const canReadDirectory = $derived(
-    instancePermissions?.permissions.includes('security.read') ?? false,
+    instancePermissions?.permissions.includes('security_setting.read') ?? false,
   )
   const canManageDirectory = $derived(
-    instancePermissions?.permissions.includes('security.manage') ?? false,
+    instancePermissions?.permissions.includes('security_setting.update') ?? false,
+  )
+  const currentAuthMethodLabel = $derived(
+    authStore.currentAuthMethod === 'local_bootstrap_link' ? 'Local bootstrap' : 'OIDC',
   )
 
   $effect(() => {
-    if (authStore.authMode !== 'oidc' || !authStore.authenticated) {
+    if (!authStore.usesOIDC || !authStore.authenticated) {
       loading = false
       error = ''
       instancePermissions = null
@@ -68,35 +71,14 @@
   description="Instance-scoped user directory, session governance, auth diagnostics, and break-glass recovery guidance."
 >
   <div class="space-y-4">
-    <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
-      <div class="flex flex-wrap items-center gap-2">
-        <Badge variant="outline">Migration note</Badge>
-        <Badge variant="secondary"
-          >{authStore.authMode === 'oidc' ? 'OIDC mode' : 'Disabled mode'}</Badge
-        >
-      </div>
-      <p class="mt-2 leading-6">
-        Instance auth, user directory, and global session governance have moved out of project
-        Settings -&gt; Security. Use <code>/admin</code> and <code>/admin/auth</code> for installation-wide
-        IAM, then return to project Settings -&gt; Access only for project-local bindings.
-      </p>
-    </div>
-
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
         <div class="flex items-center gap-2">
           <ShieldCheck class="text-muted-foreground size-4" />
-          <div class="text-sm font-semibold">Current session boundary</div>
+          <div class="text-sm font-semibold">Your session</div>
         </div>
-        <p class="text-muted-foreground text-xs">
-          This section is about your own authenticated browser context. The global governance tools
-          below operate on other users and their sessions and should not be confused with simple
-          self-service logout.
-        </p>
         <div class="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary"
-            >{authStore.authMode === 'oidc' ? 'OIDC mode' : 'Disabled mode'}</Badge
-          >
+          <Badge variant="secondary">{currentAuthMethodLabel}</Badge>
           {#if authStore.user}
             <Badge variant="outline">{authStore.user.primaryEmail}</Badge>
           {:else}
@@ -108,23 +90,16 @@
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
         <div class="flex items-center gap-2">
           <LockKeyhole class="text-muted-foreground size-4" />
-          <div class="text-sm font-semibold">Break-glass and recovery</div>
+          <div class="text-sm font-semibold">Recovery</div>
         </div>
-        <div class="text-muted-foreground space-y-2 text-xs">
-          <p>
-            Keep at least one trusted administrator able to sign in before changing instance auth
-            settings or disabling a user with elevated access.
-          </p>
-          <p>
-            If OIDC rollout fails and you still control the server config, switch
-            <code>auth.mode</code> back to <code>disabled</code> to restore the stable
-            <code>local_instance_admin:default</code> recovery path.
-          </p>
-          <p>
-            Use user disable plus session revocation for emergency offboarding, then re-enable only
-            after upstream identity sync and role bindings are confirmed.
-          </p>
-        </div>
+        <ul class="text-muted-foreground list-inside list-disc space-y-1 text-xs">
+          <li>Keep at least one admin able to sign in before changing auth settings</li>
+          <li>
+            OIDC failure: run <code>openase auth break-glass disable-oidc</code>, then create a
+            fresh local bootstrap link
+          </li>
+          <li>Emergency offboarding: disable user + revoke sessions</li>
+        </ul>
       </div>
 
       <div class="border-border bg-card space-y-3 rounded-lg border p-4">
@@ -133,8 +108,7 @@
           <div class="text-sm font-semibold">Auth configuration</div>
         </div>
         <p class="text-muted-foreground text-xs">
-          Manage instance-wide auth mode, OIDC draft settings, bootstrap admins, and the latest
-          validation diagnostics from the dedicated auth control plane.
+          OIDC settings, bootstrap admins, and validation diagnostics.
         </p>
         <a
           class="inline-flex items-center gap-2 text-sm font-medium text-sky-700 hover:text-sky-800"
@@ -146,23 +120,13 @@
       </div>
     </div>
 
-    {#if authStore.authMode !== 'oidc'}
-      <div class="border-border bg-card space-y-3 rounded-lg border p-4">
-        <div class="flex items-center gap-2">
-          <Users class="text-muted-foreground size-4" />
-          <div class="text-sm font-semibold">Disabled-mode diagnostics</div>
-        </div>
-        <div class="text-muted-foreground space-y-2 text-sm">
-          <p>
-            Disabled mode intentionally stays single-user. OpenASE does not invent multi-user
-            directory semantics or admin session governance while the local bootstrap principal is
-            active.
-          </p>
-          <p>
-            Minimal diagnostics remain available: the current route, auth mode, and recovery
-            guidance above. Switch to OIDC when you need auditable per-user governance.
-          </p>
-        </div>
+    {#if authStore.usesLocalBootstrap}
+      <div class="border-border bg-card flex items-center gap-3 rounded-lg border p-4">
+        <Users class="text-muted-foreground size-4 shrink-0" />
+        <p class="text-muted-foreground text-sm">
+          Local bootstrap is the active browser auth method. Switch to OIDC when you need per-user
+          governance, user directory sync, and session audits.
+        </p>
       </div>
     {:else}
       <SecuritySettingsHumanAuthSessions />
@@ -178,8 +142,8 @@
         <div class="border-border bg-card rounded-lg border p-4 text-sm">
           <div class="font-medium">Instance admin access required</div>
           <div class="text-muted-foreground mt-1 text-xs">
-            This page needs instance-level <code>security.read</code> to browse the directory and
-            <code>security.manage</code> for lifecycle and session governance actions.
+            This page needs instance-level <code>security_setting.read</code> to browse the
+            directory and <code>security_setting.update</code> for lifecycle and session governance actions.
           </div>
         </div>
       {:else}

@@ -56,6 +56,13 @@ const agentOptions = [
   },
 ]
 
+const scopeGroups = [
+  {
+    category: 'tickets',
+    scopes: ['tickets.list', 'tickets.update.self'],
+  },
+]
+
 describe('WorkflowDetailPanel', () => {
   afterEach(() => {
     cleanup()
@@ -78,5 +85,23 @@ describe('WorkflowDetailPanel', () => {
     await waitFor(() => {
       expect(getAllByRole('button', { name: 'Doing' })[0].hasAttribute('disabled')).toBe(true)
     })
+  })
+
+  it('shows the required workflow runtime scope as system-enforced', async () => {
+    const { getByText, getByRole } = render(WorkflowDetailPanel, {
+      props: {
+        workflow,
+        statuses,
+        agentOptions,
+        scopeGroups,
+      },
+    })
+
+    expect(getByText('System required.')).toBeTruthy()
+    expect(getByText('tickets.update.self')).toBeTruthy()
+
+    await fireEvent.click(getByRole('button', { name: /tickets/i }))
+
+    expect(getByText('Required')).toBeTruthy()
   })
 })

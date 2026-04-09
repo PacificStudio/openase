@@ -12,6 +12,7 @@
   import type { Agent, Workflow } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
+  import { cn } from '$lib/utils'
   import {
     Bot,
     GitBranch,
@@ -19,9 +20,12 @@
     CheckCircle2,
     Workflow as WorkflowIcon,
     AlertTriangle,
+    Code2,
+    ClipboardList,
+    Lightbulb,
   } from '@lucide/svelte'
-  import type { AgentWorkflowState } from '../types'
-  import { getBootstrapPreset, isTerminalProjectStatus } from '../model'
+  import type { AgentWorkflowState, BootstrapPresetKey, ProjectBootstrapPreset } from '../types'
+  import { bootstrapPresets, isTerminalProjectStatus } from '../model'
 
   let {
     projectId,
@@ -34,15 +38,25 @@
     providerId: string
     projectStatus: string
     initialState: AgentWorkflowState
-    onComplete: (agents: Agent[], workflows: Workflow[]) => void
+    onComplete: (agents: Agent[], workflows: Workflow[], presetKey: BootstrapPresetKey) => void
   } = $props()
+
+  const presetIcons = {
+    fullstack: Code2,
+    pm: ClipboardList,
+    researcher: Lightbulb,
+  } as const
 
   let bootstrapping = $state(false)
   let agents = $state([...untrack(() => initialState.agents)])
   let workflows = $state([...untrack(() => initialState.workflows)])
+  let selectedPreset = $state<ProjectBootstrapPreset | null>(
+    initialState.selectedPresetKey
+      ? (bootstrapPresets.find((p) => p.key === initialState.selectedPresetKey) ?? null)
+      : null,
+  )
 
   const hasAgentAndWorkflow = $derived(agents.length > 0 && workflows.length > 0)
-  const preset = $derived(getBootstrapPreset(projectStatus))
   const isTerminal = $derived(isTerminalProjectStatus(projectStatus))
 
   function findStatusByName(name: string, statuses: AgentWorkflowState['statuses']) {
@@ -51,13 +65,14 @@
   }
 
   async function handleBootstrap() {
+    if (!selectedPreset) return
     if (!providerId) {
       toastStore.error('Select a provider first.')
       return
     }
     bootstrapping = true
+    const preset = selectedPreset
     try {
-      // Find the configured canonical statuses for the onboarding bootstrap.
       const statusPayload = await listStatuses(projectId)
       const statuses = statusPayload.statuses
 
@@ -71,7 +86,6 @@
         return
       }
 
-      // Get builtin role harness content
       let harnessContent = ''
       let roleSkillNames: string[] = []
       let rolePlatformAccessAllowed: string[] = []
@@ -91,13 +105,11 @@
         // Use empty harness if roles unavailable
       }
 
-      // 1. Create Agent
       const agentPayload = await createAgent(projectId, {
         provider_id: providerId,
         name: preset.agentNameSuggestion,
       })
 
-      // 2. Create Workflow bound to the agent
       await createWorkflow(projectId, {
         agent_id: agentPayload.agent.id,
         name: `${preset.roleName} Workflow`,
@@ -116,7 +128,6 @@
         timeout_minutes: 30,
       })
 
-      // Refresh data
       const [refreshedAgents, refreshedWorkflows] = await Promise.all([
         listAgents(projectId),
         listWorkflows(projectId),
@@ -125,7 +136,7 @@
       workflows = refreshedWorkflows.workflows
 
       toastStore.success(`Created agent "${preset.agentNameSuggestion}" and workflow.`)
-      onComplete(refreshedAgents.agents, refreshedWorkflows.workflows)
+      onComplete(refreshedAgents.agents, refreshedWorkflows.workflows, preset.key)
     } catch (caughtError) {
       toastStore.error(
         caughtError instanceof ApiError
@@ -153,7 +164,6 @@
       </div>
     </div>
   {:else if hasAgentAndWorkflow}
-    <!-- Already set up -->
     <div class="space-y-2">
       {#each agents as agent (agent.id)}
         <div
@@ -180,25 +190,32 @@
         </div>
       {/each}
     </div>
-  {:else}
-    <!-- Bootstrap preview -->
+  {:else if selectedPreset}
+    <!-- Preview + create -->
     <div class="border-border rounded-lg border p-4">
-      <p class="text-foreground mb-3 text-sm font-medium">The following setup will be created:</p>
+      <div class="mb-3 flex items-center justify-between">
+        <p class="text-foreground text-sm font-medium">The following setup will be created:</p>
+        <button
+          type="button"
+          class="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
+          onclick={() => (selectedPreset = null)}
+        >
+          Change
+        </button>
+      </div>
       <div class="space-y-2">
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
           <Bot class="text-primary size-4 shrink-0" />
           <div>
-            <p class="text-foreground text-sm">Agent: {preset.agentNameSuggestion}</p>
+            <p class="text-foreground text-sm">Agent: {selectedPreset.agentNameSuggestion}</p>
             <p class="text-muted-foreground text-xs">Bound to the selected default provider</p>
           </div>
         </div>
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
           <WorkflowIcon class="text-primary size-4 shrink-0" />
           <div>
-            <p class="text-foreground text-sm">Workflow: {preset.roleName} Workflow</p>
-            <p class="text-muted-foreground text-xs">
-              Role: {preset.roleName} · Type: {preset.workflowType}
-            </p>
+            <p class="text-foreground text-sm">Workflow: {selectedPreset.roleName} Workflow</p>
+            <p class="text-muted-foreground text-xs">Role: {selectedPreset.roleName}</p>
           </div>
         </div>
         <div class="bg-muted/50 flex items-center gap-3 rounded-md px-3 py-2">
@@ -206,7 +223,7 @@
           <div>
             <p class="text-foreground text-sm">Status flow</p>
             <p class="text-muted-foreground text-xs">
-              Pickup: {preset.pickupStatusName} → Finish: {preset.finishStatusName}
+              Pickup: {selectedPreset.pickupStatusName} → Finish: {selectedPreset.finishStatusName}
             </p>
           </div>
         </div>
@@ -220,6 +237,29 @@
           Create agent and workflow
         {/if}
       </Button>
+    </div>
+  {:else}
+    <!-- Preset picker -->
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {#each bootstrapPresets as preset (preset.key)}
+        {@const Icon = presetIcons[preset.key]}
+        <button
+          type="button"
+          class={cn(
+            'border-border bg-card hover:border-primary/50 hover:bg-muted/30 flex flex-col rounded-lg border p-4 text-left transition-colors',
+          )}
+          onclick={() => (selectedPreset = preset)}
+        >
+          <div class="bg-primary/10 mb-3 flex size-9 items-center justify-center rounded-lg">
+            <Icon class="text-primary size-4" />
+          </div>
+          <p class="text-foreground text-sm font-semibold">{preset.title}</p>
+          <p class="text-muted-foreground mt-1 text-xs leading-5">{preset.subtitle}</p>
+          <p class="text-muted-foreground mt-3 text-xs">
+            Role: {preset.roleName}
+          </p>
+        </button>
+      {/each}
     </div>
   {/if}
 </div>

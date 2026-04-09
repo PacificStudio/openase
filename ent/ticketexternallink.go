@@ -22,7 +22,7 @@ type TicketExternalLink struct {
 	// TicketID holds the value of the "ticket_id" field.
 	TicketID uuid.UUID `json:"ticket_id,omitempty"`
 	// LinkType holds the value of the "link_type" field.
-	LinkType ticketexternallink.LinkType `json:"link_type,omitempty"`
+	LinkType string `json:"link_type,omitempty"`
 	// URL holds the value of the "url" field.
 	URL string `json:"url,omitempty"`
 	// ExternalID holds the value of the "external_id" field.
@@ -31,8 +31,6 @@ type TicketExternalLink struct {
 	Title string `json:"title,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
-	// Relation holds the value of the "relation" field.
-	Relation ticketexternallink.Relation `json:"relation,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -66,7 +64,7 @@ func (*TicketExternalLink) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case ticketexternallink.FieldLinkType, ticketexternallink.FieldURL, ticketexternallink.FieldExternalID, ticketexternallink.FieldTitle, ticketexternallink.FieldStatus, ticketexternallink.FieldRelation:
+		case ticketexternallink.FieldLinkType, ticketexternallink.FieldURL, ticketexternallink.FieldExternalID, ticketexternallink.FieldTitle, ticketexternallink.FieldStatus:
 			values[i] = new(sql.NullString)
 		case ticketexternallink.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -103,7 +101,7 @@ func (_m *TicketExternalLink) assignValues(columns []string, values []any) error
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field link_type", values[i])
 			} else if value.Valid {
-				_m.LinkType = ticketexternallink.LinkType(value.String)
+				_m.LinkType = value.String
 			}
 		case ticketexternallink.FieldURL:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -128,12 +126,6 @@ func (_m *TicketExternalLink) assignValues(columns []string, values []any) error
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
-			}
-		case ticketexternallink.FieldRelation:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field relation", values[i])
-			} else if value.Valid {
-				_m.Relation = ticketexternallink.Relation(value.String)
 			}
 		case ticketexternallink.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -186,7 +178,7 @@ func (_m *TicketExternalLink) String() string {
 	builder.WriteString(fmt.Sprintf("%v", _m.TicketID))
 	builder.WriteString(", ")
 	builder.WriteString("link_type=")
-	builder.WriteString(fmt.Sprintf("%v", _m.LinkType))
+	builder.WriteString(_m.LinkType)
 	builder.WriteString(", ")
 	builder.WriteString("url=")
 	builder.WriteString(_m.URL)
@@ -199,9 +191,6 @@ func (_m *TicketExternalLink) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
-	builder.WriteString(", ")
-	builder.WriteString("relation=")
-	builder.WriteString(fmt.Sprintf("%v", _m.Relation))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

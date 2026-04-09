@@ -14,7 +14,7 @@
   } from '../notification-channels'
   import { actionErrorMessage } from '../notification-support'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import NotificationChannelEditor from './notification-channel-editor.svelte'
+  import NotificationChannelDialog from './notification-channel-dialog.svelte'
 
   let {
     channels,
@@ -33,8 +33,9 @@
   } = $props()
 
   let editingChannel = $state<NotificationChannel | null>(null)
-  let creatingNew = $state(false)
   let draft = $state<ChannelDraft>(createChannelDraft())
+  let dialogOpen = $state(false)
+  let confirmDeleteOpen = $state(false)
   let saving = $state(false)
   let deleting = $state(false)
   let testing = $state(false)
@@ -42,19 +43,20 @@
 
   function openNew() {
     editingChannel = null
-    creatingNew = true
     draft = createChannelDraft()
+    dialogOpen = true
   }
 
   function openEdit(channel: NotificationChannel) {
     editingChannel = channel
-    creatingNew = true
     draft = channelDraftFromRecord(channel)
+    dialogOpen = true
   }
 
-  function closeEditor() {
+  function closeDialog() {
+    if (saving || deleting) return
+    dialogOpen = false
     editingChannel = null
-    creatingNew = false
   }
 
   async function handleSave() {
@@ -68,12 +70,12 @@
         toastStore.info('No channel changes to save.')
         return
       }
-
       saving = true
       try {
         await onUpdate(editingChannel.id, parsed.value.value)
         toastStore.success('Channel updated.')
-        closeEditor()
+        dialogOpen = false
+        editingChannel = null
       } catch (caughtError) {
         toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel.'))
       } finally {
@@ -87,12 +89,11 @@
       toastStore.error(parsed.error)
       return
     }
-
     saving = true
     try {
       await onCreate(parsed.value)
       toastStore.success('Channel created.')
-      closeEditor()
+      dialogOpen = false
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to create channel.'))
     } finally {
@@ -102,13 +103,13 @@
 
   async function handleDelete() {
     if (!editingChannel) return
-    if (!window.confirm(`Delete channel "${editingChannel.name}"?`)) return
-
     deleting = true
     try {
       await onDelete(editingChannel.id)
       toastStore.success('Channel deleted.')
-      closeEditor()
+      dialogOpen = false
+      confirmDeleteOpen = false
+      editingChannel = null
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to delete channel.'))
     } finally {
@@ -159,7 +160,7 @@
     <Button variant="outline" size="sm" onclick={openNew}>Add channel</Button>
   </div>
 
-  {#if channels.length === 0 && !creatingNew}
+  {#if channels.length === 0}
     <div
       class="border-border bg-muted/30 flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center"
     >
@@ -183,14 +184,10 @@
       </p>
       <Button variant="outline" size="sm" class="mt-2" onclick={openNew}>Add channel</Button>
     </div>
-  {/if}
-
-  {#if channels.length > 0}
+  {:else}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each channels as channel (channel.id)}
-        <div
-          class="border-border bg-card group hover:border-border rounded-lg border px-4 py-3 transition-colors"
-        >
+        <div class="border-border bg-card rounded-lg border px-4 py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
@@ -225,35 +222,30 @@
               disabled={testing}
               onclick={() => handleTest(channel)}
             >
-              {testing ? 'Sending...' : 'Send test'}
+              {testing ? 'Sending…' : 'Send test'}
             </Button>
           </div>
         </div>
       {/each}
     </div>
   {/if}
-
-  {#if creatingNew}
-    <div class="border-border bg-card rounded-lg border">
-      <div class="border-border/50 flex items-center justify-between border-b px-5 py-3">
-        <h4 class="text-sm font-medium">
-          {editingChannel ? `Edit: ${editingChannel.name}` : 'New channel'}
-        </h4>
-        <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={closeEditor}>
-          Cancel
-        </Button>
-      </div>
-      <NotificationChannelEditor
-        {draft}
-        selectedChannel={editingChannel}
-        {saving}
-        {deleting}
-        onDraftChange={(nextDraft) => {
-          draft = nextDraft
-        }}
-        onSave={handleSave}
-        onDelete={handleDelete}
-      />
-    </div>
-  {/if}
 </div>
+
+<NotificationChannelDialog
+  {editingChannel}
+  {draft}
+  {dialogOpen}
+  {confirmDeleteOpen}
+  {saving}
+  {deleting}
+  onDialogOpenChange={(open) => {
+    if (!open) closeDialog()
+    else dialogOpen = true
+  }}
+  onConfirmDeleteOpenChange={(open) => (confirmDeleteOpen = open)}
+  onDraftChange={(nextDraft) => {
+    draft = nextDraft
+  }}
+  onSave={handleSave}
+  onDelete={handleDelete}
+/>

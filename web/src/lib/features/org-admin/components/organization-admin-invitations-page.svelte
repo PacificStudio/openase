@@ -8,6 +8,6 @@
   {organizationId}
   mode="invitations"
   heading="Invitations"
-  description="Invite people into the org, resend or revoke pending invites, and rotate accept tokens while onboarding stays under org-admin control."
-  emptyMessage="No pending invitations right now."
+  description="Pending invitations. Resend or cancel at any time."
+  emptyMessage="No pending invitations."
 />

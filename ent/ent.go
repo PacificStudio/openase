@@ -26,6 +26,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -46,6 +48,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/secret"
+	"github.com/BetterAndBetterII/openase/ent/secretbinding"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -138,6 +142,8 @@ func checkColumn(t, c string) error {
 			chatentry.Table:                     chatentry.ValidColumn,
 			chatpendinginterrupt.Table:          chatpendinginterrupt.ValidColumn,
 			chatturn.Table:                      chatturn.ValidColumn,
+			instanceauthconfig.Table:            instanceauthconfig.ValidColumn,
+			localbootstrapauthrequest.Table:     localbootstrapauthrequest.ValidColumn,
 			machine.Table:                       machine.ValidColumn,
 			machinechanneltoken.Table:           machinechanneltoken.ValidColumn,
 			notificationchannel.Table:           notificationchannel.ValidColumn,
@@ -158,6 +164,8 @@ func checkColumn(t, c string) error {
 			projectupdatethreadrevision.Table:   projectupdatethreadrevision.ValidColumn,
 			rolebinding.Table:                   rolebinding.ValidColumn,
 			scheduledjob.Table:                  scheduledjob.ValidColumn,
+			secret.Table:                        secret.ValidColumn,
+			secretbinding.Table:                 secretbinding.ValidColumn,
 			skill.Table:                         skill.ValidColumn,
 			skillblob.Table:                     skillblob.ValidColumn,
 			skillversion.Table:                  skillversion.ValidColumn,

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
+
   import type { OnboardingData, OnboardingStep } from '../types'
   import StepAiDiscovery from './step-ai-discovery.svelte'
   import StepAgentWorkflow from './step-agent-workflow.svelte'
@@ -31,6 +33,17 @@
     onDataChange: (nextData: OnboardingData) => void
     onOnboardingComplete: () => void
   } = $props()
+
+  let skipConfirmOpen = $state(false)
+
+  function handleSkipClick() {
+    skipConfirmOpen = true
+  }
+
+  function handleConfirmSkip() {
+    skipConfirmOpen = false
+    onOnboardingComplete()
+  }
 </script>
 
 {#if step.id === 'github_token'}
@@ -72,10 +85,10 @@
     providerId={selectedProviderId}
     {projectStatus}
     initialState={data.agentWorkflow}
-    onComplete={(agents, workflows) => {
+    onComplete={(agents, workflows, presetKey) => {
       onDataChange({
         ...data,
-        agentWorkflow: { ...data.agentWorkflow, agents, workflows },
+        agentWorkflow: { ...data.agentWorkflow, agents, workflows, selectedPresetKey: presetKey },
       })
     }}
   />
@@ -84,6 +97,7 @@
     {projectId}
     {orgId}
     {projectStatus}
+    selectedPresetKey={data.agentWorkflow.selectedPresetKey}
     statuses={data.agentWorkflow.statuses}
     ticketCount={data.firstTicket.ticketCount}
     onComplete={() => {
@@ -107,12 +121,27 @@
 {/if}
 
 {#if step.status !== 'completed'}
-  <div class="mt-4 flex items-center justify-between gap-3 border-t pt-4">
-    <p class="text-muted-foreground text-xs">
-      If you do not want to continue setup, you can skip the tour and finish now.
-    </p>
-    <Button variant="ghost" size="sm" class="text-xs" onclick={onOnboardingComplete}>
-      Skip tour
-    </Button>
+  <div class="mt-4 flex justify-end border-t pt-4">
+    <Button variant="ghost" size="sm" class="text-xs" onclick={handleSkipClick}>Skip tour</Button>
   </div>
 {/if}
+
+<Dialog.Root bind:open={skipConfirmOpen}>
+  <Dialog.Content class="max-w-sm">
+    <Dialog.Header>
+      <Dialog.Title class="text-sm">Skip onboarding?</Dialog.Title>
+      <Dialog.Description class="text-muted-foreground text-xs">
+        The guided tour will be dismissed. You can configure the remaining steps later from the
+        project settings.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer class="gap-2">
+      <Button variant="ghost" size="sm" class="text-xs" onclick={() => (skipConfirmOpen = false)}>
+        Continue setup
+      </Button>
+      <Button variant="destructive" size="sm" class="text-xs" onclick={handleConfirmSkip}>
+        Skip anyway
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

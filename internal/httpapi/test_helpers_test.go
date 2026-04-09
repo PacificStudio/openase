@@ -12,10 +12,14 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	"github.com/google/uuid"
@@ -34,6 +38,73 @@ func newTicketStatusService(client *ent.Client) *ticketstatus.Service {
 
 func newTicketService(client *ent.Client) *ticketservice.Service {
 	return ticketservice.NewService(ticketrepo.NewEntRepository(client))
+}
+
+func newInstanceAuthTestService(t *testing.T, bootstrap config.AuthConfig, configPath string) (*ent.Client, *accesscontrolservice.Service) {
+	t.Helper()
+
+	client := openTestEntClient(t)
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close ent client: %v", err)
+		}
+	})
+
+	service, err := accesscontrolservice.New(
+		accesscontrolrepo.NewEntRepository(client),
+		t.Name()+":"+configPath,
+		configPath,
+		"",
+	)
+	if err != nil {
+		t.Fatalf("new instance auth service: %v", err)
+	}
+	if bootstrap.Mode == config.AuthModeOIDC {
+		now := time.Now().UTC()
+		_, err = service.Activate(context.Background(), testActiveOIDCConfig(bootstrap), iam.OIDCActivationMetadata{
+			ActivatedAt: &now,
+			Source:      "test-bootstrap",
+		})
+		if err != nil {
+			t.Fatalf("seed active instance auth state: %v", err)
+		}
+	}
+	return client, service
+}
+
+func testActiveOIDCConfig(cfg config.AuthConfig) iam.ActiveOIDCConfig {
+	claims := iam.DefaultDraftOIDCConfig().Claims
+	if cfg.OIDC.EmailClaim != "" {
+		claims.EmailClaim = cfg.OIDC.EmailClaim
+	}
+	if cfg.OIDC.NameClaim != "" {
+		claims.NameClaim = cfg.OIDC.NameClaim
+	}
+	if cfg.OIDC.UsernameClaim != "" {
+		claims.UsernameClaim = cfg.OIDC.UsernameClaim
+	}
+	if cfg.OIDC.GroupsClaim != "" {
+		claims.GroupsClaim = cfg.OIDC.GroupsClaim
+	}
+	sessionPolicy := iam.DefaultDraftOIDCConfig().SessionPolicy
+	if cfg.OIDC.SessionTTL > 0 {
+		sessionPolicy.SessionTTL = cfg.OIDC.SessionTTL
+	}
+	if cfg.OIDC.SessionIdleTTL > 0 {
+		sessionPolicy.SessionIdleTTL = cfg.OIDC.SessionIdleTTL
+	}
+	return iam.ActiveOIDCConfig{
+		IssuerURL:            cfg.OIDC.IssuerURL,
+		ClientID:             cfg.OIDC.ClientID,
+		ClientSecret:         cfg.OIDC.ClientSecret,
+		RedirectMode:         iam.OIDCRedirectModeFixed,
+		FixedRedirectURL:     cfg.OIDC.RedirectURL,
+		Scopes:               append([]string(nil), cfg.OIDC.Scopes...),
+		Claims:               claims,
+		AllowedEmailDomains:  append([]string(nil), cfg.OIDC.AllowedEmailDomains...),
+		BootstrapAdminEmails: append([]string(nil), cfg.OIDC.BootstrapAdminEmails...),
+		SessionPolicy:        sessionPolicy,
+	}
 }
 
 func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name string) uuid.UUID {

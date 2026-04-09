@@ -35,18 +35,19 @@ export function configuredSecurity() {
       mode_summary:
         authStore.authMode === 'oidc'
           ? 'OIDC is active. Browser sessions, RBAC, cached users, memberships, invitations, and auth audit diagnostics are enforced from this control plane.'
-          : 'Disabled mode keeps OpenASE in local single-user operation. The current user keeps local highest privilege without browser login or OIDC dependency.',
+          : 'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
       recommended_mode:
         authStore.authMode === 'oidc'
           ? 'Use OIDC for multi-user or networked deployments, then keep bootstrap admin emails narrow after first login.'
-          : 'Keep disabled mode for personal or local-only use. Move to OIDC + instance_admin when you need real multi-user browser access control.',
+          : 'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
       public_exposure_risk: 'local_only',
       warnings: [
-        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
       ],
       next_steps: [
-        'You can keep disabled mode for local single-user use with no extra IAM overhead.',
-        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+        'Create a local bootstrap link for administrators who still need browser access on this machine.',
+        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
+        'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
       ],
       config_path: '/home/test/.openase/config.yaml',
       bootstrap_state: {
@@ -74,7 +75,8 @@ export function configuredSecurity() {
         issuer_url: 'https://idp.example.com',
         client_id: 'openase',
         client_secret_configured: true,
-        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        redirect_mode: 'fixed',
+        fixed_redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
         scopes: ['openid', 'profile', 'email', 'groups'],
         allowed_email_domains: ['example.com'],
         bootstrap_admin_emails: ['admin@example.com'],
@@ -84,19 +86,19 @@ export function configuredSecurity() {
           title: 'Mode selection guide',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
           summary:
-            'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+            'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
         },
         {
           title: 'Dual-mode contract',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
           summary:
-            'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+            'Read the access-control contract, YAML import behavior, and local recovery paths.',
         },
         {
           title: 'IAM rollout checklist',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
           summary:
-            'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+            'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
         },
       ],
     },
@@ -161,6 +163,32 @@ export function configuredSecurity() {
     },
     secret_hygiene: {
       notification_channel_configs_redacted: true,
+      machine_env_vars_redacted: true,
+      runtime_secret_responses_redacted: true,
+      legacy_providers_requiring_migration: 1,
+      legacy_provider_inline_secret_bindings: 2,
+      legacy_machines_requiring_migration: 1,
+      legacy_machine_secret_env_vars: 1,
+      rollout_checklist: [
+        {
+          key: 'provider-inline-secrets',
+          title: 'Migrate inline provider auth_config secrets',
+          status: 'pending',
+          summary: 'Move legacy inline provider auth_config secrets into scoped secrets.',
+        },
+        {
+          key: 'machine-env-secrets',
+          title: 'Migrate machine env var secrets',
+          status: 'pending',
+          summary: 'Replace secret-like machine env_vars before rollout.',
+        },
+        {
+          key: 'audit-trail',
+          title: 'Verify secret activity events',
+          status: 'done',
+          summary: 'Secret lifecycle events are published to activity.',
+        },
+      ],
     },
     approval_policies: {
       status: 'reserved',
@@ -187,7 +215,7 @@ export function disabledSecurity() {
       configured_mode: 'disabled',
       issuer_url: '',
       warnings: [
-        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
       ],
     },
   }

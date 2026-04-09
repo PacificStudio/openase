@@ -120,6 +120,12 @@ type ProjectContext struct {
 	ProjectProbe           *TokenProbe
 }
 
+type OrgContext struct {
+	OrganizationID uuid.UUID
+	Credential     *StoredCredential
+	Probe          *TokenProbe
+}
+
 type ResolvedCredential struct {
 	Scope        Scope
 	Source       Source

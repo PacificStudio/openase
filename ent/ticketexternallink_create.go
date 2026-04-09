@@ -29,8 +29,16 @@ func (_c *TicketExternalLinkCreate) SetTicketID(v uuid.UUID) *TicketExternalLink
 }
 
 // SetLinkType sets the "link_type" field.
-func (_c *TicketExternalLinkCreate) SetLinkType(v ticketexternallink.LinkType) *TicketExternalLinkCreate {
+func (_c *TicketExternalLinkCreate) SetLinkType(v string) *TicketExternalLinkCreate {
 	_c.mutation.SetLinkType(v)
+	return _c
+}
+
+// SetNillableLinkType sets the "link_type" field if the given value is not nil.
+func (_c *TicketExternalLinkCreate) SetNillableLinkType(v *string) *TicketExternalLinkCreate {
+	if v != nil {
+		_c.SetLinkType(*v)
+	}
 	return _c
 }
 
@@ -70,20 +78,6 @@ func (_c *TicketExternalLinkCreate) SetStatus(v string) *TicketExternalLinkCreat
 func (_c *TicketExternalLinkCreate) SetNillableStatus(v *string) *TicketExternalLinkCreate {
 	if v != nil {
 		_c.SetStatus(*v)
-	}
-	return _c
-}
-
-// SetRelation sets the "relation" field.
-func (_c *TicketExternalLinkCreate) SetRelation(v ticketexternallink.Relation) *TicketExternalLinkCreate {
-	_c.mutation.SetRelation(v)
-	return _c
-}
-
-// SetNillableRelation sets the "relation" field if the given value is not nil.
-func (_c *TicketExternalLinkCreate) SetNillableRelation(v *ticketexternallink.Relation) *TicketExternalLinkCreate {
-	if v != nil {
-		_c.SetRelation(*v)
 	}
 	return _c
 }
@@ -156,10 +150,6 @@ func (_c *TicketExternalLinkCreate) ExecX(ctx context.Context) {
 
 // defaults sets the default values of the builder before save.
 func (_c *TicketExternalLinkCreate) defaults() {
-	if _, ok := _c.mutation.Relation(); !ok {
-		v := ticketexternallink.DefaultRelation
-		_c.mutation.SetRelation(v)
-	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := ticketexternallink.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -175,14 +165,6 @@ func (_c *TicketExternalLinkCreate) check() error {
 	if _, ok := _c.mutation.TicketID(); !ok {
 		return &ValidationError{Name: "ticket_id", err: errors.New(`ent: missing required field "TicketExternalLink.ticket_id"`)}
 	}
-	if _, ok := _c.mutation.LinkType(); !ok {
-		return &ValidationError{Name: "link_type", err: errors.New(`ent: missing required field "TicketExternalLink.link_type"`)}
-	}
-	if v, ok := _c.mutation.LinkType(); ok {
-		if err := ticketexternallink.LinkTypeValidator(v); err != nil {
-			return &ValidationError{Name: "link_type", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.link_type": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.URL(); !ok {
 		return &ValidationError{Name: "url", err: errors.New(`ent: missing required field "TicketExternalLink.url"`)}
 	}
@@ -197,14 +179,6 @@ func (_c *TicketExternalLinkCreate) check() error {
 	if v, ok := _c.mutation.ExternalID(); ok {
 		if err := ticketexternallink.ExternalIDValidator(v); err != nil {
 			return &ValidationError{Name: "external_id", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.external_id": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.Relation(); !ok {
-		return &ValidationError{Name: "relation", err: errors.New(`ent: missing required field "TicketExternalLink.relation"`)}
-	}
-	if v, ok := _c.mutation.Relation(); ok {
-		if err := ticketexternallink.RelationValidator(v); err != nil {
-			return &ValidationError{Name: "relation", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.relation": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
@@ -249,7 +223,7 @@ func (_c *TicketExternalLinkCreate) createSpec() (*TicketExternalLink, *sqlgraph
 		_spec.ID.Value = &id
 	}
 	if value, ok := _c.mutation.LinkType(); ok {
-		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeEnum, value)
+		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeString, value)
 		_node.LinkType = value
 	}
 	if value, ok := _c.mutation.URL(); ok {
@@ -267,10 +241,6 @@ func (_c *TicketExternalLinkCreate) createSpec() (*TicketExternalLink, *sqlgraph
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(ticketexternallink.FieldStatus, field.TypeString, value)
 		_node.Status = value
-	}
-	if value, ok := _c.mutation.Relation(); ok {
-		_spec.SetField(ticketexternallink.FieldRelation, field.TypeEnum, value)
-		_node.Relation = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(ticketexternallink.FieldCreatedAt, field.TypeTime, value)

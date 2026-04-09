@@ -199,13 +199,11 @@
               {:else}
                 {@const block = item.block}
                 {#if block.kind === 'assistant_message'}
-                  <div class="prose prose-sm prose-neutral max-w-none break-words">
-                    <TicketRunTranscriptOutputBlock
-                      {block}
-                      expanded={isOutputExpanded(block.id)}
-                      onToggle={() => onToggleOutput?.(block.id)}
-                    />
-                  </div>
+                  <TicketRunTranscriptOutputBlock
+                    {block}
+                    expanded={isOutputExpanded(block.id)}
+                    onToggle={() => onToggleOutput?.(block.id)}
+                  />
                 {:else if block.kind === 'tool_call'}
                   <TicketRunTranscriptToolCallCard {block} />
                 {:else if block.kind === 'terminal_output'}
@@ -224,9 +222,7 @@
                   </article>
                 {:else if block.kind === 'step'}
                   {#if block.stepStatus === 'commentary'}
-                    <div class="prose prose-sm prose-neutral max-w-none break-words">
-                      <ChatMarkdownContent source={block.summary} class="text-xs" />
-                    </div>
+                    <ChatMarkdownContent source={block.summary} class="text-xs" />
                   {:else}
                     <div class="text-muted-foreground flex items-center gap-2 py-0.5 text-[11px]">
                       <span class="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium"

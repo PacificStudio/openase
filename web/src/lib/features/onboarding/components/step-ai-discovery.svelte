@@ -25,15 +25,6 @@
 </script>
 
 <div class="space-y-4">
-  <div class="bg-muted/50 rounded-lg p-3">
-    <p class="text-foreground text-sm font-medium">
-      On the final step, clicking any button will finish the tour.
-    </p>
-    <p class="text-muted-foreground mt-1 text-xs">
-      You can try Project AI, or click "Got it" to end the tour now.
-    </p>
-  </div>
-
   <!-- Project AI -->
   <div class="border-border rounded-lg border p-4">
     <div class="flex items-center gap-3">

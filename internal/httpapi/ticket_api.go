@@ -34,12 +34,11 @@ type ticketDependencyResponse struct {
 
 type ticketExternalLinkResponse struct {
 	ID         string `json:"id"`
-	Type       string `json:"type"`
+	Type       string `json:"type,omitempty"`
 	URL        string `json:"url"`
 	ExternalID string `json:"external_id"`
 	Title      string `json:"title,omitempty"`
 	Status     string `json:"status,omitempty"`
-	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -105,6 +104,7 @@ type ticketResponse struct {
 	Children          []ticketReferenceResponse    `json:"children"`
 	Dependencies      []ticketDependencyResponse   `json:"dependencies"`
 	ExternalLinks     []ticketExternalLinkResponse `json:"external_links"`
+	PullRequestURLs   []string                     `json:"pull_request_urls"`
 	ExternalRef       string                       `json:"external_ref"`
 	BudgetUSD         float64                      `json:"budget_usd"`
 	CostTokensInput   int64                        `json:"cost_tokens_input"`
@@ -423,11 +423,11 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	activityItems, err := s.catalog.ListActivityEvents(c.Request().Context(), activityInput)
+	activityPage, err := s.catalog.ListActivityEvents(c.Request().Context(), activityInput)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
-	activity := filterNonCommentActivityEvents(activityItems)
+	activity := filterNonCommentActivityEvents(activityPage.Events)
 
 	assignedAgent, err := s.loadTicketAssignedAgent(c.Request().Context(), item)
 	if err != nil {
@@ -1251,6 +1251,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		Children:          []ticketReferenceResponse{},
 		Dependencies:      []ticketDependencyResponse{},
 		ExternalLinks:     []ticketExternalLinkResponse{},
+		PullRequestURLs:   orEmptyStringSlice(item.PullRequestURLs),
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUSD,
 		CostTokensInput:   item.CostTokensInput,
@@ -1326,6 +1327,13 @@ func mapTicketDependencyResponses(item ticketservice.Ticket) []ticketDependencyR
 	return responses
 }
 
+func orEmptyStringSlice(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
+}
+
 func findTicketDependencyResponse(item ticketservice.Ticket, dependencyID uuid.UUID) (ticketDependencyResponse, bool) {
 	for _, dependency := range item.IncomingDependencies {
 		if dependency.ID == dependencyID {
@@ -1359,7 +1367,6 @@ func mapTicketExternalLinkResponse(item ticketservice.ExternalLink) ticketExtern
 		ExternalID: item.ExternalID,
 		Title:      item.Title,
 		Status:     item.Status,
-		Relation:   item.Relation.String(),
 		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

@@ -1,5 +1,9 @@
 import { api } from './client'
-import type { SessionGovernanceResponse } from './auth'
+import {
+  getSessionGovernance as getAuthSessionGovernance,
+  revokeAllOtherAuthSessions as revokeAllOtherAuthSessionsViaAuth,
+  revokeAuthSession as revokeAuthSessionViaAuth,
+} from './auth'
 import type {
   ActivityPayload,
   AdminAuthModeTransitionResponse,
@@ -16,7 +20,10 @@ import type {
   ArchivedTicketPayload,
   BuiltinRolePayload,
   BuiltinRoleDetailResponse,
+  CreateScopedSecretBindingResponse,
+  DeleteScopedSecretBindingResponse,
   DeleteGitHubOutboundCredentialResponse,
+  OrgGitHubCredentialResponse,
   GitHubRepositoryCreateResponse,
   GitHubRepositoryListResponse,
   GitHubRepositoryNamespacesResponse,
@@ -59,7 +66,12 @@ import type {
   ScheduledJobResponse,
   ScheduledJobTriggerResponse,
   ScheduledJobUpdateResponse,
+  ScopedSecretBindingPayload,
+  ScopedSecretPayload,
+  SecurityAuthSettings,
   SecuritySettingsResponse,
+  ScopedSecretResponse,
+  ScopedSecretsResponse,
   RetestGitHubOutboundCredentialResponse,
   SaveGitHubOutboundCredentialResponse,
   SkillListPayload,
@@ -271,6 +283,7 @@ export function createProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name: string
     model_temperature?: number
     model_max_tokens?: number
@@ -287,52 +300,231 @@ export function getProject(projectId: string) {
   return api.get<ProjectResponse>(`/api/v1/projects/${projectId}`)
 }
 
+function normalizeStringArray(values: string[] | null | undefined): string[] {
+  return Array.isArray(values) ? values : []
+}
+
+function normalizeSecurityAuthSettings<T extends SecurityAuthSettings>(auth: T): T {
+  return {
+    ...auth,
+    oidc_draft: {
+      ...auth.oidc_draft,
+      scopes: normalizeStringArray(auth.oidc_draft.scopes),
+      allowed_email_domains: normalizeStringArray(auth.oidc_draft.allowed_email_domains),
+      bootstrap_admin_emails: normalizeStringArray(auth.oidc_draft.bootstrap_admin_emails),
+    } as T['oidc_draft'],
+    last_validation: {
+      ...auth.last_validation,
+      warnings: normalizeStringArray(auth.last_validation.warnings),
+    } as T['last_validation'],
+  } as T
+}
+
+function normalizeAdminAuthResponse(payload: AdminAuthResponse): AdminAuthResponse {
+  return {
+    ...payload,
+    auth: normalizeSecurityAuthSettings(payload.auth),
+  }
+}
+
+function normalizeAdminAuthModeTransitionResponse(
+  payload: AdminAuthModeTransitionResponse,
+): AdminAuthModeTransitionResponse {
+  return {
+    ...payload,
+    auth: normalizeSecurityAuthSettings(payload.auth),
+  }
+}
+
+function normalizeSecuritySettings<T extends SecuritySettingsResponse['security']>(security: T): T {
+  return {
+    ...security,
+    auth: normalizeSecurityAuthSettings(security.auth),
+  } as T
+}
+
+function normalizeSecuritySettingsResponse(
+  payload: SecuritySettingsResponse,
+): SecuritySettingsResponse {
+  return {
+    ...payload,
+    security: normalizeSecuritySettings(payload.security),
+  }
+}
+
+function normalizeOIDCDraftTestResponse(payload: OIDCDraftTestResponse): OIDCDraftTestResponse {
+  return {
+    ...payload,
+    warnings: normalizeStringArray(payload.warnings),
+  }
+}
+
 export function getAdminAuth() {
-  return api.get<AdminAuthResponse>('/api/v1/admin/auth')
+  return api.get<AdminAuthResponse>('/api/v1/admin/auth').then(normalizeAdminAuthResponse)
 }
 
 export function saveAdminOIDCDraft(body: {
   issuer_url: string
   client_id: string
   client_secret?: string
-  redirect_url: string
+  redirect_mode: string
+  fixed_redirect_url: string
   scopes: string[]
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api.put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
+  const request = api.put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
+  return request.then(normalizeAdminAuthResponse)
 }
 
 export function testAdminOIDCDraft(body: {
   issuer_url: string
   client_id: string
   client_secret?: string
-  redirect_url: string
+  redirect_mode: string
+  fixed_redirect_url: string
   scopes: string[]
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api.post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
+  const request = api.post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
+  return request.then(normalizeOIDCDraftTestResponse)
 }
 
 export function enableAdminOIDC(body: {
   issuer_url: string
   client_id: string
   client_secret?: string
-  redirect_url: string
+  redirect_mode: string
+  fixed_redirect_url: string
   scopes: string[]
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', { body })
+  const request = api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', {
+    body,
+  })
+  return request.then(normalizeAdminAuthModeTransitionResponse)
 }
 
 export function disableAdminAuth() {
-  return api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/disable')
+  const request = api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/disable')
+  return request.then(normalizeAdminAuthModeTransitionResponse)
 }
 
 export function getSecuritySettings(projectId: string) {
-  return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
+  const request = api.get<SecuritySettingsResponse>(
+    `/api/v1/projects/${projectId}/security-settings`,
+  )
+  return request.then(normalizeSecuritySettingsResponse)
+}
+
+export function listScopedSecrets(projectId: string) {
+  return api.get<ScopedSecretPayload>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function listScopedSecretBindings(projectId: string) {
+  return api.get<ScopedSecretBindingPayload>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+  )
+}
+
+export function createScopedSecretBinding(
+  projectId: string,
+  body: {
+    secret_id: string
+    scope: 'workflow' | 'ticket'
+    scope_resource_id: string
+    binding_key: string
+  },
+) {
+  return api.post<CreateScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+    { body },
+  )
+}
+
+export function listProjectScopedSecrets(projectId: string) {
+  return api.get<ScopedSecretsResponse>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function createProjectScopedSecret(
+  projectId: string,
+  body: {
+    scope: 'organization' | 'project'
+    name: string
+    kind?: string
+    description?: string
+    value: string
+  },
+) {
+  return api.post<ScopedSecretResponse>(`/api/v1/projects/${projectId}/security-settings/secrets`, {
+    body,
+  })
+}
+
+export function rotateProjectScopedSecret(
+  projectId: string,
+  secretId: string,
+  body: { value: string },
+) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secrets/${secretId}/rotate`,
+    { body },
+  )
+}
+
+export function deleteScopedSecretBinding(projectId: string, bindingId: string) {
+  return api.delete<DeleteScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings/${bindingId}`,
+  )
+}
+
+export function disableProjectScopedSecret(projectId: string, secretId: string) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secrets/${secretId}/disable`,
+  )
+}
+
+export function deleteProjectScopedSecret(projectId: string, secretId: string) {
+  return api.delete<void>(`/api/v1/projects/${projectId}/security-settings/secrets/${secretId}`)
+}
+
+export function listOrganizationScopedSecrets(orgId: string) {
+  return api.get<ScopedSecretsResponse>(`/api/v1/orgs/${orgId}/security-settings/secrets`)
+}
+
+export function createOrganizationScopedSecret(
+  orgId: string,
+  body: {
+    name: string
+    kind?: string
+    description?: string
+    value: string
+  },
+) {
+  return api.post<ScopedSecretResponse>(`/api/v1/orgs/${orgId}/security-settings/secrets`, { body })
+}
+
+export function rotateOrganizationScopedSecret(
+  orgId: string,
+  secretId: string,
+  body: { value: string },
+) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}/rotate`,
+    { body },
+  )
+}
+
+export function disableOrganizationScopedSecret(orgId: string, secretId: string) {
+  return api.post<ScopedSecretResponse>(
+    `/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}/disable`,
+  )
+}
+
+export function deleteOrganizationScopedSecret(orgId: string, secretId: string) {
+  return api.delete<void>(`/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}`)
 }
 
 export function saveOIDCDraft(
@@ -341,18 +533,20 @@ export function saveOIDCDraft(
     issuer_url: string
     client_id: string
     client_secret?: string
-    redirect_url: string
+    redirect_mode: string
+    fixed_redirect_url: string
     scopes: string[]
     allowed_email_domains: string[]
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api.put<SecuritySettingsResponse>(
+  const request = api.put<SecuritySettingsResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
     {
       body,
     },
   )
+  return request.then(normalizeSecuritySettingsResponse)
 }
 
 export function testOIDCDraft(
@@ -361,16 +555,18 @@ export function testOIDCDraft(
     issuer_url: string
     client_id: string
     client_secret?: string
-    redirect_url: string
+    redirect_mode: string
+    fixed_redirect_url: string
     scopes: string[]
     allowed_email_domains: string[]
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api.post<OIDCDraftTestResponse>(
+  const request = api.post<OIDCDraftTestResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
     { body },
   )
+  return request.then(normalizeOIDCDraftTestResponse)
 }
 
 export function enableOIDC(
@@ -379,30 +575,35 @@ export function enableOIDC(
     issuer_url: string
     client_id: string
     client_secret?: string
-    redirect_url: string
+    redirect_mode: string
+    fixed_redirect_url: string
     scopes: string[]
     allowed_email_domains: string[]
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api.post<OIDCEnableResponse>(
+  const request = api.post<OIDCEnableResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
     {
       body,
     },
   )
+  return request.then((payload) => ({
+    ...payload,
+    security: normalizeSecuritySettings(payload.security),
+  }))
 }
 
 export function getSessionGovernance() {
-  return api.get<SessionGovernanceResponse>('/api/v1/auth/sessions')
+  return getAuthSessionGovernance()
 }
 
 export function revokeAuthSession(id: string) {
-  return api.delete<void>(`/api/v1/auth/sessions/${id}`)
+  return revokeAuthSessionViaAuth(id)
 }
 
 export function revokeAllOtherAuthSessions() {
-  return api.post<{ revoked_count: number }>('/api/v1/auth/sessions/revoke-all')
+  return revokeAllOtherAuthSessionsViaAuth()
 }
 
 export function adminRevokeUserAuthSessions(userId: string) {
@@ -428,51 +629,61 @@ export async function getScopeGroups(
   return response.security?.agent_tokens?.supported_scope_groups ?? []
 }
 
-export function saveGitHubOutboundCredential(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-    token: string
-  },
-) {
+// Project-scoped credential — only manages the project override
+export function saveGitHubOutboundCredential(projectId: string, body: { token: string }) {
   return api.put<SaveGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential`,
     { body },
   )
 }
 
-export function importGitHubOutboundCredentialFromGHCLI(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-  },
-) {
+export function importGitHubOutboundCredentialFromGHCLI(projectId: string) {
   return api.post<ImportGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/import-gh-cli`,
-    { body },
+    {},
   )
 }
 
-export function retestGitHubOutboundCredential(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-  },
-) {
+export function retestGitHubOutboundCredential(projectId: string) {
   return api.post<RetestGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/retest`,
-    { body },
+    {},
   )
 }
 
-export function deleteGitHubOutboundCredential(
-  projectId: string,
-  scope: 'organization' | 'project',
-) {
-  const params = new URLSearchParams({ scope })
+export function deleteGitHubOutboundCredential(projectId: string) {
   return api.delete<DeleteGitHubOutboundCredentialResponse>(
-    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential?${params.toString()}`,
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential`,
   )
+}
+
+// Org-scoped credential — manages the org default that all projects fall back to
+export function getOrgGitHubCredential(orgId: string) {
+  return api.get<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`)
+}
+
+export function saveOrgGitHubCredential(orgId: string, body: { token: string }) {
+  return api.put<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`, {
+    body,
+  })
+}
+
+export function importOrgGitHubCredentialFromGHCLI(orgId: string) {
+  return api.post<OrgGitHubCredentialResponse>(
+    `/api/v1/orgs/${orgId}/security/github-credential/import-gh-cli`,
+    {},
+  )
+}
+
+export function retestOrgGitHubCredential(orgId: string) {
+  return api.post<OrgGitHubCredentialResponse>(
+    `/api/v1/orgs/${orgId}/security/github-credential/retest`,
+    {},
+  )
+}
+
+export function deleteOrgGitHubCredential(orgId: string) {
+  return api.delete<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`)
 }
 
 export function getHRAdvisor(projectId: string) {
@@ -517,6 +728,7 @@ export function listActivity(
   projectId: string,
   params?: {
     agent_id?: string
+    before?: string
     ticket_id?: string
     limit?: number
   },
@@ -524,8 +736,14 @@ export function listActivity(
   return api.get<ActivityPayload>(`/api/v1/projects/${projectId}/activity`, { params })
 }
 
-export function listProjectUpdates(projectId: string) {
-  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`)
+export function listProjectUpdates(
+  projectId: string,
+  params?: {
+    limit?: number
+    before?: string
+  },
+) {
+  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`, { params })
 }
 
 export function createProjectUpdateThread(
@@ -845,12 +1063,11 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
 export function addTicketExternalLink(
   ticketId: string,
   body: {
-    type: string
+    type?: string | null
     url: string
     external_id: string
     title?: string | null
     status?: string | null
-    relation?: string | null
   },
 ) {
   return api.post<TicketExternalLinkResponse>(`/api/v1/tickets/${ticketId}/external-links`, {
@@ -1280,6 +1497,7 @@ export function updateProvider(
     cli_command?: string
     cli_args?: string[]
     auth_config?: Record<string, unknown>
+    secret_bindings?: Array<{ env_var_key: string; binding_key: string }>
     model_name?: string
     model_temperature?: number
     model_max_tokens?: number

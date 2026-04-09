@@ -27,10 +27,12 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -65,6 +67,8 @@ type Server struct {
 	projectConversationService *chatservice.ProjectConversationService
 	githubAuthService          githubauthservice.SecurityManager
 	githubRepoService          githubreposervice.Service
+	secretService              secretsservice.Manager
+	instanceAuthService        *accesscontrolservice.Service
 	humanAuthService           *humanauthservice.Service
 	humanAuthorizer            *humanauthservice.Authorizer
 	memoryCollector            runtimeobservability.ProcessMemoryCollector
@@ -121,6 +125,12 @@ func WithGitHubRepoService(service githubreposervice.Service) ServerOption {
 	}
 }
 
+func WithSecretService(service secretsservice.Manager) ServerOption {
+	return func(server *Server) {
+		server.secretService = service
+	}
+}
+
 func WithHumanAuthConfig(cfg config.AuthConfig) ServerOption {
 	return func(server *Server) {
 		server.auth = cfg
@@ -143,6 +153,12 @@ func WithHumanAuthService(service *humanauthservice.Service, authorizer *humanau
 	return func(server *Server) {
 		server.humanAuthService = service
 		server.humanAuthorizer = authorizer
+	}
+}
+
+func WithInstanceAuthService(service *accesscontrolservice.Service) ServerOption {
+	return func(server *Server) {
+		server.instanceAuthService = service
 	}
 }
 

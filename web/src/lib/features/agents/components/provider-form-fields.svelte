@@ -16,8 +16,10 @@
   } from '../provider-pricing'
   import { providerAdapterOptions, providerPermissionProfileOptions } from '../provider-draft'
   import type { ProviderDraft, ProviderDraftField } from '../types'
+  import ProviderAuthConfigField from './provider-auth-config-field.svelte'
   import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
+  import ProviderSecretBindingsFields from './provider-secret-bindings-fields.svelte'
 
   let {
     draft,
@@ -41,9 +43,8 @@
   const pricingRows = $derived(providerPricingDetailRows(pricingConfig))
   const routedOfficialPricing = $derived(isRoutedOfficialPricingConfig(pricingConfig))
 
-  function fieldValue(event: Event) {
-    return (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
-  }
+  const fieldValue = (event: Event) =>
+    (event.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
 
   $effect(() => {
     const modelKey = `${draft.adapterType}:${draft.modelName}`
@@ -235,17 +236,16 @@
           </p>
         </div>
 
-        <div class="space-y-2">
-          <Label for="provider-auth-config">Auth config</Label>
-          <Textarea
-            id="provider-auth-config"
-            rows={4}
-            value={draft.authConfig}
-            placeholder={`{\n  "token": "secret"\n}`}
-            oninput={(event) => onFieldChange?.('authConfig', fieldValue(event))}
-          />
-          <p class="text-muted-foreground text-xs">JSON object. Leave blank to clear.</p>
-        </div>
+        <ProviderAuthConfigField
+          value={draft.authConfig}
+          onValueChange={(value) => onFieldChange?.('authConfig', value)}
+        />
+
+        <ProviderSecretBindingsFields
+          adapterType={draft.adapterType}
+          value={draft.secretBindings}
+          onValueChange={(value) => onFieldChange?.('secretBindings', value)}
+        />
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">

@@ -106,7 +106,6 @@ func HarnessVariableDictionary() []HarnessVariableGroup {
 				{Path: "ticket.links[].url", Type: "string", Description: "External URL", Example: "https://github.com/acme/backend/issues/42"},
 				{Path: "ticket.links[].title", Type: "string", Description: "External title", Example: "Login validation broken on Safari"},
 				{Path: "ticket.links[].status", Type: "string", Description: "External status", Example: "open"},
-				{Path: "ticket.links[].relation", Type: "string", Description: "Relation type", Example: "resolves"},
 				{Path: "ticket.dependencies", Type: "list", Description: "Dependent ticket list"},
 				{Path: "ticket.dependencies[].identifier", Type: "string", Description: "Dependent ticket identifier", Example: "ASE-30"},
 				{Path: "ticket.dependencies[].title", Type: "string", Description: "Dependent ticket title", Example: "Design user auth schema"},
@@ -418,11 +417,10 @@ func ticketLinkMaps(items []HarnessTicketLinkData) []map[string]any {
 	result := make([]map[string]any, 0, len(items))
 	for _, item := range items {
 		result = append(result, map[string]any{
-			"type":     item.Type,
-			"url":      item.URL,
-			"title":    item.Title,
-			"status":   item.Status,
-			"relation": item.Relation,
+			"type":   item.Type,
+			"url":    item.URL,
+			"title":  item.Title,
+			"status": item.Status,
 		})
 	}
 	return result

@@ -21,6 +21,7 @@ export type ProjectSummary = {
 export type DashboardStats = {
   runningAgents: number
   activeTickets: number
+  totalTickets: number
   pendingApprovals: number
   ticketSpendToday: number
   ticketSpendTotal: number

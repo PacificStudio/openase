@@ -120,10 +120,11 @@ func (s *Server) handleGetHRAdvisor(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	activityItems, err := s.catalog.ListActivityEvents(ctx, activityInput)
+	activityPage, err := s.catalog.ListActivityEvents(ctx, activityInput)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	activityItems := activityPage.Events
 
 	workflowLabels := make(map[uuid.UUID]string, len(workflows))
 	statusNamesByID := make(map[uuid.UUID]string)

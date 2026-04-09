@@ -26,6 +26,7 @@ import (
 	entticketreposcope "github.com/BetterAndBetterII/openase/ent/ticketreposcope"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
 	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
@@ -34,7 +35,9 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
@@ -60,6 +63,8 @@ type RuntimeLauncher struct {
 	agentPlatform  runtimeAgentPlatform
 	platformAPIURL string
 	githubAuth     githubauthservice.TokenResolver
+	secretResolver runtimesecretenv.Resolver
+	secretManager  runtimeSecretManager
 	metrics        provider.MetricsProvider
 	now            func() time.Time
 	launchTimeout  time.Duration
@@ -78,6 +83,10 @@ type RuntimeLauncher struct {
 
 type runtimeAgentPlatform interface {
 	IssueToken(ctx context.Context, input agentplatform.IssueInput) (agentplatform.IssuedToken, error)
+}
+
+type runtimeSecretManager interface {
+	ResolveBoundForRuntime(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
 type runtimeAssignment struct {
@@ -156,6 +165,13 @@ func (l *RuntimeLauncher) ConfigurePlatformEnvironment(apiURL string, agentPlatf
 	l.tickets.ConfigurePlatformEnvironment(apiURL, agentPlatform)
 }
 
+func (l *RuntimeLauncher) ConfigureSecretResolver(resolver runtimesecretenv.Resolver) {
+	if l == nil {
+		return
+	}
+	l.secretResolver = resolver
+}
+
 func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.TokenResolver) {
 	if l == nil {
 		return
@@ -163,6 +179,16 @@ func (l *RuntimeLauncher) ConfigureGitHubCredentials(resolver githubauthservice.
 	l.githubAuth = resolver
 	if l.workspaces != nil {
 		l.workspaces.githubAuth = resolver
+	}
+}
+
+func (l *RuntimeLauncher) ConfigureSecretManager(manager runtimeSecretManager) {
+	if l == nil {
+		return
+	}
+	l.secretManager = manager
+	if l.completionSummaries != nil {
+		l.completionSummaries.ConfigureSecretManager(manager)
 	}
 }
 
@@ -1000,12 +1026,28 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageProcessStart, fmt.Errorf("parse agent cli command: %w", err))
 	}
-	environment := buildAgentCLIEnvironment(machine.EnvVars, launchContext.agent.Edges.Provider.AuthConfig)
+	environment, err := l.buildRuntimeAgentEnvironment(
+		ctx,
+		machine.EnvVars,
+		launchContext.project.ID,
+		launchContext.agent.Edges.Provider.AuthConfig,
+		&assignment.ticket.ID,
+		launchContext.ticket.WorkflowID,
+		&assignment.agent.ID,
+	)
+	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
+	}
 	platformAccess, err := l.buildAgentPlatformAccess(ctx, launchContext)
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
 	}
 	environment = append(environment, platformAccess.environment...)
+	runtimeSecrets, err := l.buildRuntimeSecretEnvironment(ctx, launchContext)
+	if err != nil {
+		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
+	}
+	environment = append(environment, runtimeSecrets...)
 	githubEnvironment, err := l.buildGitHubOutboundEnvironment(ctx, launchContext.project.ID, environment)
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, runtimeLaunchStageContext, err)
@@ -1186,6 +1228,27 @@ func (l *RuntimeLauncher) ticketRuntimePlatformContract(
 	})
 }
 
+func (l *RuntimeLauncher) buildRuntimeSecretEnvironment(ctx context.Context, launchContext runtimeLaunchContext) ([]string, error) {
+	if l == nil || l.secretManager == nil || launchContext.project == nil || launchContext.ticket == nil || launchContext.agent == nil {
+		return nil, nil
+	}
+
+	resolved, err := l.secretManager.ResolveBoundForRuntime(ctx, secretsservice.ResolveBoundRuntimeInput{
+		ProjectID:  launchContext.project.ID,
+		TicketID:   uuidPointer(launchContext.ticket.ID),
+		WorkflowID: launchContext.ticket.WorkflowID,
+		AgentID:    uuidPointer(launchContext.agent.ID),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("resolve runtime secret bindings: %w", err)
+	}
+	environment, err := secretsservice.BuildRuntimeEnvironment(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("build runtime secret environment: %w", err)
+	}
+	return environment, nil
+}
+
 func buildLocalOpenASEEnvironment() ([]string, error) {
 	executable, err := os.Executable()
 	if err != nil {
@@ -1196,6 +1259,13 @@ func buildLocalOpenASEEnvironment() ([]string, error) {
 	}
 
 	return []string{"OPENASE_REAL_BIN=" + executable}, nil
+}
+
+func uuidPointer(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 func (l *RuntimeLauncher) runRemoteRuntimePreflight(
@@ -1872,6 +1942,26 @@ func machineCodexReady(resources map[string]any) (bool, string, bool) {
 func buildAgentCLIEnvironment(machineEnv []string, authConfig map[string]any) []string {
 	environment := append([]string(nil), machineEnv...)
 	return append(environment, provider.AuthConfigEnvironment(authConfig)...)
+}
+
+func (l *RuntimeLauncher) buildRuntimeAgentEnvironment(
+	ctx context.Context,
+	machineEnv []string,
+	projectID uuid.UUID,
+	authConfig map[string]any,
+	ticketID *uuid.UUID,
+	workflowID *uuid.UUID,
+	agentID *uuid.UUID,
+) ([]string, error) {
+	baseEnvironment := buildAgentCLIEnvironment(machineEnv, authConfig)
+	return runtimesecretenv.AppendResolvedProviderSecrets(ctx, l.secretResolver, runtimesecretenv.ResolveInput{
+		ProjectID:          projectID,
+		ProviderAuthConfig: authConfig,
+		BaseEnvironment:    baseEnvironment,
+		TicketID:           ticketID,
+		WorkflowID:         workflowID,
+		AgentID:            agentID,
+	})
 }
 
 func requiresMachineCodexReady(command provider.AgentCLICommand, environment []string) bool {

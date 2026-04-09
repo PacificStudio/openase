@@ -53,7 +53,7 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/providers",
-		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"token":"secret"},"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
+		`{"machine_id":"`+findLocalMachineID(t, service, orgPayload.Organization.ID)+`","name":"Codex","adapter_type":"codex-app-server","cli_command":"codex","cli_args":["app-server","--listen","stdio://"],"auth_config":{"base_url":"http://localhost:4318"},"secret_bindings":[{"env_var_key":"OPENAI_API_KEY","binding_key":"PROJECT_OPENAI_KEY"}],"model_name":"gpt-5.3-codex","model_temperature":0.1,"model_max_tokens":32000,"cost_per_input_token":0.001,"cost_per_output_token":0.002}`,
 	)
 	if providerRec.Code != http.StatusCreated {
 		t.Fatalf("expected provider create 201, got %d: %s", providerRec.Code, providerRec.Body.String())
@@ -77,6 +77,21 @@ func TestAgentProviderAndAgentRoutes(t *testing.T) {
 	}
 	if providerPayload.Provider.AvailabilityState == "" {
 		t.Fatalf("expected provider availability_state to be populated, got %+v", providerPayload.Provider)
+	}
+	if got := providerPayload.Provider.AuthConfig["base_url"]; got != "http://localhost:4318" {
+		t.Fatalf("expected visible auth_config base_url to round-trip, got %+v", providerPayload.Provider.AuthConfig)
+	}
+	if _, ok := providerPayload.Provider.AuthConfig["secret_refs"]; ok {
+		t.Fatalf("expected auth_config to omit secret_refs, got %+v", providerPayload.Provider.AuthConfig)
+	}
+	if len(providerPayload.Provider.SecretBindings) == 0 {
+		t.Fatalf("expected provider secret_bindings to be populated, got %+v", providerPayload.Provider)
+	}
+	if binding := providerPayload.Provider.SecretBindings[0]; binding.EnvVarKey != "OPENAI_API_KEY" ||
+		binding.BindingKey != "PROJECT_OPENAI_KEY" ||
+		!binding.Configured ||
+		binding.Source != "binding" {
+		t.Fatalf("unexpected provider secret binding: %+v", binding)
 	}
 
 	secondaryProviderRec := performJSONRequest(
@@ -1214,9 +1229,9 @@ func (f *fakeCatalogService) ListAgentRuns(_ context.Context, projectID uuid.UUI
 	return items, nil
 }
 
-func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error) {
 	if _, ok := f.projects[input.ProjectID]; !ok {
-		return nil, catalogservice.ErrNotFound
+		return domain.ActivityEventPage{}, catalogservice.ErrNotFound
 	}
 
 	items := make([]domain.ActivityEvent, 0)
@@ -1237,6 +1252,12 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 				continue
 			}
 		}
+		if input.Before != nil {
+			cursor := domain.ActivityEventCursorFor(item)
+			if domain.CompareActivityEventCursor(cursor, *input.Before) >= 0 {
+				continue
+			}
+		}
 		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool {
@@ -1245,11 +1266,17 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 		}
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
-	if len(items) > input.Limit {
-		items = items[:input.Limit]
+
+	page := domain.ActivityEventPage{
+		Events: items,
+	}
+	if len(page.Events) > input.Limit {
+		page.Events = page.Events[:input.Limit]
+		page.HasMore = true
+		page.NextCursor = domain.ActivityEventCursorFor(page.Events[len(page.Events)-1]).String()
 	}
 
-	return items, nil
+	return page, nil
 }
 
 func (f *fakeCatalogService) ListAgentOutput(_ context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {

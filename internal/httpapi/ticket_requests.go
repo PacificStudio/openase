@@ -52,12 +52,11 @@ type parsedAddDependencyRequest struct {
 }
 
 type rawAddExternalLinkRequest struct {
-	Type       string  `json:"type"`
+	Type       *string `json:"type"`
 	URL        string  `json:"url"`
 	ExternalID string  `json:"external_id"`
 	Title      *string `json:"title"`
 	Status     *string `json:"status"`
-	Relation   *string `json:"relation"`
 }
 
 type rawCreateTicketCommentRequest struct {
@@ -255,7 +254,7 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 }
 
 func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkRequest) (ticketservice.AddExternalLinkInput, error) {
-	linkType, err := parseExternalLinkType(raw.Type)
+	linkType, err := parseOptionalExternalLinkType(raw.Type)
 	if err != nil {
 		return ticketservice.AddExternalLinkInput{}, err
 	}
@@ -271,20 +270,11 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("external_id must not be empty")
 	}
 
-	relation := ticketservice.DefaultExternalLinkRelation
-	if raw.Relation != nil {
-		relation, err = parseExternalLinkRelation(*raw.Relation)
-		if err != nil {
-			return ticketservice.AddExternalLinkInput{}, err
-		}
-	}
-
 	input := ticketservice.AddExternalLinkInput{
 		TicketID:   ticketID,
 		LinkType:   linkType,
 		URL:        trimmedURL,
 		ExternalID: externalID,
-		Relation:   relation,
 	}
 	if raw.Title != nil {
 		input.Title = strings.TrimSpace(*raw.Title)
@@ -374,8 +364,17 @@ func parseExternalLinkType(raw string) (ticketservice.ExternalLinkType, error) {
 	return ticketservice.ParseExternalLinkType(raw)
 }
 
-func parseExternalLinkRelation(raw string) (ticketservice.ExternalLinkRelation, error) {
-	return ticketservice.ParseExternalLinkRelation(raw)
+func parseOptionalExternalLinkType(raw *string) (ticketservice.ExternalLinkType, error) {
+	if raw == nil {
+		return "", nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	return parseExternalLinkType(trimmed)
 }
 
 func parseCSVQueryValues(c echo.Context, name string) []string {

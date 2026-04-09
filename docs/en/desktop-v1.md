@@ -125,6 +125,33 @@ The intended follow-up path is:
 
 That future work should stay outside the current desktop shell lifecycle and should land behind a separate runtime/provider contract rather than leaking provisioning logic into business code.
 
+## Electron 39 Compatibility Notes
+
+Desktop v1 now targets Electron 39.x. The compatibility review for this bump focused on the Electron 39 breaking-change surface that could affect our shell:
+
+- `--host-rules` deprecation: not used by the desktop shell.
+- `window.open` popups always becoming resizable: not used because desktop v1 owns a single top-level `BrowserWindow` and does not create popup child windows.
+- `desktopCapturer` on macOS 14.2+ requiring `NSAudioCaptureUsageDescription`: not applicable because desktop v1 does not use `desktopCapturer`.
+- shared-texture offscreen rendering `paint` payload changes: not applicable because desktop v1 does not use offscreen rendering.
+
+The review specifically covered the code paths that stay active in v1:
+
+- startup and hosted-page handoff in `desktop/main/app-controller.js`
+- single-instance locking in `desktop/main/runtime/single-instance.js`
+- menu, shell, preload, and IPC bridge behavior in `desktop/main/menu.js`, `desktop/main/ipc.js`, and `desktop/preload/index.js`
+- package assembly and smoke validation in `desktop/scripts/package-desktop.mjs` and `desktop/scripts/smoke-package.mjs`
+
+Accepted risks:
+
+- Electron 39 is a supported line for this upgrade, but its release schedule currently lists end-of-life on May 5, 2026. Treat this bump as the reviewed bridge off Electron 38 EOS, not as the final long-term desktop baseline.
+- The local Linux workspace used for validation has no display server, so packaging and headless Electron E2E are covered locally, while interactive installed-app checks still rely on CI and reviewer spot checks on a GUI-capable machine.
+
+Rollback strategy:
+
+1. revert `desktop/package.json` and `desktop/pnpm-lock.yaml` to the last Electron 38.x baseline
+2. rerun `make desktop-validate` and the package smoke flow
+3. keep PR #584 closed or superseded so the unreviewed major bump does not resume as the default path
+
 ## Commands
 
 Run commands from the repo root.

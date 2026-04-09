@@ -48,6 +48,12 @@ type ChatPendingInterrupt func(*sql.Selector)
 // ChatTurn is the predicate function for chatturn builders.
 type ChatTurn func(*sql.Selector)
 
+// InstanceAuthConfig is the predicate function for instanceauthconfig builders.
+type InstanceAuthConfig func(*sql.Selector)
+
+// LocalBootstrapAuthRequest is the predicate function for localbootstrapauthrequest builders.
+type LocalBootstrapAuthRequest func(*sql.Selector)
+
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)
 
@@ -107,6 +113,12 @@ type RoleBinding func(*sql.Selector)
 
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
+
+// Secret is the predicate function for secret builders.
+type Secret func(*sql.Selector)
+
+// SecretBinding is the predicate function for secretbinding builders.
+type SecretBinding func(*sql.Selector)
 
 // Skill is the predicate function for skill builders.
 type Skill func(*sql.Selector)

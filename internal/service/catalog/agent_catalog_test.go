@@ -1091,8 +1091,8 @@ func (r *stubRepository) ListAgentRuns(context.Context, uuid.UUID) ([]domain.Age
 	return append([]domain.AgentRun(nil), r.agentRuns...), nil
 }
 
-func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
-	return nil, nil
+func (r *stubRepository) ListActivityEvents(context.Context, domain.ListActivityEvents) (domain.ActivityEventPage, error) {
+	return domain.ActivityEventPage{}, nil
 }
 
 func (r *stubRepository) ListAgentOutput(context.Context, domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {

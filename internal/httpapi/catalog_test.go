@@ -233,7 +233,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
-		`{"name":"backend","repository_url":"https://github.com/acme/backend.git","labels":["go","api"]}`,
+		`{"name":"backend","repository_url":"file:///srv/git/backend.git","labels":["go","api"]}`,
 	)
 	if repoRec.Code != http.StatusCreated {
 		t.Fatalf("expected repo create 201, got %d: %s", repoRec.Code, repoRec.Body.String())
@@ -243,7 +243,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, repoRec, &createRepoPayload)
-	if createRepoPayload.Repo.DefaultBranch != "main" {
+	if createRepoPayload.Repo.DefaultBranch != "main" || createRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend.git" {
 		t.Fatalf("unexpected created repo payload: %+v", createRepoPayload.Repo)
 	}
 
@@ -293,7 +293,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
-		`{"workspace_dirname":"services/backend"}`,
+		`{"repository_url":"file:///srv/git/backend-mirror.git","workspace_dirname":"services/backend"}`,
 	)
 	if patchRepoRec.Code != http.StatusOK {
 		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
@@ -303,7 +303,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, patchRepoRec, &patchRepoPayload)
-	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
+	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" || patchRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend-mirror.git" {
 		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
 	}
 
@@ -765,6 +765,63 @@ func TestMachineResourcesExposeEnvironmentProvisioningPlan(t *testing.T) {
 	}
 	if len(payload.EnvironmentProvisioning.RequiredSkills) != 4 {
 		t.Fatalf("expected 4 required skills, got %+v", payload.EnvironmentProvisioning)
+	}
+}
+
+func TestMachineRoutesMaskSecretLikeEnvVarsAndPreserveMaskedPatchValues(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	machineID := uuid.New()
+	advertisedEndpoint := "wss://builder-01.example.com/openase"
+	service.machines[machineID] = domain.Machine{
+		ID:                 machineID,
+		OrganizationID:     orgID,
+		Name:               "builder-01",
+		Host:               "10.0.1.13",
+		Port:               22,
+		AdvertisedEndpoint: &advertisedEndpoint,
+		Status:             "online",
+		EnvVars:            []string{"OPENAI_API_KEY=sk-live-1234", "CUDA_VISIBLE_DEVICES=0"},
+	}
+
+	getRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+machineID.String(), "")
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("expected machine get 200, got %d: %s", getRec.Code, getRec.Body.String())
+	}
+	if !strings.Contains(getRec.Body.String(), "OPENAI_API_KEY=[redacted]") ||
+		strings.Contains(getRec.Body.String(), "sk-live-1234") {
+		t.Fatalf("expected masked machine env vars, got %s", getRec.Body.String())
+	}
+
+	patchRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/machines/"+machineID.String(),
+		`{"env_vars":["OPENAI_API_KEY=[redacted]","CUDA_VISIBLE_DEVICES=1"],"status":"online"}`,
+	)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("expected machine patch 200, got %d: %s", patchRec.Code, patchRec.Body.String())
+	}
+	updated := service.machines[machineID]
+	if got := updated.EnvVars[0]; got != "OPENAI_API_KEY=sk-live-1234" {
+		t.Fatalf("expected masked patch to preserve secret env var, got %+v", updated.EnvVars)
+	}
+	if got := updated.EnvVars[1]; got != "CUDA_VISIBLE_DEVICES=1" {
+		t.Fatalf("expected non-secret env var update to apply, got %+v", updated.EnvVars)
 	}
 }
 

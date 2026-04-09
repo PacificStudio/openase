@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +22,12 @@ func TestProjectUpdateServiceNilClientGuards(t *testing.T) {
 
 	if _, err := service.ListThreads(ctx, projectID); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("ListThreads() error = %v, want %v", err, ErrUnavailable)
+	}
+	if _, err := service.ListThreadPage(ctx, projectupdatedomain.ListThreadsPage{
+		ProjectID: projectID,
+		Limit:     projectupdatedomain.DefaultThreadPageLimit,
+	}); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("ListThreadPage() error = %v, want %v", err, ErrUnavailable)
 	}
 	if _, err := service.AddThread(ctx, AddThreadInput{ProjectID: projectID}); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("AddThread() error = %v, want %v", err, ErrUnavailable)
@@ -189,6 +197,106 @@ func TestProjectUpdateServiceCRUDAndOrdering(t *testing.T) {
 		Body:      "Should not be accepted",
 	}); !errors.Is(err, ErrThreadNotFound) {
 		t.Fatalf("AddComment(deleted thread) error = %v, want %v", err, ErrThreadNotFound)
+	}
+}
+
+func TestProjectUpdateServiceListThreadPageUsesStableCursorPagination(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID := seedProject(ctx, t, client)
+	service := NewService(client, nil)
+
+	sharedActivityAt := time.Date(2026, 4, 1, 11, 30, 0, 0, time.UTC)
+	olderActivityAt := sharedActivityAt.Add(-1 * time.Hour)
+
+	threadA, err := service.AddThread(ctx, AddThreadInput{
+		ProjectID: projectID,
+		Status:    StatusOnTrack,
+		Title:     "Thread A",
+		Body:      "Alpha",
+	})
+	if err != nil {
+		t.Fatalf("AddThread(threadA) error = %v", err)
+	}
+	threadB, err := service.AddThread(ctx, AddThreadInput{
+		ProjectID: projectID,
+		Status:    StatusAtRisk,
+		Title:     "Thread B",
+		Body:      "Beta",
+	})
+	if err != nil {
+		t.Fatalf("AddThread(threadB) error = %v", err)
+	}
+	threadC, err := service.AddThread(ctx, AddThreadInput{
+		ProjectID: projectID,
+		Status:    StatusOffTrack,
+		Title:     "Thread C",
+		Body:      "Gamma",
+	})
+	if err != nil {
+		t.Fatalf("AddThread(threadC) error = %v", err)
+	}
+
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadA.ID).
+		SetLastActivityAt(sharedActivityAt).
+		SetUpdatedAt(sharedActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadA activity: %v", err)
+	}
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadB.ID).
+		SetLastActivityAt(sharedActivityAt).
+		SetUpdatedAt(sharedActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadB activity: %v", err)
+	}
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadC.ID).
+		SetLastActivityAt(olderActivityAt).
+		SetUpdatedAt(olderActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadC activity: %v", err)
+	}
+
+	firstPage, err := service.ListThreadPage(ctx, projectupdatedomain.ListThreadsPage{
+		ProjectID: projectID,
+		Limit:     2,
+	})
+	if err != nil {
+		t.Fatalf("ListThreadPage(first) error = %v", err)
+	}
+	if !firstPage.HasMore || firstPage.NextCursor == "" {
+		t.Fatalf("ListThreadPage(first) page metadata = %+v", firstPage)
+	}
+	if len(firstPage.Threads) != 2 {
+		t.Fatalf("ListThreadPage(first) len = %d, want 2", len(firstPage.Threads))
+	}
+	if !firstPage.Threads[0].LastActivityAt.Equal(sharedActivityAt) || !firstPage.Threads[1].LastActivityAt.Equal(sharedActivityAt) {
+		t.Fatalf("ListThreadPage(first) shared timestamps = %+v", firstPage.Threads)
+	}
+	if firstPage.Threads[0].ID.String() < firstPage.Threads[1].ID.String() {
+		t.Fatalf("ListThreadPage(first) ids = %s, %s, want desc tie-break", firstPage.Threads[0].ID, firstPage.Threads[1].ID)
+	}
+
+	before, err := projectupdatedomain.ParseThreadCursor(firstPage.NextCursor)
+	if err != nil {
+		t.Fatalf("ParseThreadCursor(firstPage.NextCursor) error = %v", err)
+	}
+	if before.ID != firstPage.Threads[1].ID || !before.LastActivityAt.Equal(firstPage.Threads[1].LastActivityAt) {
+		t.Fatalf("next cursor = %+v, want thread %+v", before, firstPage.Threads[1])
+	}
+
+	secondPage, err := service.ListThreadPage(ctx, projectupdatedomain.ListThreadsPage{
+		ProjectID: projectID,
+		Limit:     2,
+		Before:    &before,
+	})
+	if err != nil {
+		t.Fatalf("ListThreadPage(second) error = %v", err)
+	}
+	if secondPage.HasMore || secondPage.NextCursor != "" {
+		t.Fatalf("ListThreadPage(second) page metadata = %+v", secondPage)
+	}
+	if len(secondPage.Threads) != 1 || secondPage.Threads[0].ID != threadC.ID {
+		t.Fatalf("ListThreadPage(second) = %+v, want only threadC", secondPage.Threads)
 	}
 }
 

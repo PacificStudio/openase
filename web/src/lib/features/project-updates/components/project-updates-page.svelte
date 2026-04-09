@@ -2,6 +2,7 @@
   import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
+  import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
   import { MessageSquare } from '@lucide/svelte'
   import { createProjectUpdatesController } from '../project-updates-controller.svelte'
@@ -56,10 +57,10 @@
         <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
           <MessageSquare class="text-muted-foreground size-5" />
         </div>
-        <p class="text-sm font-medium">No curated updates yet</p>
+        <p class="text-sm font-medium">No updates yet</p>
         <p class="text-muted-foreground mt-1 max-w-md text-sm">
-          Post the first project update to capture current delivery status. Raw agent and workflow
-          events continue to appear in Activity.
+          Updates are hand-written progress snapshots for stakeholders. Use the composer above to
+          post the first one — raw agent events stay in Activity.
         </p>
       </div>
     {:else}
@@ -74,6 +75,19 @@
             onDeleteComment={projectUpdates.handleDeleteComment}
           />
         {/each}
+
+        {#if projectUpdates.hasMoreThreads}
+          <div class="flex justify-center">
+            <Button
+              variant="outline"
+              class="min-w-36"
+              onclick={() => void projectUpdates.handleLoadMoreThreads()}
+              disabled={projectUpdates.loadingMoreThreads}
+            >
+              {projectUpdates.loadingMoreThreads ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"errors"
+	"net/url"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -703,6 +704,17 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if createRepo.RepositoryURL != "https://github.com/pacificstudio/openase.git" || createRepo.DefaultBranch != "trunk" || createRepo.WorkspaceDirname != "services/repo" || len(createRepo.Labels) != 2 {
 		t.Fatalf("ParseCreateProjectRepo() = %+v", createRepo)
 	}
+	fileRepoURL := (&url.URL{Scheme: "file", Path: "/srv/git/openase.git"}).String()
+	createRepo, err = ParseCreateProjectRepo(projectID, ProjectRepoInput{
+		Name:          "Local Mirror",
+		RepositoryURL: fileRepoURL,
+	})
+	if err != nil {
+		t.Fatalf("ParseCreateProjectRepo(file URL) error = %v", err)
+	}
+	if createRepo.RepositoryURL != fileRepoURL || createRepo.DefaultBranch != "main" || createRepo.WorkspaceDirname != "Local Mirror" {
+		t.Fatalf("ParseCreateProjectRepo(file URL) = %+v", createRepo)
+	}
 	createRepo, err = ParseCreateProjectRepo(projectID, ProjectRepoInput{
 		Name:             "Backend",
 		RepositoryURL:    "https://github.com/PacificStudio/openase",
@@ -734,6 +746,13 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if updateRepo.RepositoryURL != "https://github.com/pacificstudio/openase.git" {
 		t.Fatalf("ParseUpdateProjectRepo(success) repository_url = %q", updateRepo.RepositoryURL)
 	}
+	updateRepo, err = ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: fileRepoURL})
+	if err != nil {
+		t.Fatalf("ParseUpdateProjectRepo(file URL) error = %v", err)
+	}
+	if updateRepo.RepositoryURL != fileRepoURL {
+		t.Fatalf("ParseUpdateProjectRepo(file URL) repository_url = %q", updateRepo.RepositoryURL)
+	}
 	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: " ", RepositoryURL: "https://github.com"}); err == nil {
 		t.Fatal("ParseCreateProjectRepo() expected name validation error")
 	}
@@ -763,6 +782,9 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: "Repo", RepositoryURL: "ssh://git@github.com/PacificStudio/openase.git"}); err == nil {
 		t.Fatal("ParseUpdateProjectRepo() expected SSH GitHub URL validation error")
+	}
+	if _, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{Name: "repo", RepositoryURL: "file://"}); err == nil {
+		t.Fatal("ParseCreateProjectRepo() expected missing file URL path validation error")
 	}
 	if _, err := ParseUpdateProjectRepo(uuid.New(), projectID, ProjectRepoInput{Name: " "}); err == nil {
 		t.Fatal("ParseUpdateProjectRepo() expected validation error")

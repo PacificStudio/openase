@@ -7,7 +7,6 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -80,88 +79,90 @@
   }
 </script>
 
-<Card.Root class="rounded-2xl">
-  <Card.Header>
-    <Card.Title>Organization settings</Card.Title>
-    <Card.Description>
+<div class="space-y-4">
+  <div>
+    <h3 class="text-foreground text-sm font-semibold">Organization settings</h3>
+    <p class="text-muted-foreground mt-0.5 text-xs">
       Keep the workspace label, stable slug, and default provider aligned with the current org.
-    </Card.Description>
-  </Card.Header>
+    </p>
+  </div>
 
-  <Card.Content class="space-y-4">
-    <div class="grid gap-4 md:grid-cols-2">
-      <div class="space-y-2">
-        <Label for="organization-settings-name">Organization name</Label>
-        <Input id="organization-settings-name" bind:value={name} />
+  <div class="border-border rounded-md border p-4">
+    <div class="space-y-4">
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="space-y-1.5">
+          <Label for="organization-settings-name">Organization name</Label>
+          <Input id="organization-settings-name" bind:value={name} />
+        </div>
+
+        <div class="space-y-1.5">
+          <Label for="organization-settings-slug">Slug</Label>
+          <Input id="organization-settings-slug" bind:value={slug} />
+        </div>
       </div>
 
-      <div class="space-y-2">
-        <Label for="organization-settings-slug">Slug</Label>
-        <Input id="organization-settings-slug" bind:value={slug} />
-      </div>
-    </div>
-
-    <div class="space-y-2">
-      <Label>Default provider</Label>
-      <Select.Root
-        type="single"
-        value={defaultProviderId}
-        onValueChange={(value) => {
-          defaultProviderId = value || ''
-        }}
-      >
-        <Select.Trigger class="h-auto w-full py-2">
-          {@const provider = selectedProvider()}
-          {#if provider}
-            {@const iconPath = adapterIconPath(provider.adapter_type)}
-            <div class="flex items-center gap-2.5">
-              {#if iconPath}
-                <img src={iconPath} alt="" class="size-5 shrink-0" />
-              {:else}
-                <Wrench class="text-muted-foreground size-5 shrink-0" />
-              {/if}
-              <div class="min-w-0 text-left">
-                <div class="text-foreground truncate text-sm font-medium">{provider.name}</div>
-                <div class="text-muted-foreground truncate text-xs">
-                  {providerAvailabilityLabel(provider.availability_state)}
-                </div>
-              </div>
-            </div>
-          {:else}
-            {selectedProviderLabel()}
-          {/if}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value="">No default provider</Select.Item>
-          {#each providers as provider (provider.id)}
-            {@const iconPath = adapterIconPath(provider.adapter_type)}
-            <Select.Item value={provider.id}>
-              <div class="flex items-center gap-2.5 py-0.5">
+      <div class="space-y-1.5">
+        <Label>Default provider</Label>
+        <Select.Root
+          type="single"
+          value={defaultProviderId}
+          onValueChange={(value) => {
+            defaultProviderId = value || ''
+          }}
+        >
+          <Select.Trigger class="h-auto w-full py-2">
+            {@const provider = selectedProvider()}
+            {#if provider}
+              {@const iconPath = adapterIconPath(provider.adapter_type)}
+              <div class="flex items-center gap-2.5">
                 {#if iconPath}
-                  <img src={iconPath} alt="" class="size-4 shrink-0" />
+                  <img src={iconPath} alt="" class="size-5 shrink-0" />
                 {:else}
-                  <Wrench class="text-muted-foreground size-4 shrink-0" />
+                  <Wrench class="text-muted-foreground size-5 shrink-0" />
                 {/if}
-                <div class="min-w-0">
-                  <div class="truncate text-sm">{provider.name}</div>
-                  <div class="text-muted-foreground text-xs">
+                <div class="min-w-0 text-left">
+                  <div class="text-foreground truncate text-sm font-medium">{provider.name}</div>
+                  <div class="text-muted-foreground truncate text-xs">
                     {providerAvailabilityLabel(provider.availability_state)}
                   </div>
                 </div>
               </div>
-            </Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-      <p class="text-muted-foreground text-xs">
-        New projects can still override this, but this keeps the org-level default explicit.
-      </p>
-    </div>
+            {:else}
+              {selectedProviderLabel()}
+            {/if}
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="">No default provider</Select.Item>
+            {#each providers as provider (provider.id)}
+              {@const iconPath = adapterIconPath(provider.adapter_type)}
+              <Select.Item value={provider.id}>
+                <div class="flex items-center gap-2.5 py-0.5">
+                  {#if iconPath}
+                    <img src={iconPath} alt="" class="size-4 shrink-0" />
+                  {:else}
+                    <Wrench class="text-muted-foreground size-4 shrink-0" />
+                  {/if}
+                  <div class="min-w-0">
+                    <div class="truncate text-sm">{provider.name}</div>
+                    <div class="text-muted-foreground text-xs">
+                      {providerAvailabilityLabel(provider.availability_state)}
+                    </div>
+                  </div>
+                </div>
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <p class="text-muted-foreground text-xs">
+          New projects can still override this, but this keeps the org-level default explicit.
+        </p>
+      </div>
 
-    <div class="flex justify-end">
-      <Button onclick={handleSave} disabled={saving}>
-        {saving ? 'Saving…' : 'Save organization'}
-      </Button>
+      <div class="flex justify-end">
+        <Button onclick={handleSave} disabled={saving}>
+          {saving ? 'Saving…' : 'Save organization'}
+        </Button>
+      </div>
     </div>
-  </Card.Content>
-</Card.Root>
+  </div>
+</div>

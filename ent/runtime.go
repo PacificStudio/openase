@@ -19,6 +19,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -40,6 +42,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
 	"github.com/BetterAndBetterII/openase/ent/schema"
+	"github.com/BetterAndBetterII/openase/ent/secret"
+	"github.com/BetterAndBetterII/openase/ent/secretbinding"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -58,6 +62,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/google/uuid"
 )
 
@@ -489,6 +494,110 @@ func init() {
 	chatturnDescID := chatturnFields[0].Descriptor()
 	// chatturn.DefaultID holds the default value on creation for the id field.
 	chatturn.DefaultID = chatturnDescID.Default.(func() uuid.UUID)
+	instanceauthconfigFields := schema.InstanceAuthConfig{}.Fields()
+	_ = instanceauthconfigFields
+	// instanceauthconfigDescScopeKey is the schema descriptor for scope_key field.
+	instanceauthconfigDescScopeKey := instanceauthconfigFields[1].Descriptor()
+	// instanceauthconfig.DefaultScopeKey holds the default value on creation for the scope_key field.
+	instanceauthconfig.DefaultScopeKey = instanceauthconfigDescScopeKey.Default.(string)
+	// instanceauthconfigDescStatus is the schema descriptor for status field.
+	instanceauthconfigDescStatus := instanceauthconfigFields[2].Descriptor()
+	// instanceauthconfig.DefaultStatus holds the default value on creation for the status field.
+	instanceauthconfig.DefaultStatus = instanceauthconfigDescStatus.Default.(string)
+	// instanceauthconfigDescIssuerURL is the schema descriptor for issuer_url field.
+	instanceauthconfigDescIssuerURL := instanceauthconfigFields[3].Descriptor()
+	// instanceauthconfig.DefaultIssuerURL holds the default value on creation for the issuer_url field.
+	instanceauthconfig.DefaultIssuerURL = instanceauthconfigDescIssuerURL.Default.(string)
+	// instanceauthconfigDescClientID is the schema descriptor for client_id field.
+	instanceauthconfigDescClientID := instanceauthconfigFields[4].Descriptor()
+	// instanceauthconfig.DefaultClientID holds the default value on creation for the client_id field.
+	instanceauthconfig.DefaultClientID = instanceauthconfigDescClientID.Default.(string)
+	// instanceauthconfigDescRedirectMode is the schema descriptor for redirect_mode field.
+	instanceauthconfigDescRedirectMode := instanceauthconfigFields[6].Descriptor()
+	// instanceauthconfig.DefaultRedirectMode holds the default value on creation for the redirect_mode field.
+	instanceauthconfig.DefaultRedirectMode = instanceauthconfigDescRedirectMode.Default.(string)
+	// instanceauthconfigDescRedirectURL is the schema descriptor for redirect_url field.
+	instanceauthconfigDescRedirectURL := instanceauthconfigFields[7].Descriptor()
+	// instanceauthconfig.DefaultRedirectURL holds the default value on creation for the redirect_url field.
+	instanceauthconfig.DefaultRedirectURL = instanceauthconfigDescRedirectURL.Default.(string)
+	// instanceauthconfigDescEmailClaim is the schema descriptor for email_claim field.
+	instanceauthconfigDescEmailClaim := instanceauthconfigFields[9].Descriptor()
+	// instanceauthconfig.DefaultEmailClaim holds the default value on creation for the email_claim field.
+	instanceauthconfig.DefaultEmailClaim = instanceauthconfigDescEmailClaim.Default.(string)
+	// instanceauthconfigDescNameClaim is the schema descriptor for name_claim field.
+	instanceauthconfigDescNameClaim := instanceauthconfigFields[10].Descriptor()
+	// instanceauthconfig.DefaultNameClaim holds the default value on creation for the name_claim field.
+	instanceauthconfig.DefaultNameClaim = instanceauthconfigDescNameClaim.Default.(string)
+	// instanceauthconfigDescUsernameClaim is the schema descriptor for username_claim field.
+	instanceauthconfigDescUsernameClaim := instanceauthconfigFields[11].Descriptor()
+	// instanceauthconfig.DefaultUsernameClaim holds the default value on creation for the username_claim field.
+	instanceauthconfig.DefaultUsernameClaim = instanceauthconfigDescUsernameClaim.Default.(string)
+	// instanceauthconfigDescGroupsClaim is the schema descriptor for groups_claim field.
+	instanceauthconfigDescGroupsClaim := instanceauthconfigFields[12].Descriptor()
+	// instanceauthconfig.DefaultGroupsClaim holds the default value on creation for the groups_claim field.
+	instanceauthconfig.DefaultGroupsClaim = instanceauthconfigDescGroupsClaim.Default.(string)
+	// instanceauthconfigDescSessionTTL is the schema descriptor for session_ttl field.
+	instanceauthconfigDescSessionTTL := instanceauthconfigFields[15].Descriptor()
+	// instanceauthconfig.DefaultSessionTTL holds the default value on creation for the session_ttl field.
+	instanceauthconfig.DefaultSessionTTL = instanceauthconfigDescSessionTTL.Default.(string)
+	// instanceauthconfigDescSessionIdleTTL is the schema descriptor for session_idle_ttl field.
+	instanceauthconfigDescSessionIdleTTL := instanceauthconfigFields[16].Descriptor()
+	// instanceauthconfig.DefaultSessionIdleTTL holds the default value on creation for the session_idle_ttl field.
+	instanceauthconfig.DefaultSessionIdleTTL = instanceauthconfigDescSessionIdleTTL.Default.(string)
+	// instanceauthconfigDescValidationMetadata is the schema descriptor for validation_metadata field.
+	instanceauthconfigDescValidationMetadata := instanceauthconfigFields[17].Descriptor()
+	// instanceauthconfig.DefaultValidationMetadata holds the default value on creation for the validation_metadata field.
+	instanceauthconfig.DefaultValidationMetadata = instanceauthconfigDescValidationMetadata.Default.(func() iam.OIDCValidationMetadata)
+	// instanceauthconfigDescActivationMetadata is the schema descriptor for activation_metadata field.
+	instanceauthconfigDescActivationMetadata := instanceauthconfigFields[18].Descriptor()
+	// instanceauthconfig.DefaultActivationMetadata holds the default value on creation for the activation_metadata field.
+	instanceauthconfig.DefaultActivationMetadata = instanceauthconfigDescActivationMetadata.Default.(func() iam.OIDCActivationMetadata)
+	// instanceauthconfigDescCreatedAt is the schema descriptor for created_at field.
+	instanceauthconfigDescCreatedAt := instanceauthconfigFields[19].Descriptor()
+	// instanceauthconfig.DefaultCreatedAt holds the default value on creation for the created_at field.
+	instanceauthconfig.DefaultCreatedAt = instanceauthconfigDescCreatedAt.Default.(func() time.Time)
+	// instanceauthconfigDescUpdatedAt is the schema descriptor for updated_at field.
+	instanceauthconfigDescUpdatedAt := instanceauthconfigFields[20].Descriptor()
+	// instanceauthconfig.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	instanceauthconfig.DefaultUpdatedAt = instanceauthconfigDescUpdatedAt.Default.(func() time.Time)
+	// instanceauthconfig.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	instanceauthconfig.UpdateDefaultUpdatedAt = instanceauthconfigDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// instanceauthconfigDescID is the schema descriptor for id field.
+	instanceauthconfigDescID := instanceauthconfigFields[0].Descriptor()
+	// instanceauthconfig.DefaultID holds the default value on creation for the id field.
+	instanceauthconfig.DefaultID = instanceauthconfigDescID.Default.(func() uuid.UUID)
+	localbootstrapauthrequestFields := schema.LocalBootstrapAuthRequest{}.Fields()
+	_ = localbootstrapauthrequestFields
+	// localbootstrapauthrequestDescCodeHash is the schema descriptor for code_hash field.
+	localbootstrapauthrequestDescCodeHash := localbootstrapauthrequestFields[1].Descriptor()
+	// localbootstrapauthrequest.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	localbootstrapauthrequest.CodeHashValidator = localbootstrapauthrequestDescCodeHash.Validators[0].(func(string) error)
+	// localbootstrapauthrequestDescNonceHash is the schema descriptor for nonce_hash field.
+	localbootstrapauthrequestDescNonceHash := localbootstrapauthrequestFields[2].Descriptor()
+	// localbootstrapauthrequest.NonceHashValidator is a validator for the "nonce_hash" field. It is called by the builders before save.
+	localbootstrapauthrequest.NonceHashValidator = localbootstrapauthrequestDescNonceHash.Validators[0].(func(string) error)
+	// localbootstrapauthrequestDescPurpose is the schema descriptor for purpose field.
+	localbootstrapauthrequestDescPurpose := localbootstrapauthrequestFields[3].Descriptor()
+	// localbootstrapauthrequest.DefaultPurpose holds the default value on creation for the purpose field.
+	localbootstrapauthrequest.DefaultPurpose = localbootstrapauthrequestDescPurpose.Default.(string)
+	// localbootstrapauthrequestDescRequestedBy is the schema descriptor for requested_by field.
+	localbootstrapauthrequestDescRequestedBy := localbootstrapauthrequestFields[4].Descriptor()
+	// localbootstrapauthrequest.DefaultRequestedBy holds the default value on creation for the requested_by field.
+	localbootstrapauthrequest.DefaultRequestedBy = localbootstrapauthrequestDescRequestedBy.Default.(string)
+	// localbootstrapauthrequestDescCreatedAt is the schema descriptor for created_at field.
+	localbootstrapauthrequestDescCreatedAt := localbootstrapauthrequestFields[8].Descriptor()
+	// localbootstrapauthrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	localbootstrapauthrequest.DefaultCreatedAt = localbootstrapauthrequestDescCreatedAt.Default.(func() time.Time)
+	// localbootstrapauthrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	localbootstrapauthrequestDescUpdatedAt := localbootstrapauthrequestFields[9].Descriptor()
+	// localbootstrapauthrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	localbootstrapauthrequest.DefaultUpdatedAt = localbootstrapauthrequestDescUpdatedAt.Default.(func() time.Time)
+	// localbootstrapauthrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	localbootstrapauthrequest.UpdateDefaultUpdatedAt = localbootstrapauthrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// localbootstrapauthrequestDescID is the schema descriptor for id field.
+	localbootstrapauthrequestDescID := localbootstrapauthrequestFields[0].Descriptor()
+	// localbootstrapauthrequest.DefaultID holds the default value on creation for the id field.
+	localbootstrapauthrequest.DefaultID = localbootstrapauthrequestDescID.Default.(func() uuid.UUID)
 	machineFields := schema.Machine{}.Fields()
 	_ = machineFields
 	// machineDescName is the schema descriptor for name field.
@@ -1021,6 +1130,88 @@ func init() {
 	scheduledjobDescID := scheduledjobFields[0].Descriptor()
 	// scheduledjob.DefaultID holds the default value on creation for the id field.
 	scheduledjob.DefaultID = scheduledjobDescID.Default.(func() uuid.UUID)
+	secretFields := schema.Secret{}.Fields()
+	_ = secretFields
+	// secretDescProjectID is the schema descriptor for project_id field.
+	secretDescProjectID := secretFields[2].Descriptor()
+	// secret.DefaultProjectID holds the default value on creation for the project_id field.
+	secret.DefaultProjectID = secretDescProjectID.Default.(func() uuid.UUID)
+	// secretDescName is the schema descriptor for name field.
+	secretDescName := secretFields[4].Descriptor()
+	// secret.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	secret.NameValidator = secretDescName.Validators[0].(func(string) error)
+	// secretDescDescription is the schema descriptor for description field.
+	secretDescDescription := secretFields[6].Descriptor()
+	// secret.DefaultDescription holds the default value on creation for the description field.
+	secret.DefaultDescription = secretDescDescription.Default.(string)
+	// secretDescAlgorithm is the schema descriptor for algorithm field.
+	secretDescAlgorithm := secretFields[7].Descriptor()
+	// secret.AlgorithmValidator is a validator for the "algorithm" field. It is called by the builders before save.
+	secret.AlgorithmValidator = secretDescAlgorithm.Validators[0].(func(string) error)
+	// secretDescKeySource is the schema descriptor for key_source field.
+	secretDescKeySource := secretFields[8].Descriptor()
+	// secret.KeySourceValidator is a validator for the "key_source" field. It is called by the builders before save.
+	secret.KeySourceValidator = secretDescKeySource.Validators[0].(func(string) error)
+	// secretDescKeyID is the schema descriptor for key_id field.
+	secretDescKeyID := secretFields[9].Descriptor()
+	// secret.KeyIDValidator is a validator for the "key_id" field. It is called by the builders before save.
+	secret.KeyIDValidator = secretDescKeyID.Validators[0].(func(string) error)
+	// secretDescValuePreview is the schema descriptor for value_preview field.
+	secretDescValuePreview := secretFields[10].Descriptor()
+	// secret.ValuePreviewValidator is a validator for the "value_preview" field. It is called by the builders before save.
+	secret.ValuePreviewValidator = secretDescValuePreview.Validators[0].(func(string) error)
+	// secretDescNonce is the schema descriptor for nonce field.
+	secretDescNonce := secretFields[11].Descriptor()
+	// secret.NonceValidator is a validator for the "nonce" field. It is called by the builders before save.
+	secret.NonceValidator = secretDescNonce.Validators[0].(func(string) error)
+	// secretDescCiphertext is the schema descriptor for ciphertext field.
+	secretDescCiphertext := secretFields[12].Descriptor()
+	// secret.CiphertextValidator is a validator for the "ciphertext" field. It is called by the builders before save.
+	secret.CiphertextValidator = secretDescCiphertext.Validators[0].(func(string) error)
+	// secretDescRotatedAt is the schema descriptor for rotated_at field.
+	secretDescRotatedAt := secretFields[13].Descriptor()
+	// secret.DefaultRotatedAt holds the default value on creation for the rotated_at field.
+	secret.DefaultRotatedAt = secretDescRotatedAt.Default.(func() time.Time)
+	// secret.UpdateDefaultRotatedAt holds the default value on update for the rotated_at field.
+	secret.UpdateDefaultRotatedAt = secretDescRotatedAt.UpdateDefault.(func() time.Time)
+	// secretDescCreatedAt is the schema descriptor for created_at field.
+	secretDescCreatedAt := secretFields[15].Descriptor()
+	// secret.DefaultCreatedAt holds the default value on creation for the created_at field.
+	secret.DefaultCreatedAt = secretDescCreatedAt.Default.(func() time.Time)
+	// secretDescUpdatedAt is the schema descriptor for updated_at field.
+	secretDescUpdatedAt := secretFields[16].Descriptor()
+	// secret.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	secret.DefaultUpdatedAt = secretDescUpdatedAt.Default.(func() time.Time)
+	// secret.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	secret.UpdateDefaultUpdatedAt = secretDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// secretDescID is the schema descriptor for id field.
+	secretDescID := secretFields[0].Descriptor()
+	// secret.DefaultID holds the default value on creation for the id field.
+	secret.DefaultID = secretDescID.Default.(func() uuid.UUID)
+	secretbindingFields := schema.SecretBinding{}.Fields()
+	_ = secretbindingFields
+	// secretbindingDescProjectID is the schema descriptor for project_id field.
+	secretbindingDescProjectID := secretbindingFields[2].Descriptor()
+	// secretbinding.DefaultProjectID holds the default value on creation for the project_id field.
+	secretbinding.DefaultProjectID = secretbindingDescProjectID.Default.(func() uuid.UUID)
+	// secretbindingDescBindingKey is the schema descriptor for binding_key field.
+	secretbindingDescBindingKey := secretbindingFields[6].Descriptor()
+	// secretbinding.BindingKeyValidator is a validator for the "binding_key" field. It is called by the builders before save.
+	secretbinding.BindingKeyValidator = secretbindingDescBindingKey.Validators[0].(func(string) error)
+	// secretbindingDescCreatedAt is the schema descriptor for created_at field.
+	secretbindingDescCreatedAt := secretbindingFields[7].Descriptor()
+	// secretbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	secretbinding.DefaultCreatedAt = secretbindingDescCreatedAt.Default.(func() time.Time)
+	// secretbindingDescUpdatedAt is the schema descriptor for updated_at field.
+	secretbindingDescUpdatedAt := secretbindingFields[8].Descriptor()
+	// secretbinding.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	secretbinding.DefaultUpdatedAt = secretbindingDescUpdatedAt.Default.(func() time.Time)
+	// secretbinding.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	secretbinding.UpdateDefaultUpdatedAt = secretbindingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// secretbindingDescID is the schema descriptor for id field.
+	secretbindingDescID := secretbindingFields[0].Descriptor()
+	// secretbinding.DefaultID holds the default value on creation for the id field.
+	secretbinding.DefaultID = secretbindingDescID.Default.(func() uuid.UUID)
 	skillFields := schema.Skill{}.Fields()
 	_ = skillFields
 	// skillDescName is the schema descriptor for name field.
@@ -1272,7 +1463,7 @@ func init() {
 	// ticketexternallink.ExternalIDValidator is a validator for the "external_id" field. It is called by the builders before save.
 	ticketexternallink.ExternalIDValidator = ticketexternallinkDescExternalID.Validators[0].(func(string) error)
 	// ticketexternallinkDescCreatedAt is the schema descriptor for created_at field.
-	ticketexternallinkDescCreatedAt := ticketexternallinkFields[8].Descriptor()
+	ticketexternallinkDescCreatedAt := ticketexternallinkFields[7].Descriptor()
 	// ticketexternallink.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticketexternallink.DefaultCreatedAt = ticketexternallinkDescCreatedAt.Default.(func() time.Time)
 	// ticketexternallinkDescID is the schema descriptor for id field.

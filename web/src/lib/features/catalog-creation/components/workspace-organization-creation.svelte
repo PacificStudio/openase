@@ -86,143 +86,148 @@
   }
 </script>
 
-<div class="mx-auto flex h-full w-full max-w-6xl items-center px-6 py-12">
-  <div class="grid w-full gap-6 lg:grid-cols-[minmax(0,1.1fr)_24rem]">
-    <section class="space-y-6">
-      <div class="space-y-3">
-        <p class="text-muted-foreground text-xs tracking-[0.28em] uppercase">Workspace bootstrap</p>
-        <div class="space-y-2">
-          <h1 class="text-foreground text-3xl font-semibold tracking-tight">
-            Create your first organization
-          </h1>
-          <p class="text-muted-foreground max-w-2xl text-sm leading-6">
-            Start by defining a stable workspace slug. Once the organization exists, the dashboard
-            unlocks project creation, provider setup, and machine routing under the same URL scope.
+<div data-testid="route-scroll-container" class="min-h-0 flex-1 overflow-y-auto">
+  <div class="mx-auto flex min-h-full w-full max-w-6xl items-center px-6 py-12">
+    <div class="grid w-full gap-6 lg:grid-cols-[minmax(0,1.1fr)_24rem]">
+      <section class="space-y-6">
+        <div class="space-y-3">
+          <p class="text-muted-foreground text-xs tracking-[0.28em] uppercase">
+            Workspace bootstrap
           </p>
+          <div class="space-y-2">
+            <h1 class="text-foreground text-3xl font-semibold tracking-tight">
+              Create your first organization
+            </h1>
+            <p class="text-muted-foreground max-w-2xl text-sm leading-6">
+              Start by defining a stable workspace slug. Once the organization exists, the dashboard
+              unlocks project creation, provider setup, and machine routing under the same URL
+              scope.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4 md:grid-cols-3">
+          <Card.Root class="rounded-2xl">
+            <Card.Header class="pb-3">
+              <Card.Title class="text-sm">1. Create organization</Card.Title>
+              <Card.Description>
+                Reserve the workspace slug that all org-scoped routes will use.
+              </Card.Description>
+            </Card.Header>
+          </Card.Root>
+
+          <Card.Root class="rounded-2xl">
+            <Card.Header class="pb-3">
+              <Card.Title class="text-sm">2. Add providers</Card.Title>
+              <Card.Description>
+                Register LLM adapters, CLI launch commands, and auth config per organization.
+              </Card.Description>
+            </Card.Header>
+          </Card.Root>
+
+          <Card.Root class="rounded-2xl">
+            <Card.Header class="pb-3">
+              <Card.Title class="text-sm">3. Open projects</Card.Title>
+              <Card.Description>
+                Create a project, wire machines, and move into board, tickets, and agents.
+              </Card.Description>
+            </Card.Header>
+          </Card.Root>
+        </div>
+      </section>
+
+      <div class="space-y-4">
         <Card.Root class="rounded-2xl">
-          <Card.Header class="pb-3">
-            <Card.Title class="text-sm">1. Create organization</Card.Title>
+          <Card.Header>
+            <Card.Title>Create organization</Card.Title>
             <Card.Description>
-              Reserve the workspace slug that all org-scoped routes will use.
+              This writes the initial workspace record through the live catalog API.
             </Card.Description>
           </Card.Header>
-        </Card.Root>
 
-        <Card.Root class="rounded-2xl">
-          <Card.Header class="pb-3">
-            <Card.Title class="text-sm">2. Add providers</Card.Title>
-            <Card.Description>
-              Register LLM adapters, CLI launch commands, and auth config per organization.
-            </Card.Description>
-          </Card.Header>
-        </Card.Root>
-
-        <Card.Root class="rounded-2xl">
-          <Card.Header class="pb-3">
-            <Card.Title class="text-sm">3. Open projects</Card.Title>
-            <Card.Description>
-              Create a project, wire machines, and move into board, tickets, and agents.
-            </Card.Description>
-          </Card.Header>
-        </Card.Root>
-      </div>
-    </section>
-
-    <div class="space-y-4">
-      <Card.Root class="rounded-2xl">
-        <Card.Header>
-          <Card.Title>Create organization</Card.Title>
-          <Card.Description>
-            This writes the initial workspace record through the live catalog API.
-          </Card.Description>
-        </Card.Header>
-
-        <Card.Content>
-          <form
-            class="space-y-4"
-            onsubmit={(event) => {
-              event.preventDefault()
-              void handleCreateOrganization()
-            }}
-          >
-            <div class="space-y-2">
-              <Label for="organization-name">Organization name</Label>
-              <Input
-                id="organization-name"
-                value={draft.name}
-                placeholder="Better & Better"
-                oninput={updateName}
-              />
-            </div>
-
-            <div class="space-y-2">
-              <Label for="organization-slug">Slug</Label>
-              <Input
-                id="organization-slug"
-                value={draft.slug}
-                placeholder="better-and-better"
-                oninput={updateSlug}
-              />
-              <p class="text-muted-foreground text-xs">
-                Use lowercase letters, numbers, and hyphens. This becomes the stable org route
-                handle.
-              </p>
-            </div>
-
-            <Button type="submit" class="w-full" disabled={saving || acceptingInvite}>
-              {saving ? 'Creating…' : 'Create organization'}
-            </Button>
-          </form>
-        </Card.Content>
-      </Card.Root>
-
-      <Card.Root class="rounded-2xl border-sky-200/80 bg-sky-50/40">
-        <Card.Header>
-          <Card.Title>Accept invitation</Card.Title>
-          <Card.Description>
-            Paste an invitation token to activate your membership and open the organization
-            dashboard.
-          </Card.Description>
-        </Card.Header>
-
-        <Card.Content>
-          <form
-            class="space-y-4"
-            onsubmit={(event) => {
-              event.preventDefault()
-              void handleAcceptInvitation()
-            }}
-          >
-            <div class="space-y-2">
-              <Label for="organization-invite-token">Invitation token</Label>
-              <Input
-                id="organization-invite-token"
-                value={inviteToken}
-                placeholder="Paste the token shared by an owner or admin"
-                oninput={(event) => {
-                  inviteToken = (event.currentTarget as HTMLInputElement).value
-                }}
-              />
-              <p class="text-muted-foreground text-xs">
-                Tokens are rotated on resend and stop working once canceled, accepted, or expired.
-              </p>
-            </div>
-
-            <Button
-              type="submit"
-              variant="secondary"
-              class="w-full"
-              disabled={saving || acceptingInvite}
+          <Card.Content>
+            <form
+              class="space-y-4"
+              onsubmit={(event) => {
+                event.preventDefault()
+                void handleCreateOrganization()
+              }}
             >
-              {acceptingInvite ? 'Joining…' : 'Join organization'}
-            </Button>
-          </form>
-        </Card.Content>
-      </Card.Root>
+              <div class="space-y-2">
+                <Label for="organization-name">Organization name</Label>
+                <Input
+                  id="organization-name"
+                  value={draft.name}
+                  placeholder="Better & Better"
+                  oninput={updateName}
+                />
+              </div>
+
+              <div class="space-y-2">
+                <Label for="organization-slug">Slug</Label>
+                <Input
+                  id="organization-slug"
+                  value={draft.slug}
+                  placeholder="better-and-better"
+                  oninput={updateSlug}
+                />
+                <p class="text-muted-foreground text-xs">
+                  Use lowercase letters, numbers, and hyphens. This becomes the stable org route
+                  handle.
+                </p>
+              </div>
+
+              <Button type="submit" class="w-full" disabled={saving || acceptingInvite}>
+                {saving ? 'Creating…' : 'Create organization'}
+              </Button>
+            </form>
+          </Card.Content>
+        </Card.Root>
+
+        <Card.Root class="rounded-2xl border-sky-200/80 bg-sky-50/40">
+          <Card.Header>
+            <Card.Title>Accept invitation</Card.Title>
+            <Card.Description>
+              Paste an invitation token to activate your membership and open the organization
+              dashboard.
+            </Card.Description>
+          </Card.Header>
+
+          <Card.Content>
+            <form
+              class="space-y-4"
+              onsubmit={(event) => {
+                event.preventDefault()
+                void handleAcceptInvitation()
+              }}
+            >
+              <div class="space-y-2">
+                <Label for="organization-invite-token">Invitation token</Label>
+                <Input
+                  id="organization-invite-token"
+                  value={inviteToken}
+                  placeholder="Paste the token shared by an owner or admin"
+                  oninput={(event) => {
+                    inviteToken = (event.currentTarget as HTMLInputElement).value
+                  }}
+                />
+                <p class="text-muted-foreground text-xs">
+                  Tokens are rotated on resend and stop working once canceled, accepted, or expired.
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                variant="secondary"
+                class="w-full"
+                disabled={saving || acceptingInvite}
+              >
+                {acceptingInvite ? 'Joining…' : 'Join organization'}
+              </Button>
+            </form>
+          </Card.Content>
+        </Card.Root>
+      </div>
     </div>
   </div>
 </div>

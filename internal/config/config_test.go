@@ -296,6 +296,7 @@ func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
 	v := viper.New()
 	configureAuthDefaults(v)
 	v.Set("auth.mode", "oidc")
+	v.Set("auth.csrf.trusted_origins", " http://LOCALHOST:4173/ , https://Admin.EXAMPLE.com ")
 	v.Set("auth.oidc.issuer_url", " https://idp.example.com ")
 	v.Set("auth.oidc.client_id", " openase ")
 	v.Set("auth.oidc.client_secret", " super-secret ")
@@ -316,6 +317,9 @@ func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
 
 	if cfg.Mode != AuthModeOIDC {
 		t.Fatalf("Mode = %q, want %q", cfg.Mode, AuthModeOIDC)
+	}
+	if got, want := cfg.CSRF.TrustedOrigins, []string{"http://localhost:4173", "https://admin.example.com"}; !slicesEqual(got, want) {
+		t.Fatalf("TrustedOrigins = %#v, want %#v", got, want)
 	}
 	if cfg.OIDC.IssuerURL != "https://idp.example.com" {
 		t.Fatalf("IssuerURL = %q", cfg.OIDC.IssuerURL)
@@ -385,6 +389,13 @@ func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
 			},
 			want: "auth.oidc.session_idle_ttl must not exceed auth.oidc.session_ttl",
 		},
+		{
+			name: "invalid csrf trusted origin",
+			mut: func(cfg *AuthConfig) {
+				cfg.CSRF.TrustedOrigins = []string{"http://localhost:4173/callback"}
+			},
+			want: "auth.csrf.trusted_origins: invalid origin \"http://localhost:4173/callback\": path is not allowed",
+		},
 	}
 
 	for _, tc := range cases {
@@ -396,6 +407,53 @@ func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
 				t.Fatalf("validateAuthConfig() error = %v, want %q", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadIgnoresLegacyAuthParsingFailures(t *testing.T) {
+	clearOpenASEEnv(t)
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	configBody := strings.TrimSpace(`
+server:
+  mode: all-in-one
+  host: 127.0.0.1
+  port: 19836
+database:
+  dsn: postgres://openase:secret@127.0.0.1:5432/openase?sslmode=disable
+auth:
+  mode: definitely-not-supported
+  oidc:
+    scopes:
+      bad: shape
+`)
+	if err := os.WriteFile(configPath, []byte(configBody+"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{ConfigFile: configPath})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Database.DSN == "" {
+		t.Fatalf("expected non-auth config to keep loading, got %+v", cfg)
+	}
+	if cfg.Auth.Mode != "" {
+		t.Fatalf("expected legacy auth parse failure to fall back to zero auth config, got %+v", cfg.Auth)
+	}
+}
+
+func TestParseAuthConfigRejectsInvalidCSRForigin(t *testing.T) {
+	v := viper.New()
+	configureAuthDefaults(v)
+	v.Set("auth.csrf.trusted_origins", []string{"http://localhost:4173/path"})
+
+	cfg, err := parseAuthConfig(v)
+	if err != nil {
+		t.Fatalf("parseAuthConfig() error = %v", err)
+	}
+	err = validateAuthConfig(cfg)
+	if err == nil || err.Error() != "auth.csrf.trusted_origins: invalid origin \"http://localhost:4173/path\": path is not allowed" {
+		t.Fatalf("validateAuthConfig() error = %v", err)
 	}
 }
 

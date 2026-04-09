@@ -241,6 +241,35 @@ func TestProjectUpdatesHelpMentionsRuntimeDefaults(t *testing.T) {
 	}
 }
 
+func TestSecretBindingCreateHelpMentionsScopedRuntimeBindings(t *testing.T) {
+	root := NewRootCommand("dev")
+	command, _, err := root.Find([]string{"secret", "binding", "create"})
+	if err != nil {
+		t.Fatalf("Find(secret binding create) returned error: %v", err)
+	}
+	if command == nil {
+		t.Fatal("expected secret binding create command")
+	}
+
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	if err := command.Help(); err != nil {
+		t.Fatalf("Help() returned error: %v", err)
+	}
+
+	output := stdout.String()
+	for _, want := range []string{
+		"Binding scope is limited to workflow or ticket",
+		"openase secret binding create",
+		"projectId must be UUID values",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("expected help output to contain %q, got %q", want, output)
+		}
+	}
+}
+
 func TestMachineListHelpMentionsProjectAwareBridge(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"machine", "list"})

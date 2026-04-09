@@ -39,7 +39,7 @@
   }
 
   $effect(() => {
-    if (authStore.authMode !== 'oidc' || !authStore.authenticated) {
+    if (!authStore.sessionGovernanceAvailable) {
       governance = null
       loading = false
       error = ''

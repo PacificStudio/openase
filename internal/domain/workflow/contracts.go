@@ -455,11 +455,10 @@ type HarnessTicketData struct {
 }
 
 type HarnessTicketLinkData struct {
-	Type     string
-	URL      string
-	Title    string
-	Status   string
-	Relation string
+	Type   string
+	URL    string
+	Title  string
+	Status string
 }
 
 type HarnessTicketDependencyData struct {

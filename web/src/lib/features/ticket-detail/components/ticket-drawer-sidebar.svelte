@@ -79,7 +79,6 @@
       externalId: string
       title: string
       status: string
-      relation: string
     }) => Promise<boolean> | boolean
     onDeleteExternalLink?: (linkId: string) => void
     onCreateScope?: (draft: {

@@ -86,7 +86,7 @@ type AgentRunQueryService interface {
 }
 
 type ActivityQueryService interface {
-	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
+	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error)
 }
 
 // Service is a transitional compatibility facade over the narrower catalog services.
@@ -223,7 +223,7 @@ type AgentRunQueryRepository interface {
 }
 
 type ActivityQueryRepository interface {
-	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error)
+	ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error)
 }
 
 // Repository is a transitional compatibility facade over the narrower catalog repositories.

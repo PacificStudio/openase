@@ -40,9 +40,11 @@ Each status has a **Stage** attribute:
 
 Connect code repositories to the project so agents can access code:
 
-- Connect GitHub / GitLab repositories
+- Connect GitHub / GitLab repositories, or register machine-local / self-hosted Git sources with `file://...`
 - Configure Outbound Credentials
 - Agents can clone code, create branches, submit PRs
+
+`file://` repository URLs are resolved on the machine that performs clone/fetch. That means a local mirror available on one machine is only usable from runtimes that can reach the same filesystem path.
 
 After configuration, click "Test Connection" to ensure agents can access code properly.
 

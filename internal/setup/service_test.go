@@ -119,8 +119,8 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	if !strings.Contains(configText, "project_name: "+DefaultProjectName) {
 		t.Fatalf("expected config to contain project name, got %q", configText)
 	}
-	if !strings.Contains(configText, "mode: disabled") {
-		t.Fatalf("expected config to contain disabled auth mode, got %q", configText)
+	if strings.Contains(configText, "\nauth:\n") || strings.Contains(configText, "auth:\n") {
+		t.Fatalf("expected config to omit legacy auth block, got %q", configText)
 	}
 	if strings.Contains(configText, "repo_path:") || strings.Contains(configText, "mode: personal") {
 		t.Fatalf("config should not contain legacy repo/mode setup fields, got %q", configText)
@@ -149,7 +149,7 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	}
 }
 
-func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
+func TestServiceCompleteWritesConfigThatLoadsWithoutLegacyAuthSection(t *testing.T) {
 	homeDir := t.TempDir()
 	service, err := NewService(Options{
 		HomeDir:    homeDir,
@@ -171,19 +171,6 @@ func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
 			Password: "secret",
 			SSLMode:  "disable",
 		},
-		Auth: RawAuthInput{
-			Mode: string(AuthModeOIDC),
-			OIDC: &RawOIDCInput{
-				IssuerURL:            "https://example.auth0.com/",
-				ClientID:             "openase",
-				ClientSecret:         "super-secret",
-				RedirectURL:          DefaultOIDCRedirectURL,
-				Scopes:               DefaultOIDCScopes,
-				BootstrapAdminEmails: "admin@example.com",
-				SessionTTL:           DefaultOIDCSessionTTL,
-				SessionIdleTTL:       DefaultOIDCIdleTTL,
-			},
-		},
 	})
 	if err != nil {
 		t.Fatalf("Complete returned error: %v", err)
@@ -195,14 +182,16 @@ func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load() error = %v", err)
 	}
-	if cfg.Auth.Mode != config.AuthModeOIDC {
-		t.Fatalf("auth mode = %q", cfg.Auth.Mode)
+	// #nosec G304 -- Test reads the config it just wrote under a temp home directory.
+	configBody, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
+	if err != nil {
+		t.Fatalf("read config body: %v", err)
 	}
-	if cfg.Auth.OIDC.ClientSecret != "super-secret" {
-		t.Fatalf("client secret = %q", cfg.Auth.OIDC.ClientSecret)
+	if strings.Contains(string(configBody), "\nauth:\n") || strings.Contains(string(configBody), "auth:\n") {
+		t.Fatalf("expected config to omit auth section, got %q", string(configBody))
 	}
-	if len(cfg.Auth.OIDC.BootstrapAdminEmails) != 1 || cfg.Auth.OIDC.BootstrapAdminEmails[0] != "admin@example.com" {
-		t.Fatalf("bootstrap admin emails = %v", cfg.Auth.OIDC.BootstrapAdminEmails)
+	if cfg.Database.DSN == "" {
+		t.Fatalf("expected config.Load() to preserve the database config, got %+v", cfg)
 	}
 }
 

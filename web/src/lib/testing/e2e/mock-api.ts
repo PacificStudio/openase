@@ -77,7 +77,8 @@ type MockSecuritySettings = {
       issuer_url: string
       client_id: string
       client_secret_configured: boolean
-      redirect_url: string
+      redirect_mode: string
+      fixed_redirect_url: string
       scopes: string[]
       allowed_email_domains: string[]
       bootstrap_admin_emails: string[]
@@ -194,12 +195,17 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
   if (url.pathname === '/api/v1/auth/session' && request.method === 'GET') {
     return jsonResponse({
       auth_mode: 'disabled',
-      authenticated: false,
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
       issuer_url: '',
       user: null,
       csrf_token: '',
-      roles: [],
-      permissions: [],
+      roles: ['instance_admin'],
+      permissions: ['security_setting.read', 'security_setting.update', 'rbac.manage'],
     })
   }
 
@@ -219,13 +225,15 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
         ? ['project.read', 'project.update', 'rbac.manage']
         : scopeKind === 'organization'
           ? ['org.read', 'org.update', 'rbac.manage']
-          : ['security.read', 'security.manage', 'rbac.manage']
+          : ['security_setting.read', 'security_setting.update', 'rbac.manage']
     return jsonResponse({
-      user: {
-        id: 'local-instance-admin',
-        primary_email: 'local@example.com',
-        display_name: 'Local Instance Admin',
-      },
+      auth_mode: 'disabled',
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
       scope: {
         kind: scopeKind,
         id: scopeID,
@@ -885,6 +893,7 @@ async function handleProviderRoutes(request: Request, segments: string[]) {
   provider.cost_per_output_token =
     asNumber(body.cost_per_output_token) ?? provider.cost_per_output_token
   provider.auth_config = asObject(body.auth_config) ?? {}
+  provider.secret_bindings = asSecretBindings(body.secret_bindings)
 
   return jsonResponse({ provider: clone(provider) })
 }
@@ -1536,6 +1545,7 @@ function createInitialState(): MockState {
       cli_command: 'python3',
       cli_args: ['/home/user/workspace/openase/scripts/dev/fake_codex_app_server.py'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1568,6 +1578,7 @@ function createInitialState(): MockState {
       cli_command: 'claude',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'claude-opus-4-6',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1600,6 +1611,7 @@ function createInitialState(): MockState {
       cli_command: 'gemini',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gemini-2.5-pro',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1632,6 +1644,7 @@ function createInitialState(): MockState {
       cli_command: 'codex',
       cli_args: ['app-server', '--listen', 'stdio://'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1988,16 +2001,17 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
       issuer_url: '',
       local_principal: 'local_instance_admin:default',
       mode_summary:
-        'Disabled mode keeps the local bootstrap principal active while `/admin`, org admin, and project access stay split by scope.',
+        'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
       recommended_mode:
-        'Keep disabled mode for local-only use, or move to OIDC from /admin/auth when you need real multi-user browser access control.',
+        'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
       public_exposure_risk: 'local_only',
       warnings: [
-        'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
       ],
       next_steps: [
-        'You can keep disabled mode for local single-user use with no extra IAM overhead.',
-        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+        'Create a local bootstrap link for administrators who still need browser access on this machine.',
+        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
+        'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
       ],
       config_path: '/home/test/.openase/config.yaml',
       bootstrap_state: {
@@ -2025,7 +2039,8 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
         issuer_url: 'https://idp.example.com',
         client_id: 'openase',
         client_secret_configured: true,
-        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        redirect_mode: 'fixed',
+        fixed_redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
         scopes: ['openid', 'profile', 'email', 'groups'],
         allowed_email_domains: ['example.com'],
         bootstrap_admin_emails: ['admin@example.com'],
@@ -2035,19 +2050,19 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
           title: 'Mode selection guide',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
           summary:
-            'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+            'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
         },
         {
           title: 'Dual-mode contract',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
           summary:
-            'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+            'Read the access-control contract, YAML import behavior, and local recovery paths.',
         },
         {
           title: 'IAM rollout checklist',
           href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
           summary:
-            'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+            'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
         },
       ],
     },
@@ -2177,6 +2192,7 @@ function createMockTicketRecord(input: {
     children: [],
     dependencies: [],
     external_links: [],
+    pull_request_urls: [],
     external_ref: '',
     budget_usd: 0,
     cost_tokens_input: 0,
@@ -2990,6 +3006,17 @@ function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] 
           !!item && typeof item === 'object' && !Array.isArray(item),
       )
     : null
+}
+
+function asSecretBindings(
+  value: JsonValue | undefined,
+): Array<{ env_var_key: string; binding_key: string; configured: boolean; source: string }> {
+  return (asObjectArray(value) ?? []).map((item) => ({
+    env_var_key: asString(item.env_var_key) ?? '',
+    binding_key: asString(item.binding_key) ?? '',
+    configured: true,
+    source: 'binding',
+  }))
 }
 
 function decodeBase64UTF8(value: string): string {

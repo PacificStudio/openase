@@ -104,20 +104,21 @@ type AgentRun struct {
 }
 
 type AgentProviderInput struct {
-	MachineID          string         `json:"machine_id"`
-	Name               string         `json:"name"`
-	AdapterType        string         `json:"adapter_type"`
-	PermissionProfile  string         `json:"permission_profile"`
-	CliCommand         string         `json:"cli_command"`
-	CliArgs            []string       `json:"cli_args"`
-	AuthConfig         map[string]any `json:"auth_config"`
-	ModelName          string         `json:"model_name"`
-	ModelTemperature   *float64       `json:"model_temperature"`
-	ModelMaxTokens     *int           `json:"model_max_tokens"`
-	MaxParallelRuns    *int           `json:"max_parallel_runs"`
-	CostPerInputToken  *float64       `json:"cost_per_input_token"`
-	CostPerOutputToken *float64       `json:"cost_per_output_token"`
-	PricingConfig      map[string]any `json:"pricing_config"`
+	MachineID          string                            `json:"machine_id"`
+	Name               string                            `json:"name"`
+	AdapterType        string                            `json:"adapter_type"`
+	PermissionProfile  string                            `json:"permission_profile"`
+	CliCommand         string                            `json:"cli_command"`
+	CliArgs            []string                          `json:"cli_args"`
+	AuthConfig         map[string]any                    `json:"auth_config"`
+	SecretBindings     []AgentProviderSecretBindingInput `json:"secret_bindings"`
+	ModelName          string                            `json:"model_name"`
+	ModelTemperature   *float64                          `json:"model_temperature"`
+	ModelMaxTokens     *int                              `json:"model_max_tokens"`
+	MaxParallelRuns    *int                              `json:"max_parallel_runs"`
+	CostPerInputToken  *float64                          `json:"cost_per_input_token"`
+	CostPerOutputToken *float64                          `json:"cost_per_output_token"`
+	PricingConfig      map[string]any                    `json:"pricing_config"`
 }
 
 type AgentInput struct {
@@ -241,6 +242,11 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 	costPerInputToken = pricingConfig.SummaryInputPerToken()
 	costPerOutputToken = pricingConfig.SummaryOutputPerToken()
 
+	authConfig, err := BuildAgentProviderAuthConfig(adapterType, raw.AuthConfig, raw.SecretBindings)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+
 	return CreateAgentProvider{
 		OrganizationID:     organizationID,
 		MachineID:          machineID,
@@ -249,7 +255,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		PermissionProfile:  permissionProfile,
 		CliCommand:         strings.TrimSpace(raw.CliCommand),
 		CliArgs:            cliArgs,
-		AuthConfig:         cloneAnyMap(raw.AuthConfig),
+		AuthConfig:         authConfig,
 		ModelName:          modelName,
 		ModelTemperature:   modelTemperature,
 		ModelMaxTokens:     modelMaxTokens,

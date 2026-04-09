@@ -28,7 +28,6 @@ auth:
 
 security:
   cipher_seed: ""
-
 database:
   dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
 

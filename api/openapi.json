@@ -129,10 +129,13 @@
                             "client_secret_configured": {
                               "type": "boolean"
                             },
+                            "fixed_redirect_url": {
+                              "type": "string"
+                            },
                             "issuer_url": {
                               "type": "string"
                             },
-                            "redirect_url": {
+                            "redirect_mode": {
                               "type": "string"
                             },
                             "scopes": {
@@ -360,10 +363,13 @@
                             "client_secret_configured": {
                               "type": "boolean"
                             },
+                            "fixed_redirect_url": {
+                              "type": "string"
+                            },
                             "issuer_url": {
                               "type": "string"
                             },
-                            "redirect_url": {
+                            "redirect_mode": {
                               "type": "string"
                             },
                             "scopes": {
@@ -519,12 +525,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -661,10 +675,13 @@
                             "client_secret_configured": {
                               "type": "boolean"
                             },
+                            "fixed_redirect_url": {
+                              "type": "string"
+                            },
                             "issuer_url": {
                               "type": "string"
                             },
-                            "redirect_url": {
+                            "redirect_mode": {
                               "type": "string"
                             },
                             "scopes": {
@@ -818,12 +835,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -1005,12 +1030,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -1147,10 +1180,13 @@
                             "client_secret_configured": {
                               "type": "boolean"
                             },
+                            "fixed_redirect_url": {
+                              "type": "string"
+                            },
                             "issuer_url": {
                               "type": "string"
                             },
-                            "redirect_url": {
+                            "redirect_mode": {
                               "type": "string"
                             },
                             "scopes": {
@@ -2655,6 +2691,27 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "auth_configured": {
+                      "type": "boolean"
+                    },
+                    "auth_mode": {
+                      "type": "string"
+                    },
+                    "authenticated": {
+                      "type": "boolean"
+                    },
+                    "available_auth_methods": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "can_manage_auth": {
+                      "type": "boolean"
+                    },
+                    "current_auth_method": {
+                      "type": "string"
+                    },
                     "groups": {
                       "items": {
                         "properties": {
@@ -2672,11 +2729,17 @@
                       },
                       "type": "array"
                     },
+                    "login_required": {
+                      "type": "boolean"
+                    },
                     "permissions": {
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
+                    },
+                    "principal_kind": {
+                      "type": "string"
                     },
                     "roles": {
                       "items": {
@@ -2695,7 +2758,11 @@
                       },
                       "type": "object"
                     },
+                    "session_governance_available": {
+                      "type": "boolean"
+                    },
                     "user": {
+                      "nullable": true,
                       "properties": {
                         "avatar_url": {
                           "type": "string"
@@ -2717,7 +2784,7 @@
                 }
               }
             },
-            "description": "Get effective OpenASE roles and permissions for the authenticated human response."
+            "description": "Get effective OpenASE roles and permissions for the current request context response."
           },
           "401": {
             "content": {
@@ -2756,7 +2823,7 @@
             "description": "Forbidden response."
           }
         },
-        "summary": "Get effective OpenASE roles and permissions for the authenticated human",
+        "summary": "Get effective OpenASE roles and permissions for the current request context",
         "tags": [
           "auth"
         ]
@@ -2919,17 +2986,35 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "auth_configured": {
+                      "type": "boolean"
+                    },
                     "auth_mode": {
                       "type": "string"
                     },
                     "authenticated": {
                       "type": "boolean"
                     },
+                    "available_auth_methods": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "can_manage_auth": {
+                      "type": "boolean"
+                    },
                     "csrf_token": {
+                      "type": "string"
+                    },
+                    "current_auth_method": {
                       "type": "string"
                     },
                     "issuer_url": {
                       "type": "string"
+                    },
+                    "login_required": {
+                      "type": "boolean"
                     },
                     "permissions": {
                       "items": {
@@ -2937,11 +3022,17 @@
                       },
                       "type": "array"
                     },
+                    "principal_kind": {
+                      "type": "string"
+                    },
                     "roles": {
                       "items": {
                         "type": "string"
                       },
                       "type": "array"
+                    },
+                    "session_governance_available": {
+                      "type": "boolean"
                     },
                     "user": {
                       "nullable": true,
@@ -7806,7 +7897,7 @@
                     "type": "string"
                   },
                   "env_vars": {
-                    "description": "Environment variable entries exported when work runs on the machine.",
+                    "description": "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
                     "items": {
                       "type": "string"
                     },
@@ -11636,7 +11727,7 @@
                     "type": "string"
                   },
                   "env_vars": {
-                    "description": "Environment variable entries exported when work runs on the machine.",
+                    "description": "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
                     "items": {
                       "type": "string"
                     },
@@ -13406,6 +13497,26 @@
                               }
                             },
                             "type": "object"
+                          },
+                          "secret_bindings": {
+                            "items": {
+                              "properties": {
+                                "binding_key": {
+                                  "type": "string"
+                                },
+                                "configured": {
+                                  "type": "boolean"
+                                },
+                                "env_var_key": {
+                                  "type": "string"
+                                },
+                                "source": {
+                                  "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "type": "array"
                           }
                         },
                         "type": "object"
@@ -13504,7 +13615,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "type": "object"
                   },
                   "cli_args": {
@@ -13566,6 +13677,23 @@
                     "additionalProperties": {},
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -13945,6 +14073,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -14083,6 +14231,910 @@
         "summary": "Stream organization provider events",
         "tags": [
           "streams"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets": {
+      "get": {
+        "operationId": "listOrganizationScopedSecrets",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secrets": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "disabled_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "encryption": {
+                            "properties": {
+                              "algorithm": {
+                                "type": "string"
+                              },
+                              "key_id": {
+                                "type": "string"
+                              },
+                              "key_source": {
+                                "type": "string"
+                              },
+                              "rotated_at": {
+                                "type": "string"
+                              },
+                              "value_preview": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "usage_count": {
+                            "type": "integer"
+                          },
+                          "usage_scopes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List organization scoped secrets managed from org settings response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List organization scoped secrets managed from org settings",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "post": {
+        "operationId": "createOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "description": {
+                    "description": "Human-readable description that explains what the secret is used for.",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "description": "Secret kind. Currently only opaque is supported.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
+                    "type": "string"
+                  },
+                  "scope": {
+                    "description": "Secret scope. Supported values are organization and project.",
+                    "type": "string"
+                  },
+                  "value": {
+                    "description": "Plaintext secret value to encrypt and persist at rest.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a new organization scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a new organization scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a new organization scoped secret",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}": {
+      "delete": {
+        "operationId": "deleteOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Organization scoped secret deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Delete an organization scoped secret and remove its default bindings",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable": {
+      "post": {
+        "operationId": "disableOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Disable an organization scoped secret so lower-precedence bindings can fall back response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Disable an organization scoped secret so lower-precedence bindings can fall back",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate": {
+      "post": {
+        "operationId": "rotateOrganizationScopedSecret",
+        "parameters": [
+          {
+            "description": "Organization ID.",
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "value": {
+                    "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Rotate the encrypted value for an organization scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Rotate the encrypted value for an organization scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Rotate the encrypted value for an organization scoped secret",
+        "tags": [
+          "security-settings"
         ]
       }
     },
@@ -14941,6 +15993,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Fetch older activity events before the provided activity cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -14983,6 +16043,12 @@
                         "type": "object"
                       },
                       "type": "array"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": "string"
                     }
                   },
                   "type": "object"
@@ -17184,9 +18250,6 @@
                                   "id": {
                                     "type": "string"
                                   },
-                                  "relation": {
-                                    "type": "string"
-                                  },
                                   "status": {
                                     "type": "string"
                                   },
@@ -17246,6 +18309,12 @@
                             },
                             "project_id": {
                               "type": "string"
+                            },
+                            "pull_request_urls": {
+                              "items": {
+                                "type": "string"
+                              },
+                              "type": "array"
                             },
                             "retry_paused": {
                               "type": "boolean"
@@ -19330,10 +20399,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -19548,7 +20620,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -19680,15 +20790,6 @@
             "required": true,
             "schema": {
               "format": "uuid",
-              "type": "string"
-            }
-          },
-          {
-            "description": "Credential scope to delete. Supported values are organization and project.",
-            "in": "query",
-            "name": "scope",
-            "required": true,
-            "schema": {
               "type": "string"
             }
           }
@@ -19871,10 +20972,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -20089,7 +21193,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -20111,7 +21253,7 @@
                 }
               }
             },
-            "description": "Delete a stored platform-managed GitHub outbound credential response."
+            "description": "Delete the project-level GitHub credential override response."
           },
           "400": {
             "content": {
@@ -20204,7 +21346,7 @@
             "description": "Service Unavailable response."
           }
         },
-        "summary": "Delete a stored platform-managed GitHub outbound credential",
+        "summary": "Delete the project-level GitHub credential override",
         "tags": [
           "security-settings"
         ]
@@ -20228,10 +21370,6 @@
             "application/json": {
               "schema": {
                 "properties": {
-                  "scope": {
-                    "description": "Credential scope to mutate. Supported values are organization and project.",
-                    "type": "string"
-                  },
                   "token": {
                     "description": "GitHub token value copied into platform-managed secret storage.",
                     "type": "string"
@@ -20422,10 +21560,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -20640,7 +21781,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -20776,23 +21955,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "scope": {
-                    "description": "Credential scope to mutate. Supported values are organization and project.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Import the current gh auth token into platform-managed GitHub credential storage request body.",
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -20971,10 +22133,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -21189,7 +22354,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -21211,7 +22414,7 @@
                 }
               }
             },
-            "description": "Import the current gh auth token into platform-managed GitHub credential storage response."
+            "description": "Import the current gh auth token as the project-level GitHub credential override response."
           },
           "400": {
             "content": {
@@ -21304,7 +22507,7 @@
             "description": "Service Unavailable response."
           }
         },
-        "summary": "Import the current gh auth token into platform-managed GitHub credential storage",
+        "summary": "Import the current gh auth token as the project-level GitHub credential override",
         "tags": [
           "security-settings"
         ]
@@ -21325,23 +22528,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "properties": {
-                  "scope": {
-                    "description": "Credential scope to mutate. Supported values are organization and project.",
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            }
-          },
-          "description": "Retest a stored platform-managed GitHub outbound credential request body.",
-          "required": true
-        },
         "responses": {
           "200": {
             "content": {
@@ -21520,10 +22706,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -21738,7 +22927,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -21760,7 +22987,7 @@
                 }
               }
             },
-            "description": "Retest a stored platform-managed GitHub outbound credential response."
+            "description": "Retest the stored project-level GitHub credential override response."
           },
           "400": {
             "content": {
@@ -21853,7 +23080,7 @@
             "description": "Service Unavailable response."
           }
         },
-        "summary": "Retest a stored platform-managed GitHub outbound credential",
+        "summary": "Retest the stored project-level GitHub credential override",
         "tags": [
           "security-settings"
         ]
@@ -21901,12 +23128,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -22102,10 +23337,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -22320,7 +23558,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -22483,12 +23759,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -22682,12 +23966,20 @@
                     "description": "OAuth client secret stored server-side for the configured OIDC client.",
                     "type": "string"
                   },
+                  "fixed_redirect_url": {
+                    "description": "Explicit browser callback URL used only when redirect_mode=fixed.",
+                    "type": "string"
+                  },
                   "issuer_url": {
                     "description": "OIDC issuer discovery URL used to resolve the provider metadata document.",
                     "type": "string"
                   },
+                  "redirect_mode": {
+                    "description": "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+                    "type": "string"
+                  },
                   "redirect_url": {
-                    "description": "Browser callback URL that must match the OIDC provider client registration.",
+                    "description": "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
                     "type": "string"
                   },
                   "scopes": {
@@ -22903,10 +24195,13 @@
                                 "client_secret_configured": {
                                   "type": "boolean"
                                 },
+                                "fixed_redirect_url": {
+                                  "type": "string"
+                                },
                                 "issuer_url": {
                                   "type": "string"
                                 },
-                                "redirect_url": {
+                                "redirect_mode": {
                                   "type": "string"
                                 },
                                 "scopes": {
@@ -23121,7 +24416,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -23237,6 +24570,1852 @@
           }
         },
         "summary": "Persist the OIDC draft and switch the configured auth mode to oidc",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secret-bindings": {
+      "get": {
+        "operationId": "listScopedSecretBindings",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "bindings": {
+                      "items": {
+                        "properties": {
+                          "binding_key": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string"
+                          },
+                          "scope_resource_id": {
+                            "type": "string"
+                          },
+                          "secret": {
+                            "properties": {
+                              "description": {
+                                "type": "string"
+                              },
+                              "disabled": {
+                                "type": "boolean"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "project_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "secret_id": {
+                            "type": "string"
+                          },
+                          "target": {
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "identifier": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "scope": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List workflow and ticket scoped secret bindings configured for this project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List workflow and ticket scoped secret bindings configured for this project",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "post": {
+        "operationId": "createScopedSecretBinding",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "binding_key": {
+                    "description": "Runtime environment binding key. Keys are normalized to upper snake case before persistence.",
+                    "type": "string"
+                  },
+                  "scope": {
+                    "description": "Binding scope. Supported values are workflow and ticket.",
+                    "type": "string"
+                  },
+                  "scope_resource_id": {
+                    "description": "Workflow or ticket ID that owns this binding.",
+                    "type": "string"
+                  },
+                  "secret_id": {
+                    "description": "Secret ID to bind into workflow or ticket runtime resolution.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a workflow or ticket scoped secret binding for runtime resolution request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "binding": {
+                      "properties": {
+                        "binding_key": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "scope_resource_id": {
+                          "type": "string"
+                        },
+                        "secret": {
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "disabled": {
+                              "type": "boolean"
+                            },
+                            "id": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "project_id": {
+                              "nullable": true,
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "secret_id": {
+                          "type": "string"
+                        },
+                        "target": {
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "identifier": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "scope": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a workflow or ticket scoped secret binding for runtime resolution response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a workflow or ticket scoped secret binding for runtime resolution",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}": {
+      "delete": {
+        "operationId": "deleteScopedSecretBinding",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret binding ID.",
+            "in": "path",
+            "name": "bindingId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Secret binding deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Delete a workflow or ticket scoped secret binding",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secrets": {
+      "get": {
+        "operationId": "listScopedSecrets",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secrets": {
+                      "items": {
+                        "properties": {
+                          "created_at": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "disabled_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "encryption": {
+                            "properties": {
+                              "algorithm": {
+                                "type": "string"
+                              },
+                              "key_id": {
+                                "type": "string"
+                              },
+                              "key_source": {
+                                "type": "string"
+                              },
+                              "rotated_at": {
+                                "type": "string"
+                              },
+                              "value_preview": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organization_id": {
+                            "type": "string"
+                          },
+                          "project_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "scope": {
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          },
+                          "usage_count": {
+                            "type": "integer"
+                          },
+                          "usage_scopes": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List organization and project scoped secrets that are accessible from this project response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List organization and project scoped secrets that are accessible from this project",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "post": {
+        "operationId": "createScopedSecret",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "description": {
+                    "description": "Human-readable description that explains what the secret is used for.",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "description": "Secret kind. Currently only opaque is supported.",
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
+                    "type": "string"
+                  },
+                  "scope": {
+                    "description": "Secret scope. Supported values are organization and project.",
+                    "type": "string"
+                  },
+                  "value": {
+                    "description": "Plaintext secret value to encrypt and persist at rest.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a new encrypted scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a new encrypted scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a new encrypted scoped secret",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime": {
+      "post": {
+        "operationId": "resolveScopedSecretsForRuntime",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "agent_id": {
+                    "description": "Optional agent ID included in the resolution precedence chain.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "binding_keys": {
+                    "description": "Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "ticket_id": {
+                    "description": "Optional ticket ID included in the resolution precedence chain.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "workflow_id": {
+                    "description": "Optional workflow ID included in the resolution precedence chain.",
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "missing_keys": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "resolved": {
+                      "items": {
+                        "properties": {
+                          "binding_key": {
+                            "type": "string"
+                          },
+                          "binding_scope": {
+                            "type": "string"
+                          },
+                          "secret_id": {
+                            "type": "string"
+                          },
+                          "secret_kind": {
+                            "type": "string"
+                          },
+                          "secret_name": {
+                            "type": "string"
+                          },
+                          "secret_scope": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}": {
+      "delete": {
+        "operationId": "deleteScopedSecret",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Scoped secret deleted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a scoped secret and remove its default bindings",
+        "tags": [
+          "security-settings"
+        ]
+      },
+      "patch": {
+        "operationId": "updateScopedSecretMetadata",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "description": {
+                    "description": "Updated human-readable description for the secret.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "name": {
+                    "description": "Updated secret name. Names are normalized to upper snake case when provided.",
+                    "nullable": true,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Update scoped secret metadata without changing the encrypted value request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Update scoped secret metadata without changing the encrypted value response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Update scoped secret metadata without changing the encrypted value",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable": {
+      "post": {
+        "operationId": "disableScopedSecret",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Disable a scoped secret so lower-precedence bindings can fall back response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Disable a scoped secret so lower-precedence bindings can fall back",
+        "tags": [
+          "security-settings"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate": {
+      "post": {
+        "operationId": "rotateScopedSecret",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Secret ID.",
+            "in": "path",
+            "name": "secretId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "value": {
+                    "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Rotate the encrypted value for an existing scoped secret request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "secret": {
+                      "properties": {
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "disabled": {
+                          "type": "boolean"
+                        },
+                        "disabled_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "encryption": {
+                          "properties": {
+                            "algorithm": {
+                              "type": "string"
+                            },
+                            "key_id": {
+                              "type": "string"
+                            },
+                            "key_source": {
+                              "type": "string"
+                            },
+                            "rotated_at": {
+                              "type": "string"
+                            },
+                            "value_preview": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organization_id": {
+                          "type": "string"
+                        },
+                        "project_id": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "scope": {
+                          "type": "string"
+                        },
+                        "updated_at": {
+                          "type": "string"
+                        },
+                        "usage_count": {
+                          "type": "integer"
+                        },
+                        "usage_scopes": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Rotate the encrypted value for an existing scoped secret response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Rotate the encrypted value for an existing scoped secret",
         "tags": [
           "security-settings"
         ]
@@ -24339,9 +27518,6 @@
                                 "id": {
                                   "type": "string"
                                 },
-                                "relation": {
-                                  "type": "string"
-                                },
                                 "status": {
                                   "type": "string"
                                 },
@@ -24401,6 +27577,12 @@
                           },
                           "project_id": {
                             "type": "string"
+                          },
+                          "pull_request_urls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "retry_paused": {
                             "type": "boolean"
@@ -24718,9 +27900,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -24780,6 +27959,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"
@@ -25058,9 +28243,6 @@
                                 "id": {
                                   "type": "string"
                                 },
-                                "relation": {
-                                  "type": "string"
-                                },
                                 "status": {
                                   "type": "string"
                                 },
@@ -25120,6 +28302,12 @@
                           },
                           "project_id": {
                             "type": "string"
+                          },
+                          "pull_request_urls": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
                           },
                           "retry_paused": {
                             "type": "boolean"
@@ -25777,9 +28965,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -25839,6 +29024,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"
@@ -27422,6 +30613,22 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum number of update threads to return.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Load update threads older than this cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -27430,6 +30637,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": "string"
+                    },
                     "threads": {
                       "items": {
                         "properties": {
@@ -30081,6 +33294,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -30178,7 +33411,7 @@
                   },
                   "auth_config": {
                     "additionalProperties": {},
-                    "description": "Provider-specific authentication configuration object.",
+                    "description": "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
                     "nullable": true,
                     "type": "object"
                   },
@@ -30248,6 +33481,24 @@
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "nullable": true,
                     "type": "object"
+                  },
+                  "secret_bindings": {
+                    "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+                    "items": {
+                      "properties": {
+                        "binding_key": {
+                          "description": "Secret binding alias to resolve for the matching runtime environment variable.",
+                          "type": "string"
+                        },
+                        "env_var_key": {
+                          "description": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "nullable": true,
+                    "type": "array"
                   }
                 },
                 "type": "object"
@@ -30627,6 +33878,26 @@
                             }
                           },
                           "type": "object"
+                        },
+                        "secret_bindings": {
+                          "items": {
+                            "properties": {
+                              "binding_key": {
+                                "type": "string"
+                              },
+                              "configured": {
+                                "type": "boolean"
+                              },
+                              "env_var_key": {
+                                "type": "string"
+                              },
+                              "source": {
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
                         }
                       },
                       "type": "object"
@@ -31384,9 +34655,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -31446,6 +34714,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"
@@ -33686,9 +36960,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -33748,6 +37019,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"
@@ -34047,9 +37324,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -34109,6 +37383,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"
@@ -35222,11 +38502,6 @@
                     "description": "External system identifier for the linked resource.",
                     "type": "string"
                   },
-                  "relation": {
-                    "description": "Relationship between the ticket and the external resource.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "status": {
                     "description": "Optional external status value.",
                     "nullable": true,
@@ -35238,7 +38513,8 @@
                     "type": "string"
                   },
                   "type": {
-                    "description": "External link type.",
+                    "description": "Optional freeform external link type.",
+                    "nullable": true,
                     "type": "string"
                   },
                   "url": {
@@ -35268,9 +38544,6 @@
                           "type": "string"
                         },
                         "id": {
-                          "type": "string"
-                        },
-                        "relation": {
                           "type": "string"
                         },
                         "status": {
@@ -35614,9 +38887,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -35676,6 +38946,12 @@
                         },
                         "project_id": {
                           "type": "string"
+                        },
+                        "pull_request_urls": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "retry_paused": {
                           "type": "boolean"

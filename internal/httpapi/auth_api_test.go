@@ -4,10 +4,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,9 +24,12 @@ import (
 	entuser "github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
@@ -67,6 +75,190 @@ func TestOIDCFlowCookiePathMatchesAPICallback(t *testing.T) {
 	}
 }
 
+func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	issuerServer := newTestOIDCDiscoveryServer(t)
+	defer issuerServer.Close()
+
+	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
+	repository := humanauthrepo.NewEntRepository(client)
+	humanAuthSvc := humanauthservice.NewService(repository, nil, instanceAuthSvc)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithInstanceAuthService(instanceAuthSvc),
+		WithHumanAuthService(humanAuthSvc, humanauthservice.NewAuthorizer(repository)),
+	)
+
+	startDisabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)
+	startDisabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startDisabledRec, startDisabledReq)
+	if startDisabledRec.Code != http.StatusNotFound {
+		t.Fatalf("initial oidc start status = %d, want 404", startDisabledRec.Code)
+	}
+
+	issued, err := humanAuthSvc.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "test:auth-api",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+
+	redeemRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeemRec.Code != http.StatusOK {
+		t.Fatalf("redeem local bootstrap status = %d: %s", redeemRec.Code, redeemRec.Body.String())
+	}
+	var redeemSession authSessionResponse
+	decodeResponse(t, redeemRec, &redeemSession)
+	cookies := redeemRec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != humanSessionCookieName || cookies[0].Value == "" {
+		t.Fatalf("expected local bootstrap session cookie, got %#v", cookies)
+	}
+
+	enableReq := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/auth/oidc-enable",
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+	)
+	enableReq.Header.Set("Content-Type", "application/json")
+	enableReq.Header.Set("Origin", "http://example.com")
+	enableReq.Header.Set(csrfHeaderName, redeemSession.CSRFToken)
+	enableReq.AddCookie(cookies[0])
+	enableRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(enableRec, enableReq)
+	if enableRec.Code != http.StatusOK {
+		t.Fatalf("enable oidc status = %d: %s", enableRec.Code, enableRec.Body.String())
+	}
+
+	sessionEnabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", http.NoBody)
+	sessionEnabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(sessionEnabledRec, sessionEnabledReq)
+	if sessionEnabledRec.Code != http.StatusOK {
+		t.Fatalf("enabled auth session status = %d: %s", sessionEnabledRec.Code, sessionEnabledRec.Body.String())
+	}
+	var enabledSession authSessionResponse
+	if err := json.Unmarshal(sessionEnabledRec.Body.Bytes(), &enabledSession); err != nil {
+		t.Fatalf("unmarshal enabled auth session: %v", err)
+	}
+	if enabledSession.AuthMode != "oidc" {
+		t.Fatalf("enabled auth_mode = %q, want oidc", enabledSession.AuthMode)
+	}
+	if !enabledSession.LoginRequired {
+		t.Fatal("enabled login_required = false, want true")
+	}
+	if enabledSession.Authenticated {
+		t.Fatal("enabled authenticated = true, want false")
+	}
+	if enabledSession.PrincipalKind != "anonymous" {
+		t.Fatalf("enabled principal_kind = %q, want anonymous", enabledSession.PrincipalKind)
+	}
+	assertStringSet(t, enabledSession.AvailableAuthMethods, "oidc")
+	if enabledSession.CurrentAuthMethod != "oidc" {
+		t.Fatalf("enabled current_auth_method = %q, want oidc", enabledSession.CurrentAuthMethod)
+	}
+	if !enabledSession.AuthConfigured {
+		t.Fatal("enabled auth_configured = false, want true")
+	}
+	if enabledSession.SessionGovernanceAvailable {
+		t.Fatal("enabled session_governance_available = true, want false")
+	}
+	if enabledSession.CanManageAuth {
+		t.Fatal("enabled can_manage_auth = true, want false")
+	}
+	if enabledSession.IssuerURL != issuerServer.URL {
+		t.Fatalf("enabled issuer_url = %q, want %q", enabledSession.IssuerURL, issuerServer.URL)
+	}
+
+	startEnabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start?return_to=/projects", http.NoBody)
+	startEnabledReq.Header.Set("X-Forwarded-Proto", "https")
+	startEnabledReq.Header.Set("X-Forwarded-Host", "desktop.example.com")
+	startEnabledReq.Header.Set("X-Forwarded-Port", "43123")
+	startEnabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startEnabledRec, startEnabledReq)
+	if startEnabledRec.Code != http.StatusFound {
+		t.Fatalf("enabled oidc start status = %d, want 302: %s", startEnabledRec.Code, startEnabledRec.Body.String())
+	}
+	location := startEnabledRec.Header().Get("Location")
+	if !strings.HasPrefix(location, issuerServer.URL+"/authorize") {
+		t.Fatalf("enabled oidc redirect = %q, want issuer authorize endpoint", location)
+	}
+	locationURL, err := url.Parse(location)
+	if err != nil {
+		t.Fatalf("parse oidc redirect url: %v", err)
+	}
+	if got := locationURL.Query().Get("redirect_uri"); got != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("redirect_uri = %q", got)
+	}
+
+	if _, err := instanceAuthSvc.Disable(context.Background()); err != nil {
+		t.Fatalf("disable auth runtime state: %v", err)
+	}
+
+	sessionDisabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/session", http.NoBody)
+	sessionDisabledRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(sessionDisabledRec, sessionDisabledReq)
+	if sessionDisabledRec.Code != http.StatusOK {
+		t.Fatalf("disabled auth session status = %d: %s", sessionDisabledRec.Code, sessionDisabledRec.Body.String())
+	}
+	var disabledSession authSessionResponse
+	if err := json.Unmarshal(sessionDisabledRec.Body.Bytes(), &disabledSession); err != nil {
+		t.Fatalf("unmarshal disabled auth session: %v", err)
+	}
+	if disabledSession.AuthMode != "disabled" {
+		t.Fatalf("disabled auth_mode = %q, want disabled", disabledSession.AuthMode)
+	}
+	if !disabledSession.LoginRequired {
+		t.Fatal("disabled login_required = false, want true")
+	}
+	if disabledSession.Authenticated {
+		t.Fatal("disabled authenticated = true, want false")
+	}
+	if disabledSession.PrincipalKind != "anonymous" {
+		t.Fatalf("disabled principal_kind = %q, want anonymous", disabledSession.PrincipalKind)
+	}
+	assertStringSet(t, disabledSession.AvailableAuthMethods, "local_bootstrap_link")
+	if disabledSession.CurrentAuthMethod != "local_bootstrap_link" {
+		t.Fatalf("disabled current_auth_method = %q, want local_bootstrap_link", disabledSession.CurrentAuthMethod)
+	}
+	if disabledSession.AuthConfigured {
+		t.Fatal("disabled auth_configured = true, want false")
+	}
+	if disabledSession.SessionGovernanceAvailable {
+		t.Fatal("disabled session_governance_available = true, want false")
+	}
+	if disabledSession.CanManageAuth {
+		t.Fatal("disabled can_manage_auth = true, want false")
+	}
+	if len(disabledSession.Roles) != 0 || len(disabledSession.Permissions) != 0 {
+		t.Fatalf("expected disabled anonymous session to have no grants, got %+v", disabledSession)
+	}
+
+	startDisabledAgainReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)
+	startDisabledAgainRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(startDisabledAgainRec, startDisabledAgainReq)
+	if startDisabledAgainRec.Code != http.StatusNotFound {
+		t.Fatalf("final oidc start status = %d, want 404", startDisabledAgainRec.Code)
+	}
+}
+
 func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 	t.Parallel()
 
@@ -86,12 +278,17 @@ func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 	}
 
 	var payload struct {
-		AuthMode      string   `json:"auth_mode"`
-		Authenticated bool     `json:"authenticated"`
-		CSRFToken     string   `json:"csrf_token"`
-		Roles         []string `json:"roles"`
-		Permissions   []string `json:"permissions"`
-		User          struct {
+		AuthMode                   string   `json:"auth_mode"`
+		LoginRequired              bool     `json:"login_required"`
+		Authenticated              bool     `json:"authenticated"`
+		PrincipalKind              string   `json:"principal_kind"`
+		AuthConfigured             bool     `json:"auth_configured"`
+		SessionGovernanceAvailable bool     `json:"session_governance_available"`
+		CanManageAuth              bool     `json:"can_manage_auth"`
+		CSRFToken                  string   `json:"csrf_token"`
+		Roles                      []string `json:"roles"`
+		Permissions                []string `json:"permissions"`
+		User                       struct {
 			PrimaryEmail string `json:"primary_email"`
 			DisplayName  string `json:"display_name"`
 		} `json:"user"`
@@ -103,6 +300,21 @@ func TestAuthSessionReturnsAuthenticatedPrincipal(t *testing.T) {
 	}
 	if !payload.Authenticated {
 		t.Fatal("expected authenticated=true")
+	}
+	if !payload.LoginRequired {
+		t.Fatal("expected login_required=true")
+	}
+	if payload.PrincipalKind != "human_session" {
+		t.Fatalf("principal_kind = %q, want human_session", payload.PrincipalKind)
+	}
+	if !payload.AuthConfigured {
+		t.Fatal("expected auth_configured=true")
+	}
+	if !payload.SessionGovernanceAvailable {
+		t.Fatal("expected session_governance_available=true")
+	}
+	if !payload.CanManageAuth {
+		t.Fatal("expected can_manage_auth=true")
 	}
 	if payload.CSRFToken != csrfToken {
 		t.Fatalf("csrf_token = %q, want %q", payload.CSRFToken, csrfToken)
@@ -210,7 +422,10 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 	}
 
 	var payload struct {
-		Scope struct {
+		LoginRequired bool   `json:"login_required"`
+		Authenticated bool   `json:"authenticated"`
+		PrincipalKind string `json:"principal_kind"`
+		Scope         struct {
 			Kind string `json:"kind"`
 			ID   string `json:"id"`
 		} `json:"scope"`
@@ -224,6 +439,12 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 
 	if payload.Scope.Kind != "project" || payload.Scope.ID != projectID.String() {
 		t.Fatalf("unexpected scope: %+v", payload.Scope)
+	}
+	if !payload.LoginRequired || !payload.Authenticated {
+		t.Fatalf("unexpected capability state: %+v", payload)
+	}
+	if payload.PrincipalKind != "human_session" {
+		t.Fatalf("principal_kind = %q, want human_session", payload.PrincipalKind)
 	}
 	assertStringSet(t, payload.Roles, "org_admin", "org_member", "project_viewer")
 	assertStringSet(t, payload.Permissions,
@@ -294,6 +515,131 @@ func TestAuthPermissionsIncludeOrgInheritanceAndGroupUnion(t *testing.T) {
 	if len(payload.Groups) != 1 || payload.Groups[0].GroupKey != "platform-admins" {
 		t.Fatalf("unexpected groups payload: %+v", payload.Groups)
 	}
+}
+
+func TestAuthPermissionsCapabilityContractShapes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("local bootstrap", func(t *testing.T) {
+		t.Parallel()
+
+		server := NewServer(
+			config.ServerConfig{Port: 40023},
+			config.GitHubConfig{},
+			slog.New(slog.NewTextHandler(io.Discard, nil)),
+			eventinfra.NewChannelBus(),
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+		)
+
+		rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/auth/me/permissions", "")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var payload struct {
+			LoginRequired bool     `json:"login_required"`
+			Authenticated bool     `json:"authenticated"`
+			PrincipalKind string   `json:"principal_kind"`
+			CanManageAuth bool     `json:"can_manage_auth"`
+			Roles         []string `json:"roles"`
+			Permissions   []string `json:"permissions"`
+		}
+		decodeResponse(t, rec, &payload)
+
+		if payload.LoginRequired {
+			t.Fatal("login_required = true, want false")
+		}
+		if !payload.Authenticated {
+			t.Fatal("authenticated = false, want true")
+		}
+		if payload.PrincipalKind != "local_bootstrap" {
+			t.Fatalf("principal_kind = %q, want local_bootstrap", payload.PrincipalKind)
+		}
+		if !payload.CanManageAuth {
+			t.Fatal("can_manage_auth = false, want true")
+		}
+		assertStringSet(t, payload.Roles, "instance_admin")
+		for _, permission := range []string{"security_setting.read", "security_setting.update"} {
+			if !slices.Contains(payload.Permissions, permission) {
+				t.Fatalf("local bootstrap permissions missing %q in %+v", permission, payload.Permissions)
+			}
+		}
+	})
+
+	t.Run("anonymous human auth", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := newHumanAuthFixture(t)
+		rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var payload struct {
+			LoginRequired bool     `json:"login_required"`
+			Authenticated bool     `json:"authenticated"`
+			PrincipalKind string   `json:"principal_kind"`
+			Roles         []string `json:"roles"`
+			Permissions   []string `json:"permissions"`
+		}
+		decodeResponse(t, rec, &payload)
+
+		if !payload.LoginRequired {
+			t.Fatal("login_required = false, want true")
+		}
+		if payload.Authenticated {
+			t.Fatal("authenticated = true, want false")
+		}
+		if payload.PrincipalKind != "anonymous" {
+			t.Fatalf("principal_kind = %q, want anonymous", payload.PrincipalKind)
+		}
+		if len(payload.Roles) != 0 || len(payload.Permissions) != 0 {
+			t.Fatalf("expected anonymous permissions to be empty, got %+v", payload)
+		}
+	})
+
+	t.Run("human session", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := newHumanAuthFixture(t)
+		sessionToken, _ := fixture.createSession(t, humanFixtureSessionInput{
+			userEmail:       "alice@example.com",
+			displayName:     "Alice Control Plane",
+			instanceRoleKey: "instance_admin",
+		})
+
+		rec := fixture.request(t, http.MethodGet, "/api/v1/auth/me/permissions", map[string]string{
+			"Cookie":     humanSessionCookieName + "=" + sessionToken,
+			"User-Agent": "PermissionsContractTest/1.0",
+		})
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		var payload struct {
+			LoginRequired bool   `json:"login_required"`
+			Authenticated bool   `json:"authenticated"`
+			PrincipalKind string `json:"principal_kind"`
+			User          struct {
+				PrimaryEmail string `json:"primary_email"`
+			} `json:"user"`
+		}
+		decodeResponse(t, rec, &payload)
+
+		if !payload.LoginRequired || !payload.Authenticated {
+			t.Fatalf("unexpected capability state: %+v", payload)
+		}
+		if payload.PrincipalKind != "human_session" {
+			t.Fatalf("principal_kind = %q, want human_session", payload.PrincipalKind)
+		}
+		if payload.User.PrimaryEmail != "alice@example.com" {
+			t.Fatalf("primary_email = %q, want alice@example.com", payload.User.PrimaryEmail)
+		}
+	})
 }
 
 func TestHumanVisibilityFiltersOrganizationAndProjectLists(t *testing.T) {
@@ -420,6 +766,40 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 	}
 	if session.RevokedAt == nil {
 		t.Fatal("expected revoked_at to be set after logout")
+	}
+}
+
+func TestLogoutAllowsConfiguredTrustedOrigin(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixtureWithConfig(t, config.AuthConfig{
+		Mode: config.AuthModeOIDC,
+		OIDC: config.OIDCConfig{
+			IssuerURL:      "https://idp.example.com",
+			ClientID:       "openase",
+			ClientSecret:   "test-client-secret",
+			RedirectURL:    "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+			Scopes:         []string{"openid", "profile", "email"},
+			SessionTTL:     8 * time.Hour,
+			SessionIdleTTL: 30 * time.Minute,
+		},
+		CSRF: config.CSRFConfig{
+			TrustedOrigins: []string{" http://LOCALHOST:4173/ "},
+		},
+	})
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "alice@example.com",
+		displayName: "Alice Control Plane",
+	})
+
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", map[string]string{
+		"Cookie":         humanSessionCookieName + "=" + sessionToken,
+		"Origin":         "http://localhost:4173",
+		"X-OpenASE-CSRF": csrfToken,
+		"User-Agent":     "LogoutTest/1.0",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -1354,6 +1734,22 @@ type humanFixtureSessionInput struct {
 
 func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 	t.Helper()
+	return newHumanAuthFixtureWithConfig(t, config.AuthConfig{
+		Mode: config.AuthModeOIDC,
+		OIDC: config.OIDCConfig{
+			IssuerURL:      "https://idp.example.com",
+			ClientID:       "openase",
+			ClientSecret:   "test-client-secret",
+			RedirectURL:    "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+			Scopes:         []string{"openid", "profile", "email"},
+			SessionTTL:     8 * time.Hour,
+			SessionIdleTTL: 30 * time.Minute,
+		},
+	})
+}
+
+func newHumanAuthFixtureWithConfig(t *testing.T, cfg config.AuthConfig) humanAuthFixture {
+	t.Helper()
 
 	client := openTestEntClient(t)
 	t.Cleanup(func() {
@@ -1362,16 +1758,19 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 		}
 	})
 
-	cfg := config.AuthConfig{
-		Mode: config.AuthModeOIDC,
-		OIDC: config.OIDCConfig{
-			ClientSecret:   "test-client-secret",
-			SessionTTL:     8 * time.Hour,
-			SessionIdleTTL: 30 * time.Minute,
-		},
-	}
 	repository := humanauthrepo.NewEntRepository(client)
-	service := humanauthservice.NewService(cfg, repository, nil)
+	authStateSvc, err := accesscontrolservice.New(accesscontrolrepo.NewEntRepository(client), t.Name(), "", "")
+	if err != nil {
+		t.Fatalf("new access control runtime service: %v", err)
+	}
+	now := time.Now().UTC()
+	if _, err := authStateSvc.Activate(context.Background(), testActiveOIDCConfig(cfg), iam.OIDCActivationMetadata{
+		ActivatedAt: &now,
+		Source:      "test-human-fixture",
+	}); err != nil {
+		t.Fatalf("seed active access control runtime state: %v", err)
+	}
+	service := humanauthservice.NewService(repository, nil, authStateSvc)
 	authorizer := humanauthservice.NewAuthorizer(repository)
 	catalogSvc := catalogservice.New(
 		catalogrepo.NewEntRepository(client),
@@ -1390,6 +1789,7 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 		catalogSvc,
 		nil,
 		WithHumanAuthConfig(cfg),
+		WithInstanceAuthService(authStateSvc),
 		WithHumanAuthService(service, authorizer),
 	)
 

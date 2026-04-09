@@ -3,7 +3,6 @@
 package ticketexternallink
 
 import (
-	"fmt"
 	"time"
 
 	"entgo.io/ent/dialect/sql"
@@ -28,8 +27,6 @@ const (
 	FieldTitle = "title"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
-	// FieldRelation holds the string denoting the relation field in the database.
-	FieldRelation = "relation"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// EdgeTicket holds the string denoting the ticket edge name in mutations.
@@ -54,7 +51,6 @@ var Columns = []string{
 	FieldExternalID,
 	FieldTitle,
 	FieldStatus,
-	FieldRelation,
 	FieldCreatedAt,
 }
 
@@ -78,60 +74,6 @@ var (
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
-
-// LinkType defines the type for the "link_type" enum field.
-type LinkType string
-
-// LinkType values.
-const (
-	LinkTypeGithubIssue LinkType = "github_issue"
-	LinkTypeGitlabIssue LinkType = "gitlab_issue"
-	LinkTypeJiraTicket  LinkType = "jira_ticket"
-	LinkTypeGithubPr    LinkType = "github_pr"
-	LinkTypeGitlabMr    LinkType = "gitlab_mr"
-	LinkTypeCustom      LinkType = "custom"
-)
-
-func (lt LinkType) String() string {
-	return string(lt)
-}
-
-// LinkTypeValidator is a validator for the "link_type" field enum values. It is called by the builders before save.
-func LinkTypeValidator(lt LinkType) error {
-	switch lt {
-	case LinkTypeGithubIssue, LinkTypeGitlabIssue, LinkTypeJiraTicket, LinkTypeGithubPr, LinkTypeGitlabMr, LinkTypeCustom:
-		return nil
-	default:
-		return fmt.Errorf("ticketexternallink: invalid enum value for link_type field: %q", lt)
-	}
-}
-
-// Relation defines the type for the "relation" enum field.
-type Relation string
-
-// RelationRelated is the default value of the Relation enum.
-const DefaultRelation = RelationRelated
-
-// Relation values.
-const (
-	RelationResolves Relation = "resolves"
-	RelationRelated  Relation = "related"
-	RelationCausedBy Relation = "caused_by"
-)
-
-func (r Relation) String() string {
-	return string(r)
-}
-
-// RelationValidator is a validator for the "relation" field enum values. It is called by the builders before save.
-func RelationValidator(r Relation) error {
-	switch r {
-	case RelationResolves, RelationRelated, RelationCausedBy:
-		return nil
-	default:
-		return fmt.Errorf("ticketexternallink: invalid enum value for relation field: %q", r)
-	}
-}
 
 // OrderOption defines the ordering options for the TicketExternalLink queries.
 type OrderOption func(*sql.Selector)
@@ -169,11 +111,6 @@ func ByTitle(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
-}
-
-// ByRelation orders the results by the relation field.
-func ByRelation(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRelation, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

@@ -1,11 +1,23 @@
 import { api, ApiError } from './client'
-import type { HumanAuthSession, HumanAuthUser } from '$lib/stores/auth.svelte'
+import type {
+  HumanAuthCapabilities,
+  HumanAuthMethod,
+  HumanAuthSession,
+  HumanAuthUser,
+} from '$lib/stores/auth.svelte'
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
 type RawAuthSessionResponse = {
   auth_mode?: string
+  login_required?: boolean
   authenticated?: boolean
+  principal_kind?: string
+  available_auth_methods?: string[]
+  current_auth_method?: string
+  auth_configured?: boolean
+  session_governance_available?: boolean
+  can_manage_auth?: boolean
   issuer_url?: string
   user?: {
     id?: string
@@ -19,7 +31,16 @@ type RawAuthSessionResponse = {
 }
 
 export type EffectivePermissionsResponse = {
-  user: {
+  auth_mode?: string
+  login_required?: boolean
+  authenticated?: boolean
+  principal_kind?: string
+  available_auth_methods?: string[]
+  current_auth_method?: string
+  auth_configured?: boolean
+  session_governance_available?: boolean
+  can_manage_auth?: boolean
+  user?: {
     id: string
     primary_email: string
     display_name: string
@@ -355,6 +376,118 @@ function parseUser(raw?: RawAuthSessionResponse['user']): HumanAuthUser | undefi
   }
 }
 
+function normalizeAuthMode(raw: string | null | undefined) {
+  return raw?.trim() || 'disabled'
+}
+
+function normalizeAuthMethod(raw: string | null | undefined): HumanAuthMethod | '' {
+  const value = raw?.trim()
+  if (value === 'oidc' || value === 'local_bootstrap_link') {
+    return value
+  }
+  return ''
+}
+
+function normalizeAvailableAuthMethods(raw: string[] | null | undefined): HumanAuthMethod[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const values = raw
+    .map((item) => normalizeAuthMethod(item))
+    .filter((item): item is HumanAuthMethod => item !== '')
+  return Array.from(new Set(values))
+}
+
+function normalizeAuthCapabilities(
+  raw: RawAuthSessionResponse,
+  authMode: string,
+): HumanAuthCapabilities {
+  const availableAuthMethods = normalizeAvailableAuthMethods(raw.available_auth_methods)
+  const currentAuthMethod = normalizeAuthMethod(raw.current_auth_method)
+
+  if (availableAuthMethods.length > 0 || currentAuthMethod) {
+    const nextAvailableAuthMethods =
+      currentAuthMethod && !availableAuthMethods.includes(currentAuthMethod)
+        ? [...availableAuthMethods, currentAuthMethod]
+        : availableAuthMethods
+    return {
+      availableAuthMethods: nextAvailableAuthMethods,
+      currentAuthMethod:
+        currentAuthMethod ||
+        nextAvailableAuthMethods[0] ||
+        normalizeFallbackAuthMethod(authMode, raw),
+    }
+  }
+
+  const fallbackMethod = normalizeFallbackAuthMethod(authMode, raw)
+  return {
+    availableAuthMethods: fallbackMethod ? [fallbackMethod] : [],
+    currentAuthMethod: fallbackMethod,
+  }
+}
+
+function normalizeFallbackAuthMethod(
+  authMode: string,
+  raw: Pick<RawAuthSessionResponse, 'login_required'>,
+): HumanAuthMethod | '' {
+  if (raw.login_required === true) {
+    return 'oidc'
+  }
+  if (raw.login_required === false) {
+    return 'local_bootstrap_link'
+  }
+  if (authMode === 'oidc') {
+    return 'oidc'
+  }
+  return 'local_bootstrap_link'
+}
+
+function normalizeLoginRequired(
+  raw: RawAuthSessionResponse,
+  authCapabilities: HumanAuthCapabilities,
+) {
+  if (raw.login_required === true) {
+    return true
+  }
+  if (raw.login_required === false) {
+    return false
+  }
+  return authCapabilities.availableAuthMethods.length > 0
+}
+
+function normalizeAuthenticated(raw: RawAuthSessionResponse, loginRequired: boolean) {
+  if (raw.authenticated === true) {
+    return true
+  }
+  if (raw.authenticated === false) {
+    return false
+  }
+  return !loginRequired
+}
+
+function normalizePrincipalKind(raw: RawAuthSessionResponse, authenticated: boolean) {
+  const explicit = raw.principal_kind?.trim()
+  if (explicit) {
+    return explicit
+  }
+  if (!authenticated) {
+    return 'anonymous'
+  }
+  return raw.user?.id ? 'human_session' : 'local_bootstrap'
+}
+
+function normalizeCanManageAuth(raw: RawAuthSessionResponse, permissions: string[]) {
+  if (raw.can_manage_auth === true) {
+    return true
+  }
+  if (raw.can_manage_auth === false) {
+    return false
+  }
+  return (
+    permissions.includes('security_setting.read') || permissions.includes('security_setting.update')
+  )
+}
+
 export function normalizeReturnTo(raw: string | null | undefined) {
   const trimmed = raw?.trim() ?? ''
   if (!trimmed) {
@@ -371,6 +504,36 @@ export function normalizeReturnTo(raw: string | null | undefined) {
   }
 }
 
+function parseAuthSession(payload: RawAuthSessionResponse): HumanAuthSession {
+  const authMode = normalizeAuthMode(payload.auth_mode)
+  const authCapabilities = normalizeAuthCapabilities(payload, authMode)
+  const loginRequired = normalizeLoginRequired(payload, authCapabilities)
+  const authenticated = normalizeAuthenticated(payload, loginRequired)
+  const permissions = Array.isArray(payload.permissions)
+    ? payload.permissions.filter((value) => value.trim() !== '')
+    : []
+  return {
+    authMode,
+    loginRequired,
+    authenticated,
+    principalKind: normalizePrincipalKind(payload, authenticated),
+    authCapabilities,
+    authConfigured:
+      payload.auth_configured === true ||
+      authCapabilities.currentAuthMethod === 'oidc' ||
+      authMode === 'oidc',
+    sessionGovernanceAvailable:
+      payload.session_governance_available === true ||
+      (authCapabilities.currentAuthMethod === 'oidc' && authenticated),
+    canManageAuth: normalizeCanManageAuth(payload, permissions),
+    issuerURL: payload.issuer_url?.trim() || '',
+    user: parseUser(payload.user),
+    csrfToken: payload.csrf_token?.trim() || '',
+    roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
+    permissions,
+  }
+}
+
 export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSession> {
   const execute = fetchFn ?? window.fetch.bind(window)
   const response = await execute('/api/v1/auth/session', {
@@ -380,18 +543,22 @@ export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSess
   if (!response.ok) {
     throw new ApiError(response.status, await response.text().catch(() => response.statusText))
   }
-  const payload = (await response.json()) as RawAuthSessionResponse
-  return {
-    authMode: payload.auth_mode?.trim() || 'disabled',
-    authenticated: payload.authenticated === true,
-    issuerURL: payload.issuer_url?.trim() || '',
-    user: parseUser(payload.user),
-    csrfToken: payload.csrf_token?.trim() || '',
-    roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
-    permissions: Array.isArray(payload.permissions)
-      ? payload.permissions.filter((value) => value.trim() !== '')
-      : [],
-  }
+  return parseAuthSession((await response.json()) as RawAuthSessionResponse)
+}
+
+export async function redeemLocalBootstrapAuthorization(input: {
+  requestID: string
+  code: string
+  nonce: string
+}): Promise<HumanAuthSession> {
+  const payload = await api.post<RawAuthSessionResponse>('/api/v1/auth/local-bootstrap/redeem', {
+    body: {
+      request_id: input.requestID,
+      code: input.code,
+      nonce: input.nonce,
+    },
+  })
+  return parseAuthSession(payload)
 }
 
 export function logoutHumanSession() {

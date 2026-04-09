@@ -139,10 +139,14 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSkills() error = %v", err)
 	}
+	platformSkill := findSkillByName(skills, "openase-platform")
 	skillOne := findSkillByName(skills, "skill-one")
 	skillTwo := findSkillByName(skills, "skill-two")
-	if skillOne == nil || skillTwo == nil || len(skillOne.BoundWorkflows) != 1 || skillOne.BoundWorkflows[0].ID != created.ID || skillTwo.IsBuiltin {
+	if skillOne == nil || skillTwo == nil || platformSkill == nil || len(skillOne.BoundWorkflows) != 1 || skillOne.BoundWorkflows[0].ID != created.ID || skillTwo.IsBuiltin {
 		t.Fatalf("ListSkills() = %+v", skills)
+	}
+	if len(platformSkill.BoundWorkflows) != 1 || platformSkill.BoundWorkflows[0].ID != created.ID {
+		t.Fatalf("expected openase-platform to stay bound, got %+v", platformSkill)
 	}
 
 	workspaceRoot := t.TempDir()
@@ -211,6 +215,9 @@ func TestWorkflowServiceCRUDHarnessStorageSkillsAndReload(t *testing.T) {
 	}
 	if updated.Name != "Core Coding Workflow" || updated.HarnessPath != ".openase/harnesses/platform/core-coding.md" || updated.MaxConcurrent != 7 {
 		t.Fatalf("Update() = %+v", updated)
+	}
+	if !slices.Contains(updated.PlatformAccessAllowed, "tickets.update.self") {
+		t.Fatalf("expected update to preserve required platform scope, got %+v", updated.PlatformAccessAllowed)
 	}
 
 	updatedHarnessContent := "# Updated by API\n"
@@ -304,6 +311,70 @@ func TestWorkflowServiceShellQuotesRuntimeInterpolationInHooks(t *testing.T) {
 	if _, err := os.Stat(pwnedPath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected %q to be absent, got err=%v", pwnedPath, err)
 	}
+}
+
+func TestWorkflowServiceForcesRequiredRuntimeScopeAndSkill(t *testing.T) {
+	ctx := context.Background()
+	client := openWorkflowTestEntClient(t)
+	repoRoot := createWorkflowTestGitRepo(t)
+	service := newWorkflowTestService(t, client, repoRoot)
+	fixture := seedWorkflowServiceFixture(ctx, t, client, repoRoot)
+
+	created, err := service.Create(ctx, CreateInput{
+		ProjectID:             fixture.projectID,
+		AgentID:               fixture.agentID,
+		Name:                  "Required Runtime Workflow",
+		Type:                  TypeCoding,
+		PlatformAccessAllowed: []string{"skills.list"},
+		HarnessContent:        "# Required Runtime\n",
+		Hooks:                 map[string]any{},
+		MaxConcurrent:         1,
+		MaxRetryAttempts:      1,
+		TimeoutMinutes:        30,
+		StallTimeoutMinutes:   5,
+		IsActive:              true,
+		PickupStatusIDs:       MustStatusBindingSet(fixture.statusIDs["Todo"]),
+		FinishStatusIDs:       MustStatusBindingSet(fixture.statusIDs["Done"]),
+	})
+	if err != nil {
+		t.Fatalf("Create() error = %v", err)
+	}
+	if !slices.Equal(created.PlatformAccessAllowed, []string{"skills.list", "tickets.update.self"}) {
+		t.Fatalf("Create() platform access = %+v", created.PlatformAccessAllowed)
+	}
+
+	skills, err := service.ListSkills(ctx, fixture.projectID)
+	if err != nil {
+		t.Fatalf("ListSkills() error = %v", err)
+	}
+	platformSkill := findSkillByName(skills, "openase-platform")
+	if platformSkill == nil || len(platformSkill.BoundWorkflows) != 1 || platformSkill.BoundWorkflows[0].ID != created.ID {
+		t.Fatalf("expected required openase-platform binding, got %+v", platformSkill)
+	}
+
+	updated, err := service.Update(ctx, UpdateInput{
+		WorkflowID:            created.ID,
+		PlatformAccessAllowed: Some([]string{"workflows.read"}),
+	})
+	if err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
+	if !slices.Equal(updated.PlatformAccessAllowed, []string{"workflows.read", "tickets.update.self"}) {
+		t.Fatalf("Update() platform access = %+v", updated.PlatformAccessAllowed)
+	}
+
+	if _, err := service.UnbindSkills(ctx, UpdateWorkflowSkillsInput{
+		WorkflowID: created.ID,
+		Skills:     []string{"openase-platform"},
+	}); !errors.Is(err, ErrSkillInvalid) {
+		t.Fatalf("UnbindSkills(required) error = %v, want %v", err, ErrSkillInvalid)
+	}
+
+	snapshot, err := service.ResolveRuntimeSnapshot(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("ResolveRuntimeSnapshot() error = %v", err)
+	}
+	findRuntimeSkillSnapshot(t, snapshot.Skills, "openase-platform")
 }
 
 func TestRuntimeSnapshotMaterializationAndRecordedResolution(t *testing.T) {
@@ -1419,7 +1490,7 @@ func TestWorkflowServiceBuildHarnessTemplateDataProjectContext(t *testing.T) {
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
-Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
+Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].status }}
 Deps {% for dep in ticket.dependencies %}{{ dep.identifier }}:{{ dep.type }}:{{ dep.status }}{% endfor %}
 Repos {% for repo in repos %}{{ repo.name }}@{{ repo.branch }} labels={{ repo.labels | join(",") }} path={{ repo.path }}{% endfor %}
 All {{ all_repos | map(attribute="name") | join(",") }}
@@ -1621,7 +1692,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetExternalID("42").
 		SetTitle("Login validation broken on Safari").
 		SetStatus("open").
-		SetRelation("resolves").
 		Save(ctx); err != nil {
 		t.Fatalf("create external link: %v", err)
 	}
@@ -1707,7 +1777,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if data.Ticket.ParentIdentifier != "ASE-30" || len(data.Ticket.Links) != 1 || len(data.Ticket.Dependencies) != 1 {
 		t.Fatalf("ticket harness data = %+v", data.Ticket)
 	}
-	if data.Ticket.Links[0].Type != "github_issue" || data.Ticket.Links[0].Relation != "resolves" {
+	if data.Ticket.Links[0].Type != "github_issue" || data.Ticket.Links[0].Status != "open" {
 		t.Fatalf("ticket links = %+v", data.Ticket.Links)
 	}
 	if data.Ticket.Dependencies[0].Identifier != "ASE-31" || data.Ticket.Dependencies[0].Status != "Done" {

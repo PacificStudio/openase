@@ -68,7 +68,7 @@ describe('StepAgentWorkflow', () => {
     vi.clearAllMocks()
   })
 
-  it('binds the bootstrap workflow to Backlog and Done by status name', async () => {
+  it('shows preset picker before the preview, then creates after selection', async () => {
     const onComplete = vi.fn()
     const { getByText } = render(StepAgentWorkflow, {
       props: {
@@ -84,7 +84,17 @@ describe('StepAgentWorkflow', () => {
       },
     })
 
+    // Picker is shown first — all three preset titles visible
+    expect(getByText('Write code')).toBeTruthy()
+    expect(getByText('Plan the project')).toBeTruthy()
+    expect(getByText('Explore ideas')).toBeTruthy()
+
+    // Select the PM preset
+    await fireEvent.click(getByText('Plan the project'))
+
+    // Preview is now shown with a Change link and the status flow
     expect(getByText('Pickup: Backlog → Finish: Done')).toBeTruthy()
+    expect(getByText('Change')).toBeTruthy()
 
     await fireEvent.click(getByText('Create agent and workflow'))
 
@@ -106,8 +116,26 @@ describe('StepAgentWorkflow', () => {
         max_retry_attempts: 1,
         timeout_minutes: 30,
       })
-      expect(onComplete).toHaveBeenCalled()
+      expect(onComplete).toHaveBeenCalledWith(expect.any(Array), expect.any(Array), 'pm')
     })
+  })
+
+  it('allows going back to the picker from the preview', async () => {
+    const { getByText } = render(StepAgentWorkflow, {
+      props: {
+        projectId: 'project-1',
+        providerId: 'provider-1',
+        projectStatus: 'Planned',
+        initialState: { agents: [], workflows: [], statuses: [] },
+        onComplete: vi.fn(),
+      },
+    })
+
+    await fireEvent.click(getByText('Plan the project'))
+    expect(getByText('Change')).toBeTruthy()
+
+    await fireEvent.click(getByText('Change'))
+    expect(getByText('Write code')).toBeTruthy()
   })
 })
 

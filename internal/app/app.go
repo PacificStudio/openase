@@ -30,6 +30,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatconversationrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -38,16 +39,20 @@ import (
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
 	notificationrepo "github.com/BetterAndBetterII/openase/internal/repo/notification"
 	scheduledjobrepo "github.com/BetterAndBetterII/openase/internal/repo/scheduledjob"
+	secretsrepo "github.com/BetterAndBetterII/openase/internal/repo/secrets"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	"github.com/BetterAndBetterII/openase/internal/runtime/database"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	githubreposervice "github.com/BetterAndBetterII/openase/internal/service/githubrepo"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -60,6 +65,24 @@ var (
 	runtimeStartedType = provider.MustParseEventType("runtime.started")
 	runtimeTickType    = provider.MustParseEventType("orchestrator.tick")
 )
+
+type chatRuntimeEnvironmentResolver struct {
+	resolver runtimesecretenv.Resolver
+}
+
+func (r chatRuntimeEnvironmentResolver) ResolveProviderEnvironment(
+	ctx context.Context,
+	input chatservice.RuntimeEnvironmentResolveInput,
+) ([]string, error) {
+	return runtimesecretenv.AppendResolvedProviderSecrets(ctx, r.resolver, runtimesecretenv.ResolveInput{
+		ProjectID:          input.ProjectID,
+		ProviderAuthConfig: input.ProviderAuthConfig,
+		BaseEnvironment:    input.BaseEnvironment,
+		TicketID:           input.TicketID,
+		WorkflowID:         input.WorkflowID,
+		AgentID:            input.AgentID,
+	})
+}
 
 type App struct {
 	config              config.Config
@@ -143,6 +166,10 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
 	githubRepoSvc := githubreposervice.NewService(githubAuthSvc, http.DefaultClient)
 	ticketSvc := ticketservice.NewService(ticketrepo.NewEntRepository(client))
 	ticketSvc.ConfigureSSHPool(sshPool)
@@ -181,13 +208,19 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct chat codex adapter: %w", err)
 	}
+	chatSecretResolver := chatRuntimeEnvironmentResolver{resolver: secretSvc}
 	codexRuntime := chatservice.NewCodexRuntime(codexRuntimeAdapter)
+	codexRuntime.ConfigureSecretResolver(chatSecretResolver)
+	claudeRuntime := chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager))
+	claudeRuntime.ConfigureSecretResolver(chatSecretResolver)
+	geminiRuntime := chatservice.NewGeminiRuntime(chatProcessManager)
+	geminiRuntime.ConfigureSecretResolver(chatSecretResolver)
 	chatSvc := chatservice.NewService(
 		a.logger,
 		chatservice.NewRuntime(
-			chatservice.NewClaudeRuntime(claudecodeadapter.NewAdapter(chatProcessManager)),
+			claudeRuntime,
 			codexRuntime,
-			chatservice.NewGeminiRuntime(chatProcessManager),
+			geminiRuntime,
 		),
 		catalogSvc,
 		ticketSvc,
@@ -207,12 +240,26 @@ func (a *App) RunServe(ctx context.Context) error {
 	)
 	projectConversationSvc.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
+	projectConversationSvc.ConfigureSecretResolver(chatSecretResolver)
+	projectConversationSvc.ConfigureSecretManager(secretSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
 	)
 	ticketWorkspaceResetSvc := orchestrator.NewTicketWorkspaceResetService(client, a.logger, sshPool)
-	humanAuthSvc := humanauthservice.NewService(a.config.Auth, humanAuthRepo, http.DefaultClient)
+	instanceAuthSvc, err := accesscontrolservice.New(
+		accesscontrolrepo.NewEntRepository(client),
+		a.config.Database.DSN,
+		a.config.Metadata.ConfigFile,
+		homeDir,
+	)
+	if err != nil {
+		return fmt.Errorf("construct instance auth service: %w", err)
+	}
+	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
+		return fmt.Errorf("initialize instance auth runtime state: %w", err)
+	}
+	humanAuthSvc := humanauthservice.NewService(humanAuthRepo, http.DefaultClient, instanceAuthSvc)
 	humanAuthorizer := humanauthservice.NewAuthorizer(humanAuthRepo)
 	machineChannelSvc := machinechannelservice.NewService(machinechannelrepo.NewEntRepository(client))
 	machineSessions := machinechannelservice.NewSessionRegistry(machinechannelservice.DefaultHeartbeatTimeout)
@@ -228,7 +275,8 @@ func (a *App) RunServe(ctx context.Context) error {
 		workflowSvc,
 		httpapi.WithGitHubAuthService(githubAuthSvc),
 		httpapi.WithGitHubRepoService(githubRepoSvc),
-		httpapi.WithHumanAuthConfig(a.config.Auth),
+		httpapi.WithSecretService(secretSvc),
+		httpapi.WithInstanceAuthService(instanceAuthSvc),
 		httpapi.WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 		httpapi.WithRuntimeConfigFile(a.config.Metadata.ConfigFile),
 		httpapi.WithHomeDir(homeDir),
@@ -296,6 +344,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), a.config.Database.DSN)
+	if err != nil {
+		return err
+	}
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
@@ -315,8 +367,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	healthChecker.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureRuntimeState(runtimeState)
 	runtimeLauncher.ConfigureGitHubCredentials(githubAuthSvc)
+	runtimeLauncher.ConfigureSecretResolver(secretSvc)
 	runtimeLauncher.ConfigureMetrics(a.metrics)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
+	runtimeLauncher.ConfigureSecretManager(secretSvc)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

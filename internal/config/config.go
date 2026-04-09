@@ -232,7 +232,7 @@ func parseConfig(v *viper.Viper) (Config, error) {
 
 	authConfig, err := parseAuthConfig(v)
 	if err != nil {
-		return Config{}, err
+		authConfig = AuthConfig{}
 	}
 
 	securityCipherSeed, err := parseOptionalString(v.Get("security.cipher_seed"))
@@ -539,10 +539,6 @@ func validateConfig(cfg Config) error {
 	if driver == EventDriverPGNotify && cfg.Database.DSN == "" {
 		return errors.New("database.dsn is required when event.driver resolves to pgnotify")
 	}
-	if err := validateAuthConfig(cfg.Auth); err != nil {
-		return err
-	}
-
 	return nil
 }
 

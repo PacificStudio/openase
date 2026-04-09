@@ -6,12 +6,14 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import OIDCRedirectFields from './oidc-redirect-fields.svelte'
 
   type OIDCFormState = {
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -44,7 +46,8 @@
     onIssuerURL,
     onClientID,
     onClientSecret,
-    onRedirectURL,
+    onRedirectMode,
+    onFixedRedirectURL,
     onScopes,
     onAllowedDomains,
     onBootstrapAdmins,
@@ -61,7 +64,8 @@
     onIssuerURL: (value: string) => void
     onClientID: (value: string) => void
     onClientSecret: (value: string) => void
-    onRedirectURL: (value: string) => void
+    onRedirectMode: (value: 'auto' | 'fixed') => void
+    onFixedRedirectURL: (value: string) => void
     onScopes: (value: string) => void
     onAllowedDomains: (value: string) => void
     onBootstrapAdmins: (value: string) => void
@@ -85,8 +89,8 @@
         <p class="text-muted-foreground text-sm leading-relaxed">{auth.mode_summary}</p>
         <p class="text-muted-foreground text-xs leading-relaxed">
           Your current local admin principal is <code>{auth.local_principal}</code>. You can keep
-          using disabled mode for personal or local work, or configure OIDC now and enable it only
-          when you want multi-user browser access.
+          using local bootstrap links for personal or recovery access, or configure OIDC now and
+          enable it only when you want managed multi-user browser access.
         </p>
       </div>
 
@@ -100,7 +104,7 @@
           <div class="mt-1 font-medium">{auth.bootstrap_state.summary}</div>
         </div>
         <div class="sm:col-span-2">
-          <div class="text-muted-foreground">Config path</div>
+          <div class="text-muted-foreground">Stored in</div>
           <div class="mt-1 font-mono break-all">{auth.config_path || 'Not available'}</div>
         </div>
       </div>
@@ -128,9 +132,9 @@
     <div>
       <h4 class="text-sm font-semibold">Draft OIDC configuration</h4>
       <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-        Save stores the draft on disk without changing the active auth mode. Test checks provider
-        discovery. Enable OIDC updates the configured auth mode and then tells you the next rollout
-        step.
+        Save stores the draft for this instance without changing the active auth mode. Test checks
+        provider discovery. Enable OIDC updates the configured auth mode and then tells you the next
+        rollout step.
       </p>
     </div>
 
@@ -170,15 +174,12 @@
             : 'The client secret is stored server-side and never shown back in the UI.'}
         </p>
       </div>
-      <div class="space-y-2">
-        <Label for="oidc-redirect-url">Redirect URL</Label>
-        <Input
-          id="oidc-redirect-url"
-          value={form.redirectURL}
-          placeholder="http://127.0.0.1:19836/api/v1/auth/oidc/callback"
-          oninput={(event) => onRedirectURL((event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
+      <OIDCRedirectFields
+        redirectMode={form.redirectMode}
+        fixedRedirectURL={form.fixedRedirectURL}
+        {onRedirectMode}
+        {onFixedRedirectURL}
+      />
       <div class="space-y-2 lg:col-span-2">
         <Label for="oidc-scopes">Scopes</Label>
         <Textarea

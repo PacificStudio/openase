@@ -47,6 +47,14 @@ type SecurityManager interface {
 	DeleteCredential(ctx context.Context, input ScopeInput) (ProjectSecurity, error)
 }
 
+type OrgSecurityManager interface {
+	ReadOrgSecurity(ctx context.Context, orgID uuid.UUID) (OrgSecurity, error)
+	SaveOrgManualCredential(ctx context.Context, input OrgSaveCredentialInput) (OrgSecurity, error)
+	ImportOrgGHCLICredential(ctx context.Context, input OrgInput) (OrgSecurity, error)
+	RetestOrgCredential(ctx context.Context, input OrgInput) (OrgSecurity, error)
+	DeleteOrgCredential(ctx context.Context, input OrgInput) (OrgSecurity, error)
+}
+
 type ScopedSecurity struct {
 	Scope        domain.Scope
 	Configured   bool
@@ -61,6 +69,10 @@ type ProjectSecurity struct {
 	ProjectOverride ScopedSecurity
 }
 
+type OrgSecurity struct {
+	Organization ScopedSecurity
+}
+
 type SaveCredentialInput struct {
 	ProjectID uuid.UUID
 	Scope     domain.Scope
@@ -70,6 +82,15 @@ type SaveCredentialInput struct {
 type ScopeInput struct {
 	ProjectID uuid.UUID
 	Scope     domain.Scope
+}
+
+type OrgSaveCredentialInput struct {
+	OrganizationID uuid.UUID
+	Token          string
+}
+
+type OrgInput struct {
+	OrganizationID uuid.UUID
 }
 
 type tokenImporter interface {
@@ -549,6 +570,122 @@ func parseScopeHeader(raw string) []string {
 	}
 	slices.Sort(permissions)
 	return slices.Compact(permissions)
+}
+
+// OrgSecurityManager implementation
+
+func (s *Service) ReadOrgSecurity(ctx context.Context, orgID uuid.UUID) (OrgSecurity, error) {
+	if s.repo == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	orgContext, err := s.repo.GetOrganizationContext(ctx, orgID)
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	return OrgSecurity{
+		Organization: readScopedSecurity(domain.ScopeOrganization, orgContext.Credential, orgContext.Probe),
+	}, nil
+}
+
+func (s *Service) SaveOrgManualCredential(ctx context.Context, input OrgSaveCredentialInput) (OrgSecurity, error) {
+	if s.repo == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	token := strings.TrimSpace(input.Token)
+	if token == "" {
+		return OrgSecurity{}, fmt.Errorf("%w: token must not be empty", ErrInvalidInput)
+	}
+	sealed, err := s.SealToken(token, domain.SourceManualPaste)
+	if err != nil {
+		return OrgSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	if err := s.repo.SaveOrganizationCredential(ctx, input.OrganizationID, sealed, domain.ConfiguredProbe()); err != nil {
+		return OrgSecurity{}, fmt.Errorf("save organization GitHub credential: %w", err)
+	}
+	s.logger.Info("saved org github credential", "org_id", input.OrganizationID.String())
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probingProbe()); err != nil {
+		return OrgSecurity{}, err
+	}
+	probe, err := s.probeToken(ctx, token, "")
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probe); err != nil {
+		return OrgSecurity{}, fmt.Errorf("save organization GitHub token probe: %w", err)
+	}
+	return s.ReadOrgSecurity(ctx, input.OrganizationID)
+}
+
+func (s *Service) ImportOrgGHCLICredential(ctx context.Context, input OrgInput) (OrgSecurity, error) {
+	if s.repo == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	if s.tokenImporter == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	token, err := s.tokenImporter.ReadToken(ctx)
+	if err != nil {
+		s.logger.Error("import org github credential from gh cli failed", "org_id", input.OrganizationID.String(), "error", err)
+		return OrgSecurity{}, fmt.Errorf("%w: %s", ErrGHCLIImportFailed, err)
+	}
+	sealed, err := s.SealToken(token, domain.SourceGHCLIImport)
+	if err != nil {
+		return OrgSecurity{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	if err := s.repo.SaveOrganizationCredential(ctx, input.OrganizationID, sealed, domain.ConfiguredProbe()); err != nil {
+		return OrgSecurity{}, fmt.Errorf("save organization GitHub credential: %w", err)
+	}
+	s.logger.Info("imported org github credential from gh cli", "org_id", input.OrganizationID.String())
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probingProbe()); err != nil {
+		return OrgSecurity{}, err
+	}
+	probe, err := s.probeToken(ctx, token, "")
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probe); err != nil {
+		return OrgSecurity{}, fmt.Errorf("save organization GitHub token probe: %w", err)
+	}
+	return s.ReadOrgSecurity(ctx, input.OrganizationID)
+}
+
+func (s *Service) RetestOrgCredential(ctx context.Context, input OrgInput) (OrgSecurity, error) {
+	if s.repo == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	orgContext, err := s.repo.GetOrganizationContext(ctx, input.OrganizationID)
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	if orgContext.Credential == nil {
+		return OrgSecurity{}, ErrCredentialNotConfigured
+	}
+	token, err := s.decryptStoredCredential(*orgContext.Credential)
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probingProbe()); err != nil {
+		return OrgSecurity{}, err
+	}
+	probe, err := s.probeToken(ctx, token, "")
+	if err != nil {
+		return OrgSecurity{}, err
+	}
+	if err := s.repo.SaveOrganizationProbe(ctx, input.OrganizationID, probe); err != nil {
+		return OrgSecurity{}, fmt.Errorf("save organization GitHub token probe: %w", err)
+	}
+	return s.ReadOrgSecurity(ctx, input.OrganizationID)
+}
+
+func (s *Service) DeleteOrgCredential(ctx context.Context, input OrgInput) (OrgSecurity, error) {
+	if s.repo == nil {
+		return OrgSecurity{}, ErrUnavailable
+	}
+	if err := s.repo.ClearOrganizationCredential(ctx, input.OrganizationID); err != nil {
+		return OrgSecurity{}, fmt.Errorf("clear organization GitHub credential: %w", err)
+	}
+	s.logger.Info("deleted org github credential", "org_id", input.OrganizationID.String())
+	return s.ReadOrgSecurity(ctx, input.OrganizationID)
 }
 
 func readScopedSecurity(

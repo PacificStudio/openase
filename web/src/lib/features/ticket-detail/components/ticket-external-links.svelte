@@ -24,14 +24,7 @@
 
   let createOpen = $state(false)
 
-  async function handleCreate(draft: {
-    type: string
-    url: string
-    externalId: string
-    title: string
-    status: string
-    relation: string
-  }) {
+  async function handleCreate(draft: TicketExternalLinkDraft) {
     const accepted = (await onCreate?.(draft)) ?? false
     if (accepted) {
       createOpen = false
@@ -89,15 +82,16 @@
                   <span class="text-foreground leading-4 break-words"
                     >{link.title || link.externalId}</span
                   >
-                  <Badge variant="outline" class="mt-0.5 h-4 shrink-0 py-0 text-[10px]">
-                    {link.type}
-                  </Badge>
+                  {#if link.type}
+                    <Badge variant="outline" class="mt-0.5 h-4 shrink-0 py-0 text-[10px]">
+                      {link.type}
+                    </Badge>
+                  {/if}
                 </div>
                 <div
                   class="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-[10px]"
                 >
                   <span class="font-mono">{link.externalId}</span>
-                  <span>{link.relation}</span>
                   {#if link.status}
                     <span>{link.status}</span>
                   {/if}

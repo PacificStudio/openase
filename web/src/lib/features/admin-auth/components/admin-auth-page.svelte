@@ -18,12 +18,14 @@
   import AdminAuthDiagnostics from './admin-auth-diagnostics.svelte'
   import AdminAuthForm from './admin-auth-form.svelte'
   import AdminAuthOverview from './admin-auth-overview.svelte'
+  import AdminAuthRuntimeDetails from './admin-auth-runtime-details.svelte'
 
   type OIDCFormState = {
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -31,6 +33,7 @@
 
   let loading = $state(false)
   let error = $state('')
+  let errorCode = $state('')
   let actionKey = $state('')
   let auth = $state<SecurityAuthSettings | null>(null)
   let transition = $state<AdminAuthModeTransitionResponse['transition'] | null>(null)
@@ -39,7 +42,8 @@
     issuerURL: '',
     clientID: '',
     clientSecret: '',
-    redirectURL: '',
+    redirectMode: 'auto',
+    fixedRedirectURL: '',
     scopesText: '',
     allowedDomainsText: '',
     bootstrapAdminEmailsText: '',
@@ -61,7 +65,8 @@
       issuerURL: nextAuth.oidc_draft.issuer_url,
       clientID: nextAuth.oidc_draft.client_id,
       clientSecret: '',
-      redirectURL: nextAuth.oidc_draft.redirect_url,
+      redirectMode: nextAuth.oidc_draft.redirect_mode === 'fixed' ? 'fixed' : 'auto',
+      fixedRedirectURL: nextAuth.oidc_draft.fixed_redirect_url,
       scopesText: nextAuth.oidc_draft.scopes.join('\n'),
       allowedDomainsText: nextAuth.oidc_draft.allowed_email_domains.join('\n'),
       bootstrapAdminEmailsText: nextAuth.oidc_draft.bootstrap_admin_emails.join('\n'),
@@ -74,7 +79,8 @@
       issuer_url: oidcForm.issuerURL.trim(),
       client_id: oidcForm.clientID.trim(),
       client_secret: oidcForm.clientSecret.trim(),
-      redirect_url: oidcForm.redirectURL.trim(),
+      redirect_mode: oidcForm.redirectMode,
+      fixed_redirect_url: oidcForm.fixedRedirectURL.trim(),
       scopes: parseListInput(oidcForm.scopesText),
       allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
       bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),
@@ -104,10 +110,16 @@
   ) {
     actionKey = key
     error = ''
+    errorCode = ''
     try {
       await runner()
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : failureFallback
+      if (caughtError instanceof ApiError) {
+        error = caughtError.detail
+        errorCode = caughtError.code ?? ''
+      } else {
+        error = failureFallback
+      }
       toastStore.error(error)
     } finally {
       actionKey = ''
@@ -141,9 +153,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = null
-        toastStore.success('OIDC draft saved for the instance. Active auth mode stays unchanged.')
+        toastStore.success('Draft saved.')
       },
-      'Failed to save the instance auth draft.',
+      'Failed to save draft.',
     )
   }
 
@@ -154,9 +166,11 @@
         const payload = await testAdminOIDCDraft(oidcDraftPayload())
         applyValidationResult(payload)
         transition = null
-        toastStore.success('OIDC provider discovery succeeded.')
+        toastStore.success(
+          payload.issuer_url ? `Validation passed — ${payload.issuer_url}` : 'Validation passed.',
+        )
       },
-      'Failed to validate the OIDC provider.',
+      'Validation failed.',
     )
     if (error) {
       await refreshAuth()
@@ -171,9 +185,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('OIDC is now the configured auth mode for the instance.')
+        toastStore.success('OIDC activated.')
       },
-      'Failed to enable OIDC for the instance.',
+      'Failed to activate OIDC.',
     )
     if (error) {
       await refreshAuth()
@@ -188,9 +202,11 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('Disabled mode is now the configured fallback for the instance.')
+        toastStore.success(
+          'OIDC is now inactive. Use local bootstrap until you are ready to retry rollout.',
+        )
       },
-      'Failed to revert the instance auth mode to disabled.',
+      'Failed to switch the instance back to local bootstrap access.',
     )
   }
 
@@ -201,58 +217,43 @@
 
 <PageScaffold
   title="Admin Auth"
-  description="Instance-level authentication, OIDC rollout, bootstrap admins, and validation diagnostics."
+  description="Instance browser authentication and OIDC provider settings."
 >
   {#if loading}
     <div class="space-y-4">
-      <div class="bg-muted h-24 animate-pulse rounded-xl"></div>
-      <div class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div class="bg-muted h-96 animate-pulse rounded-xl"></div>
-        <div class="bg-muted h-96 animate-pulse rounded-xl"></div>
-      </div>
+      <div class="bg-muted h-32 animate-pulse rounded-2xl"></div>
+      <div class="bg-muted h-64 animate-pulse rounded-2xl"></div>
     </div>
-  {:else if error}
+  {:else if error && !auth}
     <div class="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
       {error}
     </div>
   {:else if auth}
-    <div class="space-y-6">
-      <div class="rounded-3xl border border-sky-200/80 bg-sky-50/80 p-4 text-sm text-sky-950">
-        <div class="flex flex-wrap items-center gap-2">
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Migration note</span
-          >
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Active: {auth.active_mode}</span
-          >
-          <span
-            class="inline-flex rounded-full border border-sky-300 px-2.5 py-1 text-xs font-medium"
-            >Configured: {auth.configured_mode}</span
-          >
+    <div class="space-y-4">
+      {#if error}
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <div class="text-sm text-red-900">{error}</div>
+          {#if errorCode}
+            <div class="mt-1 font-mono text-xs text-red-700">{errorCode}</div>
+          {/if}
         </div>
-        <p class="mt-2 leading-6">
-          This page replaces the legacy project Settings -&gt; Security OIDC setup. Instance auth
-          mode, bootstrap admins, rollout diagnostics, and rollback guidance now stay under
-          <code>/admin/auth</code> so project settings can focus on project-local access and credentials.
-        </p>
-      </div>
+      {/if}
 
-      <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <AdminAuthOverview {auth} user={authStore.user} />
-        <AdminAuthDiagnostics {auth} {transition} />
-      </div>
+      <AdminAuthOverview {auth} user={authStore.user} />
 
       <AdminAuthForm
         {auth}
-        form={oidcForm}
+        bind:form={oidcForm}
         {actionKey}
         onSave={() => void handleSave()}
         onTest={() => void handleTest()}
         onEnable={() => void handleEnable()}
         onDisable={() => void handleDisable()}
       />
+
+      <AdminAuthDiagnostics {auth} {transition} />
+
+      <AdminAuthRuntimeDetails {auth} />
     </div>
   {/if}
 </PageScaffold>

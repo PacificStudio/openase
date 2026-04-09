@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +21,7 @@ const (
 type AuthConfig struct {
 	Mode AuthMode
 	OIDC OIDCConfig
+	CSRF CSRFConfig
 }
 
 type OIDCConfig struct {
@@ -37,8 +40,13 @@ type OIDCConfig struct {
 	SessionIdleTTL       time.Duration
 }
 
+type CSRFConfig struct {
+	TrustedOrigins []string
+}
+
 func configureAuthDefaults(v *viper.Viper) {
 	v.SetDefault("auth.mode", string(AuthModeDisabled))
+	v.SetDefault("auth.csrf.trusted_origins", []string{})
 	v.SetDefault("auth.oidc.issuer_url", "")
 	v.SetDefault("auth.oidc.client_id", "")
 	v.SetDefault("auth.oidc.client_secret", "")
@@ -58,6 +66,10 @@ func parseAuthConfig(v *viper.Viper) (AuthConfig, error) {
 	mode, err := parseAuthMode(v.Get("auth.mode"))
 	if err != nil {
 		return AuthConfig{}, fmt.Errorf("parse auth.mode: %w", err)
+	}
+	trustedOrigins, err := parseStringSlice(v.Get("auth.csrf.trusted_origins"))
+	if err != nil {
+		return AuthConfig{}, fmt.Errorf("parse auth.csrf.trusted_origins: %w", err)
 	}
 
 	scopes, err := parseStringSlice(v.Get("auth.oidc.scopes"))
@@ -117,6 +129,9 @@ func parseAuthConfig(v *viper.Viper) (AuthConfig, error) {
 
 	return AuthConfig{
 		Mode: mode,
+		CSRF: CSRFConfig{
+			TrustedOrigins: normalizeOriginSlice(trustedOrigins),
+		},
 		OIDC: OIDCConfig{
 			IssuerURL:            issuerURL,
 			ClientID:             clientID,
@@ -136,6 +151,12 @@ func parseAuthConfig(v *viper.Viper) (AuthConfig, error) {
 }
 
 func validateAuthConfig(cfg AuthConfig) error {
+	for _, origin := range cfg.CSRF.TrustedOrigins {
+		if _, err := NormalizeTrustedOriginForCSRF(origin); err != nil {
+			return fmt.Errorf("auth.csrf.trusted_origins: %w", err)
+		}
+	}
+
 	switch cfg.Mode {
 	case "", AuthModeDisabled:
 		return nil
@@ -236,4 +257,53 @@ func normalizeLowerStringSlice(items []string) []string {
 		result = append(result, trimmed)
 	}
 	return result
+}
+
+func normalizeOriginSlice(items []string) []string {
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		origin, err := NormalizeTrustedOriginForCSRF(item)
+		if err != nil {
+			result = append(result, strings.TrimSpace(item))
+			continue
+		}
+		result = append(result, origin)
+	}
+	return result
+}
+
+// NormalizeTrustedOriginForCSRF canonicalizes a configured/request origin for CSRF checks.
+func NormalizeTrustedOriginForCSRF(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", errors.New("origin must not be empty")
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("invalid origin %q: %w", trimmed, err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("invalid origin %q: scheme and host are required", trimmed)
+	}
+	if parsed.User != nil {
+		return "", fmt.Errorf("invalid origin %q: userinfo is not allowed", trimmed)
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", fmt.Errorf("invalid origin %q: path is not allowed", trimmed)
+	}
+	if parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("invalid origin %q: query and fragment are not allowed", trimmed)
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	host := strings.ToLower(parsed.Hostname())
+	if host == "" {
+		return "", fmt.Errorf("invalid origin %q: host is required", trimmed)
+	}
+	if port := parsed.Port(); port != "" {
+		host = net.JoinHostPort(host, port)
+	}
+
+	return scheme + "://" + host, nil
 }

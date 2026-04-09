@@ -27,7 +27,6 @@ type Priority = domain.Priority
 type Type = domain.Type
 type DependencyType = domain.DependencyType
 type ExternalLinkType = domain.ExternalLinkType
-type ExternalLinkRelation = domain.ExternalLinkRelation
 
 const (
 	DependencyTypeBlocks   = domain.DependencyTypeBlocks

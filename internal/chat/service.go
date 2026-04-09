@@ -83,7 +83,7 @@ type TurnStream struct {
 
 type catalogReader interface {
 	GetProject(ctx context.Context, id uuid.UUID) (catalogdomain.Project, error)
-	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error)
+	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) (catalogdomain.ActivityEventPage, error)
 	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]catalogdomain.ProjectRepo, error)
 	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]catalogdomain.TicketRepoScope, error)
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.AgentProvider, error)
@@ -316,6 +316,8 @@ func (s *Service) StartTurn(ctx context.Context, userID UserID, input StartInput
 
 	stream, err := s.runtime.StartTurn(ctx, RuntimeTurnInput{
 		SessionID:              sessionID,
+		ProjectID:              input.Context.ProjectID,
+		TicketID:               input.Context.TicketID,
 		Provider:               providerItem,
 		Message:                input.Message,
 		SystemPrompt:           systemPrompt,
@@ -918,11 +920,11 @@ func (s *Service) listRecentActivity(
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.catalog.ListActivityEvents(ctx, input)
+	page, err := s.catalog.ListActivityEvents(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("list activity for chat context: %w", err)
 	}
-	return items, nil
+	return page.Events, nil
 }
 
 func buildBaseArgs(cliArgs []string, modelName string) []string {

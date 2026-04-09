@@ -102,21 +102,21 @@
 </script>
 
 <div
-  class="grid gap-4 rounded-2xl border border-slate-200/80 bg-white/85 p-4 shadow-sm lg:grid-cols-[minmax(0,1fr)_auto]"
+  class="border-border bg-card grid gap-4 rounded-lg border p-3.5 lg:grid-cols-[minmax(0,1fr)_auto]"
 >
   <div class="flex min-w-0 gap-3">
-    <Avatar.Root class="size-11 border border-slate-200 bg-white">
+    <Avatar.Root class="border-border bg-muted size-9 shrink-0 border">
       {#if entry.user?.avatarURL}
         <Avatar.Image src={entry.user.avatarURL} alt={entry.user.displayName || entry.email} />
       {/if}
-      <Avatar.Fallback class="bg-sky-100 text-xs font-semibold text-sky-900">
+      <Avatar.Fallback class="bg-muted text-muted-foreground text-xs font-semibold">
         {initials()}
       </Avatar.Fallback>
     </Avatar.Root>
 
     <div class="min-w-0 flex-1 space-y-2">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="truncate text-sm font-semibold text-slate-950">
+        <p class="truncate text-sm font-semibold">
           {entry.user?.displayName || entry.email}
         </p>
         {#if entry.user?.id === currentUserId}

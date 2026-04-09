@@ -164,6 +164,8 @@ Auth 审计事件会记录：
 
 前端代码应从 `GET /auth/session` 获取 CSRF Token，并通过正常的 API 客户端在同源变更请求中发送。
 
+如果 OpenASE 部署在受信任的反向代理后面，或者本地开发时需要允许单独的前端入口，可以通过 `auth.csrf.trusted_origins` 放行额外的浏览器来源。每个条目都必须是绝对 origin，例如 `http://localhost:4173`，且不能包含路径、查询参数或 hash。
+
 ## 用户缓存与身份同步
 
 成功的 OIDC 登录会 upsert 以下表：

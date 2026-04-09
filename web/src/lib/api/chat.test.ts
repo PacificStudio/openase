@@ -6,6 +6,7 @@ const { consumeEventStream } = vi.hoisted(() => ({
 
 vi.mock('./sse', () => ({
   consumeEventStream,
+  defaultActivityTimeoutMs: 10000,
 }))
 
 import {
@@ -699,6 +700,31 @@ describe('project conversation REST mapping', () => {
     expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
   })
 
+  it('applies the shared SSE inactivity timeout to the project conversation mux stream', async () => {
+    const body = {} as ReadableStream<Uint8Array>
+    consumeEventStream.mockImplementation(async () => {})
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body,
+      }),
+    )
+
+    await watchProjectConversationMuxStream('project-1', {
+      onFrame: vi.fn(),
+    })
+
+    expect(consumeEventStream).toHaveBeenCalledWith(
+      body,
+      expect.any(Function),
+      expect.objectContaining({
+        activityTimeoutMs: 10000,
+      }),
+    )
+  })
+
   it('does not send browser-local chat user headers for persistent project conversation REST endpoints', async () => {
     vi.stubGlobal(
       'fetch',
@@ -727,7 +753,10 @@ describe('project conversation REST mapping', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+          json: async () => ({
+            turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+            conversation: { id: 'conversation-1' },
+          }),
         })
         .mockResolvedValueOnce({
           ok: true,

@@ -200,7 +200,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get effective OpenASE roles and permissions for the authenticated human */
+    /** Get effective OpenASE roles and permissions for the current request context */
     get: operations['getMyEffectivePermissions']
     put?: never
     post?: never
@@ -1107,6 +1107,75 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization scoped secrets managed from org settings */
+    get: operations['listOrganizationScopedSecrets']
+    put?: never
+    /** Create a new organization scoped secret */
+    post: operations['createOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an organization scoped secret and remove its default bindings */
+    delete: operations['deleteOrganizationScopedSecret']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable an organization scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an organization scoped secret */
+    post: operations['rotateOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/summary': {
     parameters: {
       query?: never
@@ -1501,7 +1570,7 @@ export interface paths {
     /** Save a platform-managed GitHub outbound credential */
     put: operations['saveGitHubOutboundCredential']
     post?: never
-    /** Delete a stored platform-managed GitHub outbound credential */
+    /** Delete the project-level GitHub credential override */
     delete: operations['deleteGitHubOutboundCredential']
     options?: never
     head?: never
@@ -1517,7 +1586,7 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Import the current gh auth token into platform-managed GitHub credential storage */
+    /** Import the current gh auth token as the project-level GitHub credential override */
     post: operations['importGitHubOutboundCredentialFromGHCLI']
     delete?: never
     options?: never
@@ -1534,7 +1603,7 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Retest a stored platform-managed GitHub outbound credential */
+    /** Retest the stored project-level GitHub credential override */
     post: operations['retestGitHubOutboundCredential']
     delete?: never
     options?: never
@@ -1587,6 +1656,128 @@ export interface paths {
     put?: never
     /** Persist the OIDC draft and switch the configured auth mode to oidc */
     post: operations['enableOIDC']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List workflow and ticket scoped secret bindings configured for this project */
+    get: operations['listScopedSecretBindings']
+    put?: never
+    /** Create a workflow or ticket scoped secret binding for runtime resolution */
+    post: operations['createScopedSecretBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a workflow or ticket scoped secret binding */
+    delete: operations['deleteScopedSecretBinding']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization and project scoped secrets that are accessible from this project */
+    get: operations['listScopedSecrets']
+    put?: never
+    /** Create a new encrypted scoped secret */
+    post: operations['createScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence */
+    post: operations['resolveScopedSecretsForRuntime']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a scoped secret and remove its default bindings */
+    delete: operations['deleteScopedSecret']
+    options?: never
+    head?: never
+    /** Update scoped secret metadata without changing the encrypted value */
+    patch: operations['updateScopedSecretMetadata']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable a scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an existing scoped secret */
+    post: operations['rotateScopedSecret']
     delete?: never
     options?: never
     head?: never
@@ -2575,8 +2766,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -2677,8 +2869,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -2755,9 +2948,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -2805,8 +3002,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -2889,9 +3087,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -2997,9 +3199,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -3047,8 +3253,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -3844,30 +4051,39 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get effective OpenASE roles and permissions for the authenticated human response. */
+      /** @description Get effective OpenASE roles and permissions for the current request context response. */
       200: {
         headers: {
           [name: string]: unknown
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
+            auth_mode?: string
+            authenticated?: boolean
+            available_auth_methods?: string[]
+            can_manage_auth?: boolean
+            current_auth_method?: string
             groups?: {
               group_key?: string
               group_name?: string
               issuer?: string
             }[]
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
             scope?: {
               id?: string
               kind?: string
             }
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
               id?: string
               primary_email?: string
-            }
+            } | null
           }
         }
       }
@@ -4017,12 +4233,19 @@ export interface operations {
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
             auth_mode?: string
             authenticated?: boolean
+            available_auth_methods?: string[]
+            can_manage_auth?: boolean
             csrf_token?: string
+            current_auth_method?: string
             issuer_url?: string
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
@@ -6759,7 +6982,7 @@ export interface operations {
           detected_os?: string | null
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string | null
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[] | null
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string | null
@@ -8779,7 +9002,7 @@ export interface operations {
           detected_os?: string
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[]
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string
@@ -9620,6 +9843,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }[]
           }
         }
@@ -9678,7 +9907,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           }
@@ -9717,6 +9946,13 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           }
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?: {
+            /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+            binding_key?: string
+            /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+            env_var_key?: string
+          }[]
         }
       }
     }
@@ -9862,6 +10098,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -9939,6 +10181,499 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizationScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization scoped secrets managed from org settings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new organization scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Organization scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  disableOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable an organization scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an organization scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }
@@ -10403,6 +11138,8 @@ export interface operations {
         ticket_id?: string
         /** @description Limit the number of returned activity events. */
         limit?: number
+        /** @description Fetch older activity events before the provided activity cursor. */
+        before?: string
       }
       header?: never
       path: {
@@ -10432,6 +11169,8 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            has_more?: boolean
+            next_cursor?: string
           }
         }
       }
@@ -11613,7 +12352,6 @@ export interface operations {
                   created_at?: string
                   external_id?: string
                   id?: string
-                  relation?: string
                   status?: string
                   title?: string
                   type?: string
@@ -11633,6 +12371,7 @@ export interface operations {
                 pause_reason?: string
                 priority?: string
                 project_id?: string
+                pull_request_urls?: string[]
                 retry_paused?: boolean
                 started_at?: string | null
                 status_id?: string
@@ -12743,8 +13482,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -12812,7 +13552,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -12897,8 +13649,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
           /** @description GitHub token value copied into platform-managed secret storage. */
           token?: string
         }
@@ -12962,8 +13712,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13031,7 +13782,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13104,10 +13867,7 @@ export interface operations {
   }
   deleteGitHubOutboundCredential: {
     parameters: {
-      query: {
-        /** @description Credential scope to delete. Supported values are organization and project. */
-        scope: string
-      }
+      query?: never
       header?: never
       path: {
         /** @description Project ID. */
@@ -13117,7 +13877,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Delete a stored platform-managed GitHub outbound credential response. */
+      /** @description Delete the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -13174,8 +13934,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13243,7 +14004,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13324,17 +14097,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Import the current gh auth token into platform-managed GitHub credential storage request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Import the current gh auth token into platform-managed GitHub credential storage response. */
+      /** @description Import the current gh auth token as the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -13391,8 +14156,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13460,7 +14226,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13541,17 +14319,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Retest a stored platform-managed GitHub outbound credential request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Retest a stored platform-managed GitHub outbound credential response. */
+      /** @description Retest the stored project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -13608,8 +14378,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13677,7 +14448,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13770,9 +14553,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -13837,8 +14624,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13906,7 +14694,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13999,9 +14799,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -14110,9 +14914,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -14183,8 +14991,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -14252,7 +15061,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14299,6 +15120,1018 @@ export interface operations {
       }
       /** @description Bad Gateway response. */
       502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecretBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List workflow and ticket scoped secret bindings configured for this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            bindings?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a workflow or ticket scoped secret binding for runtime resolution request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Runtime environment binding key. Keys are normalized to upper snake case before persistence. */
+          binding_key?: string
+          /** @description Binding scope. Supported values are workflow and ticket. */
+          scope?: string
+          /** @description Workflow or ticket ID that owns this binding. */
+          scope_resource_id?: string
+          /** @description Secret ID to bind into workflow or ticket runtime resolution. */
+          secret_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a workflow or ticket scoped secret binding for runtime resolution response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            binding?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret binding ID. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Secret binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization and project scoped secrets that are accessible from this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new encrypted scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new encrypted scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resolveScopedSecretsForRuntime: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional agent ID included in the resolution precedence chain. */
+          agent_id?: string | null
+          /** @description Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated. */
+          binding_keys?: string[]
+          /** @description Optional ticket ID included in the resolution precedence chain. */
+          ticket_id?: string | null
+          /** @description Optional workflow ID included in the resolution precedence chain. */
+          workflow_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            missing_keys?: string[]
+            resolved?: {
+              binding_key?: string
+              binding_scope?: string
+              secret_id?: string
+              secret_kind?: string
+              secret_name?: string
+              secret_scope?: string
+              value?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  updateScopedSecretMetadata: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Update scoped secret metadata without changing the encrypted value request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Updated human-readable description for the secret. */
+          description?: string | null
+          /** @description Updated secret name. Names are normalized to upper snake case when provided. */
+          name?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update scoped secret metadata without changing the encrypted value response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable a scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an existing scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an existing scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }
@@ -14900,7 +16733,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -14920,6 +16752,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -15066,7 +16899,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -15086,6 +16918,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -15215,7 +17048,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -15235,6 +17067,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -15479,7 +17312,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -15499,6 +17331,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -16280,7 +18113,12 @@ export interface operations {
   }
   listProjectUpdates: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Maximum number of update threads to return. */
+        limit?: number
+        /** @description Load update threads older than this cursor. */
+        before?: string
+      }
       header?: never
       path: {
         /** @description Project ID. */
@@ -16297,6 +18135,8 @@ export interface operations {
         }
         content: {
           'application/json': {
+            has_more?: boolean
+            next_cursor?: string
             threads?: {
               body_markdown?: string
               comment_count?: number
@@ -17606,6 +19446,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -17664,7 +19510,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string | null
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           } | null
@@ -17703,6 +19549,15 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           } | null
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?:
+            | {
+                /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+                binding_key?: string
+                /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+                env_var_key?: string
+              }[]
+            | null
         }
       }
     }
@@ -17848,6 +19703,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -18262,7 +20123,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -18282,6 +20142,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -19426,7 +21287,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -19446,6 +21306,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -19585,7 +21446,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -19605,6 +21465,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -20230,14 +22091,12 @@ export interface operations {
         'application/json': {
           /** @description External system identifier for the linked resource. */
           external_id?: string
-          /** @description Relationship between the ticket and the external resource. */
-          relation?: string | null
           /** @description Optional external status value. */
           status?: string | null
           /** @description Optional title for the external resource. */
           title?: string | null
-          /** @description External link type. */
-          type?: string
+          /** @description Optional freeform external link type. */
+          type?: string | null
           /** @description URL of the external resource. */
           url?: string
         }
@@ -20255,7 +22114,6 @@ export interface operations {
               created_at?: string
               external_id?: string
               id?: string
-              relation?: string
               status?: string
               title?: string
               type?: string
@@ -20437,7 +22295,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -20457,6 +22314,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string

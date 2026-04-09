@@ -721,6 +721,74 @@ var (
 			},
 		},
 	}
+	// InstanceAuthConfigsColumns holds the columns for the "instance_auth_configs" table.
+	InstanceAuthConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "scope_key", Type: field.TypeString, Default: "instance"},
+		{Name: "status", Type: field.TypeString, Default: "absent"},
+		{Name: "issuer_url", Type: field.TypeString, Default: ""},
+		{Name: "client_id", Type: field.TypeString, Default: ""},
+		{Name: "client_secret_encrypted", Type: field.TypeJSON, Nullable: true},
+		{Name: "redirect_mode", Type: field.TypeString, Default: ""},
+		{Name: "redirect_url", Type: field.TypeString, Default: ""},
+		{Name: "scopes", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "email_claim", Type: field.TypeString, Default: "email"},
+		{Name: "name_claim", Type: field.TypeString, Default: "name"},
+		{Name: "username_claim", Type: field.TypeString, Default: "preferred_username"},
+		{Name: "groups_claim", Type: field.TypeString, Default: "groups"},
+		{Name: "allowed_email_domains", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "bootstrap_admin_emails", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "session_ttl", Type: field.TypeString, Default: "8h"},
+		{Name: "session_idle_ttl", Type: field.TypeString, Default: "30m"},
+		{Name: "validation_metadata", Type: field.TypeJSON},
+		{Name: "activation_metadata", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// InstanceAuthConfigsTable holds the schema information for the "instance_auth_configs" table.
+	InstanceAuthConfigsTable = &schema.Table{
+		Name:       "instance_auth_configs",
+		Columns:    InstanceAuthConfigsColumns,
+		PrimaryKey: []*schema.Column{InstanceAuthConfigsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "instanceauthconfig_scope_key",
+				Unique:  true,
+				Columns: []*schema.Column{InstanceAuthConfigsColumns[1]},
+			},
+		},
+	}
+	// LocalBootstrapAuthRequestsColumns holds the columns for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code_hash", Type: field.TypeString},
+		{Name: "nonce_hash", Type: field.TypeString},
+		{Name: "purpose", Type: field.TypeString, Default: "browser_session"},
+		{Name: "requested_by", Type: field.TypeString, Default: ""},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_session_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// LocalBootstrapAuthRequestsTable holds the schema information for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsTable = &schema.Table{
+		Name:       "local_bootstrap_auth_requests",
+		Columns:    LocalBootstrapAuthRequestsColumns,
+		PrimaryKey: []*schema.Column{LocalBootstrapAuthRequestsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "localbootstrapauthrequest_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[5]},
+			},
+			{
+				Name:    "localbootstrapauthrequest_used_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[7]},
+			},
+		},
+	}
 	// MachinesColumns holds the columns for the "machines" table.
 	MachinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1593,6 +1661,87 @@ var (
 			},
 		},
 	}
+	// SecretsColumns holds the columns for the "secrets" table.
+	SecretsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"organization", "project"}},
+		{Name: "name", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"opaque"}, Default: "opaque"},
+		{Name: "description", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "algorithm", Type: field.TypeString},
+		{Name: "key_source", Type: field.TypeString},
+		{Name: "key_id", Type: field.TypeString},
+		{Name: "value_preview", Type: field.TypeString},
+		{Name: "nonce", Type: field.TypeString},
+		{Name: "ciphertext", Type: field.TypeString, Size: 2147483647},
+		{Name: "rotated_at", Type: field.TypeTime},
+		{Name: "disabled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SecretsTable holds the schema information for the "secrets" table.
+	SecretsTable = &schema.Table{
+		Name:       "secrets",
+		Columns:    SecretsColumns,
+		PrimaryKey: []*schema.Column{SecretsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "secret_organization_id_scope_kind_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{SecretsColumns[1], SecretsColumns[3], SecretsColumns[2], SecretsColumns[4]},
+			},
+			{
+				Name:    "secret_organization_id_project_id_scope_kind_disabled_at",
+				Unique:  false,
+				Columns: []*schema.Column{SecretsColumns[1], SecretsColumns[2], SecretsColumns[3], SecretsColumns[14]},
+			},
+		},
+	}
+	// SecretBindingsColumns holds the columns for the "secret_bindings" table.
+	SecretBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"organization", "project", "workflow", "agent", "ticket"}},
+		{Name: "scope_resource_id", Type: field.TypeUUID},
+		{Name: "binding_key", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "secret_id", Type: field.TypeUUID},
+	}
+	// SecretBindingsTable holds the schema information for the "secret_bindings" table.
+	SecretBindingsTable = &schema.Table{
+		Name:       "secret_bindings",
+		Columns:    SecretBindingsColumns,
+		PrimaryKey: []*schema.Column{SecretBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "secret_bindings_secrets_bindings",
+				Columns:    []*schema.Column{SecretBindingsColumns[8]},
+				RefColumns: []*schema.Column{SecretsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "secretbinding_scope_kind_scope_resource_id_binding_key",
+				Unique:  true,
+				Columns: []*schema.Column{SecretBindingsColumns[3], SecretBindingsColumns[4], SecretBindingsColumns[5]},
+			},
+			{
+				Name:    "secretbinding_organization_id_project_id_binding_key",
+				Unique:  false,
+				Columns: []*schema.Column{SecretBindingsColumns[1], SecretBindingsColumns[2], SecretBindingsColumns[5]},
+			},
+			{
+				Name:    "secretbinding_secret_id",
+				Unique:  false,
+				Columns: []*schema.Column{SecretBindingsColumns[8]},
+			},
+		},
+	}
 	// SkillsColumns holds the columns for the "skills" table.
 	SkillsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1966,12 +2115,11 @@ var (
 	// TicketExternalLinksColumns holds the columns for the "ticket_external_links" table.
 	TicketExternalLinksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "link_type", Type: field.TypeEnum, Enums: []string{"github_issue", "gitlab_issue", "jira_ticket", "github_pr", "gitlab_mr", "custom"}},
+		{Name: "link_type", Type: field.TypeString, Nullable: true},
 		{Name: "url", Type: field.TypeString},
 		{Name: "external_id", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString, Nullable: true},
 		{Name: "status", Type: field.TypeString, Nullable: true},
-		{Name: "relation", Type: field.TypeEnum, Enums: []string{"resolves", "related", "caused_by"}, Default: "related"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
@@ -1983,7 +2131,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_external_links_tickets_external_links",
-				Columns:    []*schema.Column{TicketExternalLinksColumns[8]},
+				Columns:    []*schema.Column{TicketExternalLinksColumns[7]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1992,7 +2140,7 @@ var (
 			{
 				Name:    "ticketexternallink_ticket_id_external_id",
 				Unique:  true,
-				Columns: []*schema.Column{TicketExternalLinksColumns[8], TicketExternalLinksColumns[3]},
+				Columns: []*schema.Column{TicketExternalLinksColumns[7], TicketExternalLinksColumns[3]},
 			},
 			{
 				Name:    "ticketexternallink_external_id",
@@ -2449,6 +2597,8 @@ var (
 		ChatEntriesTable,
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
+		InstanceAuthConfigsTable,
+		LocalBootstrapAuthRequestsTable,
 		MachinesTable,
 		MachineChannelTokensTable,
 		NotificationChannelsTable,
@@ -2469,6 +2619,8 @@ var (
 		ProjectUpdateThreadRevisionsTable,
 		RoleBindingsTable,
 		ScheduledJobsTable,
+		SecretsTable,
+		SecretBindingsTable,
 		SkillsTable,
 		SkillBlobsTable,
 		SkillVersionsTable,
@@ -2545,6 +2697,7 @@ func init() {
 	ProjectUpdateThreadRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	SecretBindingsTable.ForeignKeys[0].RefTable = SecretsTable
 	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable
 	SkillsTable.ForeignKeys[1].RefTable = SkillVersionsTable
 	SkillVersionsTable.ForeignKeys[0].RefTable = SkillsTable
