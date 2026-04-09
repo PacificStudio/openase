@@ -157,7 +157,7 @@ function createAuthStore() {
     get permissions() {
       return session.permissions
     },
-    hydrate(next: HumanAuthSession | null | undefined) {
+    hydrate(next: Partial<HumanAuthSession> | null | undefined) {
       session = next
         ? {
             ...emptySession(),

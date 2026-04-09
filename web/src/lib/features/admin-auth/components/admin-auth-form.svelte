@@ -20,7 +20,16 @@
 
   let {
     auth,
-    form = $bindable(),
+    form = $bindable({
+      issuerURL: '',
+      clientID: '',
+      clientSecret: '',
+      redirectMode: 'auto',
+      fixedRedirectURL: '',
+      scopesText: '',
+      allowedDomainsText: '',
+      bootstrapAdminEmailsText: '',
+    } satisfies OIDCFormState),
     actionKey = '',
     onSave,
     onTest,
