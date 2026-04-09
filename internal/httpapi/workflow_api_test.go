@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -135,8 +136,12 @@ func TestWorkflowRoutesRoundTripExpandedPlatformAccessAllowed(t *testing.T) {
 		http.StatusCreated,
 		&createResp,
 	)
-	if strings.Join(createResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(allScopes, ",") {
-		t.Fatalf("create platform_access_allowed = %v, want %v", createResp.Workflow.PlatformAccessAllowed, allScopes)
+	createWantScopes := append([]string(nil), allScopes...)
+	if !slices.Contains(createWantScopes, string(agentplatform.ScopeTicketsUpdateSelf)) {
+		createWantScopes = append(createWantScopes, string(agentplatform.ScopeTicketsUpdateSelf))
+	}
+	if strings.Join(createResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(createWantScopes, ",") {
+		t.Fatalf("create platform_access_allowed = %v, want %v", createResp.Workflow.PlatformAccessAllowed, createWantScopes)
 	}
 
 	updatedScopes := []string{
@@ -158,8 +163,12 @@ func TestWorkflowRoutesRoundTripExpandedPlatformAccessAllowed(t *testing.T) {
 		http.StatusOK,
 		&updateResp,
 	)
-	if strings.Join(updateResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(updatedScopes, ",") {
-		t.Fatalf("update platform_access_allowed = %v, want %v", updateResp.Workflow.PlatformAccessAllowed, updatedScopes)
+	updateWantScopes := append([]string(nil), updatedScopes...)
+	if !slices.Contains(updateWantScopes, string(agentplatform.ScopeTicketsUpdateSelf)) {
+		updateWantScopes = append(updateWantScopes, string(agentplatform.ScopeTicketsUpdateSelf))
+	}
+	if strings.Join(updateResp.Workflow.PlatformAccessAllowed, ",") != strings.Join(updateWantScopes, ",") {
+		t.Fatalf("update platform_access_allowed = %v, want %v", updateResp.Workflow.PlatformAccessAllowed, updateWantScopes)
 	}
 }
 
@@ -1538,7 +1547,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		"Machine gpu-01 openase",
 		"Workflow Coding Workflow coding fullstack-developer Todo Done",
 		"ProjectWorkflows fullstack-developer:Todo:1/3:Implement product changes end to end.|dispatcher:Backlog:0/1:Evaluate backlog tickets and route them to the right workflow.|",
-		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Todo:.openase/harnesses/dispatcher-workflow.md:|",
+		"WorkflowArtifacts fullstack-developer=Done:.openase/harnesses/coding-workflow.md:commit,openase-platform|dispatcher=Todo:.openase/harnesses/dispatcher-workflow.md:openase-platform|",
 		"WorkflowBindings fullstack-developer=pickup[Todo:unstarted|]finish[Done:completed|];dispatcher=pickup[Backlog:backlog|]finish[Todo:unstarted|];",
 		"WorkflowHistory fullstack-developer=ASE-41:In Review:True:2|ASE-40:Todo:False:0|;dispatcher=;",
 		"ProjectStatuses Backlog:backlog:#6B7280|Todo:unstarted:#3B82F6|In Progress:started:#F59E0B|In Review:started:#8B5CF6|Done:completed:#10B981|Cancelled:canceled:#4B5563|",

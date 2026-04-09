@@ -4,6 +4,10 @@
   import * as Select from '$ui/select'
   import type { ScopeGroup, WorkflowAgentOption } from '../types'
   import type { WorkflowLifecycleDraft } from '../workflow-lifecycle'
+  import {
+    ensureWorkflowRequiredPlatformScopes,
+    REQUIRED_WORKFLOW_PLATFORM_SCOPE,
+  } from '../workflow-requirements'
   import WorkflowAgentBindingCard from './workflow-agent-binding-card.svelte'
   import WorkflowAgentSelectOption from './workflow-agent-select-option.svelte'
   import WorkflowAgentSelectTrigger from './workflow-agent-select-trigger.svelte'
@@ -28,14 +32,16 @@
   } = $props()
 
   const selectedScopes = $derived(
-    (draft.platformAccessAllowed ?? '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean),
+    ensureWorkflowRequiredPlatformScopes(
+      (draft.platformAccessAllowed ?? '')
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
   )
 
   function handleScopeChange(scopes: string[]) {
-    onFieldChange('platformAccessAllowed', scopes.join('\n'))
+    onFieldChange('platformAccessAllowed', ensureWorkflowRequiredPlatformScopes(scopes).join('\n'))
   }
 </script>
 
@@ -106,10 +112,19 @@
     <Label class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
       >Platform Access Allowed</Label
     >
+    <div class="bg-muted/40 rounded-md border px-3 py-2 text-xs leading-relaxed">
+      <span class="font-medium">System required.</span>
+      Workflow ticket runtimes always keep
+      <code class="bg-background rounded px-1 py-0.5 font-mono"
+        >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
+      >
+      so the assigned agent can update its own ticket safely.
+    </div>
     {#if scopeGroups.length > 0}
       <ScopeGroupPicker
         groups={scopeGroups}
         selected={selectedScopes}
+        lockedScopes={[REQUIRED_WORKFLOW_PLATFORM_SCOPE]}
         disabled={saving || deleting}
         onchange={handleScopeChange}
       />
@@ -126,6 +141,12 @@
             (event.currentTarget as HTMLTextAreaElement).value,
           )}
       ></textarea>
+      <p class="text-muted-foreground text-xs">
+        <code class="bg-background rounded px-1 py-0.5 font-mono"
+          >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
+        >
+        is always re-applied by the system and cannot be removed.
+      </p>
     {/if}
   </div>
 

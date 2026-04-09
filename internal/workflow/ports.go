@@ -21,7 +21,7 @@ type ProjectValidationRepository interface {
 type WorkflowRepository interface {
 	List(ctx context.Context, projectID uuid.UUID) ([]domain.Workflow, error)
 	Get(ctx context.Context, workflowID uuid.UUID) (domain.Workflow, error)
-	Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error)
+	Create(ctx context.Context, workflow domain.Workflow, skillIDs []uuid.UUID, harnessContent string, createdBy string) (domain.Workflow, error)
 	Update(ctx context.Context, workflow domain.Workflow) (domain.Workflow, error)
 	ImpactAnalysis(ctx context.Context, workflowID uuid.UUID) (domain.WorkflowImpactAnalysis, error)
 	ReplaceReferences(ctx context.Context, input domain.ReplaceWorkflowReferencesInput) (domain.ReplaceWorkflowReferencesResult, error)

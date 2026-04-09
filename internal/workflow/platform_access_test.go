@@ -72,7 +72,7 @@ func TestResolveWorkflowPlatformAccessAllowedDeduplicatesSupportedValues(t *test
 	if err != nil {
 		t.Fatalf("resolveWorkflowPlatformAccessAllowed(valid) error: %v", err)
 	}
-	want := []string{"skills.list", "workflows.read"}
+	want := []string{"skills.list", "workflows.read", "tickets.update.self"}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -90,8 +90,17 @@ func TestResolveWorkflowPlatformAccessAllowedAcceptsEverySupportedScope(t *testi
 			if err != nil {
 				t.Fatalf("resolveWorkflowPlatformAccessAllowed(%q) error: %v", scope, err)
 			}
-			if len(got) != 1 || got[0] != scope {
-				t.Fatalf("got %v, want [%s]", got, scope)
+			want := []string{scope}
+			if scope != "tickets.update.self" {
+				want = append(want, "tickets.update.self")
+			}
+			if len(got) != len(want) {
+				t.Fatalf("got %v, want %v", got, want)
+			}
+			for index := range want {
+				if got[index] != want[index] {
+					t.Fatalf("got %v, want %v", got, want)
+				}
 			}
 		})
 	}

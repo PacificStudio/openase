@@ -177,6 +177,23 @@ describe('WorkflowCreationDialog', () => {
     expect(createWorkflowWithBinding).not.toHaveBeenCalled()
   })
 
+  it('explains the system-enforced platform scope and skill', () => {
+    const { getByText } = render(WorkflowCreationDialog, {
+      props: {
+        open: true,
+        projectId: 'project-1',
+        statuses,
+        agentOptions,
+        existingCount: 1,
+        builtinRoleContent: 'role',
+      },
+    })
+
+    expect(getByText('System-enforced runtime access.')).toBeTruthy()
+    expect(getByText('tickets.update.self')).toBeTruthy()
+    expect(getByText('openase-platform')).toBeTruthy()
+  })
+
   it('shows a friendly toast when the workflow name conflicts', async () => {
     createWorkflowWithBinding.mockRejectedValue(
       new ApiError(

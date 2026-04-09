@@ -6,11 +6,13 @@
   let {
     groups = [],
     selected = [],
+    lockedScopes = [],
     disabled = false,
     onchange,
   }: {
     groups?: ScopeGroup[]
     selected?: string[]
+    lockedScopes?: string[]
     disabled?: boolean
     onchange?: (scopes: string[]) => void
   } = $props()
@@ -18,6 +20,7 @@
   let expandedCategories = $state<Set<string>>(new Set())
 
   const selectedSet = $derived(new Set(selected))
+  const lockedScopeSet = $derived(new Set(lockedScopes))
 
   function toggleCategory(category: string) {
     const next = new Set(expandedCategories)
@@ -30,15 +33,18 @@
   }
 
   function toggleScope(scope: string) {
+    if (lockedScopeSet.has(scope)) return
     const next = selectedSet.has(scope) ? selected.filter((s) => s !== scope) : [...selected, scope]
     onchange?.(next)
   }
 
   function toggleGroup(group: ScopeGroup) {
-    const allSelected = group.scopes.every((scope) => selectedSet.has(scope))
+    const mutableScopes = group.scopes.filter((scope) => !lockedScopeSet.has(scope))
+    const allSelected =
+      mutableScopes.length > 0 && mutableScopes.every((scope) => selectedSet.has(scope))
     let next: string[]
     if (allSelected) {
-      const groupSet = new Set(group.scopes)
+      const groupSet = new Set(mutableScopes)
       next = selected.filter((s) => !groupSet.has(s))
     } else {
       const merged = new Set(selected)
@@ -100,18 +106,26 @@
       {#if isExpanded}
         <div class="bg-muted/20 border-border space-y-0 border-t px-3 py-1">
           {#each group.scopes as scope (scope)}
+            {@const isLocked = lockedScopeSet.has(scope)}
             <label
               class="hover:bg-muted/40 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors"
-              class:pointer-events-none={disabled}
+              class:pointer-events-none={disabled || isLocked}
             >
               <Checkbox
                 checked={selectedSet.has(scope)}
-                {disabled}
+                disabled={disabled || isLocked}
                 onCheckedChange={() => toggleScope(scope)}
               />
               <span class="text-muted-foreground font-mono text-xs"
                 >{scopeLabel(scope, group.category)}</span
               >
+              {#if isLocked}
+                <span
+                  class="text-primary rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                >
+                  Required
+                </span>
+              {/if}
             </label>
           {/each}
         </div>

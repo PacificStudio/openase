@@ -84,6 +84,7 @@ func resolveWorkflowPlatformAccessAllowed(raw []string) ([]string, error) {
 	if len(raw) == 0 {
 		return agentplatform.DefaultScopes(), nil
 	}
+	raw = appendRequiredWorkflowPlatformScopes(raw)
 	normalized := make([]string, 0, len(raw))
 	for _, item := range raw {
 		trimmed := strings.TrimSpace(item)
@@ -107,6 +108,36 @@ func resolveWorkflowPlatformAccessAllowed(raw []string) ([]string, error) {
 		return agentplatform.DefaultScopes(), nil
 	}
 	return normalized, nil
+}
+
+func appendRequiredWorkflowPlatformScopes(raw []string) []string {
+	merged := append([]string(nil), raw...)
+	for _, scope := range domain.RequiredWorkflowPlatformAccessAllowed() {
+		if !slicesContainsString(merged, scope) {
+			merged = append(merged, scope)
+		}
+	}
+	return merged
+}
+
+func normalizeWorkflowSkillBindingNames(raw []string) ([]string, error) {
+	merged := append([]string(nil), raw...)
+	for _, name := range domain.RequiredWorkflowSkillNames() {
+		if !slicesContainsString(merged, name) {
+			merged = append(merged, name)
+		}
+	}
+	return normalizeSkillNames(merged)
+}
+
+func validateWorkflowSkillRemoval(raw []string) error {
+	for _, name := range raw {
+		if !domain.IsRequiredWorkflowSkillName(name) {
+			continue
+		}
+		return fmt.Errorf("%w: skill %q is required for workflow runtimes and cannot be unbound", ErrSkillInvalid, strings.TrimSpace(name))
+	}
+	return nil
 }
 
 func projectHarnessContent(content string, skillNames []string) (string, error) {
@@ -482,6 +513,14 @@ func (s *Service) updateWorkflowSkillsPersistent(
 	if err != nil {
 		return HarnessDocument{}, err
 	}
+	if bind {
+		skillNames, err = normalizeWorkflowSkillBindingNames(skillNames)
+		if err != nil {
+			return HarnessDocument{}, err
+		}
+	} else if err := validateWorkflowSkillRemoval(skillNames); err != nil {
+		return HarnessDocument{}, err
+	}
 	if len(skillNames) == 0 {
 		return HarnessDocument{}, fmt.Errorf("%w: skills must not be empty", ErrSkillInvalid)
 	}
@@ -815,6 +854,21 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 	if err != nil {
 		return WorkflowDetail{}, err
 	}
+	if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
+		return WorkflowDetail{}, err
+	}
+	skillNames, err := normalizeWorkflowSkillBindingNames(input.SkillNames)
+	if err != nil {
+		return WorkflowDetail{}, err
+	}
+	skillIDs := make([]uuid.UUID, 0, len(skillNames))
+	for _, name := range skillNames {
+		skillItem, skillErr := s.skillByName(ctx, input.ProjectID, name)
+		if skillErr != nil {
+			return WorkflowDetail{}, skillErr
+		}
+		skillIDs = append(skillIDs, skillItem.ID)
+	}
 
 	workflowID := uuid.New()
 
@@ -849,42 +903,9 @@ func (s *Service) Create(ctx context.Context, input CreateInput) (WorkflowDetail
 		IsActive:              input.IsActive,
 		PickupStatusIDs:       append([]uuid.UUID(nil), pickupStatusIDs.IDs()...),
 		FinishStatusIDs:       append([]uuid.UUID(nil), finishStatusIDs.IDs()...),
-	}, sanitizedHarnessContent, resolveWorkflowVersionCreatedBy(input.CreatedBy))
+	}, skillIDs, sanitizedHarnessContent, resolveWorkflowVersionCreatedBy(input.CreatedBy))
 	if err != nil {
 		return WorkflowDetail{}, s.mapWorkflowWriteError("create workflow", err)
-	}
-	if len(input.SkillNames) > 0 {
-		if err := s.ensureBuiltinSkills(ctx, input.ProjectID); err != nil {
-			return WorkflowDetail{}, err
-		}
-		skillNames, err := normalizeSkillNames(input.SkillNames)
-		if err != nil {
-			return WorkflowDetail{}, err
-		}
-		skillIDs := make([]uuid.UUID, 0, len(skillNames))
-		for _, name := range skillNames {
-			skillItem, err := s.skillByName(ctx, input.ProjectID, name)
-			if err != nil {
-				return WorkflowDetail{}, err
-			}
-			skillIDs = append(skillIDs, skillItem.ID)
-		}
-		if len(skillIDs) > 0 {
-			if _, err := s.workflowSkills.ApplyWorkflowSkillBindings(
-				ctx,
-				item.ID,
-				skillIDs,
-				true,
-				sanitizedHarnessContent,
-				resolveWorkflowVersionCreatedBy(input.CreatedBy),
-			); err != nil {
-				return WorkflowDetail{}, err
-			}
-			item, err = s.workflows.Get(ctx, item.ID)
-			if err != nil {
-				return WorkflowDetail{}, err
-			}
-		}
 	}
 
 	projectedContent, err := s.projectedWorkflowHarness(ctx, item)
