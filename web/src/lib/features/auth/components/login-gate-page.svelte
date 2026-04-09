@@ -6,8 +6,8 @@
   } from '$lib/features/auth/local-bootstrap'
   import type { HumanAuthSession } from '$lib/stores/auth.svelte'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import { Textarea } from '$ui/textarea'
+  import { LogIn, Terminal } from '@lucide/svelte'
 
   type LoginGatePageData = {
     returnTo: string
@@ -24,13 +24,6 @@
   const availableAuthMethods = $derived(data.authSession.authCapabilities.availableAuthMethods)
   const supportsOIDC = $derived(availableAuthMethods.includes('oidc'))
   const supportsLocalBootstrap = $derived(availableAuthMethods.includes('local_bootstrap_link'))
-  const currentAuthMethodLabel = $derived(
-    data.authSession.authCapabilities.currentAuthMethod === 'local_bootstrap_link'
-      ? 'Local bootstrap link'
-      : data.authSession.authCapabilities.currentAuthMethod === 'oidc'
-        ? 'OIDC login'
-        : 'Unknown',
-  )
 
   async function continueWithLocalBootstrap() {
     const bundle = parseLocalBootstrapAuthorizationBundle(localBootstrapBundle, data.returnTo)
@@ -49,111 +42,82 @@
 </svelte:head>
 
 <div class="bg-background flex min-h-screen items-center justify-center px-6 py-12">
-  <Card.Root class="w-full max-w-2xl gap-6 border shadow-sm">
-    <Card.Header class="gap-2">
-      <Card.Title class="text-2xl">Authorize Browser</Card.Title>
-      <Card.Description>
-        OpenASE always routes browser access through an auth gate before entering the control plane.
-      </Card.Description>
-    </Card.Header>
+  <div class="w-full max-w-sm space-y-8">
+    <!-- Header -->
+    <div class="text-center">
+      <img src="/favicon.svg" alt="" class="mx-auto mb-4 size-10" />
+      <h1 class="text-2xl font-bold tracking-tight">OpenASE</h1>
+      <p class="text-muted-foreground mt-2 text-sm">Sign in to continue</p>
+    </div>
 
-    <Card.Content class="space-y-4">
-      <div
-        class="bg-muted/40 border-border grid gap-3 rounded-xl border px-4 py-3 text-sm md:grid-cols-2"
-      >
-        <div>
-          <div class="text-muted-foreground">Current interactive auth</div>
-          <div class="text-foreground mt-1 font-medium">{currentAuthMethodLabel}</div>
-        </div>
-        <div>
-          <div class="text-muted-foreground">Available methods</div>
-          <div class="text-foreground mt-1 font-medium">
-            {#if availableAuthMethods.length > 0}
-              {availableAuthMethods.join(', ')}
-            {:else}
-              None
-            {/if}
-          </div>
-        </div>
+    <!-- OIDC login -->
+    {#if supportsOIDC}
+      <div class="space-y-3">
+        <a href={loginHref} class="block">
+          <Button class="w-full gap-2" size="lg">
+            <LogIn class="size-4" />
+            Continue with OIDC
+          </Button>
+        </a>
         {#if data.authSession.issuerURL}
-          <div class="md:col-span-2">
-            <div class="text-muted-foreground">Issuer</div>
-            <div class="text-foreground mt-1 font-mono text-xs break-all">
-              {data.authSession.issuerURL}
-            </div>
-          </div>
+          <p class="text-muted-foreground text-center text-xs">
+            {data.authSession.issuerURL}
+          </p>
         {/if}
       </div>
+    {/if}
 
-      {#if supportsOIDC}
-        <div class="space-y-3 rounded-xl border px-4 py-4">
-          <div>
-            <div class="text-sm font-semibold">OIDC sign-in</div>
-            <p class="text-muted-foreground mt-1 text-xs leading-5">
-              Continue with the configured identity provider. Local bootstrap links are not offered
-              while OIDC is the active browser auth method.
-            </p>
+    <!-- Separator when both methods available -->
+    {#if supportsOIDC && supportsLocalBootstrap}
+      <div class="flex items-center gap-3">
+        <div class="bg-border h-px flex-1"></div>
+        <span class="text-muted-foreground text-xs">or</span>
+        <div class="bg-border h-px flex-1"></div>
+      </div>
+    {/if}
+
+    <!-- Local bootstrap -->
+    {#if supportsLocalBootstrap}
+      <div class="space-y-4">
+        {#if !supportsOIDC}
+          <div class="flex items-center justify-center gap-2">
+            <Terminal class="text-muted-foreground size-4" />
+            <span class="text-sm font-medium">Local Bootstrap</span>
           </div>
+        {/if}
 
-          <a href={loginHref} class="block">
-            <Button class="w-full">Continue with OIDC</Button>
-          </a>
+        <div class="bg-muted rounded-lg px-3 py-2.5 font-mono text-xs break-all">
+          openase auth bootstrap create-link
         </div>
-      {/if}
 
-      {#if supportsLocalBootstrap}
-        <div class="space-y-4 rounded-xl border px-4 py-4">
-          <div>
-            <div class="text-sm font-semibold">Local bootstrap authorization</div>
-            <p class="text-muted-foreground mt-1 text-xs leading-5">
-              Generate a short-lived authorization bundle on the machine running OpenASE, then paste
-              the CLI output here to redeem a browser session through this browser's current
-              entrypoint.
-            </p>
-          </div>
-
-          <div class="bg-muted rounded-lg px-3 py-3 font-mono text-xs break-all">
-            openase auth bootstrap create-link --return-to {data.returnTo}
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-xs font-medium" for="local-bootstrap-bundle">
-              Paste local bootstrap bundle
-            </label>
-            <div class="space-y-2">
-              <Textarea
-                id="local-bootstrap-bundle"
-                value={localBootstrapBundle}
-                class="min-h-32 font-mono text-xs"
-                placeholder={'{\n  "request_id": "...",\n  "code": "...",\n  "nonce": "..."\n}'}
-                oninput={(event) =>
-                  (localBootstrapBundle = (event.currentTarget as HTMLTextAreaElement).value)}
-              />
-              <Button class="w-full sm:w-auto" onclick={() => void continueWithLocalBootstrap()}>
-                Continue with local bootstrap
-              </Button>
-            </div>
-            {#if localBootstrapError}
-              <div class="text-destructive text-xs">{localBootstrapError}</div>
-            {/if}
-            <div class="text-muted-foreground text-xs leading-5">
-              Accepted formats: the CLI JSON output, the text-mode URL output, or a copied
-              `/local-bootstrap?...` link from another entrypoint. OpenASE will redeem the
-              short-lived request through this browser's current origin.
-            </div>
-          </div>
+        <div class="space-y-2">
+          <Textarea
+            id="local-bootstrap-bundle"
+            value={localBootstrapBundle}
+            class="min-h-24 font-mono text-xs"
+            placeholder={'Paste authorization bundle here...'}
+            oninput={(event) =>
+              (localBootstrapBundle = (event.currentTarget as HTMLTextAreaElement).value)}
+          />
+          {#if localBootstrapError}
+            <div class="text-destructive text-xs">{localBootstrapError}</div>
+          {/if}
+          <Button
+            class="w-full"
+            variant={supportsOIDC ? 'outline' : 'default'}
+            onclick={() => void continueWithLocalBootstrap()}
+          >
+            Authorize
+          </Button>
         </div>
-      {/if}
+      </div>
+    {/if}
 
-      {#if !supportsOIDC && !supportsLocalBootstrap}
-        <div class="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
-          No browser authorization method is currently available.
-        </div>
-      {/if}
-
-      <p class="text-muted-foreground text-xs">
-        After sign-in, OpenASE stores only an httpOnly session cookie in the browser.
-      </p>
-    </Card.Content>
-  </Card.Root>
+    <!-- No methods available -->
+    {#if !supportsOIDC && !supportsLocalBootstrap}
+      <div class="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm">
+        No auth method available.
+      </div>
+    {/if}
+  </div>
 </div>

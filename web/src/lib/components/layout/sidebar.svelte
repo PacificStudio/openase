@@ -13,7 +13,6 @@
     currentPath = '/',
     currentOrgId = null,
     currentProjectId = null,
-    adminEnabled = false,
     projectSelected = false,
     agentCount = 0,
     mobile = false,
@@ -25,7 +24,6 @@
     currentPath?: string
     currentOrgId?: string | null
     currentProjectId?: string | null
-    adminEnabled?: boolean
     projectSelected?: boolean
     agentCount?: number
     mobile?: boolean
@@ -35,7 +33,7 @@
   } = $props()
 
   const globalNav: SidebarNavItem[] = $derived(
-    buildGlobalNav(currentPath, currentOrgId, adminEnabled),
+    buildGlobalNav(currentPath, currentOrgId),
   )
   const projectNav: SidebarNavItem[] = $derived(
     buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),

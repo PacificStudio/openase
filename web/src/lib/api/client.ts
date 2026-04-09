@@ -71,6 +71,13 @@ async function request<T>(method: string, path: string, opts: FetchOptions = {})
   return res.json() as Promise<T>
 }
 
+const FRIENDLY_ERROR_MESSAGES: Record<string, string> = {
+  CSRF_ORIGIN_FORBIDDEN:
+    'Request blocked: browser origin does not match the server host. If you are accessing via a proxy or non-standard port, ensure the Origin header is forwarded correctly.',
+  CSRF_TOKEN_MISSING: 'Session expired or CSRF token missing. Please refresh the page.',
+  CSRF_TOKEN_INVALID: 'Session expired or CSRF token invalid. Please refresh the page.',
+}
+
 async function readErrorPayload(
   res: Response,
 ): Promise<{ detail: string; code?: string; details?: unknown }> {
@@ -84,12 +91,15 @@ async function readErrorPayload(
         code?: string
         details?: unknown
       }
-      return {
-        detail:
-          payload.message || payload.detail || payload.error || payload.code || res.statusText,
-        code: payload.code,
-        details: payload.details,
-      }
+      const code = payload.code
+      const detail =
+        (code && FRIENDLY_ERROR_MESSAGES[code]) ||
+        payload.message ||
+        payload.detail ||
+        payload.error ||
+        code ||
+        res.statusText
+      return { detail, code, details: payload.details }
     }
   } catch {
     return { detail: res.statusText }

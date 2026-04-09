@@ -7,6 +7,8 @@ server:
 
 auth:
   mode: disabled
+  csrf:
+    trusted_origins: []
   oidc:
     issuer_url: https://idp.example.com/realms/openase
     client_id: openase

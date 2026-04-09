@@ -7,7 +7,6 @@ import {
   MessageSquare,
   Server,
   Settings,
-  Shield,
   TicketCheck,
   Workflow,
   Wrench,
@@ -45,10 +44,9 @@ const projectSections = [
 export function buildGlobalNav(
   currentPath: string,
   currentOrgId: string | null,
-  adminEnabled = false,
 ): SidebarNavItem[] {
   const href = currentOrgId ? organizationPath(currentOrgId) : '/'
-  const items: SidebarNavItem[] = [
+  return [
     {
       label: 'Dashboard',
       href,
@@ -56,15 +54,6 @@ export function buildGlobalNav(
       active: currentPath === href,
     },
   ]
-  if (adminEnabled) {
-    items.push({
-      label: 'Admin',
-      href: '/admin',
-      icon: Shield,
-      active: currentPath.startsWith('/admin'),
-    })
-  }
-  return items
 }
 
 export function buildProjectNav({

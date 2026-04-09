@@ -20,40 +20,64 @@
   } = $props()
 </script>
 
-<div class="bg-muted/30 grid gap-3 rounded-lg px-4 py-3 text-xs md:grid-cols-2 xl:grid-cols-5">
-  <div>
-    <div class="text-muted-foreground">Auth mode</div>
-    <div class="text-foreground mt-1 font-medium uppercase">{authMode}</div>
-    {#if configuredMode && configuredMode !== authMode}
-      <div class="text-muted-foreground">Configured: {configuredMode}</div>
-    {/if}
-  </div>
-  <div>
-    <div class="text-muted-foreground">Issuer</div>
-    <div class="text-foreground mt-1 font-mono break-all">{issuerURL || 'Not configured'}</div>
-  </div>
-  <div>
-    <div class="text-muted-foreground">{user ? 'Current user' : 'Local principal'}</div>
-    <div class="text-foreground mt-1 font-medium">
-      {user?.displayName || localPrincipal || 'Anonymous'}
+<div class="bg-muted/30 rounded-lg border">
+  <div class="grid gap-4 p-4 sm:grid-cols-2">
+    <!-- Auth config -->
+    <div class="space-y-3">
+      <div>
+        <div class="text-muted-foreground text-xs">Auth mode</div>
+        <div class="text-foreground mt-1 font-semibold uppercase">{authMode}</div>
+        {#if configuredMode && configuredMode !== authMode}
+          <div class="text-muted-foreground mt-0.5 text-xs">Draft configured: {configuredMode}</div>
+        {/if}
+      </div>
+      <div>
+        <div class="text-muted-foreground text-xs">Issuer</div>
+        <div class="text-foreground mt-1 font-mono text-xs break-all">
+          {issuerURL || 'Not configured'}
+        </div>
+      </div>
     </div>
-    {#if user?.primaryEmail}
-      <div class="text-muted-foreground break-all">{user.primaryEmail}</div>
-    {:else if localPrincipal}
-      <div class="text-muted-foreground">Disabled mode keeps this local admin available.</div>
-    {/if}
-  </div>
-  <div>
-    <div class="text-muted-foreground">Bootstrap state</div>
-    <div class="text-foreground mt-1">{bootstrapSummary || 'No bootstrap admins configured'}</div>
-  </div>
-  <div>
-    <div class="text-muted-foreground">Session boundary</div>
-    <div class="text-foreground mt-1">httpOnly cookie + CSRF header</div>
-    <div class="text-muted-foreground">
-      {publicExposureRisk === 'high'
-        ? 'Public exposure detected: configure OIDC before wider rollout.'
-        : 'OIDC tokens stay server-side.'}
+
+    <!-- Identity -->
+    <div class="space-y-3">
+      <div>
+        <div class="text-muted-foreground text-xs">{user ? 'Current user' : 'Local principal'}</div>
+        <div class="text-foreground mt-1 text-sm font-medium">
+          {user?.displayName || localPrincipal || 'Anonymous'}
+        </div>
+        {#if user?.primaryEmail}
+          <div class="text-muted-foreground text-xs break-all">{user.primaryEmail}</div>
+        {:else if localPrincipal}
+          <div class="text-muted-foreground mt-0.5 text-xs">
+            Disabled mode keeps this local admin available.
+          </div>
+        {/if}
+      </div>
+      <div>
+        <div class="text-muted-foreground text-xs">Bootstrap state</div>
+        <div class="text-foreground mt-1 text-xs leading-relaxed">
+          {bootstrapSummary || 'No bootstrap admins configured'}
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Session boundary footer -->
+  <div
+    class={`border-t px-4 py-2.5 text-xs ${
+      publicExposureRisk === 'high'
+        ? 'border-amber-200 bg-amber-50 text-amber-800'
+        : 'text-muted-foreground'
+    }`}
+  >
+    <span class="font-medium">Session boundary:</span>
+    <code class="mx-1">httpOnly cookie + CSRF header</code>
+    <span class="mx-1">·</span>
+    {#if publicExposureRisk === 'high'}
+      <span class="font-medium">Public exposure detected — configure OIDC before wider rollout.</span>
+    {:else}
+      <span>OIDC tokens stay server-side.</span>
+    {/if}
   </div>
 </div>

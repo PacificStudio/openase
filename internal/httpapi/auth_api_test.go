@@ -767,6 +767,40 @@ func TestLogoutRevokesBrowserSession(t *testing.T) {
 	}
 }
 
+func TestLogoutAllowsConfiguredTrustedOrigin(t *testing.T) {
+	t.Parallel()
+
+	fixture := newHumanAuthFixtureWithConfig(t, config.AuthConfig{
+		Mode: config.AuthModeOIDC,
+		OIDC: config.OIDCConfig{
+			IssuerURL:      "https://idp.example.com",
+			ClientID:       "openase",
+			ClientSecret:   "test-client-secret",
+			RedirectURL:    "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+			Scopes:         []string{"openid", "profile", "email"},
+			SessionTTL:     8 * time.Hour,
+			SessionIdleTTL: 30 * time.Minute,
+		},
+		CSRF: config.CSRFConfig{
+			TrustedOrigins: []string{" http://LOCALHOST:4173/ "},
+		},
+	})
+	sessionToken, csrfToken := fixture.createSession(t, humanFixtureSessionInput{
+		userEmail:   "alice@example.com",
+		displayName: "Alice Control Plane",
+	})
+
+	rec := fixture.request(t, http.MethodPost, "/api/v1/auth/logout", map[string]string{
+		"Cookie":         humanSessionCookieName + "=" + sessionToken,
+		"Origin":         "http://localhost:4173",
+		"X-OpenASE-CSRF": csrfToken,
+		"User-Agent":     "LogoutTest/1.0",
+	})
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected status 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestListSessionsReturnsInventoryAndAuditTrail(t *testing.T) {
 	t.Parallel()
 
@@ -1698,15 +1732,7 @@ type humanFixtureSessionInput struct {
 
 func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 	t.Helper()
-
-	client := openTestEntClient(t)
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close ent client: %v", err)
-		}
-	})
-
-	cfg := config.AuthConfig{
+	return newHumanAuthFixtureWithConfig(t, config.AuthConfig{
 		Mode: config.AuthModeOIDC,
 		OIDC: config.OIDCConfig{
 			IssuerURL:      "https://idp.example.com",
@@ -1717,7 +1743,19 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 			SessionTTL:     8 * time.Hour,
 			SessionIdleTTL: 30 * time.Minute,
 		},
-	}
+	})
+}
+
+func newHumanAuthFixtureWithConfig(t *testing.T, cfg config.AuthConfig) humanAuthFixture {
+	t.Helper()
+
+	client := openTestEntClient(t)
+	t.Cleanup(func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close ent client: %v", err)
+		}
+	})
+
 	repository := humanauthrepo.NewEntRepository(client)
 	authStateSvc, err := accesscontrolservice.New(nil, t.Name(), "", "", cfg)
 	if err != nil {

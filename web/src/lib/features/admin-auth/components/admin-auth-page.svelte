@@ -15,6 +15,9 @@
   } from '$lib/api/openase'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { SecuritySettingsHumanAuthGuideLinks } from '$lib/features/settings'
+  import * as Collapsible from '$ui/collapsible'
+  import { ChevronDown } from '@lucide/svelte'
   import AdminAuthDiagnostics from './admin-auth-diagnostics.svelte'
   import AdminAuthForm from './admin-auth-form.svelte'
   import AdminAuthOverview from './admin-auth-overview.svelte'
@@ -32,10 +35,12 @@
 
   let loading = $state(false)
   let error = $state('')
+  let errorCode = $state('')
   let actionKey = $state('')
   let auth = $state<SecurityAuthSettings | null>(null)
   let transition = $state<AdminAuthModeTransitionResponse['transition'] | null>(null)
   let lastDraftSignature = $state('')
+  let runtimeOpen = $state(false)
   let oidcForm = $state<OIDCFormState>({
     issuerURL: '',
     clientID: '',
@@ -108,10 +113,16 @@
   ) {
     actionKey = key
     error = ''
+    errorCode = ''
     try {
       await runner()
     } catch (caughtError) {
-      error = caughtError instanceof ApiError ? caughtError.detail : failureFallback
+      if (caughtError instanceof ApiError) {
+        error = caughtError.detail
+        errorCode = caughtError.code ?? ''
+      } else {
+        error = failureFallback
+      }
       toastStore.error(error)
     } finally {
       actionKey = ''
@@ -145,9 +156,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = null
-        toastStore.success('OIDC draft saved for the instance. Active auth mode stays unchanged.')
+        toastStore.success('Draft saved.')
       },
-      'Failed to save the instance auth draft.',
+      'Failed to save draft.',
     )
   }
 
@@ -158,9 +169,13 @@
         const payload = await testAdminOIDCDraft(oidcDraftPayload())
         applyValidationResult(payload)
         transition = null
-        toastStore.success('OIDC provider discovery succeeded.')
+        toastStore.success(
+          payload.issuer_url
+            ? `Validation passed — ${payload.issuer_url}`
+            : 'Validation passed.',
+        )
       },
-      'Failed to validate the OIDC provider.',
+      'Validation failed.',
     )
     if (error) {
       await refreshAuth()
@@ -175,9 +190,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('OIDC is now the configured auth mode for the instance.')
+        toastStore.success('OIDC activated.')
       },
-      'Failed to enable OIDC for the instance.',
+      'Failed to activate OIDC.',
     )
     if (error) {
       await refreshAuth()
@@ -192,9 +207,9 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('Disabled mode is now the configured fallback for the instance.')
+        toastStore.success('Switched to local bootstrap.')
       },
-      'Failed to revert the instance auth mode to disabled.',
+      'Failed to disable OIDC.',
     )
   }
 
@@ -205,27 +220,32 @@
 
 <PageScaffold
   title="Admin Auth"
-  description="Current browser auth method, OIDC draft state, validation diagnostics, and activation controls."
+  description="Instance browser authentication and OIDC provider settings."
 >
   {#if loading}
     <div class="space-y-4">
-      <div class="bg-muted h-24 animate-pulse rounded-xl"></div>
-      <div class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div class="bg-muted h-96 animate-pulse rounded-xl"></div>
-        <div class="bg-muted h-96 animate-pulse rounded-xl"></div>
-      </div>
+      <div class="bg-muted h-32 animate-pulse rounded-2xl"></div>
+      <div class="bg-muted h-64 animate-pulse rounded-2xl"></div>
     </div>
-  {:else if error}
+  {:else if error && !auth}
     <div class="text-destructive rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm">
       {error}
     </div>
   {:else if auth}
-    <div class="space-y-6">
-      <div class="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <AdminAuthOverview {auth} user={authStore.user} />
-        <AdminAuthDiagnostics {auth} {transition} />
-      </div>
+    <div class="space-y-4">
+      {#if error}
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <div class="text-sm text-red-900">{error}</div>
+          {#if errorCode}
+            <div class="mt-1 font-mono text-xs text-red-700">{errorCode}</div>
+          {/if}
+        </div>
+      {/if}
 
+      <!-- 1. Hero: current auth status -->
+      <AdminAuthOverview {auth} user={authStore.user} />
+
+      <!-- 2. OIDC configuration form -->
       <AdminAuthForm
         {auth}
         bind:form={oidcForm}
@@ -235,6 +255,61 @@
         onEnable={() => void handleEnable()}
         onDisable={() => void handleDisable()}
       />
+
+      <!-- 3. Diagnostics (collapsible) -->
+      <AdminAuthDiagnostics {auth} {transition} />
+
+      <!-- 4. Runtime details (collapsible) -->
+      <Collapsible.Root bind:open={runtimeOpen}>
+        <div class="border-border bg-card rounded-2xl border">
+          <Collapsible.Trigger class="flex w-full items-center justify-between px-5 py-4 text-left">
+            <span class="text-sm font-semibold">Runtime details</span>
+            <ChevronDown
+              class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 {runtimeOpen
+                ? 'rotate-180'
+                : ''}"
+            />
+          </Collapsible.Trigger>
+          <Collapsible.Content>
+            <div class="space-y-4 border-t px-5 pb-5 pt-4">
+              <div class="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <div class="text-muted-foreground text-xs">Session TTL</div>
+                  <div class="mt-1 text-sm font-medium">{auth.session_policy.session_ttl}</div>
+                </div>
+                <div>
+                  <div class="text-muted-foreground text-xs">Idle TTL</div>
+                  <div class="mt-1 text-sm font-medium">{auth.session_policy.session_idle_ttl}</div>
+                </div>
+                <div>
+                  <div class="text-muted-foreground text-xs">Config file</div>
+                  <div class="mt-1 font-mono text-xs break-all">
+                    {auth.config_path || 'Not available'}
+                  </div>
+                </div>
+              </div>
+
+              {#if auth.next_steps.length > 0}
+                <div>
+                  <div class="text-muted-foreground mb-2 text-xs font-medium">Next steps</div>
+                  <ol
+                    class="text-muted-foreground list-inside list-decimal space-y-1.5 text-sm leading-relaxed"
+                  >
+                    {#each auth.next_steps as step (step)}
+                      <li>{step}</li>
+                    {/each}
+                  </ol>
+                </div>
+              {/if}
+            </div>
+          </Collapsible.Content>
+        </div>
+      </Collapsible.Root>
+
+      <!-- 5. Guide links -->
+      {#if auth.docs.length > 0}
+        <SecuritySettingsHumanAuthGuideLinks docs={auth.docs} />
+      {/if}
     </div>
   {/if}
 </PageScaffold>
