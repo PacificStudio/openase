@@ -3,9 +3,9 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 
+	configpkg "github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/labstack/echo/v4"
@@ -84,7 +84,7 @@ func (s *Server) validateMutatingCSRFRequest(c echo.Context, csrfToken string) e
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
 		return nil
 	}
-	if !sameOriginRequest(c.Request()) {
+	if !sameOriginRequest(c.Request(), s.auth.CSRF.TrustedOrigins) {
 		return writeAPIError(c, http.StatusForbidden, "CSRF_ORIGIN_FORBIDDEN", "origin or referer must match this host")
 	}
 	if strings.TrimSpace(c.Request().Header.Get(csrfHeaderName)) != strings.TrimSpace(csrfToken) {
@@ -93,12 +93,27 @@ func (s *Server) validateMutatingCSRFRequest(c echo.Context, csrfToken string) e
 	return nil
 }
 
-func sameOriginRequest(req *http.Request) bool {
+func sameOriginRequest(req *http.Request, trustedOrigins []string) bool {
 	targetScheme := "http"
 	if req.TLS != nil || strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https") {
 		targetScheme = "https"
 	}
 	targetHost := strings.TrimSpace(req.Host)
+	targetOrigin, err := configpkg.NormalizeTrustedOriginForCSRF(targetScheme + "://" + targetHost)
+	if err != nil {
+		return false
+	}
+
+	allowedOrigins := make(map[string]struct{}, len(trustedOrigins)+1)
+	allowedOrigins[targetOrigin] = struct{}{}
+	for _, origin := range trustedOrigins {
+		normalized, err := configpkg.NormalizeTrustedOriginForCSRF(origin)
+		if err != nil {
+			continue
+		}
+		allowedOrigins[normalized] = struct{}{}
+	}
+
 	origins := []string{
 		strings.TrimSpace(req.Header.Get("Origin")),
 		strings.TrimSpace(req.Header.Get("Referer")),
@@ -107,11 +122,11 @@ func sameOriginRequest(req *http.Request) bool {
 		if candidate == "" {
 			continue
 		}
-		parsed, err := url.Parse(candidate)
+		normalized, err := configpkg.NormalizeTrustedOriginForCSRF(candidate)
 		if err != nil {
 			continue
 		}
-		if strings.EqualFold(parsed.Scheme, targetScheme) && strings.EqualFold(parsed.Host, targetHost) {
+		if _, ok := allowedOrigins[normalized]; ok {
 			return true
 		}
 	}

@@ -17,6 +17,7 @@
     currentOrgId = null,
     currentProjectId = null,
     currentSection = 'dashboard' as ProjectSection,
+    adminEnabled = false,
     orgName = 'My Org',
     projectName = '',
     projectHealth = null,
@@ -46,6 +47,7 @@
     currentOrgId?: string | null
     currentProjectId?: string | null
     currentSection?: ProjectSection
+    adminEnabled?: boolean
     orgName?: string
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical' | null
@@ -128,6 +130,7 @@
       {currentOrgId}
       {currentProjectId}
       {currentSection}
+      {adminEnabled}
       {orgName}
       {projectName}
       {projectHealth}

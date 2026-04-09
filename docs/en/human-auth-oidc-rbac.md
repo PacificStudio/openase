@@ -165,6 +165,8 @@ Mutating browser requests use same-origin cookie sessions and are protected by:
 
 Frontend code should obtain the CSRF token from `GET /auth/session` and send it through the normal API client for same-origin mutating requests.
 
+When OpenASE sits behind a trusted reverse proxy or a separate local dev frontend, you can allow additional browser origins with `auth.csrf.trusted_origins`. Each entry must be an absolute origin such as `http://localhost:4173` with no path, query, or fragment.
+
 ## User Cache And Identity Sync
 
 Successful OIDC login upserts:
