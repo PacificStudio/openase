@@ -1,7 +1,6 @@
 package workspace
 
 import (
-	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -35,7 +34,8 @@ func logRepoPreparePhase(
 	if logger == nil {
 		return
 	}
-	attrs := []any{
+	attrs := make([]any, 0, 16+len(extra))
+	attrs = append(attrs,
 		"machine_id", strings.TrimSpace(observability.MachineID),
 		"run_id", strings.TrimSpace(observability.RunID),
 		"ticket_id", strings.TrimSpace(observability.TicketID),
@@ -44,7 +44,7 @@ func logRepoPreparePhase(
 		"phase", strings.TrimSpace(phase),
 		"duration_ms", duration.Milliseconds(),
 		"duration", duration.String(),
-	}
+	)
 	attrs = append(attrs, extra...)
 	logger.Info("workspace repo prepare phase", attrs...)
 }
@@ -93,28 +93,4 @@ func logRemotePreparePhases(logger *slog.Logger, output []byte) {
 			extra...,
 		)
 	}
-}
-
-func remotePreparePhaseLine(
-	observability PrepareObservability,
-	repoName string,
-	repoPath string,
-	phase string,
-	durationMS int64,
-	phaseResult string,
-	note string,
-) string {
-	return fmt.Sprintf(
-		"%s%s|%s|%s|%s|%s|%s|%d|%s|%s",
-		remotePreparePhasePrefix,
-		strings.TrimSpace(observability.MachineID),
-		strings.TrimSpace(observability.RunID),
-		strings.TrimSpace(observability.TicketID),
-		strings.TrimSpace(repoName),
-		strings.TrimSpace(repoPath),
-		strings.TrimSpace(phase),
-		durationMS,
-		strings.TrimSpace(phaseResult),
-		strings.TrimSpace(note),
-	)
 }

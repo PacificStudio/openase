@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -198,11 +199,11 @@ func TestPrepareWithCommandRunnerLogsRepoPreparePhases(t *testing.T) {
 	}
 	repoPath := RepoPath(workspacePath, request.Repos[0].WorkspaceDirname, request.Repos[0].Name)
 	output := strings.Join([]string{
-		remotePreparePhaseLine(request.Observability, "backend", repoPath, "repo_prepare_begin", 0, "", ""),
-		remotePreparePhaseLine(request.Observability, "backend", repoPath, "clone_or_open", 12, "clone", ""),
-		remotePreparePhaseLine(request.Observability, "backend", repoPath, "fetch", 8, "", ""),
-		remotePreparePhaseLine(request.Observability, "backend", repoPath, "checkout_reset", 5, "", ""),
-		remotePreparePhaseLine(request.Observability, "backend", repoPath, "repo_prepare_done", 25, "", ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "repo_prepare_begin", 0, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "clone_or_open", 12, "clone"),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "fetch", 8, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "checkout_reset", 5, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "repo_prepare_done", 25, ""),
 	}, "\n")
 
 	if _, err := PrepareWithCommandRunner(remoteFailingRunner{output: output}, request, logger); err != nil {
@@ -227,6 +228,27 @@ func TestPrepareWithCommandRunnerLogsRepoPreparePhases(t *testing.T) {
 			t.Fatalf("expected log output to contain %q, got %q", needle, logOutput)
 		}
 	}
+}
+
+func remotePreparePhaseLineForTest(
+	observability PrepareObservability,
+	repoPath string,
+	phase string,
+	durationMS int64,
+	phaseResult string,
+) string {
+	return fmt.Sprintf(
+		"%s%s|%s|%s|%s|%s|%s|%d|%s",
+		remotePreparePhasePrefix,
+		strings.TrimSpace(observability.MachineID),
+		strings.TrimSpace(observability.RunID),
+		strings.TrimSpace(observability.TicketID),
+		"backend",
+		strings.TrimSpace(repoPath),
+		strings.TrimSpace(phase),
+		durationMS,
+		strings.TrimSpace(phaseResult),
+	)
 }
 
 type remoteTestDialer struct {
