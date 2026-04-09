@@ -1,5 +1,15 @@
 import type { BoardFilterPriority, BoardPriority } from './priority'
 
+export type BoardExternalLink = {
+  id: string
+  type: string
+  url: string
+  externalId: string
+  title?: string
+  status?: string
+  relation: string
+}
+
 export type BoardColumn = {
   id: string
   name: string
@@ -36,6 +46,8 @@ export type BoardTicket = {
   isMoving?: boolean
   labels?: string[]
   isBlocked?: boolean
+  externalLinks?: BoardExternalLink[]
+  pullRequestURLs?: string[]
 }
 
 export type BoardStatusOption = {

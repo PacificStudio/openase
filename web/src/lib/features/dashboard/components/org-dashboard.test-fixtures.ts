@@ -55,6 +55,7 @@ export const ticketPayload = {
       children: [],
       dependencies: [],
       external_links: [],
+      pull_request_urls: [],
       repo_scopes: [],
     },
   ],

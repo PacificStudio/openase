@@ -195,12 +195,17 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
   if (url.pathname === '/api/v1/auth/session' && request.method === 'GET') {
     return jsonResponse({
       auth_mode: 'disabled',
-      authenticated: false,
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
       issuer_url: '',
       user: null,
       csrf_token: '',
-      roles: [],
-      permissions: [],
+      roles: ['instance_admin'],
+      permissions: ['security_setting.read', 'security_setting.update', 'rbac.manage'],
     })
   }
 
@@ -220,13 +225,15 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
         ? ['project.read', 'project.update', 'rbac.manage']
         : scopeKind === 'organization'
           ? ['org.read', 'org.update', 'rbac.manage']
-          : ['security.read', 'security.manage', 'rbac.manage']
+          : ['security_setting.read', 'security_setting.update', 'rbac.manage']
     return jsonResponse({
-      user: {
-        id: 'local-instance-admin',
-        primary_email: 'local@example.com',
-        display_name: 'Local Instance Admin',
-      },
+      auth_mode: 'disabled',
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
       scope: {
         kind: scopeKind,
         id: scopeID,
@@ -2184,6 +2191,7 @@ function createMockTicketRecord(input: {
     children: [],
     dependencies: [],
     external_links: [],
+    pull_request_urls: [],
     external_ref: '',
     budget_usd: 0,
     cost_tokens_input: 0,

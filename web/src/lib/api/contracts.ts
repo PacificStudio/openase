@@ -576,6 +576,23 @@ export type SecuritySettingsResponse = Omit<RawSecuritySettingsResponse, 'securi
     auth: SecurityAuthSettings
   }
 }
+export type ScopedSecretPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secrets', 'get'>
+>
+export type ScopedSecret = ItemOf<ScopedSecretPayload['secrets']>
+export type ScopedSecretBindingPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secret-bindings', 'get'>
+>
+export type ScopedSecretBinding = ItemOf<ScopedSecretBindingPayload['bindings']>
+export type CreateScopedSecretBindingResponse = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/security-settings/secret-bindings', 'post'>
+>
+export type DeleteScopedSecretBindingResponse = DeepRequired<
+  ResponseFor<
+    '/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}',
+    'delete'
+  >
+>
 export type OIDCDraftTestResponse = {
   status: string
   message: string
@@ -624,3 +641,24 @@ export type RetestGitHubOutboundCredentialResponse = DeepRequired<
 export type DeleteGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'delete'>
 >
+
+// Org-level GitHub credential — managed under /orgs/:orgId/security/github-credential
+export type GitHubCredentialSlot = {
+  configured: boolean
+  scope?: string
+  source?: string
+  token_preview?: string
+  probe: {
+    state: string
+    configured: boolean
+    valid: boolean
+    login?: string
+    permissions: string[]
+    repo_access: string
+    checked_at?: string
+    last_error?: string
+  }
+}
+export type OrgGitHubCredentialResponse = {
+  credential: GitHubCredentialSlot
+}

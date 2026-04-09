@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "def7e783c5a9235144342554c1294ce73d29f9f118ec354fd695403c10bb41c6",
+  "openapi_sha256": "dd75deee5eb04244ccf51fc9a7776bf70abca80bc925b73e629d49d2df2286f9",
   "commands": [
     {
       "use": "list [projectId]",
@@ -1209,6 +1209,301 @@
         "projectId"
       ],
       "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "operation_id": "listScopedSecrets",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "operation_id": "createScopedSecret",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "description",
+          "description": "Human-readable description that explains what the secret is used for.",
+          "kind": "string"
+        },
+        {
+          "name": "kind",
+          "description": "Secret kind. Currently only opaque is supported.",
+          "kind": "string"
+        },
+        {
+          "name": "name",
+          "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
+          "kind": "string"
+        },
+        {
+          "name": "scope",
+          "description": "Secret scope. Supported values are organization and project.",
+          "kind": "string"
+        },
+        {
+          "name": "value",
+          "description": "Plaintext secret value to encrypt and persist at rest.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId] [secretId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "operation_id": "updateScopedSecretMetadata",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "description",
+          "description": "Updated human-readable description for the secret.",
+          "kind": "string"
+        },
+        {
+          "name": "name",
+          "description": "Updated secret name. Names are normalized to upper snake case when provided.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "rotate [projectId] [secretId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate",
+      "operation_id": "rotateScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "value",
+          "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "disable [projectId] [secretId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable",
+      "operation_id": "disableScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [secretId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "operation_id": "deleteScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "resolve [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime",
+      "operation_id": "resolveScopedSecretsForRuntime",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_id",
+          "description": "Optional agent ID included in the resolution precedence chain.",
+          "kind": "string"
+        },
+        {
+          "name": "binding_keys",
+          "description": "Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "ticket_id",
+          "description": "Optional ticket ID included in the resolution precedence chain.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID included in the resolution precedence chain.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings",
+      "operation_id": "listScopedSecretBindings",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings",
+      "operation_id": "createScopedSecretBinding",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "binding_key",
+          "description": "Runtime environment binding key. Keys are normalized to upper snake case before persistence.",
+          "kind": "string"
+        },
+        {
+          "name": "scope",
+          "description": "Binding scope. Supported values are workflow and ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "scope_resource_id",
+          "description": "Workflow or ticket ID that owns this binding.",
+          "kind": "string"
+        },
+        {
+          "name": "secret_id",
+          "description": "Secret ID to bind into workflow or ticket runtime resolution.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [bindingId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}",
+      "operation_id": "deleteScopedSecretBinding",
+      "positional_params": [
+        "projectId",
+        "bindingId"
+      ],
+      "path_params": [
+        {
+          "name": "bindingId",
+          "description": "Secret binding ID.",
+          "required": true,
+          "kind": "string"
+        },
         {
           "name": "projectId",
           "description": "Project ID.",

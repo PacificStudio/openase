@@ -284,9 +284,6 @@ func TestOrganizationScopedSecretRoutesCreateSecret(t *testing.T) {
 					},
 				}, nil
 			},
-			listOrganizationSecretInventory: func(context.Context, uuid.UUID) ([]secretsdomain.InventorySecret, error) {
-				return nil, nil
-			},
 		}),
 	)
 
@@ -302,6 +299,193 @@ func TestOrganizationScopedSecretRoutesCreateSecret(t *testing.T) {
 	}
 	if gotInput.OrganizationID != organizationID || gotInput.Name != "GH_TOKEN" || gotInput.Value != "ghp_1234" {
 		t.Fatalf("CreateOrganizationSecret() input = %+v", gotInput)
+	}
+}
+
+func TestScopedSecretRoutesListBindings(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	workflowID := uuid.New()
+	secretID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = catalogdomain.Project{ID: projectID, OrganizationID: orgID}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithSecretService(&stubSecretService{
+			listProjectBindings: func(context.Context, uuid.UUID) ([]secretsdomain.BindingRecord, error) {
+				return []secretsdomain.BindingRecord{
+					{
+						Binding: secretsdomain.Binding{
+							ID:              uuid.New(),
+							OrganizationID:  orgID,
+							ProjectID:       projectID,
+							SecretID:        secretID,
+							Scope:           secretsdomain.BindingScopeKindWorkflow,
+							ScopeResourceID: workflowID,
+							BindingKey:      "OPENAI_API_KEY",
+							CreatedAt:       time.Now().UTC(),
+							UpdatedAt:       time.Now().UTC(),
+						},
+						Secret: secretsdomain.Secret{
+							ID:             secretID,
+							OrganizationID: orgID,
+							ProjectID:      projectID,
+							Scope:          secretsdomain.ScopeKindProject,
+							Name:           "OPENAI_API_KEY",
+							Kind:           secretsdomain.KindOpaque,
+							Description:    "Primary runtime key",
+						},
+						Target: secretsdomain.BindingTarget{
+							ID:    workflowID,
+							Scope: secretsdomain.BindingScopeKindWorkflow,
+							Name:  "Fullstack Developer Workflow",
+						},
+					},
+				}, nil
+			},
+		}),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/secret-bindings",
+		"",
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Bindings []securityScopedSecretBindingResponse `json:"bindings"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if len(payload.Bindings) != 1 {
+		t.Fatalf("expected 1 binding, got %+v", payload.Bindings)
+	}
+	if payload.Bindings[0].Target.Name != "Fullstack Developer Workflow" {
+		t.Fatalf("unexpected binding payload: %+v", payload.Bindings[0])
+	}
+}
+
+func TestScopedSecretRoutesCreateBinding(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	secretID := uuid.New()
+	ticketID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = catalogdomain.Project{ID: projectID, OrganizationID: orgID}
+
+	var gotInput secretsservice.CreateBindingInput
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithSecretService(&stubSecretService{
+			createBinding: func(_ context.Context, input secretsservice.CreateBindingInput) (secretsdomain.BindingRecord, error) {
+				gotInput = input
+				return secretsdomain.BindingRecord{
+					Binding: secretsdomain.Binding{
+						ID:              uuid.New(),
+						OrganizationID:  orgID,
+						ProjectID:       projectID,
+						SecretID:        secretID,
+						Scope:           secretsdomain.BindingScopeKindTicket,
+						ScopeResourceID: ticketID,
+						BindingKey:      "OPENAI_API_KEY",
+						CreatedAt:       time.Now().UTC(),
+						UpdatedAt:       time.Now().UTC(),
+					},
+					Secret: secretsdomain.Secret{
+						ID:             secretID,
+						OrganizationID: orgID,
+						ProjectID:      projectID,
+						Scope:          secretsdomain.ScopeKindProject,
+						Name:           "OPENAI_API_KEY",
+						Kind:           secretsdomain.KindOpaque,
+						Description:    "Ticket override",
+					},
+					Target: secretsdomain.BindingTarget{
+						ID:         ticketID,
+						Scope:      secretsdomain.BindingScopeKindTicket,
+						Name:       "Override execution",
+						Identifier: "ASE-115",
+					},
+				}, nil
+			},
+		}),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/secret-bindings",
+		`{"secret_id":"`+secretID.String()+`","scope":"ticket","scope_resource_id":"`+ticketID.String()+`","binding_key":"openai_api_key"}`,
+	)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if gotInput.ProjectID != projectID || gotInput.SecretID != secretID || gotInput.Scope != "ticket" || gotInput.ScopeResourceID != ticketID || gotInput.BindingKey != "openai_api_key" {
+		t.Fatalf("CreateBinding() input = %+v", gotInput)
+	}
+}
+
+func TestScopedSecretRoutesDeleteBinding(t *testing.T) {
+	projectID := uuid.New()
+	bindingID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = catalogdomain.Project{ID: projectID, OrganizationID: uuid.New()}
+
+	var gotInput secretsservice.DeleteBindingInput
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithSecretService(&stubSecretService{
+			deleteBinding: func(_ context.Context, input secretsservice.DeleteBindingInput) error {
+				gotInput = input
+				return nil
+			},
+		}),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/secret-bindings/"+bindingID.String(),
+		"",
+	)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if gotInput.ProjectID != projectID || gotInput.BindingID != bindingID {
+		t.Fatalf("DeleteBinding() input = %+v", gotInput)
 	}
 }
 
@@ -378,12 +562,15 @@ func TestScopedSecretRoutesResolveMapsConflict(t *testing.T) {
 type stubSecretService struct {
 	listProjectSecretInventory      func(context.Context, uuid.UUID) ([]secretsdomain.InventorySecret, error)
 	listOrganizationSecretInventory func(context.Context, uuid.UUID) ([]secretsdomain.InventorySecret, error)
+	listProjectBindings             func(context.Context, uuid.UUID) ([]secretsdomain.BindingRecord, error)
 	createSecret                    func(context.Context, secretsservice.CreateSecretInput) (secretsdomain.Secret, error)
+	createBinding                   func(context.Context, secretsservice.CreateBindingInput) (secretsdomain.BindingRecord, error)
 	createOrganizationSecret        func(context.Context, secretsservice.CreateOrganizationSecretInput) (secretsdomain.Secret, error)
 	updateMetadata                  func(context.Context, secretsservice.UpdateSecretMetadataInput) (secretsdomain.Secret, error)
 	rotateSecret                    func(context.Context, secretsservice.RotateSecretInput) (secretsdomain.Secret, error)
 	rotateOrganizationSecret        func(context.Context, secretsservice.RotateOrganizationSecretInput) (secretsdomain.Secret, error)
 	disableSecret                   func(context.Context, secretsservice.DisableSecretInput) (secretsdomain.Secret, error)
+	deleteBinding                   func(context.Context, secretsservice.DeleteBindingInput) error
 	disableOrganizationSecret       func(context.Context, secretsservice.DisableOrganizationSecretInput) (secretsdomain.Secret, error)
 	deleteSecret                    func(context.Context, secretsservice.DeleteSecretInput) error
 	deleteOrganizationSecret        func(context.Context, secretsservice.DeleteOrganizationSecretInput) error
@@ -405,11 +592,25 @@ func (s *stubSecretService) ListOrganizationSecretInventory(ctx context.Context,
 	return s.listOrganizationSecretInventory(ctx, organizationID)
 }
 
+func (s *stubSecretService) ListProjectBindings(ctx context.Context, projectID uuid.UUID) ([]secretsdomain.BindingRecord, error) {
+	if s.listProjectBindings == nil {
+		return nil, nil
+	}
+	return s.listProjectBindings(ctx, projectID)
+}
+
 func (s *stubSecretService) CreateSecret(ctx context.Context, input secretsservice.CreateSecretInput) (secretsdomain.Secret, error) {
 	if s.createSecret == nil {
 		return secretsdomain.Secret{}, nil
 	}
 	return s.createSecret(ctx, input)
+}
+
+func (s *stubSecretService) CreateBinding(ctx context.Context, input secretsservice.CreateBindingInput) (secretsdomain.BindingRecord, error) {
+	if s.createBinding == nil {
+		return secretsdomain.BindingRecord{}, nil
+	}
+	return s.createBinding(ctx, input)
 }
 
 func (s *stubSecretService) CreateOrganizationSecret(ctx context.Context, input secretsservice.CreateOrganizationSecretInput) (secretsdomain.Secret, error) {
@@ -445,6 +646,13 @@ func (s *stubSecretService) DisableSecret(ctx context.Context, input secretsserv
 		return secretsdomain.Secret{}, nil
 	}
 	return s.disableSecret(ctx, input)
+}
+
+func (s *stubSecretService) DeleteBinding(ctx context.Context, input secretsservice.DeleteBindingInput) error {
+	if s.deleteBinding == nil {
+		return nil
+	}
+	return s.deleteBinding(ctx, input)
 }
 
 func (s *stubSecretService) DisableOrganizationSecret(ctx context.Context, input secretsservice.DisableOrganizationSecretInput) (secretsdomain.Secret, error) {

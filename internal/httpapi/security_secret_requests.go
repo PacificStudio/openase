@@ -13,6 +13,13 @@ type rawCreateScopedSecretRequest struct {
 	Value       string `json:"value"`
 }
 
+type rawCreateScopedSecretBindingRequest struct {
+	SecretID        string `json:"secret_id"`
+	Scope           string `json:"scope"`
+	ScopeResourceID string `json:"scope_resource_id"`
+	BindingKey      string `json:"binding_key"`
+}
+
 type rawPatchScopedSecretRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
@@ -38,6 +45,24 @@ func parseCreateScopedSecretRequest(projectID uuid.UUID, raw rawCreateScopedSecr
 		Description: raw.Description,
 		Value:       raw.Value,
 	}
+}
+
+func parseCreateScopedSecretBindingRequest(projectID uuid.UUID, raw rawCreateScopedSecretBindingRequest) (secretsservice.CreateBindingInput, error) {
+	secretID, err := parseUUIDString("secret_id", raw.SecretID)
+	if err != nil {
+		return secretsservice.CreateBindingInput{}, err
+	}
+	scopeResourceID, err := parseUUIDString("scope_resource_id", raw.ScopeResourceID)
+	if err != nil {
+		return secretsservice.CreateBindingInput{}, err
+	}
+	return secretsservice.CreateBindingInput{
+		ProjectID:       projectID,
+		SecretID:        secretID,
+		Scope:           raw.Scope,
+		ScopeResourceID: scopeResourceID,
+		BindingKey:      raw.BindingKey,
+	}, nil
 }
 
 func parseCreateOrganizationScopedSecretRequest(organizationID uuid.UUID, raw rawCreateScopedSecretRequest) secretsservice.CreateOrganizationSecretInput {

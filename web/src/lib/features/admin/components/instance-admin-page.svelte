@@ -15,14 +15,14 @@
   let instancePermissions = $state<EffectivePermissionsResponse | null>(null)
 
   const canReadDirectory = $derived(
-    instancePermissions?.permissions.includes('security.read') ?? false,
+    instancePermissions?.permissions.includes('security_setting.read') ?? false,
   )
   const canManageDirectory = $derived(
-    instancePermissions?.permissions.includes('security.manage') ?? false,
+    instancePermissions?.permissions.includes('security_setting.update') ?? false,
   )
 
   $effect(() => {
-    if (authStore.authMode !== 'oidc' || !authStore.authenticated) {
+    if (!authStore.loginRequired || !authStore.authenticated) {
       loading = false
       error = ''
       instancePermissions = null
@@ -75,9 +75,7 @@
           <div class="text-sm font-semibold">Your session</div>
         </div>
         <div class="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary"
-            >{authStore.authMode === 'oidc' ? 'OIDC' : 'Disabled mode'}</Badge
-          >
+          <Badge variant="secondary">{authStore.loginRequired ? 'OIDC' : 'Local bootstrap'}</Badge>
           {#if authStore.user}
             <Badge variant="outline">{authStore.user.primaryEmail}</Badge>
           {:else}
@@ -116,7 +114,7 @@
       </div>
     </div>
 
-    {#if authStore.authMode !== 'oidc'}
+    {#if !authStore.loginRequired}
       <div class="border-border bg-card flex items-center gap-3 rounded-lg border p-4">
         <Users class="text-muted-foreground size-4 shrink-0" />
         <p class="text-muted-foreground text-sm">
@@ -138,8 +136,8 @@
         <div class="border-border bg-card rounded-lg border p-4 text-sm">
           <div class="font-medium">Instance admin access required</div>
           <div class="text-muted-foreground mt-1 text-xs">
-            This page needs instance-level <code>security.read</code> to browse the directory and
-            <code>security.manage</code> for lifecycle and session governance actions.
+            This page needs instance-level <code>security_setting.read</code> to browse the
+            directory and <code>security_setting.update</code> for lifecycle and session governance actions.
           </div>
         </div>
       {:else}

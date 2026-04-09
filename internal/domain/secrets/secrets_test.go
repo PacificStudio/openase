@@ -87,6 +87,32 @@ func TestParseBindingScopeKind(t *testing.T) {
 	}
 }
 
+func TestParseRuntimeBindingScopeKind(t *testing.T) {
+	tests := []struct {
+		input string
+		want  BindingScopeKind
+		ok    bool
+	}{
+		{input: "workflow", want: BindingScopeKindWorkflow, ok: true},
+		{input: "ticket", want: BindingScopeKindTicket, ok: true},
+		{input: "project", ok: false},
+		{input: "machine", ok: false},
+	}
+
+	for _, tc := range tests {
+		got, err := ParseRuntimeBindingScopeKind(tc.input)
+		if tc.ok {
+			if err != nil || got != tc.want {
+				t.Fatalf("ParseRuntimeBindingScopeKind(%q) = (%q, %v), want (%q, nil)", tc.input, got, err, tc.want)
+			}
+			continue
+		}
+		if err == nil {
+			t.Fatalf("ParseRuntimeBindingScopeKind(%q) expected error", tc.input)
+		}
+	}
+}
+
 func TestNormalizeName(t *testing.T) {
 	got, err := NormalizeName(" gh_token ")
 	if err != nil {

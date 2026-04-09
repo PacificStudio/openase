@@ -65,20 +65,14 @@ describe('TicketCard context menu', () => {
     expect(await findByText('Change priority')).toBeTruthy()
   })
 
-  it('opens context menu via the ellipsis action button', async () => {
-    const onclick = vi.fn()
+  it('uses the card context menu instead of a separate ellipsis button', () => {
     const ticket = buildTicket()
-    const { getByLabelText, findByText } = render(TicketCard, {
+    const { queryByLabelText } = render(TicketCard, {
       ticket,
       statuses,
-      onclick,
     })
 
-    const actionButton = getByLabelText('Ticket actions')
-    await fireEvent.click(actionButton)
-
-    expect(onclick).not.toHaveBeenCalled()
-    expect(await findByText('Open details')).toBeTruthy()
+    expect(queryByLabelText('Ticket actions')).toBeNull()
   })
 
   it('triggers Open details which calls onclick with the ticket', async () => {
@@ -177,5 +171,27 @@ describe('TicketCard context menu', () => {
     await fireEvent.click(card)
 
     expect(onclick).toHaveBeenCalledWith(ticket)
+  })
+
+  it('opens a PR badge without triggering the card click handler', async () => {
+    const onclick = vi.fn()
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const ticket = buildTicket({
+      pullRequestURLs: ['https://github.com/openase/openase/pull/42'],
+    })
+    const { getByText } = render(TicketCard, {
+      ticket,
+      statuses,
+      onclick,
+    })
+
+    await fireEvent.click(getByText('#42'))
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://github.com/openase/openase/pull/42',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(onclick).not.toHaveBeenCalled()
   })
 })

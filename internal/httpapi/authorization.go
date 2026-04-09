@@ -197,6 +197,18 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    humanauthdomain.PermissionProjectCreate,
 			checkRequired: true,
 		}, true
+	case "/api/v1/orgs/:orgId/security/github-credential", "/api/v1/orgs/:orgId/security/github-credential/import-gh-cli", "/api/v1/orgs/:orgId/security/github-credential/retest":
+		permission := humanauthdomain.PermissionSecurityUpdate
+		if method == http.MethodGet {
+			permission = humanauthdomain.PermissionSecurityRead
+		}
+		return humanRouteAuthorizationRule{
+			scopeResolver: humanRouteScopeResolverOrganization,
+			resource:      "organization",
+			paramName:     "orgId",
+			permission:    permission,
+			checkRequired: true,
+		}, true
 	case "/api/v1/orgs/:orgId", "/api/v1/orgs/:orgId/summary", "/api/v1/orgs/:orgId/machines", "/api/v1/orgs/:orgId/providers", "/api/v1/orgs/:orgId/channels", "/api/v1/orgs/:orgId/machines/stream", "/api/v1/orgs/:orgId/providers/stream", "/api/v1/orgs/:orgId/token-usage", "/api/v1/orgs/:orgId/security-settings/secrets", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId/rotate", "/api/v1/orgs/:orgId/security-settings/secrets/:secretId/disable", "/api/v1/organizations/:orgId/role-bindings", "/api/v1/organizations/:orgId/role-bindings/:bindingId", "/api/v1/orgs/:orgId/members", "/api/v1/orgs/:orgId/members/:membershipId", "/api/v1/orgs/:orgId/members/:membershipId/transfer-ownership", "/api/v1/orgs/:orgId/invitations", "/api/v1/orgs/:orgId/invitations/:invitationId/resend", "/api/v1/orgs/:orgId/invitations/:invitationId/cancel":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverOrganization,
@@ -229,7 +241,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    channelPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
-	case "/api/v1/projects/:projectId", "/api/v1/projects/:projectId/activity", "/api/v1/projects/:projectId/events/stream", "/api/v1/projects/:projectId/updates", "/api/v1/projects/:projectId/updates/:threadId", "/api/v1/projects/:projectId/updates/:threadId/revisions", "/api/v1/projects/:projectId/updates/:threadId/comments", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId/revisions", "/api/v1/projects/:projectId/notification-rules", "/api/v1/projects/:projectId/scheduled-jobs", "/api/v1/projects/:projectId/skills", "/api/v1/projects/:projectId/skills/import", "/api/v1/projects/:projectId/skills/refresh", "/api/v1/projects/:projectId/workflows", "/api/v1/projects/:projectId/statuses", "/api/v1/projects/:projectId/statuses/reset", "/api/v1/projects/:projectId/tickets", "/api/v1/projects/:projectId/tickets/archived", "/api/v1/projects/:projectId/tickets/:ticketId/detail", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes", "/api/v1/projects/:projectId/tickets/:ticketId/runs", "/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId", "/api/v1/projects/:projectId/repos", "/api/v1/projects/:projectId/token-usage", "/api/v1/projects/:projectId/github/namespaces", "/api/v1/projects/:projectId/github/repos", "/api/v1/projects/:projectId/agents", "/api/v1/projects/:projectId/agent-runs", "/api/v1/projects/:projectId/agents/:agentId/output", "/api/v1/projects/:projectId/agents/:agentId/output/stream", "/api/v1/projects/:projectId/agents/:agentId/steps", "/api/v1/projects/:projectId/agents/:agentId/steps/stream", "/api/v1/projects/:projectId/security-settings", "/api/v1/projects/:projectId/security-settings/secrets", "/api/v1/projects/:projectId/security-settings/secrets/resolve-for-runtime", "/api/v1/projects/:projectId/security-settings/github-outbound-credential", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/retest", "/api/v1/projects/:projectId/hr-advisor", "/api/v1/projects/:projectId/hr-advisor/activate", "/api/v1/projects/:projectId/role-bindings", "/api/v1/projects/:projectId/role-bindings/:bindingId", "/api/v1/chat/projects/:projectId/conversations/stream":
+	case "/api/v1/projects/:projectId", "/api/v1/projects/:projectId/activity", "/api/v1/projects/:projectId/events/stream", "/api/v1/projects/:projectId/updates", "/api/v1/projects/:projectId/updates/:threadId", "/api/v1/projects/:projectId/updates/:threadId/revisions", "/api/v1/projects/:projectId/updates/:threadId/comments", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId", "/api/v1/projects/:projectId/updates/:threadId/comments/:commentId/revisions", "/api/v1/projects/:projectId/notification-rules", "/api/v1/projects/:projectId/scheduled-jobs", "/api/v1/projects/:projectId/skills", "/api/v1/projects/:projectId/skills/import", "/api/v1/projects/:projectId/skills/refresh", "/api/v1/projects/:projectId/workflows", "/api/v1/projects/:projectId/statuses", "/api/v1/projects/:projectId/statuses/reset", "/api/v1/projects/:projectId/tickets", "/api/v1/projects/:projectId/tickets/archived", "/api/v1/projects/:projectId/tickets/:ticketId/detail", "/api/v1/projects/:projectId/tickets/:ticketId/repo-scopes", "/api/v1/projects/:projectId/tickets/:ticketId/runs", "/api/v1/projects/:projectId/tickets/:ticketId/runs/:runId", "/api/v1/projects/:projectId/repos", "/api/v1/projects/:projectId/token-usage", "/api/v1/projects/:projectId/github/namespaces", "/api/v1/projects/:projectId/github/repos", "/api/v1/projects/:projectId/agents", "/api/v1/projects/:projectId/agent-runs", "/api/v1/projects/:projectId/agents/:agentId/output", "/api/v1/projects/:projectId/agents/:agentId/output/stream", "/api/v1/projects/:projectId/agents/:agentId/steps", "/api/v1/projects/:projectId/agents/:agentId/steps/stream", "/api/v1/projects/:projectId/security-settings", "/api/v1/projects/:projectId/security-settings/secrets", "/api/v1/projects/:projectId/security-settings/secrets/resolve-for-runtime", "/api/v1/projects/:projectId/security-settings/secret-bindings", "/api/v1/projects/:projectId/security-settings/github-outbound-credential", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", "/api/v1/projects/:projectId/security-settings/github-outbound-credential/retest", "/api/v1/projects/:projectId/hr-advisor", "/api/v1/projects/:projectId/hr-advisor/activate", "/api/v1/projects/:projectId/role-bindings", "/api/v1/projects/:projectId/role-bindings/:bindingId", "/api/v1/chat/projects/:projectId/conversations/stream":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "project",
@@ -237,7 +249,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    projectPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
-	case "/api/v1/projects/:projectId/security-settings/secrets/:secretId", "/api/v1/projects/:projectId/security-settings/secrets/:secretId/rotate", "/api/v1/projects/:projectId/security-settings/secrets/:secretId/disable":
+	case "/api/v1/projects/:projectId/security-settings/secrets/:secretId", "/api/v1/projects/:projectId/security-settings/secrets/:secretId/rotate", "/api/v1/projects/:projectId/security-settings/secrets/:secretId/disable", "/api/v1/projects/:projectId/security-settings/secret-bindings/:bindingId":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "project",
@@ -323,9 +335,9 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 }
 
 func (s *Server) handleGetMyPermissions(c echo.Context) error {
-	principal, ok := currentHumanPrincipal(c)
-	if !ok {
-		return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", "human session required")
+	authContext, err := s.resolveAuthRequestContext(c, invalidHumanSessionAsError)
+	if err != nil {
+		return writeHumanSessionAuthError(c, err)
 	}
 	scope := humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindInstance, ID: ""}
 	if projectID := strings.TrimSpace(c.QueryParam("project_id")); projectID != "" {
@@ -334,30 +346,45 @@ func (s *Server) handleGetMyPermissions(c echo.Context) error {
 	if orgID := strings.TrimSpace(c.QueryParam("org_id")); orgID != "" {
 		scope = humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindOrganization, ID: orgID}
 	}
-	roles, permissions, err := s.humanAuthorizer.Evaluate(
-		c.Request().Context(),
-		principal.User,
-		principal.Identity,
-		principal.Groups,
-		scope,
-	)
-	if err != nil {
-		return writeAPIError(c, http.StatusForbidden, "AUTHORIZATION_DENIED", err.Error())
+
+	roles := authContext.Roles
+	permissions := authContext.Permissions
+	groups := authContext.Groups
+	if authContext.PrincipalKind == authRequestPrincipalKindHumanSession {
+		if s.humanAuthorizer == nil || authContext.HumanPrincipal == nil {
+			return writeAPIError(c, http.StatusServiceUnavailable, "AUTHORIZATION_UNAVAILABLE", "authorization service unavailable")
+		}
+		roles, permissions, err = s.humanAuthorizer.Evaluate(
+			c.Request().Context(),
+			authContext.HumanPrincipal.User,
+			authContext.HumanPrincipal.Identity,
+			authContext.HumanPrincipal.Groups,
+			scope,
+		)
+		if err != nil {
+			return writeAPIError(c, http.StatusForbidden, "AUTHORIZATION_DENIED", err.Error())
+		}
 	}
-	return c.JSON(http.StatusOK, map[string]any{
-		"user": map[string]any{
-			"id":            principal.User.ID.String(),
-			"primary_email": principal.User.PrimaryEmail,
-			"display_name":  principal.User.DisplayName,
-		},
+	response := map[string]any{
+		"auth_mode":                    authContext.RuntimeState.AuthMode.String(),
+		"login_required":               authContext.LoginRequired,
+		"authenticated":                authContext.Authenticated,
+		"principal_kind":               string(authContext.PrincipalKind),
+		"auth_configured":              authContext.AuthConfigured,
+		"session_governance_available": authContext.SessionGovernanceAvailable,
+		"can_manage_auth":              authContext.CanManageAuth,
 		"scope": map[string]any{
 			"kind": scope.Kind,
 			"id":   scope.ID,
 		},
 		"roles":       roleKeysToStrings(roles),
 		"permissions": permissionKeysToStrings(permissions),
-		"groups":      groupMembershipsToResponse(principal.Groups),
-	})
+		"groups":      groupMembershipsToResponse(groups),
+	}
+	if authContext.User != nil {
+		response["user"] = authContext.User
+	}
+	return c.JSON(http.StatusOK, response)
 }
 
 func (s *Server) handleListOrganizationRoleBindings(c echo.Context) error {

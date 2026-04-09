@@ -95,7 +95,7 @@
 
   $effect(() => {
     const projectId = currentProjectId
-    if (authStore.authMode !== 'oidc' || !authStore.authenticated || !projectId) {
+    if (!authStore.loginRequired || !authStore.authenticated || !projectId) {
       accessLoading = false
       accessError = ''
       projectPermissions = null
@@ -211,7 +211,7 @@
       showDocs={true}
     />
 
-    {#if authStore.authMode !== 'oidc'}
+    {#if !authStore.loginRequired}
       <AccessSettingsDisabledCard />
     {:else if !authStore.authenticated}
       <SecuritySettingsHumanAuthSignInHint />

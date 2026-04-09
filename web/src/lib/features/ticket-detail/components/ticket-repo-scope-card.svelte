@@ -39,16 +39,11 @@
   } = $props()
 
   let draft = $state<ScopeDraft>({
-    branchName: '',
-    pullRequestUrl: '',
+    branchName: scope.branchName,
+    pullRequestUrl: scope.prUrl ?? '',
   })
   let editOpen = $state(false)
   let copiedBranch = $state(false)
-
-  $effect(() => {
-    draft.branchName = scope.branchName
-    draft.pullRequestUrl = scope.prUrl ?? ''
-  })
 
   function updateDraft(key: keyof ScopeDraft, value: string | boolean) {
     draft = {

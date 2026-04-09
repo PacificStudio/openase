@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
-  import { KeyRound, LockKeyhole, Webhook } from '@lucide/svelte'
+  import { KeyRound, LockKeyhole } from '@lucide/svelte'
 
   type Security = SecuritySettingsResponse['security']
 
@@ -43,22 +43,6 @@
           </div>
         </div>
       {/if}
-    </div>
-  </div>
-
-  <!-- Inbound webhooks -->
-  <div class="space-y-2">
-    <div class="flex items-center gap-2">
-      <Webhook class="text-muted-foreground size-3.5" />
-      <h3 class="text-sm font-semibold">Inbound webhooks</h3>
-    </div>
-    <div class="bg-muted/30 rounded-lg px-4 py-3">
-      <div class="grid gap-x-6 gap-y-2 text-xs">
-        <div>
-          <span class="text-muted-foreground">Connector ingress route</span>
-          <div class="font-mono">{security.webhooks.connector_endpoint}</div>
-        </div>
-      </div>
     </div>
   </div>
 

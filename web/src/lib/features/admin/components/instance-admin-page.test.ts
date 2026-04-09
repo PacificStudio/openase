@@ -48,7 +48,12 @@ vi.mock('$lib/api/openase', () => ({
 function seedOidcAdmin() {
   authStore.hydrate({
     authMode: 'oidc',
+    loginRequired: true,
     authenticated: true,
+    principalKind: 'human_session',
+    authConfigured: true,
+    sessionGovernanceAvailable: true,
+    canManageAuth: true,
     issuerURL: 'https://idp.example.com',
     csrfToken: 'csrf-token',
     user: {
@@ -57,7 +62,7 @@ function seedOidcAdmin() {
       displayName: 'Alice Control Plane',
     },
     roles: ['instance_admin'],
-    permissions: ['security.read', 'security.manage'],
+    permissions: ['security_setting.read', 'security_setting.update'],
   })
 
   getEffectivePermissions.mockResolvedValue({
@@ -68,7 +73,7 @@ function seedOidcAdmin() {
     },
     scope: { kind: 'instance', id: '' },
     roles: ['instance_admin'],
-    permissions: ['security.read', 'security.manage'],
+    permissions: ['security_setting.read', 'security_setting.update'],
     groups: [],
   })
   getSessionGovernance.mockResolvedValue({
@@ -148,20 +153,26 @@ describe('Instance admin page', () => {
     vi.clearAllMocks()
   })
 
-  it('shows minimal disabled-mode diagnostics without multi-user governance semantics', async () => {
+  it('uses capability state for local-bootstrap diagnostics even when auth_mode is stale', async () => {
     authStore.hydrate({
-      authMode: 'disabled',
-      authenticated: false,
+      authMode: 'oidc',
+      loginRequired: false,
+      authenticated: true,
+      principalKind: 'local_bootstrap',
+      authConfigured: false,
+      sessionGovernanceAvailable: false,
+      canManageAuth: true,
       roles: [],
       permissions: [],
     })
 
     const { findAllByText, findByText } = render(InstanceAdminPage)
 
-    expect(await findByText('Migration note')).toBeTruthy()
-    expect(await findByText('Disabled-mode diagnostics')).toBeTruthy()
+    expect(await findByText('Your session')).toBeTruthy()
+    expect(await findByText('Recovery')).toBeTruthy()
     expect((await findAllByText('local_instance_admin:default')).length).toBeGreaterThan(0)
-    expect(await findByText('Break-glass and recovery')).toBeTruthy()
+    expect(await findByText(/Running in single-user disabled mode/)).toBeTruthy()
+    expect(getEffectivePermissions).not.toHaveBeenCalled()
   })
 
   it('loads current-session context and the governable user directory for oidc admins', async () => {
@@ -169,8 +180,7 @@ describe('Instance admin page', () => {
 
     const { findByText } = render(InstanceAdminPage)
 
-    expect(await findByText('Migration note')).toBeTruthy()
-    expect(await findByText('Current session boundary')).toBeTruthy()
+    expect(await findByText('Your session')).toBeTruthy()
     expect(await findByText('Session governance')).toBeTruthy()
     expect(await findByText('User directory and deprovision')).toBeTruthy()
     expect(await findByText('Bob Reviewer')).toBeTruthy()

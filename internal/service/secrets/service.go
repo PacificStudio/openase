@@ -22,17 +22,23 @@ var (
 	ErrInvalidInput       = errors.New("invalid secret input")
 	ErrSecretNotFound     = errors.New("secret not found")
 	ErrSecretNameConflict = errors.New("secret name already exists at this scope")
+	ErrBindingNotFound    = errors.New("secret binding not found")
+	ErrBindingConflict    = errors.New("secret binding already exists at this scope")
+	ErrBindingTarget      = errors.New("secret binding target not found in project")
 )
 
 type Manager interface {
 	ListProjectSecretInventory(ctx context.Context, projectID uuid.UUID) ([]domain.InventorySecret, error)
 	ListOrganizationSecretInventory(ctx context.Context, organizationID uuid.UUID) ([]domain.InventorySecret, error)
+	ListProjectBindings(ctx context.Context, projectID uuid.UUID) ([]domain.BindingRecord, error)
 	CreateSecret(ctx context.Context, input CreateSecretInput) (domain.Secret, error)
+	CreateBinding(ctx context.Context, input CreateBindingInput) (domain.BindingRecord, error)
 	CreateOrganizationSecret(ctx context.Context, input CreateOrganizationSecretInput) (domain.Secret, error)
 	UpdateSecretMetadata(ctx context.Context, input UpdateSecretMetadataInput) (domain.Secret, error)
 	RotateSecret(ctx context.Context, input RotateSecretInput) (domain.Secret, error)
 	RotateOrganizationSecret(ctx context.Context, input RotateOrganizationSecretInput) (domain.Secret, error)
 	DisableSecret(ctx context.Context, input DisableSecretInput) (domain.Secret, error)
+	DeleteBinding(ctx context.Context, input DeleteBindingInput) error
 	DisableOrganizationSecret(ctx context.Context, input DisableOrganizationSecretInput) (domain.Secret, error)
 	DeleteSecret(ctx context.Context, input DeleteSecretInput) error
 	DeleteOrganizationSecret(ctx context.Context, input DeleteOrganizationSecretInput) error
@@ -79,6 +85,19 @@ type RotateOrganizationSecretInput struct {
 type DisableSecretInput struct {
 	ProjectID uuid.UUID
 	SecretID  uuid.UUID
+}
+
+type CreateBindingInput struct {
+	ProjectID       uuid.UUID
+	SecretID        uuid.UUID
+	Scope           string
+	ScopeResourceID uuid.UUID
+	BindingKey      string
+}
+
+type DeleteBindingInput struct {
+	ProjectID uuid.UUID
+	BindingID uuid.UUID
 }
 
 type DisableOrganizationSecretInput struct {
@@ -146,6 +165,17 @@ func (s *Service) ListOrganizationSecretInventory(ctx context.Context, organizat
 	return s.repo.ListOrganizationSecretInventory(ctx, organizationID)
 }
 
+func (s *Service) ListProjectBindings(ctx context.Context, projectID uuid.UUID) ([]domain.BindingRecord, error) {
+	if s.repo == nil {
+		return nil, ErrUnavailable
+	}
+	items, err := s.repo.ListBindings(ctx, projectID)
+	if err != nil {
+		return nil, mapRepositoryError(err)
+	}
+	return items, nil
+}
+
 func (s *Service) CreateSecret(ctx context.Context, input CreateSecretInput) (domain.Secret, error) {
 	if s.repo == nil {
 		return domain.Secret{}, ErrUnavailable
@@ -184,6 +214,49 @@ func (s *Service) CreateSecret(ctx context.Context, input CreateSecretInput) (do
 		return domain.Secret{}, mapRepositoryError(err)
 	}
 	return created, nil
+}
+
+func (s *Service) CreateBinding(ctx context.Context, input CreateBindingInput) (domain.BindingRecord, error) {
+	if s.repo == nil {
+		return domain.BindingRecord{}, ErrUnavailable
+	}
+	scope, err := domain.ParseRuntimeBindingScopeKind(input.Scope)
+	if err != nil {
+		return domain.BindingRecord{}, fmt.Errorf("%w: %s", ErrInvalidInput, err)
+	}
+	key, err := domain.NormalizeName(input.BindingKey)
+	if err != nil {
+		return domain.BindingRecord{}, fmt.Errorf("%w: binding_key: %s", ErrInvalidInput, err)
+	}
+	secret, err := s.repo.GetSecret(ctx, input.ProjectID, input.SecretID)
+	if err != nil {
+		return domain.BindingRecord{}, mapRepositoryError(err)
+	}
+	target, err := s.repo.GetBindingTarget(ctx, input.ProjectID, scope, input.ScopeResourceID)
+	if err != nil {
+		return domain.BindingRecord{}, mapRepositoryError(err)
+	}
+	projectContext, err := s.repo.GetProjectContext(ctx, input.ProjectID)
+	if err != nil {
+		return domain.BindingRecord{}, mapRepositoryError(err)
+	}
+	binding := domain.Binding{
+		OrganizationID:  projectContext.OrganizationID,
+		ProjectID:       domain.ProjectIDForBindingScope(scope, input.ProjectID),
+		SecretID:        secret.ID,
+		Scope:           scope,
+		ScopeResourceID: target.ID,
+		BindingKey:      key,
+	}
+	created, err := s.repo.CreateBinding(ctx, binding)
+	if err != nil {
+		return domain.BindingRecord{}, mapRepositoryError(err)
+	}
+	return domain.BindingRecord{
+		Binding: created,
+		Secret:  secret,
+		Target:  target,
+	}, nil
 }
 
 func (s *Service) CreateOrganizationSecret(ctx context.Context, input CreateOrganizationSecretInput) (domain.Secret, error) {
@@ -282,6 +355,13 @@ func (s *Service) DisableSecret(ctx context.Context, input DisableSecretInput) (
 		return domain.Secret{}, mapRepositoryError(err)
 	}
 	return updated, nil
+}
+
+func (s *Service) DeleteBinding(ctx context.Context, input DeleteBindingInput) error {
+	if s.repo == nil {
+		return ErrUnavailable
+	}
+	return mapRepositoryError(s.repo.DeleteBinding(ctx, input.ProjectID, input.BindingID))
 }
 
 func (s *Service) DisableOrganizationSecret(ctx context.Context, input DisableOrganizationSecretInput) (domain.Secret, error) {
@@ -403,6 +483,15 @@ func mapRepositoryError(err error) error {
 	}
 	if errors.Is(err, repo.ErrSecretNameConflict) {
 		return ErrSecretNameConflict
+	}
+	if errors.Is(err, repo.ErrBindingNotFound) {
+		return ErrBindingNotFound
+	}
+	if errors.Is(err, repo.ErrBindingConflict) {
+		return ErrBindingConflict
+	}
+	if errors.Is(err, repo.ErrBindingTargetNotFound) {
+		return ErrBindingTarget
 	}
 	return err
 }

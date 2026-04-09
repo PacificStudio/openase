@@ -26,7 +26,7 @@
 </script>
 
 <div
-  class="grid gap-4 rounded-2xl border border-sky-100/80 bg-white/80 p-4 lg:grid-cols-[minmax(0,1.4fr)_220px_auto] lg:items-end"
+  class="border-border bg-card grid gap-4 rounded-lg border p-4 lg:grid-cols-[minmax(0,1.4fr)_220px_auto] lg:items-end"
 >
   <div class="space-y-2">
     <Label for="organization-member-email">Invite by email</Label>
@@ -67,10 +67,10 @@
 </div>
 
 {#if recentInviteToken}
-  <div class="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-4">
+  <div class="border-border bg-card rounded-lg border p-4">
     <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
       <div class="space-y-1">
-        <p class="text-sm font-medium text-emerald-950">
+        <p class="text-sm font-medium">
           Latest accept token for {recentInviteEmail}
         </p>
         <p class="text-muted-foreground text-xs">
@@ -79,9 +79,7 @@
       </div>
       <Button variant="outline" size="sm" onclick={onCopyToken}>Copy token</Button>
     </div>
-    <code
-      class="mt-3 block overflow-x-auto rounded-xl bg-white/80 px-3 py-2 text-xs text-emerald-950"
-    >
+    <code class="bg-muted text-foreground mt-3 block overflow-x-auto rounded-md px-3 py-2 text-xs">
       {recentInviteToken}
     </code>
   </div>

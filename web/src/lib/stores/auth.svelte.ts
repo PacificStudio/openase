@@ -7,7 +7,12 @@ export type HumanAuthUser = {
 
 export type HumanAuthSession = {
   authMode: string
+  loginRequired: boolean
   authenticated: boolean
+  principalKind: string
+  authConfigured: boolean
+  sessionGovernanceAvailable: boolean
+  canManageAuth: boolean
   issuerURL?: string
   user?: HumanAuthUser
   csrfToken?: string
@@ -18,7 +23,12 @@ export type HumanAuthSession = {
 function emptySession(): HumanAuthSession {
   return {
     authMode: 'disabled',
+    loginRequired: false,
     authenticated: false,
+    principalKind: 'anonymous',
+    authConfigured: false,
+    sessionGovernanceAvailable: false,
+    canManageAuth: false,
     issuerURL: '',
     user: undefined,
     csrfToken: '',
@@ -39,6 +49,21 @@ function createAuthStore() {
     },
     get authenticated() {
       return session.authenticated
+    },
+    get loginRequired() {
+      return session.loginRequired
+    },
+    get principalKind() {
+      return session.principalKind
+    },
+    get authConfigured() {
+      return session.authConfigured
+    },
+    get sessionGovernanceAvailable() {
+      return session.sessionGovernanceAvailable
+    },
+    get canManageAuth() {
+      return session.canManageAuth
     },
     get issuerURL() {
       return session.issuerURL ?? ''

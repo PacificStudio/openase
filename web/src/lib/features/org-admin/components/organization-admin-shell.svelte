@@ -39,6 +39,7 @@
     { label: 'Members', href: `${organizationPath(organizationId)}/admin/members` },
     { label: 'Invitations', href: `${organizationPath(organizationId)}/admin/invitations` },
     { label: 'Roles', href: `${organizationPath(organizationId)}/admin/roles` },
+    { label: 'Credentials', href: `${organizationPath(organizationId)}/admin/credentials` },
     { label: 'Settings', href: `${organizationPath(organizationId)}/admin/settings` },
   ])
 
@@ -114,7 +115,7 @@
 
 <PageScaffold
   title="Organization admin"
-  description="Members, invitations, roles, and organization settings."
+  description="Members, invitations, roles, credentials, and organization settings."
 >
   <div class="space-y-6">
     <div class="grid gap-4 lg:grid-cols-4">

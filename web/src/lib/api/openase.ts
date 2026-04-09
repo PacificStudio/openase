@@ -16,7 +16,10 @@ import type {
   ArchivedTicketPayload,
   BuiltinRolePayload,
   BuiltinRoleDetailResponse,
+  CreateScopedSecretBindingResponse,
+  DeleteScopedSecretBindingResponse,
   DeleteGitHubOutboundCredentialResponse,
+  OrgGitHubCredentialResponse,
   GitHubRepositoryCreateResponse,
   GitHubRepositoryListResponse,
   GitHubRepositoryNamespacesResponse,
@@ -59,6 +62,8 @@ import type {
   ScheduledJobResponse,
   ScheduledJobTriggerResponse,
   ScheduledJobUpdateResponse,
+  ScopedSecretBindingPayload,
+  ScopedSecretPayload,
   SecuritySettingsResponse,
   ScopedSecretResponse,
   ScopedSecretsResponse,
@@ -341,6 +346,31 @@ export function getSecuritySettings(projectId: string) {
   return api.get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
 }
 
+export function listScopedSecrets(projectId: string) {
+  return api.get<ScopedSecretPayload>(`/api/v1/projects/${projectId}/security-settings/secrets`)
+}
+
+export function listScopedSecretBindings(projectId: string) {
+  return api.get<ScopedSecretBindingPayload>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+  )
+}
+
+export function createScopedSecretBinding(
+  projectId: string,
+  body: {
+    secret_id: string
+    scope: 'workflow' | 'ticket'
+    scope_resource_id: string
+    binding_key: string
+  },
+) {
+  return api.post<CreateScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings`,
+    { body },
+  )
+}
+
 export function listProjectScopedSecrets(projectId: string) {
   return api.get<ScopedSecretsResponse>(`/api/v1/projects/${projectId}/security-settings/secrets`)
 }
@@ -368,6 +398,12 @@ export function rotateProjectScopedSecret(
   return api.post<ScopedSecretResponse>(
     `/api/v1/projects/${projectId}/security-settings/secrets/${secretId}/rotate`,
     { body },
+  )
+}
+
+export function deleteScopedSecretBinding(projectId: string, bindingId: string) {
+  return api.delete<DeleteScopedSecretBindingResponse>(
+    `/api/v1/projects/${projectId}/security-settings/secret-bindings/${bindingId}`,
   )
 }
 
@@ -514,51 +550,61 @@ export async function getScopeGroups(
   return response.security?.agent_tokens?.supported_scope_groups ?? []
 }
 
-export function saveGitHubOutboundCredential(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-    token: string
-  },
-) {
+// Project-scoped credential — only manages the project override
+export function saveGitHubOutboundCredential(projectId: string, body: { token: string }) {
   return api.put<SaveGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential`,
     { body },
   )
 }
 
-export function importGitHubOutboundCredentialFromGHCLI(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-  },
-) {
+export function importGitHubOutboundCredentialFromGHCLI(projectId: string) {
   return api.post<ImportGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/import-gh-cli`,
-    { body },
+    {},
   )
 }
 
-export function retestGitHubOutboundCredential(
-  projectId: string,
-  body: {
-    scope: 'organization' | 'project'
-  },
-) {
+export function retestGitHubOutboundCredential(projectId: string) {
   return api.post<RetestGitHubOutboundCredentialResponse>(
     `/api/v1/projects/${projectId}/security-settings/github-outbound-credential/retest`,
-    { body },
+    {},
   )
 }
 
-export function deleteGitHubOutboundCredential(
-  projectId: string,
-  scope: 'organization' | 'project',
-) {
-  const params = new URLSearchParams({ scope })
+export function deleteGitHubOutboundCredential(projectId: string) {
   return api.delete<DeleteGitHubOutboundCredentialResponse>(
-    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential?${params.toString()}`,
+    `/api/v1/projects/${projectId}/security-settings/github-outbound-credential`,
   )
+}
+
+// Org-scoped credential — manages the org default that all projects fall back to
+export function getOrgGitHubCredential(orgId: string) {
+  return api.get<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`)
+}
+
+export function saveOrgGitHubCredential(orgId: string, body: { token: string }) {
+  return api.put<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`, {
+    body,
+  })
+}
+
+export function importOrgGitHubCredentialFromGHCLI(orgId: string) {
+  return api.post<OrgGitHubCredentialResponse>(
+    `/api/v1/orgs/${orgId}/security/github-credential/import-gh-cli`,
+    {},
+  )
+}
+
+export function retestOrgGitHubCredential(orgId: string) {
+  return api.post<OrgGitHubCredentialResponse>(
+    `/api/v1/orgs/${orgId}/security/github-credential/retest`,
+    {},
+  )
+}
+
+export function deleteOrgGitHubCredential(orgId: string) {
+  return api.delete<OrgGitHubCredentialResponse>(`/api/v1/orgs/${orgId}/security/github-credential`)
 }
 
 export function getHRAdvisor(projectId: string) {

@@ -120,7 +120,7 @@ func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential",
-		strings.NewReader(`{"scope":"organization","token":"ghu_manual_token"}`),
+		strings.NewReader(`{"token":"ghu_manual_token"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -130,7 +130,7 @@ func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if authSvc.lastSaveInput.Scope != githubauthdomain.ScopeOrganization || authSvc.lastSaveInput.Token != "ghu_manual_token" {
+	if authSvc.lastSaveInput.Scope != githubauthdomain.ScopeProject || authSvc.lastSaveInput.Token != "ghu_manual_token" {
 		t.Fatalf("SaveManualCredential() input = %+v", authSvc.lastSaveInput)
 	}
 }
@@ -225,7 +225,7 @@ func TestSecuritySettingsRouteDeletesCredential(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential?scope=organization",
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential",
 		http.NoBody,
 	)
 	rec := httptest.NewRecorder()
@@ -235,7 +235,7 @@ func TestSecuritySettingsRouteDeletesCredential(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeOrganization {
+	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeProject {
 		t.Fatalf("DeleteCredential() input = %+v", authSvc.lastScopeInput)
 	}
 }

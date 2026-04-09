@@ -774,6 +774,7 @@ type OpenAPITicket struct {
 	Children          []OpenAPITicketReference    `json:"children"`
 	Dependencies      []OpenAPITicketDependency   `json:"dependencies"`
 	ExternalLinks     []OpenAPITicketExternalLink `json:"external_links"`
+	PullRequestURLs   []string                    `json:"pull_request_urls"`
 	ExternalRef       string                      `json:"external_ref"`
 	BudgetUSD         float64                     `json:"budget_usd"`
 	CostTokensInput   int64                       `json:"cost_tokens_input"`
@@ -1714,6 +1715,45 @@ type OpenAPIScopedSecretResponse struct {
 	Secret OpenAPIScopedSecret `json:"secret"`
 }
 
+type OpenAPIScopedSecretBindingSecret struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Scope       string  `json:"scope"`
+	Kind        string  `json:"kind"`
+	Description string  `json:"description"`
+	ProjectID   *string `json:"project_id,omitempty"`
+	Disabled    bool    `json:"disabled"`
+}
+
+type OpenAPIScopedSecretBindingTarget struct {
+	ID         string `json:"id"`
+	Scope      string `json:"scope"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier,omitempty"`
+}
+
+type OpenAPIScopedSecretBinding struct {
+	ID              string                           `json:"id"`
+	OrganizationID  string                           `json:"organization_id"`
+	ProjectID       string                           `json:"project_id"`
+	SecretID        string                           `json:"secret_id"`
+	Scope           string                           `json:"scope"`
+	ScopeResourceID string                           `json:"scope_resource_id"`
+	BindingKey      string                           `json:"binding_key"`
+	CreatedAt       string                           `json:"created_at"`
+	UpdatedAt       string                           `json:"updated_at"`
+	Secret          OpenAPIScopedSecretBindingSecret `json:"secret"`
+	Target          OpenAPIScopedSecretBindingTarget `json:"target"`
+}
+
+type OpenAPIScopedSecretBindingsResponse struct {
+	Bindings []OpenAPIScopedSecretBinding `json:"bindings"`
+}
+
+type OpenAPIScopedSecretBindingResponse struct {
+	Binding OpenAPIScopedSecretBinding `json:"binding"`
+}
+
 type OpenAPIResolvedRuntimeSecret struct {
 	BindingKey   string `json:"binding_key"`
 	BindingScope string `json:"binding_scope"`
@@ -1768,13 +1808,18 @@ type OpenAPIAuthSessionUser struct {
 }
 
 type OpenAPIAuthSessionResponse struct {
-	AuthMode      string                  `json:"auth_mode"`
-	Authenticated bool                    `json:"authenticated"`
-	IssuerURL     string                  `json:"issuer_url,omitempty"`
-	User          *OpenAPIAuthSessionUser `json:"user,omitempty"`
-	CSRFToken     string                  `json:"csrf_token,omitempty"`
-	Roles         []string                `json:"roles,omitempty"`
-	Permissions   []string                `json:"permissions,omitempty"`
+	AuthMode                   string                  `json:"auth_mode"`
+	LoginRequired              bool                    `json:"login_required"`
+	Authenticated              bool                    `json:"authenticated"`
+	PrincipalKind              string                  `json:"principal_kind"`
+	AuthConfigured             bool                    `json:"auth_configured"`
+	SessionGovernanceAvailable bool                    `json:"session_governance_available"`
+	CanManageAuth              bool                    `json:"can_manage_auth"`
+	IssuerURL                  string                  `json:"issuer_url,omitempty"`
+	User                       *OpenAPIAuthSessionUser `json:"user,omitempty"`
+	CSRFToken                  string                  `json:"csrf_token,omitempty"`
+	Roles                      []string                `json:"roles,omitempty"`
+	Permissions                []string                `json:"permissions,omitempty"`
 }
 
 type OpenAPIAuthSessionDevice struct {
@@ -1909,11 +1954,18 @@ type OpenAPIHumanGroupMembership struct {
 }
 
 type OpenAPIAuthPermissionsResponse struct {
-	User        OpenAPIAuthSessionUser        `json:"user"`
-	Scope       OpenAPIHumanScope             `json:"scope"`
-	Roles       []string                      `json:"roles"`
-	Permissions []string                      `json:"permissions"`
-	Groups      []OpenAPIHumanGroupMembership `json:"groups"`
+	AuthMode                   string                        `json:"auth_mode"`
+	LoginRequired              bool                          `json:"login_required"`
+	Authenticated              bool                          `json:"authenticated"`
+	PrincipalKind              string                        `json:"principal_kind"`
+	AuthConfigured             bool                          `json:"auth_configured"`
+	SessionGovernanceAvailable bool                          `json:"session_governance_available"`
+	CanManageAuth              bool                          `json:"can_manage_auth"`
+	User                       *OpenAPIAuthSessionUser       `json:"user,omitempty"`
+	Scope                      OpenAPIHumanScope             `json:"scope"`
+	Roles                      []string                      `json:"roles"`
+	Permissions                []string                      `json:"permissions"`
+	Groups                     []OpenAPIHumanGroupMembership `json:"groups"`
 }
 
 type OpenAPIRoleBinding struct {
@@ -2028,9 +2080,9 @@ type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
-type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
 type OpenAPICreateScopedSecretRequest rawCreateScopedSecretRequest
+type OpenAPICreateScopedSecretBindingRequest rawCreateScopedSecretBindingRequest
 type OpenAPIUpdateScopedSecretRequest rawPatchScopedSecretRequest
 type OpenAPIRotateScopedSecretRequest rawRotateScopedSecretRequest
 type OpenAPIResolveScopedSecretsRequest rawResolveScopedSecretsRequest
@@ -2184,6 +2236,12 @@ var (
 		"kind":        "Secret kind. Currently only opaque is supported.",
 		"description": "Human-readable description that explains what the secret is used for.",
 		"value":       "Plaintext secret value to encrypt and persist at rest.",
+	}
+	openAPICreateScopedSecretBindingDescriptions = map[string]string{
+		"secret_id":         "Secret ID to bind into workflow or ticket runtime resolution.",
+		"scope":             "Binding scope. Supported values are workflow and ticket.",
+		"scope_resource_id": "Workflow or ticket ID that owns this binding.",
+		"binding_key":       "Runtime environment binding key. Keys are normalized to upper snake case before persistence.",
 	}
 	openAPIUpdateScopedSecretDescriptions = map[string]string{
 		"name":        "Updated secret name. Names are normalized to upper snake case when provided.",
@@ -2481,6 +2539,7 @@ var (
 		"POST /api/v1/orgs/{orgId}/security-settings/secrets":                                          openAPICreateScopedSecretDescriptions,
 		"POST /api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate":                        openAPIRotateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets":                                  openAPICreateScopedSecretDescriptions,
+		"POST /api/v1/projects/{projectId}/security-settings/secret-bindings":                          openAPICreateScopedSecretBindingDescriptions,
 		"PATCH /api/v1/projects/{projectId}/security-settings/secrets/{secretId}":                      openAPIUpdateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate":                openAPIRotateScopedSecretDescriptions,
 		"POST /api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime":              openAPIResolveScopedSecretsDescriptions,
@@ -2891,7 +2950,7 @@ func (b openAPISpecBuilder) addAuthOperations() error {
 
 	myPermissions, err := b.jsonOperation(
 		"getMyEffectivePermissions",
-		"Get effective OpenASE roles and permissions for the authenticated human",
+		"Get effective OpenASE roles and permissions for the current request context",
 		[]string{"auth"},
 		http.StatusOK,
 		OpenAPIAuthPermissionsResponse{},
@@ -5698,6 +5757,43 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	secretCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secrets", http.MethodPost, secretCreate)
 
+	secretBindingList, err := b.jsonOperation(
+		"listScopedSecretBindings",
+		"List workflow and ticket scoped secret bindings configured for this project",
+		[]string{"security-settings"},
+		http.StatusOK,
+		OpenAPIScopedSecretBindingsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretBindingList.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings", http.MethodGet, secretBindingList)
+
+	secretBindingCreate, err := b.jsonOperation(
+		"createScopedSecretBinding",
+		"Create a workflow or ticket scoped secret binding for runtime resolution",
+		[]string{"security-settings"},
+		http.StatusCreated,
+		OpenAPIScopedSecretBindingResponse{},
+		OpenAPICreateScopedSecretBindingRequest{},
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	secretBindingCreate.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings", http.MethodPost, secretBindingCreate)
+
 	orgSecretCreate, err := b.jsonOperation(
 		"createOrganizationScopedSecret",
 		"Create a new organization scoped secret",
@@ -5812,6 +5908,23 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 	orgSecretDisable.AddParameter(uuidPathParameter("orgId", "Organization ID."))
 	orgSecretDisable.AddParameter(uuidPathParameter("secretId", "Secret ID."))
 	b.doc.AddOperation("/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable", http.MethodPost, orgSecretDisable)
+
+	secretBindingDelete := openapi3.NewOperation()
+	secretBindingDelete.OperationID = "deleteScopedSecretBinding"
+	secretBindingDelete.Summary = "Delete a workflow or ticket scoped secret binding"
+	secretBindingDelete.Tags = []string{"security-settings"}
+	secretBindingDelete.Responses = openapi3.NewResponsesWithCapacity(5)
+	secretBindingDelete.AddResponse(http.StatusNoContent, openapi3.NewResponse().WithDescription("Secret binding deleted."))
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusServiceUnavailable, http.StatusInternalServerError} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		secretBindingDelete.AddResponse(code, errorResponse)
+	}
+	secretBindingDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	secretBindingDelete.AddParameter(uuidPathParameter("bindingId", "Secret binding ID."))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}", http.MethodDelete, secretBindingDelete)
 
 	secretDelete := openapi3.NewOperation()
 	secretDelete.OperationID = "deleteScopedSecret"
@@ -5942,11 +6055,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityImport, err := b.jsonOperation(
 		"importGitHubOutboundCredentialFromGHCLI",
-		"Import the current gh auth token into platform-managed GitHub credential storage",
+		"Import the current gh auth token as the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -5961,11 +6074,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityRetest, err := b.jsonOperation(
 		"retestGitHubOutboundCredential",
-		"Retest a stored platform-managed GitHub outbound credential",
+		"Retest the stored project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -5980,7 +6093,7 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityDelete, err := b.jsonOperation(
 		"deleteGitHubOutboundCredential",
-		"Delete a stored platform-managed GitHub outbound credential",
+		"Delete the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
@@ -5995,10 +6108,6 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 		return err
 	}
 	securityDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	securityDelete.AddParameter(openapi3.NewQueryParameter("scope").
-		WithDescription("Credential scope to delete. Supported values are organization and project.").
-		WithRequired(true).
-		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential", http.MethodDelete, securityDelete)
 
 	return nil
