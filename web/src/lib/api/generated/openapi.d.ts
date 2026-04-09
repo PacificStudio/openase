@@ -4061,7 +4061,9 @@ export interface operations {
             auth_configured?: boolean
             auth_mode?: string
             authenticated?: boolean
+            available_auth_methods?: string[]
             can_manage_auth?: boolean
+            current_auth_method?: string
             groups?: {
               group_key?: string
               group_name?: string
@@ -4234,8 +4236,10 @@ export interface operations {
             auth_configured?: boolean
             auth_mode?: string
             authenticated?: boolean
+            available_auth_methods?: string[]
             can_manage_auth?: boolean
             csrf_token?: string
+            current_auth_method?: string
             issuer_url?: string
             login_required?: boolean
             permissions?: string[]
