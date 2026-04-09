@@ -27,6 +27,8 @@ ENABLE_FULL_BACKEND_COVERAGE="${OPENASE_ENABLE_FULL_BACKEND_COVERAGE:-false}"
 BACKEND_COVERAGE_MIN="${OPENASE_BACKEND_COVERAGE_MIN:-75.0}"
 DOMAIN_COVERAGE_MIN="${OPENASE_DOMAIN_COVERAGE_MIN:-100.0}"
 GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW="${OPENASE_GO_TEST_HEARTBEAT_INTERVAL_SECONDS:-}"
+GO_TEST_FAILURE_CONTEXT_LINES="${OPENASE_GO_TEST_FAILURE_CONTEXT_LINES:-30}"
+GO_TEST_FAILURE_MAX_LINES="${OPENASE_GO_TEST_FAILURE_MAX_LINES:-160}"
 ORIGINAL_HOME="${HOME:-}"
 ORIGINAL_XDG_CACHE_HOME="${XDG_CACHE_HOME:-}"
 ORIGINAL_GOPATH="$("${GO_BIN}" env GOPATH)"
@@ -41,8 +43,16 @@ if [[ -n "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}" ]]; then
     exit 1
   fi
   GO_TEST_HEARTBEAT_INTERVAL_SECONDS="${GO_TEST_HEARTBEAT_INTERVAL_SECONDS_RAW}"
-elif [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-  GO_TEST_HEARTBEAT_INTERVAL_SECONDS=10
+fi
+
+if [[ ! "${GO_TEST_FAILURE_CONTEXT_LINES}" =~ ^[0-9]+$ ]]; then
+  printf 'OPENASE_GO_TEST_FAILURE_CONTEXT_LINES must be a non-negative integer, got %s\n' "${GO_TEST_FAILURE_CONTEXT_LINES}" >&2
+  exit 1
+fi
+
+if [[ ! "${GO_TEST_FAILURE_MAX_LINES}" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'OPENASE_GO_TEST_FAILURE_MAX_LINES must be a positive integer, got %s\n' "${GO_TEST_FAILURE_MAX_LINES}" >&2
+  exit 1
 fi
 
 tmp_dir="$(mktemp -d)"
@@ -73,11 +83,7 @@ if [[ -z "${OPENASE_PGTEST_SHARED_ROOT:-}" ]]; then
 fi
 
 if [[ -z "${GO_TEST_PROGRESS_MODE}" ]]; then
-  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    GO_TEST_PROGRESS_MODE="json"
-  else
-    GO_TEST_PROGRESS_MODE="plain"
-  fi
+  GO_TEST_PROGRESS_MODE="plain"
 fi
 
 GO_TEST_PACKAGE_PARALLEL="${OPENASE_GO_TEST_PACKAGE_PARALLEL:-}"
@@ -129,31 +135,54 @@ run_go_test() {
   "${TEST_ENV_WRAPPER}" "${GO_BIN}" test "$@"
 }
 
-run_with_ci_heartbeat() {
-  if [[ "${GITHUB_ACTIONS:-}" != "true" || -z "${OPENASE_GO_CACHE_ROOT:-}" || ${GO_TEST_HEARTBEAT_INTERVAL_SECONDS} -le 0 ]]; then
-    "$@"
-    return
-  fi
+print_failure_excerpt() {
+  local output_file="$1"
+  python3 - "$output_file" "${GO_TEST_FAILURE_CONTEXT_LINES}" "${GO_TEST_FAILURE_MAX_LINES}" <<'PY'
+import re
+import sys
+from pathlib import Path
 
-  local heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
-  local heartbeat_pid=""
-  local status=0
+path = Path(sys.argv[1])
+context = int(sys.argv[2])
+max_lines = int(sys.argv[3])
+lines = path.read_text(errors="replace").splitlines()
 
-  mkdir -p "$(dirname "${heartbeat_file}")"
-  (
-    while true; do
-      now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-      printf '%s\n' "${now}" > "${heartbeat_file}"
-      sleep "${GO_TEST_HEARTBEAT_INTERVAL_SECONDS}"
-    done
-  ) &
-  heartbeat_pid=$!
+if not lines:
+    print("[backend-test-output] no captured output")
+    raise SystemExit(0)
 
-  "$@" || status=$?
+markers = (
+    re.compile(r"--- FAIL:"),
+    re.compile(r"^FAIL\b"),
+    re.compile(r"\bpanic:", re.IGNORECASE),
+    re.compile(r"\bfatal\b", re.IGNORECASE),
+    re.compile(r"\berror\b", re.IGNORECASE),
+    re.compile(r"\bexception\b", re.IGNORECASE),
+    re.compile(r"\bassert\b", re.IGNORECASE),
+    re.compile(r"timed out", re.IGNORECASE),
+)
 
-  kill "${heartbeat_pid}" 2>/dev/null || true
-  wait "${heartbeat_pid}" 2>/dev/null || true
-  return "${status}"
+marker_index = None
+for idx in range(len(lines) - 1, -1, -1):
+    line = lines[idx]
+    if any(pattern.search(line) for pattern in markers):
+        marker_index = idx
+        break
+
+if marker_index is None:
+    start = max(0, len(lines) - max_lines)
+    excerpt = lines[start:]
+else:
+    start = max(0, marker_index - context)
+    end = min(len(lines), marker_index + context + 1)
+    excerpt = lines[start:end]
+    if len(excerpt) > max_lines:
+        excerpt = excerpt[-max_lines:]
+
+print("[backend-test-output] showing captured context from the failing go test run")
+for line in excerpt:
+    print(line)
+PY
 }
 
 run_go_test_quiet_success() {
@@ -162,8 +191,7 @@ run_go_test_quiet_success() {
   local heartbeat_pid=""
   local status=0
 
-  # Keep JSON progress visible in CI so long-running backend suites keep emitting
-  # package/test events instead of looking like a silent hung process.
+  # Preserve the explicit JSON mode override for ad hoc CI debugging sessions.
   if [[ "${GO_TEST_PROGRESS_MODE}" == "json" ]]; then
     if run_go_test "$@" 2>&1 | tee "${output_file}"; then
       return 0
@@ -204,16 +232,11 @@ run_go_test_quiet_success() {
     wait "${heartbeat_pid}" 2>/dev/null || true
   fi
 
-  cat "${output_file}" >&2
+  print_failure_excerpt "${output_file}" >&2
   return "${status}"
 }
 
 run_go_test_ci_visible() {
-  if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
-    run_with_ci_heartbeat run_go_test "$@"
-    return
-  fi
-
   run_go_test_quiet_success "$@"
 }
 
