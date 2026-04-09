@@ -20,6 +20,24 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/chat/conversations/{conversationId}/workspace",
+      "categories": ["backend_only"],
+      "reason": "ASE-139 ships the backend workspace metadata contract ahead of the blocked workspace browser UI, so the endpoint is intentionally available for follow-on frontend integration and non-browser consumers."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/chat/conversations/{conversationId}/workspace/file",
+      "categories": ["backend_only"],
+      "reason": "ASE-139 ships the backend text-file preview contract ahead of the blocked workspace browser UI, so the endpoint is intentionally available for follow-on frontend integration and non-browser consumers."
+    },
+    {
+      "method": "get",
+      "path": "/api/v1/chat/conversations/{conversationId}/workspace/tree",
+      "categories": ["backend_only"],
+      "reason": "ASE-139 ships the backend directory tree contract ahead of the blocked workspace browser UI, so the endpoint is intentionally available for follow-on frontend integration and non-browser consumers."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}/hooks/stream",
       "categories": ["backend_only"],
       "reason": "Ticket detail currently renders hook history from the detail payload and does not maintain a dedicated live hook stream subscription."
