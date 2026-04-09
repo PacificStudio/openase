@@ -57,6 +57,12 @@ const (
 	TypeProviderAvailabilityChanged      Type = "provider.availability_changed"
 	TypeProviderMachineBindingChanged    Type = "provider.machine_binding_changed"
 	TypeProviderRateLimitUpdated         Type = "provider.rate_limit_updated"
+	TypeSecretCreated                    Type = "secret.created"
+	TypeSecretRotated                    Type = "secret.rotated"
+	TypeSecretBound                      Type = "secret.bound"
+	TypeSecretUnbound                    Type = "secret.unbound"
+	TypeSecretDisabled                   Type = "secret.disabled"
+	TypeSecretDeleted                    Type = "secret.deleted"
 	TypeAgentCreated                     Type = "agent.created"
 	TypeAgentUpdated                     Type = "agent.updated"
 	TypeAgentResumed                     Type = "agent.resumed"
@@ -145,6 +151,12 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeProviderAvailabilityChanged, Label: "Provider Availability Changed"},
 	{EventType: TypeProviderMachineBindingChanged, Label: "Provider Machine Binding Changed"},
 	{EventType: TypeProviderRateLimitUpdated, Label: "Provider Rate Limit Updated"},
+	{EventType: TypeSecretCreated, Label: "Secret Created"},
+	{EventType: TypeSecretRotated, Label: "Secret Rotated"},
+	{EventType: TypeSecretBound, Label: "Secret Bound"},
+	{EventType: TypeSecretUnbound, Label: "Secret Unbound"},
+	{EventType: TypeSecretDisabled, Label: "Secret Disabled"},
+	{EventType: TypeSecretDeleted, Label: "Secret Deleted"},
 	{EventType: TypeAgentCreated, Label: "Agent Created"},
 	{EventType: TypeAgentUpdated, Label: "Agent Updated"},
 	{EventType: TypeAgentResumed, Label: "Agent Resumed"},

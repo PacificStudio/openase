@@ -20,6 +20,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -565,6 +566,38 @@ func init() {
 	instanceauthconfigDescID := instanceauthconfigFields[0].Descriptor()
 	// instanceauthconfig.DefaultID holds the default value on creation for the id field.
 	instanceauthconfig.DefaultID = instanceauthconfigDescID.Default.(func() uuid.UUID)
+	localbootstrapauthrequestFields := schema.LocalBootstrapAuthRequest{}.Fields()
+	_ = localbootstrapauthrequestFields
+	// localbootstrapauthrequestDescCodeHash is the schema descriptor for code_hash field.
+	localbootstrapauthrequestDescCodeHash := localbootstrapauthrequestFields[1].Descriptor()
+	// localbootstrapauthrequest.CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
+	localbootstrapauthrequest.CodeHashValidator = localbootstrapauthrequestDescCodeHash.Validators[0].(func(string) error)
+	// localbootstrapauthrequestDescNonceHash is the schema descriptor for nonce_hash field.
+	localbootstrapauthrequestDescNonceHash := localbootstrapauthrequestFields[2].Descriptor()
+	// localbootstrapauthrequest.NonceHashValidator is a validator for the "nonce_hash" field. It is called by the builders before save.
+	localbootstrapauthrequest.NonceHashValidator = localbootstrapauthrequestDescNonceHash.Validators[0].(func(string) error)
+	// localbootstrapauthrequestDescPurpose is the schema descriptor for purpose field.
+	localbootstrapauthrequestDescPurpose := localbootstrapauthrequestFields[3].Descriptor()
+	// localbootstrapauthrequest.DefaultPurpose holds the default value on creation for the purpose field.
+	localbootstrapauthrequest.DefaultPurpose = localbootstrapauthrequestDescPurpose.Default.(string)
+	// localbootstrapauthrequestDescRequestedBy is the schema descriptor for requested_by field.
+	localbootstrapauthrequestDescRequestedBy := localbootstrapauthrequestFields[4].Descriptor()
+	// localbootstrapauthrequest.DefaultRequestedBy holds the default value on creation for the requested_by field.
+	localbootstrapauthrequest.DefaultRequestedBy = localbootstrapauthrequestDescRequestedBy.Default.(string)
+	// localbootstrapauthrequestDescCreatedAt is the schema descriptor for created_at field.
+	localbootstrapauthrequestDescCreatedAt := localbootstrapauthrequestFields[8].Descriptor()
+	// localbootstrapauthrequest.DefaultCreatedAt holds the default value on creation for the created_at field.
+	localbootstrapauthrequest.DefaultCreatedAt = localbootstrapauthrequestDescCreatedAt.Default.(func() time.Time)
+	// localbootstrapauthrequestDescUpdatedAt is the schema descriptor for updated_at field.
+	localbootstrapauthrequestDescUpdatedAt := localbootstrapauthrequestFields[9].Descriptor()
+	// localbootstrapauthrequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	localbootstrapauthrequest.DefaultUpdatedAt = localbootstrapauthrequestDescUpdatedAt.Default.(func() time.Time)
+	// localbootstrapauthrequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	localbootstrapauthrequest.UpdateDefaultUpdatedAt = localbootstrapauthrequestDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// localbootstrapauthrequestDescID is the schema descriptor for id field.
+	localbootstrapauthrequestDescID := localbootstrapauthrequestFields[0].Descriptor()
+	// localbootstrapauthrequest.DefaultID holds the default value on creation for the id field.
+	localbootstrapauthrequest.DefaultID = localbootstrapauthrequestDescID.Default.(func() uuid.UUID)
 	machineFields := schema.Machine{}.Fields()
 	_ = machineFields
 	// machineDescName is the schema descriptor for name field.

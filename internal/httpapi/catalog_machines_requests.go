@@ -117,7 +117,7 @@ func parseMachinePatchRequest(
 		request.AgentCLIPath = patch.AgentCLIPath
 	}
 	if patch.EnvVars != nil {
-		request.EnvVars = *patch.EnvVars
+		request.EnvVars = domain.MergeMaskedMachineEnvVars(current.EnvVars, *patch.EnvVars)
 	}
 
 	return domain.ParseUpdateMachine(machineID, current.OrganizationID, request)
