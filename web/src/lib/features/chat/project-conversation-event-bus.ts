@@ -2,12 +2,13 @@ import {
   type ProjectConversationStreamEvent,
   watchProjectConversationMuxStream,
 } from '$lib/api/chat'
-import type { StreamConnectionState } from '$lib/api/sse'
+import { defaultRetryDelayMs, type StreamConnectionState } from '$lib/api/sse'
 
 type ProjectConversationEventSubscriber = {
   conversationId: string
   onEvent: (event: ProjectConversationStreamEvent) => void
   onReconnect?: () => void
+  onRetrying?: () => void
   onConnected?: () => void
 }
 
@@ -29,6 +30,7 @@ export function watchProjectConversationMux(params: {
   signal?: AbortSignal
   onEvent: (event: ProjectConversationStreamEvent) => void
   onReconnect?: () => void
+  onRetrying?: () => void
 }) {
   let resolveConnected!: () => void
   const connected = new Promise<void>((resolve) => {
@@ -64,6 +66,7 @@ export function watchProjectConversationMux(params: {
       conversationId,
       onEvent: params.onEvent,
       onReconnect: params.onReconnect,
+      onRetrying: params.onRetrying,
       onConnected: resolveConnected,
     })
     ensureRuntimeConnection(runtime)
@@ -142,6 +145,11 @@ async function runRuntimeConnection(
 
   while (!signal.aborted) {
     runtime.state = firstAttempt ? 'connecting' : 'retrying'
+    if (!firstAttempt && runtime.hasConnected) {
+      for (const subscriber of runtime.subscribers.values()) {
+        subscriber.onRetrying?.()
+      }
+    }
 
     try {
       await watchProjectConversationMuxStream(runtime.projectId, {
@@ -183,7 +191,7 @@ async function runRuntimeConnection(
     }
 
     firstAttempt = false
-    await waitForRetry(signal, 2000)
+    await waitForRetry(signal, defaultRetryDelayMs)
   }
 }
 

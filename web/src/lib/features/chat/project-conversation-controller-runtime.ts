@@ -120,6 +120,14 @@ export function createProjectConversationControllerRuntime(
           conversationId,
           streamId,
         ),
+      onRetrying: () => {
+        const liveTab = findProjectConversationTab(input.getTabs(), streamTab.id)
+        if (!liveTab || !isActiveTab(liveTab) || liveTab.phase !== 'awaiting_reply') {
+          return
+        }
+        liveTab.phase = 'connecting_stream'
+        touchTabs()
+      },
     })
   }
 
