@@ -51,6 +51,9 @@ type ChatTurn func(*sql.Selector)
 // InstanceAuthConfig is the predicate function for instanceauthconfig builders.
 type InstanceAuthConfig func(*sql.Selector)
 
+// LocalBootstrapAuthRequest is the predicate function for localbootstrapauthrequest builders.
+type LocalBootstrapAuthRequest func(*sql.Selector)
+
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)
 

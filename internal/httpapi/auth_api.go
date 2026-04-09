@@ -34,6 +34,12 @@ type authSessionResponse struct {
 	Permissions                []string                 `json:"permissions,omitempty"`
 }
 
+type rawLocalBootstrapRedeemRequest struct {
+	RequestID string `json:"request_id"`
+	Code      string `json:"code"`
+	Nonce     string `json:"nonce"`
+}
+
 type authSessionDeviceResponse struct {
 	Kind    string `json:"kind"`
 	OS      string `json:"os,omitempty"`
@@ -85,6 +91,7 @@ type authRevokeSessionsResponse struct {
 func (s *Server) registerAuthRoutes(api *echo.Group) {
 	api.GET("/auth/oidc/start", s.handleOIDCStart)
 	api.GET("/auth/oidc/callback", s.handleOIDCCallback)
+	api.POST("/auth/local-bootstrap/redeem", s.handleLocalBootstrapRedeem)
 	api.GET("/auth/session", s.handleAuthSession)
 	api.GET("/auth/me/permissions", s.handleGetMyPermissions)
 	api.POST("/auth/logout", s.handleLogout)
@@ -171,6 +178,30 @@ func (s *Server) handleAuthSession(c echo.Context) error {
 		Roles:                      roleKeysToStrings(authContext.Roles),
 		Permissions:                permissionKeysToStrings(authContext.Permissions),
 	}
+	if authContext.RuntimeState.LoginRequired || s.humanAuthService == nil {
+		return c.JSON(http.StatusOK, response)
+	}
+	cookie, err := c.Cookie(humanSessionCookieName)
+	if err != nil || strings.TrimSpace(cookie.Value) == "" {
+		return c.JSON(http.StatusOK, response)
+	}
+	localSession, authErr := s.humanAuthService.AuthenticateLocalSession(
+		c.Request().Context(),
+		cookie.Value,
+		c.Request().UserAgent(),
+		c.RealIP(),
+		true,
+	)
+	if authErr != nil {
+		s.clearHumanSessionCookies(c)
+		return c.JSON(http.StatusOK, response)
+	}
+	response.Authenticated = true
+	response.PrincipalKind = string(authRequestPrincipalKindLocalBootstrap)
+	response.CanManageAuth = true
+	response.CSRFToken = localSession.CSRFToken
+	response.Roles = roleKeysToStrings(localSession.Roles)
+	response.Permissions = permissionKeysToStrings(localSession.Permissions)
 	return c.JSON(http.StatusOK, response)
 }
 
@@ -179,26 +210,80 @@ func (s *Server) handleLogout(c echo.Context) error {
 	if err != nil {
 		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
 	}
-	if runtimeState.LoginRequired && s.humanAuthService != nil {
+	if s.humanAuthService != nil {
 		if cookie, err := c.Cookie(humanSessionCookieName); err == nil && strings.TrimSpace(cookie.Value) != "" {
-			principal, authErr := s.humanAuthService.AuthenticateSession(
-				c.Request().Context(),
-				cookie.Value,
-				c.Request().UserAgent(),
-				c.RealIP(),
-				false,
-			)
-			if authErr == nil {
-				if err := s.validateMutatingHumanRequest(c, principal); err != nil {
-					return err
+			if runtimeState.LoginRequired {
+				principal, authErr := s.humanAuthService.AuthenticateSession(
+					c.Request().Context(),
+					cookie.Value,
+					c.Request().UserAgent(),
+					c.RealIP(),
+					false,
+				)
+				if authErr == nil {
+					if err := s.validateMutatingHumanRequest(c, principal); err != nil {
+						return err
+					}
 				}
+				_ = s.humanAuthService.Logout(c.Request().Context(), cookie.Value)
+			} else {
+				_ = s.humanAuthService.LogoutLocalSession(c.Request().Context(), cookie.Value)
 			}
-			_ = s.humanAuthService.Logout(c.Request().Context(), cookie.Value)
 		}
 	}
 	s.clearHumanSessionCookies(c)
 	s.clearOIDCFlowCookie(c)
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (s *Server) handleLocalBootstrapRedeem(c echo.Context) error {
+	runtimeState, err := s.currentRuntimeAccessControlState(c)
+	if err != nil {
+		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
+	}
+	if runtimeState.LoginRequired {
+		return writeAPIError(c, http.StatusForbidden, "LOCAL_BOOTSTRAP_DISABLED", "local bootstrap authorization is disabled when OIDC is active")
+	}
+	if s.humanAuthService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "AUTHORIZATION_UNAVAILABLE", "human auth service unavailable")
+	}
+
+	var raw rawLocalBootstrapRedeemRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_LOCAL_BOOTSTRAP_REQUEST", "request body must be valid JSON")
+	}
+	result, err := s.humanAuthService.RedeemLocalBootstrapRequest(
+		c.Request().Context(),
+		raw.RequestID,
+		raw.Code,
+		raw.Nonce,
+		c.Request().UserAgent(),
+		c.RealIP(),
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, humanauthservice.ErrLocalBootstrapDisabled):
+			return writeAPIError(c, http.StatusForbidden, "LOCAL_BOOTSTRAP_DISABLED", err.Error())
+		case errors.Is(err, humanauthservice.ErrLocalBootstrapExpired):
+			return writeAPIError(c, http.StatusGone, "LOCAL_BOOTSTRAP_EXPIRED", err.Error())
+		case errors.Is(err, humanauthservice.ErrLocalBootstrapAlreadyUsed):
+			return writeAPIError(c, http.StatusConflict, "LOCAL_BOOTSTRAP_ALREADY_USED", err.Error())
+		case errors.Is(err, humanauthservice.ErrLocalBootstrapInvalid):
+			return writeAPIError(c, http.StatusBadRequest, "LOCAL_BOOTSTRAP_INVALID", err.Error())
+		default:
+			return writeAPIError(c, http.StatusInternalServerError, "LOCAL_BOOTSTRAP_REDEEM_FAILED", err.Error())
+		}
+	}
+	s.setHumanSessionCookie(c, result.SessionToken)
+	return c.JSON(http.StatusOK, authSessionResponse{
+		AuthMode:      runtimeState.AuthMode.String(),
+		Authenticated: true,
+		PrincipalKind: string(authRequestPrincipalKindLocalBootstrap),
+		CanManageAuth: true,
+		CSRFToken:     result.CSRFToken,
+		Roles:         roleKeysToStrings(result.Principal.EffectiveRoles),
+		Permissions:   permissionKeysToStrings(result.Principal.Permissions),
+	})
 }
 
 func (s *Server) handleListSessions(c echo.Context) error {

@@ -26,6 +26,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -97,6 +98,7 @@ const (
 	TypeChatPendingInterrupt          = "ChatPendingInterrupt"
 	TypeChatTurn                      = "ChatTurn"
 	TypeInstanceAuthConfig            = "InstanceAuthConfig"
+	TypeLocalBootstrapAuthRequest     = "LocalBootstrapAuthRequest"
 	TypeMachine                       = "Machine"
 	TypeMachineChannelToken           = "MachineChannelToken"
 	TypeNotificationChannel           = "NotificationChannel"
@@ -18813,6 +18815,811 @@ func (m *InstanceAuthConfigMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *InstanceAuthConfigMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown InstanceAuthConfig edge %s", name)
+}
+
+// LocalBootstrapAuthRequestMutation represents an operation that mutates the LocalBootstrapAuthRequest nodes in the graph.
+type LocalBootstrapAuthRequestMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *uuid.UUID
+	code_hash       *string
+	nonce_hash      *string
+	purpose         *string
+	requested_by    *string
+	expires_at      *time.Time
+	used_session_id *uuid.UUID
+	used_at         *time.Time
+	created_at      *time.Time
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	done            bool
+	oldValue        func(context.Context) (*LocalBootstrapAuthRequest, error)
+	predicates      []predicate.LocalBootstrapAuthRequest
+}
+
+var _ ent.Mutation = (*LocalBootstrapAuthRequestMutation)(nil)
+
+// localbootstrapauthrequestOption allows management of the mutation configuration using functional options.
+type localbootstrapauthrequestOption func(*LocalBootstrapAuthRequestMutation)
+
+// newLocalBootstrapAuthRequestMutation creates new mutation for the LocalBootstrapAuthRequest entity.
+func newLocalBootstrapAuthRequestMutation(c config, op Op, opts ...localbootstrapauthrequestOption) *LocalBootstrapAuthRequestMutation {
+	m := &LocalBootstrapAuthRequestMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeLocalBootstrapAuthRequest,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withLocalBootstrapAuthRequestID sets the ID field of the mutation.
+func withLocalBootstrapAuthRequestID(id uuid.UUID) localbootstrapauthrequestOption {
+	return func(m *LocalBootstrapAuthRequestMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *LocalBootstrapAuthRequest
+		)
+		m.oldValue = func(ctx context.Context) (*LocalBootstrapAuthRequest, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().LocalBootstrapAuthRequest.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withLocalBootstrapAuthRequest sets the old LocalBootstrapAuthRequest of the mutation.
+func withLocalBootstrapAuthRequest(node *LocalBootstrapAuthRequest) localbootstrapauthrequestOption {
+	return func(m *LocalBootstrapAuthRequestMutation) {
+		m.oldValue = func(context.Context) (*LocalBootstrapAuthRequest, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m LocalBootstrapAuthRequestMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m LocalBootstrapAuthRequestMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of LocalBootstrapAuthRequest entities.
+func (m *LocalBootstrapAuthRequestMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *LocalBootstrapAuthRequestMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *LocalBootstrapAuthRequestMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().LocalBootstrapAuthRequest.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCodeHash sets the "code_hash" field.
+func (m *LocalBootstrapAuthRequestMutation) SetCodeHash(s string) {
+	m.code_hash = &s
+}
+
+// CodeHash returns the value of the "code_hash" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) CodeHash() (r string, exists bool) {
+	v := m.code_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCodeHash returns the old "code_hash" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldCodeHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCodeHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCodeHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCodeHash: %w", err)
+	}
+	return oldValue.CodeHash, nil
+}
+
+// ResetCodeHash resets all changes to the "code_hash" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetCodeHash() {
+	m.code_hash = nil
+}
+
+// SetNonceHash sets the "nonce_hash" field.
+func (m *LocalBootstrapAuthRequestMutation) SetNonceHash(s string) {
+	m.nonce_hash = &s
+}
+
+// NonceHash returns the value of the "nonce_hash" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) NonceHash() (r string, exists bool) {
+	v := m.nonce_hash
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNonceHash returns the old "nonce_hash" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldNonceHash(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNonceHash is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNonceHash requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNonceHash: %w", err)
+	}
+	return oldValue.NonceHash, nil
+}
+
+// ResetNonceHash resets all changes to the "nonce_hash" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetNonceHash() {
+	m.nonce_hash = nil
+}
+
+// SetPurpose sets the "purpose" field.
+func (m *LocalBootstrapAuthRequestMutation) SetPurpose(s string) {
+	m.purpose = &s
+}
+
+// Purpose returns the value of the "purpose" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) Purpose() (r string, exists bool) {
+	v := m.purpose
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPurpose returns the old "purpose" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldPurpose(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPurpose is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPurpose requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPurpose: %w", err)
+	}
+	return oldValue.Purpose, nil
+}
+
+// ResetPurpose resets all changes to the "purpose" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetPurpose() {
+	m.purpose = nil
+}
+
+// SetRequestedBy sets the "requested_by" field.
+func (m *LocalBootstrapAuthRequestMutation) SetRequestedBy(s string) {
+	m.requested_by = &s
+}
+
+// RequestedBy returns the value of the "requested_by" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) RequestedBy() (r string, exists bool) {
+	v := m.requested_by
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRequestedBy returns the old "requested_by" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldRequestedBy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRequestedBy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRequestedBy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRequestedBy: %w", err)
+	}
+	return oldValue.RequestedBy, nil
+}
+
+// ResetRequestedBy resets all changes to the "requested_by" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetRequestedBy() {
+	m.requested_by = nil
+}
+
+// SetExpiresAt sets the "expires_at" field.
+func (m *LocalBootstrapAuthRequestMutation) SetExpiresAt(t time.Time) {
+	m.expires_at = &t
+}
+
+// ExpiresAt returns the value of the "expires_at" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) ExpiresAt() (r time.Time, exists bool) {
+	v := m.expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExpiresAt returns the old "expires_at" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExpiresAt: %w", err)
+	}
+	return oldValue.ExpiresAt, nil
+}
+
+// ResetExpiresAt resets all changes to the "expires_at" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetExpiresAt() {
+	m.expires_at = nil
+}
+
+// SetUsedSessionID sets the "used_session_id" field.
+func (m *LocalBootstrapAuthRequestMutation) SetUsedSessionID(u uuid.UUID) {
+	m.used_session_id = &u
+}
+
+// UsedSessionID returns the value of the "used_session_id" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) UsedSessionID() (r uuid.UUID, exists bool) {
+	v := m.used_session_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedSessionID returns the old "used_session_id" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldUsedSessionID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedSessionID: %w", err)
+	}
+	return oldValue.UsedSessionID, nil
+}
+
+// ClearUsedSessionID clears the value of the "used_session_id" field.
+func (m *LocalBootstrapAuthRequestMutation) ClearUsedSessionID() {
+	m.used_session_id = nil
+	m.clearedFields[localbootstrapauthrequest.FieldUsedSessionID] = struct{}{}
+}
+
+// UsedSessionIDCleared returns if the "used_session_id" field was cleared in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) UsedSessionIDCleared() bool {
+	_, ok := m.clearedFields[localbootstrapauthrequest.FieldUsedSessionID]
+	return ok
+}
+
+// ResetUsedSessionID resets all changes to the "used_session_id" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetUsedSessionID() {
+	m.used_session_id = nil
+	delete(m.clearedFields, localbootstrapauthrequest.FieldUsedSessionID)
+}
+
+// SetUsedAt sets the "used_at" field.
+func (m *LocalBootstrapAuthRequestMutation) SetUsedAt(t time.Time) {
+	m.used_at = &t
+}
+
+// UsedAt returns the value of the "used_at" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) UsedAt() (r time.Time, exists bool) {
+	v := m.used_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsedAt returns the old "used_at" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldUsedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsedAt: %w", err)
+	}
+	return oldValue.UsedAt, nil
+}
+
+// ClearUsedAt clears the value of the "used_at" field.
+func (m *LocalBootstrapAuthRequestMutation) ClearUsedAt() {
+	m.used_at = nil
+	m.clearedFields[localbootstrapauthrequest.FieldUsedAt] = struct{}{}
+}
+
+// UsedAtCleared returns if the "used_at" field was cleared in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) UsedAtCleared() bool {
+	_, ok := m.clearedFields[localbootstrapauthrequest.FieldUsedAt]
+	return ok
+}
+
+// ResetUsedAt resets all changes to the "used_at" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetUsedAt() {
+	m.used_at = nil
+	delete(m.clearedFields, localbootstrapauthrequest.FieldUsedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *LocalBootstrapAuthRequestMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *LocalBootstrapAuthRequestMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *LocalBootstrapAuthRequestMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the LocalBootstrapAuthRequest entity.
+// If the LocalBootstrapAuthRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *LocalBootstrapAuthRequestMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *LocalBootstrapAuthRequestMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the LocalBootstrapAuthRequestMutation builder.
+func (m *LocalBootstrapAuthRequestMutation) Where(ps ...predicate.LocalBootstrapAuthRequest) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the LocalBootstrapAuthRequestMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *LocalBootstrapAuthRequestMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.LocalBootstrapAuthRequest, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *LocalBootstrapAuthRequestMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *LocalBootstrapAuthRequestMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (LocalBootstrapAuthRequest).
+func (m *LocalBootstrapAuthRequestMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *LocalBootstrapAuthRequestMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.code_hash != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldCodeHash)
+	}
+	if m.nonce_hash != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldNonceHash)
+	}
+	if m.purpose != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldPurpose)
+	}
+	if m.requested_by != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldRequestedBy)
+	}
+	if m.expires_at != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldExpiresAt)
+	}
+	if m.used_session_id != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldUsedSessionID)
+	}
+	if m.used_at != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldUsedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, localbootstrapauthrequest.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *LocalBootstrapAuthRequestMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case localbootstrapauthrequest.FieldCodeHash:
+		return m.CodeHash()
+	case localbootstrapauthrequest.FieldNonceHash:
+		return m.NonceHash()
+	case localbootstrapauthrequest.FieldPurpose:
+		return m.Purpose()
+	case localbootstrapauthrequest.FieldRequestedBy:
+		return m.RequestedBy()
+	case localbootstrapauthrequest.FieldExpiresAt:
+		return m.ExpiresAt()
+	case localbootstrapauthrequest.FieldUsedSessionID:
+		return m.UsedSessionID()
+	case localbootstrapauthrequest.FieldUsedAt:
+		return m.UsedAt()
+	case localbootstrapauthrequest.FieldCreatedAt:
+		return m.CreatedAt()
+	case localbootstrapauthrequest.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *LocalBootstrapAuthRequestMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case localbootstrapauthrequest.FieldCodeHash:
+		return m.OldCodeHash(ctx)
+	case localbootstrapauthrequest.FieldNonceHash:
+		return m.OldNonceHash(ctx)
+	case localbootstrapauthrequest.FieldPurpose:
+		return m.OldPurpose(ctx)
+	case localbootstrapauthrequest.FieldRequestedBy:
+		return m.OldRequestedBy(ctx)
+	case localbootstrapauthrequest.FieldExpiresAt:
+		return m.OldExpiresAt(ctx)
+	case localbootstrapauthrequest.FieldUsedSessionID:
+		return m.OldUsedSessionID(ctx)
+	case localbootstrapauthrequest.FieldUsedAt:
+		return m.OldUsedAt(ctx)
+	case localbootstrapauthrequest.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case localbootstrapauthrequest.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown LocalBootstrapAuthRequest field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LocalBootstrapAuthRequestMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case localbootstrapauthrequest.FieldCodeHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCodeHash(v)
+		return nil
+	case localbootstrapauthrequest.FieldNonceHash:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNonceHash(v)
+		return nil
+	case localbootstrapauthrequest.FieldPurpose:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPurpose(v)
+		return nil
+	case localbootstrapauthrequest.FieldRequestedBy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRequestedBy(v)
+		return nil
+	case localbootstrapauthrequest.FieldExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExpiresAt(v)
+		return nil
+	case localbootstrapauthrequest.FieldUsedSessionID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedSessionID(v)
+		return nil
+	case localbootstrapauthrequest.FieldUsedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsedAt(v)
+		return nil
+	case localbootstrapauthrequest.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case localbootstrapauthrequest.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *LocalBootstrapAuthRequestMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *LocalBootstrapAuthRequestMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *LocalBootstrapAuthRequestMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *LocalBootstrapAuthRequestMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(localbootstrapauthrequest.FieldUsedSessionID) {
+		fields = append(fields, localbootstrapauthrequest.FieldUsedSessionID)
+	}
+	if m.FieldCleared(localbootstrapauthrequest.FieldUsedAt) {
+		fields = append(fields, localbootstrapauthrequest.FieldUsedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *LocalBootstrapAuthRequestMutation) ClearField(name string) error {
+	switch name {
+	case localbootstrapauthrequest.FieldUsedSessionID:
+		m.ClearUsedSessionID()
+		return nil
+	case localbootstrapauthrequest.FieldUsedAt:
+		m.ClearUsedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *LocalBootstrapAuthRequestMutation) ResetField(name string) error {
+	switch name {
+	case localbootstrapauthrequest.FieldCodeHash:
+		m.ResetCodeHash()
+		return nil
+	case localbootstrapauthrequest.FieldNonceHash:
+		m.ResetNonceHash()
+		return nil
+	case localbootstrapauthrequest.FieldPurpose:
+		m.ResetPurpose()
+		return nil
+	case localbootstrapauthrequest.FieldRequestedBy:
+		m.ResetRequestedBy()
+		return nil
+	case localbootstrapauthrequest.FieldExpiresAt:
+		m.ResetExpiresAt()
+		return nil
+	case localbootstrapauthrequest.FieldUsedSessionID:
+		m.ResetUsedSessionID()
+		return nil
+	case localbootstrapauthrequest.FieldUsedAt:
+		m.ResetUsedAt()
+		return nil
+	case localbootstrapauthrequest.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case localbootstrapauthrequest.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *LocalBootstrapAuthRequestMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *LocalBootstrapAuthRequestMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *LocalBootstrapAuthRequestMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown LocalBootstrapAuthRequest edge %s", name)
 }
 
 // MachineMutation represents an operation that mutates the Machine nodes in the graph.

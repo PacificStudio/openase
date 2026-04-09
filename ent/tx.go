@@ -42,6 +42,8 @@ type Tx struct {
 	ChatTurn *ChatTurnClient
 	// InstanceAuthConfig is the client for interacting with the InstanceAuthConfig builders.
 	InstanceAuthConfig *InstanceAuthConfigClient
+	// LocalBootstrapAuthRequest is the client for interacting with the LocalBootstrapAuthRequest builders.
+	LocalBootstrapAuthRequest *LocalBootstrapAuthRequestClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// MachineChannelToken is the client for interacting with the MachineChannelToken builders.
@@ -268,6 +270,7 @@ func (tx *Tx) init() {
 	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
 	tx.InstanceAuthConfig = NewInstanceAuthConfigClient(tx.config)
+	tx.LocalBootstrapAuthRequest = NewLocalBootstrapAuthRequestClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.MachineChannelToken = NewMachineChannelTokenClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
