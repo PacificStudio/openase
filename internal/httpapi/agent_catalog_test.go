@@ -1229,9 +1229,9 @@ func (f *fakeCatalogService) ListAgentRuns(_ context.Context, projectID uuid.UUI
 	return items, nil
 }
 
-func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error) {
 	if _, ok := f.projects[input.ProjectID]; !ok {
-		return nil, catalogservice.ErrNotFound
+		return domain.ActivityEventPage{}, catalogservice.ErrNotFound
 	}
 
 	items := make([]domain.ActivityEvent, 0)
@@ -1252,6 +1252,12 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 				continue
 			}
 		}
+		if input.Before != nil {
+			cursor := domain.ActivityEventCursorFor(item)
+			if domain.CompareActivityEventCursor(cursor, *input.Before) >= 0 {
+				continue
+			}
+		}
 		items = append(items, item)
 	}
 	sort.Slice(items, func(i, j int) bool {
@@ -1260,11 +1266,17 @@ func (f *fakeCatalogService) ListActivityEvents(_ context.Context, input domain.
 		}
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
-	if len(items) > input.Limit {
-		items = items[:input.Limit]
+
+	page := domain.ActivityEventPage{
+		Events: items,
+	}
+	if len(page.Events) > input.Limit {
+		page.Events = page.Events[:input.Limit]
+		page.HasMore = true
+		page.NextCursor = domain.ActivityEventCursorFor(page.Events[len(page.Events)-1]).String()
 	}
 
-	return items, nil
+	return page, nil
 }
 
 func (f *fakeCatalogService) ListAgentOutput(_ context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {

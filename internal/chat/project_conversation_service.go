@@ -46,7 +46,7 @@ type projectConversationCatalog interface {
 	ListAgentProviders(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.AgentProvider, error)
 	ListProjectRepos(ctx context.Context, projectID uuid.UUID) ([]catalogdomain.ProjectRepo, error)
 	ListTicketRepoScopes(ctx context.Context, projectID uuid.UUID, ticketID uuid.UUID) ([]catalogdomain.TicketRepoScope, error)
-	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error)
+	ListActivityEvents(ctx context.Context, input catalogdomain.ListActivityEvents) (catalogdomain.ActivityEventPage, error)
 }
 
 type projectConversationSkillSync interface {

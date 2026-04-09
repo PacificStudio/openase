@@ -5,5 +5,5 @@ export type ActivityEntry = {
   timestamp: string
   ticketIdentifier?: string
   agentName?: string
-  metadata?: Record<string, string>
+  metadata?: Record<string, unknown>
 }

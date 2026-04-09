@@ -1279,7 +1279,9 @@ type OpenAPITicketRunTranscriptItem struct {
 }
 
 type OpenAPIActivityEventsResponse struct {
-	Events []OpenAPIActivityEvent `json:"events"`
+	Events     []OpenAPIActivityEvent `json:"events"`
+	NextCursor string                 `json:"next_cursor,omitempty"`
+	HasMore    bool                   `json:"has_more"`
 }
 
 type OpenAPITicketStatusesResponse struct {
@@ -4245,6 +4247,10 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	activityGet.AddParameter(uuidQueryParameter("agent_id", "Filter activity by agent ID."))
 	activityGet.AddParameter(uuidQueryParameter("ticket_id", "Filter activity by ticket ID."))
 	activityGet.AddParameter(intQueryParameter("limit", "Limit the number of returned activity events."))
+	activityGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Fetch older activity events before the provided activity cursor.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
 	b.doc.AddOperation("/api/v1/projects/{projectId}/activity", http.MethodGet, activityGet)
 
 	projectUpdatesGet, err := b.jsonOperation(

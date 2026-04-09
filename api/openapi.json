@@ -15975,6 +15975,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Fetch older activity events before the provided activity cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -16017,6 +16025,12 @@
                         "type": "object"
                       },
                       "type": "array"
+                    },
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": "string"
                     }
                   },
                   "type": "object"

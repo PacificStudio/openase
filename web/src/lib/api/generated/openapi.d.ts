@@ -11134,6 +11134,8 @@ export interface operations {
         ticket_id?: string
         /** @description Limit the number of returned activity events. */
         limit?: number
+        /** @description Fetch older activity events before the provided activity cursor. */
+        before?: string
       }
       header?: never
       path: {
@@ -11163,6 +11165,8 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            has_more?: boolean
+            next_cursor?: string
           }
         }
       }

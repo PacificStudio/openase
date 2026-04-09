@@ -22,15 +22,15 @@ import (
 	"github.com/google/uuid"
 )
 
-func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error) {
 	exists, err := r.client.Project.Query().
 		Where(entproject.ID(input.ProjectID)).
 		Exist(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("check project before listing activity events: %w", err)
+		return domain.ActivityEventPage{}, fmt.Errorf("check project before listing activity events: %w", err)
 	}
 	if !exists {
-		return nil, ErrNotFound
+		return domain.ActivityEventPage{}, ErrNotFound
 	}
 
 	predicates := []predicate.ActivityEvent{
@@ -45,17 +45,40 @@ func (r *EntRepository) ListActivityEvents(ctx context.Context, input domain.Lis
 	if input.TicketID != nil {
 		predicates = append(predicates, entactivityevent.TicketID(*input.TicketID))
 	}
+	if input.Before != nil {
+		predicates = append(predicates, entactivityevent.Or(
+			entactivityevent.CreatedAtLT(input.Before.CreatedAt),
+			entactivityevent.And(
+				entactivityevent.CreatedAtEQ(input.Before.CreatedAt),
+				entactivityevent.IDLT(input.Before.ID),
+			),
+		))
+	}
 
 	items, err := r.client.ActivityEvent.Query().
 		Where(predicates...).
 		Order(entactivityevent.ByCreatedAt(entsql.OrderDesc()), entactivityevent.ByID(entsql.OrderDesc())).
-		Limit(input.Limit).
+		Limit(input.Limit + 1).
 		All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list activity events: %w", err)
+		return domain.ActivityEventPage{}, fmt.Errorf("list activity events: %w", err)
 	}
 
-	return mapActivityEvents(items), nil
+	hasMore := len(items) > input.Limit
+	if hasMore {
+		items = items[:input.Limit]
+	}
+	events := mapActivityEvents(items)
+
+	page := domain.ActivityEventPage{
+		Events:  events,
+		HasMore: hasMore,
+	}
+	if hasMore && len(events) > 0 {
+		page.NextCursor = domain.ActivityEventCursorFor(events[len(events)-1]).String()
+	}
+
+	return page, nil
 }
 
 func (r *EntRepository) ListAgentOutput(ctx context.Context, input domain.ListAgentOutput) ([]domain.AgentOutputEntry, error) {

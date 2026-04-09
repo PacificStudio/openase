@@ -3,6 +3,8 @@ import type { ActivityEntry } from './types'
 
 type ActivitySnapshot = {
   entries: ActivityEntry[]
+  nextCursor: string
+  hasMore: boolean
   cachedAt: number
 }
 
@@ -27,10 +29,15 @@ export function readProjectActivityCache(projectId: string) {
   }
 }
 
-export function writeProjectActivityCache(projectId: string, entries: ActivityEntry[]) {
+export function writeProjectActivityCache(
+  projectId: string,
+  snapshot: Pick<ActivitySnapshot, 'entries' | 'nextCursor' | 'hasMore'>,
+) {
   const runtime = getRuntime(projectId)
   runtime.snapshot = {
-    entries,
+    entries: snapshot.entries,
+    nextCursor: snapshot.nextCursor,
+    hasMore: snapshot.hasMore,
     cachedAt: Date.now(),
   }
   runtime.dirty = false
