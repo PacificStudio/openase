@@ -31,6 +31,18 @@ type ActivityEventListInput struct {
 	AgentID  string
 	TicketID string
 	Limit    string
+	Before   string
+}
+
+type ActivityEventCursor struct {
+	CreatedAt time.Time
+	ID        uuid.UUID
+}
+
+type ActivityEventPage struct {
+	Events     []ActivityEvent
+	NextCursor string
+	HasMore    bool
 }
 
 type ListActivityEvents struct {
@@ -38,6 +50,7 @@ type ListActivityEvents struct {
 	AgentID   *uuid.UUID
 	TicketID  *uuid.UUID
 	Limit     int
+	Before    *ActivityEventCursor
 }
 
 func ParseListActivityEvents(projectID uuid.UUID, raw ActivityEventListInput) (ListActivityEvents, error) {
@@ -54,13 +67,75 @@ func ParseListActivityEvents(projectID uuid.UUID, raw ActivityEventListInput) (L
 	if err != nil {
 		return ListActivityEvents{}, err
 	}
+	before, err := parseOptionalActivityEventCursor("before", raw.Before)
+	if err != nil {
+		return ListActivityEvents{}, err
+	}
 
 	return ListActivityEvents{
 		ProjectID: projectID,
 		AgentID:   agentID,
 		TicketID:  ticketID,
 		Limit:     limit,
+		Before:    before,
 	}, nil
+}
+
+func ActivityEventCursorFor(item ActivityEvent) ActivityEventCursor {
+	return ActivityEventCursor{
+		CreatedAt: item.CreatedAt.UTC(),
+		ID:        item.ID,
+	}
+}
+
+func ParseActivityEventCursor(raw string) (ActivityEventCursor, error) {
+	parts := strings.Split(strings.TrimSpace(raw), "|")
+	if len(parts) != 2 {
+		return ActivityEventCursor{}, fmt.Errorf("cursor must be in timestamp|id format")
+	}
+
+	createdAt, err := time.Parse(time.RFC3339Nano, parts[0])
+	if err != nil {
+		return ActivityEventCursor{}, fmt.Errorf("cursor timestamp must be RFC3339")
+	}
+	id, err := uuid.Parse(parts[1])
+	if err != nil {
+		return ActivityEventCursor{}, fmt.Errorf("cursor id must be a valid UUID")
+	}
+
+	return ActivityEventCursor{
+		CreatedAt: createdAt.UTC(),
+		ID:        id,
+	}, nil
+}
+
+func (c ActivityEventCursor) String() string {
+	return fmt.Sprintf("%s|%s", c.CreatedAt.UTC().Format(time.RFC3339Nano), c.ID.String())
+}
+
+func CompareActivityEventCursor(left ActivityEventCursor, right ActivityEventCursor) int {
+	if left.CreatedAt.Before(right.CreatedAt) {
+		return -1
+	}
+	if left.CreatedAt.After(right.CreatedAt) {
+		return 1
+	}
+
+	return strings.Compare(left.ID.String(), right.ID.String())
+}
+
+func parseOptionalActivityEventCursor(fieldName string, raw string) (*ActivityEventCursor, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	cursor, err := ParseActivityEventCursor(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("%s %s", fieldName, err.Error())
+	}
+
+	return &cursor, nil
 }
 
 func parseOptionalUUIDText(fieldName string, raw string) (*uuid.UUID, error) {

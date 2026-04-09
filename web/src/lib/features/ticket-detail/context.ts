@@ -197,12 +197,11 @@ export function buildTicketDetailLiveContext(
       }),
       externalLinks: detailTicket.external_links.map((link) => ({
         id: link.id,
-        type: link.type,
+        type: link.type ?? undefined,
         url: link.url,
         externalId: link.external_id,
         title: link.title ?? undefined,
         status: link.status ?? undefined,
-        relation: link.relation,
       })),
       children: detailTicket.children.map((child) => ({
         id: child.id,

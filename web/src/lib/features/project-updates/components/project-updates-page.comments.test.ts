@@ -6,6 +6,7 @@ import {
   deleteProjectUpdateComment,
   listProjectUpdates,
   makeCommentRecord,
+  makeProjectUpdatesPayload,
   makeThreadRecord,
   setupProjectUpdatesPageTest,
   subscribeProjectEvents,
@@ -19,76 +20,84 @@ describe('ProjectUpdatesPage comments and streaming', () => {
 
   it('creates, edits, deletes comments and refreshes from the activity stream', async () => {
     listProjectUpdates
-      .mockResolvedValueOnce({ threads: [makeThreadRecord()] })
-      .mockResolvedValueOnce({
-        threads: [
-          makeThreadRecord({
-            last_activity_at: '2026-04-01T10:32:00Z',
-            comment_count: 1,
-            comments: [makeCommentRecord()],
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        threads: [
-          makeThreadRecord({
-            last_activity_at: '2026-04-01T10:33:00Z',
-            comment_count: 1,
-            comments: [
-              makeCommentRecord({
-                body_markdown: 'Need one more canary before noon.',
-                updated_at: '2026-04-01T10:33:00Z',
-                edited_at: '2026-04-01T10:33:00Z',
-                edit_count: 1,
-              }),
-            ],
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        threads: [
-          makeThreadRecord({
-            last_activity_at: '2026-04-01T10:34:00Z',
-            comment_count: 1,
-            comments: [
-              makeCommentRecord({
-                body_markdown: 'Need one more canary before noon.',
-                updated_at: '2026-04-01T10:34:00Z',
-                edited_at: '2026-04-01T10:34:00Z',
-                edit_count: 2,
-                is_deleted: true,
-                deleted_at: '2026-04-01T10:34:00Z',
-                deleted_by: 'user:ops',
-              }),
-            ],
-          }),
-        ],
-      })
-      .mockResolvedValueOnce({
-        threads: [
-          makeThreadRecord({
-            status: 'off_track',
-            title: 'Sprint 2 rollout (updated)',
-            body_markdown: 'A new project update event arrived.',
-            updated_at: '2026-04-01T10:35:00Z',
-            edited_at: '2026-04-01T10:35:00Z',
-            edit_count: 1,
-            last_activity_at: '2026-04-01T10:35:00Z',
-            comment_count: 1,
-            comments: [
-              makeCommentRecord({
-                body_markdown: 'Need one more canary before noon.',
-                updated_at: '2026-04-01T10:34:00Z',
-                edited_at: '2026-04-01T10:34:00Z',
-                edit_count: 2,
-                is_deleted: true,
-                deleted_at: '2026-04-01T10:34:00Z',
-                deleted_by: 'user:ops',
-              }),
-            ],
-          }),
-        ],
-      })
+      .mockResolvedValueOnce(makeProjectUpdatesPayload({ threads: [makeThreadRecord()] }))
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [
+            makeThreadRecord({
+              last_activity_at: '2026-04-01T10:32:00Z',
+              comment_count: 1,
+              comments: [makeCommentRecord()],
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [
+            makeThreadRecord({
+              last_activity_at: '2026-04-01T10:33:00Z',
+              comment_count: 1,
+              comments: [
+                makeCommentRecord({
+                  body_markdown: 'Need one more canary before noon.',
+                  updated_at: '2026-04-01T10:33:00Z',
+                  edited_at: '2026-04-01T10:33:00Z',
+                  edit_count: 1,
+                }),
+              ],
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [
+            makeThreadRecord({
+              last_activity_at: '2026-04-01T10:34:00Z',
+              comment_count: 1,
+              comments: [
+                makeCommentRecord({
+                  body_markdown: 'Need one more canary before noon.',
+                  updated_at: '2026-04-01T10:34:00Z',
+                  edited_at: '2026-04-01T10:34:00Z',
+                  edit_count: 2,
+                  is_deleted: true,
+                  deleted_at: '2026-04-01T10:34:00Z',
+                  deleted_by: 'user:ops',
+                }),
+              ],
+            }),
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({
+          threads: [
+            makeThreadRecord({
+              status: 'off_track',
+              title: 'Sprint 2 rollout (updated)',
+              body_markdown: 'A new project update event arrived.',
+              updated_at: '2026-04-01T10:35:00Z',
+              edited_at: '2026-04-01T10:35:00Z',
+              edit_count: 1,
+              last_activity_at: '2026-04-01T10:35:00Z',
+              comment_count: 1,
+              comments: [
+                makeCommentRecord({
+                  body_markdown: 'Need one more canary before noon.',
+                  updated_at: '2026-04-01T10:34:00Z',
+                  edited_at: '2026-04-01T10:34:00Z',
+                  edit_count: 2,
+                  is_deleted: true,
+                  deleted_at: '2026-04-01T10:34:00Z',
+                  deleted_by: 'user:ops',
+                }),
+              ],
+            }),
+          ],
+        }),
+      )
 
     createProjectUpdateComment.mockResolvedValue({ comment: { id: 'comment-1' } })
     updateProjectUpdateComment.mockResolvedValue({ comment: { id: 'comment-1' } })

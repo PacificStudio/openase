@@ -19,7 +19,6 @@ import (
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
@@ -859,7 +858,6 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 			"external_id": "PacificStudio/openase#99",
 			"title":       "F57: TicketExternalLink",
 			"status":      "open",
-			"relation":    "related",
 		},
 		http.StatusCreated,
 		&firstLinkResp,
@@ -877,18 +875,38 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
 		map[string]any{
-			"type":        "github_issue",
 			"url":         "https://github.com/PacificStudio/openase/issues/6",
 			"external_id": "PacificStudio/openase#6",
 			"title":       "F06: Ticket CRUD + Dependencies",
 			"status":      "open",
-			"relation":    "caused_by",
 		},
 		http.StatusCreated,
 		&secondLinkResp,
 	)
-	if secondLinkResp.ExternalLink.Relation != "caused_by" {
+	if secondLinkResp.ExternalLink.Type != "" {
 		t.Fatalf("unexpected second external link response: %+v", secondLinkResp.ExternalLink)
+	}
+
+	thirdLinkResp := struct {
+		ExternalLink ticketExternalLinkResponse `json:"external_link"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
+		map[string]any{
+			"type":        "review doc",
+			"url":         "https://docs.example.com/runbook",
+			"external_id": "runbook-1",
+			"title":       "Operations runbook",
+			"status":      "published",
+		},
+		http.StatusCreated,
+		&thirdLinkResp,
+	)
+	if thirdLinkResp.ExternalLink.Type != "review doc" {
+		t.Fatalf("unexpected third external link response: %+v", thirdLinkResp.ExternalLink)
 	}
 
 	duplicateRec := performJSONRequest(
@@ -917,8 +935,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 	if getResp.Ticket.ExternalRef != "PacificStudio/openase#99" {
 		t.Fatalf("expected first external link to seed external_ref, got %+v", getResp.Ticket)
 	}
-	if len(getResp.Ticket.ExternalLinks) != 2 {
-		t.Fatalf("expected ticket get response to include two external links, got %+v", getResp.Ticket.ExternalLinks)
+	if len(getResp.Ticket.ExternalLinks) != 3 {
+		t.Fatalf("expected ticket get response to include three external links, got %+v", getResp.Ticket.ExternalLinks)
 	}
 
 	deleteFirstResp := ticketservice.DeleteExternalLinkResult{}
@@ -950,8 +968,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 	if afterFirstDeleteResp.Ticket.ExternalRef != "PacificStudio/openase#6" {
 		t.Fatalf("expected external_ref to fall back to remaining link, got %+v", afterFirstDeleteResp.Ticket)
 	}
-	if len(afterFirstDeleteResp.Ticket.ExternalLinks) != 1 || afterFirstDeleteResp.Ticket.ExternalLinks[0].ID != secondLinkResp.ExternalLink.ID {
-		t.Fatalf("expected only second external link to remain, got %+v", afterFirstDeleteResp.Ticket.ExternalLinks)
+	if len(afterFirstDeleteResp.Ticket.ExternalLinks) != 2 || afterFirstDeleteResp.Ticket.ExternalLinks[0].ID != secondLinkResp.ExternalLink.ID {
+		t.Fatalf("expected second and third external links to remain, got %+v", afterFirstDeleteResp.Ticket.ExternalLinks)
 	}
 
 	deleteSecondResp := ticketservice.DeleteExternalLinkResult{}
@@ -968,6 +986,20 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		t.Fatalf("unexpected delete second external link response: %+v", deleteSecondResp)
 	}
 
+	deleteThirdResp := ticketservice.DeleteExternalLinkResult{}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links/%s", ticketItem.ID, thirdLinkResp.ExternalLink.ID),
+		nil,
+		http.StatusOK,
+		&deleteThirdResp,
+	)
+	if deleteThirdResp.DeletedExternalLinkID.String() != thirdLinkResp.ExternalLink.ID {
+		t.Fatalf("unexpected delete third external link response: %+v", deleteThirdResp)
+	}
+
 	afterSecondDeleteResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -981,7 +1013,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		&afterSecondDeleteResp,
 	)
 	if afterSecondDeleteResp.Ticket.ExternalRef != "" || len(afterSecondDeleteResp.Ticket.ExternalLinks) != 0 {
-		t.Fatalf("expected all external links cleared after second delete, got %+v", afterSecondDeleteResp.Ticket)
+		t.Fatalf("expected all external links cleared after third delete, got %+v", afterSecondDeleteResp.Ticket)
 	}
 }
 
@@ -1341,10 +1373,9 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	}
 	externalLink, err := client.TicketExternalLink.Create().
 		SetTicketID(ticketItem.ID).
-		SetLinkType(entticketexternallink.LinkTypeGithubIssue).
+		SetLinkType("github_issue").
 		SetURL("https://github.com/PacificStudio/openase/issues/1").
 		SetExternalID("PacificStudio/openase#1").
-		SetRelation(entticketexternallink.RelationRelated).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create external link: %v", err)
@@ -1672,7 +1703,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetExternalID("acme/frontend#9").
 		SetTitle("Add ticket drawer PR metadata").
 		SetStatus("open").
-		SetRelation("related").
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket external link: %v", err)
 	}

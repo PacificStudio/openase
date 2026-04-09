@@ -150,7 +150,7 @@ const workflowsFixture: WorkflowListPayload = {
 }
 
 const agentsFixture: AgentPayload = { agents: [] }
-const activityFixture: ActivityPayload = { events: [] }
+const activityFixture: ActivityPayload = { events: [], next_cursor: '', has_more: false }
 
 function createDeferred<T>() {
   let resolve!: (value: T) => void

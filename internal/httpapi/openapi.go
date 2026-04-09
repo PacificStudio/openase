@@ -646,12 +646,11 @@ type OpenAPITicketDependency struct {
 
 type OpenAPITicketExternalLink struct {
 	ID         string `json:"id"`
-	Type       string `json:"type"`
+	Type       string `json:"type,omitempty"`
 	URL        string `json:"url"`
 	ExternalID string `json:"external_id"`
 	Title      string `json:"title,omitempty"`
 	Status     string `json:"status,omitempty"`
-	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -1279,7 +1278,9 @@ type OpenAPITicketRunTranscriptItem struct {
 }
 
 type OpenAPIActivityEventsResponse struct {
-	Events []OpenAPIActivityEvent `json:"events"`
+	Events     []OpenAPIActivityEvent `json:"events"`
+	NextCursor string                 `json:"next_cursor,omitempty"`
+	HasMore    bool                   `json:"has_more"`
 }
 
 type OpenAPITicketStatusesResponse struct {
@@ -1347,7 +1348,9 @@ type OpenAPITicketCommentDeleteResponse struct {
 }
 
 type OpenAPIProjectUpdateThreadsResponse struct {
-	Threads []OpenAPIProjectUpdateThread `json:"threads"`
+	Threads    []OpenAPIProjectUpdateThread `json:"threads"`
+	NextCursor string                       `json:"next_cursor,omitempty"`
+	HasMore    bool                         `json:"has_more"`
 }
 
 type OpenAPIProjectUpdateThreadResponse struct {
@@ -2377,12 +2380,11 @@ var (
 		"target_ticket_id": "Target ticket ID referenced by the dependency.",
 	}
 	openAPIExternalLinkRequestDescriptions = map[string]string{
-		"type":        "External link type.",
+		"type":        "Optional freeform external link type.",
 		"url":         "URL of the external resource.",
 		"external_id": "External system identifier for the linked resource.",
 		"title":       "Optional title for the external resource.",
 		"status":      "Optional external status value.",
-		"relation":    "Relationship between the ticket and the external resource.",
 	}
 	openAPIStatusRequestDescriptions = map[string]string{
 		"name":            "Human-readable status name.",
@@ -4247,6 +4249,10 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 	activityGet.AddParameter(uuidQueryParameter("agent_id", "Filter activity by agent ID."))
 	activityGet.AddParameter(uuidQueryParameter("ticket_id", "Filter activity by ticket ID."))
 	activityGet.AddParameter(intQueryParameter("limit", "Limit the number of returned activity events."))
+	activityGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Fetch older activity events before the provided activity cursor.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
 	b.doc.AddOperation("/api/v1/projects/{projectId}/activity", http.MethodGet, activityGet)
 
 	projectUpdatesGet, err := b.jsonOperation(
@@ -4265,6 +4271,10 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 		return err
 	}
 	projectUpdatesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdatesGet.AddParameter(intQueryParameter("limit", "Maximum number of update threads to return."))
+	projectUpdatesGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Load update threads older than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/updates", http.MethodGet, projectUpdatesGet)
 
 	projectUpdatesPost, err := b.jsonOperation(

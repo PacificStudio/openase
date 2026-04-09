@@ -649,6 +649,7 @@ export function listActivity(
   projectId: string,
   params?: {
     agent_id?: string
+    before?: string
     ticket_id?: string
     limit?: number
   },
@@ -656,8 +657,14 @@ export function listActivity(
   return api.get<ActivityPayload>(`/api/v1/projects/${projectId}/activity`, { params })
 }
 
-export function listProjectUpdates(projectId: string) {
-  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`)
+export function listProjectUpdates(
+  projectId: string,
+  params?: {
+    limit?: number
+    before?: string
+  },
+) {
+  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`, { params })
 }
 
 export function createProjectUpdateThread(
@@ -977,12 +984,11 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
 export function addTicketExternalLink(
   ticketId: string,
   body: {
-    type: string
+    type?: string | null
     url: string
     external_id: string
     title?: string | null
     status?: string | null
-    relation?: string | null
   },
 ) {
   return api.post<TicketExternalLinkResponse>(`/api/v1/tickets/${ticketId}/external-links`, {

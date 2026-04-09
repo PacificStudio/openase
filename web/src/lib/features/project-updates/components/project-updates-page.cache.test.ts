@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   listProjectUpdates,
+  makeProjectUpdatesPayload,
   makeThreadRecord,
   projectFixture,
   setupProjectUpdatesPageTest,
@@ -25,7 +26,11 @@ describe('ProjectUpdatesPage cache behavior', () => {
   setupProjectUpdatesPageTest()
 
   it('reuses the cached updates snapshot when remounting the page in the same project', async () => {
-    listProjectUpdates.mockResolvedValue({ threads: [makeThreadRecord()] })
+    listProjectUpdates.mockResolvedValue(
+      makeProjectUpdatesPayload({
+        threads: [makeThreadRecord({ body_markdown: 'Sprint 2 rollout' })],
+      }),
+    )
 
     const firstRender = render(ProjectUpdatesPage)
     expect(await firstRender.findByText('Sprint 2 rollout')).toBeTruthy()
@@ -40,7 +45,11 @@ describe('ProjectUpdatesPage cache behavior', () => {
 
   it('shows cached updates immediately and refreshes in the background once the cache is dirty', async () => {
     appStore.currentProject = projectFixture
-    listProjectUpdates.mockResolvedValue({ threads: [makeThreadRecord()] })
+    listProjectUpdates.mockResolvedValue(
+      makeProjectUpdatesPayload({
+        threads: [makeThreadRecord({ body_markdown: 'Sprint 2 rollout' })],
+      }),
+    )
 
     const firstRender = render(ProjectUpdatesPage)
     expect(await firstRender.findByText('Sprint 2 rollout')).toBeTruthy()
@@ -48,21 +57,24 @@ describe('ProjectUpdatesPage cache behavior', () => {
 
     markProjectUpdatesCacheDirty(projectFixture.id)
 
-    const deferredUpdates = createDeferred<{ threads: ReturnType<typeof makeThreadRecord>[] }>()
+    const deferredUpdates = createDeferred<ReturnType<typeof makeProjectUpdatesPayload>>()
     listProjectUpdates.mockImplementationOnce(() => deferredUpdates.promise)
 
     const secondRender = render(ProjectUpdatesPage)
     expect(await secondRender.findByText('Sprint 2 rollout')).toBeTruthy()
     expect(listProjectUpdates).toHaveBeenCalledTimes(2)
 
-    deferredUpdates.resolve({
-      threads: [
-        makeThreadRecord({
-          title: 'Sprint 2 rollout (fresh)',
-          last_activity_at: '2026-04-01T12:00:00Z',
-        }),
-      ],
-    })
+    deferredUpdates.resolve(
+      makeProjectUpdatesPayload({
+        threads: [
+          makeThreadRecord({
+            title: 'Sprint 2 rollout (fresh)',
+            body_markdown: 'Sprint 2 rollout (fresh)',
+            last_activity_at: '2026-04-01T12:00:00Z',
+          }),
+        ],
+      }),
+    )
 
     await waitFor(() => {
       expect(secondRender.getByText('Sprint 2 rollout (fresh)')).toBeTruthy()

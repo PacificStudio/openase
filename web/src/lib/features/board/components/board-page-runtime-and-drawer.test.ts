@@ -199,6 +199,8 @@ const agentsFixture: AgentPayload = {
 
 const activityFixture: ActivityPayload = {
   events: [],
+  next_cursor: '',
+  has_more: false,
 }
 
 const ticketDetailFixture: TicketDetailPayload = {

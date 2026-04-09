@@ -11138,6 +11138,8 @@ export interface operations {
         ticket_id?: string
         /** @description Limit the number of returned activity events. */
         limit?: number
+        /** @description Fetch older activity events before the provided activity cursor. */
+        before?: string
       }
       header?: never
       path: {
@@ -11167,6 +11169,8 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            has_more?: boolean
+            next_cursor?: string
           }
         }
       }
@@ -12348,7 +12352,6 @@ export interface operations {
                   created_at?: string
                   external_id?: string
                   id?: string
-                  relation?: string
                   status?: string
                   title?: string
                   type?: string
@@ -16730,7 +16733,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -16897,7 +16899,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -17047,7 +17048,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -17312,7 +17312,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -18114,7 +18113,12 @@ export interface operations {
   }
   listProjectUpdates: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Maximum number of update threads to return. */
+        limit?: number
+        /** @description Load update threads older than this cursor. */
+        before?: string
+      }
       header?: never
       path: {
         /** @description Project ID. */
@@ -18131,6 +18135,8 @@ export interface operations {
         }
         content: {
           'application/json': {
+            has_more?: boolean
+            next_cursor?: string
             threads?: {
               body_markdown?: string
               comment_count?: number
@@ -20117,7 +20123,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -21282,7 +21287,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -21442,7 +21446,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -22088,14 +22091,12 @@ export interface operations {
         'application/json': {
           /** @description External system identifier for the linked resource. */
           external_id?: string
-          /** @description Relationship between the ticket and the external resource. */
-          relation?: string | null
           /** @description Optional external status value. */
           status?: string | null
           /** @description Optional title for the external resource. */
           title?: string | null
-          /** @description External link type. */
-          type?: string
+          /** @description Optional freeform external link type. */
+          type?: string | null
           /** @description URL of the external resource. */
           url?: string
         }
@@ -22113,7 +22114,6 @@ export interface operations {
               created_at?: string
               external_id?: string
               id?: string
-              relation?: string
               status?: string
               title?: string
               type?: string
@@ -22295,7 +22295,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string

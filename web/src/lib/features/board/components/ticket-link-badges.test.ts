@@ -11,7 +11,6 @@ function buildLink(overrides: Partial<BoardExternalLink> = {}): BoardExternalLin
     url: 'https://example.com/reference',
     externalId: 'EXT-1',
     title: 'External reference',
-    relation: 'references',
     ...overrides,
   }
 }

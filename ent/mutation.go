@@ -55354,12 +55354,11 @@ type TicketExternalLinkMutation struct {
 	op            Op
 	typ           string
 	id            *uuid.UUID
-	link_type     *ticketexternallink.LinkType
+	link_type     *string
 	url           *string
 	external_id   *string
 	title         *string
 	status        *string
-	relation      *ticketexternallink.Relation
 	created_at    *time.Time
 	clearedFields map[string]struct{}
 	ticket        *uuid.UUID
@@ -55510,12 +55509,12 @@ func (m *TicketExternalLinkMutation) ResetTicketID() {
 }
 
 // SetLinkType sets the "link_type" field.
-func (m *TicketExternalLinkMutation) SetLinkType(tt ticketexternallink.LinkType) {
-	m.link_type = &tt
+func (m *TicketExternalLinkMutation) SetLinkType(s string) {
+	m.link_type = &s
 }
 
 // LinkType returns the value of the "link_type" field in the mutation.
-func (m *TicketExternalLinkMutation) LinkType() (r ticketexternallink.LinkType, exists bool) {
+func (m *TicketExternalLinkMutation) LinkType() (r string, exists bool) {
 	v := m.link_type
 	if v == nil {
 		return
@@ -55526,7 +55525,7 @@ func (m *TicketExternalLinkMutation) LinkType() (r ticketexternallink.LinkType, 
 // OldLinkType returns the old "link_type" field's value of the TicketExternalLink entity.
 // If the TicketExternalLink object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TicketExternalLinkMutation) OldLinkType(ctx context.Context) (v ticketexternallink.LinkType, err error) {
+func (m *TicketExternalLinkMutation) OldLinkType(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldLinkType is only allowed on UpdateOne operations")
 	}
@@ -55540,9 +55539,22 @@ func (m *TicketExternalLinkMutation) OldLinkType(ctx context.Context) (v tickete
 	return oldValue.LinkType, nil
 }
 
+// ClearLinkType clears the value of the "link_type" field.
+func (m *TicketExternalLinkMutation) ClearLinkType() {
+	m.link_type = nil
+	m.clearedFields[ticketexternallink.FieldLinkType] = struct{}{}
+}
+
+// LinkTypeCleared returns if the "link_type" field was cleared in this mutation.
+func (m *TicketExternalLinkMutation) LinkTypeCleared() bool {
+	_, ok := m.clearedFields[ticketexternallink.FieldLinkType]
+	return ok
+}
+
 // ResetLinkType resets all changes to the "link_type" field.
 func (m *TicketExternalLinkMutation) ResetLinkType() {
 	m.link_type = nil
+	delete(m.clearedFields, ticketexternallink.FieldLinkType)
 }
 
 // SetURL sets the "url" field.
@@ -55715,42 +55727,6 @@ func (m *TicketExternalLinkMutation) ResetStatus() {
 	delete(m.clearedFields, ticketexternallink.FieldStatus)
 }
 
-// SetRelation sets the "relation" field.
-func (m *TicketExternalLinkMutation) SetRelation(t ticketexternallink.Relation) {
-	m.relation = &t
-}
-
-// Relation returns the value of the "relation" field in the mutation.
-func (m *TicketExternalLinkMutation) Relation() (r ticketexternallink.Relation, exists bool) {
-	v := m.relation
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRelation returns the old "relation" field's value of the TicketExternalLink entity.
-// If the TicketExternalLink object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *TicketExternalLinkMutation) OldRelation(ctx context.Context) (v ticketexternallink.Relation, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRelation is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRelation requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRelation: %w", err)
-	}
-	return oldValue.Relation, nil
-}
-
-// ResetRelation resets all changes to the "relation" field.
-func (m *TicketExternalLinkMutation) ResetRelation() {
-	m.relation = nil
-}
-
 // SetCreatedAt sets the "created_at" field.
 func (m *TicketExternalLinkMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -55848,7 +55824,7 @@ func (m *TicketExternalLinkMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *TicketExternalLinkMutation) Fields() []string {
-	fields := make([]string, 0, 8)
+	fields := make([]string, 0, 7)
 	if m.ticket != nil {
 		fields = append(fields, ticketexternallink.FieldTicketID)
 	}
@@ -55866,9 +55842,6 @@ func (m *TicketExternalLinkMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, ticketexternallink.FieldStatus)
-	}
-	if m.relation != nil {
-		fields = append(fields, ticketexternallink.FieldRelation)
 	}
 	if m.created_at != nil {
 		fields = append(fields, ticketexternallink.FieldCreatedAt)
@@ -55893,8 +55866,6 @@ func (m *TicketExternalLinkMutation) Field(name string) (ent.Value, bool) {
 		return m.Title()
 	case ticketexternallink.FieldStatus:
 		return m.Status()
-	case ticketexternallink.FieldRelation:
-		return m.Relation()
 	case ticketexternallink.FieldCreatedAt:
 		return m.CreatedAt()
 	}
@@ -55918,8 +55889,6 @@ func (m *TicketExternalLinkMutation) OldField(ctx context.Context, name string) 
 		return m.OldTitle(ctx)
 	case ticketexternallink.FieldStatus:
 		return m.OldStatus(ctx)
-	case ticketexternallink.FieldRelation:
-		return m.OldRelation(ctx)
 	case ticketexternallink.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	}
@@ -55939,7 +55908,7 @@ func (m *TicketExternalLinkMutation) SetField(name string, value ent.Value) erro
 		m.SetTicketID(v)
 		return nil
 	case ticketexternallink.FieldLinkType:
-		v, ok := value.(ticketexternallink.LinkType)
+		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
@@ -55972,13 +55941,6 @@ func (m *TicketExternalLinkMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
-		return nil
-	case ticketexternallink.FieldRelation:
-		v, ok := value.(ticketexternallink.Relation)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRelation(v)
 		return nil
 	case ticketexternallink.FieldCreatedAt:
 		v, ok := value.(time.Time)
@@ -56017,6 +55979,9 @@ func (m *TicketExternalLinkMutation) AddField(name string, value ent.Value) erro
 // mutation.
 func (m *TicketExternalLinkMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(ticketexternallink.FieldLinkType) {
+		fields = append(fields, ticketexternallink.FieldLinkType)
+	}
 	if m.FieldCleared(ticketexternallink.FieldTitle) {
 		fields = append(fields, ticketexternallink.FieldTitle)
 	}
@@ -56037,6 +56002,9 @@ func (m *TicketExternalLinkMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *TicketExternalLinkMutation) ClearField(name string) error {
 	switch name {
+	case ticketexternallink.FieldLinkType:
+		m.ClearLinkType()
+		return nil
 	case ticketexternallink.FieldTitle:
 		m.ClearTitle()
 		return nil
@@ -56068,9 +56036,6 @@ func (m *TicketExternalLinkMutation) ResetField(name string) error {
 		return nil
 	case ticketexternallink.FieldStatus:
 		m.ResetStatus()
-		return nil
-	case ticketexternallink.FieldRelation:
-		m.ResetRelation()
 		return nil
 	case ticketexternallink.FieldCreatedAt:
 		m.ResetCreatedAt()

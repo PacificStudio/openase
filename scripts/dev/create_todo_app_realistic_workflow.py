@@ -559,7 +559,7 @@ def build_validation_workflow_harness(project_name: str) -> str:
         {{% if ticket.links %}}
         External links:
         {{% for link in ticket.links %}}
-        - [{{{{ link.type }}}}] {{{{ link.title | default("untitled") }}}} (status=`{{{{ link.status | default("unknown") }}}}`, relation=`{{{{ link.relation | default("related") }}}}`): {{{{ link.url }}}}
+        - [{{{{ link.type | default("external") }}}}] {{{{ link.title | default("untitled") }}}} (status=`{{{{ link.status | default("unknown") }}}}`): {{{{ link.url }}}}
         {{% endfor %}}
         {{% endif %}}
 
@@ -870,7 +870,6 @@ def main() -> int:
                         "external_id": github_issue["external_id"],
                         "title": spec["title"],
                         "status": "open",
-                        "relation": "related",
                     },
                 )
             branch_name = build_ticket_branch_name(ticket["identifier"])
@@ -912,7 +911,6 @@ def main() -> int:
                     "external_id": github_pr["external_id"],
                     "title": ticket["title"],
                     "status": "open",
-                    "relation": "related",
                 },
             )
             ticket = request_json(base_url, "GET", f"/api/v1/tickets/{ticket['id']}")["ticket"]

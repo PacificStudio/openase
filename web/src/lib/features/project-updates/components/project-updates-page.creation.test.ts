@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createProjectUpdateThread,
   listProjectUpdates,
+  makeProjectUpdatesPayload,
   makeThreadRecord,
   setupProjectUpdatesPageTest,
 } from './project-updates-page.test-support'
@@ -36,8 +37,12 @@ describe('ProjectUpdatesPage creation flow', () => {
     })
 
     listProjectUpdates
-      .mockResolvedValueOnce({ threads: [sprintRollout, migrationWatch] })
-      .mockResolvedValueOnce({ threads: [hotfixHold, migrationWatch, sprintRollout] })
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({ threads: [sprintRollout, migrationWatch] }),
+      )
+      .mockResolvedValueOnce(
+        makeProjectUpdatesPayload({ threads: [hotfixHold, migrationWatch, sprintRollout] }),
+      )
     createProjectUpdateThread.mockResolvedValue({ thread: { id: 'thread-new' } })
 
     const { findByText, getByPlaceholderText, getByLabelText } = render(ProjectUpdatesPage)

@@ -17,15 +17,11 @@ func (TicketExternalLink) Fields() []ent.Field {
 	return []ent.Field{
 		uuidField(),
 		field.UUID("ticket_id", uuidZero()),
-		field.Enum("link_type").
-			Values("github_issue", "gitlab_issue", "jira_ticket", "github_pr", "gitlab_mr", "custom"),
+		field.String("link_type").Optional(),
 		field.String("url").NotEmpty(),
 		field.String("external_id").NotEmpty(),
 		field.String("title").Optional(),
 		field.String("status").Optional(),
-		field.Enum("relation").
-			Values("resolves", "related", "caused_by").
-			Default("related"),
 		createdAtField(),
 	}
 }

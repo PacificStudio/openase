@@ -85,11 +85,10 @@ func mapHarnessTicketLinks(links []*ent.TicketExternalLink) []HarnessTicketLinkD
 	items := make([]HarnessTicketLinkData, 0, len(links))
 	for _, link := range links {
 		items = append(items, HarnessTicketLinkData{
-			Type:     link.LinkType.String(),
-			URL:      link.URL,
-			Title:    link.Title,
-			Status:   link.Status,
-			Relation: link.Relation.String(),
+			Type:   link.LinkType,
+			URL:    link.URL,
+			Title:  link.Title,
+			Status: link.Status,
 		})
 	}
 	return items

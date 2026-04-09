@@ -2115,12 +2115,11 @@ var (
 	// TicketExternalLinksColumns holds the columns for the "ticket_external_links" table.
 	TicketExternalLinksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "link_type", Type: field.TypeEnum, Enums: []string{"github_issue", "gitlab_issue", "jira_ticket", "github_pr", "gitlab_mr", "custom"}},
+		{Name: "link_type", Type: field.TypeString, Nullable: true},
 		{Name: "url", Type: field.TypeString},
 		{Name: "external_id", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString, Nullable: true},
 		{Name: "status", Type: field.TypeString, Nullable: true},
-		{Name: "relation", Type: field.TypeEnum, Enums: []string{"resolves", "related", "caused_by"}, Default: "related"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
@@ -2132,7 +2131,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_external_links_tickets_external_links",
-				Columns:    []*schema.Column{TicketExternalLinksColumns[8]},
+				Columns:    []*schema.Column{TicketExternalLinksColumns[7]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -2141,7 +2140,7 @@ var (
 			{
 				Name:    "ticketexternallink_ticket_id_external_id",
 				Unique:  true,
-				Columns: []*schema.Column{TicketExternalLinksColumns[8], TicketExternalLinksColumns[3]},
+				Columns: []*schema.Column{TicketExternalLinksColumns[7], TicketExternalLinksColumns[3]},
 			},
 			{
 				Name:    "ticketexternallink_external_id",

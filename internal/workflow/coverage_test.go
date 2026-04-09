@@ -16,7 +16,6 @@ import (
 	"github.com/BetterAndBetterII/openase/ent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	infrahook "github.com/BetterAndBetterII/openase/internal/infra/hook"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -488,13 +487,12 @@ func TestHarnessTemplateHelpers(t *testing.T) {
 	}
 
 	links := mapHarnessTicketLinks([]*ent.TicketExternalLink{{
-		LinkType: entticketexternallink.LinkTypeGithubIssue,
+		LinkType: "github_issue",
 		URL:      "https://example.com/issues/1",
 		Title:    "Issue",
 		Status:   "open",
-		Relation: entticketexternallink.RelationResolves,
 	}})
-	if len(links) != 1 || links[0].Type != "github_issue" || links[0].Relation != "resolves" {
+	if len(links) != 1 || links[0].Type != "github_issue" || links[0].Status != "open" {
 		t.Fatalf("mapHarnessTicketLinks() = %+v", links)
 	}
 

@@ -160,12 +160,11 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		ExternalID: "PacificStudio/openase#278",
 		Title:      "coverage rollout",
 		Status:     "open",
-		Relation:   ExternalLinkRelationResolves,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink(linkOne) error = %v", err)
 	}
-	if linkOne.Relation != ExternalLinkRelationResolves {
+	if linkOne.LinkType != ExternalLinkTypeGithubPR {
 		t.Fatalf("AddExternalLink(linkOne) = %+v", linkOne)
 	}
 	if _, err := service.AddExternalLink(ctx, AddExternalLinkInput{
@@ -173,7 +172,6 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		LinkType:   ExternalLinkTypeGithubPR,
 		URL:        "https://github.com/PacificStudio/openase/pull/278",
 		ExternalID: "PacificStudio/openase#278",
-		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrExternalLinkConflict {
 		t.Fatalf("AddExternalLink(duplicate) error = %v, want %v", err, ErrExternalLinkConflict)
 	}
@@ -182,7 +180,6 @@ func TestTicketServiceCRUDDependenciesCommentsLinksAndRunRelease(t *testing.T) {
 		LinkType:   ExternalLinkTypeJiraTicket,
 		URL:        "https://jira.example.com/browse/ASE-278",
 		ExternalID: "ASE-278-JIRA",
-		Relation:   ExternalLinkRelationRelated,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink(linkTwo) error = %v", err)
@@ -500,7 +497,6 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		LinkType:   ExternalLinkTypeGithubIssue,
 		URL:        "https://github.com/PacificStudio/openase/issues/278",
 		ExternalID: "PacificStudio/openase#278",
-		Relation:   ExternalLinkRelationRelated,
 	})
 	if err != nil {
 		t.Fatalf("AddExternalLink() error = %v", err)
@@ -510,7 +506,6 @@ func TestTicketServiceValidationAndNotFoundPaths(t *testing.T) {
 		LinkType:   ExternalLinkTypeGithubIssue,
 		URL:        "https://github.com/PacificStudio/openase/issues/999",
 		ExternalID: "PacificStudio/openase#999",
-		Relation:   ExternalLinkRelationRelated,
 	}); err != ErrTicketNotFound {
 		t.Fatalf("AddExternalLink(missing ticket) error = %v, want %v", err, ErrTicketNotFound)
 	}
