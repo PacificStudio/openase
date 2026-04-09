@@ -182,6 +182,8 @@ const activityFixture: ActivityPayload = {
       created_at: '2026-03-22T09:30:00Z',
     },
   ],
+  next_cursor: '',
+  has_more: false,
 }
 
 describe('TicketsPage', () => {

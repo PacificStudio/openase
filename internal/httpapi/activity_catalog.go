@@ -19,6 +19,12 @@ type activityEventResponse struct {
 	CreatedAt string         `json:"created_at"`
 }
 
+type activityEventListResponse struct {
+	Events     []activityEventResponse `json:"events"`
+	NextCursor string                  `json:"next_cursor,omitempty"`
+	HasMore    bool                    `json:"has_more"`
+}
+
 func (s *Server) listActivityEvents(c echo.Context) error {
 	projectID, err := parseUUIDPathParam(c, "projectId")
 	if err != nil {
@@ -29,18 +35,21 @@ func (s *Server) listActivityEvents(c echo.Context) error {
 		AgentID:  c.QueryParam("agent_id"),
 		TicketID: c.QueryParam("ticket_id"),
 		Limit:    c.QueryParam("limit"),
+		Before:   c.QueryParam("before"),
 	})
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, errorResponse(err.Error()))
 	}
 
-	items, err := s.catalog.ListActivityEvents(c.Request().Context(), input)
+	page, err := s.catalog.ListActivityEvents(c.Request().Context(), input)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"events": mapActivityEventResponses(items),
+	return c.JSON(http.StatusOK, activityEventListResponse{
+		Events:     mapActivityEventResponses(page.Events),
+		NextCursor: page.NextCursor,
+		HasMore:    page.HasMore,
 	})
 }
 

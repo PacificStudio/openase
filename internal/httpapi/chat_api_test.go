@@ -1507,8 +1507,8 @@ func (s chatCatalogStub) GetProject(context.Context, uuid.UUID) (catalogdomain.P
 	return s.project, nil
 }
 
-func (s chatCatalogStub) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
-	return nil, nil
+func (s chatCatalogStub) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) (catalogdomain.ActivityEventPage, error) {
+	return catalogdomain.ActivityEventPage{}, nil
 }
 
 func (s chatCatalogStub) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {

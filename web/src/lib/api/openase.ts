@@ -649,6 +649,7 @@ export function listActivity(
   projectId: string,
   params?: {
     agent_id?: string
+    before?: string
     ticket_id?: string
     limit?: number
   },

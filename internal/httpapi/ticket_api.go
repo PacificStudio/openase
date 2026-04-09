@@ -424,11 +424,11 @@ func (s *Server) handleGetTicketDetail(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
-	activityItems, err := s.catalog.ListActivityEvents(c.Request().Context(), activityInput)
+	activityPage, err := s.catalog.ListActivityEvents(c.Request().Context(), activityInput)
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
-	activity := filterNonCommentActivityEvents(activityItems)
+	activity := filterNonCommentActivityEvents(activityPage.Events)
 
 	assignedAgent, err := s.loadTicketAssignedAgent(c.Request().Context(), item)
 	if err != nil {

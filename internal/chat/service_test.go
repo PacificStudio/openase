@@ -1344,8 +1344,8 @@ func (r fakeCatalogReader) GetProject(context.Context, uuid.UUID) (catalogdomain
 	return r.project, r.projectErr
 }
 
-func (r fakeCatalogReader) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) ([]catalogdomain.ActivityEvent, error) {
-	return r.activityEvents, r.activityErr
+func (r fakeCatalogReader) ListActivityEvents(context.Context, catalogdomain.ListActivityEvents) (catalogdomain.ActivityEventPage, error) {
+	return catalogdomain.ActivityEventPage{Events: r.activityEvents}, r.activityErr
 }
 
 func (r fakeCatalogReader) ListAgents(context.Context, uuid.UUID) ([]catalogdomain.Agent, error) {

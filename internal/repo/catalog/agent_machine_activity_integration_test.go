@@ -506,7 +506,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 		t.Fatalf("ListActivityEvents(missing project) error = %v, want %v", err, ErrNotFound)
 	}
 
-	activityEvents, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
+	activityPage, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
 		ProjectID: project.ID,
 		AgentID:   &createdAgent.ID,
 		TicketID:  &ticketItem.ID,
@@ -515,8 +515,8 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActivityEvents() error = %v", err)
 	}
-	if len(activityEvents) != 1 || activityEvents[0].EventType != "ticket.updated" || activityEvents[0].Message != "ticket updated" {
-		t.Fatalf("ListActivityEvents() = %+v", activityEvents)
+	if len(activityPage.Events) != 1 || activityPage.Events[0].EventType != "ticket.updated" || activityPage.Events[0].Message != "ticket updated" {
+		t.Fatalf("ListActivityEvents() = %+v", activityPage)
 	}
 	projectWideActivity, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
 		ProjectID: project.ID,
@@ -525,7 +525,7 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActivityEvents() project-wide error = %v", err)
 	}
-	if len(projectWideActivity) != 1 || projectWideActivity[0].Message != "ticket updated" {
+	if len(projectWideActivity.Events) != 1 || projectWideActivity.Events[0].Message != "ticket updated" {
 		t.Fatalf("ListActivityEvents() project-wide = %+v", projectWideActivity)
 	}
 
@@ -648,6 +648,183 @@ func TestEntRepositoryMachineAgentProviderAndActivityLifecycle(t *testing.T) {
 	}
 	if _, err := repo.DeleteAgent(ctx, uuid.New()); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("DeleteAgent(missing) error = %v, want %v", err, ErrNotFound)
+	}
+}
+
+func TestEntRepositoryListActivityEventsSupportsStableCursorPagination(t *testing.T) {
+	client := openRepoCatalogTestEntClient(t)
+	ctx := context.Background()
+	repo := NewEntRepository(client)
+
+	org, err := repo.CreateOrganization(ctx, domain.CreateOrganization{
+		Name: "Better And Better",
+		Slug: "better-and-better",
+	})
+	if err != nil {
+		t.Fatalf("CreateOrganization() error = %v", err)
+	}
+	project, err := repo.CreateProject(ctx, domain.CreateProject{
+		OrganizationID: org.ID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+	})
+	if err != nil {
+		t.Fatalf("CreateProject() error = %v", err)
+	}
+	machines, err := repo.ListMachines(ctx, org.ID)
+	if err != nil || len(machines) == 0 {
+		t.Fatalf("ListMachines() = %+v, %v", machines, err)
+	}
+	providerItem, err := repo.CreateAgentProvider(ctx, domain.CreateAgentProvider{
+		OrganizationID:    org.ID,
+		MachineID:         machines[0].ID,
+		Name:              "Codex",
+		AdapterType:       domain.AgentProviderAdapterTypeCodexAppServer,
+		PermissionProfile: domain.AgentProviderPermissionProfileUnrestricted,
+		CliCommand:        "codex",
+		ModelName:         "gpt-5.4",
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentProvider() error = %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("ResetToDefaultTemplate() error = %v", err)
+	}
+	todoID := findRepoCatalogStatusIDByName(t, statuses, "Todo")
+	doneID := findRepoCatalogStatusIDByName(t, statuses, "Done")
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(project.ID).
+		SetName("Default").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		AddPickupStatusIDs(todoID).
+		AddFinishStatusIDs(doneID).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	ticketOne, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-500").
+		SetTitle("Ticket one").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("CreateTicket(ticket one) error = %v", err)
+	}
+	ticketTwo, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-501").
+		SetTitle("Ticket two").
+		SetStatusID(todoID).
+		SetWorkflowID(workflowItem.ID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("CreateTicket(ticket two) error = %v", err)
+	}
+	agentItem, err := repo.CreateAgent(ctx, domain.CreateAgent{
+		ProjectID:             project.ID,
+		ProviderID:            providerItem.ID,
+		Name:                  "Cursor Agent",
+		RuntimeControlState:   domain.AgentRuntimeControlStateActive,
+		TotalTokensUsed:       0,
+		TotalTicketsCompleted: 0,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgent() error = %v", err)
+	}
+
+	sameCreatedAt := time.Date(2026, 4, 2, 10, 5, 0, 0, time.UTC)
+	eventSeeds := []struct {
+		id        uuid.UUID
+		ticketID  uuid.UUID
+		agentID   uuid.UUID
+		message   string
+		createdAt time.Time
+	}{
+		{
+			id:        uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+			ticketID:  ticketOne.ID,
+			agentID:   agentItem.ID,
+			message:   "older event",
+			createdAt: sameCreatedAt.Add(-time.Minute),
+		},
+		{
+			id:        uuid.MustParse("00000000-0000-0000-0000-000000000003"),
+			ticketID:  ticketOne.ID,
+			agentID:   agentItem.ID,
+			message:   "same-second lower id",
+			createdAt: sameCreatedAt,
+		},
+		{
+			id:        uuid.MustParse("00000000-0000-0000-0000-000000000004"),
+			ticketID:  ticketOne.ID,
+			agentID:   agentItem.ID,
+			message:   "same-second higher id",
+			createdAt: sameCreatedAt,
+		},
+		{
+			id:        uuid.MustParse("00000000-0000-0000-0000-000000000005"),
+			ticketID:  ticketTwo.ID,
+			agentID:   agentItem.ID,
+			message:   "other ticket",
+			createdAt: sameCreatedAt.Add(time.Minute),
+		},
+	}
+	for _, seed := range eventSeeds {
+		if _, err := client.ActivityEvent.Create().
+			SetID(seed.id).
+			SetProjectID(project.ID).
+			SetTicketID(seed.ticketID).
+			SetAgentID(seed.agentID).
+			SetEventType("ticket.updated").
+			SetMessage(seed.message).
+			SetMetadata(map[string]any{"stream": "system"}).
+			SetCreatedAt(seed.createdAt).
+			Save(ctx); err != nil {
+			t.Fatalf("create activity event %q: %v", seed.message, err)
+		}
+	}
+
+	firstPage, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
+		ProjectID: project.ID,
+		AgentID:   &agentItem.ID,
+		TicketID:  &ticketOne.ID,
+		Limit:     2,
+	})
+	if err != nil {
+		t.Fatalf("ListActivityEvents(first page) error = %v", err)
+	}
+	if len(firstPage.Events) != 2 || !firstPage.HasMore || firstPage.NextCursor == "" {
+		t.Fatalf("ListActivityEvents(first page) = %+v", firstPage)
+	}
+	if firstPage.Events[0].Message != "same-second higher id" || firstPage.Events[1].Message != "same-second lower id" {
+		t.Fatalf("ListActivityEvents(first page) ordering = %+v", firstPage.Events)
+	}
+
+	before, err := domain.ParseActivityEventCursor(firstPage.NextCursor)
+	if err != nil {
+		t.Fatalf("ParseActivityEventCursor() error = %v", err)
+	}
+	secondPage, err := repo.ListActivityEvents(ctx, domain.ListActivityEvents{
+		ProjectID: project.ID,
+		AgentID:   &agentItem.ID,
+		TicketID:  &ticketOne.ID,
+		Limit:     2,
+		Before:    &before,
+	})
+	if err != nil {
+		t.Fatalf("ListActivityEvents(second page) error = %v", err)
+	}
+	if len(secondPage.Events) != 1 || secondPage.HasMore || secondPage.NextCursor != "" {
+		t.Fatalf("ListActivityEvents(second page) = %+v", secondPage)
+	}
+	if secondPage.Events[0].Message != "older event" {
+		t.Fatalf("ListActivityEvents(second page) items = %+v", secondPage.Events)
 	}
 }
 
