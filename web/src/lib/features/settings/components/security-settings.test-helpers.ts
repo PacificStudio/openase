@@ -262,3 +262,23 @@ export function configuredSecurityWithNullPermissions() {
     },
   }
 }
+
+export function configuredSecurityWithProjectGitHubOverride() {
+  const security = configuredSecurity()
+  return {
+    ...security,
+    github: {
+      ...security.github,
+      effective: {
+        ...security.github.organization,
+        scope: 'project' as const,
+        source: 'gh_cli_import',
+      },
+      project_override: {
+        ...security.github.organization,
+        scope: 'project' as const,
+        source: 'gh_cli_import',
+      },
+    },
+  }
+}

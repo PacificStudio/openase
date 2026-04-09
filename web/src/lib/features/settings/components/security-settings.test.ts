@@ -6,6 +6,7 @@ import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
   configuredSecurity,
+  configuredSecurityWithProjectGitHubOverride,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
@@ -195,22 +196,7 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
-    const importedSecurity = {
-      ...configuredSecurity(),
-      github: {
-        ...configuredSecurity().github,
-        effective: {
-          ...configuredSecurity().github.organization,
-          scope: 'project' as const,
-          source: 'gh_cli_import',
-        },
-        project_override: {
-          ...configuredSecurity().github.organization,
-          scope: 'project' as const,
-          source: 'gh_cli_import',
-        },
-      },
-    }
+    const importedSecurity = configuredSecurityWithProjectGitHubOverride()
     importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: importedSecurity })
     retestGitHubOutboundCredential.mockResolvedValue({ security: importedSecurity })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
