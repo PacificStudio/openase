@@ -57,6 +57,62 @@ func (_u *BrowserSessionUpdate) SetNillableSessionHash(v *string) *BrowserSessio
 	return _u
 }
 
+// SetDeviceKind sets the "device_kind" field.
+func (_u *BrowserSessionUpdate) SetDeviceKind(v string) *BrowserSessionUpdate {
+	_u.mutation.SetDeviceKind(v)
+	return _u
+}
+
+// SetNillableDeviceKind sets the "device_kind" field if the given value is not nil.
+func (_u *BrowserSessionUpdate) SetNillableDeviceKind(v *string) *BrowserSessionUpdate {
+	if v != nil {
+		_u.SetDeviceKind(*v)
+	}
+	return _u
+}
+
+// SetDeviceOs sets the "device_os" field.
+func (_u *BrowserSessionUpdate) SetDeviceOs(v string) *BrowserSessionUpdate {
+	_u.mutation.SetDeviceOs(v)
+	return _u
+}
+
+// SetNillableDeviceOs sets the "device_os" field if the given value is not nil.
+func (_u *BrowserSessionUpdate) SetNillableDeviceOs(v *string) *BrowserSessionUpdate {
+	if v != nil {
+		_u.SetDeviceOs(*v)
+	}
+	return _u
+}
+
+// SetDeviceBrowser sets the "device_browser" field.
+func (_u *BrowserSessionUpdate) SetDeviceBrowser(v string) *BrowserSessionUpdate {
+	_u.mutation.SetDeviceBrowser(v)
+	return _u
+}
+
+// SetNillableDeviceBrowser sets the "device_browser" field if the given value is not nil.
+func (_u *BrowserSessionUpdate) SetNillableDeviceBrowser(v *string) *BrowserSessionUpdate {
+	if v != nil {
+		_u.SetDeviceBrowser(*v)
+	}
+	return _u
+}
+
+// SetDeviceLabel sets the "device_label" field.
+func (_u *BrowserSessionUpdate) SetDeviceLabel(v string) *BrowserSessionUpdate {
+	_u.mutation.SetDeviceLabel(v)
+	return _u
+}
+
+// SetNillableDeviceLabel sets the "device_label" field if the given value is not nil.
+func (_u *BrowserSessionUpdate) SetNillableDeviceLabel(v *string) *BrowserSessionUpdate {
+	if v != nil {
+		_u.SetDeviceLabel(*v)
+	}
+	return _u
+}
+
 // SetExpiresAt sets the "expires_at" field.
 func (_u *BrowserSessionUpdate) SetExpiresAt(v time.Time) *BrowserSessionUpdate {
 	_u.mutation.SetExpiresAt(v)
@@ -227,6 +283,18 @@ func (_u *BrowserSessionUpdate) sqlSave(ctx context.Context) (_node int, err err
 	if value, ok := _u.mutation.SessionHash(); ok {
 		_spec.SetField(browsersession.FieldSessionHash, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.DeviceKind(); ok {
+		_spec.SetField(browsersession.FieldDeviceKind, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceOs(); ok {
+		_spec.SetField(browsersession.FieldDeviceOs, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceBrowser(); ok {
+		_spec.SetField(browsersession.FieldDeviceBrowser, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceLabel(); ok {
+		_spec.SetField(browsersession.FieldDeviceLabel, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(browsersession.FieldExpiresAt, field.TypeTime, value)
 	}
@@ -295,6 +363,62 @@ func (_u *BrowserSessionUpdateOne) SetSessionHash(v string) *BrowserSessionUpdat
 func (_u *BrowserSessionUpdateOne) SetNillableSessionHash(v *string) *BrowserSessionUpdateOne {
 	if v != nil {
 		_u.SetSessionHash(*v)
+	}
+	return _u
+}
+
+// SetDeviceKind sets the "device_kind" field.
+func (_u *BrowserSessionUpdateOne) SetDeviceKind(v string) *BrowserSessionUpdateOne {
+	_u.mutation.SetDeviceKind(v)
+	return _u
+}
+
+// SetNillableDeviceKind sets the "device_kind" field if the given value is not nil.
+func (_u *BrowserSessionUpdateOne) SetNillableDeviceKind(v *string) *BrowserSessionUpdateOne {
+	if v != nil {
+		_u.SetDeviceKind(*v)
+	}
+	return _u
+}
+
+// SetDeviceOs sets the "device_os" field.
+func (_u *BrowserSessionUpdateOne) SetDeviceOs(v string) *BrowserSessionUpdateOne {
+	_u.mutation.SetDeviceOs(v)
+	return _u
+}
+
+// SetNillableDeviceOs sets the "device_os" field if the given value is not nil.
+func (_u *BrowserSessionUpdateOne) SetNillableDeviceOs(v *string) *BrowserSessionUpdateOne {
+	if v != nil {
+		_u.SetDeviceOs(*v)
+	}
+	return _u
+}
+
+// SetDeviceBrowser sets the "device_browser" field.
+func (_u *BrowserSessionUpdateOne) SetDeviceBrowser(v string) *BrowserSessionUpdateOne {
+	_u.mutation.SetDeviceBrowser(v)
+	return _u
+}
+
+// SetNillableDeviceBrowser sets the "device_browser" field if the given value is not nil.
+func (_u *BrowserSessionUpdateOne) SetNillableDeviceBrowser(v *string) *BrowserSessionUpdateOne {
+	if v != nil {
+		_u.SetDeviceBrowser(*v)
+	}
+	return _u
+}
+
+// SetDeviceLabel sets the "device_label" field.
+func (_u *BrowserSessionUpdateOne) SetDeviceLabel(v string) *BrowserSessionUpdateOne {
+	_u.mutation.SetDeviceLabel(v)
+	return _u
+}
+
+// SetNillableDeviceLabel sets the "device_label" field if the given value is not nil.
+func (_u *BrowserSessionUpdateOne) SetNillableDeviceLabel(v *string) *BrowserSessionUpdateOne {
+	if v != nil {
+		_u.SetDeviceLabel(*v)
 	}
 	return _u
 }
@@ -498,6 +622,18 @@ func (_u *BrowserSessionUpdateOne) sqlSave(ctx context.Context) (_node *BrowserS
 	}
 	if value, ok := _u.mutation.SessionHash(); ok {
 		_spec.SetField(browsersession.FieldSessionHash, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceKind(); ok {
+		_spec.SetField(browsersession.FieldDeviceKind, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceOs(); ok {
+		_spec.SetField(browsersession.FieldDeviceOs, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceBrowser(); ok {
+		_spec.SetField(browsersession.FieldDeviceBrowser, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.DeviceLabel(); ok {
+		_spec.SetField(browsersession.FieldDeviceLabel, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.ExpiresAt(); ok {
 		_spec.SetField(browsersession.FieldExpiresAt, field.TypeTime, value)

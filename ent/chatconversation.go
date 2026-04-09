@@ -30,6 +30,8 @@ type ChatConversation struct {
 	ProviderID uuid.UUID `json:"provider_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// Title holds the value of the "title" field.
+	Title string `json:"title,omitempty"`
 	// ProviderThreadID holds the value of the "provider_thread_id" field.
 	ProviderThreadID *string `json:"provider_thread_id,omitempty"`
 	// LastTurnID holds the value of the "last_turn_id" field.
@@ -123,7 +125,7 @@ func (*ChatConversation) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case chatconversation.FieldProviderThreadActiveFlags:
 			values[i] = new([]byte)
-		case chatconversation.FieldUserID, chatconversation.FieldSource, chatconversation.FieldStatus, chatconversation.FieldProviderThreadID, chatconversation.FieldLastTurnID, chatconversation.FieldProviderThreadStatus, chatconversation.FieldRollingSummary:
+		case chatconversation.FieldUserID, chatconversation.FieldSource, chatconversation.FieldStatus, chatconversation.FieldTitle, chatconversation.FieldProviderThreadID, chatconversation.FieldLastTurnID, chatconversation.FieldProviderThreadStatus, chatconversation.FieldRollingSummary:
 			values[i] = new(sql.NullString)
 		case chatconversation.FieldLastActivityAt, chatconversation.FieldCreatedAt, chatconversation.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -179,6 +181,12 @@ func (_m *ChatConversation) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case chatconversation.FieldTitle:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field title", values[i])
+			} else if value.Valid {
+				_m.Title = value.String
 			}
 		case chatconversation.FieldProviderThreadID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -308,6 +316,9 @@ func (_m *ChatConversation) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("title=")
+	builder.WriteString(_m.Title)
 	builder.WriteString(", ")
 	if v := _m.ProviderThreadID; v != nil {
 		builder.WriteString("provider_thread_id=")

@@ -54,6 +54,7 @@ function createAppStore() {
   let appContextKey = $state('')
   let appContextFetchedAt = $state(0)
   let sidebarCollapsed = $state(false),
+    mobileSidebarOpen = $state(false),
     newTicketDialogOpen = $state(false),
     rightPanelOpen = $state(false)
   let rightPanelContent = $state<AppPanelContent | null>(null)
@@ -169,6 +170,18 @@ function createAppStore() {
     },
     toggleSidebar() {
       sidebarCollapsed = !sidebarCollapsed
+    },
+    get mobileSidebarOpen() {
+      return mobileSidebarOpen
+    },
+    set mobileSidebarOpen(v) {
+      mobileSidebarOpen = v
+    },
+    openMobileSidebar() {
+      mobileSidebarOpen = true
+    },
+    closeMobileSidebar() {
+      mobileSidebarOpen = false
     },
     get newTicketDialogOpen() {
       return newTicketDialogOpen

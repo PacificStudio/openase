@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,55 @@ func TestParseCreateAgentProviderRejectsInvalidPricingConfig(t *testing.T) {
 	})
 	if err == nil || err.Error() != "pricing_config.rates.input_per_token must be greater than or equal to zero" {
 		t.Fatalf("expected pricing_config validation error, got %v", err)
+	}
+}
+
+func TestParseSupportedFileRepositoryURL(t *testing.T) {
+	testCases := []struct {
+		name      string
+		raw       string
+		wantURL   string
+		wantOK    bool
+		wantError string
+	}{
+		{
+			name:      "invalid url",
+			raw:       "file://%zz",
+			wantError: "must be a valid file:// URL",
+		},
+		{
+			name:    "non-file url",
+			raw:     "https://github.com/BetterAndBetterII/openase",
+			wantOK:  false,
+			wantURL: "",
+		},
+		{
+			name:      "missing file path",
+			raw:       "file://",
+			wantOK:    true,
+			wantError: "must include an absolute path for file:// URLs",
+		},
+		{
+			name:    "valid file path",
+			raw:     "file:///tmp/openase",
+			wantOK:  true,
+			wantURL: "file:///tmp/openase",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotURL, gotOK, err := parseSupportedFileRepositoryURL(tc.raw)
+			if gotURL != tc.wantURL || gotOK != tc.wantOK {
+				t.Fatalf("parseSupportedFileRepositoryURL() = (%q, %t, %v), want (%q, %t, %q)", gotURL, gotOK, err, tc.wantURL, tc.wantOK, tc.wantError)
+			}
+			switch {
+			case tc.wantError == "" && err != nil:
+				t.Fatalf("parseSupportedFileRepositoryURL() unexpected error = %v", err)
+			case tc.wantError != "" && (err == nil || !strings.Contains(err.Error(), tc.wantError)):
+				t.Fatalf("parseSupportedFileRepositoryURL() error = %v, want substring %q", err, tc.wantError)
+			}
+		})
 	}
 }
 

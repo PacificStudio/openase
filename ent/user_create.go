@@ -10,6 +10,8 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/google/uuid"
 )
@@ -131,6 +133,36 @@ func (_c *UserCreate) SetNillableID(v *uuid.UUID) *UserCreate {
 		_c.SetID(*v)
 	}
 	return _c
+}
+
+// AddOrganizationMembershipIDs adds the "organization_memberships" edge to the OrganizationMembership entity by IDs.
+func (_c *UserCreate) AddOrganizationMembershipIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddOrganizationMembershipIDs(ids...)
+	return _c
+}
+
+// AddOrganizationMemberships adds the "organization_memberships" edges to the OrganizationMembership entity.
+func (_c *UserCreate) AddOrganizationMemberships(v ...*OrganizationMembership) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddOrganizationMembershipIDs(ids...)
+}
+
+// AddAcceptedOrganizationInvitationIDs adds the "accepted_organization_invitations" edge to the OrganizationInvitation entity by IDs.
+func (_c *UserCreate) AddAcceptedOrganizationInvitationIDs(ids ...uuid.UUID) *UserCreate {
+	_c.mutation.AddAcceptedOrganizationInvitationIDs(ids...)
+	return _c
+}
+
+// AddAcceptedOrganizationInvitations adds the "accepted_organization_invitations" edges to the OrganizationInvitation entity.
+func (_c *UserCreate) AddAcceptedOrganizationInvitations(v ...*OrganizationInvitation) *UserCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAcceptedOrganizationInvitationIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -285,6 +317,38 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.OrganizationMembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.OrganizationMembershipsTable,
+			Columns: []string{user.OrganizationMembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AcceptedOrganizationInvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.AcceptedOrganizationInvitationsTable,
+			Columns: []string{user.AcceptedOrganizationInvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

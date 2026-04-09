@@ -117,7 +117,7 @@ func TestWorkflowRoutesRoundTripExpandedPlatformAccessAllowed(t *testing.T) {
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
@@ -131,6 +131,7 @@ func TestWorkflowRoutesRoundTripExpandedPlatformAccessAllowed(t *testing.T) {
 			"harness_content":         "# Platform Access\n",
 			"platform_access_allowed": allScopes,
 		},
+		"",
 		http.StatusCreated,
 		&createResp,
 	)
@@ -253,7 +254,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
@@ -276,6 +277,7 @@ func TestWorkflowRoutesCRUDHarnessVersionsWithoutRepoSync(t *testing.T) {
 				},
 			},
 		},
+		"",
 		http.StatusCreated,
 		&createResp,
 	)
@@ -574,7 +576,7 @@ func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
 	createResp := struct {
 		Workflow workflowResponse `json:"workflow"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
@@ -586,8 +588,8 @@ func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
 			"pickup_status_ids": []string{todoID.String()},
 			"finish_status_ids": []string{doneID.String()},
 			"harness_content":   "# Coding\n",
-			"created_by":        auditActor,
 		},
+		auditActor,
 		http.StatusCreated,
 		&createResp,
 	)
@@ -606,30 +608,26 @@ func TestWorkflowRoutesPersistExplicitAuditActor(t *testing.T) {
 		t.Fatalf("unexpected workflow history after create: %+v", historyResp.History)
 	}
 
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/workflows/%s", createResp.Workflow.ID),
-		map[string]any{
-			"name":      "Renamed Workflow",
-			"edited_by": auditActor,
-		},
+		map[string]any{"name": "Renamed Workflow"},
+		auditActor,
 		http.StatusOK,
 		&struct {
 			Workflow workflowResponse `json:"workflow"`
 		}{},
 	)
 
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPut,
 		fmt.Sprintf("/api/v1/workflows/%s/harness", createResp.Workflow.ID),
-		map[string]any{
-			"content":   "# Updated\n",
-			"edited_by": auditActor,
-		},
+		map[string]any{"content": "# Updated\n"},
+		auditActor,
 		http.StatusOK,
 		&struct {
 			Harness harnessResponse `json:"harness"`
@@ -1300,7 +1298,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
-Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
+Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].status }}
 Deps {% for dep in ticket.dependencies %}{{ dep.identifier }}:{{ dep.type }}:{{ dep.status }}{% endfor %}
 Repos {% for repo in repos %}{{ repo.name }}@{{ repo.branch }} labels={{ repo.labels | join(",") }} path={{ repo.path }}{% endfor %}
 All {{ all_repos | map(attribute="name") | join(",") }}
@@ -1476,7 +1474,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetExternalID("42").
 		SetTitle("Login validation broken on Safari").
 		SetStatus("open").
-		SetRelation("resolves").
 		Save(ctx); err != nil {
 		t.Fatalf("create external link: %v", err)
 	}
@@ -1533,7 +1530,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	for _, want := range []string{
 		`Ticket ASE-42 Escape \* markdown`,
 		"parent=ASE-30 attempts=2/3",
-		"Links 1 github_issue resolves",
+		"Links 1 github_issue open",
 		"ASE-31:blocks:Done",
 		"frontend@agent/claude-01/ASE-42 labels= path=/workspaces/ASE-42/frontend",
 		"All backend,frontend",

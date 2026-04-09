@@ -20,6 +20,7 @@ type TicketsPageControllerApiInput = {
   handleTicketDrop: (ticketId: string, targetColumnId: string) => Promise<void>
   handlePriorityChange: (ticketId: string, priority: string) => Promise<void>
   handleColumnAction: (columnId: string, action: string) => Promise<void>
+  handleTicketArchive: (ticketId: string) => Promise<void>
 }
 
 export function createTicketsPageControllerApi(input: TicketsPageControllerApiInput) {
@@ -65,5 +66,6 @@ export function createTicketsPageControllerApi(input: TicketsPageControllerApiIn
     handleStatusChange: input.handleTicketDrop,
     handlePriorityChange: input.handlePriorityChange,
     handleColumnAction: input.handleColumnAction,
+    handleTicketArchive: input.handleTicketArchive,
   }
 }

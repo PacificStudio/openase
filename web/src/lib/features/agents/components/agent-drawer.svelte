@@ -197,7 +197,7 @@
 >
   <SheetContent class="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
     {#if !agent}
-      <SheetHeader class="p-6">
+      <SheetHeader class="p-4 sm:p-6">
         <SheetTitle>Agent</SheetTitle>
         <SheetDescription>No agent selected.</SheetDescription>
       </SheetHeader>

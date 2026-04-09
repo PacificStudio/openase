@@ -4,7 +4,7 @@ import type {
 } from './project-conversation-transcript-types'
 
 /**
- * A standalone entry rendered on its own (text, interrupt, action_proposal, diff).
+ * A standalone entry rendered on its own (text, interrupt, diff).
  */
 export type StandaloneItem = {
   type: 'standalone'

@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +37,7 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
+	secretsdomain "github.com/BetterAndBetterII/openase/internal/domain/secrets"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/httpapi"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -49,8 +51,10 @@ import (
 	agentplatformrepo "github.com/BetterAndBetterII/openase/internal/repo/agentplatform"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	machinechannelrepo "github.com/BetterAndBetterII/openase/internal/repo/machinechannel"
+	secretsrepo "github.com/BetterAndBetterII/openase/internal/repo/secrets"
 	workflowrepo "github.com/BetterAndBetterII/openase/internal/repo/workflow"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
+	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
@@ -3254,7 +3258,7 @@ Exercise failing ticket hook lifecycle.
 	}
 }
 
-func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordWithoutListenerEndpoint(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -3364,8 +3368,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime guidance in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
+		t.Fatalf("expected listener endpoint guidance in last error, got %q", runAfter.LastError)
 	}
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
 		Where(entticketrepoworkspace.AgentRunIDEQ(runItem.ID)).
@@ -3373,8 +3377,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeExecution(t *testing.T) {
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 0 {
-		t.Fatalf("expected no repo workspace to be prepared for ssh runtime, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 1 {
+		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
 	}
 }
 
@@ -3536,6 +3540,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	}
 
 	repoRoot := t.TempDir()
+	repoURL := (&url.URL{Scheme: "file", Path: repoRoot}).String()
 	initRuntimeLauncherRepo(t, repoRoot)
 	createRuntimeLauncherPrimaryRepo(ctx, t, client, fixture.projectID, repoRoot)
 	harnessPath := filepath.Join(repoRoot, ".openase", "harnesses", "coding.md")
@@ -3574,7 +3579,7 @@ func TestRuntimeLauncherRunTickPreparesRemoteWorkspaceDirectlyFromRepositoryURL(
 	repoItem, err := client.ProjectRepo.Create().
 		SetProjectID(fixture.projectID).
 		SetName("backend").
-		SetRepositoryURL(repoRoot).
+		SetRepositoryURL(repoURL).
 		SetDefaultBranch("main").
 		SetWorkspaceDirname("backend").
 		Save(ctx)
@@ -4469,7 +4474,7 @@ func waitForReverseRuntimeMachineReady(t *testing.T, client *ent.Client, machine
 	t.Fatalf("reverse runtime machine did not become ready: %+v", machineItem)
 }
 
-func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.T) {
+func TestRuntimeLauncherRunTickRejectsLegacyDirectConnectRecordBeforeCodexPreflight(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -4569,8 +4574,8 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "codex environment not ready") {
+		t.Fatalf("expected codex preflight rejection in last error, got %q", runAfter.LastError)
 	}
 	ticketAfter, err := client.Ticket.Get(ctx, ticketItem.ID)
 	if err != nil {
@@ -4584,7 +4589,7 @@ func TestRuntimeLauncherRunTickRejectsSSHRuntimeBeforeCodexPreflight(t *testing.
 	}
 }
 
-func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t *testing.T) {
+func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForLegacyDirectConnectRecord(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
@@ -4682,8 +4687,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t
 		t.Fatalf("expected errored run, got %+v", runAfter)
 	}
 
-	if !strings.Contains(runAfter.LastError, "ssh runtime execution is no longer supported") {
-		t.Fatalf("expected ssh runtime rejection in last error, got %q", runAfter.LastError)
+	if !strings.Contains(runAfter.LastError, "listener websocket endpoint is not configured") {
+		t.Fatalf("expected listener endpoint rejection in last error, got %q", runAfter.LastError)
 	}
 
 	repoWorkspaceCount, err := client.TicketRepoWorkspace.Query().
@@ -4692,8 +4697,8 @@ func TestRuntimeLauncherRunTickDoesNotPrepareRepoWorkspaceForSSHRuntimeMachine(t
 	if err != nil {
 		t.Fatalf("count ticket repo workspaces: %v", err)
 	}
-	if repoWorkspaceCount != 0 {
-		t.Fatalf("expected no repo workspace for ssh runtime rejection, got %d", repoWorkspaceCount)
+	if repoWorkspaceCount != 1 {
+		t.Fatalf("expected repo workspace preparation to continue before listener failure, got %d", repoWorkspaceCount)
 	}
 }
 
@@ -4887,6 +4892,143 @@ func TestRuntimeLauncherRunTickSkipsMachineCodexPreflightWhenAPIKeyIsConfigured(
 	processSpec := manager.capturedProcessSpec()
 	if value, ok := provider.LookupEnvironmentValue(processSpec.Environment, "OPENAI_API_KEY"); !ok || value != "sk-test-runtime" {
 		t.Fatalf("expected OPENAI_API_KEY to be injected into runtime environment, got %+v", processSpec.Environment)
+	}
+}
+
+func TestRuntimeLauncherRunTickInjectsResolvedSecretBindingsIntoRuntimeEnvironment(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	fixture := seedProjectFixture(ctx, t, client)
+
+	workflowItem, err := client.Workflow.Create().
+		SetProjectID(fixture.projectID).
+		SetName("Secret-bound launch").
+		SetType(entworkflow.TypeCoding).
+		SetHarnessPath(".openase/harnesses/coding.md").
+		AddPickupStatusIDs(fixture.statusIDs["Todo"]).
+		AddFinishStatusIDs(fixture.statusIDs["Done"]).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+
+	localMachine, err := client.Machine.Query().
+		Where(
+			entmachine.OrganizationIDEQ(fixture.orgID),
+			entmachine.NameEQ(catalogdomain.LocalMachineName),
+		).
+		Only(ctx)
+	if err != nil {
+		t.Fatalf("load local machine: %v", err)
+	}
+	if _, err := client.Machine.UpdateOneID(localMachine.ID).
+		SetResources(map[string]any{
+			"monitor": map[string]any{
+				"l4": map[string]any{
+					"codex": map[string]any{
+						"installed":   true,
+						"auth_status": "not_logged_in",
+						"auth_mode":   "login",
+						"ready":       false,
+					},
+				},
+			},
+		}).
+		Save(ctx); err != nil {
+		t.Fatalf("update local machine resources: %v", err)
+	}
+
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(fixture.projectID).
+		SetIdentifier("ASE-405").
+		SetTitle("Launch Codex with secret-bound runtime auth").
+		SetStatusID(fixture.statusIDs["Todo"]).
+		SetWorkflowID(workflowItem.ID).
+		SetPriority(entticket.PriorityHigh).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	agentItem, err := client.Agent.Create().
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("codex-secret-bound-01").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create claimed agent: %v", err)
+	}
+	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflowItem.ID, ticketItem.ID, entagentrun.StatusLaunching, time.Time{})
+
+	secretSvc, err := secretsservice.New(secretsrepo.NewEntRepository(client), "runtime-launcher-secret-test")
+	if err != nil {
+		t.Fatalf("create secret service: %v", err)
+	}
+	projectSecret, err := secretSvc.CreateSecret(ctx, secretsservice.CreateSecretInput{
+		ProjectID: fixture.projectID,
+		Scope:     string(secretsdomain.ScopeKindProject),
+		Name:      "PROJECT_OPENAI_KEY",
+		Value:     "sk-project-runtime",
+	})
+	if err != nil {
+		t.Fatalf("create project secret: %v", err)
+	}
+	ticketSecret, err := secretSvc.CreateSecret(ctx, secretsservice.CreateSecretInput{
+		ProjectID: fixture.projectID,
+		Scope:     string(secretsdomain.ScopeKindProject),
+		Name:      "TICKET_OPENAI_KEY",
+		Value:     "sk-ticket-runtime",
+	})
+	if err != nil {
+		t.Fatalf("create ticket secret: %v", err)
+	}
+	secretRepo := secretsrepo.NewEntRepository(client)
+	if _, err := secretRepo.CreateBinding(ctx, secretsdomain.Binding{
+		OrganizationID:  fixture.orgID,
+		ProjectID:       fixture.projectID,
+		SecretID:        projectSecret.ID,
+		Scope:           secretsdomain.BindingScopeKindProject,
+		ScopeResourceID: fixture.projectID,
+		BindingKey:      "OPENAI_API_KEY",
+	}); err != nil {
+		t.Fatalf("create project secret binding: %v", err)
+	}
+	if _, err := secretRepo.CreateBinding(ctx, secretsdomain.Binding{
+		OrganizationID:  fixture.orgID,
+		ProjectID:       fixture.projectID,
+		SecretID:        ticketSecret.ID,
+		Scope:           secretsdomain.BindingScopeKindTicket,
+		ScopeResourceID: ticketItem.ID,
+		BindingKey:      "OPENAI_API_KEY",
+	}); err != nil {
+		t.Fatalf("create ticket secret binding: %v", err)
+	}
+
+	manager := &runtimeFakeProcessManager{}
+	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, nil)
+	launcher.ConfigureSecretManager(secretSvc)
+	t.Cleanup(func() {
+		if err := launcher.Close(context.Background()); err != nil {
+			t.Errorf("close launcher: %v", err)
+		}
+	})
+
+	if err := launcher.RunTick(ctx); err != nil {
+		t.Fatalf("run launcher tick: %v", err)
+	}
+
+	runAfter, err := client.AgentRun.Get(ctx, runItem.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if runAfter.Status != entagentrun.StatusReady {
+		t.Fatalf("expected ready run, got %+v", runAfter)
+	}
+
+	processSpec := manager.capturedProcessSpec()
+	if value, ok := provider.LookupEnvironmentValue(processSpec.Environment, "OPENAI_API_KEY"); !ok || value != "sk-ticket-runtime" {
+		t.Fatalf("expected ticket-bound OPENAI_API_KEY in runtime environment, got %+v", processSpec.Environment)
 	}
 }
 

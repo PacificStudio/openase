@@ -49,29 +49,44 @@ describe('dashboard model', () => {
       shouldShowProjectOnboarding({
         dismissed: false,
         loading: false,
-        stats: { runningAgents: 0, activeTickets: 0 },
+        stats: { runningAgents: 0, totalTickets: 0 },
         projectId: 'project-1',
         orgId: 'org-1',
       }),
     ).toBe(true)
   })
 
-  it('hides onboarding once tickets or running agents exist', () => {
+  it('hides onboarding once any tickets have ever been created', () => {
     expect(
       shouldShowProjectOnboarding({
         dismissed: false,
         loading: false,
-        stats: { runningAgents: 1, activeTickets: 0 },
+        stats: { runningAgents: 0, totalTickets: 1 },
         projectId: 'project-1',
         orgId: 'org-1',
       }),
     ).toBe(false)
+  })
 
+  it('hides onboarding when all tickets are completed (activeTickets=0 but totalTickets>0)', () => {
+    // Regression: completed tickets drop out of activeTickets but onboarding must stay hidden
     expect(
       shouldShowProjectOnboarding({
         dismissed: false,
         loading: false,
-        stats: { runningAgents: 0, activeTickets: 1 },
+        stats: { runningAgents: 0, totalTickets: 3 },
+        projectId: 'project-1',
+        orgId: 'org-1',
+      }),
+    ).toBe(false)
+  })
+
+  it('hides onboarding when a running agent exists', () => {
+    expect(
+      shouldShowProjectOnboarding({
+        dismissed: false,
+        loading: false,
+        stats: { runningAgents: 1, totalTickets: 0 },
         projectId: 'project-1',
         orgId: 'org-1',
       }),

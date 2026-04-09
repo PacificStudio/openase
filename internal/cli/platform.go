@@ -377,10 +377,7 @@ func newTicketCommentCreateCommand(options *ticketCommandOptions, client platfor
 	annotateCLICommandBodyFlag(command, "body", "body")
 	annotateCLICommandBodyFlag(command, "body-file", "body")
 
-	return markCLICommandAPICoverageSpec(
-		markCLICommandIgnoredBodyFields(command, "created_by"),
-		spec,
-	)
+	return markCLICommandAPICoverageSpec(command, spec)
 }
 
 func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platformClient) *cobra.Command {
@@ -442,7 +439,7 @@ func newTicketCommentUpdateCommand(options *ticketCommandOptions, client platfor
 	annotateCLICommandBodyFlag(command, "body-file", "body")
 
 	return markCLICommandAPICoverageSpec(
-		markCLICommandIgnoredBodyFields(command, "edited_by", "edit_reason"),
+		markCLICommandIgnoredBodyFields(command, "edit_reason"),
 		spec,
 	)
 }
@@ -534,7 +531,7 @@ func newTicketCreateCommand(options *ticketCommandOptions, client platformClient
 
 	return markCLICommandAPICoverageSpec(
 		markCLICommandAllowedExtraBodyFields(
-			markCLICommandIgnoredBodyFields(command, "created_by"),
+			command,
 			"archived",
 		),
 		spec,
@@ -648,7 +645,7 @@ func newTicketUpdateCommand(options *ticketCommandOptions, client platformClient
 
 	return markCLICommandAPICoverageSpec(
 		markCLICommandAllowedExtraBodyFields(
-			markCLICommandIgnoredBodyFields(command, "created_by"),
+			command,
 			"archived",
 			"status_name",
 		),

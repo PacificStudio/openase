@@ -46,6 +46,7 @@ const {
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
@@ -97,6 +98,7 @@ const providerFixtures: AgentProvider[] = [
     cli_command: 'codex',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'gpt-5.4',
@@ -132,6 +134,7 @@ const providerFixtures: AgentProvider[] = [
     cli_command: 'claude',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'claude-sonnet-4',

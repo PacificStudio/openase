@@ -106,32 +106,3 @@ test('ticket drawer routes AI through ticket-focused Project AI with a complete 
     timeout: 10_000,
   })
 })
-
-test('harness ai provider picker matches the available provider catalog', async ({
-  page,
-  projectPath,
-}, testInfo) => {
-  await measureNavigation({
-    page,
-    scenario: 'harness_ai_workflows_ready',
-    budgetMs: 800,
-    ready: page.getByRole('button', { name: 'AI', exact: true }),
-    testInfo,
-    action: async () => {
-      await page.goto(projectPath('workflows'))
-    },
-  })
-
-  await page.getByRole('button', { name: 'AI', exact: true }).click()
-  await expect(page.getByPlaceholder('Ask AI to refine this harness…')).toBeVisible({
-    timeout: 10_000,
-  })
-
-  await expect(page.getByText('No chat provider available.')).not.toBeVisible()
-
-  const chatModelTrigger = page.getByLabel('Chat model')
-  await expect(chatModelTrigger).toBeVisible()
-
-  await chatModelTrigger.click()
-  await expectProviderCatalog(page)
-})

@@ -65,6 +65,7 @@ func (r routeRegistrar) registerPublicAPIRoutes(public *echo.Group) {
 func (r routeRegistrar) registerProtectedAPIRoutes(protected *echo.Group) {
 	if !r.server.catalog.Empty() {
 		r.server.registerOrganizationRoutes(protected)
+		r.server.registerOrganizationMembershipRoutes(protected)
 		r.server.registerProjectRoutes(protected)
 		r.server.registerProjectUpdateRoutes(protected)
 		r.server.registerMachineRoutes(protected)
@@ -85,13 +86,16 @@ func (r routeRegistrar) registerProtectedAPIRoutes(protected *echo.Group) {
 	r.server.registerWorkflowRoutes(protected)
 	r.server.registerScheduledJobRoutes(protected)
 	r.server.registerNotificationRoutes(protected)
+	r.server.registerAdminAuthRoutes(protected)
 	r.server.registerSecuritySettingsRoutes(protected)
+	r.server.registerOrgSecurityRoutes(protected)
 	r.server.registerGitHubRepoRoutes(protected)
 	r.server.registerSkillRoutes(protected)
 	r.server.registerRoleLibraryRoutes(protected)
 	r.server.registerHRAdvisorRoutes(protected)
 	r.server.registerTicketStatusRoutes(protected)
 	r.server.registerRoleBindingRoutes(protected)
+	r.server.registerUserDirectoryRoutes(protected)
 }
 
 func (r routeRegistrar) registerUIRoutes() {

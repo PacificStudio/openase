@@ -28,6 +28,8 @@ type Tx struct {
 	AgentTraceEvent *AgentTraceEventClient
 	// ApprovalPolicyRule is the client for interacting with the ApprovalPolicyRule builders.
 	ApprovalPolicyRule *ApprovalPolicyRuleClient
+	// AuthAuditEvent is the client for interacting with the AuthAuditEvent builders.
+	AuthAuditEvent *AuthAuditEventClient
 	// BrowserSession is the client for interacting with the BrowserSession builders.
 	BrowserSession *BrowserSessionClient
 	// ChatConversation is the client for interacting with the ChatConversation builders.
@@ -38,6 +40,10 @@ type Tx struct {
 	ChatPendingInterrupt *ChatPendingInterruptClient
 	// ChatTurn is the client for interacting with the ChatTurn builders.
 	ChatTurn *ChatTurnClient
+	// InstanceAuthConfig is the client for interacting with the InstanceAuthConfig builders.
+	InstanceAuthConfig *InstanceAuthConfigClient
+	// LocalBootstrapAuthRequest is the client for interacting with the LocalBootstrapAuthRequest builders.
+	LocalBootstrapAuthRequest *LocalBootstrapAuthRequestClient
 	// Machine is the client for interacting with the Machine builders.
 	Machine *MachineClient
 	// MachineChannelToken is the client for interacting with the MachineChannelToken builders.
@@ -50,6 +56,10 @@ type Tx struct {
 	Organization *OrganizationClient
 	// OrganizationDailyTokenUsage is the client for interacting with the OrganizationDailyTokenUsage builders.
 	OrganizationDailyTokenUsage *OrganizationDailyTokenUsageClient
+	// OrganizationInvitation is the client for interacting with the OrganizationInvitation builders.
+	OrganizationInvitation *OrganizationInvitationClient
+	// OrganizationMembership is the client for interacting with the OrganizationMembership builders.
+	OrganizationMembership *OrganizationMembershipClient
 	// Project is the client for interacting with the Project builders.
 	Project *ProjectClient
 	// ProjectConversationPrincipal is the client for interacting with the ProjectConversationPrincipal builders.
@@ -74,6 +84,10 @@ type Tx struct {
 	RoleBinding *RoleBindingClient
 	// ScheduledJob is the client for interacting with the ScheduledJob builders.
 	ScheduledJob *ScheduledJobClient
+	// Secret is the client for interacting with the Secret builders.
+	Secret *SecretClient
+	// SecretBinding is the client for interacting with the SecretBinding builders.
+	SecretBinding *SecretBindingClient
 	// Skill is the client for interacting with the Skill builders.
 	Skill *SkillClient
 	// SkillBlob is the client for interacting with the SkillBlob builders.
@@ -249,17 +263,22 @@ func (tx *Tx) init() {
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
 	tx.ApprovalPolicyRule = NewApprovalPolicyRuleClient(tx.config)
+	tx.AuthAuditEvent = NewAuthAuditEventClient(tx.config)
 	tx.BrowserSession = NewBrowserSessionClient(tx.config)
 	tx.ChatConversation = NewChatConversationClient(tx.config)
 	tx.ChatEntry = NewChatEntryClient(tx.config)
 	tx.ChatPendingInterrupt = NewChatPendingInterruptClient(tx.config)
 	tx.ChatTurn = NewChatTurnClient(tx.config)
+	tx.InstanceAuthConfig = NewInstanceAuthConfigClient(tx.config)
+	tx.LocalBootstrapAuthRequest = NewLocalBootstrapAuthRequestClient(tx.config)
 	tx.Machine = NewMachineClient(tx.config)
 	tx.MachineChannelToken = NewMachineChannelTokenClient(tx.config)
 	tx.NotificationChannel = NewNotificationChannelClient(tx.config)
 	tx.NotificationRule = NewNotificationRuleClient(tx.config)
 	tx.Organization = NewOrganizationClient(tx.config)
 	tx.OrganizationDailyTokenUsage = NewOrganizationDailyTokenUsageClient(tx.config)
+	tx.OrganizationInvitation = NewOrganizationInvitationClient(tx.config)
+	tx.OrganizationMembership = NewOrganizationMembershipClient(tx.config)
 	tx.Project = NewProjectClient(tx.config)
 	tx.ProjectConversationPrincipal = NewProjectConversationPrincipalClient(tx.config)
 	tx.ProjectConversationRun = NewProjectConversationRunClient(tx.config)
@@ -272,6 +291,8 @@ func (tx *Tx) init() {
 	tx.ProjectUpdateThreadRevision = NewProjectUpdateThreadRevisionClient(tx.config)
 	tx.RoleBinding = NewRoleBindingClient(tx.config)
 	tx.ScheduledJob = NewScheduledJobClient(tx.config)
+	tx.Secret = NewSecretClient(tx.config)
+	tx.SecretBinding = NewSecretBindingClient(tx.config)
 	tx.Skill = NewSkillClient(tx.config)
 	tx.SkillBlob = NewSkillBlobClient(tx.config)
 	tx.SkillVersion = NewSkillVersionClient(tx.config)

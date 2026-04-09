@@ -1,6 +1,15 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { Settings, GitBranch, Columns3, Bot, Bell, Shield, Archive } from '@lucide/svelte'
+  import {
+    Settings,
+    GitBranch,
+    Columns3,
+    Bot,
+    Bell,
+    KeyRound,
+    Shield,
+    Archive,
+  } from '@lucide/svelte'
   import type { Component } from 'svelte'
   import type { SettingsSection } from '../types'
 
@@ -24,18 +33,19 @@
     { key: 'statuses', label: 'Statuses', icon: Columns3 },
     { key: 'agents', label: 'Agents', icon: Bot },
     { key: 'notifications', label: 'Notifications', icon: Bell },
+    { key: 'access', label: 'Access', icon: KeyRound },
     { key: 'security', label: 'Security', icon: Shield },
     { key: 'archived', label: 'Archived Tickets', icon: Archive },
   ]
 </script>
 
-<nav class="w-[200px] shrink-0 space-y-0.5">
+<nav class="flex w-full shrink-0 flex-wrap gap-1 pb-1 lg:w-[200px] lg:flex-col lg:gap-0.5">
   {#each items as item (item.key)}
     {@const Icon = item.icon}
     <button
       type="button"
       class={cn(
-        'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors',
+        'flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors lg:w-full',
         active === item.key
           ? 'bg-muted text-foreground font-medium'
           : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',

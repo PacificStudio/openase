@@ -67,11 +67,13 @@
     selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
   )}
 >
-  <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-start">
+  <div class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] lg:items-start">
     <div data-testid={`machine-open-${machine.id}`} class="min-w-0 space-y-3">
       <div class="space-y-1">
         <div class="flex flex-wrap items-center gap-2">
-          <h3 class="text-foreground truncate text-base font-semibold">{machine.name}</h3>
+          <h3 class="text-foreground min-w-0 truncate text-sm font-semibold sm:text-base">
+            {machine.name}
+          </h3>
           {#if localMachine}
             <Badge variant="secondary" class="text-[10px]">local</Badge>
           {/if}
@@ -79,7 +81,7 @@
         <p class="text-muted-foreground truncate font-mono text-xs">
           {machine.host}:{machine.port}
         </p>
-        <div class="mt-2 flex flex-wrap items-center gap-1.5">
+        <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-1.5">
           <Badge variant="outline" class="text-[10px]">{reachabilityLabel}</Badge>
           <Badge variant="outline" class="text-[10px]">{setupGuide.runtimeLabel}</Badge>
           <Badge variant="outline" class="text-[10px]">{setupGuide.stateLabel}</Badge>

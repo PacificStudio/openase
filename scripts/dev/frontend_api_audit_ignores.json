@@ -103,6 +103,18 @@
       "reason": "Project token usage is queryable for backend and operator flows, and the generated frontend wrapper exists, but the current browser UI does not yet expose a project-scoped token analytics surface."
     },
     {
+      "method": "post",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime",
+      "categories": ["backend_only"],
+      "reason": "Runtime secret resolution is a backend control-plane capability and remains intentionally unbound in the browser until the later secret management UI work lands."
+    },
+    {
+      "method": "patch",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "categories": ["backend_only"],
+      "reason": "Scoped secret foundation endpoints ship before the dedicated security settings UI, so the backend contract is intentionally available for runtime and follow-on integration work before browser screens bind it."
+    },
+    {
       "method": "get",
       "path": "/api/v1/projects/{projectId}",
       "categories": ["wrapped_but_unused"],

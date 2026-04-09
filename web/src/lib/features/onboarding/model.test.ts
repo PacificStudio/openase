@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildOnboardingSteps, currentActiveStep, getBootstrapPreset } from './model'
+import {
+  bootstrapPresets,
+  buildOnboardingSteps,
+  currentActiveStep,
+  getBootstrapPreset,
+} from './model'
 import type { OnboardingData } from './types'
 
 function emptyData(): OnboardingData {
@@ -49,5 +54,29 @@ describe('onboarding model', () => {
     expect(getBootstrapPreset('In Progress').roleSlug).toBe('fullstack-developer')
     expect(getBootstrapPreset('In Progress').pickupStatusName).toBe('Backlog')
     expect(getBootstrapPreset('In Progress').finishStatusName).toBe('Done')
+  })
+
+  it('exports all three bootstrap presets with required fields', () => {
+    expect(bootstrapPresets).toHaveLength(3)
+    for (const preset of bootstrapPresets) {
+      expect(preset.key).toBeTruthy()
+      expect(preset.title).toBeTruthy()
+      expect(preset.subtitle).toBeTruthy()
+      expect(preset.roleSlug).toBeTruthy()
+      expect(preset.pickupStatusName).toBeTruthy()
+      expect(preset.finishStatusName).toBeTruthy()
+    }
+    const keys = bootstrapPresets.map((p) => p.key)
+    expect(keys).toContain('fullstack')
+    expect(keys).toContain('pm')
+    expect(keys).toContain('researcher')
+  })
+
+  it('describes each step purpose and skip risks for the UI', () => {
+    const [firstStep] = buildOnboardingSteps(emptyData())
+
+    expect(firstStep?.purpose).toContain('GitHub')
+    expect(firstStep?.configHighlights.length).toBeGreaterThan(0)
+    expect(firstStep?.skipRisks.length).toBeGreaterThan(0)
   })
 })

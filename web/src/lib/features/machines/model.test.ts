@@ -16,12 +16,9 @@ function machineFixture(overrides: Partial<Machine> = {}): Machine {
     host: 'builder.internal',
     port: 22,
     reachability_mode: 'direct_connect',
-    execution_mode: 'ssh_compat',
+    execution_mode: 'websocket',
     execution_capabilities: ['probe'],
     ssh_helper_enabled: true,
-    ssh_helper_required: true,
-    connection_mode: 'ssh',
-    transport_capabilities: ['probe'],
     ssh_user: 'ubuntu',
     ssh_key_path: '/keys/id_ed25519',
     advertised_endpoint: null,
@@ -82,29 +79,28 @@ describe('machines model', () => {
     expect(nextDraft.workspaceRoot).toBe('/home/deploy/.openase/workspace')
   })
 
-  it('keeps legacy direct-connect ssh compatibility records editable without forcing websocket migration', () => {
-    const parsed = parseMachineDraft(machineToDraft(machineFixture()))
-
-    expect(parsed.ok).toBe(true)
-    if (parsed.ok) {
-      expect(parsed.value.execution_mode).toBe('ssh_compat')
-      expect(parsed.value.connection_mode).toBe('ssh')
-    }
-  })
-
-  it('migrates legacy direct-connect ssh compatibility drafts to websocket once a listener endpoint is provided', () => {
-    const parsed = parseMachineDraft(
-      machineToDraft(
-        machineFixture({
-          advertised_endpoint: 'wss://builder.internal/openase/transport',
-        }),
-      ),
+  it('accepts direct-connect websocket drafts when a listener endpoint is provided', () => {
+    const draft = machineToDraft(
+      machineFixture({
+        advertised_endpoint: 'wss://builder.internal/openase/transport',
+      }),
     )
+
+    const parsed = parseMachineDraft(draft)
 
     expect(parsed.ok).toBe(true)
     if (parsed.ok) {
       expect(parsed.value.execution_mode).toBe('websocket')
-      expect(parsed.value.connection_mode).toBe('ws_listener')
+      expect(parsed.value.advertised_endpoint).toBe('wss://builder.internal/openase/transport')
+    }
+  })
+
+  it('requires direct-connect websocket drafts to include a listener endpoint even with SSH helper credentials', () => {
+    const parsed = parseMachineDraft(machineToDraft(machineFixture()))
+
+    expect(parsed.ok).toBe(false)
+    if (!parsed.ok) {
+      expect(parsed.error).toContain('Advertised endpoint is required')
     }
   })
 
@@ -163,7 +159,6 @@ describe('machines model', () => {
       value: expect.objectContaining({
         reachability_mode: 'direct_connect',
         execution_mode: 'websocket',
-        connection_mode: 'ws_listener',
         advertised_endpoint: 'wss://listener.internal/openase/transport',
         ssh_user: '',
         ssh_key_path: '',

@@ -9,6 +9,7 @@ vi.mock('./sse', () => ({
 }))
 
 import {
+  closeProjectConversationRuntime,
   createProjectConversation,
   getProjectConversation,
   listProjectConversationEntries,
@@ -60,11 +61,9 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Help me tighten this harness.',
-        source: 'harness_editor',
+        source: 'project_sidebar',
         context: {
           projectId: 'project-1',
-          workflowId: 'workflow-1',
-          harnessDraft: '---\nworkflow:\n  name: Draft\n---\n',
         },
       },
       {
@@ -100,14 +99,12 @@ describe('streamChatTurn', () => {
       expect.objectContaining({
         body: JSON.stringify({
           message: 'Help me tighten this harness.',
-          source: 'harness_editor',
+          source: 'project_sidebar',
           provider_id: undefined,
           session_id: undefined,
           context: {
             project_id: 'project-1',
-            workflow_id: 'workflow-1',
             ticket_id: undefined,
-            harness_draft: '---\nworkflow:\n  name: Draft\n---\n',
           },
         }),
       }),
@@ -120,14 +117,12 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Tighten this deploy script.',
-        source: 'skill_editor',
+        source: 'ticket_detail',
         providerId: 'provider-1',
         sessionId: 'session-skill-1',
         context: {
           projectId: 'project-1',
-          skillId: 'skill-1',
-          skillFilePath: 'scripts/redeploy.sh',
-          skillFileDraft: '#!/usr/bin/env bash\necho updated\n',
+          ticketId: 'ticket-1',
         },
       },
       {
@@ -140,17 +135,12 @@ describe('streamChatTurn', () => {
       expect.objectContaining({
         body: JSON.stringify({
           message: 'Tighten this deploy script.',
-          source: 'skill_editor',
+          source: 'ticket_detail',
           provider_id: 'provider-1',
           session_id: 'session-skill-1',
           context: {
             project_id: 'project-1',
-            workflow_id: undefined,
-            ticket_id: undefined,
-            harness_draft: undefined,
-            skill_id: 'skill-1',
-            skill_file_path: 'scripts/redeploy.sh',
-            skill_file_draft: '#!/usr/bin/env bash\necho updated\n',
+            ticket_id: 'ticket-1',
           },
         }),
       }),
@@ -200,12 +190,10 @@ describe('streamChatTurn', () => {
     await streamChatTurn(
       {
         message: 'Refactor this skill bundle.',
-        source: 'skill_editor',
+        source: 'ticket_detail',
         context: {
           projectId: 'project-1',
-          skillId: 'skill-1',
-          skillFilePath: 'SKILL.md',
-          skillFileDraft: '---\nname: "deploy"\n---\n',
+          ticketId: 'ticket-1',
         },
       },
       {
@@ -262,7 +250,22 @@ describe('startProjectConversationTurn', () => {
       'fetch',
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+        json: async () => ({
+          turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+          conversation: {
+            id: 'conversation-1',
+            project_id: 'project-1',
+            user_id: 'user-1',
+            source: 'project_sidebar',
+            provider_id: 'provider-1',
+            status: 'active',
+            title: 'Help me figure out what to change here.',
+            rolling_summary: '',
+            last_activity_at: '2026-04-02T05:00:00Z',
+            created_at: '2026-04-02T04:00:00Z',
+            updated_at: '2026-04-02T05:00:00Z',
+          },
+        }),
       }),
     )
   })
@@ -352,23 +355,25 @@ describe('watchProjectConversation', () => {
     ])
   })
 
-  it('downgrades platform command proposals to plain assistant text in project conversation streams', async () => {
+  it('keeps unsupported structured project conversation messages as raw payloads', async () => {
     consumeEventStream.mockImplementation(async (_body, onFrame) => {
       onFrame({
         event: 'message',
         data: JSON.stringify({
-          type: 'platform_command_proposal',
-          entry_id: 'entry-1',
-          summary: 'Update ASE-1',
-          commands: [
-            {
-              command: 'ticket.update',
-              args: {
-                ticket: 'ASE-1',
-                status: 'Todo',
+          type: 'custom_structured_payload',
+          raw: {
+            entry_id: 'entry-1',
+            summary: 'Update ASE-1',
+            commands: [
+              {
+                command: 'ticket.update',
+                args: {
+                  ticket: 'ASE-1',
+                  status: 'Todo',
+                },
               },
-            },
-          ],
+            ],
+          },
         }),
       })
     })
@@ -384,8 +389,20 @@ describe('watchProjectConversation', () => {
       {
         kind: 'message',
         payload: {
-          type: 'text',
-          content: 'Update ASE-1',
+          type: 'custom_structured_payload',
+          raw: {
+            entry_id: 'entry-1',
+            summary: 'Update ASE-1',
+            commands: [
+              {
+                command: 'ticket.update',
+                args: {
+                  ticket: 'ASE-1',
+                  status: 'Todo',
+                },
+              },
+            ],
+          },
         },
       },
     ])
@@ -430,6 +447,26 @@ describe('watchProjectConversation', () => {
       },
     ])
   })
+
+  it('does not send browser-local chat user headers for the direct project conversation stream', async () => {
+    consumeEventStream.mockImplementation(async () => {})
+
+    await watchProjectConversation('conversation-1', {
+      onEvent: () => {},
+    })
+
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/chat/conversations/conversation-1/stream',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          accept: 'text/event-stream',
+        }),
+      }),
+    )
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+  })
 })
 
 describe('project conversation REST mapping', () => {
@@ -454,6 +491,7 @@ describe('project conversation REST mapping', () => {
                 source: 'project_sidebar',
                 provider_id: 'provider-1',
                 status: 'active',
+                title: 'Keep title stable',
                 rolling_summary: 'Latest thread',
                 last_activity_at: '2026-04-02T05:00:00Z',
                 created_at: '2026-04-02T04:00:00Z',
@@ -473,6 +511,7 @@ describe('project conversation REST mapping', () => {
               source: 'project_sidebar',
               provider_id: 'provider-2',
               status: 'active',
+              title: '',
               rolling_summary: '',
               last_activity_at: '2026-04-02T06:00:00Z',
               created_at: '2026-04-02T06:00:00Z',
@@ -491,6 +530,7 @@ describe('project conversation REST mapping', () => {
               source: 'project_sidebar',
               provider_id: 'provider-3',
               status: 'active',
+              title: 'Recovered title',
               rolling_summary: 'Recovered thread',
               created_at: '2026-04-02T07:00:00Z',
               updated_at: '2026-04-02T07:05:00Z',
@@ -509,6 +549,7 @@ describe('project conversation REST mapping', () => {
           userId: 'user-1',
           source: 'project_sidebar',
           providerId: 'provider-1',
+          title: 'Keep title stable',
           providerActiveFlags: [],
           status: 'active',
           rollingSummary: 'Latest thread',
@@ -528,6 +569,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-2',
+        title: '',
         providerActiveFlags: [],
         status: 'active',
         rollingSummary: '',
@@ -544,6 +586,7 @@ describe('project conversation REST mapping', () => {
         userId: 'user-1',
         source: 'project_sidebar',
         providerId: 'provider-3',
+        title: 'Recovered title',
         providerActiveFlags: [],
         status: 'active',
         rollingSummary: 'Recovered thread',
@@ -591,7 +634,7 @@ describe('project conversation REST mapping', () => {
     })
   })
 
-  it('sends chat user headers when responding to project conversation interrupts', async () => {
+  it('does not send browser-local chat user headers when responding to project conversation interrupts', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -617,7 +660,6 @@ describe('project conversation REST mapping', () => {
         method: 'POST',
         headers: expect.objectContaining({
           'Content-Type': 'application/json',
-          'X-OpenASE-Chat-User': expect.any(String),
         }),
         body: JSON.stringify({
           decision: 'approve_once',
@@ -625,9 +667,11 @@ describe('project conversation REST mapping', () => {
         }),
       }),
     )
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
   })
 
-  it('sends chat user headers when opening the project conversation mux stream', async () => {
+  it('does not send browser-local chat user headers when opening the project conversation mux stream', async () => {
     consumeEventStream.mockImplementation(async () => {})
     vi.stubGlobal(
       'fetch',
@@ -648,10 +692,59 @@ describe('project conversation REST mapping', () => {
         method: 'GET',
         headers: expect.objectContaining({
           accept: 'text/event-stream',
-          'X-OpenASE-Chat-User': expect.any(String),
         }),
       }),
     )
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? []
+    expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+  })
+
+  it('does not send browser-local chat user headers for persistent project conversation REST endpoints', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => ({ conversation: { id: 'conversation-1' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ conversations: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ conversation: { id: 'conversation-1' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ entries: [] }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({ turn: { id: 'turn-1', turn_index: 1, status: 'started' } }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+        }),
+    )
+
+    await createProjectConversation({ projectId: 'project-1', providerId: 'provider-1' })
+    await listProjectConversations({ projectId: 'project-1' })
+    await getProjectConversation('conversation-1')
+    await listProjectConversationEntries('conversation-1')
+    await startProjectConversationTurn('conversation-1', { message: 'continue' })
+    await expect(closeProjectConversationRuntime('conversation-1')).resolves.toBeUndefined()
+
+    for (const [, init] of vi.mocked(fetch).mock.calls) {
+      expect(new Headers(init?.headers).get('X-OpenASE-Chat-User')).toBeNull()
+    }
   })
 })
 

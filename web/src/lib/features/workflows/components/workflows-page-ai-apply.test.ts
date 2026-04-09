@@ -56,6 +56,7 @@ vi.mock('$lib/api/openase', () => ({
 vi.mock('$lib/api/chat', () => ({
   closeChatSession,
   streamChatTurn,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/stores/toast.svelte', () => ({
@@ -107,14 +108,11 @@ const providerFixture: AgentProvider = {
       state: 'available',
       reason: null,
     },
-    harness_ai: {
-      state: 'available',
-      reason: null,
-    },
   },
   cli_command: 'codex',
   cli_args: [],
   auth_config: {},
+  secret_bindings: [],
   cli_rate_limit: null,
   cli_rate_limit_updated_at: null,
   model_name: 'gpt-5.4',

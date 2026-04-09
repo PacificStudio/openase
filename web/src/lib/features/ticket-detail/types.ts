@@ -28,12 +28,11 @@ export type TicketRepoOption = {
 
 export type TicketExternalLink = {
   id: string
-  type: string
+  type?: string
   url: string
   externalId: string
   title?: string
   status?: string
-  relation: string
 }
 
 export type TicketExternalLinkDraft = {
@@ -42,7 +41,6 @@ export type TicketExternalLinkDraft = {
   externalId: string
   title: string
   status: string
-  relation: string
 }
 
 export type TicketDetail = {

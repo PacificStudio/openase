@@ -14,6 +14,12 @@ export function normalizeSecuritySettings(
       organization: normalizeGitHubSlot(security.github.organization),
       project_override: normalizeGitHubSlot(security.github.project_override),
     },
+    secret_hygiene: {
+      ...security.secret_hygiene,
+      rollout_checklist: Array.isArray(security.secret_hygiene.rollout_checklist)
+        ? security.secret_hygiene.rollout_checklist
+        : [],
+    },
   }
 }
 

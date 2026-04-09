@@ -21,8 +21,7 @@ For remote machines, the product model is:
 |---------|-------------|
 | **Machine** | A registered execution environment with identity, reachability, workspace, and helper access details. |
 | **Reachability Mode** | `local`, `direct_connect`, or `reverse_connect`. |
-| **Execution Mode** | `local_process` or `websocket`. Older records may still read as `ssh_compat` until they are resaved onto websocket. |
-| **Connection Mode** | `local`, `ws_listener`, `ws_reverse`, or the legacy helper-only `ssh` compatibility marker. |
+| **Execution Mode** | `local_process` or `websocket`. |
 | **SSH Helper** | Optional SSH credentials used for bootstrap, diagnostics, or emergency repair while remote runtime stays on websocket. |
 | **Health Status** | Current reachability and resource status (Online / Offline / Degraded / Maintenance). |
 | **Probe** | Tests the currently implemented access path and collects diagnostic information. |
@@ -31,9 +30,8 @@ For remote machines, the product model is:
 
 | Topology | Stored semantics | Runtime path | When to use it |
 |---------|------------------|--------------|----------------|
-| **Direct-connect listener** | `reachability_mode=direct_connect`, `execution_mode=websocket`, `connection_mode=ws_listener` | Control plane dials the advertised websocket listener endpoint | The control plane can reach the machine directly over the network |
-| **Reverse-connect daemon** | `reachability_mode=reverse_connect`, `execution_mode=websocket`, `connection_mode=ws_reverse` | `openase machine-agent run` keeps a reverse websocket session open | The machine can dial out but should not expose an inbound listener |
-| **Legacy SSH compatibility** | `execution_mode=ssh_compat` | Not supported for normal ticket execution | Migration state only; resave onto websocket before rollout |
+| **Direct-connect listener** | `reachability_mode=direct_connect`, `execution_mode=websocket` | Control plane dials the advertised websocket listener endpoint | The control plane can reach the machine directly over the network |
+| **Reverse-connect daemon** | `reachability_mode=reverse_connect`, `execution_mode=websocket` | `openase machine-agent run` keeps a reverse websocket session open | The machine can dial out but should not expose an inbound listener |
 
 ## Adding A Machine
 
@@ -57,15 +55,14 @@ For remote machines, the product model is:
 - Prefer `direct_connect + websocket` when the control plane can reach the machine endpoint.
 - Prefer `reverse_connect + websocket` when the machine can dial out but should not expose an inbound listener.
 - Keep SSH helper credentials only when you need bootstrap access, diagnostics, or emergency repair.
-- Existing older records may still surface as `execution_mode=ssh_compat`; resave them onto websocket before treating the helper as optional cleanup work.
+- Existing direct-connect records must keep a valid `advertised_endpoint`; reverse-connect records must keep an active daemon registration path.
 
 ## Migrating Older Remote Records
 
-1. Find any machine that still shows `execution_mode=ssh_compat`.
-2. If the control plane can dial the host directly, save an advertised websocket endpoint and resave the machine as `direct_connect + websocket`.
-3. If the machine should dial out, resave it as `reverse_connect + websocket`, issue a machine channel token, and start `openase machine-agent run`.
-4. Run `openase machine test <machine-id>` after each migration.
-5. Keep SSH credentials only if operators still need helper bootstrap or diagnostics; execution itself no longer falls back to SSH.
+1. For direct-connect machines, save a valid websocket `advertised_endpoint`.
+2. For reverse-connect machines, issue a machine channel token and start `openase machine-agent run`.
+3. Run `openase machine test <machine-id>` after each topology update.
+4. Keep SSH credentials only if operators still need helper bootstrap or diagnostics.
 
 ## Monitoring Machines
 

@@ -41,8 +41,8 @@
   )
 </script>
 
-<SheetHeader class="border-border border-b px-6 py-5">
-  <div class="flex items-start gap-3">
+<SheetHeader class="border-border border-b px-4 py-4 sm:px-6 sm:py-5">
+  <div class="flex items-start gap-2 sm:gap-3">
     <span class={cn('mt-2 size-2.5 shrink-0 rounded-full', agentStatusDot[agent.status])}></span>
     <div class="min-w-0 flex-1">
       {#if editingName}

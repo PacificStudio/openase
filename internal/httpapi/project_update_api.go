@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/labstack/echo/v4"
 )
@@ -85,12 +86,21 @@ func (s *Server) handleListProjectUpdates(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
-	items, err := s.projectUpdateService.ListThreads(c.Request().Context(), projectID)
+	pageInput, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_UPDATES_PAGE", err.Error())
+	}
+	page, err := s.projectUpdateService.ListThreadPage(c.Request().Context(), pageInput)
 	if err != nil {
 		return writeProjectUpdateError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"threads": mapProjectUpdateThreadResponses(items),
+		"threads":     mapProjectUpdateThreadResponses(page.Threads),
+		"next_cursor": page.NextCursor,
+		"has_more":    page.HasMore,
 	})
 }
 
@@ -106,8 +116,7 @@ func (s *Server) handleCreateProjectUpdateThread(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
-	input, err := parseCreateProjectUpdateThreadRequest(projectID, raw)
+	input, err := parseCreateProjectUpdateThreadRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -136,8 +145,7 @@ func (s *Server) handleUpdateProjectUpdateThread(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
-	input, err := parseUpdateProjectUpdateThreadRequest(projectID, threadID, raw)
+	input, err := parseUpdateProjectUpdateThreadRequest(projectID, threadID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -208,8 +216,7 @@ func (s *Server) handleCreateProjectUpdateComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.CreatedBy = optionalActor(raw.CreatedBy, actorFromHumanPrincipal(c))
-	input, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, raw)
+	input, err := parseCreateProjectUpdateCommentRequest(projectID, threadID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -242,8 +249,7 @@ func (s *Server) handleUpdateProjectUpdateComment(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	raw.EditedBy = optionalActor(raw.EditedBy, actorFromHumanPrincipal(c))
-	input, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, raw)
+	input, err := parseUpdateProjectUpdateCommentRequest(projectID, threadID, commentID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -39,16 +40,19 @@ type RunLifecycleHookInput struct {
 }
 
 type Service struct {
-	repo           Repository
-	logger         *slog.Logger
-	sshPool        ticketHookSSHPool
-	transport      ticketHookTransportResolver
-	agentPlatform  ticketHookAgentPlatform
-	platformAPIURL string
+	repo            Repository
+	logger          *slog.Logger
+	sshPool         ticketHookSSHPool
+	transport       ticketHookTransportResolver
+	agentPlatform   ticketHookAgentPlatform
+	activityEmitter *activitysvc.Emitter
+	platformAPIURL  string
 }
 
 type loadedTicketHookRuntime struct {
 	ticketID    uuid.UUID
+	projectID   uuid.UUID
+	identifier  string
 	definitions []infrahook.Definition
 	executor    infrahook.Executor
 	env         infrahook.Env
@@ -81,6 +85,13 @@ func (s *Service) ConfigurePlatformEnvironment(apiURL string, agentPlatform tick
 	}
 	s.platformAPIURL = strings.TrimSpace(apiURL)
 	s.agentPlatform = agentPlatform
+}
+
+func (s *Service) ConfigureActivityEmitter(emitter *activitysvc.Emitter) {
+	if s == nil {
+		return
+	}
+	s.activityEmitter = emitter
 }
 
 func (s *Service) RecordActivityEvent(ctx context.Context, input RecordActivityEventInput) (catalogdomain.ActivityEvent, error) {
@@ -256,6 +267,7 @@ func (s *Service) RunLifecycleHook(ctx context.Context, input RunLifecycleHookIn
 
 	results, err := runtime.executor.RunAll(ctx, input.HookName, runtime.definitions, runtime.env)
 	s.logHookResults(input.HookName, runtime.ticketID, input.RunID, results, err)
+	s.emitHookActivityEvents(ctx, runtime, input.HookName, results, err)
 	if err != nil {
 		return err
 	}
@@ -347,10 +359,80 @@ func (s *Service) loadHookRuntime(ctx context.Context, input RunLifecycleHookInp
 
 	return loadedTicketHookRuntime{
 		ticketID:    data.TicketID,
+		projectID:   data.ProjectID,
+		identifier:  data.TicketIdentifier,
 		definitions: definitions,
 		executor:    executor,
 		env:         env,
 	}, nil
+}
+
+func (s *Service) emitHookActivityEvents(
+	ctx context.Context,
+	runtime loadedTicketHookRuntime,
+	hookName infrahook.TicketHookName,
+	results []infrahook.Result,
+	runErr error,
+) {
+	if s == nil || s.activityEmitter == nil || runtime.projectID == uuid.Nil || runtime.ticketID == uuid.Nil {
+		return
+	}
+
+	for _, result := range results {
+		eventType := activityevent.TypeHookPassed
+		message := fmt.Sprintf("%s hook %s passed", runtime.identifier, hookName)
+		if result.Outcome != infrahook.OutcomePass {
+			eventType = activityevent.TypeHookFailed
+			message = fmt.Sprintf("%s hook %s failed", runtime.identifier, hookName)
+		}
+
+		metadata := map[string]any{
+			"ticket_identifier": runtime.identifier,
+			"hook_name":         hookName,
+			"command":           result.Command,
+			"policy":            result.Policy,
+			"outcome":           result.Outcome,
+			"workdir":           result.WorkingDirectory,
+		}
+		if result.ExitCode != nil {
+			metadata["exit_code"] = *result.ExitCode
+		}
+		if strings.TrimSpace(result.Error) != "" {
+			metadata["error"] = result.Error
+		}
+		if strings.TrimSpace(result.Stderr) != "" {
+			metadata["stderr"] = result.Stderr
+		}
+		if strings.TrimSpace(result.Stdout) != "" {
+			metadata["stdout"] = result.Stdout
+		}
+
+		if _, emitErr := s.activityEmitter.Emit(ctx, activitysvc.RecordInput{
+			ProjectID: runtime.projectID,
+			TicketID:  &runtime.ticketID,
+			EventType: eventType,
+			Message:   message,
+			Metadata:  metadata,
+		}); emitErr != nil {
+			s.logger.Warn("emit ticket hook activity", "hook_name", hookName, "ticket_id", runtime.ticketID, "error", emitErr)
+		}
+	}
+
+	if runErr != nil && len(results) == 0 {
+		if _, emitErr := s.activityEmitter.Emit(ctx, activitysvc.RecordInput{
+			ProjectID: runtime.projectID,
+			TicketID:  &runtime.ticketID,
+			EventType: activityevent.TypeHookFailed,
+			Message:   fmt.Sprintf("%s hook %s failed before command execution", runtime.identifier, hookName),
+			Metadata: map[string]any{
+				"ticket_identifier": runtime.identifier,
+				"hook_name":         hookName,
+				"error":             strings.TrimSpace(runErr.Error()),
+			},
+		}); emitErr != nil {
+			s.logger.Warn("emit ticket hook preflight activity", "hook_name", hookName, "ticket_id", runtime.ticketID, "error", emitErr)
+		}
+	}
 }
 
 func (s *Service) ticketHookExecutor(machine catalogdomain.Machine, remote bool) (infrahook.Executor, error) {

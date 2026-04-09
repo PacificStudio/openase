@@ -7,7 +7,7 @@ import type {
 
 export function resolveConnectionMode(
   reachabilityMode: MachineReachabilityMode,
-  executionMode: MachineExecutionMode,
+  _executionMode: MachineExecutionMode,
 ): MachineConnectionMode {
   if (reachabilityMode === 'local') {
     return 'local'
@@ -15,34 +15,13 @@ export function resolveConnectionMode(
   if (reachabilityMode === 'reverse_connect') {
     return 'ws_reverse'
   }
-  return executionMode === 'ssh_compat' ? 'ssh' : 'ws_listener'
-}
-
-export function resolveLegacyConnectionMode(
-  reachabilityMode: string,
-  executionMode: string,
-  host: string,
-  normalizeReachabilityMode: (
-    value: string | null | undefined,
-    host: string | null | undefined,
-    connectionMode?: string | null | undefined,
-  ) => MachineReachabilityMode,
-  normalizeExecutionMode: (
-    value: string | null | undefined,
-    host: string | null | undefined,
-    connectionMode?: string | null | undefined,
-  ) => MachineExecutionMode,
-): MachineConnectionMode {
-  return resolveConnectionMode(
-    normalizeReachabilityMode(reachabilityMode, host),
-    normalizeExecutionMode(executionMode, host),
-  )
+  return 'ws_listener'
 }
 
 export function coerceExecutionMode(
   reachabilityMode: MachineReachabilityMode,
   executionMode: MachineExecutionMode,
-  advertisedEndpoint = '',
+  _advertisedEndpoint = '',
 ): MachineExecutionMode {
   if (reachabilityMode === 'local') {
     return 'local_process'
@@ -51,9 +30,6 @@ export function coerceExecutionMode(
     return 'websocket'
   }
   if (executionMode === 'local_process') {
-    return 'websocket'
-  }
-  if (executionMode === 'ssh_compat' && advertisedEndpoint.trim()) {
     return 'websocket'
   }
   return executionMode
@@ -89,10 +65,6 @@ export function validateTransportFields(
   const sshKeyPath = draft.sshKeyPath.trim()
   const hasAnySSHHelper = sshUser.length > 0 || sshKeyPath.length > 0
 
-  if (executionMode === 'ssh_compat') {
-    if (!sshUser) return 'SSH user is required for SSH compatibility.'
-    if (!sshKeyPath) return 'SSH key path is required for SSH compatibility.'
-  }
   if (hasAnySSHHelper && (!sshUser || !sshKeyPath)) {
     return 'SSH helper access requires both an SSH user and an SSH key path.'
   }

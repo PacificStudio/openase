@@ -25,7 +25,9 @@ import (
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	machinetransport "github.com/BetterAndBetterII/openase/internal/infra/machinetransport"
 	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
+	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -44,7 +46,80 @@ var (
 	ticketRunSummaryStreamType  = provider.MustParseEventType("ticket.run.summary")
 )
 
-const runCompletionSummaryEmptyTreeOID = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+const (
+	runCompletionSummaryTurnInputMaxBytes             = 1024 * 1024
+	runCompletionSummaryTurnReservedBytes             = 64 * 1024
+	runCompletionSummaryDeveloperInstructionsMaxBytes = 32 * 1024
+	runCompletionSummaryUserPromptTargetBytes         = 256 * 1024
+	runCompletionSummaryUserPromptMinimumBytes        = 8 * 1024
+)
+
+var runCompletionSummaryPromptStages = []runCompletionSummaryPromptCaps{
+	{
+		StringBytes:      400,
+		Steps:            40,
+		Commands:         80,
+		ToolCalls:        40,
+		Approvals:        20,
+		OutputExcerpts:   8,
+		Repos:            12,
+		FilesPerRepo:     20,
+		LongRunningSteps: 20,
+		RepeatedCommands: 20,
+		RepeatedFailures: 20,
+		RiskyCommands:    20,
+		RiskyFiles:       20,
+		IncludeRepoFiles: true,
+	},
+	{
+		StringBytes:      240,
+		Steps:            24,
+		Commands:         40,
+		ToolCalls:        20,
+		Approvals:        10,
+		OutputExcerpts:   6,
+		Repos:            8,
+		FilesPerRepo:     10,
+		LongRunningSteps: 12,
+		RepeatedCommands: 12,
+		RepeatedFailures: 12,
+		RiskyCommands:    12,
+		RiskyFiles:       12,
+		IncludeRepoFiles: true,
+	},
+	{
+		StringBytes:      160,
+		Steps:            12,
+		Commands:         16,
+		ToolCalls:        10,
+		Approvals:        6,
+		OutputExcerpts:   6,
+		Repos:            5,
+		FilesPerRepo:     5,
+		LongRunningSteps: 8,
+		RepeatedCommands: 8,
+		RepeatedFailures: 8,
+		RiskyCommands:    8,
+		RiskyFiles:       8,
+		IncludeRepoFiles: true,
+	},
+	{
+		StringBytes:      120,
+		Steps:            8,
+		Commands:         8,
+		ToolCalls:        6,
+		Approvals:        4,
+		OutputExcerpts:   4,
+		Repos:            3,
+		FilesPerRepo:     0,
+		LongRunningSteps: 5,
+		RepeatedCommands: 5,
+		RepeatedFailures: 5,
+		RiskyCommands:    5,
+		RiskyFiles:       5,
+		IncludeRepoFiles: false,
+	},
+}
 
 type runtimeCompletionSummaryCoordinator struct {
 	client         *ent.Client
@@ -55,6 +130,8 @@ type runtimeCompletionSummaryCoordinator struct {
 	sshPool        *sshinfra.Pool
 	transports     *machinetransport.Resolver
 	workflow       *workflowservice.Service
+	secretResolver runtimesecretenv.Resolver
+	secretManager  runtimeSecretManager
 	now            func() time.Time
 	timeout        time.Duration
 	runs           *runtimeRunTracker
@@ -92,6 +169,13 @@ func newRuntimeCompletionSummaryCoordinator(
 	}
 }
 
+func (c *runtimeCompletionSummaryCoordinator) ConfigureSecretManager(manager runtimeSecretManager) {
+	if c == nil {
+		return
+	}
+	c.secretManager = manager
+}
+
 type runCompletionSummaryContext struct {
 	run          *ent.AgentRun
 	agent        *ent.Agent
@@ -102,6 +186,42 @@ type runCompletionSummaryContext struct {
 	traceEntries []*ent.AgentTraceEvent
 	stepEntries  []*ent.AgentStepEvent
 	workspaces   []*ent.TicketRepoWorkspace
+}
+
+type runCompletionSummaryInputPayload struct {
+	Metadata       map[string]any                 `json:"metadata"`
+	Steps          []map[string]any               `json:"steps"`
+	Commands       []map[string]any               `json:"commands"`
+	ToolCalls      []map[string]any               `json:"tool_calls"`
+	Approvals      []map[string]any               `json:"approvals"`
+	OutputExcerpts []map[string]any               `json:"output_excerpts"`
+	FileSnapshot   runCompletionWorkspaceSnapshot `json:"file_snapshot"`
+	Heuristics     runCompletionSummaryHeuristics `json:"heuristics"`
+}
+
+type runCompletionSummaryHeuristics struct {
+	LongRunningSteps []map[string]any `json:"long_running_steps"`
+	RepeatedCommands []map[string]any `json:"repeated_commands"`
+	RepeatedFailures []map[string]any `json:"repeated_failures"`
+	RiskyCommands    []map[string]any `json:"risky_commands"`
+	RiskyFiles       []map[string]any `json:"risky_files"`
+}
+
+type runCompletionSummaryPromptCaps struct {
+	StringBytes      int
+	Steps            int
+	Commands         int
+	ToolCalls        int
+	Approvals        int
+	OutputExcerpts   int
+	Repos            int
+	FilesPerRepo     int
+	LongRunningSteps int
+	RepeatedCommands int
+	RepeatedFailures int
+	RiskyCommands    int
+	RiskyFiles       int
+	IncludeRepoFiles bool
 }
 
 type runCompletionWorkspaceSnapshot struct {
@@ -311,7 +431,17 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		return fmt.Errorf("parse summary provider command: %w", err)
 	}
 
-	environment := buildAgentCLIEnvironment(summaryCtx.machine.EnvVars, summaryCtx.provider.AuthConfig)
+	environment, err := runtimesecretenv.AppendResolvedProviderSecrets(ctx, c.secretResolver, runtimesecretenv.ResolveInput{
+		ProjectID:          summaryCtx.project.ID,
+		ProviderAuthConfig: summaryCtx.provider.AuthConfig,
+		BaseEnvironment:    buildAgentCLIEnvironment(summaryCtx.machine.EnvVars, summaryCtx.provider.AuthConfig),
+		TicketID:           &summaryCtx.ticket.ID,
+		WorkflowID:         optionalUUIDPointer(summaryCtx.run.WorkflowID),
+		AgentID:            &summaryCtx.agent.ID,
+	})
+	if err != nil {
+		return err
+	}
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
 		append([]string(nil), summaryCtx.provider.CliArgs...),
@@ -327,13 +457,14 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		return err
 	}
 
+	developerInstructions := buildRunCompletionSummaryDeveloperInstructions(summaryCtx.project)
 	session, err := adapter.Start(ctx, agentSessionStartSpec{
 		Process:               processSpec,
 		ProcessManager:        processManager,
 		WorkingDirectory:      workingDirectory.String(),
 		Model:                 summaryCtx.provider.ModelName,
 		PermissionProfile:     catalogdomain.AgentProviderPermissionProfileStandard,
-		DeveloperInstructions: buildRunCompletionSummaryDeveloperInstructions(summaryCtx.project),
+		DeveloperInstructions: developerInstructions,
 		TurnTitle:             fmt.Sprintf("%s run summary", summaryCtx.ticket.Identifier),
 	})
 	if err != nil {
@@ -345,7 +476,15 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		_ = session.Stop(stopCtx)
 	}()
 
-	userPrompt, err := buildRunCompletionSummaryUserPrompt(summaryCtx.run.CompletionSummaryInput)
+	userPromptBudget := runCompletionSummaryUserPromptTargetBytes
+	if available := runCompletionSummaryTurnInputMaxBytes - runCompletionSummaryTurnReservedBytes - len(developerInstructions); available < userPromptBudget {
+		userPromptBudget = available
+	}
+	if userPromptBudget < runCompletionSummaryUserPromptMinimumBytes {
+		userPromptBudget = runCompletionSummaryUserPromptMinimumBytes
+	}
+
+	userPrompt, err := buildRunCompletionSummaryUserPrompt(summaryCtx.run.CompletionSummaryInput, userPromptBudget)
 	if err != nil {
 		return err
 	}
@@ -601,18 +740,77 @@ func buildRunCompletionSummaryDeveloperInstructions(project *ent.Project) string
 	}
 	prompt, _ := catalogdomain.EffectiveAgentRunSummaryPrompt(rawOverride)
 
-	return strings.TrimSpace(`
+	instructions := strings.TrimSpace(`
 You are OpenASE's post-run summarizer.
 Use only the structured run facts that the platform provides.
 Do not run commands, call tools, request approval, or ask for extra input.
 Respond with Markdown only.
 ` + "\n\n" + prompt)
+
+	if len(instructions) <= runCompletionSummaryDeveloperInstructionsMaxBytes {
+		return instructions
+	}
+	const note = "\n\n[OpenASE note: project summary instructions were trimmed for length.]"
+	limit := runCompletionSummaryDeveloperInstructionsMaxBytes - len(note)
+	if limit <= 0 {
+		return strings.TrimSpace(truncateUTF8Bytes(note, runCompletionSummaryDeveloperInstructionsMaxBytes))
+	}
+	truncated := strings.TrimSpace(truncateUTF8Bytes(instructions, limit))
+	if truncated == "" {
+		return strings.TrimSpace(note)
+	}
+	return truncated + note
 }
 
-func buildRunCompletionSummaryUserPrompt(input map[string]any) (string, error) {
-	payload, err := json.MarshalIndent(input, "", "  ")
+func buildRunCompletionSummaryUserPrompt(input map[string]any, maxBytes int) (string, error) {
+	parsed, err := parseRunCompletionSummaryInputPayload(input)
 	if err != nil {
-		return "", fmt.Errorf("marshal completion summary input: %w", err)
+		return "", err
+	}
+	if maxBytes <= 0 {
+		maxBytes = runCompletionSummaryUserPromptTargetBytes
+	}
+	if maxBytes < runCompletionSummaryUserPromptMinimumBytes {
+		maxBytes = runCompletionSummaryUserPromptMinimumBytes
+	}
+
+	for _, stage := range runCompletionSummaryPromptStages {
+		prompt, err := formatRunCompletionSummaryUserPrompt(buildRunCompletionSummaryPromptInput(parsed, stage))
+		if err != nil {
+			return "", err
+		}
+		if len(prompt) <= maxBytes {
+			return prompt, nil
+		}
+	}
+
+	prompt, err := formatRunCompletionSummaryUserPrompt(buildMinimalRunCompletionSummaryPromptInput(parsed))
+	if err != nil {
+		return "", err
+	}
+	if len(prompt) > maxBytes {
+		return "", fmt.Errorf("compact completion summary prompt still exceeds %d bytes", maxBytes)
+	}
+	return prompt, nil
+}
+
+func parseRunCompletionSummaryInputPayload(input map[string]any) (runCompletionSummaryInputPayload, error) {
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return runCompletionSummaryInputPayload{}, fmt.Errorf("marshal completion summary input: %w", err)
+	}
+
+	var parsed runCompletionSummaryInputPayload
+	if err := json.Unmarshal(payload, &parsed); err != nil {
+		return runCompletionSummaryInputPayload{}, fmt.Errorf("parse completion summary input: %w", err)
+	}
+	return parsed, nil
+}
+
+func formatRunCompletionSummaryUserPrompt(promptInput map[string]any) (string, error) {
+	payload, err := json.MarshalIndent(promptInput, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal completion summary prompt input: %w", err)
 	}
 
 	return strings.TrimSpace(`
@@ -621,6 +819,352 @@ Return Markdown only.
 
 Structured run facts:
 ` + "```json\n" + string(payload) + "\n```"), nil
+}
+
+func buildRunCompletionSummaryPromptInput(
+	input runCompletionSummaryInputPayload,
+	caps runCompletionSummaryPromptCaps,
+) map[string]any {
+	steps, omittedSteps := compactRunCompletionSummaryMaps(input.Steps, caps.Steps, caps.StringBytes)
+	commands, omittedCommands := compactRunCompletionSummaryMaps(input.Commands, caps.Commands, caps.StringBytes)
+	toolCalls, omittedToolCalls := compactRunCompletionSummaryMaps(input.ToolCalls, caps.ToolCalls, caps.StringBytes)
+	approvals, omittedApprovals := compactRunCompletionSummaryMaps(input.Approvals, caps.Approvals, caps.StringBytes)
+	outputExcerpts, omittedOutputExcerpts := compactRunCompletionSummaryMaps(input.OutputExcerpts, caps.OutputExcerpts, caps.StringBytes)
+
+	fileSnapshot, omittedRepos, omittedFiles := compactRunCompletionSummarySnapshot(input.FileSnapshot, caps)
+	heuristics, heuristicOmitted := compactRunCompletionSummaryHeuristics(input.Heuristics, caps)
+
+	omittedCounts := map[string]any{}
+	addRunCompletionSummaryOmittedCount(omittedCounts, "steps", omittedSteps)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "commands", omittedCommands)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "tool_calls", omittedToolCalls)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "approvals", omittedApprovals)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "output_excerpts", omittedOutputExcerpts)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "repos", omittedRepos)
+	addRunCompletionSummaryOmittedCount(omittedCounts, "files", omittedFiles)
+	for key, count := range heuristicOmitted {
+		addRunCompletionSummaryOmittedCount(omittedCounts, key, count)
+	}
+
+	promptContext := map[string]any{
+		"compacted_for_size": true,
+		"selection_strategy": "Representative head/tail items plus heuristic highlights when sections are too large.",
+		"input_overview": map[string]any{
+			"steps_total":           len(input.Steps),
+			"commands_total":        len(input.Commands),
+			"tool_calls_total":      len(input.ToolCalls),
+			"approvals_total":       len(input.Approvals),
+			"output_excerpts_total": len(input.OutputExcerpts),
+			"repos_total":           len(input.FileSnapshot.Repos),
+			"files_changed_total":   input.FileSnapshot.FilesChanged,
+		},
+	}
+	if len(omittedCounts) > 0 {
+		promptContext["omitted_counts"] = omittedCounts
+	}
+
+	return map[string]any{
+		"prompt_context":  promptContext,
+		"metadata":        compactRunCompletionSummaryItem(input.Metadata, caps.StringBytes),
+		"steps":           steps,
+		"commands":        commands,
+		"tool_calls":      toolCalls,
+		"approvals":       approvals,
+		"output_excerpts": outputExcerpts,
+		"file_snapshot":   fileSnapshot,
+		"heuristics":      heuristics,
+	}
+}
+
+func buildMinimalRunCompletionSummaryPromptInput(input runCompletionSummaryInputPayload) map[string]any {
+	caps := runCompletionSummaryPromptCaps{
+		StringBytes:      96,
+		OutputExcerpts:   3,
+		LongRunningSteps: 3,
+		RepeatedCommands: 3,
+		RepeatedFailures: 3,
+		RiskyCommands:    3,
+		RiskyFiles:       3,
+	}
+	heuristics, _ := compactRunCompletionSummaryHeuristics(input.Heuristics, caps)
+	outputExcerpts, omittedOutputExcerpts := compactRunCompletionSummaryMaps(input.OutputExcerpts, caps.OutputExcerpts, caps.StringBytes)
+	metadata := compactRunCompletionSummaryItem(input.Metadata, caps.StringBytes)
+
+	promptContext := map[string]any{
+		"compacted_for_size": true,
+		"selection_strategy": "Minimal fallback preserves run identity, outcome signals, excerpts, and heuristics.",
+		"input_overview": map[string]any{
+			"steps_total":           len(input.Steps),
+			"commands_total":        len(input.Commands),
+			"tool_calls_total":      len(input.ToolCalls),
+			"approvals_total":       len(input.Approvals),
+			"output_excerpts_total": len(input.OutputExcerpts),
+			"repos_total":           len(input.FileSnapshot.Repos),
+			"files_changed_total":   input.FileSnapshot.FilesChanged,
+		},
+	}
+	if omittedOutputExcerpts > 0 {
+		promptContext["omitted_counts"] = map[string]any{
+			"output_excerpts": omittedOutputExcerpts,
+		}
+	}
+
+	return map[string]any{
+		"prompt_context":  promptContext,
+		"metadata":        metadata,
+		"output_excerpts": outputExcerpts,
+		"heuristics":      heuristics,
+		"file_snapshot": map[string]any{
+			"workspace_path": compactRunCompletionSummaryString(input.FileSnapshot.WorkspacePath, caps.StringBytes),
+			"dirty":          input.FileSnapshot.Dirty,
+			"repos_changed":  input.FileSnapshot.ReposChanged,
+			"files_changed":  input.FileSnapshot.FilesChanged,
+			"added":          input.FileSnapshot.Added,
+			"removed":        input.FileSnapshot.Removed,
+		},
+	}
+}
+
+func compactRunCompletionSummaryHeuristics(
+	heuristics runCompletionSummaryHeuristics,
+	caps runCompletionSummaryPromptCaps,
+) (map[string]any, map[string]int) {
+	longRunningSteps, omittedLongRunningSteps := compactRunCompletionSummaryMaps(heuristics.LongRunningSteps, caps.LongRunningSteps, caps.StringBytes)
+	repeatedCommands, omittedRepeatedCommands := compactRunCompletionSummaryMaps(heuristics.RepeatedCommands, caps.RepeatedCommands, caps.StringBytes)
+	repeatedFailures, omittedRepeatedFailures := compactRunCompletionSummaryMaps(heuristics.RepeatedFailures, caps.RepeatedFailures, caps.StringBytes)
+	riskyCommands, omittedRiskyCommands := compactRunCompletionSummaryMaps(heuristics.RiskyCommands, caps.RiskyCommands, caps.StringBytes)
+	riskyFiles, omittedRiskyFiles := compactRunCompletionSummaryMaps(heuristics.RiskyFiles, caps.RiskyFiles, caps.StringBytes)
+
+	return map[string]any{
+			"long_running_steps": longRunningSteps,
+			"repeated_commands":  repeatedCommands,
+			"repeated_failures":  repeatedFailures,
+			"risky_commands":     riskyCommands,
+			"risky_files":        riskyFiles,
+		}, map[string]int{
+			"long_running_steps": omittedLongRunningSteps,
+			"repeated_commands":  omittedRepeatedCommands,
+			"repeated_failures":  omittedRepeatedFailures,
+			"risky_commands":     omittedRiskyCommands,
+			"risky_files":        omittedRiskyFiles,
+		}
+}
+
+func compactRunCompletionSummaryMaps(
+	items []map[string]any,
+	maxItems int,
+	stringBytes int,
+) ([]map[string]any, int) {
+	selected, omitted := selectRunCompletionSummaryMaps(items, maxItems)
+	compacted := make([]map[string]any, 0, len(selected))
+	for _, item := range selected {
+		compacted = append(compacted, compactRunCompletionSummaryItem(item, stringBytes))
+	}
+	return compacted, omitted
+}
+
+func selectRunCompletionSummaryMaps(items []map[string]any, maxItems int) ([]map[string]any, int) {
+	if len(items) == 0 {
+		return []map[string]any{}, 0
+	}
+	if maxItems <= 0 {
+		return []map[string]any{}, len(items)
+	}
+	if len(items) <= maxItems {
+		return append([]map[string]any(nil), items...), 0
+	}
+
+	headCount := maxItems / 2
+	tailCount := maxItems - headCount
+	if headCount == 0 {
+		headCount = 1
+		tailCount = maxItems - 1
+	}
+	if tailCount == 0 {
+		tailCount = 1
+		headCount = maxItems - 1
+	}
+
+	selected := make([]map[string]any, 0, maxItems)
+	selected = append(selected, items[:headCount]...)
+	startTail := len(items) - tailCount
+	if startTail < headCount {
+		startTail = headCount
+	}
+	selected = append(selected, items[startTail:]...)
+	return selected, len(items) - len(selected)
+}
+
+func compactRunCompletionSummaryItem(item map[string]any, stringBytes int) map[string]any {
+	if len(item) == 0 {
+		return map[string]any{}
+	}
+
+	compacted := make(map[string]any, len(item))
+	for key, value := range item {
+		switch key {
+		case "arguments", "payload":
+			if excerpt := compactRunCompletionSummaryJSONExcerpt(value, stringBytes*2); excerpt != "" {
+				compacted[key+"_excerpt"] = excerpt
+			}
+		default:
+			compactedValue, ok := compactRunCompletionSummaryValue(value, stringBytes)
+			if ok {
+				compacted[key] = compactedValue
+			}
+		}
+	}
+	return compacted
+}
+
+func compactRunCompletionSummaryValue(value any, stringBytes int) (any, bool) {
+	switch typed := value.(type) {
+	case nil:
+		return nil, false
+	case string:
+		trimmed := compactRunCompletionSummaryString(typed, stringBytes)
+		if trimmed == "" {
+			return "", false
+		}
+		return trimmed, true
+	case bool,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64,
+		float32, float64:
+		return typed, true
+	default:
+		excerpt := compactRunCompletionSummaryJSONExcerpt(typed, stringBytes*2)
+		if excerpt == "" {
+			return "", false
+		}
+		return excerpt, true
+	}
+}
+
+func compactRunCompletionSummaryJSONExcerpt(value any, maxBytes int) string {
+	if maxBytes <= 0 || value == nil {
+		return ""
+	}
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	return compactRunCompletionSummaryString(string(payload), maxBytes)
+}
+
+func compactRunCompletionSummaryString(raw string, maxBytes int) string {
+	trimmed := strings.TrimSpace(strings.ToValidUTF8(raw, ""))
+	if trimmed == "" {
+		return ""
+	}
+	if maxBytes <= 0 || len(trimmed) <= maxBytes {
+		return trimmed
+	}
+	const ellipsis = "..."
+	limit := maxBytes - len(ellipsis)
+	if limit <= 0 {
+		return ellipsis
+	}
+	truncated := strings.TrimSpace(truncateUTF8Bytes(trimmed, limit))
+	if truncated == "" {
+		return ellipsis
+	}
+	return truncated + ellipsis
+}
+
+func compactRunCompletionSummarySnapshot(
+	snapshot runCompletionWorkspaceSnapshot,
+	caps runCompletionSummaryPromptCaps,
+) (map[string]any, int, int) {
+	repos, omittedRepos := selectRunCompletionSummaryRepos(snapshot.Repos, caps.Repos)
+	compactedRepos := make([]map[string]any, 0, len(repos))
+	omittedFiles := 0
+
+	for _, repo := range repos {
+		repoMap := map[string]any{
+			"name":          compactRunCompletionSummaryString(repo.Name, caps.StringBytes),
+			"path":          compactRunCompletionSummaryString(repo.Path, caps.StringBytes),
+			"branch":        compactRunCompletionSummaryString(repo.Branch, caps.StringBytes),
+			"dirty":         repo.Dirty,
+			"files_changed": repo.FilesChanged,
+			"added":         repo.Added,
+			"removed":       repo.Removed,
+		}
+		if caps.IncludeRepoFiles {
+			files, repoOmittedFiles := compactRunCompletionSummaryFiles(repo.Files, caps.FilesPerRepo, caps.StringBytes)
+			repoMap["files"] = files
+			omittedFiles += repoOmittedFiles
+		} else {
+			omittedFiles += len(repo.Files)
+		}
+		compactedRepos = append(compactedRepos, repoMap)
+	}
+
+	if omittedRepos > 0 {
+		for _, repo := range snapshot.Repos[len(snapshot.Repos)-omittedRepos:] {
+			omittedFiles += len(repo.Files)
+		}
+	}
+
+	return map[string]any{
+		"workspace_path": compactRunCompletionSummaryString(snapshot.WorkspacePath, caps.StringBytes),
+		"dirty":          snapshot.Dirty,
+		"repos_changed":  snapshot.ReposChanged,
+		"files_changed":  snapshot.FilesChanged,
+		"added":          snapshot.Added,
+		"removed":        snapshot.Removed,
+		"repos":          compactedRepos,
+	}, omittedRepos, omittedFiles
+}
+
+func selectRunCompletionSummaryRepos(repos []runCompletionRepoDiff, maxRepos int) ([]runCompletionRepoDiff, int) {
+	if len(repos) == 0 {
+		return []runCompletionRepoDiff{}, 0
+	}
+	if maxRepos <= 0 {
+		return []runCompletionRepoDiff{}, len(repos)
+	}
+	if len(repos) <= maxRepos {
+		return append([]runCompletionRepoDiff(nil), repos...), 0
+	}
+
+	selected := append([]runCompletionRepoDiff(nil), repos[:maxRepos]...)
+	return selected, len(repos) - len(selected)
+}
+
+func compactRunCompletionSummaryFiles(
+	files []runCompletionFileDiff,
+	maxFiles int,
+	stringBytes int,
+) ([]map[string]any, int) {
+	totalFiles := len(files)
+	if totalFiles == 0 {
+		return []map[string]any{}, 0
+	}
+	if maxFiles <= 0 {
+		return []map[string]any{}, totalFiles
+	}
+	if totalFiles > maxFiles {
+		files = append([]runCompletionFileDiff(nil), files[:maxFiles]...)
+	}
+
+	compacted := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		compacted = append(compacted, map[string]any{
+			"path":    compactRunCompletionSummaryString(file.Path, stringBytes),
+			"status":  compactRunCompletionSummaryString(file.Status, stringBytes),
+			"added":   file.Added,
+			"removed": file.Removed,
+		})
+	}
+	return compacted, totalFiles - len(compacted)
+}
+
+func addRunCompletionSummaryOmittedCount(counts map[string]any, key string, count int) {
+	if count <= 0 {
+		return
+	}
+	counts[key] = count
 }
 
 func collectRunCompletionSummaryMarkdown(ctx context.Context, session agentSession) (string, error) {
@@ -985,9 +1529,15 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	workspaceRoot string,
 	workspace *ent.TicketRepoWorkspace,
 ) (runCompletionRepoDiff, error) {
-	branchName, hasHead, err := c.readRunCompletionWorkspaceBranch(ctx, machine, workspace.RepoPath)
+	branch, err := workspaceinfra.ReadWorkspaceGitBranch(ctx, workspace.RepoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return c.runCompletionSummaryGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
-		if isMissingRunCompletionGitWorkspace([]byte(err.Error())) {
+		if errors.Is(err, workspaceinfra.ErrGitWorkspaceUnavailable) {
 			return runCompletionRepoDiff{}, nil
 		}
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace branch for %s: %w", workspace.RepoPath, err)
@@ -1009,7 +1559,13 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 		return runCompletionRepoDiff{}, nil
 	}
 
-	numstatOutput, err := c.readRunCompletionWorkspaceNumstat(ctx, machine, workspace.RepoPath, hasHead)
+	numstatOutput, err := workspaceinfra.ReadWorkspaceGitNumstat(ctx, workspace.RepoPath, func(
+		ctx context.Context,
+		args []string,
+		allowExitCodeOne bool,
+	) ([]byte, error) {
+		return c.runCompletionSummaryGitCommand(ctx, machine, args, allowExitCodeOne)
+	})
 	if err != nil {
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace diff stats for %s: %w", workspace.RepoPath, err)
 	}
@@ -1033,7 +1589,7 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	repoSummary := runCompletionRepoDiff{
 		Name:   filepath.Base(workspace.RepoPath),
 		Path:   relativeRepoPath,
-		Branch: branchName,
+		Branch: branch,
 		Dirty:  true,
 	}
 	for _, status := range statuses {
@@ -1060,56 +1616,6 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	repoSummary.Files = files
 	repoSummary.FilesChanged = len(files)
 	return repoSummary, nil
-}
-
-func (c *runtimeCompletionSummaryCoordinator) readRunCompletionWorkspaceBranch(
-	ctx context.Context,
-	machine catalogdomain.Machine,
-	repoPath string,
-) (string, bool, error) {
-	branchOutput, err := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD"},
-		false,
-	)
-	if err == nil {
-		return strings.TrimSpace(string(branchOutput)), true, nil
-	}
-	if isMissingRunCompletionGitWorkspace(branchOutput) {
-		return "", false, fmt.Errorf("%s", strings.TrimSpace(string(branchOutput)))
-	}
-
-	// Repositories created but not yet checked out can have an unborn HEAD while still
-	// exposing the target branch via symbolic-ref.
-	symbolicOutput, symbolicErr := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", repoPath, "symbolic-ref", "-q", "--short", "HEAD"},
-		false,
-	)
-	if symbolicErr == nil {
-		return strings.TrimSpace(string(symbolicOutput)), false, nil
-	}
-	if isMissingRunCompletionGitWorkspace(symbolicOutput) {
-		return "", false, fmt.Errorf("%s", strings.TrimSpace(string(symbolicOutput)))
-	}
-	return "", false, err
-}
-
-func (c *runtimeCompletionSummaryCoordinator) readRunCompletionWorkspaceNumstat(
-	ctx context.Context,
-	machine catalogdomain.Machine,
-	repoPath string,
-	hasHead bool,
-) ([]byte, error) {
-	args := []string{"git", "-C", repoPath, "diff", "--numstat", "-z", "-M"}
-	if hasHead {
-		args = append(args, "HEAD", "--")
-	} else {
-		args = append(args, runCompletionSummaryEmptyTreeOID, "--")
-	}
-	return c.runCompletionSummaryGitCommand(ctx, machine, args, false)
 }
 
 func (c *runtimeCompletionSummaryCoordinator) readRunCompletionUntrackedNumstat(
@@ -1280,13 +1786,6 @@ func mapRunCompletionWorkspaceFileStatus(code string) string {
 	}
 }
 
-func isMissingRunCompletionGitWorkspace(output []byte) bool {
-	trimmed := strings.ToLower(strings.TrimSpace(string(output)))
-	return strings.Contains(trimmed, "not a git repository") ||
-		strings.Contains(trimmed, "cannot change to") ||
-		strings.Contains(trimmed, "no such file or directory")
-}
-
 func runCompletionSummaryCommandExitedWithCode(err error, code int) bool {
 	var exitErr *exec.ExitError
 	return errors.As(err, &exitErr) && exitErr.ExitCode() == code
@@ -1308,6 +1807,14 @@ func timePointerString(value *time.Time) string {
 		return ""
 	}
 	return value.UTC().Format(time.RFC3339)
+}
+
+func optionalUUIDPointer(value uuid.UUID) *uuid.UUID {
+	if value == uuid.Nil {
+		return nil
+	}
+	copied := value
+	return &copied
 }
 
 func stringMapValue(raw map[string]any, key string) string {

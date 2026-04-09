@@ -19,7 +19,6 @@ import (
 	entticketcomment "github.com/BetterAndBetterII/openase/ent/ticketcomment"
 	entticketcommentrevision "github.com/BetterAndBetterII/openase/ent/ticketcommentrevision"
 	entticketdependency "github.com/BetterAndBetterII/openase/ent/ticketdependency"
-	entticketexternallink "github.com/BetterAndBetterII/openase/ent/ticketexternallink"
 	entticketrepoworkspace "github.com/BetterAndBetterII/openase/ent/ticketrepoworkspace"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
@@ -105,7 +104,7 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	parentCreateResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
@@ -116,9 +115,9 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 			"priority":    "high",
 			"type":        "epic",
 			"workflow_id": workflowItem.ID.String(),
-			"created_by":  "user:gary",
 			"budget_usd":  3.5,
 		},
+		"user:gary",
 		http.StatusCreated,
 		&parentCreateResp,
 	)
@@ -346,15 +345,13 @@ func TestTicketRoutesCRUDAndDependencies(t *testing.T) {
 	commentCreateResp := struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}{}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/comments", parentCreateResp.Ticket.ID),
-		map[string]any{
-			"body":       "Needs a second pass on the API response shape.",
-			"created_by": "user:reviewer",
-		},
+		map[string]any{"body": "Needs a second pass on the API response shape."},
+		"user:reviewer",
 		http.StatusCreated,
 		&commentCreateResp,
 	)
@@ -861,7 +858,6 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 			"external_id": "PacificStudio/openase#99",
 			"title":       "F57: TicketExternalLink",
 			"status":      "open",
-			"relation":    "related",
 		},
 		http.StatusCreated,
 		&firstLinkResp,
@@ -879,18 +875,38 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
 		map[string]any{
-			"type":        "github_issue",
 			"url":         "https://github.com/PacificStudio/openase/issues/6",
 			"external_id": "PacificStudio/openase#6",
 			"title":       "F06: Ticket CRUD + Dependencies",
 			"status":      "open",
-			"relation":    "caused_by",
 		},
 		http.StatusCreated,
 		&secondLinkResp,
 	)
-	if secondLinkResp.ExternalLink.Relation != "caused_by" {
+	if secondLinkResp.ExternalLink.Type != "" {
 		t.Fatalf("unexpected second external link response: %+v", secondLinkResp.ExternalLink)
+	}
+
+	thirdLinkResp := struct {
+		ExternalLink ticketExternalLinkResponse `json:"external_link"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links", ticketItem.ID),
+		map[string]any{
+			"type":        "review doc",
+			"url":         "https://docs.example.com/runbook",
+			"external_id": "runbook-1",
+			"title":       "Operations runbook",
+			"status":      "published",
+		},
+		http.StatusCreated,
+		&thirdLinkResp,
+	)
+	if thirdLinkResp.ExternalLink.Type != "review doc" {
+		t.Fatalf("unexpected third external link response: %+v", thirdLinkResp.ExternalLink)
 	}
 
 	duplicateRec := performJSONRequest(
@@ -919,8 +935,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 	if getResp.Ticket.ExternalRef != "PacificStudio/openase#99" {
 		t.Fatalf("expected first external link to seed external_ref, got %+v", getResp.Ticket)
 	}
-	if len(getResp.Ticket.ExternalLinks) != 2 {
-		t.Fatalf("expected ticket get response to include two external links, got %+v", getResp.Ticket.ExternalLinks)
+	if len(getResp.Ticket.ExternalLinks) != 3 {
+		t.Fatalf("expected ticket get response to include three external links, got %+v", getResp.Ticket.ExternalLinks)
 	}
 
 	deleteFirstResp := ticketservice.DeleteExternalLinkResult{}
@@ -952,8 +968,8 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 	if afterFirstDeleteResp.Ticket.ExternalRef != "PacificStudio/openase#6" {
 		t.Fatalf("expected external_ref to fall back to remaining link, got %+v", afterFirstDeleteResp.Ticket)
 	}
-	if len(afterFirstDeleteResp.Ticket.ExternalLinks) != 1 || afterFirstDeleteResp.Ticket.ExternalLinks[0].ID != secondLinkResp.ExternalLink.ID {
-		t.Fatalf("expected only second external link to remain, got %+v", afterFirstDeleteResp.Ticket.ExternalLinks)
+	if len(afterFirstDeleteResp.Ticket.ExternalLinks) != 2 || afterFirstDeleteResp.Ticket.ExternalLinks[0].ID != secondLinkResp.ExternalLink.ID {
+		t.Fatalf("expected second and third external links to remain, got %+v", afterFirstDeleteResp.Ticket.ExternalLinks)
 	}
 
 	deleteSecondResp := ticketservice.DeleteExternalLinkResult{}
@@ -970,6 +986,20 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		t.Fatalf("unexpected delete second external link response: %+v", deleteSecondResp)
 	}
 
+	deleteThirdResp := ticketservice.DeleteExternalLinkResult{}
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/tickets/%s/external-links/%s", ticketItem.ID, thirdLinkResp.ExternalLink.ID),
+		nil,
+		http.StatusOK,
+		&deleteThirdResp,
+	)
+	if deleteThirdResp.DeletedExternalLinkID.String() != thirdLinkResp.ExternalLink.ID {
+		t.Fatalf("unexpected delete third external link response: %+v", deleteThirdResp)
+	}
+
 	afterSecondDeleteResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -983,7 +1013,7 @@ func TestTicketRoutesExternalLinks(t *testing.T) {
 		&afterSecondDeleteResp,
 	)
 	if afterSecondDeleteResp.Ticket.ExternalRef != "" || len(afterSecondDeleteResp.Ticket.ExternalLinks) != 0 {
-		t.Fatalf("expected all external links cleared after second delete, got %+v", afterSecondDeleteResp.Ticket)
+		t.Fatalf("expected all external links cleared after third delete, got %+v", afterSecondDeleteResp.Ticket)
 	}
 }
 
@@ -1343,10 +1373,9 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 	}
 	externalLink, err := client.TicketExternalLink.Create().
 		SetTicketID(ticketItem.ID).
-		SetLinkType(entticketexternallink.LinkTypeGithubIssue).
+		SetLinkType("github_issue").
 		SetURL("https://github.com/PacificStudio/openase/issues/1").
 		SetExternalID("PacificStudio/openase#1").
-		SetRelation(entticketexternallink.RelationRelated).
 		Save(ctx)
 	if err != nil {
 		t.Fatalf("create external link: %v", err)
@@ -1370,9 +1399,9 @@ func TestTicketRoutesErrorMappingsAndInvalidPayloads(t *testing.T) {
 		{name: "detail unavailable", method: http.MethodGet, target: "/api/v1/projects/" + project.ID.String() + "/tickets/" + ticketItem.ID.String() + "/detail", wantStatus: http.StatusServiceUnavailable, wantBody: "SERVICE_UNAVAILABLE", server: detailServer},
 		{name: "update invalid ticket", method: http.MethodPatch, target: "/api/v1/tickets/not-a-uuid", body: `{"title":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
 		{name: "update invalid json", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String(), body: `{"title":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
-		{name: "create comment invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
-		{name: "create comment invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments", body: `{"body":"x","created_by":"user:codex","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
-		{name: "create comment missing ticket", method: http.MethodPost, target: "/api/v1/tickets/" + uuid.NewString() + "/comments", body: `{"body":"x","created_by":"user:codex"}`, wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
+		{name: "create comment invalid ticket", method: http.MethodPost, target: "/api/v1/tickets/not-a-uuid/comments", body: `{"body":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID", server: server},
+		{name: "create comment invalid json", method: http.MethodPost, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments", body: `{"body":"x","extra":true}`, wantStatus: http.StatusBadRequest, wantBody: "invalid JSON body", server: server},
+		{name: "create comment missing ticket", method: http.MethodPost, target: "/api/v1/tickets/" + uuid.NewString() + "/comments", body: `{"body":"x"}`, wantStatus: http.StatusNotFound, wantBody: "TICKET_NOT_FOUND", server: server},
 		{name: "update comment invalid comment", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", body: `{"body":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
 		{name: "update comment missing", method: http.MethodPatch, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/" + uuid.NewString(), body: `{"body":"x"}`, wantStatus: http.StatusNotFound, wantBody: "COMMENT_NOT_FOUND", server: server},
 		{name: "delete comment invalid comment", method: http.MethodDelete, target: "/api/v1/tickets/" + ticketItem.ID.String() + "/comments/not-a-uuid", wantStatus: http.StatusBadRequest, wantBody: "INVALID_COMMENT_ID", server: server},
@@ -1512,7 +1541,7 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 		createResp := struct {
 			Ticket ticketResponse `json:"ticket"`
 		}{}
-		executeJSON(
+		executeJSONWithWriteActor(
 			t,
 			server,
 			http.MethodPost,
@@ -1521,8 +1550,8 @@ func TestTicketRoutesCreateFirstTicketPerProjectAfterWorkflowCreate(t *testing.T
 				"title":       fmt.Sprintf("Ticket %d", index+1),
 				"priority":    "high",
 				"workflow_id": workflowResp.Workflow.ID,
-				"created_by":  "user:blackbox",
 			},
+			"user:blackbox",
 			http.StatusCreated,
 			&createResp,
 		)
@@ -1674,7 +1703,6 @@ func TestTicketDetailRouteIncludesRepoScopesAndTicketActivity(t *testing.T) {
 		SetExternalID("acme/frontend#9").
 		SetTitle("Add ticket drawer PR metadata").
 		SetStatus("open").
-		SetRelation("related").
 		Save(ctx); err != nil {
 		t.Fatalf("create ticket external link: %v", err)
 	}
@@ -1981,15 +2009,13 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	var createPayload struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPost,
 		fmt.Sprintf("/api/v1/tickets/%s/comments", ticketItem.ID),
-		map[string]any{
-			"body":       "First comment",
-			"created_by": "user:reviewer",
-		},
+		map[string]any{"body": "First comment"},
+		"user:reviewer",
 		http.StatusCreated,
 		&createPayload,
 	)
@@ -2018,16 +2044,16 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 	var updatePayload struct {
 		Comment ticketCommentResponse `json:"comment"`
 	}
-	executeJSON(
+	executeJSONWithWriteActor(
 		t,
 		server,
 		http.MethodPatch,
 		fmt.Sprintf("/api/v1/tickets/%s/comments/%s", ticketItem.ID, createPayload.Comment.ID),
 		map[string]any{
 			"body":        "Updated comment body",
-			"edited_by":   "agent:codex",
 			"edit_reason": "clarified scope",
 		},
+		"agent:codex",
 		http.StatusOK,
 		&updatePayload,
 	)

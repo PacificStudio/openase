@@ -19,9 +19,9 @@ const (
 export LC_ALL=C
 
 collect_linux_system_resources() {
-  cpu_before=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
+  cpu_before=$(awk '/^cpu / {printf "%.0f %.0f\n", $2+$3+$4+$5+$6+$7+$8, $5; exit}' /proc/stat)
   sleep 0.2
-  cpu_after=$(awk '/^cpu / {print $2+$3+$4+$5+$6+$7+$8, $5}' /proc/stat)
+  cpu_after=$(awk '/^cpu / {printf "%.0f %.0f\n", $2+$3+$4+$5+$6+$7+$8, $5; exit}' /proc/stat)
   cpu_total_before=$(printf '%s\n' "$cpu_before" | awk '{print $1}')
   cpu_idle_before=$(printf '%s\n' "$cpu_before" | awk '{print $2}')
   cpu_total_after=$(printf '%s\n' "$cpu_after" | awk '{print $1}')

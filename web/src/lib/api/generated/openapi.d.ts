@@ -4,6 +4,91 @@
  */
 
 export interface paths {
+  '/api/v1/admin/auth': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get instance-level admin auth status and diagnostics */
+    get: operations['getAdminAuth']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Switch the configured instance auth mode back to disabled while keeping the saved OIDC draft */
+    post: operations['disableAdminAuth']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-draft': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Save an instance-level OIDC draft without changing the active auth mode */
+    put: operations['saveAdminOIDCDraft']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-draft/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Test instance-level OIDC discovery using the provided draft configuration */
+    post: operations['testAdminOIDCDraft']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/auth/oidc-enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Persist the instance OIDC draft and switch the configured auth mode to oidc */
+    post: operations['enableAdminOIDC']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/agents/{agentId}': {
     parameters: {
       query?: never
@@ -115,7 +200,7 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Get effective OpenASE roles and permissions for the authenticated human */
+    /** Get effective OpenASE roles and permissions for the current request context */
     get: operations['getMyEffectivePermissions']
     put?: never
     post?: never
@@ -170,6 +255,74 @@ export interface paths {
     get: operations['getAuthSession']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List governable browser sessions and auth audit events for the current human principal */
+    get: operations['listAuthSessions']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/sessions/revoke-all': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Revoke every other browser session for the current human principal while preserving the current session */
+    post: operations['revokeAllOtherAuthSessions']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/sessions/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke a browser session owned by the current human principal */
+    delete: operations['revokeAuthSession']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/auth/users/{userId}/sessions/revoke': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Revoke every browser session that belongs to the target user */
+    post: operations['adminRevokeUserAuthSessions']
     delete?: never
     options?: never
     head?: never
@@ -450,6 +603,109 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/instance/role-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List instance-scoped role bindings */
+    get: operations['listInstanceRoleBindings']
+    put?: never
+    /** Create an instance-scoped role binding */
+    post: operations['createInstanceRoleBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/role-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an instance-scoped role binding */
+    delete: operations['deleteInstanceRoleBinding']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/sessions/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Revoke one browser session from the instance-level governance surface */
+    delete: operations['adminRevokeAuthSession']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/users': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List cached OIDC users in the instance directory */
+    get: operations['listInstanceUsers']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/users/{userId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get cached identity, group, session summary, and audit detail for one user */
+    get: operations['getInstanceUser']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/instance/users/{userId}/status': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Enable or disable a cached user and optionally revoke active browser sessions immediately */
+    post: operations['transitionInstanceUserStatus']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/machines/{machineId}': {
     parameters: {
       query?: never
@@ -555,6 +811,23 @@ export interface paths {
     patch: operations['updateNotificationRule']
     trace?: never
   }
+  '/api/v1/org-invitations/accept': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Accept an organization invitation for the current signed-in user */
+    post: operations['acceptOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/organizations/{orgId}/role-bindings': {
     parameters: {
       query?: never
@@ -644,6 +917,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/orgs/{orgId}/invitations': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Invite a user into an organization membership lifecycle */
+    post: operations['inviteOrganizationMember']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/invitations/{invitationId}/cancel': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Cancel an organization invitation and remove the pending membership */
+    post: operations['cancelOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/invitations/{invitationId}/resend': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resend an organization invitation and rotate its accept token */
+    post: operations['resendOrganizationInvitation']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/orgs/{orgId}/machines': {
     parameters: {
       query?: never
@@ -673,6 +997,57 @@ export interface paths {
     get: operations['streamOrganizationMachines']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization memberships and active invitations */
+    get: operations['listOrganizationMemberships']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members/{membershipId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    /** Update an organization membership role or lifecycle status */
+    patch: operations['updateOrganizationMembership']
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/members/{membershipId}/transfer-ownership': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Transfer organization ownership to another active member */
+    post: operations['transferOrganizationOwnership']
     delete?: never
     options?: never
     head?: never
@@ -726,6 +1101,75 @@ export interface paths {
     get: operations['streamOrganizationProviders']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization scoped secrets managed from org settings */
+    get: operations['listOrganizationScopedSecrets']
+    put?: never
+    /** Create a new organization scoped secret */
+    post: operations['createOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete an organization scoped secret and remove its default bindings */
+    delete: operations['deleteOrganizationScopedSecret']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable an organization scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableOrganizationScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/orgs/{orgId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an organization scoped secret */
+    post: operations['rotateOrganizationScopedSecret']
     delete?: never
     options?: never
     head?: never
@@ -1126,7 +1570,7 @@ export interface paths {
     /** Save a platform-managed GitHub outbound credential */
     put: operations['saveGitHubOutboundCredential']
     post?: never
-    /** Delete a stored platform-managed GitHub outbound credential */
+    /** Delete the project-level GitHub credential override */
     delete: operations['deleteGitHubOutboundCredential']
     options?: never
     head?: never
@@ -1142,7 +1586,7 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Import the current gh auth token into platform-managed GitHub credential storage */
+    /** Import the current gh auth token as the project-level GitHub credential override */
     post: operations['importGitHubOutboundCredentialFromGHCLI']
     delete?: never
     options?: never
@@ -1159,8 +1603,181 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Retest a stored platform-managed GitHub outbound credential */
+    /** Retest the stored project-level GitHub credential override */
     post: operations['retestGitHubOutboundCredential']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/oidc-draft': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Save an OIDC draft configuration without changing the active auth mode */
+    put: operations['saveOIDCDraft']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/oidc-draft/test': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Test OIDC discovery using the provided draft configuration */
+    post: operations['testOIDCDraft']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/oidc-enable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Persist the OIDC draft and switch the configured auth mode to oidc */
+    post: operations['enableOIDC']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List workflow and ticket scoped secret bindings configured for this project */
+    get: operations['listScopedSecretBindings']
+    put?: never
+    /** Create a workflow or ticket scoped secret binding for runtime resolution */
+    post: operations['createScopedSecretBinding']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a workflow or ticket scoped secret binding */
+    delete: operations['deleteScopedSecretBinding']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List organization and project scoped secrets that are accessible from this project */
+    get: operations['listScopedSecrets']
+    put?: never
+    /** Create a new encrypted scoped secret */
+    post: operations['createScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence */
+    post: operations['resolveScopedSecretsForRuntime']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete a scoped secret and remove its default bindings */
+    delete: operations['deleteScopedSecret']
+    options?: never
+    head?: never
+    /** Update scoped secret metadata without changing the encrypted value */
+    patch: operations['updateScopedSecretMetadata']
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Disable a scoped secret so lower-precedence bindings can fall back */
+    post: operations['disableScopedSecret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Rotate the encrypted value for an existing scoped secret */
+    post: operations['rotateScopedSecret']
     delete?: never
     options?: never
     head?: never
@@ -1603,23 +2220,6 @@ export interface paths {
     patch?: never
     trace?: never
   }
-  '/api/v1/skills/refinement-runs/{sessionId}': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    post?: never
-    /** Close a skill refinement run and clean up its temporary workspace */
-    delete: operations['closeSkillRefinementRun']
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
   '/api/v1/skills/{skillId}': {
     parameters: {
       query?: never
@@ -1718,23 +2318,6 @@ export interface paths {
     get: operations['getSkillHistory']
     put?: never
     post?: never
-    delete?: never
-    options?: never
-    head?: never
-    patch?: never
-    trace?: never
-  }
-  '/api/v1/skills/{skillId}/refinement-runs': {
-    parameters: {
-      query?: never
-      header?: never
-      path?: never
-      cookie?: never
-    }
-    get?: never
-    put?: never
-    /** Start a Codex-backed skill fix-and-verify refinement run */
-    post: operations['startSkillRefinement']
     delete?: never
     options?: never
     head?: never
@@ -2134,6 +2717,626 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  getAdminAuth: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get instance-level admin auth status and diagnostics response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                fixed_redirect_url?: string
+                issuer_url?: string
+                redirect_mode?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableAdminAuth: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Switch the configured instance auth mode back to disabled while keeping the saved OIDC draft response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                fixed_redirect_url?: string
+                issuer_url?: string
+                redirect_mode?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+            transition?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveAdminOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Save an instance-level OIDC draft without changing the active auth mode request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Save an instance-level OIDC draft without changing the active auth mode response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                fixed_redirect_url?: string
+                issuer_url?: string
+                redirect_mode?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testAdminOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Test instance-level OIDC discovery using the provided draft configuration request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Test instance-level OIDC discovery using the provided draft configuration response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            authorization_endpoint?: string
+            issuer_url?: string
+            message?: string
+            redirect_url?: string
+            status?: string
+            token_endpoint?: string
+            warnings?: string[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  enableAdminOIDC: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Persist the instance OIDC draft and switch the configured auth mode to oidc request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Persist the instance OIDC draft and switch the configured auth mode to oidc response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            auth?: {
+              active_mode?: string
+              bootstrap_state?: {
+                admin_emails?: string[]
+                status?: string
+                summary?: string
+              }
+              config_path?: string
+              configured_mode?: string
+              docs?: {
+                href?: string
+                summary?: string
+                title?: string
+              }[]
+              issuer_url?: string
+              last_validation?: {
+                authorization_endpoint?: string
+                checked_at?: string | null
+                issuer_url?: string
+                message?: string
+                redirect_url?: string
+                status?: string
+                token_endpoint?: string
+                warnings?: string[]
+              }
+              local_principal?: string
+              mode_summary?: string
+              next_steps?: string[]
+              oidc_draft?: {
+                allowed_email_domains?: string[]
+                bootstrap_admin_emails?: string[]
+                client_id?: string
+                client_secret_configured?: boolean
+                fixed_redirect_url?: string
+                issuer_url?: string
+                redirect_mode?: string
+                scopes?: string[]
+              }
+              public_exposure_risk?: string
+              recommended_mode?: string
+              session_policy?: {
+                session_idle_ttl?: string
+                session_ttl?: string
+              }
+              warnings?: string[]
+            }
+            transition?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getAgent: {
     parameters: {
       query?: never
@@ -2848,30 +4051,39 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Get effective OpenASE roles and permissions for the authenticated human response. */
+      /** @description Get effective OpenASE roles and permissions for the current request context response. */
       200: {
         headers: {
           [name: string]: unknown
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
+            auth_mode?: string
+            authenticated?: boolean
+            available_auth_methods?: string[]
+            can_manage_auth?: boolean
+            current_auth_method?: string
             groups?: {
               group_key?: string
               group_name?: string
               issuer?: string
             }[]
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
             scope?: {
               id?: string
               kind?: string
             }
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
               id?: string
               primary_email?: string
-            }
+            } | null
           }
         }
       }
@@ -3021,18 +4233,283 @@ export interface operations {
         }
         content: {
           'application/json': {
+            auth_configured?: boolean
             auth_mode?: string
             authenticated?: boolean
+            available_auth_methods?: string[]
+            can_manage_auth?: boolean
             csrf_token?: string
+            current_auth_method?: string
             issuer_url?: string
+            login_required?: boolean
             permissions?: string[]
+            principal_kind?: string
             roles?: string[]
+            session_governance_available?: boolean
             user?: {
               avatar_url?: string
               display_name?: string
               id?: string
               primary_email?: string
             } | null
+          }
+        }
+      }
+    }
+  }
+  listAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List governable browser sessions and auth audit events for the current human principal response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            audit_events?: {
+              actor_id?: string
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              session_id?: string
+            }[]
+            auth_mode?: string
+            current_session_id?: string
+            sessions?: {
+              created_at?: string
+              current?: boolean
+              device?: {
+                browser?: string
+                kind?: string
+                label?: string
+                os?: string
+              }
+              expires_at?: string
+              id?: string
+              idle_expires_at?: string
+              ip_summary?: string
+              last_active_at?: string
+            }[]
+            step_up?: {
+              status?: string
+              summary?: string
+              supported_methods?: string[]
+            }
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  revokeAllOtherAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke every other browser session for the current human principal while preserving the current session response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            current_session_revoked?: boolean
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  revokeAuthSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Browser session ID to revoke. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Browser session revoked. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  adminRevokeUserAuthSessions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID whose browser sessions should be revoked. */
+        userId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke every browser session that belongs to the target user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            current_session_revoked?: boolean
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
           }
         }
       }
@@ -3394,6 +4871,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }[]
@@ -3478,6 +4956,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -3574,6 +5053,7 @@ export interface operations {
               rolling_summary?: string
               source?: string
               status?: string
+              title?: string
               updated_at?: string
               user_id?: string
             }
@@ -4137,6 +5617,19 @@ export interface operations {
         }
         content: {
           'application/json': {
+            conversation?: {
+              created_at?: string
+              id?: string
+              last_activity_at?: string
+              project_id?: string
+              provider_id?: string
+              rolling_summary?: string
+              source?: string
+              status?: string
+              title?: string
+              updated_at?: string
+              user_id?: string
+            }
             turn?: {
               id?: string
               status?: string
@@ -4553,6 +6046,686 @@ export interface operations {
       }
     }
   }
+  listInstanceRoleBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List instance-scoped role bindings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_bindings?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }[]
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createInstanceRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Create an instance-scoped role binding request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
+          expires_at?: string | null
+          /** @description Builtin OpenASE role key valid for the selected scope. */
+          role_key?: string
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
+          subject_key?: string
+          /** @description Binding subject kind. Supported values are user and group. */
+          subject_kind?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create an instance-scoped role binding response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            role_binding?: {
+              created_at?: string
+              expires_at?: string | null
+              granted_by?: string
+              id?: string
+              role_key?: string
+              scope_id?: string
+              scope_kind?: string
+              subject_key?: string
+              subject_kind?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteInstanceRoleBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Role binding ID to delete. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Role binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  adminRevokeAuthSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Browser session ID to revoke from the admin surface. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Revoke one browser session from the instance-level governance surface response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            current_session_revoked?: boolean
+            revoked_count?: number
+            user_id?: string
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listInstanceUsers: {
+    parameters: {
+      query?: {
+        /** @description Optional case-insensitive search string applied to primary email, display name, issuer, subject, and cached identity email. */
+        q?: string
+        /** @description Optional status filter. Supported values are all, active, and disabled. */
+        status?: string
+        /** @description Optional positive integer result limit. Defaults to 50 and caps at 200. */
+        limit?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List cached OIDC users in the instance directory response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            users?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getInstanceUser: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID to inspect in the instance directory. */
+        userId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get cached identity, group, session summary, and audit detail for one user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            active_session_count?: number
+            active_sessions?: {
+              created_at?: string
+              current?: boolean
+              device?: {
+                browser?: string
+                kind?: string
+                label?: string
+                os?: string
+              }
+              expires_at?: string
+              id?: string
+              idle_expires_at?: string
+              ip_summary?: string
+              last_active_at?: string
+            }[]
+            groups?: {
+              group_key?: string
+              group_name?: string
+              id?: string
+              issuer?: string
+              last_synced_at?: string
+            }[]
+            identities?: {
+              claims_version?: number
+              created_at?: string
+              email?: string
+              email_verified?: boolean
+              id?: string
+              issuer?: string
+              last_synced_at?: string
+              raw_claims_json?: string
+              subject?: string
+              updated_at?: string
+            }[]
+            latest_status_audit?: {
+              actor_id?: string
+              changed_at?: string
+              reason?: string
+              revoked_session_count?: number
+              source?: string
+              status?: string
+            } | null
+            recent_audit_events?: {
+              actor_id?: string
+              created_at?: string
+              event_type?: string
+              id?: string
+              message?: string
+              metadata?: {
+                [key: string]: unknown
+              }
+              session_id?: string
+            }[]
+            user?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  transitionInstanceUserStatus: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description User ID whose cached status should change. */
+        userId: string
+      }
+      cookie?: never
+    }
+    /** @description Enable or disable a cached user and optionally revoke active browser sessions immediately request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Mandatory audit reason recorded for the enable or disable action. */
+          reason?: string
+          /** @description Whether the transition should revoke all browser sessions for the target user immediately. Defaults to true for disable requests. */
+          revoke_sessions?: boolean | null
+          /** @description Target cached-user status. Supported values are active and disabled. */
+          status?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Enable or disable a cached user and optionally revoke active browser sessions immediately response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            changed?: boolean
+            latest_status_audit?: {
+              actor_id?: string
+              changed_at?: string
+              reason?: string
+              revoked_session_count?: number
+              source?: string
+              status?: string
+            } | null
+            revoked_session_count?: number
+            user?: {
+              avatar_url?: string
+              created_at?: string
+              display_name?: string
+              id?: string
+              last_login_at?: string | null
+              primary_email?: string
+              primary_identity?: {
+                email?: string
+                email_verified?: boolean
+                id?: string
+                issuer?: string
+                last_synced_at?: string
+                subject?: string
+              } | null
+              status?: string
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Unauthorized response. */
+      401: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getMachine: {
     parameters: {
       query?: never
@@ -4580,7 +6753,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4607,11 +6779,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4682,7 +6852,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4709,11 +6878,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4796,8 +6963,6 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
-          connection_mode?: string | null
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
             /** @description Current daemon transport session identifier, when one is active. */
@@ -4817,9 +6982,9 @@ export interface operations {
           detected_os?: string | null
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string | null
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[] | null
-          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
+          /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string | null
           /** @description Hostname or address used to reach the machine. */
           host?: string | null
@@ -4837,8 +7002,6 @@ export interface operations {
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string | null
-          /** @description Legacy compatibility alias for execution_capabilities. */
-          transport_capabilities?: string[] | null
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -4860,7 +7023,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -4887,11 +7049,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -4974,7 +7134,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -5001,11 +7160,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -5173,7 +7330,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -5200,11 +7356,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
             probe?: {
@@ -5303,7 +7457,9 @@ export interface operations {
             event_types?: {
               default_template?: string
               event_type?: string
+              group?: string
               label?: string
+              level?: string
             }[]
           }
         }
@@ -5511,6 +7667,127 @@ export interface operations {
       }
     }
   }
+  acceptOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** @description Accept an organization invitation for the current signed-in user request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Plain invitation accept token returned when the invite was created or resent. */
+          token?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Accept an organization invitation for the current signed-in user response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listOrganizationRoleBindings: {
     parameters: {
       query?: never
@@ -5598,9 +7875,9 @@ export interface operations {
         'application/json': {
           /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
           expires_at?: string | null
-          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          /** @description Builtin OpenASE role key valid for the selected scope. */
           role_key?: string
-          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
           subject_key?: string
           /** @description Binding subject kind. Supported values are user and group. */
           subject_kind?: string
@@ -5714,6 +7991,18 @@ export interface operations {
       }
       /** @description Forbidden response. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -6182,6 +8471,392 @@ export interface operations {
       }
     }
   }
+  inviteOrganizationMember: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Invite a user into an organization membership lifecycle request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Invitee email address. The accepting user must sign in with this email. */
+          email?: string
+          /** @description Baseline organization role granted after acceptance. Supported values are owner, admin, and member. */
+          role?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Invite a user into an organization membership lifecycle response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            accept_token?: string
+            invitation?: {
+              accepted_at?: string | null
+              canceled_at?: string | null
+              email?: string
+              expires_at?: string
+              id?: string
+              invited_by?: string
+              role?: string
+              sent_at?: string
+              status?: string
+            }
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  cancelOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Invitation ID. */
+        invitationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Cancel an organization invitation and remove the pending membership response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resendOrganizationInvitation: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Invitation ID. */
+        invitationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Resend an organization invitation and rotate its accept token response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            accept_token?: string
+            invitation?: {
+              accepted_at?: string | null
+              canceled_at?: string | null
+              email?: string
+              expires_at?: string
+              id?: string
+              invited_by?: string
+              role?: string
+              sent_at?: string
+              status?: string
+            }
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   listMachines: {
     parameters: {
       query?: never
@@ -6209,7 +8884,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -6236,11 +8910,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }[]
           }
@@ -6311,8 +8983,6 @@ export interface operations {
             /** @description Opaque token identifier reserved for machine channel registration, distinct from runtime agent tokens. */
             token_id?: string | null
           } | null
-          /** @description Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields. */
-          connection_mode?: string
           /** @description Daemon registration and session metadata for websocket-capable machine transports. */
           daemon_status?: {
             /** @description Current daemon transport session identifier, when one is active. */
@@ -6332,9 +9002,9 @@ export interface operations {
           detected_os?: string
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[]
-          /** @description Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated. */
+          /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string
           /** @description Hostname or address used to reach the machine. */
           host?: string
@@ -6352,8 +9022,6 @@ export interface operations {
           ssh_user?: string | null
           /** @description Machine lifecycle status value. */
           status?: string
-          /** @description Legacy compatibility alias for execution_capabilities. */
-          transport_capabilities?: string[]
           /** @description Filesystem root directory where ticket workspaces are created on the machine. */
           workspace_root?: string | null
         }
@@ -6375,7 +9043,6 @@ export interface operations {
                 kind?: string
                 token_id?: string | null
               }
-              connection_mode?: string
               daemon_status?: {
                 current_session_id?: string | null
                 last_registered_at?: string | null
@@ -6402,11 +9069,9 @@ export interface operations {
                 [key: string]: unknown
               }
               ssh_helper_enabled?: boolean
-              ssh_helper_required?: boolean
               ssh_key_path?: string | null
               ssh_user?: string | null
               status?: string
-              transport_capabilities?: string[]
               workspace_root?: string | null
             }
           }
@@ -6473,6 +9138,364 @@ export interface operations {
       }
       /** @description Bad Request response. */
       400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizationMemberships: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization memberships and active invitations response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memberships?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  updateOrganizationMembership: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Membership ID. */
+        membershipId: string
+      }
+      cookie?: never
+    }
+    /** @description Update an organization membership role or lifecycle status request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional new baseline organization role. Supported values are owner, admin, and member. */
+          role?: string | null
+          /** @description Optional lifecycle status transition. Supported values are invited, active, suspended, and removed. */
+          status?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update an organization membership role or lifecycle status response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            membership?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  transferOrganizationOwnership: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Membership ID. */
+        membershipId: string
+      }
+      cookie?: never
+    }
+    /** @description Transfer organization ownership to another active member request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional role assigned to the previous owner after transfer. Supported values are admin and member. */
+          previous_owner_role?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Transfer organization ownership to another active member response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            memberships?: {
+              accepted_at?: string | null
+              active_invitation?: {
+                accepted_at?: string | null
+                canceled_at?: string | null
+                email?: string
+                expires_at?: string
+                id?: string
+                invited_by?: string
+                role?: string
+                sent_at?: string
+                status?: string
+              } | null
+              created_at?: string
+              email?: string
+              id?: string
+              invited_at?: string
+              invited_by?: string
+              organization_id?: string
+              removed_at?: string | null
+              role?: string
+              status?: string
+              suspended_at?: string | null
+              updated_at?: string
+              user?: {
+                avatar_url?: string | null
+                display_name?: string
+                id?: string
+                primary_email?: string
+              } | null
+              user_id?: string | null
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -6700,14 +9723,6 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
-                harness_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
-                skill_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -6828,6 +9843,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }[]
           }
         }
@@ -6886,7 +9907,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           }
@@ -6925,6 +9946,13 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           }
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?: {
+            /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+            binding_key?: string
+            /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+            env_var_key?: string
+          }[]
         }
       }
     }
@@ -6947,14 +9975,6 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
-                  reason?: string | null
-                  state?: string
-                }
-                harness_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
-                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }
@@ -7078,6 +10098,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -7155,6 +10181,499 @@ export interface operations {
       }
       /** @description Internal Server Error response. */
       500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listOrganizationScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization scoped secrets managed from org settings response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new organization scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Organization scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  disableOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable an organization scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateOrganizationScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Organization ID. */
+        orgId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an organization scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an organization scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
         headers: {
           [name: string]: unknown
         }
@@ -7619,6 +11138,8 @@ export interface operations {
         ticket_id?: string
         /** @description Limit the number of returned activity events. */
         limit?: number
+        /** @description Fetch older activity events before the provided activity cursor. */
+        before?: string
       }
       header?: never
       path: {
@@ -7648,6 +11169,8 @@ export interface operations {
               project_id?: string
               ticket_id?: string | null
             }[]
+            has_more?: boolean
+            next_cursor?: string
           }
         }
       }
@@ -8829,7 +12352,6 @@ export interface operations {
                   created_at?: string
                   external_id?: string
                   id?: string
-                  relation?: string
                   status?: string
                   title?: string
                   type?: string
@@ -8849,6 +12371,7 @@ export interface operations {
                 pause_reason?: string
                 priority?: string
                 project_id?: string
+                pull_request_urls?: string[]
                 retry_paused?: boolean
                 started_at?: string | null
                 status_id?: string
@@ -9576,9 +13099,9 @@ export interface operations {
         'application/json': {
           /** @description Optional RFC3339 timestamp after which the binding automatically expires. */
           expires_at?: string | null
-          /** @description Builtin OpenASE role key to grant on the selected scope. */
+          /** @description Builtin OpenASE role key valid for the selected scope. */
           role_key?: string
-          /** @description Stable user identifier/email or synchronized OIDC group key that receives the role. */
+          /** @description For user bindings, an existing user UUID or email that resolves to one canonical user subject. For group bindings, the synchronized OIDC group key. */
           subject_key?: string
           /** @description Binding subject kind. Supported values are user and group. */
           subject_kind?: string
@@ -9692,6 +13215,18 @@ export interface operations {
       }
       /** @description Forbidden response. */
       403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
         headers: {
           [name: string]: unknown
         }
@@ -9902,6 +13437,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -9909,6 +13448,52 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -9922,6 +13507,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -9937,6 +13523,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -9952,6 +13539,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -9964,7 +13552,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -10049,8 +13649,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
           /** @description GitHub token value copied into platform-managed secret storage. */
           token?: string
         }
@@ -10069,6 +13667,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -10076,6 +13678,52 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -10089,6 +13737,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10104,6 +13753,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10119,6 +13769,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10131,7 +13782,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -10204,10 +13867,7 @@ export interface operations {
   }
   deleteGitHubOutboundCredential: {
     parameters: {
-      query: {
-        /** @description Credential scope to delete. Supported values are organization and project. */
-        scope: string
-      }
+      query?: never
       header?: never
       path: {
         /** @description Project ID. */
@@ -10217,7 +13877,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Delete a stored platform-managed GitHub outbound credential response. */
+      /** @description Delete the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -10229,6 +13889,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -10236,6 +13900,52 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -10249,6 +13959,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10264,6 +13975,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10279,6 +13991,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10291,7 +14004,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -10372,17 +14097,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Import the current gh auth token into platform-managed GitHub credential storage request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Import the current gh auth token into platform-managed GitHub credential storage response. */
+      /** @description Import the current gh auth token as the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -10394,6 +14111,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -10401,6 +14122,52 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -10414,6 +14181,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10429,6 +14197,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10444,6 +14213,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10456,7 +14226,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -10537,17 +14319,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Retest a stored platform-managed GitHub outbound credential request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Retest a stored platform-managed GitHub outbound credential response. */
+      /** @description Retest the stored project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -10559,6 +14333,10 @@ export interface operations {
                 default_scopes?: string[]
                 environment_variable?: string
                 supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
                 token_prefix?: string
                 transport?: string
               }
@@ -10566,6 +14344,52 @@ export interface operations {
                 rules_count?: number
                 status?: string
                 summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
               }
               deferred?: {
                 key?: string
@@ -10579,6 +14403,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10594,6 +14419,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10609,6 +14435,7 @@ export interface operations {
                     checked_at?: string | null
                     configured?: boolean
                     last_error?: string
+                    login?: string
                     permissions?: string[]
                     repo_access?: string
                     state?: string
@@ -10621,7 +14448,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -10668,6 +14507,1631 @@ export interface operations {
       }
       /** @description Bad Gateway response. */
       502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Save an OIDC draft configuration without changing the active auth mode request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Save an OIDC draft configuration without changing the active auth mode response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                token_prefix?: string
+                transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
+                notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  testOIDCDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Test OIDC discovery using the provided draft configuration request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Test OIDC discovery using the provided draft configuration response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            authorization_endpoint?: string
+            issuer_url?: string
+            message?: string
+            redirect_url?: string
+            status?: string
+            token_endpoint?: string
+            warnings?: string[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  enableOIDC: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Persist the OIDC draft and switch the configured auth mode to oidc request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional email domain allowlist enforced after ID token verification. */
+          allowed_email_domains?: string[]
+          /** @description Trusted email addresses that receive instance_admin on first successful OIDC login. */
+          bootstrap_admin_emails?: string[]
+          /** @description OAuth client ID registered for the OpenASE browser login application. */
+          client_id?: string
+          /** @description OAuth client secret stored server-side for the configured OIDC client. */
+          client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
+          /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
+          issuer_url?: string
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
+          redirect_url?: string
+          /** @description OIDC scopes requested during the authorization-code flow. */
+          scopes?: string[]
+        }
+      }
+    }
+    responses: {
+      /** @description Persist the OIDC draft and switch the configured auth mode to oidc response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            activation?: {
+              message?: string
+              next_steps?: string[]
+              restart_required?: boolean
+              status?: string
+            }
+            security?: {
+              agent_tokens?: {
+                default_scopes?: string[]
+                environment_variable?: string
+                supported_project_scopes?: string[]
+                supported_scope_groups?: {
+                  category?: string
+                  scopes?: string[]
+                }[]
+                token_prefix?: string
+                transport?: string
+              }
+              approval_policies?: {
+                rules_count?: number
+                status?: string
+                summary?: string
+              }
+              auth?: {
+                active_mode?: string
+                bootstrap_state?: {
+                  admin_emails?: string[]
+                  status?: string
+                  summary?: string
+                }
+                config_path?: string
+                configured_mode?: string
+                docs?: {
+                  href?: string
+                  summary?: string
+                  title?: string
+                }[]
+                issuer_url?: string
+                last_validation?: {
+                  authorization_endpoint?: string
+                  checked_at?: string | null
+                  issuer_url?: string
+                  message?: string
+                  redirect_url?: string
+                  status?: string
+                  token_endpoint?: string
+                  warnings?: string[]
+                }
+                local_principal?: string
+                mode_summary?: string
+                next_steps?: string[]
+                oidc_draft?: {
+                  allowed_email_domains?: string[]
+                  bootstrap_admin_emails?: string[]
+                  client_id?: string
+                  client_secret_configured?: boolean
+                  fixed_redirect_url?: string
+                  issuer_url?: string
+                  redirect_mode?: string
+                  scopes?: string[]
+                }
+                public_exposure_risk?: string
+                recommended_mode?: string
+                session_policy?: {
+                  session_idle_ttl?: string
+                  session_ttl?: string
+                }
+                warnings?: string[]
+              }
+              deferred?: {
+                key?: string
+                summary?: string
+                title?: string
+              }[]
+              github?: {
+                effective?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                organization?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+                project_override?: {
+                  configured?: boolean
+                  probe?: {
+                    checked_at?: string | null
+                    configured?: boolean
+                    last_error?: string
+                    login?: string
+                    permissions?: string[]
+                    repo_access?: string
+                    state?: string
+                    valid?: boolean
+                  }
+                  scope?: string
+                  source?: string
+                  token_preview?: string
+                }
+              }
+              project_id?: string
+              secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
+                notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
+              }
+              webhooks?: {
+                connector_endpoint?: string
+              }
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Bad Gateway response. */
+      502: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecretBindings: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List workflow and ticket scoped secret bindings configured for this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            bindings?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a workflow or ticket scoped secret binding for runtime resolution request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Runtime environment binding key. Keys are normalized to upper snake case before persistence. */
+          binding_key?: string
+          /** @description Binding scope. Supported values are workflow and ticket. */
+          scope?: string
+          /** @description Workflow or ticket ID that owns this binding. */
+          scope_resource_id?: string
+          /** @description Secret ID to bind into workflow or ticket runtime resolution. */
+          secret_id?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a workflow or ticket scoped secret binding for runtime resolution response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            binding?: {
+              binding_key?: string
+              created_at?: string
+              id?: string
+              organization_id?: string
+              project_id?: string
+              scope?: string
+              scope_resource_id?: string
+              secret?: {
+                description?: string
+                disabled?: boolean
+                id?: string
+                kind?: string
+                name?: string
+                project_id?: string | null
+                scope?: string
+              }
+              secret_id?: string
+              target?: {
+                id?: string
+                identifier?: string
+                name?: string
+                scope?: string
+              }
+              updated_at?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScopedSecretBinding: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret binding ID. */
+        bindingId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Secret binding deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listScopedSecrets: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List organization and project scoped secrets that are accessible from this project response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secrets?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  createScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a new encrypted scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Human-readable description that explains what the secret is used for. */
+          description?: string
+          /** @description Secret kind. Currently only opaque is supported. */
+          kind?: string
+          /** @description Stable secret name. Names are normalized to upper snake case before persistence. */
+          name?: string
+          /** @description Secret scope. Supported values are organization and project. */
+          scope?: string
+          /** @description Plaintext secret value to encrypt and persist at rest. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Create a new encrypted scoped secret response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  resolveScopedSecretsForRuntime: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+      }
+      cookie?: never
+    }
+    /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Optional agent ID included in the resolution precedence chain. */
+          agent_id?: string | null
+          /** @description Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated. */
+          binding_keys?: string[]
+          /** @description Optional ticket ID included in the resolution precedence chain. */
+          ticket_id?: string | null
+          /** @description Optional workflow ID included in the resolution precedence chain. */
+          workflow_id?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Resolve scoped secret bindings for a runtime using ticket, workflow, agent, project, and organization precedence response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            missing_keys?: string[]
+            resolved?: {
+              binding_key?: string
+              binding_scope?: string
+              secret_id?: string
+              secret_kind?: string
+              secret_name?: string
+              secret_scope?: string
+              value?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  deleteScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Scoped secret deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  updateScopedSecretMetadata: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Update scoped secret metadata without changing the encrypted value request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Updated human-readable description for the secret. */
+          description?: string | null
+          /** @description Updated secret name. Names are normalized to upper snake case when provided. */
+          name?: string | null
+        }
+      }
+    }
+    responses: {
+      /** @description Update scoped secret metadata without changing the encrypted value response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  disableScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Disable a scoped secret so lower-precedence bindings can fall back response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  rotateScopedSecret: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Secret ID. */
+        secretId: string
+      }
+      cookie?: never
+    }
+    /** @description Rotate the encrypted value for an existing scoped secret request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description New plaintext secret value to encrypt and store as the latest rotated material. */
+          value?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Rotate the encrypted value for an existing scoped secret response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            secret?: {
+              created_at?: string
+              description?: string
+              disabled?: boolean
+              disabled_at?: string | null
+              encryption?: {
+                algorithm?: string
+                key_id?: string
+                key_source?: string
+                rotated_at?: string
+                value_preview?: string
+              }
+              id?: string
+              kind?: string
+              name?: string
+              organization_id?: string
+              project_id?: string | null
+              scope?: string
+              updated_at?: string
+              usage_count?: number
+              usage_scopes?: string[]
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
         headers: {
           [name: string]: unknown
         }
@@ -10784,8 +16248,6 @@ export interface operations {
         'application/json': {
           /** @description Skill markdown content. Frontmatter is optional on input and will be normalized on write. */
           content?: string
-          /** @description Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42. */
-          created_by?: string
           /** @description Optional description used when the input content does not declare one. */
           description?: string
           /** @description Whether the new skill should be enabled for runtime injection immediately. */
@@ -11271,7 +16733,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -11291,6 +16752,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -11362,8 +16824,6 @@ export interface operations {
            * @description Optional budget limit for the ticket in USD.
            */
           budget_usd?: number | null
-          /** @description Actor identifier recorded as the creator of the ticket. */
-          created_by?: string | null
           /** @description Ticket description or problem statement. */
           description?: string
           /** @description Optional external reference string associated with the ticket. */
@@ -11439,7 +16899,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -11459,6 +16918,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -11588,7 +17048,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -11608,6 +17067,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -11852,7 +17312,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -11872,6 +17331,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -12653,7 +18113,12 @@ export interface operations {
   }
   listProjectUpdates: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Maximum number of update threads to return. */
+        limit?: number
+        /** @description Load update threads older than this cursor. */
+        before?: string
+      }
       header?: never
       path: {
         /** @description Project ID. */
@@ -12670,6 +18135,8 @@ export interface operations {
         }
         content: {
           'application/json': {
+            has_more?: boolean
+            next_cursor?: string
             threads?: {
               body_markdown?: string
               comment_count?: number
@@ -12771,8 +18238,6 @@ export interface operations {
         'application/json': {
           /** @description Required markdown body content for the project update thread. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the update thread. */
-          created_by?: string | null
           /** @description Current delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
           /** @description Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
@@ -12968,8 +18433,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the update thread. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the update thread. */
-          edited_by?: string | null
           /** @description Updated delivery status for the update thread. Supported values are on_track, at_risk, and off_track. */
           status?: string
           /** @description Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary. */
@@ -13088,8 +18551,6 @@ export interface operations {
         'application/json': {
           /** @description Markdown body content for the project update comment. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the update comment. */
-          created_by?: string | null
         }
       }
     }
@@ -13267,8 +18728,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the update comment. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the update comment. */
-          edited_by?: string | null
         }
       }
     }
@@ -13620,8 +19079,6 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string
-          /** @description Optional creator descriptor recorded on the initial workflow harness version. */
-          created_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[]
           /** @description Initial pure Markdown or Gonja harness body written into the versioned control-plane workflow record. */
@@ -13869,14 +19326,6 @@ export interface operations {
                   reason?: string | null
                   state?: string
                 }
-                harness_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
-                skill_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
               }
               cli_args?: string[]
               cli_command?: string
@@ -13997,6 +19446,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -14055,7 +19510,7 @@ export interface operations {
         'application/json': {
           /** @description Adapter type used to launch and communicate with the provider. */
           adapter_type?: string | null
-          /** @description Provider-specific authentication configuration object. */
+          /** @description Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead. */
           auth_config?: {
             [key: string]: unknown
           } | null
@@ -14094,6 +19549,15 @@ export interface operations {
           pricing_config?: {
             [key: string]: unknown
           } | null
+          /** @description Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values. */
+          secret_bindings?:
+            | {
+                /** @description Secret binding alias to resolve for the matching runtime environment variable. */
+                binding_key?: string
+                /** @description Environment variable name injected into the provider runtime, normalized to upper snake case. */
+                env_var_key?: string
+              }[]
+            | null
         }
       }
     }
@@ -14116,14 +19580,6 @@ export interface operations {
               available?: boolean
               capabilities?: {
                 ephemeral_chat?: {
-                  reason?: string | null
-                  state?: string
-                }
-                harness_ai?: {
-                  reason?: string | null
-                  state?: string
-                }
-                skill_ai?: {
                   reason?: string | null
                   state?: string
                 }
@@ -14247,6 +19703,12 @@ export interface operations {
                 }[]
                 version?: string
               }
+              secret_bindings?: {
+                binding_key?: string
+                configured?: boolean
+                env_var_key?: string
+                source?: string
+              }[]
             }
           }
         }
@@ -14661,7 +20123,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -14681,6 +20142,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -14692,63 +20154,6 @@ export interface operations {
             }
           }
         }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
-  closeSkillRefinementRun: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Skill refinement session ID. */
-        sessionId: string
-      }
-      cookie?: never
-    }
-    requestBody?: never
-    responses: {
-      /** @description Skill refinement run closed. */
-      204: {
-        headers: {
-          [name: string]: unknown
-        }
-        content?: never
       }
       /** @description Bad Request response. */
       400: {
@@ -15491,100 +20896,6 @@ export interface operations {
       }
     }
   }
-  startSkillRefinement: {
-    parameters: {
-      query?: never
-      header?: never
-      path: {
-        /** @description Skill ID. */
-        skillId: string
-      }
-      cookie?: never
-    }
-    /** @description Skill fix-and-verify refinement request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Current draft skill bundle files from the editor. */
-          files?: {
-            /** @description Base64-encoded file bytes for this draft bundle entry. */
-            content_base64?: string
-            /** @description Whether the projected file should be marked executable at runtime. */
-            is_executable?: boolean
-            /** @description Optional media type persisted with the file entry. */
-            media_type?: string
-            /** @description Bundle-relative file path using forward slashes. */
-            path?: string
-          }[]
-          /** @description Requested improvement goal that Codex should fix and verify against the current draft bundle. */
-          message?: string
-          /** @description Project ID that owns the skill draft and provider selection. */
-          project_id?: string
-          /** @description Optional provider ID. Phase 1 supports Codex-backed refinement only. */
-          provider_id?: string
-        }
-      }
-    }
-    responses: {
-      /** @description Server-sent events stream. */
-      200: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'text/event-stream': string
-        }
-      }
-      /** @description Bad Request response. */
-      400: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Not Found response. */
-      404: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Conflict response. */
-      409: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-      /** @description Internal Server Error response. */
-      500: {
-        headers: {
-          [name: string]: unknown
-        }
-        content: {
-          'application/json': {
-            code?: string
-            message?: string
-          }
-        }
-      }
-    }
-  }
   unbindSkill: {
     parameters: {
       query?: never
@@ -15976,7 +21287,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -15996,6 +21306,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -16067,8 +21378,6 @@ export interface operations {
            * @description Optional budget limit for the ticket in USD.
            */
           budget_usd?: number | null
-          /** @description Actor identifier recorded as the creator of the ticket. */
-          created_by?: string | null
           /** @description Ticket description or problem statement. */
           description?: string | null
           /** @description Optional external reference string associated with the ticket. */
@@ -16137,7 +21446,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -16157,6 +21465,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -16310,8 +21619,6 @@ export interface operations {
         'application/json': {
           /** @description Markdown body content for the ticket comment. */
           body?: string
-          /** @description Actor identifier recorded as the creator of the comment. */
-          created_by?: string | null
         }
       }
     }
@@ -16462,8 +21769,6 @@ export interface operations {
           body?: string
           /** @description Reason recorded for editing the comment. */
           edit_reason?: string | null
-          /** @description Actor identifier recorded as the editor of the comment. */
-          edited_by?: string | null
         }
       }
     }
@@ -16786,14 +22091,12 @@ export interface operations {
         'application/json': {
           /** @description External system identifier for the linked resource. */
           external_id?: string
-          /** @description Relationship between the ticket and the external resource. */
-          relation?: string | null
           /** @description Optional external status value. */
           status?: string | null
           /** @description Optional title for the external resource. */
           title?: string | null
-          /** @description External link type. */
-          type?: string
+          /** @description Optional freeform external link type. */
+          type?: string | null
           /** @description URL of the external resource. */
           url?: string
         }
@@ -16811,7 +22114,6 @@ export interface operations {
               created_at?: string
               external_id?: string
               id?: string
-              relation?: string
               status?: string
               title?: string
               type?: string
@@ -16993,7 +22295,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -17013,6 +22314,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -17350,8 +22652,6 @@ export interface operations {
         'application/json': {
           /** @description Agent ID assigned to execute this workflow. */
           agent_id?: string | null
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
           /** @description Ticket status IDs that mark workflow completion. */
           finish_status_ids?: string[] | null
           /** @description Logical harness path tracked by the control plane for this workflow. */
@@ -17557,8 +22857,6 @@ export interface operations {
         'application/json': {
           /** @description Harness content to write or validate. */
           content?: string
-          /** @description Optional editor descriptor recorded on the published workflow harness version. */
-          edited_by?: string | null
         }
       }
     }
@@ -17818,8 +23116,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
           /** @description Workflow ID that should receive replaceable scheduled job and active ticket references. */
           replacement_workflow_id?: string
         }
@@ -17918,10 +23214,7 @@ export interface operations {
     /** @description Retire a workflow by deactivating it request body. */
     requestBody: {
       content: {
-        'application/json': {
-          /** @description Optional editor descriptor recorded on subsequent workflow harness versions. */
-          edited_by?: string | null
-        }
+        'application/json': unknown
       }
     }
     responses: {

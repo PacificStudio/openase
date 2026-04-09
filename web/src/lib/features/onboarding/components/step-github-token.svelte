@@ -44,7 +44,7 @@
   async function handleImportFromCLI() {
     importing = true
     try {
-      await importGitHubOutboundCredentialFromGHCLI(projectId, { scope: 'project' })
+      await importGitHubOutboundCredentialFromGHCLI(projectId)
       toastStore.success('GitHub token imported from gh CLI.')
       await runProbe()
     } catch (caughtError) {
@@ -66,7 +66,6 @@
     saving = true
     try {
       await saveGitHubOutboundCredential(projectId, {
-        scope: 'project',
         token: tokenInput.trim(),
       })
       toastStore.success('GitHub token saved.')
@@ -84,7 +83,7 @@
     probing = true
     probeResult = { ...probeResult, probeStatus: 'testing' }
     try {
-      const result = await retestGitHubOutboundCredential(projectId, { scope: 'project' })
+      const result = await retestGitHubOutboundCredential(projectId)
       const parsed = parseGitHubTokenState(result)
       probeResult = {
         ...parsed,

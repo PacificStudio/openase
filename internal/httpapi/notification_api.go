@@ -36,6 +36,8 @@ type notificationRuleResponse struct {
 type notificationRuleEventTypeResponse struct {
 	EventType       string `json:"event_type"`
 	Label           string `json:"label"`
+	Group           string `json:"group"`
+	Level           string `json:"level"`
 	DefaultTemplate string `json:"default_template"`
 }
 
@@ -177,6 +179,8 @@ func (s *Server) handleListNotificationRuleEventTypes(c echo.Context) error {
 		response = append(response, notificationRuleEventTypeResponse{
 			EventType:       item.EventType.String(),
 			Label:           item.Label,
+			Group:           item.Group.String(),
+			Level:           item.Level.String(),
 			DefaultTemplate: item.DefaultTemplate,
 		})
 	}

@@ -65,6 +65,26 @@ func SessionHash(v string) predicate.BrowserSession {
 	return predicate.BrowserSession(sql.FieldEQ(FieldSessionHash, v))
 }
 
+// DeviceKind applies equality check predicate on the "device_kind" field. It's identical to DeviceKindEQ.
+func DeviceKind(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceKind, v))
+}
+
+// DeviceOs applies equality check predicate on the "device_os" field. It's identical to DeviceOsEQ.
+func DeviceOs(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceOs, v))
+}
+
+// DeviceBrowser applies equality check predicate on the "device_browser" field. It's identical to DeviceBrowserEQ.
+func DeviceBrowser(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceBrowser, v))
+}
+
+// DeviceLabel applies equality check predicate on the "device_label" field. It's identical to DeviceLabelEQ.
+func DeviceLabel(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceLabel, v))
+}
+
 // ExpiresAt applies equality check predicate on the "expires_at" field. It's identical to ExpiresAtEQ.
 func ExpiresAt(v time.Time) predicate.BrowserSession {
 	return predicate.BrowserSession(sql.FieldEQ(FieldExpiresAt, v))
@@ -208,6 +228,266 @@ func SessionHashEqualFold(v string) predicate.BrowserSession {
 // SessionHashContainsFold applies the ContainsFold predicate on the "session_hash" field.
 func SessionHashContainsFold(v string) predicate.BrowserSession {
 	return predicate.BrowserSession(sql.FieldContainsFold(FieldSessionHash, v))
+}
+
+// DeviceKindEQ applies the EQ predicate on the "device_kind" field.
+func DeviceKindEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceKind, v))
+}
+
+// DeviceKindNEQ applies the NEQ predicate on the "device_kind" field.
+func DeviceKindNEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNEQ(FieldDeviceKind, v))
+}
+
+// DeviceKindIn applies the In predicate on the "device_kind" field.
+func DeviceKindIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldIn(FieldDeviceKind, vs...))
+}
+
+// DeviceKindNotIn applies the NotIn predicate on the "device_kind" field.
+func DeviceKindNotIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNotIn(FieldDeviceKind, vs...))
+}
+
+// DeviceKindGT applies the GT predicate on the "device_kind" field.
+func DeviceKindGT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGT(FieldDeviceKind, v))
+}
+
+// DeviceKindGTE applies the GTE predicate on the "device_kind" field.
+func DeviceKindGTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGTE(FieldDeviceKind, v))
+}
+
+// DeviceKindLT applies the LT predicate on the "device_kind" field.
+func DeviceKindLT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLT(FieldDeviceKind, v))
+}
+
+// DeviceKindLTE applies the LTE predicate on the "device_kind" field.
+func DeviceKindLTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLTE(FieldDeviceKind, v))
+}
+
+// DeviceKindContains applies the Contains predicate on the "device_kind" field.
+func DeviceKindContains(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContains(FieldDeviceKind, v))
+}
+
+// DeviceKindHasPrefix applies the HasPrefix predicate on the "device_kind" field.
+func DeviceKindHasPrefix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasPrefix(FieldDeviceKind, v))
+}
+
+// DeviceKindHasSuffix applies the HasSuffix predicate on the "device_kind" field.
+func DeviceKindHasSuffix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasSuffix(FieldDeviceKind, v))
+}
+
+// DeviceKindEqualFold applies the EqualFold predicate on the "device_kind" field.
+func DeviceKindEqualFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEqualFold(FieldDeviceKind, v))
+}
+
+// DeviceKindContainsFold applies the ContainsFold predicate on the "device_kind" field.
+func DeviceKindContainsFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContainsFold(FieldDeviceKind, v))
+}
+
+// DeviceOsEQ applies the EQ predicate on the "device_os" field.
+func DeviceOsEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceOs, v))
+}
+
+// DeviceOsNEQ applies the NEQ predicate on the "device_os" field.
+func DeviceOsNEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNEQ(FieldDeviceOs, v))
+}
+
+// DeviceOsIn applies the In predicate on the "device_os" field.
+func DeviceOsIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldIn(FieldDeviceOs, vs...))
+}
+
+// DeviceOsNotIn applies the NotIn predicate on the "device_os" field.
+func DeviceOsNotIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNotIn(FieldDeviceOs, vs...))
+}
+
+// DeviceOsGT applies the GT predicate on the "device_os" field.
+func DeviceOsGT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGT(FieldDeviceOs, v))
+}
+
+// DeviceOsGTE applies the GTE predicate on the "device_os" field.
+func DeviceOsGTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGTE(FieldDeviceOs, v))
+}
+
+// DeviceOsLT applies the LT predicate on the "device_os" field.
+func DeviceOsLT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLT(FieldDeviceOs, v))
+}
+
+// DeviceOsLTE applies the LTE predicate on the "device_os" field.
+func DeviceOsLTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLTE(FieldDeviceOs, v))
+}
+
+// DeviceOsContains applies the Contains predicate on the "device_os" field.
+func DeviceOsContains(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContains(FieldDeviceOs, v))
+}
+
+// DeviceOsHasPrefix applies the HasPrefix predicate on the "device_os" field.
+func DeviceOsHasPrefix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasPrefix(FieldDeviceOs, v))
+}
+
+// DeviceOsHasSuffix applies the HasSuffix predicate on the "device_os" field.
+func DeviceOsHasSuffix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasSuffix(FieldDeviceOs, v))
+}
+
+// DeviceOsEqualFold applies the EqualFold predicate on the "device_os" field.
+func DeviceOsEqualFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEqualFold(FieldDeviceOs, v))
+}
+
+// DeviceOsContainsFold applies the ContainsFold predicate on the "device_os" field.
+func DeviceOsContainsFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContainsFold(FieldDeviceOs, v))
+}
+
+// DeviceBrowserEQ applies the EQ predicate on the "device_browser" field.
+func DeviceBrowserEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserNEQ applies the NEQ predicate on the "device_browser" field.
+func DeviceBrowserNEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNEQ(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserIn applies the In predicate on the "device_browser" field.
+func DeviceBrowserIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldIn(FieldDeviceBrowser, vs...))
+}
+
+// DeviceBrowserNotIn applies the NotIn predicate on the "device_browser" field.
+func DeviceBrowserNotIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNotIn(FieldDeviceBrowser, vs...))
+}
+
+// DeviceBrowserGT applies the GT predicate on the "device_browser" field.
+func DeviceBrowserGT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGT(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserGTE applies the GTE predicate on the "device_browser" field.
+func DeviceBrowserGTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGTE(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserLT applies the LT predicate on the "device_browser" field.
+func DeviceBrowserLT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLT(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserLTE applies the LTE predicate on the "device_browser" field.
+func DeviceBrowserLTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLTE(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserContains applies the Contains predicate on the "device_browser" field.
+func DeviceBrowserContains(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContains(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserHasPrefix applies the HasPrefix predicate on the "device_browser" field.
+func DeviceBrowserHasPrefix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasPrefix(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserHasSuffix applies the HasSuffix predicate on the "device_browser" field.
+func DeviceBrowserHasSuffix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasSuffix(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserEqualFold applies the EqualFold predicate on the "device_browser" field.
+func DeviceBrowserEqualFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEqualFold(FieldDeviceBrowser, v))
+}
+
+// DeviceBrowserContainsFold applies the ContainsFold predicate on the "device_browser" field.
+func DeviceBrowserContainsFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContainsFold(FieldDeviceBrowser, v))
+}
+
+// DeviceLabelEQ applies the EQ predicate on the "device_label" field.
+func DeviceLabelEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEQ(FieldDeviceLabel, v))
+}
+
+// DeviceLabelNEQ applies the NEQ predicate on the "device_label" field.
+func DeviceLabelNEQ(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNEQ(FieldDeviceLabel, v))
+}
+
+// DeviceLabelIn applies the In predicate on the "device_label" field.
+func DeviceLabelIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldIn(FieldDeviceLabel, vs...))
+}
+
+// DeviceLabelNotIn applies the NotIn predicate on the "device_label" field.
+func DeviceLabelNotIn(vs ...string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldNotIn(FieldDeviceLabel, vs...))
+}
+
+// DeviceLabelGT applies the GT predicate on the "device_label" field.
+func DeviceLabelGT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGT(FieldDeviceLabel, v))
+}
+
+// DeviceLabelGTE applies the GTE predicate on the "device_label" field.
+func DeviceLabelGTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldGTE(FieldDeviceLabel, v))
+}
+
+// DeviceLabelLT applies the LT predicate on the "device_label" field.
+func DeviceLabelLT(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLT(FieldDeviceLabel, v))
+}
+
+// DeviceLabelLTE applies the LTE predicate on the "device_label" field.
+func DeviceLabelLTE(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldLTE(FieldDeviceLabel, v))
+}
+
+// DeviceLabelContains applies the Contains predicate on the "device_label" field.
+func DeviceLabelContains(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContains(FieldDeviceLabel, v))
+}
+
+// DeviceLabelHasPrefix applies the HasPrefix predicate on the "device_label" field.
+func DeviceLabelHasPrefix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasPrefix(FieldDeviceLabel, v))
+}
+
+// DeviceLabelHasSuffix applies the HasSuffix predicate on the "device_label" field.
+func DeviceLabelHasSuffix(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldHasSuffix(FieldDeviceLabel, v))
+}
+
+// DeviceLabelEqualFold applies the EqualFold predicate on the "device_label" field.
+func DeviceLabelEqualFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldEqualFold(FieldDeviceLabel, v))
+}
+
+// DeviceLabelContainsFold applies the ContainsFold predicate on the "device_label" field.
+func DeviceLabelContainsFold(v string) predicate.BrowserSession {
+	return predicate.BrowserSession(sql.FieldContainsFold(FieldDeviceLabel, v))
 }
 
 // ExpiresAtEQ applies the EQ predicate on the "expires_at" field.

@@ -45,11 +45,9 @@ type EntryKind string
 const (
 	EntryKindUserMessage         EntryKind = "user_message"
 	EntryKindAssistantTextDelta  EntryKind = "assistant_text_delta"
-	EntryKindActionProposal      EntryKind = "action_proposal"
 	EntryKindDiff                EntryKind = "diff"
 	EntryKindInterrupt           EntryKind = "interrupt"
 	EntryKindInterruptResolution EntryKind = "interrupt_resolution"
-	EntryKindActionResult        EntryKind = "action_result"
 	EntryKindSystem              EntryKind = "system"
 )
 
@@ -68,6 +66,7 @@ type Conversation struct {
 	Source                    Source
 	ProviderID                uuid.UUID
 	Status                    ConversationStatus
+	Title                     ConversationTitle
 	ProviderThreadID          *string
 	LastTurnID                *string
 	ProviderThreadStatus      *string

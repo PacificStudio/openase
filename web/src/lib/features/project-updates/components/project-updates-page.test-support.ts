@@ -3,6 +3,7 @@ import { afterEach, beforeEach, vi } from 'vitest'
 
 import type {
   Project,
+  ProjectUpdatePayload,
   ProjectUpdateCommentRecord,
   ProjectUpdateThreadRecord,
 } from '$lib/api/contracts'
@@ -132,6 +133,17 @@ export function makeThreadRecord(
     last_activity_at: '2026-04-01T08:15:00Z',
     comment_count: 0,
     comments: [],
+    ...overrides,
+  }
+}
+
+export function makeProjectUpdatesPayload(
+  overrides: Partial<ProjectUpdatePayload> = {},
+): ProjectUpdatePayload {
+  return {
+    threads: [],
+    has_more: false,
+    next_cursor: '',
     ...overrides,
   }
 }

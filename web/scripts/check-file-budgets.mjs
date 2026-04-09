@@ -57,16 +57,10 @@ const budgetRules = [
         'Organization dashboard controller still owns event-driven refresh orchestration while dashboard loading helpers continue to move out.',
       'src/lib/features/providers/rate-limit.ts':
         'Provider rate-limit summarization still centralizes Claude, Codex, and Gemini snapshot shaping while adapter-specific presenters remain in one module.',
-      'src/lib/features/skills/components/skill-ai-sidebar.test.ts':
-        'Skill refinement sidebar regression coverage remains bundled while transcript, result, and retry scenarios continue to expand.',
       'src/lib/features/skills/components/skill-editor-page.test.ts':
         'Skill editor page interaction coverage remains bundled while keyboard, draft, and binding scenarios continue to expand alongside the editor controller.',
       'src/lib/features/ticket-detail/run-transcript.test.ts':
         'Run transcript reducer regression coverage remains consolidated while lifecycle, summary, and trace fixtures continue to share setup.',
-      'src/lib/features/workflows/components/harness-ai-sidebar-streaming.test.ts':
-        'Harness AI long-stream regression coverage stays in one integration-style test while SSE helpers remain inline.',
-      'src/lib/features/workflows/components/harness-ai-sidebar.test.ts':
-        'Harness AI sidebar regression coverage remains bundled while provider, streaming, and reset scenarios continue to evolve.',
       'src/lib/features/workflows/components/workflows-page.test.ts':
         'Workflow page interaction coverage remains bundled until test helper extraction lands.',
     },

@@ -1,20 +1,16 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"time"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
-	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
@@ -25,8 +21,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
-
-const chatUserHeader = "X-OpenASE-Chat-User"
 
 var chatSSEKeepaliveInterval = 5 * time.Second
 
@@ -64,7 +58,7 @@ func (s *Server) handleStartChat(c echo.Context) error {
 		return err
 	}
 
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -181,7 +175,7 @@ func (s *Server) handleDeleteChat(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
 	}
 
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentRequestAIPrincipal(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -199,7 +193,7 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -272,7 +266,6 @@ func (s *Server) logChatStartFailure(
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 		"chat_source", strings.TrimSpace(raw.Source),
 		"chat_project_id", input.Context.ProjectID.String(),
-		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
 		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
 		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
 		"chat_session_id", optionalChatSessionIDString(input.SessionID),
@@ -294,7 +287,6 @@ func (s *Server) chatStreamLogger(
 		"request_id", c.Response().Header().Get(echo.HeaderXRequestID),
 		"chat_source", string(input.Source),
 		"chat_project_id", input.Context.ProjectID.String(),
-		"chat_workflow_id", optionalChatUUIDString(input.Context.WorkflowID),
 		"chat_ticket_id", optionalChatUUIDString(input.Context.TicketID),
 		"chat_provider_id", optionalChatUUIDString(input.ProviderID),
 		"chat_session_id", optionalChatSessionIDString(input.SessionID),
@@ -335,14 +327,23 @@ func optionalChatSessionIDString(value *chatservice.SessionID) string {
 	return value.String()
 }
 
-func (s *Server) currentRequestChatUserID(c echo.Context) (chatservice.UserID, error) {
+func (s *Server) currentProjectConversationUserID(c echo.Context) (chatservice.UserID, error) {
 	if actor := strings.TrimSpace(actorFromHumanPrincipal(c)); actor != "" {
 		return chatservice.ParseUserID(actor)
 	}
-	if s != nil && s.auth.Mode == config.AuthModeOIDC {
-		return "", humanauthservice.ErrUnauthorized
+	if s != nil {
+		runtimeState, err := s.currentRuntimeAccessControlState(c)
+		if err != nil {
+			return "", err
+		}
+		if runtimeState.LoginRequired {
+			return "", humanauthservice.ErrUnauthorized
+		}
 	}
-	return chatservice.ParseRequestUserID(c.Request().Header.Get(chatUserHeader))
+	// Auth-disabled mode is a local-instance fallback, so persistent project
+	// conversations use one stable server-defined principal instead of a
+	// browser-local random identifier.
+	return chatservice.LocalProjectConversationUserID, nil
 }
 
 func writeChatUserError(c echo.Context, err error) error {
@@ -414,10 +415,10 @@ func (s *Server) handleCreateProjectConversation(c echo.Context) error {
 	if request.Source != chatdomain.SourceProjectSidebar {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_SOURCE", "project conversations only support project_sidebar")
 	}
-	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionTicketComment); err != nil {
+	if err := s.requireHumanPermission(c, humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: request.ProjectID.String()}, humanauthdomain.PermissionConversationCreate); err != nil {
 		return err
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -446,11 +447,11 @@ func (s *Server) handleListProjectConversations(c echo.Context) error {
 	if err := s.requireHumanPermission(
 		c,
 		humanauthdomain.ScopeRef{Kind: humanauthdomain.ScopeKindProject, ID: projectID.String()},
-		humanauthdomain.PermissionTicketRead,
+		humanauthdomain.PermissionConversationRead,
 	); err != nil {
 		return err
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -479,7 +480,7 @@ func (s *Server) handleGetProjectConversation(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -498,7 +499,7 @@ func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -517,7 +518,7 @@ func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -536,7 +537,7 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -560,13 +561,23 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
-	return c.JSON(http.StatusAccepted, map[string]any{
+	response := map[string]any{
 		"turn": map[string]any{
 			"id":         turn.ID.String(),
 			"turn_index": turn.TurnIndex,
 			"status":     string(turn.Status),
 		},
-	})
+	}
+	conversation, err := s.projectConversationService.GetConversation(
+		c.Request().Context(),
+		userID,
+		conversationID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	response["conversation"] = s.mapProjectConversationResponse(c.Request().Context(), conversation)
+	return c.JSON(http.StatusAccepted, response)
 }
 
 func (s *Server) handleProjectConversationStream(c echo.Context) error {
@@ -577,11 +588,22 @@ func (s *Server) handleProjectConversationStream(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
 
 	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
 	defer cancel()
 
-	events, cleanup := s.projectConversationService.WatchConversation(streamCtx, conversationID)
+	events, cleanup, err := s.projectConversationService.WatchConversation(
+		streamCtx,
+		userID,
+		conversationID,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
 	defer cleanup()
 
 	if err := http.NewResponseController(c.Response().Writer).SetWriteDeadline(time.Time{}); err != nil &&
@@ -632,7 +654,7 @@ func (s *Server) handleRespondProjectConversationInterrupt(c echo.Context) error
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_INTERRUPT_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -662,7 +684,7 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
 	}
-	userID, err := s.currentRequestChatUserID(c)
+	userID, err := s.currentProjectConversationUserID(c)
 	if err != nil {
 		return writeChatUserError(c, err)
 	}
@@ -707,6 +729,7 @@ func (s *Server) mapProjectConversationResponse(ctx context.Context, item chatdo
 		"source":           string(item.Source),
 		"provider_id":      item.ProviderID.String(),
 		"status":           string(item.Status),
+		"title":            item.Title.String(),
 		"rolling_summary":  item.RollingSummary,
 		"last_activity_at": item.LastActivityAt.UTC().Format(time.RFC3339),
 		"created_at":       item.CreatedAt.UTC().Format(time.RFC3339),
@@ -860,130 +883,6 @@ func optionalConversationTime(value *time.Time) any {
 	}
 	return value.UTC().Format(time.RFC3339)
 }
-
-func (s *Server) executeActionProposalActions(_ context.Context, payload map[string]any, executedBy string) ([]map[string]any, error) {
-	rawActions, ok := payload["actions"].([]any)
-	if !ok {
-		return nil, fmt.Errorf("action proposal actions must be an array")
-	}
-	results := make([]map[string]any, 0, len(rawActions))
-	for index, rawAction := range rawActions {
-		action, ok := rawAction.(map[string]any)
-		if !ok {
-			results = append(results, map[string]any{
-				"action_index": index,
-				"ok":           false,
-				"summary":      "action payload is invalid",
-			})
-			continue
-		}
-		method := strings.ToUpper(strings.TrimSpace(httpStringValue(action["method"])))
-		path := strings.TrimSpace(httpStringValue(action["path"]))
-		body, _ := action["body"].(map[string]any)
-		result := map[string]any{
-			"action_index": index,
-			"action":       action,
-		}
-		preparedBody, err := prepareProjectConversationActionBody(method, path, body, executedBy)
-		if err != nil {
-			result["ok"] = false
-			result["summary"] = err.Error()
-			results = append(results, result)
-			continue
-		}
-		status, responseBody, err := s.executeInternalAPIAction(method, path, preparedBody)
-		result["status_code"] = status
-		if responseBody != "" {
-			result["detail"] = responseBody
-		}
-		if err != nil || status < 200 || status >= 300 {
-			result["ok"] = false
-			result["summary"] = fmt.Sprintf("%s %s failed.", method, path)
-		} else {
-			result["ok"] = true
-			result["summary"] = fmt.Sprintf("%s %s succeeded.", method, path)
-		}
-		results = append(results, result)
-	}
-	return results, nil
-}
-
-func httpStringValue(value any) string {
-	typed, _ := value.(string)
-	return typed
-}
-
-func (s *Server) executeInternalAPIAction(method string, path string, body map[string]any) (int, string, error) {
-	var reader io.Reader
-	if body != nil {
-		encoded, err := json.Marshal(body)
-		if err != nil {
-			return 0, "", err
-		}
-		reader = bytes.NewReader(encoded)
-	}
-	req := httptest.NewRequest(method, path, reader)
-	if body != nil {
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	}
-	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, req)
-	return rec.Code, strings.TrimSpace(rec.Body.String()), nil
-}
-
-func projectConversationConfirmedActionActor(userID chatservice.UserID, conversationID uuid.UUID) string {
-	return fmt.Sprintf("user:%s via project-conversation:%s", strings.TrimSpace(string(userID)), conversationID.String())
-}
-
-func prepareProjectConversationActionBody(method string, path string, body map[string]any, executedBy string) (map[string]any, error) {
-	normalizedMethod := strings.ToUpper(strings.TrimSpace(method))
-	normalizedPath := strings.TrimSpace(path)
-	if normalizedMethod == "" || normalizedPath == "" {
-		return nil, fmt.Errorf("action proposal requires method and path")
-	}
-	prepared := cloneHTTPActionBody(body)
-	switch {
-	case normalizedMethod == http.MethodPost && projectConversationTicketCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationTicketPatchPath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationTicketCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationTicketCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationUpdateThreadCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateThreadPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationUpdateCommentCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationUpdateCommentPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPost && projectConversationWorkflowCreatePath(normalizedPath):
-		prepared["created_by"] = executedBy
-	case normalizedMethod == http.MethodPatch && projectConversationWorkflowPatchPath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodPut && projectConversationWorkflowHarnessUpdatePath(normalizedPath):
-		prepared["edited_by"] = executedBy
-	case normalizedMethod == http.MethodGet:
-		return prepared, nil
-	default:
-		return nil, fmt.Errorf("%s %s is not allowed because its audit actor is not explicit for project conversation confirmation", normalizedMethod, normalizedPath)
-	}
-	return prepared, nil
-}
-
-func cloneHTTPActionBody(body map[string]any) map[string]any {
-	if len(body) == 0 {
-		return map[string]any{}
-	}
-	cloned := make(map[string]any, len(body))
-	for key, value := range body {
-		cloned[key] = value
-	}
-	return cloned
-}
-
 func projectConversationTicketCreatePath(path string) bool {
 	return strings.HasPrefix(path, "/api/v1/projects/") && strings.HasSuffix(path, "/tickets")
 }

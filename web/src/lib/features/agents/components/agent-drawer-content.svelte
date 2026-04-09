@@ -33,7 +33,7 @@
   } = $props()
 </script>
 
-<div class="flex-1 space-y-5 px-6 py-5">
+<div class="flex-1 space-y-5 px-4 py-4 sm:px-6 sm:py-5">
   <section class="bg-muted/40 rounded-lg px-4 py-3">
     <div class="grid grid-cols-3 gap-4 text-center">
       <div>
@@ -121,7 +121,7 @@
     </section>
   {/if}
 
-  <div class="border-border flex items-center gap-2 border-t pt-4">
+  <div class="border-border flex flex-wrap items-center gap-2 border-t pt-4">
     {#if canInterrupt}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onInterrupt}>
         <Hand class="size-3.5" />

@@ -1,13 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"slices"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 	githubauthservice "github.com/BetterAndBetterII/openase/internal/service/githubauth"
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	"github.com/google/uuid"
@@ -46,7 +50,21 @@ type securityWebhookBoundaryResponse struct {
 }
 
 type securitySecretHygieneResponse struct {
-	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
+	NotificationChannelConfigsRedacted bool                                         `json:"notification_channel_configs_redacted"`
+	MachineEnvVarsRedacted             bool                                         `json:"machine_env_vars_redacted"`
+	RuntimeSecretResponsesRedacted     bool                                         `json:"runtime_secret_responses_redacted"`
+	LegacyProvidersRequiringMigration  int                                          `json:"legacy_providers_requiring_migration"`
+	LegacyProviderInlineSecretBindings int                                          `json:"legacy_provider_inline_secret_bindings"`
+	LegacyMachinesRequiringMigration   int                                          `json:"legacy_machines_requiring_migration"`
+	LegacyMachineSecretEnvVars         int                                          `json:"legacy_machine_secret_env_vars"`
+	RolloutChecklist                   []securitySecretRolloutChecklistItemResponse `json:"rollout_checklist"`
+}
+
+type securitySecretRolloutChecklistItemResponse struct {
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Status  string `json:"status"`
+	Summary string `json:"summary"`
 }
 
 type securityApprovalPoliciesResponse struct {
@@ -82,6 +100,7 @@ type securityGitHubOutboundCredentialResponse struct {
 
 type securitySettingsResponse struct {
 	ProjectID        string                                   `json:"project_id"`
+	Auth             securityAuthSettingsResponse             `json:"auth"`
 	AgentTokens      securityAgentTokensResponse              `json:"agent_tokens"`
 	GitHub           securityGitHubOutboundCredentialResponse `json:"github"`
 	Webhooks         securityWebhookBoundaryResponse          `json:"webhooks"`
@@ -91,7 +110,25 @@ type securitySettingsResponse struct {
 }
 
 func (s *Server) registerSecuritySettingsRoutes(api *echo.Group) {
+	api.GET("/orgs/:orgId/security-settings/secrets", s.handleListOrganizationScopedSecrets)
+	api.POST("/orgs/:orgId/security-settings/secrets", s.handleCreateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/rotate", s.handleRotateOrganizationScopedSecret)
+	api.POST("/orgs/:orgId/security-settings/secrets/:secretId/disable", s.handleDisableOrganizationScopedSecret)
+	api.DELETE("/orgs/:orgId/security-settings/secrets/:secretId", s.handleDeleteOrganizationScopedSecret)
 	api.GET("/projects/:projectId/security-settings", s.handleGetSecuritySettings)
+	api.GET("/projects/:projectId/security-settings/secrets", s.handleListScopedSecrets)
+	api.POST("/projects/:projectId/security-settings/secrets", s.handleCreateScopedSecret)
+	api.GET("/projects/:projectId/security-settings/secret-bindings", s.handleListScopedSecretBindings)
+	api.POST("/projects/:projectId/security-settings/secret-bindings", s.handleCreateScopedSecretBinding)
+	api.PATCH("/projects/:projectId/security-settings/secrets/:secretId", s.handlePatchScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/:secretId/rotate", s.handleRotateScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/:secretId/disable", s.handleDisableScopedSecret)
+	api.DELETE("/projects/:projectId/security-settings/secret-bindings/:bindingId", s.handleDeleteScopedSecretBinding)
+	api.DELETE("/projects/:projectId/security-settings/secrets/:secretId", s.handleDeleteScopedSecret)
+	api.POST("/projects/:projectId/security-settings/secrets/resolve-for-runtime", s.handleResolveScopedSecretsForRuntime)
+	api.PUT("/projects/:projectId/security-settings/oidc-draft", s.handlePutOIDCDraft)
+	api.POST("/projects/:projectId/security-settings/oidc-draft/test", s.handleTestOIDCDraft)
+	api.POST("/projects/:projectId/security-settings/oidc-enable", s.handleEnableOIDC)
 	api.PUT("/projects/:projectId/security-settings/github-outbound-credential", s.handlePutGitHubOutboundCredential)
 	api.POST("/projects/:projectId/security-settings/github-outbound-credential/import-gh-cli", s.handleImportGitHubOutboundCredential)
 	api.POST("/projects/:projectId/security-settings/github-outbound-credential/retest", s.handleRetestGitHubOutboundCredential)
@@ -141,6 +178,188 @@ func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
 	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
 }
 
+// Org credential scope is no longer accepted on project endpoints.
+// Use /orgs/:orgId/security/github-credential for org-level management.
+
+func (s *Server) handlePutOIDCDraft(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+
+	service, err := s.requireInstanceAccessControlService()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+	current, err := service.Read(c.Request().Context())
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	stored, err := service.SaveDraft(c.Request().Context(), draft)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"security": buildSecuritySettingsResponse(
+			projectID,
+			stored,
+			s.readGitHubSecurity(c, projectID),
+			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
+			s.resolveApprovalPoliciesSummary(c),
+			s.cfg.Host,
+		),
+	})
+}
+
+func (s *Server) handleTestOIDCDraft(c echo.Context) error {
+	if _, err := s.requireProjectSecurityContext(c); err != nil {
+		return err
+	}
+
+	service, err := s.requireInstanceAccessControlService()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+	current, err := service.Read(c.Request().Context())
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+	runtimeState := iam.ResolveRuntimeAccessControlState(current.State)
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	active, err := activeOIDCConfigFromDraft(draft)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	authCfg := completeOIDCAuthConfigFromAccessControl(active)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
+	}
+	response := securityOIDCTestResultResponse{
+		Status:                "ok",
+		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
+		IssuerURL:             diagnostics.IssuerURL,
+		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
+		TokenEndpoint:         diagnostics.TokenEndpoint,
+		RedirectURL:           redirectURL,
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
+	}
+	if err := service.SaveValidation(c.Request().Context(), securityOIDCValidationSuccessMetadata(response)); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+func (s *Server) handleEnableOIDC(c echo.Context) error {
+	projectID, err := s.requireProjectSecurityContext(c)
+	if err != nil {
+		return err
+	}
+
+	service, err := s.requireInstanceAccessControlService()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+	current, err := service.Read(c.Request().Context())
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+	runtimeState := iam.ResolveRuntimeAccessControlState(current.State)
+
+	var raw rawSecurityOIDCDraftRequest
+	if err := c.Bind(&raw); err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
+	}
+
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	active, err := activeOIDCConfigFromDraft(draft)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	authCfg := completeOIDCAuthConfigFromAccessControl(active)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
+	}
+	successValidation := securityOIDCValidationSuccessMetadata(securityOIDCTestResultResponse{
+		Status:                "ok",
+		Message:               "OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.",
+		IssuerURL:             diagnostics.IssuerURL,
+		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
+		TokenEndpoint:         diagnostics.TokenEndpoint,
+		RedirectURL:           redirectURL,
+		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
+	})
+	if err := service.SaveValidation(c.Request().Context(), successValidation); err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	now := time.Now().UTC()
+	stored, err := service.Activate(c.Request().Context(), active, iam.OIDCActivationMetadata{
+		ActivatedAt: &now,
+		Source:      "project_security_settings_api",
+		Message:     "OIDC is now active for this instance. Complete the first OIDC sign-in with a bootstrap admin email to continue with managed access control.",
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
+
+	githubSecurity := s.readGitHubSecurity(c, projectID)
+	return c.JSON(http.StatusOK, securityOIDCEnableResponse{
+		Activation: securityOIDCActivationResponse{
+			Status:          "configured",
+			Message:         "OIDC is now active for this instance. Complete the first OIDC sign-in with a bootstrap admin email to continue with managed access control.",
+			RestartRequired: false,
+			NextSteps: []string{
+				"Sign in through the browser with a bootstrap admin email.",
+				"Verify instance, organization, and project role bindings after the first login, then narrow the bootstrap admin list.",
+			},
+		},
+		Security: buildSecuritySettingsResponse(
+			projectID,
+			stored,
+			githubSecurity,
+			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
+			s.resolveApprovalPoliciesSummary(c),
+			s.cfg.Host,
+		),
+	})
+}
+
 func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
 	projectID, err := s.requireProjectSecurityContext(c)
 	if err != nil {
@@ -150,16 +369,7 @@ func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -175,16 +385,7 @@ func (s *Server) handleRetestGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -200,12 +401,7 @@ func (s *Server) handleDeleteGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	input, err := parseGitHubCredentialScopeQuery(projectID, c.QueryParam("scope"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -227,23 +423,154 @@ func (s *Server) requireProjectSecurityContext(c echo.Context) (uuid.UUID, error
 	return projectID, nil
 }
 
+func (s *Server) requireOrganizationSecurityContext(c echo.Context) (uuid.UUID, error) {
+	if s.catalog.Empty() {
+		return uuid.UUID{}, writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+
+	organizationID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if _, err := s.catalog.GetOrganization(c.Request().Context(), organizationID); err != nil {
+		return uuid.UUID{}, writeCatalogError(c, err)
+	}
+	return organizationID, nil
+}
+
 func (s *Server) writeSecuritySettingsResponse(
 	c echo.Context,
 	projectID uuid.UUID,
 	github securityGitHubOutboundCredentialResponse,
 ) error {
+	stored, err := s.readInstanceAccessControlState(c)
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
+	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"security": buildSecuritySettingsResponse(projectID, github, s.resolveApprovalPoliciesSummary(c)),
+		"security": buildSecuritySettingsResponse(
+			projectID,
+			stored,
+			github,
+			s.buildSecretHygieneResponse(c.Request().Context(), projectID),
+			s.resolveApprovalPoliciesSummary(c),
+			s.cfg.Host,
+		),
 	})
+}
+
+func (s *Server) buildSecretHygieneResponse(
+	ctx context.Context,
+	projectID uuid.UUID,
+) securitySecretHygieneResponse {
+	response := securitySecretHygieneResponse{
+		NotificationChannelConfigsRedacted: true,
+		MachineEnvVarsRedacted:             true,
+		RuntimeSecretResponsesRedacted:     true,
+	}
+	if s == nil || s.catalog.Empty() || ctx == nil || projectID == uuid.Nil {
+		response.RolloutChecklist = buildSecretRolloutChecklist(response)
+		return response
+	}
+
+	project, err := s.catalog.GetProject(ctx, projectID)
+	if err == nil {
+		if s.catalog.AgentProviderService != nil {
+			providers, providerErr := s.catalog.ListAgentProviders(ctx, project.OrganizationID)
+			if providerErr == nil {
+				response.LegacyProvidersRequiringMigration, response.LegacyProviderInlineSecretBindings =
+					catalogdomain.CountLegacyProviderInlineSecretBindings(providers)
+			}
+		}
+		if s.catalog.MachineService != nil {
+			machines, machineErr := s.catalog.ListMachines(ctx, project.OrganizationID)
+			if machineErr == nil {
+				response.LegacyMachinesRequiringMigration, response.LegacyMachineSecretEnvVars =
+					catalogdomain.CountSensitiveMachineEnvVars(machines)
+			}
+		}
+	}
+
+	response.RolloutChecklist = buildSecretRolloutChecklist(response)
+	return response
+}
+
+func buildSecretRolloutChecklist(
+	hygiene securitySecretHygieneResponse,
+) []securitySecretRolloutChecklistItemResponse {
+	inlineProviderStatus := "done"
+	inlineProviderSummary := "No provider auth_config entries still rely on inline legacy secrets."
+	if hygiene.LegacyProviderInlineSecretBindings > 0 {
+		inlineProviderStatus = "pending"
+		inlineProviderSummary = "Move legacy inline provider auth_config secrets into scoped secrets and explicit secret_bindings before rollout."
+	}
+
+	machineEnvStatus := "done"
+	machineEnvSummary := "No machine env_vars entries currently look like stored secrets."
+	if hygiene.LegacyMachineSecretEnvVars > 0 {
+		machineEnvStatus = "pending"
+		machineEnvSummary = "Replace secret-like machine env_vars with scoped secrets or host-level secret injection before rollout."
+	}
+
+	maskingStatus := "done"
+	maskingSummary := "Security and machine APIs return masked previews instead of raw secret values."
+	if !hygiene.NotificationChannelConfigsRedacted || !hygiene.MachineEnvVarsRedacted || !hygiene.RuntimeSecretResponsesRedacted {
+		maskingStatus = "pending"
+		maskingSummary = "One or more secret response paths are not yet fully masked."
+	}
+
+	return []securitySecretRolloutChecklistItemResponse{
+		{
+			Key:     "provider-inline-secrets",
+			Title:   "Migrate inline provider auth_config secrets",
+			Status:  inlineProviderStatus,
+			Summary: inlineProviderSummary,
+		},
+		{
+			Key:     "machine-env-secrets",
+			Title:   "Migrate machine env var secrets",
+			Status:  machineEnvStatus,
+			Summary: machineEnvSummary,
+		},
+		{
+			Key:     "audit-trail",
+			Title:   "Verify secret activity events",
+			Status:  "done",
+			Summary: "Create, rotate, bind, unbind, disable, and delete actions now publish canonical activity events for audit review.",
+		},
+		{
+			Key:     "masked-responses",
+			Title:   "Confirm masked responses",
+			Status:  maskingStatus,
+			Summary: maskingSummary,
+		},
+	}
+}
+
+func (s *Server) readGitHubSecurity(c echo.Context, projectID uuid.UUID) securityGitHubOutboundCredentialResponse {
+	githubSecurity := buildMissingGitHubSecurityResponse()
+	if s.githubAuthService == nil {
+		return githubSecurity
+	}
+	resolved, err := s.githubAuthService.ReadProjectSecurity(c.Request().Context(), projectID)
+	if err != nil {
+		return githubSecurity
+	}
+	return mapGitHubSecurityResponse(resolved)
 }
 
 func buildSecuritySettingsResponse(
 	projectID uuid.UUID,
+	stored accesscontrolservice.ReadResult,
 	github securityGitHubOutboundCredentialResponse,
+	secretHygiene securitySecretHygieneResponse,
 	approvalPolicies securityApprovalPoliciesResponse,
+	host string,
 ) securitySettingsResponse {
+	runtimeState := iam.ResolveRuntimeAccessControlState(stored.State)
 	return securitySettingsResponse{
 		ProjectID: projectID.String(),
+		Auth:      buildSecurityAuthSettingsResponseFromAccessControl(runtimeState, stored.State, stored.StorageLocation, host),
 		AgentTokens: securityAgentTokensResponse{
 			Transport:              securitySettingsAgentTokenTransport,
 			EnvironmentVariable:    securitySettingsAgentTokenEnvVar,
@@ -256,9 +583,7 @@ func buildSecuritySettingsResponse(
 		Webhooks: securityWebhookBoundaryResponse{
 			ConnectorEndpoint: securitySettingsConnectorEndpoint,
 		},
-		SecretHygiene: securitySecretHygieneResponse{
-			NotificationChannelConfigsRedacted: true,
-		},
+		SecretHygiene:    secretHygiene,
 		ApprovalPolicies: approvalPolicies,
 		Deferred: []securityDeferredCapabilityResponse{
 			{

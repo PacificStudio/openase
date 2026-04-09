@@ -6,6 +6,6 @@ import (
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 )
 
-func (s *service) ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) ([]domain.ActivityEvent, error) {
+func (s *service) ListActivityEvents(ctx context.Context, input domain.ListActivityEvents) (domain.ActivityEventPage, error) {
 	return s.repo.ListActivityEvents(ctx, input)
 }

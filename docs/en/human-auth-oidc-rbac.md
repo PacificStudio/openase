@@ -1,6 +1,12 @@
 # OpenASE Human Auth, OIDC, And RBAC
 
-This document describes the control-plane human authentication model shipped in OpenASE.
+This document describes the current OIDC setup and RBAC behavior shipped in OpenASE.
+
+For the long-term dual-mode IAM contract that defines how `auth.mode=disabled`
+and `auth.mode=oidc` coexist, see
+[`docs/en/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md).
+For the steady-state boundary between instance admin, org admin, and project settings, see
+[`docs/en/iam-admin-boundaries.md`](./iam-admin-boundaries.md).
 
 ## Summary
 
@@ -12,6 +18,21 @@ OpenASE supports browser-side human authentication with:
 - project chat, project conversations, proposal approval, and audit actors derived from the authenticated human principal
 
 The browser never receives the upstream OIDC access token or refresh token.
+
+## Choosing The Right Mode
+
+Use the auth mode that matches the deployment you actually have:
+
+- Keep `auth.mode=disabled` for personal laptops, local demos, throwaway sandboxes, and any instance where one operator is effectively the whole control plane.
+- Prefer `auth.mode=oidc` once the instance is shared with a team, exposed beyond loopback, or expected to keep per-user audit, invitations, memberships, and session isolation.
+- If you are a single admin but still want browser login and future multi-user readiness, `oidc + instance_admin` is a valid upgrade path. It is optional, not mandatory.
+- `instance_admin` is the highest authorization role _inside_ OIDC mode. It does not replace disabled mode's local bootstrap principal.
+
+Practical guidance:
+
+- Continue using `disabled` when OIDC would add overhead without meaningful security or collaboration value.
+- Move to `oidc` when you need real user identity, org membership lifecycle, session inventory, or auditable administrator separation.
+- Treat `auth.mode=disabled` on a non-loopback / public host as a temporary emergency-only posture.
 
 ## Configuration
 
@@ -49,6 +70,43 @@ Field notes:
 
 OpenASE also supports equivalent `OPENASE_AUTH_*` environment variables through the normal config loader.
 
+## Settings UI And Explicit OIDC Enablement
+
+OpenASE now splits human IAM across four steady-state surfaces:
+
+- `/admin/auth`: instance auth mode, OIDC draft configuration, bootstrap admins, validation, enablement, and rollback guidance
+- `/admin`: instance directory, session governance, and break-glass diagnostics
+- `/orgs/:orgId/admin/*`: organization members, invitations, and org-scoped role bindings
+- Project Settings -> `#access`: project-scoped bindings and effective project access
+- Project Settings -> `#security`: project-owned credentials, webhook boundaries, and runtime token posture only
+
+When OpenASE runs in `auth.mode=disabled`, `/admin/auth` intentionally keeps the local admin experience intact while exposing the OIDC rollout workflow:
+
+- the page states that the instance is in disabled / local single-user mode
+- the local bootstrap principal remains active and usable
+- you can save an OIDC draft without interrupting current disabled-mode usage
+- you can test provider discovery before enabling anything
+- switching to OIDC requires an explicit `Enable OIDC` action
+
+The disabled-mode setup form supports:
+
+- issuer URL
+- client ID
+- client secret
+- redirect URL
+- scopes
+- allowed email domains
+- bootstrap admin emails
+
+Current product behavior:
+
+1. `Save draft` persists the OIDC draft to the config file and keeps the active runtime mode unchanged.
+2. `Test configuration` performs provider discovery and returns actionable endpoint diagnostics and warnings.
+3. `Enable OIDC` validates discovery again, writes `auth.mode=oidc`, and returns next steps.
+4. The current release still requires a service restart before the new configured mode becomes active.
+
+Project Settings -> Security still exists during the compatibility window, but only as a project-security surface plus migration guidance. It must not continue acting as the instance auth control plane.
+
 ## Browser Flow
 
 OpenASE uses Authorization Code + PKCE:
@@ -65,6 +123,7 @@ Anonymous access is intentionally limited to setup, health checks, and auth entr
 
 Browser sessions are stored in the `browser_sessions` table with:
 
+- device metadata for inventory views
 - absolute expiry
 - idle expiry
 - revoke state
@@ -77,8 +136,24 @@ OpenASE refreshes the idle deadline on active use. Disabling a user in the OpenA
 Relevant routes:
 
 - `GET /auth/session`: returns auth mode, current user, CSRF token, effective instance roles, and permissions.
+- `GET /auth/sessions`: returns the current user's active browser session inventory, auth audit timeline, and reserved step-up metadata.
+- `DELETE /auth/sessions/:id`: revokes one browser session, including the current session when needed.
+- `POST /auth/sessions/revoke-all`: revokes every other browser session while preserving the current one.
+- `POST /auth/users/:userId/sessions/revoke`: lets an instance-level administrator force-revoke all sessions for a specific user.
+- `GET /api/v1/instance/users`: lists the cached OIDC user directory with search and status filters.
+- `GET /api/v1/instance/users/:userId`: returns identities, cached groups, active-session count, and recent auth audit for one user.
+- `POST /api/v1/instance/users/:userId/status`: performs an auditable user enable or disable transition and can revoke existing browser sessions immediately.
 - `POST /auth/logout`: revokes the current session and clears the session cookie.
 - `GET /api/v1/auth/me/permissions`: evaluates effective roles and permissions for instance, org, or project scope.
+
+Auth audit events capture:
+
+- login success
+- login failure
+- logout
+- session revocation
+- session expiry
+- user-disabled-after-login enforcement
 
 ## CSRF Protection
 
@@ -89,6 +164,8 @@ Mutating browser requests use same-origin cookie sessions and are protected by:
 - per-session CSRF token checks on protected writes
 
 Frontend code should obtain the CSRF token from `GET /auth/session` and send it through the normal API client for same-origin mutating requests.
+
+When OpenASE sits behind a trusted reverse proxy or a separate local dev frontend, you can allow additional browser origins with `auth.csrf.trusted_origins`. Each entry must be an absolute origin such as `http://localhost:4173` with no path, query, or fragment.
 
 ## User Cache And Identity Sync
 
@@ -104,6 +181,31 @@ OpenASE stores the local authorization cache and group memberships in its own da
 - profile changes can be refreshed on later logins
 - groups can back OpenASE role bindings
 - disabled users can be blocked by OpenASE regardless of stale upstream browser state
+
+Identity synchronization semantics:
+
+- the canonical upstream identity key is `issuer + subject`
+- email, display name, avatar URL, and group memberships are mutable cached fields and refresh on later login for the same `issuer + subject`
+- email changes must not create a duplicate cached user when the upstream `issuer + subject` stays the same
+- sign-in fails closed if a new upstream `issuer + subject` collides with an existing cached email because automatic link, unlink, and merge are not shipped yet
+
+Current user directory boundaries:
+
+- OpenASE currently supports one canonical upstream identity per cached user
+- manual link, unlink, and merge operations are not supported yet
+- if an administrator or future migration produces multiple identities for one user row, OpenASE treats that as out-of-contract state and does not expose merge automation yet
+
+Group synchronization strategy:
+
+- OpenASE currently ships an OIDC group cache only
+- synchronized groups can back RBAC bindings directly
+- a separate local group catalog is deferred to later IAM follow-up work
+
+Deprovision lifecycle:
+
+- manual admin disable is supported now through the instance user directory
+- disabling a user revokes existing browser sessions immediately and preserves auth audit history
+- future automatic deprovision sources such as upstream sync, webhook callbacks, and SCIM remain reserved follow-up integration points
 
 ## RBAC Model
 
@@ -137,6 +239,22 @@ RBAC evaluation rules:
 - Direct user bindings and group bindings union together.
 - Organization bindings inherit downward into descendant project scopes.
 - Permissions are default deny.
+- Human permissions are resource/action oriented. Built-in roles now expand into
+  concrete keys such as `org.read`, `project.create`, `ticket_comment.update`,
+  `workflow.delete`, `harness.update`, `status.read`,
+  `security_setting.update`, `notification.read`, and `conversation.create`.
+- List and index APIs apply the principal's effective visibility before
+  returning organizations, projects, repositories, and other human-facing
+  collections.
+
+Human permissions and agent scopes are intentionally related but not shared:
+
+- Human permissions govern browser-authenticated human actions in the control
+  plane.
+- Agent scopes govern issued runtime tokens such as `projects.update` or
+  `tickets.update.self`.
+- Similar names do not imply interchangeability; a human permission does not
+  mint an agent scope, and an agent scope does not satisfy human RBAC.
 
 Role bindings can be managed through:
 
@@ -159,7 +277,18 @@ After bootstrap is complete, you can narrow or clear the bootstrap list.
 
 ## Chat, Conversations, And Audit Actors
 
-Project chat and project conversations derive user identity from the authenticated human principal instead of browser-local random ids.
+AI session ownership is always derived from a server-defined principal:
+
+- in `auth.mode=oidc`, project chat, project conversations, and other browser-driven AI flows use the authenticated human principal
+- in `auth.mode=disabled`, the server issues and reuses an `openase_ai_principal` browser cookie whose value is a stable `browser-session:<uuid>` principal
+
+Browser-local random ids and `X-OpenASE-Chat-User` request headers are no longer authoritative owner inputs.
+
+When `auth.mode=disabled`, persistent project conversations switch to a server-defined local principal: `local-user:default`.
+
+- this keeps conversation ownership stable across frontend dev-server ports and browser-local storage resets
+- `localStorage` remains UI-only for tab layout and drafts; it is no longer the source of truth for persistent conversation ownership
+- this mode is intentionally a local single-user / shared-instance fallback, not a multi-user isolation model
 
 Audit semantics:
 
@@ -173,10 +302,20 @@ This preserves the distinction between the human approver and the project-conver
 The control plane Settings view exposes the human auth state, including:
 
 - current auth mode
+- configured auth mode from disk
 - issuer URL
+- bootstrap admin summary
+- disabled-mode local bootstrap principal guidance
+- saved OIDC draft fields and explicit save / test / enable actions
 - current authenticated user
+- session inventory with current-device detection and revoke actions
+- auth audit timeline for browser access events
+- stable project-conversation owner semantics (`user:<user-id>` under OIDC, `local-user:default` when auth is disabled)
 - effective roles and permissions
-- org/project role binding management
+- the distinction between human permissions and mintable agent scopes
+- instance / org / project role binding management
+- organization members and invitations
+- documentation links for migration, rollback, and rollout planning
 
 `GET /auth/session` and `GET /api/v1/auth/me/permissions` are the API equivalents for scripting and diagnostics.
 

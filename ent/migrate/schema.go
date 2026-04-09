@@ -480,11 +480,49 @@ var (
 			},
 		},
 	}
+	// AuthAuditEventsColumns holds the columns for the "auth_audit_events" table.
+	AuthAuditEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "session_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "actor_id", Type: field.TypeString, Default: ""},
+		{Name: "event_type", Type: field.TypeString},
+		{Name: "message", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "metadata", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// AuthAuditEventsTable holds the schema information for the "auth_audit_events" table.
+	AuthAuditEventsTable = &schema.Table{
+		Name:       "auth_audit_events",
+		Columns:    AuthAuditEventsColumns,
+		PrimaryKey: []*schema.Column{AuthAuditEventsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "authauditevent_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[1], AuthAuditEventsColumns[7]},
+			},
+			{
+				Name:    "authauditevent_session_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[2], AuthAuditEventsColumns[7]},
+			},
+			{
+				Name:    "authauditevent_event_type_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{AuthAuditEventsColumns[4], AuthAuditEventsColumns[7]},
+			},
+		},
+	}
 	// BrowserSessionsColumns holds the columns for the "browser_sessions" table.
 	BrowserSessionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
 		{Name: "user_id", Type: field.TypeUUID},
 		{Name: "session_hash", Type: field.TypeString},
+		{Name: "device_kind", Type: field.TypeString, Default: "unknown"},
+		{Name: "device_os", Type: field.TypeString, Default: ""},
+		{Name: "device_browser", Type: field.TypeString, Default: ""},
+		{Name: "device_label", Type: field.TypeString, Default: ""},
 		{Name: "expires_at", Type: field.TypeTime},
 		{Name: "idle_expires_at", Type: field.TypeTime},
 		{Name: "csrf_secret", Type: field.TypeString},
@@ -513,7 +551,7 @@ var (
 			{
 				Name:    "browsersession_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{BrowserSessionsColumns[3]},
+				Columns: []*schema.Column{BrowserSessionsColumns[7]},
 			},
 		},
 	}
@@ -524,6 +562,7 @@ var (
 		{Name: "source", Type: field.TypeString},
 		{Name: "provider_id", Type: field.TypeUUID},
 		{Name: "status", Type: field.TypeString, Default: "active"},
+		{Name: "title", Type: field.TypeString, Nullable: true, Default: ""},
 		{Name: "provider_thread_id", Type: field.TypeString, Nullable: true},
 		{Name: "last_turn_id", Type: field.TypeString, Nullable: true},
 		{Name: "provider_thread_status", Type: field.TypeString, Nullable: true},
@@ -542,7 +581,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "chat_conversations_projects_chat_conversations",
-				Columns:    []*schema.Column{ChatConversationsColumns[13]},
+				Columns:    []*schema.Column{ChatConversationsColumns[14]},
 				RefColumns: []*schema.Column{ProjectsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -551,7 +590,7 @@ var (
 			{
 				Name:    "chatconversation_project_id_user_id_source_provider_id_last_activity_at",
 				Unique:  false,
-				Columns: []*schema.Column{ChatConversationsColumns[13], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[10]},
+				Columns: []*schema.Column{ChatConversationsColumns[14], ChatConversationsColumns[1], ChatConversationsColumns[2], ChatConversationsColumns[3], ChatConversationsColumns[11]},
 			},
 		},
 	}
@@ -679,6 +718,74 @@ var (
 				Name:    "chatturn_conversation_id_started_at",
 				Unique:  false,
 				Columns: []*schema.Column{ChatTurnsColumns[8], ChatTurnsColumns[4]},
+			},
+		},
+	}
+	// InstanceAuthConfigsColumns holds the columns for the "instance_auth_configs" table.
+	InstanceAuthConfigsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "scope_key", Type: field.TypeString, Default: "instance"},
+		{Name: "status", Type: field.TypeString, Default: "absent"},
+		{Name: "issuer_url", Type: field.TypeString, Default: ""},
+		{Name: "client_id", Type: field.TypeString, Default: ""},
+		{Name: "client_secret_encrypted", Type: field.TypeJSON, Nullable: true},
+		{Name: "redirect_mode", Type: field.TypeString, Default: ""},
+		{Name: "redirect_url", Type: field.TypeString, Default: ""},
+		{Name: "scopes", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "email_claim", Type: field.TypeString, Default: "email"},
+		{Name: "name_claim", Type: field.TypeString, Default: "name"},
+		{Name: "username_claim", Type: field.TypeString, Default: "preferred_username"},
+		{Name: "groups_claim", Type: field.TypeString, Default: "groups"},
+		{Name: "allowed_email_domains", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "bootstrap_admin_emails", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
+		{Name: "session_ttl", Type: field.TypeString, Default: "8h"},
+		{Name: "session_idle_ttl", Type: field.TypeString, Default: "30m"},
+		{Name: "validation_metadata", Type: field.TypeJSON},
+		{Name: "activation_metadata", Type: field.TypeJSON},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// InstanceAuthConfigsTable holds the schema information for the "instance_auth_configs" table.
+	InstanceAuthConfigsTable = &schema.Table{
+		Name:       "instance_auth_configs",
+		Columns:    InstanceAuthConfigsColumns,
+		PrimaryKey: []*schema.Column{InstanceAuthConfigsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "instanceauthconfig_scope_key",
+				Unique:  true,
+				Columns: []*schema.Column{InstanceAuthConfigsColumns[1]},
+			},
+		},
+	}
+	// LocalBootstrapAuthRequestsColumns holds the columns for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code_hash", Type: field.TypeString},
+		{Name: "nonce_hash", Type: field.TypeString},
+		{Name: "purpose", Type: field.TypeString, Default: "browser_session"},
+		{Name: "requested_by", Type: field.TypeString, Default: ""},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_session_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// LocalBootstrapAuthRequestsTable holds the schema information for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsTable = &schema.Table{
+		Name:       "local_bootstrap_auth_requests",
+		Columns:    LocalBootstrapAuthRequestsColumns,
+		PrimaryKey: []*schema.Column{LocalBootstrapAuthRequestsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "localbootstrapauthrequest_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[5]},
+			},
+			{
+				Name:    "localbootstrapauthrequest_used_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[7]},
 			},
 		},
 	}
@@ -942,6 +1049,120 @@ var (
 				Name:    "organizationdailytokenusage_usage_date",
 				Unique:  false,
 				Columns: []*schema.Column{OrganizationDailyTokenUsagesColumns[1]},
+			},
+		},
+	}
+	// OrganizationInvitationsColumns holds the columns for the "organization_invitations" table.
+	OrganizationInvitationsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "email", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "admin", "member"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"pending", "accepted", "canceled", "expired"}, Default: "pending"},
+		{Name: "invited_by", Type: field.TypeString, Default: ""},
+		{Name: "invite_token_hash", Type: field.TypeString},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "sent_at", Type: field.TypeTime},
+		{Name: "accepted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "canceled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "membership_id", Type: field.TypeUUID},
+		{Name: "accepted_by_user_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// OrganizationInvitationsTable holds the schema information for the "organization_invitations" table.
+	OrganizationInvitationsTable = &schema.Table{
+		Name:       "organization_invitations",
+		Columns:    OrganizationInvitationsColumns,
+		PrimaryKey: []*schema.Column{OrganizationInvitationsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_invitations_organizations_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[12]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_invitations_organization_memberships_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[13]},
+				RefColumns: []*schema.Column{OrganizationMembershipsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_invitations_users_accepted_organization_invitations",
+				Columns:    []*schema.Column{OrganizationInvitationsColumns[14]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationinvitation_invite_token_hash",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[5]},
+			},
+			{
+				Name:    "organizationinvitation_organization_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[12], OrganizationInvitationsColumns[3]},
+			},
+			{
+				Name:    "organizationinvitation_membership_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationInvitationsColumns[13], OrganizationInvitationsColumns[3]},
+			},
+		},
+	}
+	// OrganizationMembershipsColumns holds the columns for the "organization_memberships" table.
+	OrganizationMembershipsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "email", Type: field.TypeString},
+		{Name: "role", Type: field.TypeEnum, Enums: []string{"owner", "admin", "member"}},
+		{Name: "status", Type: field.TypeEnum, Enums: []string{"invited", "active", "suspended", "removed"}, Default: "invited"},
+		{Name: "invited_by", Type: field.TypeString, Default: ""},
+		{Name: "invited_at", Type: field.TypeTime},
+		{Name: "accepted_at", Type: field.TypeTime, Nullable: true},
+		{Name: "suspended_at", Type: field.TypeTime, Nullable: true},
+		{Name: "removed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "user_id", Type: field.TypeUUID, Nullable: true},
+	}
+	// OrganizationMembershipsTable holds the schema information for the "organization_memberships" table.
+	OrganizationMembershipsTable = &schema.Table{
+		Name:       "organization_memberships",
+		Columns:    OrganizationMembershipsColumns,
+		PrimaryKey: []*schema.Column{OrganizationMembershipsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "organization_memberships_organizations_memberships",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[11]},
+				RefColumns: []*schema.Column{OrganizationsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "organization_memberships_users_organization_memberships",
+				Columns:    []*schema.Column{OrganizationMembershipsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "organizationmembership_organization_id_email",
+				Unique:  true,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[11], OrganizationMembershipsColumns[1]},
+			},
+			{
+				Name:    "organizationmembership_organization_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[11], OrganizationMembershipsColumns[3]},
+			},
+			{
+				Name:    "organizationmembership_user_id_status",
+				Unique:  false,
+				Columns: []*schema.Column{OrganizationMembershipsColumns[12], OrganizationMembershipsColumns[3]},
 			},
 		},
 	}
@@ -1440,6 +1661,87 @@ var (
 			},
 		},
 	}
+	// SecretsColumns holds the columns for the "secrets" table.
+	SecretsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"organization", "project"}},
+		{Name: "name", Type: field.TypeString},
+		{Name: "kind", Type: field.TypeEnum, Enums: []string{"opaque"}, Default: "opaque"},
+		{Name: "description", Type: field.TypeString, Size: 2147483647, Default: ""},
+		{Name: "algorithm", Type: field.TypeString},
+		{Name: "key_source", Type: field.TypeString},
+		{Name: "key_id", Type: field.TypeString},
+		{Name: "value_preview", Type: field.TypeString},
+		{Name: "nonce", Type: field.TypeString},
+		{Name: "ciphertext", Type: field.TypeString, Size: 2147483647},
+		{Name: "rotated_at", Type: field.TypeTime},
+		{Name: "disabled_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// SecretsTable holds the schema information for the "secrets" table.
+	SecretsTable = &schema.Table{
+		Name:       "secrets",
+		Columns:    SecretsColumns,
+		PrimaryKey: []*schema.Column{SecretsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "secret_organization_id_scope_kind_project_id_name",
+				Unique:  true,
+				Columns: []*schema.Column{SecretsColumns[1], SecretsColumns[3], SecretsColumns[2], SecretsColumns[4]},
+			},
+			{
+				Name:    "secret_organization_id_project_id_scope_kind_disabled_at",
+				Unique:  false,
+				Columns: []*schema.Column{SecretsColumns[1], SecretsColumns[2], SecretsColumns[3], SecretsColumns[14]},
+			},
+		},
+	}
+	// SecretBindingsColumns holds the columns for the "secret_bindings" table.
+	SecretBindingsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "organization_id", Type: field.TypeUUID},
+		{Name: "project_id", Type: field.TypeUUID},
+		{Name: "scope_kind", Type: field.TypeEnum, Enums: []string{"organization", "project", "workflow", "agent", "ticket"}},
+		{Name: "scope_resource_id", Type: field.TypeUUID},
+		{Name: "binding_key", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "secret_id", Type: field.TypeUUID},
+	}
+	// SecretBindingsTable holds the schema information for the "secret_bindings" table.
+	SecretBindingsTable = &schema.Table{
+		Name:       "secret_bindings",
+		Columns:    SecretBindingsColumns,
+		PrimaryKey: []*schema.Column{SecretBindingsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "secret_bindings_secrets_bindings",
+				Columns:    []*schema.Column{SecretBindingsColumns[8]},
+				RefColumns: []*schema.Column{SecretsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "secretbinding_scope_kind_scope_resource_id_binding_key",
+				Unique:  true,
+				Columns: []*schema.Column{SecretBindingsColumns[3], SecretBindingsColumns[4], SecretBindingsColumns[5]},
+			},
+			{
+				Name:    "secretbinding_organization_id_project_id_binding_key",
+				Unique:  false,
+				Columns: []*schema.Column{SecretBindingsColumns[1], SecretBindingsColumns[2], SecretBindingsColumns[5]},
+			},
+			{
+				Name:    "secretbinding_secret_id",
+				Unique:  false,
+				Columns: []*schema.Column{SecretBindingsColumns[8]},
+			},
+		},
+	}
 	// SkillsColumns holds the columns for the "skills" table.
 	SkillsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -1813,12 +2115,11 @@ var (
 	// TicketExternalLinksColumns holds the columns for the "ticket_external_links" table.
 	TicketExternalLinksColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
-		{Name: "link_type", Type: field.TypeEnum, Enums: []string{"github_issue", "gitlab_issue", "jira_ticket", "github_pr", "gitlab_mr", "custom"}},
+		{Name: "link_type", Type: field.TypeString, Nullable: true},
 		{Name: "url", Type: field.TypeString},
 		{Name: "external_id", Type: field.TypeString},
 		{Name: "title", Type: field.TypeString, Nullable: true},
 		{Name: "status", Type: field.TypeString, Nullable: true},
-		{Name: "relation", Type: field.TypeEnum, Enums: []string{"resolves", "related", "caused_by"}, Default: "related"},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "ticket_id", Type: field.TypeUUID},
 	}
@@ -1830,7 +2131,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "ticket_external_links_tickets_external_links",
-				Columns:    []*schema.Column{TicketExternalLinksColumns[8]},
+				Columns:    []*schema.Column{TicketExternalLinksColumns[7]},
 				RefColumns: []*schema.Column{TicketsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1839,7 +2140,7 @@ var (
 			{
 				Name:    "ticketexternallink_ticket_id_external_id",
 				Unique:  true,
-				Columns: []*schema.Column{TicketExternalLinksColumns[8], TicketExternalLinksColumns[3]},
+				Columns: []*schema.Column{TicketExternalLinksColumns[7], TicketExternalLinksColumns[3]},
 			},
 			{
 				Name:    "ticketexternallink_external_id",
@@ -2290,17 +2591,22 @@ var (
 		AgentTokensTable,
 		AgentTraceEventsTable,
 		ApprovalPolicyRulesTable,
+		AuthAuditEventsTable,
 		BrowserSessionsTable,
 		ChatConversationsTable,
 		ChatEntriesTable,
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
+		InstanceAuthConfigsTable,
+		LocalBootstrapAuthRequestsTable,
 		MachinesTable,
 		MachineChannelTokensTable,
 		NotificationChannelsTable,
 		NotificationRulesTable,
 		OrganizationsTable,
 		OrganizationDailyTokenUsagesTable,
+		OrganizationInvitationsTable,
+		OrganizationMembershipsTable,
 		ProjectsTable,
 		ProjectConversationPrincipalsTable,
 		ProjectConversationRunsTable,
@@ -2313,6 +2619,8 @@ var (
 		ProjectUpdateThreadRevisionsTable,
 		RoleBindingsTable,
 		ScheduledJobsTable,
+		SecretsTable,
+		SecretBindingsTable,
 		SkillsTable,
 		SkillBlobsTable,
 		SkillVersionsTable,
@@ -2375,6 +2683,11 @@ func init() {
 	NotificationRulesTable.ForeignKeys[1].RefTable = ProjectsTable
 	OrganizationsTable.ForeignKeys[0].RefTable = AgentProvidersTable
 	OrganizationDailyTokenUsagesTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationInvitationsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationInvitationsTable.ForeignKeys[1].RefTable = OrganizationMembershipsTable
+	OrganizationInvitationsTable.ForeignKeys[2].RefTable = UsersTable
+	OrganizationMembershipsTable.ForeignKeys[0].RefTable = OrganizationsTable
+	OrganizationMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
@@ -2384,6 +2697,7 @@ func init() {
 	ProjectUpdateThreadRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
 	ScheduledJobsTable.ForeignKeys[0].RefTable = ProjectsTable
 	ScheduledJobsTable.ForeignKeys[1].RefTable = WorkflowsTable
+	SecretBindingsTable.ForeignKeys[0].RefTable = SecretsTable
 	SkillsTable.ForeignKeys[0].RefTable = ProjectsTable
 	SkillsTable.ForeignKeys[1].RefTable = SkillVersionsTable
 	SkillVersionsTable.ForeignKeys[0].RefTable = SkillsTable

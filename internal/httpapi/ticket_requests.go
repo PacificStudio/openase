@@ -19,7 +19,6 @@ type rawCreateTicketRequest struct {
 	Type           *string                           `json:"type"`
 	WorkflowID     *string                           `json:"workflow_id"`
 	RepoScopes     []rawCreateTicketRepoScopeRequest `json:"repo_scopes"`
-	CreatedBy      *string                           `json:"created_by"`
 	ParentTicketID *string                           `json:"parent_ticket_id"`
 	ExternalRef    *string                           `json:"external_ref"`
 	BudgetUSD      *float64                          `json:"budget_usd"`
@@ -38,7 +37,6 @@ type rawUpdateTicketRequest struct {
 	Priority       *string  `json:"priority"`
 	Type           *string  `json:"type"`
 	WorkflowID     *string  `json:"workflow_id"`
-	CreatedBy      *string  `json:"created_by"`
 	ParentTicketID *string  `json:"parent_ticket_id"`
 	ExternalRef    *string  `json:"external_ref"`
 	BudgetUSD      *float64 `json:"budget_usd"`
@@ -54,26 +52,23 @@ type parsedAddDependencyRequest struct {
 }
 
 type rawAddExternalLinkRequest struct {
-	Type       string  `json:"type"`
+	Type       *string `json:"type"`
 	URL        string  `json:"url"`
 	ExternalID string  `json:"external_id"`
 	Title      *string `json:"title"`
 	Status     *string `json:"status"`
-	Relation   *string `json:"relation"`
 }
 
 type rawCreateTicketCommentRequest struct {
-	Body      string  `json:"body"`
-	CreatedBy *string `json:"created_by"`
+	Body string `json:"body"`
 }
 
 type rawUpdateTicketCommentRequest struct {
 	Body       string  `json:"body"`
-	EditedBy   *string `json:"edited_by"`
 	EditReason *string `json:"edit_reason"`
 }
 
-func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
+func parseCreateTicketRequest(projectID uuid.UUID, auditActor string, raw rawCreateTicketRequest) (ticketservice.CreateInput, error) {
 	title := strings.TrimSpace(raw.Title)
 	if title == "" {
 		return ticketservice.CreateInput{}, fmt.Errorf("title must not be empty")
@@ -119,6 +114,9 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 		WorkflowID:     workflowID,
 		ParentTicketID: parentTicketID,
 	}
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = strings.TrimSpace(auditActor)
+	}
 	if len(raw.RepoScopes) > 0 {
 		input.RepoScopes = make([]ticketservice.CreateRepoScopeInput, 0, len(raw.RepoScopes))
 		for index, scope := range raw.RepoScopes {
@@ -139,9 +137,6 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 			})
 		}
 	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
-	}
 	if raw.ExternalRef != nil {
 		input.ExternalRef = strings.TrimSpace(*raw.ExternalRef)
 	}
@@ -155,8 +150,11 @@ func parseCreateTicketRequest(projectID uuid.UUID, raw rawCreateTicketRequest) (
 	return input, nil
 }
 
-func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (ticketservice.UpdateInput, error) {
+func parseUpdateTicketRequest(ticketID uuid.UUID, auditActor string, raw rawUpdateTicketRequest) (ticketservice.UpdateInput, error) {
 	input := ticketservice.UpdateInput{TicketID: ticketID}
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = ticketservice.Some(strings.TrimSpace(auditActor))
+	}
 
 	if raw.Title != nil {
 		title := strings.TrimSpace(*raw.Title)
@@ -198,9 +196,6 @@ func parseUpdateTicketRequest(ticketID uuid.UUID, raw rawUpdateTicketRequest) (t
 			return ticketservice.UpdateInput{}, err
 		}
 		input.WorkflowID = ticketservice.Some(workflowID)
-	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = ticketservice.Some(strings.TrimSpace(*raw.CreatedBy))
 	}
 	if raw.ParentTicketID != nil {
 		parentTicketID, err := parseOptionalUUIDString("parent_ticket_id", raw.ParentTicketID)
@@ -259,7 +254,7 @@ func parseAddDependencyRequest(ticketID uuid.UUID, raw rawAddDependencyRequest) 
 }
 
 func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkRequest) (ticketservice.AddExternalLinkInput, error) {
-	linkType, err := parseExternalLinkType(raw.Type)
+	linkType, err := parseOptionalExternalLinkType(raw.Type)
 	if err != nil {
 		return ticketservice.AddExternalLinkInput{}, err
 	}
@@ -275,20 +270,11 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 		return ticketservice.AddExternalLinkInput{}, fmt.Errorf("external_id must not be empty")
 	}
 
-	relation := ticketservice.DefaultExternalLinkRelation
-	if raw.Relation != nil {
-		relation, err = parseExternalLinkRelation(*raw.Relation)
-		if err != nil {
-			return ticketservice.AddExternalLinkInput{}, err
-		}
-	}
-
 	input := ticketservice.AddExternalLinkInput{
 		TicketID:   ticketID,
 		LinkType:   linkType,
 		URL:        trimmedURL,
 		ExternalID: externalID,
-		Relation:   relation,
 	}
 	if raw.Title != nil {
 		input.Title = strings.TrimSpace(*raw.Title)
@@ -300,7 +286,7 @@ func parseAddExternalLinkRequest(ticketID uuid.UUID, raw rawAddExternalLinkReque
 	return input, nil
 }
 
-func parseCreateTicketCommentRequest(ticketID uuid.UUID, raw rawCreateTicketCommentRequest) (ticketservice.AddCommentInput, error) {
+func parseCreateTicketCommentRequest(ticketID uuid.UUID, auditActor string, raw rawCreateTicketCommentRequest) (ticketservice.AddCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
 		return ticketservice.AddCommentInput{}, fmt.Errorf("body must not be empty")
@@ -310,14 +296,14 @@ func parseCreateTicketCommentRequest(ticketID uuid.UUID, raw rawCreateTicketComm
 		TicketID: ticketID,
 		Body:     body,
 	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = strings.TrimSpace(auditActor)
 	}
 
 	return input, nil
 }
 
-func parseUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, raw rawUpdateTicketCommentRequest) (ticketservice.UpdateCommentInput, error) {
+func parseUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, auditActor string, raw rawUpdateTicketCommentRequest) (ticketservice.UpdateCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
 	if body == "" {
 		return ticketservice.UpdateCommentInput{}, fmt.Errorf("body must not be empty")
@@ -328,8 +314,8 @@ func parseUpdateTicketCommentRequest(ticketID uuid.UUID, commentID uuid.UUID, ra
 		CommentID: commentID,
 		Body:      body,
 	}
-	if raw.EditedBy != nil {
-		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.EditedBy = strings.TrimSpace(auditActor)
 	}
 	if raw.EditReason != nil {
 		input.EditReason = strings.TrimSpace(*raw.EditReason)
@@ -378,8 +364,17 @@ func parseExternalLinkType(raw string) (ticketservice.ExternalLinkType, error) {
 	return ticketservice.ParseExternalLinkType(raw)
 }
 
-func parseExternalLinkRelation(raw string) (ticketservice.ExternalLinkRelation, error) {
-	return ticketservice.ParseExternalLinkRelation(raw)
+func parseOptionalExternalLinkType(raw *string) (ticketservice.ExternalLinkType, error) {
+	if raw == nil {
+		return "", nil
+	}
+
+	trimmed := strings.TrimSpace(*raw)
+	if trimmed == "" {
+		return "", nil
+	}
+
+	return parseExternalLinkType(trimmed)
 }
 
 func parseCSVQueryValues(c echo.Context, name string) []string {

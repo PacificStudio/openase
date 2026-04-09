@@ -31,11 +31,11 @@ func TestBuildSkillImportPayloadPackagesBundleDirectory(t *testing.T) {
 		t.Fatalf("write reference: %v", err)
 	}
 
-	payload, err := buildSkillImportPayload(root, "", "user:cli", enableFlagValue(true, false))
+	payload, err := buildSkillImportPayload(root, "", enableFlagValue(true, false))
 	if err != nil {
 		t.Fatalf("buildSkillImportPayload() error = %v", err)
 	}
-	if payload.Name != "deploy-openase" || payload.CreatedBy != "user:cli" || payload.IsEnabled == nil || !*payload.IsEnabled {
+	if payload.Name != "deploy-openase" || payload.IsEnabled == nil || !*payload.IsEnabled {
 		t.Fatalf("unexpected payload metadata: %+v", payload)
 	}
 	if paths := []string{payload.Files[0].Path, payload.Files[1].Path, payload.Files[2].Path}; !slices.Equal(paths, []string{"SKILL.md", "references/runbook.md", "scripts/redeploy.sh"}) {

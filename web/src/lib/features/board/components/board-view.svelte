@@ -18,6 +18,7 @@
     ondropticket,
     onStatusChange,
     onPriorityChange,
+    onArchiveTicket,
     onCreateTicket,
     onColumnAction,
   }: {
@@ -34,6 +35,7 @@
     ondropticket?: (ticketId: string, columnId: string) => void
     onStatusChange?: (ticketId: string, statusId: string) => void
     onPriorityChange?: (ticketId: string, priority: BoardTicket['priority']) => void
+    onArchiveTicket?: (ticketId: string) => void
     onCreateTicket?: (statusId: string) => void
     onColumnAction?: (columnId: string, action: string) => void
   } = $props()
@@ -131,6 +133,7 @@
                   {ondropticket}
                   {onStatusChange}
                   {onPriorityChange}
+                  {onArchiveTicket}
                   {onCreateTicket}
                   {onColumnAction}
                   isDropTarget={dropColumnId === column.id}

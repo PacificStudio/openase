@@ -43,6 +43,52 @@ type MockGitHubSlot = {
 
 type MockSecuritySettings = {
   project_id: string
+  auth: {
+    active_mode: string
+    configured_mode: string
+    issuer_url: string
+    local_principal: string
+    mode_summary: string
+    recommended_mode: string
+    public_exposure_risk: string
+    warnings: string[]
+    next_steps: string[]
+    config_path: string
+    bootstrap_state: {
+      status: string
+      admin_emails: string[]
+      summary: string
+    }
+    session_policy: {
+      session_ttl: string
+      session_idle_ttl: string
+    }
+    last_validation: {
+      status: string
+      message: string
+      checked_at: string
+      issuer_url: string
+      authorization_endpoint: string
+      token_endpoint: string
+      redirect_url: string
+      warnings: string[]
+    }
+    oidc_draft: {
+      issuer_url: string
+      client_id: string
+      client_secret_configured: boolean
+      redirect_mode: string
+      fixed_redirect_url: string
+      scopes: string[]
+      allowed_email_domains: string[]
+      bootstrap_admin_emails: string[]
+    }
+    docs: Array<{
+      title: string
+      href: string
+      summary: string
+    }>
+  }
   agent_tokens: {
     transport: string
     environment_variable: string
@@ -81,6 +127,7 @@ type MockState = {
   agents: Record<string, unknown>[]
   agentRuns: Record<string, unknown>[]
   activityEvents: Record<string, unknown>[]
+  projectUpdates: Record<string, unknown>[]
   tickets: Record<string, unknown>[]
   statuses: Record<string, unknown>[]
   repos: Record<string, unknown>[]
@@ -108,6 +155,8 @@ type MockState = {
     agent: number
     skill: number
     scheduledJob: number
+    projectUpdateThread: number
+    projectUpdateComment: number
     projectConversation: number
     projectConversationEntry: number
     projectConversationTurn: number
@@ -146,13 +195,57 @@ export async function handleMockApi(request: Request, url: URL): Promise<Respons
   if (url.pathname === '/api/v1/auth/session' && request.method === 'GET') {
     return jsonResponse({
       auth_mode: 'disabled',
-      authenticated: false,
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
       issuer_url: '',
       user: null,
       csrf_token: '',
-      roles: [],
-      permissions: [],
+      roles: ['instance_admin'],
+      permissions: ['security_setting.read', 'security_setting.update', 'rbac.manage'],
     })
+  }
+
+  if (url.pathname === '/api/v1/auth/me/permissions' && request.method === 'GET') {
+    const projectId = url.searchParams.get('project_id') ?? ''
+    const orgId = url.searchParams.get('org_id') ?? ''
+    const scopeKind = projectId ? 'project' : orgId ? 'organization' : 'instance'
+    const scopeID = projectId || orgId
+    const roles =
+      scopeKind === 'project'
+        ? ['project_admin']
+        : scopeKind === 'organization'
+          ? ['instance_admin']
+          : ['instance_admin']
+    const permissions =
+      scopeKind === 'project'
+        ? ['project.read', 'project.update', 'rbac.manage']
+        : scopeKind === 'organization'
+          ? ['org.read', 'org.update', 'rbac.manage']
+          : ['security_setting.read', 'security_setting.update', 'rbac.manage']
+    return jsonResponse({
+      auth_mode: 'disabled',
+      login_required: false,
+      authenticated: true,
+      principal_kind: 'local_bootstrap',
+      auth_configured: false,
+      session_governance_available: false,
+      can_manage_auth: true,
+      scope: {
+        kind: scopeKind,
+        id: scopeID,
+      },
+      roles,
+      permissions,
+      groups: [],
+    })
+  }
+
+  if (url.pathname === '/api/v1/admin/auth' && request.method === 'GET') {
+    return jsonResponse({ auth: clone(resolveSecuritySettings(PROJECT_ID).auth) })
   }
 
   if (url.pathname === '/api/v1/auth/logout' && request.method === 'POST') {
@@ -240,6 +333,56 @@ async function handleOrgRoutes(request: Request, segments: string[]) {
       projects: clone(mockState.projects.filter((project) => project.org_id === orgId)),
     })
   }
+  if (segments[2] === 'summary' && request.method === 'GET') {
+    return jsonResponse({
+      organization: {
+        id: ORG_ID,
+        name: 'OpenASE E2E',
+        slug: 'openase-e2e',
+        project_count: 1,
+        active_project_count: 1,
+      },
+      projects: clone(mockState.projects.filter((project) => project.org_id === orgId)),
+    })
+  }
+  if (segments[2] === 'token-usage' && request.method === 'GET') {
+    return jsonResponse({
+      summary: {
+        total_tokens: 4200,
+        avg_daily_tokens: 600,
+        peak_day: {
+          date: '2026-03-25',
+          total_tokens: 900,
+        },
+      },
+      days: [],
+    })
+  }
+  if (segments[2] === 'members' && request.method === 'GET') {
+    return jsonResponse({
+      memberships: [
+        {
+          id: 'membership-1',
+          organization_id: ORG_ID,
+          user_id: 'user-1',
+          email: 'alice@example.com',
+          role: 'org_admin',
+          status: 'active',
+          invited_by: 'user:seed',
+          invited_at: nowIso,
+          accepted_at: nowIso,
+          created_at: nowIso,
+          updated_at: nowIso,
+          user: {
+            id: 'user-1',
+            primary_email: 'alice@example.com',
+            display_name: 'Alice Admin',
+            avatar_url: '',
+          },
+        },
+      ],
+    })
+  }
   if (segments[2] === 'providers' && request.method === 'GET') {
     return jsonResponse({
       providers: clone(mockState.providers.filter((provider) => provider.org_id === orgId)),
@@ -315,6 +458,75 @@ async function handleProjectRoutes(request: Request, segments: string[], _url: U
     return jsonResponse({
       events: clone(mockState.activityEvents.filter((event) => event.project_id === projectId)),
     })
+  }
+
+  if (segments[2] === 'updates') {
+    if (segments.length === 3 && request.method === 'GET') {
+      return jsonResponse({
+        threads: clone(
+          mockState.projectUpdates.filter((thread) => thread.project_id === projectId),
+        ),
+      })
+    }
+
+    if (segments.length === 3 && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const thread = createProjectUpdateThreadRecord(projectId, body)
+      mockState.projectUpdates.unshift(thread)
+      return jsonResponse({ thread: clone(thread) }, 201)
+    }
+
+    const thread = findById(mockState.projectUpdates, segments[3])
+    if (!thread) {
+      return notFound('Project update not found.')
+    }
+
+    if (segments.length === 4 && request.method === 'PATCH') {
+      const body = await readBody<Record<string, unknown>>(request)
+      updateProjectUpdateThreadRecord(thread, body)
+      return jsonResponse({ thread: clone(thread) })
+    }
+
+    if (segments.length === 4 && request.method === 'DELETE') {
+      deleteProjectUpdateThreadRecord(thread)
+      return jsonResponse({ deleted_thread_id: asString(thread.id) })
+    }
+
+    if (segments.length === 5 && segments[4] === 'comments' && request.method === 'POST') {
+      const body = await readBody<Record<string, unknown>>(request)
+      const comment = createProjectUpdateCommentRecord(asString(thread.id) ?? '', body)
+      const comments = readProjectUpdateComments(thread)
+      comments.push(comment)
+      thread.comments = comments
+      thread.comment_count = comments.filter((item) => !item.is_deleted).length
+      thread.last_activity_at = comment.updated_at
+      thread.updated_at = comment.updated_at
+      return jsonResponse({ comment: clone(comment) }, 201)
+    }
+
+    if (segments.length === 6 && segments[4] === 'comments') {
+      const comments = readProjectUpdateComments(thread)
+      const comment = comments.find((item) => item.id === segments[5])
+      if (!comment) {
+        return notFound('Project update comment not found.')
+      }
+
+      if (request.method === 'PATCH') {
+        const body = await readBody<Record<string, unknown>>(request)
+        updateProjectUpdateCommentRecord(comment, body)
+        thread.last_activity_at = comment.updated_at
+        thread.updated_at = comment.updated_at
+        return jsonResponse({ comment: clone(comment) })
+      }
+
+      if (request.method === 'DELETE') {
+        deleteProjectUpdateCommentRecord(comment)
+        thread.comment_count = comments.filter((item) => !item.is_deleted).length
+        thread.last_activity_at = comment.updated_at
+        thread.updated_at = comment.updated_at
+        return jsonResponse({ deleted_comment_id: asString(comment.id) })
+      }
+    }
   }
 
   if (segments[2] === 'security-settings') {
@@ -681,6 +893,7 @@ async function handleProviderRoutes(request: Request, segments: string[]) {
   provider.cost_per_output_token =
     asNumber(body.cost_per_output_token) ?? provider.cost_per_output_token
   provider.auth_config = asObject(body.auth_config) ?? {}
+  provider.secret_bindings = asSecretBindings(body.secret_bindings)
 
   return jsonResponse({ provider: clone(provider) })
 }
@@ -1215,9 +1428,6 @@ function createInitialState(): MockState {
       execution_mode: 'local_process',
       execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
       ssh_helper_enabled: false,
-      ssh_helper_required: false,
-      connection_mode: 'local',
-      transport_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
       ssh_user: '',
       ssh_key_path: '',
       advertised_endpoint: null,
@@ -1261,15 +1471,12 @@ function createInitialState(): MockState {
       host: '10.0.0.42',
       port: 22,
       reachability_mode: 'direct_connect',
-      execution_mode: 'ssh_compat',
+      execution_mode: 'websocket',
       execution_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
       ssh_helper_enabled: true,
-      ssh_helper_required: true,
-      connection_mode: 'ssh',
-      transport_capabilities: ['probe', 'workspace_prepare', 'artifact_sync', 'process_streaming'],
       ssh_user: 'openase',
       ssh_key_path: '~/.ssh/openase_rsa',
-      advertised_endpoint: null,
+      advertised_endpoint: 'ws://10.0.0.42:19840/runtime',
       daemon_status: {
         registered: false,
         last_registered_at: null,
@@ -1334,18 +1541,11 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'available',
-          reason: null,
-        },
       },
       cli_command: 'python3',
       cli_args: ['/home/user/workspace/openase/scripts/dev/fake_codex_app_server.py'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1374,18 +1574,11 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'unsupported',
-          reason: 'skill_ai_requires_codex',
-        },
       },
       cli_command: 'claude',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'claude-opus-4-6',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1414,18 +1607,11 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'unsupported',
-          reason: 'skill_ai_requires_codex',
-        },
       },
       cli_command: 'gemini',
       cli_args: [],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gemini-2.5-pro',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1454,18 +1640,11 @@ function createInitialState(): MockState {
           state: 'available',
           reason: null,
         },
-        harness_ai: {
-          state: 'available',
-          reason: null,
-        },
-        skill_ai: {
-          state: 'available',
-          reason: null,
-        },
       },
       cli_command: 'codex',
       cli_args: ['app-server', '--listen', 'stdio://'],
       auth_config: {},
+      secret_bindings: [],
       model_name: 'gpt-5.4',
       model_temperature: 0,
       model_max_tokens: 16384,
@@ -1521,7 +1700,7 @@ function createInitialState(): MockState {
       project_id: PROJECT_ID,
       ticket_id: DEFAULT_TICKET_ID,
       agent_id: DEFAULT_AGENT_ID,
-      event_type: 'agent_started',
+      event_type: 'agent.executing',
       message: 'coding-main started work.',
       metadata: {
         agent_name: 'coding-main',
@@ -1529,6 +1708,8 @@ function createInitialState(): MockState {
       created_at: nowIso,
     },
   ]
+
+  const projectUpdates: Record<string, unknown>[] = []
 
   const tickets = [
     createMockTicketRecord({
@@ -1732,6 +1913,7 @@ function createInitialState(): MockState {
     agents,
     agentRuns,
     activityEvents,
+    projectUpdates,
     tickets,
     statuses,
     repos,
@@ -1753,6 +1935,8 @@ function createInitialState(): MockState {
       agent: 1,
       skill: 2,
       scheduledJob: 1,
+      projectUpdateThread: 0,
+      projectUpdateComment: 0,
       projectConversation: 0,
       projectConversationEntry: 0,
       projectConversationTurn: 0,
@@ -1811,6 +1995,77 @@ function createDefaultSecuritySettings(projectId: string): MockSecuritySettings 
   const projectOverride = createEmptyGitHubSlot('project')
   return {
     project_id: projectId,
+    auth: {
+      active_mode: 'disabled',
+      configured_mode: 'disabled',
+      issuer_url: '',
+      local_principal: 'local_instance_admin:default',
+      mode_summary:
+        'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
+      recommended_mode:
+        'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
+      public_exposure_risk: 'local_only',
+      warnings: [
+        'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
+      ],
+      next_steps: [
+        'Create a local bootstrap link for administrators who still need browser access on this machine.',
+        'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
+        'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
+      ],
+      config_path: '/home/test/.openase/config.yaml',
+      bootstrap_state: {
+        status: 'configured',
+        admin_emails: ['admin@example.com'],
+        summary:
+          '1 bootstrap admin email(s) will receive instance_admin on first successful OIDC login.',
+      },
+      session_policy: {
+        session_ttl: '8h0m0s',
+        session_idle_ttl: '30m0s',
+      },
+      last_validation: {
+        status: 'ok',
+        message:
+          'OIDC discovery succeeded. Saving this draft still keeps the active mode unchanged until you explicitly enable OIDC.',
+        checked_at: nowIso,
+        issuer_url: 'https://idp.example.com',
+        authorization_endpoint: 'https://idp.example.com/authorize',
+        token_endpoint: 'https://idp.example.com/token',
+        redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        warnings: [],
+      },
+      oidc_draft: {
+        issuer_url: 'https://idp.example.com',
+        client_id: 'openase',
+        client_secret_configured: true,
+        redirect_mode: 'fixed',
+        fixed_redirect_url: 'http://127.0.0.1:19836/api/v1/auth/oidc/callback',
+        scopes: ['openid', 'profile', 'email', 'groups'],
+        allowed_email_domains: ['example.com'],
+        bootstrap_admin_emails: ['admin@example.com'],
+      },
+      docs: [
+        {
+          title: 'Mode selection guide',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
+          summary:
+            'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
+        },
+        {
+          title: 'Dual-mode contract',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
+          summary:
+            'Read the access-control contract, YAML import behavior, and local recovery paths.',
+        },
+        {
+          title: 'IAM rollout checklist',
+          href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
+          summary:
+            'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
+        },
+      ],
+    },
     agent_tokens: {
       transport: 'Bearer token',
       environment_variable: 'OPENASE_AGENT_TOKEN',
@@ -1937,6 +2192,7 @@ function createMockTicketRecord(input: {
     children: [],
     dependencies: [],
     external_links: [],
+    pull_request_urls: [],
     external_ref: '',
     budget_usd: 0,
     cost_tokens_input: 0,
@@ -1952,6 +2208,112 @@ function createMockTicketRecord(input: {
     pause_reason: '',
     created_at: input.createdAt ?? nowIso,
   }
+}
+
+function createProjectUpdateThreadRecord(projectId: string, input: Record<string, unknown>) {
+  const createdAt = nowIso
+  const body = asString(input.body)?.trim() ?? ''
+  const status = parseProjectUpdateStatus(asString(input.status))
+  const title = asString(input.title)?.trim() || summarizeProjectUpdateTitle(body)
+
+  return {
+    id: `update-thread-${++mockState.counters.projectUpdateThread}`,
+    project_id: projectId,
+    status,
+    title,
+    body_markdown: body,
+    created_by: asString(input.created_by) ?? 'playwright',
+    created_at: createdAt,
+    updated_at: createdAt,
+    edited_at: null,
+    edit_count: 0,
+    last_edited_by: null,
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+    last_activity_at: createdAt,
+    comment_count: 0,
+    comments: [],
+  }
+}
+
+function updateProjectUpdateThreadRecord(
+  thread: Record<string, unknown>,
+  input: Record<string, unknown>,
+) {
+  const updatedAt = nowIso
+  thread.status = parseProjectUpdateStatus(asString(input.status))
+  thread.title =
+    asString(input.title)?.trim() || summarizeProjectUpdateTitle(asString(input.body) ?? '')
+  thread.body_markdown = asString(input.body)?.trim() ?? ''
+  thread.updated_at = updatedAt
+  thread.edited_at = updatedAt
+  thread.edit_count = (asNumber(thread.edit_count) ?? 0) + 1
+  thread.last_edited_by = asString(input.edited_by) ?? 'playwright'
+  thread.last_activity_at = updatedAt
+}
+
+function deleteProjectUpdateThreadRecord(thread: Record<string, unknown>) {
+  const deletedAt = nowIso
+  thread.is_deleted = true
+  thread.deleted_at = deletedAt
+  thread.deleted_by = 'playwright'
+  thread.updated_at = deletedAt
+  thread.last_activity_at = deletedAt
+}
+
+function createProjectUpdateCommentRecord(threadId: string, input: Record<string, unknown>) {
+  const createdAt = nowIso
+  return {
+    id: `update-comment-${++mockState.counters.projectUpdateComment}`,
+    thread_id: threadId,
+    body_markdown: asString(input.body)?.trim() ?? '',
+    created_by: asString(input.created_by) ?? 'playwright',
+    created_at: createdAt,
+    updated_at: createdAt,
+    edited_at: null,
+    edit_count: 0,
+    last_edited_by: null,
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+  }
+}
+
+function updateProjectUpdateCommentRecord(
+  comment: Record<string, unknown>,
+  input: Record<string, unknown>,
+) {
+  const updatedAt = nowIso
+  comment.body_markdown = asString(input.body)?.trim() ?? ''
+  comment.updated_at = updatedAt
+  comment.edited_at = updatedAt
+  comment.edit_count = (asNumber(comment.edit_count) ?? 0) + 1
+  comment.last_edited_by = asString(input.edited_by) ?? 'playwright'
+}
+
+function deleteProjectUpdateCommentRecord(comment: Record<string, unknown>) {
+  const deletedAt = nowIso
+  comment.is_deleted = true
+  comment.deleted_at = deletedAt
+  comment.deleted_by = 'playwright'
+  comment.updated_at = deletedAt
+}
+
+function readProjectUpdateComments(thread: Record<string, unknown>) {
+  return Array.isArray(thread.comments) ? [...thread.comments] : []
+}
+
+function summarizeProjectUpdateTitle(body: string) {
+  const firstLine = body.split('\n')[0]?.trim() ?? ''
+  if (firstLine.length > 0) {
+    return firstLine.slice(0, 72)
+  }
+  return 'Update'
+}
+
+function parseProjectUpdateStatus(raw: string | null | undefined) {
+  return raw === 'at_risk' || raw === 'off_track' ? raw : 'on_track'
 }
 
 function buildTicketDetailPayload(ticketId: string) {
@@ -2378,9 +2740,6 @@ function createMachineRecord(body: Record<string, unknown>) {
     execution_mode: executionMode,
     execution_capabilities: executionCapabilities,
     ssh_helper_enabled: Boolean(sshUser || sshKeyPath),
-    ssh_helper_required: executionMode === 'ssh_compat',
-    connection_mode: connectionMode,
-    transport_capabilities: executionCapabilities,
     ssh_user: sshUser,
     ssh_key_path: sshKeyPath,
     advertised_endpoint: asString(body.advertised_endpoint),
@@ -2394,9 +2753,7 @@ function createMachineRecord(body: Record<string, unknown>) {
     detected_arch: 'unknown',
     detection_status: 'unknown',
     detection_message:
-      executionMode === 'ssh_compat'
-        ? 'This machine still uses SSH compatibility until it is migrated to websocket execution.'
-        : 'Operating system and architecture are still unknown. You can keep configuring the machine and verify the platform manually.',
+      'Operating system and architecture are still unknown. You can keep configuring the machine and verify the platform manually.',
     channel_credential: {
       kind: 'none',
       token_id: null,
@@ -2454,20 +2811,17 @@ function applyMachineMutation(machine: Record<string, unknown>, body: Record<str
   machine.port = asNumber(body.port) ?? machine.port
   machine.reachability_mode = resolveMachineReachabilityMode(body, asString(machine.host) ?? '')
   machine.execution_mode = resolveMachineExecutionMode(body, asString(machine.host) ?? '')
-  machine.connection_mode = resolveMachineConnectionMode(
-    asString(machine.reachability_mode) ?? 'direct_connect',
-    asString(machine.execution_mode) ?? 'websocket',
-  )
   machine.execution_capabilities = executionCapabilitiesForConnectionMode(
-    asString(machine.connection_mode) ?? 'ssh',
+    resolveMachineConnectionMode(
+      asString(machine.reachability_mode) ?? 'direct_connect',
+      asString(machine.execution_mode) ?? 'websocket',
+    ),
   )
-  machine.transport_capabilities = clone(machine.execution_capabilities)
   machine.ssh_user = asString(body.ssh_user) ?? machine.ssh_user
   machine.ssh_key_path = asString(body.ssh_key_path) ?? machine.ssh_key_path
   machine.ssh_helper_enabled = Boolean(
     (asString(machine.ssh_user) ?? '').trim() || (asString(machine.ssh_key_path) ?? '').trim(),
   )
-  machine.ssh_helper_required = asString(machine.execution_mode) === 'ssh_compat'
   machine.advertised_endpoint = asString(body.advertised_endpoint) ?? machine.advertised_endpoint
   machine.description = asString(body.description) ?? machine.description
   machine.labels = asStringArray(body.labels)
@@ -2482,47 +2836,25 @@ function resolveMachineReachabilityMode(body: Record<string, unknown>, host: str
   if (raw === 'local' || raw === 'direct_connect' || raw === 'reverse_connect') {
     return raw
   }
-  const legacy = asString(body.connection_mode)
-  switch (legacy) {
-    case 'local':
-      return 'local'
-    case 'ws_reverse':
-      return 'reverse_connect'
-    case 'ssh':
-    case 'ws_listener':
-      return 'direct_connect'
-    default:
-      return host.trim().toLowerCase() === 'local' ? 'local' : 'direct_connect'
-  }
+  return host.trim().toLowerCase() === 'local' ? 'local' : 'direct_connect'
 }
 
 function resolveMachineExecutionMode(body: Record<string, unknown>, host: string) {
   const raw = asString(body.execution_mode)
-  if (raw === 'local_process' || raw === 'websocket' || raw === 'ssh_compat') {
+  if (raw === 'local_process' || raw === 'websocket') {
     return raw
   }
-  const legacy = asString(body.connection_mode)
-  switch (legacy) {
-    case 'local':
-      return 'local_process'
-    case 'ssh':
-      return 'ssh_compat'
-    case 'ws_reverse':
-    case 'ws_listener':
-      return 'websocket'
-    default:
-      return host.trim().toLowerCase() === 'local' ? 'local_process' : 'websocket'
-  }
+  return host.trim().toLowerCase() === 'local' ? 'local_process' : 'websocket'
 }
 
-function resolveMachineConnectionMode(reachabilityMode: string, executionMode: string) {
+function resolveMachineConnectionMode(reachabilityMode: string, _executionMode: string) {
   if (reachabilityMode === 'local') {
     return 'local'
   }
   if (reachabilityMode === 'reverse_connect') {
     return 'ws_reverse'
   }
-  return executionMode === 'ssh_compat' ? 'ssh' : 'ws_listener'
+  return 'ws_listener'
 }
 
 function executionCapabilitiesForConnectionMode(connectionMode: string) {
@@ -2674,6 +3006,17 @@ function asObjectArray(value: JsonValue | undefined): Record<string, unknown>[] 
           !!item && typeof item === 'object' && !Array.isArray(item),
       )
     : null
+}
+
+function asSecretBindings(
+  value: JsonValue | undefined,
+): Array<{ env_var_key: string; binding_key: string; configured: boolean; source: string }> {
+  return (asObjectArray(value) ?? []).map((item) => ({
+    env_var_key: asString(item.env_var_key) ?? '',
+    binding_key: asString(item.binding_key) ?? '',
+    configured: true,
+    source: 'binding',
+  }))
 }
 
 function decodeBase64UTF8(value: string): string {

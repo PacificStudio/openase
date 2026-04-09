@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entorganization "github.com/BetterAndBetterII/openase/ent/organization"
 	entproject "github.com/BetterAndBetterII/openase/ent/project"
 	entprojectrepo "github.com/BetterAndBetterII/openase/ent/projectrepo"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -12,6 +13,7 @@ import (
 )
 
 type Repository interface {
+	GetOrganizationContext(ctx context.Context, orgID uuid.UUID) (domain.OrgContext, error)
 	GetProjectContext(ctx context.Context, projectID uuid.UUID) (domain.ProjectContext, error)
 	SaveOrganizationCredential(ctx context.Context, organizationID uuid.UUID, credential domain.StoredCredential, probe domain.TokenProbe) error
 	SaveProjectCredential(ctx context.Context, projectID uuid.UUID, credential domain.StoredCredential, probe domain.TokenProbe) error
@@ -27,6 +29,23 @@ type EntRepository struct {
 
 func NewEntRepository(client *ent.Client) *EntRepository {
 	return &EntRepository{client: client}
+}
+
+func (r *EntRepository) GetOrganizationContext(ctx context.Context, orgID uuid.UUID) (domain.OrgContext, error) {
+	org, err := r.client.Organization.Query().
+		Where(entorganization.IDEQ(orgID)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return domain.OrgContext{}, fmt.Errorf("organization not found: %w", err)
+		}
+		return domain.OrgContext{}, fmt.Errorf("load organization GitHub auth context: %w", err)
+	}
+	return domain.OrgContext{
+		OrganizationID: org.ID,
+		Credential:     cloneStoredCredential(org.GithubOutboundCredential),
+		Probe:          cloneProbe(org.GithubTokenProbe),
+	}, nil
 }
 
 func (r *EntRepository) GetProjectContext(ctx context.Context, projectID uuid.UUID) (domain.ProjectContext, error) {

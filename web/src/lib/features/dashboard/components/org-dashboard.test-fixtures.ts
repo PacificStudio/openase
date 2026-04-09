@@ -55,6 +55,7 @@ export const ticketPayload = {
       children: [],
       dependencies: [],
       external_links: [],
+      pull_request_urls: [],
       repo_scopes: [],
     },
   ],
@@ -73,6 +74,8 @@ export const activityPayload = {
       created_at: '2026-04-02T10:00:00Z',
     },
   ],
+  next_cursor: '',
+  has_more: false,
 }
 
 export const systemDashboardPayload = {

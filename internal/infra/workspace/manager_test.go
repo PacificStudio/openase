@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -185,6 +186,45 @@ func TestManagerPreparePreservesExistingCloneState(t *testing.T) {
 	if workspace.Path == "" || updatedHash == initialHash {
 		t.Fatalf("expected preserved workspace path and divergent remote update, got path=%q", workspace.Path)
 	}
+}
+
+func TestManagerPrepareClonesFileRepositoryURL(t *testing.T) {
+	repositoryPath, initialHash := createRemoteRepo(t, "main", map[string]string{
+		"README.md": "file transport",
+	})
+	repositoryURL := (&url.URL{Scheme: "file", Path: repositoryPath}).String()
+
+	request, err := ParseSetupRequest(SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		AgentName:        "codex-01",
+		TicketIdentifier: "ASE-33",
+		Repos: []RepoInput{{
+			Name:          "backend",
+			RepositoryURL: repositoryURL,
+			DefaultBranch: "main",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("parse setup request: %v", err)
+	}
+
+	workspace, err := NewManager().Prepare(context.Background(), request)
+	if err != nil {
+		t.Fatalf("prepare workspace: %v", err)
+	}
+	if len(workspace.Repos) != 1 {
+		t.Fatalf("expected one prepared repo, got %+v", workspace.Repos)
+	}
+	if workspace.Repos[0].RepositoryURL != repositoryURL {
+		t.Fatalf("prepared repo repository_url = %q, want %q", workspace.Repos[0].RepositoryURL, repositoryURL)
+	}
+
+	backendClonePath := filepath.Join(workspace.Path, "backend")
+	assertHeadBranch(t, backendClonePath, "agent/ASE-33")
+	assertRemoteBranchHash(t, backendClonePath, "main", initialHash)
+	assertOriginURL(t, backendClonePath, repositoryURL)
 }
 
 func TestManagerPrepareTracksExistingRemoteWorkBranch(t *testing.T) {
@@ -599,5 +639,25 @@ func assertRemoteBranchHash(t *testing.T, repoPath string, branch string, expect
 	}
 	if ref.Hash() != expectedHash {
 		t.Fatalf("expected remote branch hash %s, got %s", expectedHash, ref.Hash())
+	}
+}
+
+func assertOriginURL(t *testing.T, repoPath string, expectedURL string) {
+	t.Helper()
+
+	repository, err := git.PlainOpen(repoPath)
+	if err != nil {
+		t.Fatalf("open repository %s: %v", repoPath, err)
+	}
+
+	remote, err := repository.Remote("origin")
+	if err != nil {
+		t.Fatalf("load origin remote for %s: %v", repoPath, err)
+	}
+	if len(remote.Config().URLs) == 0 {
+		t.Fatalf("origin remote for %s has no URLs", repoPath)
+	}
+	if got := strings.TrimSpace(remote.Config().URLs[0]); got != expectedURL {
+		t.Fatalf("expected origin URL %q, got %q", expectedURL, got)
 	}
 }

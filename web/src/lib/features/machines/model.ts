@@ -9,7 +9,6 @@ import {
   coerceExecutionMode,
   parseMachinePort,
   resolveConnectionMode,
-  resolveLegacyConnectionMode,
   splitLabels,
   splitLines,
   validateMachineIdentity,
@@ -47,16 +46,8 @@ export function machineToDraft(machine: Machine): MachineDraft {
     name: machine.name,
     host: machine.host,
     port: String(machine.port || 22),
-    reachabilityMode: normalizeReachabilityMode(
-      machine.reachability_mode,
-      machine.host,
-      machine.connection_mode,
-    ),
-    executionMode: normalizeExecutionMode(
-      machine.execution_mode,
-      machine.host,
-      machine.connection_mode,
-    ),
+    reachabilityMode: normalizeReachabilityMode(machine.reachability_mode, machine.host),
+    executionMode: normalizeExecutionMode(machine.execution_mode, machine.host),
     sshUser: machine.ssh_user ?? '',
     sshKeyPath: machine.ssh_key_path ?? '',
     advertisedEndpoint: machine.advertised_endpoint ?? '',
@@ -80,17 +71,7 @@ export function updateMachineDraft(
 
   if (field === 'reachabilityMode' || field === 'executionMode') {
     const reachabilityMode = normalizeReachabilityMode(nextDraft.reachabilityMode, nextDraft.host)
-    const executionMode = normalizeExecutionMode(
-      nextDraft.executionMode,
-      nextDraft.host,
-      resolveLegacyConnectionMode(
-        nextDraft.reachabilityMode,
-        nextDraft.executionMode,
-        nextDraft.host,
-        normalizeReachabilityMode,
-        normalizeExecutionMode,
-      ),
-    )
+    const executionMode = normalizeExecutionMode(nextDraft.executionMode, nextDraft.host)
 
     nextDraft.reachabilityMode = reachabilityMode
     nextDraft.executionMode = coerceExecutionMode(
@@ -170,7 +151,6 @@ export function parseMachineDraft(draft: MachineDraft): MachineDraftParseResult 
       port,
       reachability_mode: reachabilityMode,
       execution_mode: executionMode,
-      connection_mode: connectionMode,
       ssh_user: sshUser,
       ssh_key_path: sshKeyPath,
       advertised_endpoint: connectionMode === 'ws_listener' ? advertisedEndpoint : '',

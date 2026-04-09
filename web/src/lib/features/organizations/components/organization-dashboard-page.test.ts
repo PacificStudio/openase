@@ -56,12 +56,11 @@ const providerFixture: AgentProvider = {
   availability_reason: null,
   capabilities: {
     ephemeral_chat: { state: 'available', reason: null },
-    harness_ai: { state: 'available', reason: null },
-    skill_ai: { state: 'available', reason: null },
   },
   cli_command: 'codex',
   cli_args: [],
   auth_config: {},
+  secret_bindings: [],
   cli_rate_limit: null,
   cli_rate_limit_updated_at: null,
   model_name: 'gpt-5.4',
@@ -120,11 +119,15 @@ describe('OrganizationDashboardPage', () => {
 
   it('renders the org detail page from org-scoped app context', async () => {
     const view = render(OrganizationDashboardPage)
+    const scrollContainer = view.getByTestId('route-scroll-container')
 
     expect(view.getByRole('heading', { name: 'Acme' })).toBeTruthy()
     expect(view.getByText('1 project · 1 provider')).toBeTruthy()
     expect(view.getByText('Todo App')).toBeTruthy()
     expect(view.getByText('Codex')).toBeTruthy()
+    expect(scrollContainer.className).toContain('min-h-0')
+    expect(scrollContainer.className).toContain('flex-1')
+    expect(scrollContainer.className).toContain('overflow-y-auto')
 
     await waitFor(() => {
       expect(loadOrganizationDashboardSummary).toHaveBeenCalledWith(

@@ -224,7 +224,7 @@
             </span>
 
             <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-start gap-x-2 gap-y-0.5">
                 <span
                   class={cn(
                     'inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[10px] leading-none font-medium',
@@ -233,13 +233,13 @@
                 >
                   {style.badgeLabel}
                 </span>
-                <p class={cn('text-sm leading-snug', style.messageClass)}>
+                <p class={cn('min-w-0 text-sm leading-snug break-words', style.messageClass)}>
                   {entry.message}
                 </p>
               </div>
               <div class="text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                 {#if entry.agentName}
-                  <span class="font-mono">{entry.agentName}</span>
+                  <span class="max-w-[10rem] truncate font-mono">{entry.agentName}</span>
                 {/if}
                 {#if entry.ticketIdentifier}
                   <span

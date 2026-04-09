@@ -34,8 +34,8 @@
   const parsePriorityFilter = parseBoardFilterPriority
 </script>
 
-<div class={cn('flex items-center gap-2', className)}>
-  <div class="relative w-52">
+<div class={cn('flex flex-wrap items-center gap-2', className)}>
+  <div class="relative min-w-0 flex-1 basis-full sm:flex-none sm:basis-52">
     <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
     <Input
       type="text"
@@ -53,7 +53,7 @@
       updateFilter({ ...filter, workflow: v || undefined })
     }}
   >
-    <Select.Trigger size="sm" class="h-8 text-xs">
+    <Select.Trigger size="sm" class="h-8 min-w-[7rem] text-xs">
       {filter.workflow ?? 'Workflow'}
     </Select.Trigger>
     <Select.Content>
@@ -71,7 +71,7 @@
         updateFilter({ ...filter, agent: v || undefined })
       }}
     >
-      <Select.Trigger size="sm" class="h-8 text-xs">
+      <Select.Trigger size="sm" class="h-8 min-w-[7rem] text-xs">
         {filter.agent ?? 'Agent'}
       </Select.Trigger>
       <Select.Content>
@@ -89,7 +89,7 @@
       updateFilter({ ...filter, priority: parsePriorityFilter(v) })
     }}
   >
-    <Select.Trigger size="sm" class="h-8 text-xs">
+    <Select.Trigger size="sm" class="h-8 min-w-[7rem] text-xs">
       {#if filter.priority}
         <span class="flex items-center gap-1.5">
           <PriorityIcon priority={filter.priority} />
@@ -127,7 +127,7 @@
   <Button
     variant={filter.anomalyOnly ? 'secondary' : 'ghost'}
     size="sm"
-    class="h-8 gap-1 text-xs"
+    class="h-8 shrink-0 gap-1 text-xs"
     onclick={() => {
       updateFilter({ ...filter, anomalyOnly: !filter.anomalyOnly })
     }}
@@ -140,7 +140,7 @@
     <Button
       variant={hideEmpty ? 'secondary' : 'ghost'}
       size="sm"
-      class="h-8 gap-1 text-xs"
+      class="h-8 shrink-0 gap-1 text-xs"
       onclick={() => {
         onHideEmptyChange?.(!hideEmpty)
       }}
@@ -150,7 +150,7 @@
     </Button>
   {/if}
 
-  <div class="border-border ml-auto flex items-center rounded-md border">
+  <div class="border-border ml-auto flex shrink-0 items-center rounded-md border">
     <Button
       variant={ticketViewStore.mode === 'board' ? 'secondary' : 'ghost'}
       size="sm"

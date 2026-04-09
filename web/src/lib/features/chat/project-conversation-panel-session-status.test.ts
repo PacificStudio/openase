@@ -12,6 +12,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -23,6 +24,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -36,11 +38,44 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
+
+function mockLiveMuxStream() {
+  let handlers:
+    | {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: {
+          conversationId: string
+          sentAt: string
+          event: { kind: string; payload: Record<string, unknown> }
+        }) => void
+      }
+    | undefined
+
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
+    handlers = nextHandlers
+    nextHandlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+
+  return {
+    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
+      handlers?.onFrame({
+        conversationId,
+        sentAt: '2026-04-01T10:00:00Z',
+        event,
+      })
+    },
+  }
+}
 
 describe('ProjectConversationPanel session status', () => {
   beforeAll(() => {
@@ -61,10 +96,7 @@ describe('ProjectConversationPanel session status', () => {
   })
 
   it('renders Claude session status from live session events', async () => {
-    const streamHandlers = new Map<
-      string,
-      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-    >()
+    const mux = mockLiveMuxStream()
 
     listProjectConversations.mockResolvedValue({ conversations: [] })
     createProjectConversation.mockResolvedValue({
@@ -77,9 +109,6 @@ describe('ProjectConversationPanel session status', () => {
     getProjectConversationWorkspaceDiff.mockResolvedValue(
       createWorkspaceDiff('conversation-claude-1'),
     )
-    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
-      streamHandlers.set(conversationId, handlers)
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -105,7 +134,7 @@ describe('ProjectConversationPanel session status', () => {
       })
     })
 
-    streamHandlers.get('conversation-claude-1')?.onEvent({
+    mux.emit('conversation-claude-1', {
       kind: 'session',
       payload: {
         conversationId: 'conversation-claude-1',
@@ -118,17 +147,18 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect(watchProjectConversation).toHaveBeenCalledWith(
-      'conversation-claude-1',
-      expect.any(Object),
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onFrame: expect.any(Function),
+        onOpen: expect.any(Function),
+      }),
     )
   })
 
   it('renders Codex thread status from live session events', async () => {
-    const streamHandlers = new Map<
-      string,
-      { onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void }
-    >()
+    const mux = mockLiveMuxStream()
 
     listProjectConversations.mockResolvedValue({ conversations: [] })
     createProjectConversation.mockResolvedValue({
@@ -141,9 +171,6 @@ describe('ProjectConversationPanel session status', () => {
     getProjectConversationWorkspaceDiff.mockResolvedValue(
       createWorkspaceDiff('conversation-codex-1'),
     )
-    watchProjectConversation.mockImplementation(async (conversationId, handlers) => {
-      streamHandlers.set(conversationId, handlers)
-    })
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
@@ -169,7 +196,7 @@ describe('ProjectConversationPanel session status', () => {
       })
     })
 
-    streamHandlers.get('conversation-codex-1')?.onEvent({
+    mux.emit('conversation-codex-1', {
       kind: 'session',
       payload: {
         conversationId: 'conversation-codex-1',
@@ -183,9 +210,13 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect(watchProjectConversation).toHaveBeenCalledWith(
-      'conversation-codex-1',
-      expect.any(Object),
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onFrame: expect.any(Function),
+        onOpen: expect.any(Function),
+      }),
     )
   })
 })

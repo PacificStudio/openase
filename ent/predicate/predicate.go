@@ -30,6 +30,9 @@ type AgentTraceEvent func(*sql.Selector)
 // ApprovalPolicyRule is the predicate function for approvalpolicyrule builders.
 type ApprovalPolicyRule func(*sql.Selector)
 
+// AuthAuditEvent is the predicate function for authauditevent builders.
+type AuthAuditEvent func(*sql.Selector)
+
 // BrowserSession is the predicate function for browsersession builders.
 type BrowserSession func(*sql.Selector)
 
@@ -44,6 +47,12 @@ type ChatPendingInterrupt func(*sql.Selector)
 
 // ChatTurn is the predicate function for chatturn builders.
 type ChatTurn func(*sql.Selector)
+
+// InstanceAuthConfig is the predicate function for instanceauthconfig builders.
+type InstanceAuthConfig func(*sql.Selector)
+
+// LocalBootstrapAuthRequest is the predicate function for localbootstrapauthrequest builders.
+type LocalBootstrapAuthRequest func(*sql.Selector)
 
 // Machine is the predicate function for machine builders.
 type Machine func(*sql.Selector)
@@ -62,6 +71,12 @@ type Organization func(*sql.Selector)
 
 // OrganizationDailyTokenUsage is the predicate function for organizationdailytokenusage builders.
 type OrganizationDailyTokenUsage func(*sql.Selector)
+
+// OrganizationInvitation is the predicate function for organizationinvitation builders.
+type OrganizationInvitation func(*sql.Selector)
+
+// OrganizationMembership is the predicate function for organizationmembership builders.
+type OrganizationMembership func(*sql.Selector)
 
 // Project is the predicate function for project builders.
 type Project func(*sql.Selector)
@@ -98,6 +113,12 @@ type RoleBinding func(*sql.Selector)
 
 // ScheduledJob is the predicate function for scheduledjob builders.
 type ScheduledJob func(*sql.Selector)
+
+// Secret is the predicate function for secret builders.
+type Secret func(*sql.Selector)
+
+// SecretBinding is the predicate function for secretbinding builders.
+type SecretBinding func(*sql.Selector)
 
 // Skill is the predicate function for skill builders.
 type Skill func(*sql.Selector)

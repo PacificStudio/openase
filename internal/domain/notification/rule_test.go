@@ -73,8 +73,11 @@ func TestParseCreateRuleRejectsInvalidChannelID(t *testing.T) {
 
 func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 	events := SupportedRuleEvents()
-	if len(events) < 15 {
-		t.Fatalf("SupportedRuleEvents() length = %d, want expanded canonical catalog", len(events))
+	if len(events) != 10 {
+		t.Fatalf("SupportedRuleEvents() length = %d, want only the wired catalog", len(events))
+	}
+	if events[0].Group == "" || events[0].Level == "" {
+		t.Fatalf("SupportedRuleEvents()[0] missing grouped metadata: %+v", events[0])
 	}
 	events[0].Label = "changed"
 	if SupportedRuleEvents()[0].Label == "changed" {
@@ -88,8 +91,20 @@ func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 	if eventType.String() != "ticket.updated" || eventType.DefaultTemplate() == "" {
 		t.Fatalf("ParseRuleEventType() = %q with template %q", eventType, eventType.DefaultTemplate())
 	}
+	if eventType.Group().String() != RuleEventGroupTicketLifecycle.String() {
+		t.Fatalf("Group() = %q, want %q", eventType.Group(), RuleEventGroupTicketLifecycle)
+	}
+	if eventType.Level().String() != RuleEventLevelInfo.String() {
+		t.Fatalf("Level() = %q, want %q", eventType.Level(), RuleEventLevelInfo)
+	}
 	if RuleEventType("unknown").DefaultTemplate() != "" {
 		t.Fatal("DefaultTemplate() for unknown event expected empty string")
+	}
+	if RuleEventType("unknown").Group() != "" {
+		t.Fatal("Group() for unknown event expected empty string")
+	}
+	if RuleEventType("unknown").Level() != RuleEventLevelInfo {
+		t.Fatal("Level() for unknown event expected info fallback")
 	}
 	if _, err := ParseRuleEventType("bad"); err == nil {
 		t.Fatal("ParseRuleEventType() expected validation error")
@@ -252,11 +267,11 @@ func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 		t.Fatal("RenderMessage() expected template parse error")
 	}
 
-	message := messageFromRenderedText(" Title \n Body line 1 \n Body line 2 ")
+	message := messageFromRenderedText(" Title \n Body line 1 \n Body line 2 ", RuleEventLevelInfo)
 	if message.Title != "Title" || message.Level != "info" || !strings.Contains(message.Body, "Body line 1") || !strings.Contains(message.Body, "Body line 2") {
 		t.Fatalf("messageFromRenderedText() = %+v", message)
 	}
-	if got := messageFromRenderedText(" "); got.Title != "" || got.Body != "" || got.Level != "" || got.Link != "" || got.Metadata != nil {
+	if got := messageFromRenderedText(" ", RuleEventLevelInfo); got.Title != "" || got.Body != "" || got.Level != "" || got.Link != "" || got.Metadata != nil {
 		t.Fatalf("messageFromRenderedText(blank) = %+v, want zero value", got)
 	}
 }

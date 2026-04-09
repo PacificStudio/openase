@@ -82,10 +82,10 @@ test.describe('workflow editor layout', () => {
     await expect(page.getByLabel('Workflow Name')).not.toBeVisible()
   })
 
-  test('AI drawer opens and has a drag handle', async ({ page, projectPath }, testInfo) => {
+  test('AI drawer entry is absent', async ({ page, projectPath }, testInfo) => {
     await measureNavigation({
       page,
-      scenario: 'workflow_editor_ai_drawer_ready',
+      scenario: 'workflow_editor_ai_entry_absent_ready',
       budgetMs: 800,
       ready: page.getByRole('button', { name: 'Validate' }),
       testInfo,
@@ -94,27 +94,9 @@ test.describe('workflow editor layout', () => {
       },
     })
 
-    // The drag handle (horizontal separator with cursor-row-resize) should not be visible initially
     const dragHandle = page.locator('[role="separator"].cursor-col-resize')
     await expect(dragHandle).not.toBeVisible()
-
-    // Open the AI drawer
-    await measureFeedback({
-      scenario: 'workflow_ai_drawer_open',
-      budgetMs: 300,
-      ready: dragHandle,
-      testInfo,
-      action: async () => {
-        await page.getByRole('button', { name: 'AI', exact: true }).click()
-      },
-    })
-
-    // Drag handle should be visible
-    await expect(dragHandle).toBeVisible()
-
-    // Close the AI drawer
-    await page.getByRole('button', { name: 'AI', exact: true }).click()
-    await expect(dragHandle).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'AI', exact: true })).toHaveCount(0)
   })
 
   test('skill pills render and can be toggled', async ({ page, projectPath }, testInfo) => {

@@ -15,6 +15,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
@@ -195,6 +197,36 @@ func (_u *OrganizationUpdate) AddDailyTokenUsage(v ...*OrganizationDailyTokenUsa
 	return _u.AddDailyTokenUsageIDs(ids...)
 }
 
+// AddMembershipIDs adds the "memberships" edge to the OrganizationMembership entity by IDs.
+func (_u *OrganizationUpdate) AddMembershipIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.AddMembershipIDs(ids...)
+	return _u
+}
+
+// AddMemberships adds the "memberships" edges to the OrganizationMembership entity.
+func (_u *OrganizationUpdate) AddMemberships(v ...*OrganizationMembership) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMembershipIDs(ids...)
+}
+
+// AddInvitationIDs adds the "invitations" edge to the OrganizationInvitation entity by IDs.
+func (_u *OrganizationUpdate) AddInvitationIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.AddInvitationIDs(ids...)
+	return _u
+}
+
+// AddInvitations adds the "invitations" edges to the OrganizationInvitation entity.
+func (_u *OrganizationUpdate) AddInvitations(v ...*OrganizationInvitation) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddInvitationIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *OrganizationUpdate) SetDefaultAgentProvider(v *AgentProvider) *OrganizationUpdate {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -308,6 +340,48 @@ func (_u *OrganizationUpdate) RemoveDailyTokenUsage(v ...*OrganizationDailyToken
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDailyTokenUsageIDs(ids...)
+}
+
+// ClearMemberships clears all "memberships" edges to the OrganizationMembership entity.
+func (_u *OrganizationUpdate) ClearMemberships() *OrganizationUpdate {
+	_u.mutation.ClearMemberships()
+	return _u
+}
+
+// RemoveMembershipIDs removes the "memberships" edge to OrganizationMembership entities by IDs.
+func (_u *OrganizationUpdate) RemoveMembershipIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.RemoveMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveMemberships removes "memberships" edges to OrganizationMembership entities.
+func (_u *OrganizationUpdate) RemoveMemberships(v ...*OrganizationMembership) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMembershipIDs(ids...)
+}
+
+// ClearInvitations clears all "invitations" edges to the OrganizationInvitation entity.
+func (_u *OrganizationUpdate) ClearInvitations() *OrganizationUpdate {
+	_u.mutation.ClearInvitations()
+	return _u
+}
+
+// RemoveInvitationIDs removes the "invitations" edge to OrganizationInvitation entities by IDs.
+func (_u *OrganizationUpdate) RemoveInvitationIDs(ids ...uuid.UUID) *OrganizationUpdate {
+	_u.mutation.RemoveInvitationIDs(ids...)
+	return _u
+}
+
+// RemoveInvitations removes "invitations" edges to OrganizationInvitation entities.
+func (_u *OrganizationUpdate) RemoveInvitations(v ...*OrganizationInvitation) *OrganizationUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveInvitationIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -621,6 +695,96 @@ func (_u *OrganizationUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.MembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMembershipsIDs(); len(nodes) > 0 && !_u.mutation.MembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.InvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedInvitationsIDs(); len(nodes) > 0 && !_u.mutation.InvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.InvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DefaultAgentProviderCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -831,6 +995,36 @@ func (_u *OrganizationUpdateOne) AddDailyTokenUsage(v ...*OrganizationDailyToken
 	return _u.AddDailyTokenUsageIDs(ids...)
 }
 
+// AddMembershipIDs adds the "memberships" edge to the OrganizationMembership entity by IDs.
+func (_u *OrganizationUpdateOne) AddMembershipIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.AddMembershipIDs(ids...)
+	return _u
+}
+
+// AddMemberships adds the "memberships" edges to the OrganizationMembership entity.
+func (_u *OrganizationUpdateOne) AddMemberships(v ...*OrganizationMembership) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddMembershipIDs(ids...)
+}
+
+// AddInvitationIDs adds the "invitations" edge to the OrganizationInvitation entity by IDs.
+func (_u *OrganizationUpdateOne) AddInvitationIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.AddInvitationIDs(ids...)
+	return _u
+}
+
+// AddInvitations adds the "invitations" edges to the OrganizationInvitation entity.
+func (_u *OrganizationUpdateOne) AddInvitations(v ...*OrganizationInvitation) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddInvitationIDs(ids...)
+}
+
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
 func (_u *OrganizationUpdateOne) SetDefaultAgentProvider(v *AgentProvider) *OrganizationUpdateOne {
 	return _u.SetDefaultAgentProviderID(v.ID)
@@ -944,6 +1138,48 @@ func (_u *OrganizationUpdateOne) RemoveDailyTokenUsage(v ...*OrganizationDailyTo
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveDailyTokenUsageIDs(ids...)
+}
+
+// ClearMemberships clears all "memberships" edges to the OrganizationMembership entity.
+func (_u *OrganizationUpdateOne) ClearMemberships() *OrganizationUpdateOne {
+	_u.mutation.ClearMemberships()
+	return _u
+}
+
+// RemoveMembershipIDs removes the "memberships" edge to OrganizationMembership entities by IDs.
+func (_u *OrganizationUpdateOne) RemoveMembershipIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.RemoveMembershipIDs(ids...)
+	return _u
+}
+
+// RemoveMemberships removes "memberships" edges to OrganizationMembership entities.
+func (_u *OrganizationUpdateOne) RemoveMemberships(v ...*OrganizationMembership) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveMembershipIDs(ids...)
+}
+
+// ClearInvitations clears all "invitations" edges to the OrganizationInvitation entity.
+func (_u *OrganizationUpdateOne) ClearInvitations() *OrganizationUpdateOne {
+	_u.mutation.ClearInvitations()
+	return _u
+}
+
+// RemoveInvitationIDs removes the "invitations" edge to OrganizationInvitation entities by IDs.
+func (_u *OrganizationUpdateOne) RemoveInvitationIDs(ids ...uuid.UUID) *OrganizationUpdateOne {
+	_u.mutation.RemoveInvitationIDs(ids...)
+	return _u
+}
+
+// RemoveInvitations removes "invitations" edges to OrganizationInvitation entities.
+func (_u *OrganizationUpdateOne) RemoveInvitations(v ...*OrganizationInvitation) *OrganizationUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveInvitationIDs(ids...)
 }
 
 // ClearDefaultAgentProvider clears the "default_agent_provider" edge to the AgentProvider entity.
@@ -1280,6 +1516,96 @@ func (_u *OrganizationUpdateOne) sqlSave(ctx context.Context) (_node *Organizati
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.MembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedMembershipsIDs(); len(nodes) > 0 && !_u.mutation.MembershipsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.MembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.InvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedInvitationsIDs(); len(nodes) > 0 && !_u.mutation.InvitationsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.InvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

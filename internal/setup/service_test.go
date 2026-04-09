@@ -2,9 +2,7 @@ package setup
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -121,8 +119,8 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	if !strings.Contains(configText, "project_name: "+DefaultProjectName) {
 		t.Fatalf("expected config to contain project name, got %q", configText)
 	}
-	if !strings.Contains(configText, "mode: disabled") {
-		t.Fatalf("expected config to contain disabled auth mode, got %q", configText)
+	if strings.Contains(configText, "\nauth:\n") || strings.Contains(configText, "auth:\n") {
+		t.Fatalf("expected config to omit legacy auth block, got %q", configText)
 	}
 	if strings.Contains(configText, "repo_path:") || strings.Contains(configText, "mode: personal") {
 		t.Fatalf("config should not contain legacy repo/mode setup fields, got %q", configText)
@@ -151,7 +149,7 @@ func TestServiceCompleteWritesRunnableFilesWithoutRepoScaffold(t *testing.T) {
 	}
 }
 
-func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
+func TestServiceCompleteWritesConfigThatLoadsWithoutLegacyAuthSection(t *testing.T) {
 	homeDir := t.TempDir()
 	service, err := NewService(Options{
 		HomeDir:    homeDir,
@@ -173,19 +171,6 @@ func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
 			Password: "secret",
 			SSLMode:  "disable",
 		},
-		Auth: RawAuthInput{
-			Mode: string(AuthModeOIDC),
-			OIDC: &RawOIDCInput{
-				IssuerURL:            "https://example.auth0.com/",
-				ClientID:             "openase",
-				ClientSecret:         "super-secret",
-				RedirectURL:          DefaultOIDCRedirectURL,
-				Scopes:               DefaultOIDCScopes,
-				BootstrapAdminEmails: "admin@example.com",
-				SessionTTL:           DefaultOIDCSessionTTL,
-				SessionIdleTTL:       DefaultOIDCIdleTTL,
-			},
-		},
 	})
 	if err != nil {
 		t.Fatalf("Complete returned error: %v", err)
@@ -197,18 +182,20 @@ func TestServiceCompleteWritesOIDCConfigThatLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load() error = %v", err)
 	}
-	if cfg.Auth.Mode != config.AuthModeOIDC {
-		t.Fatalf("auth mode = %q", cfg.Auth.Mode)
+	// #nosec G304 -- Test reads the config it just wrote under a temp home directory.
+	configBody, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
+	if err != nil {
+		t.Fatalf("read config body: %v", err)
 	}
-	if cfg.Auth.OIDC.ClientSecret != "super-secret" {
-		t.Fatalf("client secret = %q", cfg.Auth.OIDC.ClientSecret)
+	if strings.Contains(string(configBody), "\nauth:\n") || strings.Contains(string(configBody), "auth:\n") {
+		t.Fatalf("expected config to omit auth section, got %q", string(configBody))
 	}
-	if len(cfg.Auth.OIDC.BootstrapAdminEmails) != 1 || cfg.Auth.OIDC.BootstrapAdminEmails[0] != "admin@example.com" {
-		t.Fatalf("bootstrap admin emails = %v", cfg.Auth.OIDC.BootstrapAdminEmails)
+	if cfg.Database.DSN == "" {
+		t.Fatalf("expected config.Load() to preserve the database config, got %+v", cfg)
 	}
 }
 
-func TestBootstrapAndServerRoutesReflectTerminalFirstSetup(t *testing.T) {
+func TestBootstrapReflectsTerminalFirstSetup(t *testing.T) {
 	homeDir := t.TempDir()
 	service, err := NewService(Options{
 		HomeDir:    homeDir,
@@ -235,31 +222,114 @@ func TestBootstrapAndServerRoutesReflectTerminalFirstSetup(t *testing.T) {
 		t.Fatalf("expected codex to be detected, got %+v", bootstrap.Agents[1])
 	}
 
-	server := NewServer(ServerOptions{
-		Host:    "127.0.0.1",
-		Port:    19836,
-		Service: service,
+	if len(bootstrap.Sources) != 2 || bootstrap.Defaults.DockerDatabase.Port == 0 {
+		t.Fatalf("bootstrap payload = %+v", bootstrap)
+	}
+}
+
+func TestDesktopPreflightReportsMissingConfig(t *testing.T) {
+	homeDir := t.TempDir()
+	service, err := NewService(Options{
+		HomeDir:    homeDir,
+		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git"}},
+		RunCommand: stubVersionRunner,
+		Connector:  &stubConnector{},
+		Installer:  &stubInstaller{},
 	})
-
-	req := httptest.NewRequest(http.MethodGet, "/setup", nil)
-	rec := httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected /setup to return 200, got %d", rec.Code)
+	if err != nil {
+		t.Fatalf("NewService returned error: %v", err)
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/setup/bootstrap", nil)
-	rec = httptest.NewRecorder()
-	server.Handler().ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected bootstrap route to return 200, got %d", rec.Code)
+	result, err := service.DesktopPreflight(context.Background())
+	if err != nil {
+		t.Fatalf("DesktopPreflight() error = %v", err)
+	}
+	if result.Ready {
+		t.Fatalf("expected preflight to block startup, got %+v", result)
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Code != DesktopIssueConfigMissing {
+		t.Fatalf("unexpected issues: %+v", result.Issues)
+	}
+}
+
+func TestDesktopPreflightClassifiesAuthenticationFailures(t *testing.T) {
+	homeDir := t.TempDir()
+	configPath := filepath.Join(homeDir, "custom", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0o750); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(configPath, []byte("database:\n  dsn: postgres://openase:bad@127.0.0.1:5432/openase?sslmode=disable\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	service, err := NewService(Options{
+		HomeDir:    homeDir,
+		ConfigPath: configPath,
+		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git"}},
+		RunCommand: stubVersionRunner,
+		Connector: &stubConnector{
+			pingErr: errors.New("pq: password authentication failed for user \"openase\""),
+		},
+		Installer: &stubInstaller{},
+	})
+	if err != nil {
+		t.Fatalf("NewService returned error: %v", err)
 	}
 
-	var payload Bootstrap
-	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("expected bootstrap JSON: %v", err)
+	result, err := service.DesktopPreflight(context.Background())
+	if err != nil {
+		t.Fatalf("DesktopPreflight() error = %v", err)
 	}
-	if len(payload.Sources) != 2 || payload.Defaults.DockerDatabase.Port == 0 {
-		t.Fatalf("bootstrap payload = %+v", payload)
+	if result.Ready {
+		t.Fatalf("expected preflight to fail, got %+v", result)
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Code != DesktopIssueDatabaseAuthFailed {
+		t.Fatalf("unexpected issues: %+v", result.Issues)
+	}
+}
+
+func TestDesktopApplyWritesConfiguredOverridePath(t *testing.T) {
+	homeDir := t.TempDir()
+	configPath := filepath.Join(homeDir, "desktop-configs", "openase-desktop.yaml")
+	connector := &stubConnector{}
+	service, err := NewService(Options{
+		HomeDir:    homeDir,
+		ConfigPath: configPath,
+		Resolver:   stubResolver{paths: map[string]string{"git": "/usr/bin/git", "codex": "/usr/local/bin/codex"}},
+		RunCommand: stubVersionRunner,
+		Connector:  connector,
+		Installer:  &stubInstaller{},
+	})
+	if err != nil {
+		t.Fatalf("NewService returned error: %v", err)
+	}
+
+	result, err := service.DesktopApply(context.Background(), RawDesktopApplyRequest{
+		Database: RawDatabaseSourceInput{
+			Type: "manual",
+			Manual: &RawDatabaseInput{
+				Host:     "127.0.0.1",
+				Port:     5432,
+				Name:     "openase",
+				User:     "openase",
+				Password: "secret",
+				SSLMode:  "disable",
+			},
+		},
+		AllowOverwrite: true,
+	})
+	if err != nil {
+		t.Fatalf("DesktopApply() error = %v", err)
+	}
+	if !result.Ready {
+		t.Fatalf("expected setup success, got %+v", result)
+	}
+	if result.ConfigPath != configPath {
+		t.Fatalf("config path = %q", result.ConfigPath)
+	}
+	if connector.migrateDSN == "" {
+		t.Fatal("expected migrations to run during DesktopApply")
+	}
+	if _, err := os.Stat(configPath); err != nil {
+		t.Fatalf("expected config file at override path, err=%v", err)
 	}
 }

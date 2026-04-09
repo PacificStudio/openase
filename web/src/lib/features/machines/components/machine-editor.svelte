@@ -30,12 +30,8 @@
   } = $props()
 
   const localMachine = $derived(isLocalMachine(machine, draft))
-  const reachabilityMode = $derived(
-    normalizeReachabilityMode(draft.reachabilityMode, draft.host, machine?.connection_mode),
-  )
-  const executionMode = $derived(
-    normalizeExecutionMode(draft.executionMode, draft.host, machine?.connection_mode),
-  )
+  const reachabilityMode = $derived(normalizeReachabilityMode(draft.reachabilityMode, draft.host))
+  const executionMode = $derived(normalizeExecutionMode(draft.executionMode, draft.host))
   const workspaceRootRecommendation = $derived(getWorkspaceRootRecommendation({ draft, machine }))
   const workspaceRootState = $derived(getWorkspaceRootState({ draft, machine }))
 
@@ -146,10 +142,7 @@
         </div>
       </div>
       <p class="text-muted-foreground text-xs">
-        {#if executionMode === 'ssh_compat'}
-          Legacy record detected. Add the listener endpoint, then resave this machine so SSH drops
-          back to a helper-only lane.
-        {:else if reachabilityMode === 'reverse_connect'}
+        {#if reachabilityMode === 'reverse_connect'}
           Optional helper access for assisted daemon bootstrap, diagnostics, or emergency repair.
           Runtime execution stays on the reverse-connect daemon.
         {:else}
@@ -231,7 +224,10 @@
           placeholder={`CUDA_VISIBLE_DEVICES=0\nOPENASE_AGENT_HOME=/srv/openase`}
           oninput={(event) => updateField('envVars', event)}
         />
-        <p class="text-muted-foreground text-[11px]">One KEY=VALUE per line.</p>
+        <p class="text-muted-foreground text-[11px]">
+          One KEY=VALUE per line. Secret-like values may appear as `[redacted]`; leave them as-is to
+          preserve the stored value, or replace the value to rotate it.
+        </p>
       </div>
     </div>
   </section>

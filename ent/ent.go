@@ -20,17 +20,22 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
+	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/chatentry"
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
+	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
@@ -43,6 +48,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/ent/rolebinding"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
+	"github.com/BetterAndBetterII/openase/ent/secret"
+	"github.com/BetterAndBetterII/openase/ent/secretbinding"
 	"github.com/BetterAndBetterII/openase/ent/skill"
 	"github.com/BetterAndBetterII/openase/ent/skillblob"
 	"github.com/BetterAndBetterII/openase/ent/skillversion"
@@ -129,17 +136,22 @@ func checkColumn(t, c string) error {
 			agenttoken.Table:                    agenttoken.ValidColumn,
 			agenttraceevent.Table:               agenttraceevent.ValidColumn,
 			approvalpolicyrule.Table:            approvalpolicyrule.ValidColumn,
+			authauditevent.Table:                authauditevent.ValidColumn,
 			browsersession.Table:                browsersession.ValidColumn,
 			chatconversation.Table:              chatconversation.ValidColumn,
 			chatentry.Table:                     chatentry.ValidColumn,
 			chatpendinginterrupt.Table:          chatpendinginterrupt.ValidColumn,
 			chatturn.Table:                      chatturn.ValidColumn,
+			instanceauthconfig.Table:            instanceauthconfig.ValidColumn,
+			localbootstrapauthrequest.Table:     localbootstrapauthrequest.ValidColumn,
 			machine.Table:                       machine.ValidColumn,
 			machinechanneltoken.Table:           machinechanneltoken.ValidColumn,
 			notificationchannel.Table:           notificationchannel.ValidColumn,
 			notificationrule.Table:              notificationrule.ValidColumn,
 			organization.Table:                  organization.ValidColumn,
 			organizationdailytokenusage.Table:   organizationdailytokenusage.ValidColumn,
+			organizationinvitation.Table:        organizationinvitation.ValidColumn,
+			organizationmembership.Table:        organizationmembership.ValidColumn,
 			project.Table:                       project.ValidColumn,
 			projectconversationprincipal.Table:  projectconversationprincipal.ValidColumn,
 			projectconversationrun.Table:        projectconversationrun.ValidColumn,
@@ -152,6 +164,8 @@ func checkColumn(t, c string) error {
 			projectupdatethreadrevision.Table:   projectupdatethreadrevision.ValidColumn,
 			rolebinding.Table:                   rolebinding.ValidColumn,
 			scheduledjob.Table:                  scheduledjob.ValidColumn,
+			secret.Table:                        secret.ValidColumn,
+			secretbinding.Table:                 secretbinding.ValidColumn,
 			skill.Table:                         skill.ValidColumn,
 			skillblob.Table:                     skillblob.ValidColumn,
 			skillversion.Table:                  skillversion.ValidColumn,

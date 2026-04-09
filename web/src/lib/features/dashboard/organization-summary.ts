@@ -12,6 +12,7 @@ export type ProjectMetrics = {
 export const emptyOrganizationDashboardStats: DashboardStats = {
   runningAgents: 0,
   activeTickets: 0,
+  totalTickets: 0,
   pendingApprovals: 0,
   ticketSpendToday: 0,
   ticketSpendTotal: 0,

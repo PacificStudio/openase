@@ -52,11 +52,11 @@
     class="flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
     data-testid="machine-editor-sheet"
   >
-    <SheetHeader class="border-border space-y-0 border-b px-6 py-4 text-left">
-      <div class="flex items-start justify-between gap-4 pr-10">
+    <SheetHeader class="border-border space-y-0 border-b px-4 py-3 text-left sm:px-6 sm:py-4">
+      <div class="flex items-start justify-between gap-3 pr-8 sm:gap-4 sm:pr-10">
         <div class="min-w-0 space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
-            <SheetTitle class="text-base">
+            <SheetTitle class="text-sm sm:text-base">
               {mode === 'create' ? 'Register machine' : (machine?.name ?? 'Machine')}
             </SheetTitle>
             {#if mode === 'edit' && machine}
@@ -91,7 +91,7 @@
       {/if}
     </SheetHeader>
 
-    <div class="flex-1 overflow-y-auto px-6 py-5">
+    <div class="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
       {#if mode === 'create' || activeTab === 'configuration'}
         <MachineEditor {machine} {draft} {onDraftChange} />
       {:else if activeTab === 'health' && machine}

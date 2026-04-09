@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -31,13 +30,11 @@ type rawCreateSkillRequest struct {
 	Name        string `json:"name"`
 	Content     string `json:"content"`
 	Description string `json:"description"`
-	CreatedBy   string `json:"created_by"`
 	IsEnabled   *bool  `json:"is_enabled"`
 }
 
 type rawImportSkillBundleRequest struct {
 	Name      string                      `json:"name"`
-	CreatedBy string                      `json:"created_by"`
 	IsEnabled *bool                       `json:"is_enabled"`
 	Files     []rawSkillBundleFileRequest `json:"files"`
 }
@@ -50,13 +47,6 @@ type rawUpdateSkillRequest struct {
 
 type rawUpdateSkillBindingsRequest struct {
 	WorkflowIDs []string `json:"workflow_ids"`
-}
-
-type rawSkillRefinementRequest struct {
-	ProjectID  string                      `json:"project_id"`
-	Message    string                      `json:"message"`
-	ProviderID string                      `json:"provider_id"`
-	Files      []rawSkillBundleFileRequest `json:"files"`
 }
 
 func parseRefreshSkillsRequest(projectID uuid.UUID, raw rawSkillSyncRequest) (workflowservice.RefreshSkillsInput, error) {
@@ -96,7 +86,7 @@ func parseUpdateWorkflowSkillsRequest(workflowID uuid.UUID, raw rawUpdateWorkflo
 	}, nil
 }
 
-func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (workflowservice.CreateSkillInput, error) {
+func parseCreateSkillRequest(projectID uuid.UUID, auditActor string, raw rawCreateSkillRequest) (workflowservice.CreateSkillInput, error) {
 	name := strings.TrimSpace(raw.Name)
 	if name == "" {
 		return workflowservice.CreateSkillInput{}, fmt.Errorf("name must not be empty")
@@ -110,13 +100,14 @@ func parseCreateSkillRequest(projectID uuid.UUID, raw rawCreateSkillRequest) (wo
 		Name:        name,
 		Content:     raw.Content,
 		Description: strings.TrimSpace(raw.Description),
-		CreatedBy:   strings.TrimSpace(raw.CreatedBy),
+		CreatedBy:   strings.TrimSpace(auditActor),
 		Enabled:     raw.IsEnabled,
 	}, nil
 }
 
 func parseImportSkillBundleRequest(
 	projectID uuid.UUID,
+	auditActor string,
 	raw rawImportSkillBundleRequest,
 ) (workflowservice.CreateSkillBundleInput, error) {
 	name := strings.TrimSpace(raw.Name)
@@ -149,7 +140,7 @@ func parseImportSkillBundleRequest(
 		ProjectID: projectID,
 		Name:      name,
 		Files:     files,
-		CreatedBy: strings.TrimSpace(raw.CreatedBy),
+		CreatedBy: strings.TrimSpace(auditActor),
 		Enabled:   raw.IsEnabled,
 	}, nil
 }
@@ -253,39 +244,4 @@ func parseSkillBundleFileRequests(
 		})
 	}
 	return files, nil
-}
-
-func parseSkillRefinementRequest(
-	skillID uuid.UUID,
-	raw rawSkillRefinementRequest,
-) (chatservice.SkillRefinementInput, error) {
-	projectID, err := uuid.Parse(strings.TrimSpace(raw.ProjectID))
-	if err != nil {
-		return chatservice.SkillRefinementInput{}, fmt.Errorf("project_id must be a UUID")
-	}
-	message := strings.TrimSpace(raw.Message)
-	if message == "" {
-		return chatservice.SkillRefinementInput{}, fmt.Errorf("message must not be empty")
-	}
-	files, err := parseSkillBundleFileRequests(raw.Files)
-	if err != nil {
-		return chatservice.SkillRefinementInput{}, err
-	}
-
-	var providerID *uuid.UUID
-	if trimmed := strings.TrimSpace(raw.ProviderID); trimmed != "" {
-		parsedProviderID, parseErr := uuid.Parse(trimmed)
-		if parseErr != nil {
-			return chatservice.SkillRefinementInput{}, fmt.Errorf("provider_id must be a UUID")
-		}
-		providerID = &parsedProviderID
-	}
-
-	return chatservice.SkillRefinementInput{
-		ProjectID:  projectID,
-		SkillID:    skillID,
-		ProviderID: providerID,
-		Message:    message,
-		DraftFiles: files,
-	}, nil
 }

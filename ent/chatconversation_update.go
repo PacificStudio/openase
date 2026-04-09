@@ -105,6 +105,26 @@ func (_u *ChatConversationUpdate) SetNillableStatus(v *string) *ChatConversation
 	return _u
 }
 
+// SetTitle sets the "title" field.
+func (_u *ChatConversationUpdate) SetTitle(v string) *ChatConversationUpdate {
+	_u.mutation.SetTitle(v)
+	return _u
+}
+
+// SetNillableTitle sets the "title" field if the given value is not nil.
+func (_u *ChatConversationUpdate) SetNillableTitle(v *string) *ChatConversationUpdate {
+	if v != nil {
+		_u.SetTitle(*v)
+	}
+	return _u
+}
+
+// ClearTitle clears the value of the "title" field.
+func (_u *ChatConversationUpdate) ClearTitle() *ChatConversationUpdate {
+	_u.mutation.ClearTitle()
+	return _u
+}
+
 // SetProviderThreadID sets the "provider_thread_id" field.
 func (_u *ChatConversationUpdate) SetProviderThreadID(v string) *ChatConversationUpdate {
 	_u.mutation.SetProviderThreadID(v)
@@ -457,6 +477,12 @@ func (_u *ChatConversationUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(chatconversation.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.Title(); ok {
+		_spec.SetField(chatconversation.FieldTitle, field.TypeString, value)
+	}
+	if _u.mutation.TitleCleared() {
+		_spec.ClearField(chatconversation.FieldTitle, field.TypeString)
+	}
 	if value, ok := _u.mutation.ProviderThreadID(); ok {
 		_spec.SetField(chatconversation.FieldProviderThreadID, field.TypeString, value)
 	}
@@ -794,6 +820,26 @@ func (_u *ChatConversationUpdateOne) SetNillableStatus(v *string) *ChatConversat
 	if v != nil {
 		_u.SetStatus(*v)
 	}
+	return _u
+}
+
+// SetTitle sets the "title" field.
+func (_u *ChatConversationUpdateOne) SetTitle(v string) *ChatConversationUpdateOne {
+	_u.mutation.SetTitle(v)
+	return _u
+}
+
+// SetNillableTitle sets the "title" field if the given value is not nil.
+func (_u *ChatConversationUpdateOne) SetNillableTitle(v *string) *ChatConversationUpdateOne {
+	if v != nil {
+		_u.SetTitle(*v)
+	}
+	return _u
+}
+
+// ClearTitle clears the value of the "title" field.
+func (_u *ChatConversationUpdateOne) ClearTitle() *ChatConversationUpdateOne {
+	_u.mutation.ClearTitle()
 	return _u
 }
 
@@ -1178,6 +1224,12 @@ func (_u *ChatConversationUpdateOne) sqlSave(ctx context.Context) (_node *ChatCo
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(chatconversation.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.Title(); ok {
+		_spec.SetField(chatconversation.FieldTitle, field.TypeString, value)
+	}
+	if _u.mutation.TitleCleared() {
+		_spec.ClearField(chatconversation.FieldTitle, field.TypeString)
 	}
 	if value, ok := _u.mutation.ProviderThreadID(); ok {
 		_spec.SetField(chatconversation.FieldProviderThreadID, field.TypeString, value)

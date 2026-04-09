@@ -4,7 +4,6 @@
     NotificationRule,
     NotificationRuleEventType,
   } from '$lib/api/contracts'
-  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import {
     buildCreateRuleInput,
@@ -18,7 +17,10 @@
   } from '../notification-rules'
   import { actionErrorMessage } from '../notification-support'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import NotificationRuleEditor from './notification-rule-editor.svelte'
+  import { buildEventCatalog, getSeverity } from '../notification-event-catalog'
+  import NotificationRuleDialog from './notification-rule-dialog.svelte'
+  import NotificationEventGroup from './notification-event-group.svelte'
+  import NotificationRuleList from './notification-rule-list.svelte'
 
   let {
     channels,
@@ -27,7 +29,6 @@
     onCreate,
     onUpdate,
     onDelete,
-    onToggle,
   }: {
     channels: NotificationChannel[]
     eventTypes: NotificationRuleEventType[]
@@ -35,46 +36,60 @@
     onCreate: (input: RuleCreateInput) => Promise<NotificationRule>
     onUpdate: (ruleId: string, input: RuleUpdateInput) => Promise<NotificationRule>
     onDelete: (ruleId: string) => Promise<void>
-    onToggle: (ruleId: string, isEnabled: boolean) => Promise<NotificationRule>
   } = $props()
 
-  let selectedId = $state<string>('new')
+  let editingRule = $state<NotificationRule | null>(null)
   let draft = $state<RuleDraft>(createRuleDraft([], ''))
+  let dialogOpen = $state(false)
+  let confirmDeleteOpen = $state(false)
   let saving = $state(false)
   let deleting = $state(false)
-  let toggling = $state(false)
+  let togglingId = $state<string | null>(null)
+  let expandedGroups = $state<Set<string>>(new Set())
 
-  const selectedRule = $derived(rules.find((rule) => rule.id === selectedId) ?? null)
+  const catalog = $derived(buildEventCatalog(eventTypes))
   const canCreateRule = $derived(channels.length > 0 && eventTypes.length > 0)
 
-  $effect(() => {
-    if (selectedId !== 'new' && !selectedRule) {
-      selectedId = rules[0]?.id ?? 'new'
+  function toggleGroup(groupKey: string) {
+    const next = new Set(expandedGroups)
+    if (next.has(groupKey)) {
+      next.delete(groupKey)
+    } else {
+      next.add(groupKey)
     }
-
-    if (selectedRule) {
-      draft = ruleDraftFromRecord(selectedRule)
-      return
-    }
-
-    draft = createRuleDraft(eventTypes, channels[0]?.id || '')
-  })
-
-  function selectRule(ruleId: string) {
-    selectedId = ruleId
+    expandedGroups = next
   }
 
-  function selectNewRule() {
-    selectedId = 'new'
+  function openNewRule(eventType?: string) {
+    editingRule = null
+    const d = createRuleDraft(eventTypes, channels[0]?.id || '')
+    if (eventType) {
+      const et = findEventType(eventTypes, eventType)
+      if (et) {
+        d.eventType = eventType
+        d.template = et.default_template
+        d.name = et.label
+      }
+    }
+    draft = d
+    dialogOpen = true
   }
+
+  function openEditRule(rule: NotificationRule) {
+    editingRule = rule
+    draft = ruleDraftFromRecord(rule)
+    dialogOpen = true
+  }
+
+  function closeDialog() {
+    if (saving || deleting) return
+    dialogOpen = false
+    editingRule = null
+  }
+
   async function handleSave() {
-    if (!canCreateRule) {
-      toastStore.error('Create at least one channel before managing notification rules.')
-      return
-    }
-
-    if (selectedRule) {
-      const parsed = buildUpdateRuleInput(draft, selectedRule)
+    if (editingRule) {
+      const parsed = buildUpdateRuleInput(draft, editingRule)
       if (!parsed.ok) {
         toastStore.error(parsed.error)
         return
@@ -83,12 +98,12 @@
         toastStore.info('No rule changes to save.')
         return
       }
-
       saving = true
       try {
-        const rule = await onUpdate(selectedRule.id, parsed.value.value)
-        selectedId = rule.id
+        await onUpdate(editingRule.id, parsed.value.value)
         toastStore.success('Rule updated.')
+        dialogOpen = false
+        editingRule = null
       } catch (caughtError) {
         toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule.'))
       } finally {
@@ -102,12 +117,11 @@
       toastStore.error(parsed.error)
       return
     }
-
     saving = true
     try {
-      const rule = await onCreate(parsed.value)
-      selectedId = rule.id
+      await onCreate(parsed.value)
       toastStore.success('Rule created.')
+      dialogOpen = false
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to create rule.'))
     } finally {
@@ -116,14 +130,14 @@
   }
 
   async function handleDelete() {
-    if (!selectedRule) return
-    if (!window.confirm(`Delete rule "${selectedRule.name}"?`)) return
-
+    if (!editingRule) return
     deleting = true
     try {
-      await onDelete(selectedRule.id)
-      selectedId = 'new'
+      await onDelete(editingRule.id)
       toastStore.success('Rule deleted.')
+      dialogOpen = false
+      confirmDeleteOpen = false
+      editingRule = null
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to delete rule.'))
     } finally {
@@ -131,78 +145,124 @@
     }
   }
 
-  async function handleToggle() {
-    if (!selectedRule) return
-
-    toggling = true
+  async function handleToggleRule(rule: NotificationRule) {
+    togglingId = rule.id
     try {
-      const rule = await onToggle(selectedRule.id, !selectedRule.is_enabled)
-      selectedId = rule.id
-      toastStore.success(rule.is_enabled ? 'Rule enabled.' : 'Rule disabled.')
+      if (rule.is_enabled) {
+        await onDelete(rule.id)
+        toastStore.success('Rule disabled.')
+      } else {
+        await onUpdate(rule.id, { is_enabled: true })
+        toastStore.success('Rule enabled.')
+      }
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to update rule state.'))
     } finally {
-      toggling = false
+      togglingId = null
     }
+  }
+
+  function severityClass(eventType: string): string {
+    const s = getSeverity(eventType, eventTypes)
+    if (s === 'critical') return 'bg-red-500'
+    if (s === 'warning') return 'bg-amber-500'
+    return 'bg-blue-500'
+  }
+
+  function severityLabel(eventType: string): string {
+    const s = getSeverity(eventType, eventTypes)
+    if (s === 'critical') return 'Critical'
+    if (s === 'warning') return 'Warning'
+    return 'Info'
   }
 </script>
 
-<div class="border-border bg-card rounded-2xl border">
-  <div class="border-border flex items-start justify-between gap-4 border-b px-5 py-4">
+<div class="space-y-6">
+  <!-- Rules list header -->
+  <div class="flex items-center justify-between gap-4">
     <div>
-      <h3 class="text-foreground text-base font-semibold">Project Rules</h3>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Rules bind project event types to org channels and control when notifications fan out.
+      <h3 class="text-foreground text-sm font-semibold">Notification Rules</h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Subscribe to project events and route them to channels.
       </p>
     </div>
-    <Button variant="outline" size="sm" onclick={selectNewRule} disabled={!canCreateRule}>
-      New rule
-    </Button>
+    {#if canCreateRule}
+      <Button variant="outline" size="sm" onclick={() => openNewRule()}>Add rule</Button>
+    {/if}
   </div>
-  <div class="grid gap-0 lg:grid-cols-[260px_minmax(0,1fr)]">
-    <div class="border-border space-y-2 border-b px-4 py-4 lg:border-r lg:border-b-0">
-      {#if rules.length === 0}
-        <p class="text-muted-foreground text-sm">No rules yet.</p>
-      {:else}
-        {#each rules as rule (rule.id)}
-          <button
-            type="button"
-            class={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
-              selectedId === rule.id
-                ? 'border-primary/40 bg-primary/5'
-                : 'border-border hover:bg-muted/50'
-            }`}
-            onclick={() => selectRule(rule.id)}
-          >
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-sm font-medium">{rule.name}</span>
-              <Badge variant="outline">{rule.is_enabled ? 'Enabled' : 'Disabled'}</Badge>
-            </div>
-            <p class="text-muted-foreground mt-1 text-xs">
-              {findEventType(eventTypes, rule.event_type)?.label ?? rule.event_type}
-            </p>
-            <p class="text-muted-foreground mt-1 text-xs">
-              Channel: {rule.channel.name}
-            </p>
-          </button>
+
+  <NotificationRuleList
+    {canCreateRule}
+    {rules}
+    {eventTypes}
+    {togglingId}
+    {severityClass}
+    {severityLabel}
+    onEditRule={openEditRule}
+    onToggleRule={handleToggleRule}
+  />
+
+  {#if canCreateRule}
+    <!-- Event catalog -->
+    <div class="space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h4 class="text-foreground text-xs font-semibold">Available events</h4>
+          <p class="text-muted-foreground mt-0.5 text-xs">
+            Browse events and click "+ Add rule" to subscribe.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3 text-xs">
+          <span class="flex items-center gap-1">
+            <span class="size-2 rounded-full bg-blue-500"></span>
+            <span class="text-muted-foreground">Info</span>
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="size-2 rounded-full bg-amber-500"></span>
+            <span class="text-muted-foreground">Warning</span>
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="size-2 rounded-full bg-red-500"></span>
+            <span class="text-muted-foreground">Critical</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        {#each catalog as group (group.key)}
+          <NotificationEventGroup
+            {group}
+            expanded={expandedGroups.has(group.key)}
+            {rules}
+            {togglingId}
+            onToggleGroup={toggleGroup}
+            onToggleRule={handleToggleRule}
+            onNewRule={openNewRule}
+            onEditRule={openEditRule}
+          />
         {/each}
-      {/if}
+      </div>
     </div>
-    <NotificationRuleEditor
-      {channels}
-      {draft}
-      {eventTypes}
-      {saving}
-      {deleting}
-      {toggling}
-      {canCreateRule}
-      {selectedRule}
-      onDraftChange={(nextDraft: RuleDraft) => {
-        draft = nextDraft
-      }}
-      onSave={handleSave}
-      onDelete={handleDelete}
-      onToggle={handleToggle}
-    />
-  </div>
+  {/if}
 </div>
+
+<NotificationRuleDialog
+  {channels}
+  {eventTypes}
+  {editingRule}
+  {draft}
+  {dialogOpen}
+  {confirmDeleteOpen}
+  {saving}
+  {deleting}
+  onDialogOpenChange={(open) => {
+    if (!open) closeDialog()
+    else dialogOpen = true
+  }}
+  onConfirmDeleteOpenChange={(open) => (confirmDeleteOpen = open)}
+  onDraftChange={(nextDraft) => {
+    draft = nextDraft
+  }}
+  onSave={handleSave}
+  onDelete={handleDelete}
+/>

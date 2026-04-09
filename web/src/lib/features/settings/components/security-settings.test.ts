@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { authStore } from '$lib/stores/auth.svelte'
+import type { ScopedSecretRecord } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
@@ -10,84 +10,137 @@ import {
   currentOrg,
   currentProject,
 } from './security-settings.test-helpers'
+import {
+  scopedSecretBindings,
+  scopedSecrets,
+  ticketCatalog,
+  workflowCatalog,
+} from './security-settings-secret-binding-test-helpers'
 
 const {
+  createProjectScopedSecret,
+  createScopedSecretBinding,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  deleteScopedSecretBinding,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
+  listScopedSecretBindings,
+  listScopedSecrets,
+  listTickets,
+  listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
 } = vi.hoisted(() => ({
+  createProjectScopedSecret: vi.fn(),
+  createScopedSecretBinding: vi.fn(),
   deleteGitHubOutboundCredential: vi.fn(),
+  deleteProjectScopedSecret: vi.fn(),
+  deleteScopedSecretBinding: vi.fn(),
+  disableProjectScopedSecret: vi.fn(),
   getSecuritySettings: vi.fn(),
   importGitHubOutboundCredentialFromGHCLI: vi.fn(),
+  listProjectScopedSecrets: vi.fn(),
+  listScopedSecretBindings: vi.fn(),
+  listScopedSecrets: vi.fn(),
+  listTickets: vi.fn(),
+  listWorkflows: vi.fn(),
   retestGitHubOutboundCredential: vi.fn(),
+  rotateProjectScopedSecret: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
 }))
 
-const {
-  createOrganizationRoleBinding,
-  createProjectRoleBinding,
-  deleteOrganizationRoleBinding,
-  deleteProjectRoleBinding,
-  getEffectivePermissions,
-  listOrganizationRoleBindings,
-  listProjectRoleBindings,
-} = vi.hoisted(() => ({
-  createOrganizationRoleBinding: vi.fn(),
-  createProjectRoleBinding: vi.fn(),
-  deleteOrganizationRoleBinding: vi.fn(),
-  deleteProjectRoleBinding: vi.fn(),
-  getEffectivePermissions: vi.fn(),
-  listOrganizationRoleBindings: vi.fn(),
-  listProjectRoleBindings: vi.fn(),
-}))
-
 vi.mock('$lib/api/openase', () => ({
+  createProjectScopedSecret,
+  createScopedSecretBinding,
   deleteGitHubOutboundCredential,
+  deleteProjectScopedSecret,
+  deleteScopedSecretBinding,
+  disableProjectScopedSecret,
   getSecuritySettings,
   importGitHubOutboundCredentialFromGHCLI,
+  listProjectScopedSecrets,
+  listScopedSecretBindings,
+  listScopedSecrets,
+  listTickets,
+  listWorkflows,
   retestGitHubOutboundCredential,
+  rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
-}))
-
-vi.mock('$lib/api/auth', () => ({
-  createOrganizationRoleBinding,
-  createProjectRoleBinding,
-  deleteOrganizationRoleBinding,
-  deleteProjectRoleBinding,
-  getEffectivePermissions,
-  listOrganizationRoleBindings,
-  listProjectRoleBindings,
 }))
 
 describe('Security settings', () => {
   afterEach(() => {
     cleanup()
-    authStore.clear()
     appStore.currentOrg = null
     appStore.currentProject = null
     vi.clearAllMocks()
   })
 
-  it('renders the GitHub control plane alongside runtime boundaries', async () => {
+  function mockSecretBindingCatalog() {
+    listScopedSecrets.mockResolvedValue({ secrets: scopedSecrets() })
+    listScopedSecretBindings.mockResolvedValue({ bindings: scopedSecretBindings() })
+    listWorkflows.mockResolvedValue({ workflows: workflowCatalog() })
+    listTickets.mockResolvedValue({ tickets: ticketCatalog() })
+  }
+
+  function mockProjectScopedSecrets(secrets: ScopedSecretRecord[] = []) {
+    listProjectScopedSecrets.mockResolvedValue({ secrets })
+  }
+
+  it('renders project-owned security controls', async () => {
+    appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets([
+      {
+        id: 'secret-org',
+        organization_id: 'org-1',
+        project_id: null,
+        scope: 'organization',
+        name: 'OPENAI_API_KEY',
+        kind: 'opaque',
+        description: 'Inherited model key',
+        disabled: false,
+        disabled_at: null,
+        created_at: '2026-04-08T12:00:00Z',
+        updated_at: '2026-04-08T12:00:00Z',
+        usage_count: 1,
+        usage_scopes: ['organization'],
+        encryption: {
+          algorithm: 'aes-256-gcm',
+          key_id: 'database-dsn-sha256:v1',
+          key_source: 'database_dsn_sha256',
+          rotated_at: '2026-04-08T12:00:00Z',
+          value_preview: 'sk-live...1234',
+        },
+      },
+    ])
 
     const { findByText } = render(SecuritySettings)
 
+    expect(await findByText('Scoped secrets')).toBeTruthy()
+    expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
-    expect(await findByText('Effective credential')).toBeTruthy()
-    expect(await findByText('Organization default')).toBeTruthy()
-    expect(await findByText('Project override')).toBeTruthy()
-    expect(await findByText('User @octocat')).toBeTruthy()
-    expect(await findByText('Device Flow')).toBeTruthy()
+    expect(await findByText('Runtime secret bindings')).toBeTruthy()
+    expect(
+      await findByText('Fullstack Developer Workflow', { selector: 'div.text-sm.font-medium' }),
+    ).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
+    expect(await findByText('Migrate inline provider auth_config secrets')).toBeTruthy()
+    expect(await findByText('2 inline secrets across 1 providers')).toBeTruthy()
   })
 
-  it('saves a project override token from the settings surface', async () => {
+  it('saves a project override token from the security surface', async () => {
+    appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     saveGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
     const { findByPlaceholderText, findAllByRole } = render(SecuritySettings)
@@ -107,8 +160,11 @@ describe('Security settings', () => {
   })
 
   it('imports, retests, and deletes credentials through scoped actions', async () => {
+    appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
     importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: configuredSecurity() })
     retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
@@ -143,10 +199,13 @@ describe('Security settings', () => {
   })
 
   it('normalizes null GitHub probe permissions so the page does not crash', async () => {
+    appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({
       security: configuredSecurityWithNullPermissions() as never,
     })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
 
     const { findByText } = render(SecuritySettings)
 
@@ -154,98 +213,57 @@ describe('Security settings', () => {
     expect(await findByText('No scopes reported')).toBeTruthy()
   })
 
-  it('renders oidc principal state and creates an organization role binding', async () => {
-    authStore.hydrate({
-      authMode: 'oidc',
-      authenticated: true,
-      issuerURL: 'https://idp.example.com',
-      csrfToken: 'csrf-token',
-      user: {
-        id: 'user-1',
-        primaryEmail: 'alice@example.com',
-        displayName: 'Alice Control Plane',
-      },
-      roles: ['instance_admin'],
-      permissions: ['org.update'],
-    })
+  it('creates a workflow secret binding from the security surface', async () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
-    getEffectivePermissions.mockImplementation(async ({ orgId, projectId }) => {
-      if (orgId) {
-        return {
-          user: {
-            id: 'user-1',
-            primary_email: 'alice@example.com',
-            display_name: 'Alice Control Plane',
-          },
-          scope: { kind: 'organization', id: orgId },
-          roles: ['org_admin'],
-          permissions: ['org.read', 'rbac.manage'],
-          groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-        }
-      }
-      return {
-        user: {
-          id: 'user-1',
-          primary_email: 'alice@example.com',
-          display_name: 'Alice Control Plane',
-        },
-        scope: { kind: 'project', id: projectId ?? '' },
-        roles: ['project_admin'],
-        permissions: ['project.read', 'rbac.manage'],
-        groups: [{ group_key: 'platform-admins', group_name: 'Platform Admins', issuer: 'oidc' }],
-      }
-    })
-    listOrganizationRoleBindings.mockResolvedValue([
-      {
-        id: 'binding-1',
-        scopeKind: 'organization',
-        scopeID: currentOrg().id,
-        subjectKind: 'group',
-        subjectKey: 'platform-admins',
-        roleKey: 'org_admin',
-        grantedBy: 'user:user-1',
-        createdAt: '2026-04-04T09:00:00Z',
-      },
-    ])
-    listProjectRoleBindings.mockResolvedValue([])
-    createOrganizationRoleBinding.mockResolvedValue({
-      id: 'binding-2',
-      scopeKind: 'organization',
-      scopeID: currentOrg().id,
-      subjectKind: 'user',
-      subjectKey: 'bob@example.com',
-      roleKey: 'org_member',
-      grantedBy: 'user:user-1',
-      createdAt: '2026-04-04T10:00:00Z',
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    listScopedSecretBindings.mockResolvedValue({ bindings: [] })
+    createScopedSecretBinding.mockResolvedValue({
+      binding: scopedSecretBindings()[0],
     })
 
-    const { findAllByPlaceholderText, findAllByRole, findByText } = render(SecuritySettings)
+    const { findByLabelText, findByRole } = render(SecuritySettings)
 
-    expect(await findByText('Human access and RBAC')).toBeTruthy()
-    expect(await findByText('Alice Control Plane')).toBeTruthy()
-    expect(await findByText('alice@example.com')).toBeTruthy()
-    expect(await findByText('Platform Admins')).toBeTruthy()
-    expect(await findByText('org_admin')).toBeTruthy()
-    expect(await findByText('project_admin')).toBeTruthy()
-    expect(await findByText('Approval boundary')).toBeTruthy()
-    expect(await findByText('Stored rules')).toBeTruthy()
-    expect(await findByText('reserved')).toBeTruthy()
-
-    const subjectInputs = await findAllByPlaceholderText('user@example.com')
-    await fireEvent.input(subjectInputs[0], { target: { value: 'bob@example.com' } })
-
-    const addButtons = await findAllByRole('button', { name: 'Add binding' })
-    await fireEvent.click(addButtons[0])
+    await fireEvent.input(await findByLabelText('Binding key'), {
+      target: { value: 'openai_api_key' },
+    })
+    await fireEvent.change(await findByLabelText('Workflow target'), {
+      target: { value: 'workflow-fullstack' },
+    })
+    await fireEvent.change(await findByLabelText('Secret'), {
+      target: { value: 'secret-project-openai' },
+    })
+    await fireEvent.click(await findByRole('button', { name: 'Create binding' }))
 
     await waitFor(() => {
-      expect(createOrganizationRoleBinding).toHaveBeenCalledWith(currentOrg().id, {
-        subject_kind: 'user',
-        subject_key: 'bob@example.com',
-        role_key: 'org_member',
-        expires_at: undefined,
+      expect(createScopedSecretBinding).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        secret_id: 'secret-project-openai',
+        scope: 'workflow',
+        scope_resource_id: 'workflow-fullstack',
+        binding_key: 'openai_api_key',
       })
+    })
+  })
+
+  it('deletes a runtime secret binding from the security surface', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    deleteScopedSecretBinding.mockResolvedValue({})
+
+    const { findByTitle } = render(SecuritySettings)
+
+    await fireEvent.click(await findByTitle('Delete binding'))
+
+    await waitFor(() => {
+      expect(deleteScopedSecretBinding).toHaveBeenCalledWith(
+        appStore.currentProject?.id,
+        'binding-1',
+      )
     })
   })
 })

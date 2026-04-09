@@ -18,6 +18,14 @@ const (
 	FieldUserID = "user_id"
 	// FieldSessionHash holds the string denoting the session_hash field in the database.
 	FieldSessionHash = "session_hash"
+	// FieldDeviceKind holds the string denoting the device_kind field in the database.
+	FieldDeviceKind = "device_kind"
+	// FieldDeviceOs holds the string denoting the device_os field in the database.
+	FieldDeviceOs = "device_os"
+	// FieldDeviceBrowser holds the string denoting the device_browser field in the database.
+	FieldDeviceBrowser = "device_browser"
+	// FieldDeviceLabel holds the string denoting the device_label field in the database.
+	FieldDeviceLabel = "device_label"
 	// FieldExpiresAt holds the string denoting the expires_at field in the database.
 	FieldExpiresAt = "expires_at"
 	// FieldIdleExpiresAt holds the string denoting the idle_expires_at field in the database.
@@ -43,6 +51,10 @@ var Columns = []string{
 	FieldID,
 	FieldUserID,
 	FieldSessionHash,
+	FieldDeviceKind,
+	FieldDeviceOs,
+	FieldDeviceBrowser,
+	FieldDeviceLabel,
 	FieldExpiresAt,
 	FieldIdleExpiresAt,
 	FieldCsrfSecret,
@@ -66,6 +78,14 @@ func ValidColumn(column string) bool {
 var (
 	// SessionHashValidator is a validator for the "session_hash" field. It is called by the builders before save.
 	SessionHashValidator func(string) error
+	// DefaultDeviceKind holds the default value on creation for the "device_kind" field.
+	DefaultDeviceKind string
+	// DefaultDeviceOs holds the default value on creation for the "device_os" field.
+	DefaultDeviceOs string
+	// DefaultDeviceBrowser holds the default value on creation for the "device_browser" field.
+	DefaultDeviceBrowser string
+	// DefaultDeviceLabel holds the default value on creation for the "device_label" field.
+	DefaultDeviceLabel string
 	// CsrfSecretValidator is a validator for the "csrf_secret" field. It is called by the builders before save.
 	CsrfSecretValidator func(string) error
 	// DefaultUserAgentHash holds the default value on creation for the "user_agent_hash" field.
@@ -98,6 +118,26 @@ func ByUserID(opts ...sql.OrderTermOption) OrderOption {
 // BySessionHash orders the results by the session_hash field.
 func BySessionHash(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSessionHash, opts...).ToFunc()
+}
+
+// ByDeviceKind orders the results by the device_kind field.
+func ByDeviceKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeviceKind, opts...).ToFunc()
+}
+
+// ByDeviceOs orders the results by the device_os field.
+func ByDeviceOs(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeviceOs, opts...).ToFunc()
+}
+
+// ByDeviceBrowser orders the results by the device_browser field.
+func ByDeviceBrowser(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeviceBrowser, opts...).ToFunc()
+}
+
+// ByDeviceLabel orders the results by the device_label field.
+func ByDeviceLabel(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDeviceLabel, opts...).ToFunc()
 }
 
 // ByExpiresAt orders the results by the expires_at field.

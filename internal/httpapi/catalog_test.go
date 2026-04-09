@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -231,7 +233,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos",
-		`{"name":"backend","repository_url":"https://github.com/acme/backend.git","labels":["go","api"]}`,
+		`{"name":"backend","repository_url":"file:///srv/git/backend.git","labels":["go","api"]}`,
 	)
 	if repoRec.Code != http.StatusCreated {
 		t.Fatalf("expected repo create 201, got %d: %s", repoRec.Code, repoRec.Body.String())
@@ -241,7 +243,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, repoRec, &createRepoPayload)
-	if createRepoPayload.Repo.DefaultBranch != "main" {
+	if createRepoPayload.Repo.DefaultBranch != "main" || createRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend.git" {
 		t.Fatalf("unexpected created repo payload: %+v", createRepoPayload.Repo)
 	}
 
@@ -291,7 +293,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/projects/"+createProjectPayload.Project.ID+"/repos/"+createRepoPayload.Repo.ID,
-		`{"workspace_dirname":"services/backend"}`,
+		`{"repository_url":"file:///srv/git/backend-mirror.git","workspace_dirname":"services/backend"}`,
 	)
 	if patchRepoRec.Code != http.StatusOK {
 		t.Fatalf("expected repo patch 200, got %d: %s", patchRepoRec.Code, patchRepoRec.Body.String())
@@ -301,7 +303,7 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 		Repo projectRepoResponse `json:"repo"`
 	}
 	decodeResponse(t, patchRepoRec, &patchRepoPayload)
-	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" {
+	if patchRepoPayload.Repo.WorkspaceDirname != "services/backend" || patchRepoPayload.Repo.RepositoryURL != "file:///srv/git/backend-mirror.git" {
 		t.Fatalf("unexpected patched repo payload: %+v", patchRepoPayload.Repo)
 	}
 
@@ -547,7 +549,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPost,
 		"/api/v1/orgs/"+orgPayload.Organization.ID+"/machines",
-		`{"name":"gpu-01","host":"10.0.1.10","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
+		`{"name":"gpu-01","host":"10.0.1.10","advertised_endpoint":"wss://gpu-01.example.com/openase","ssh_user":"openase","ssh_key_path":"keys/gpu-01.pem","labels":["gpu","a100"],"workspace_root":"/srv/openase/workspaces","env_vars":["CUDA_VISIBLE_DEVICES=0"]}`,
 	)
 	if createMachineRec.Code != http.StatusCreated {
 		t.Fatalf("expected machine create 201, got %d: %s", createMachineRec.Code, createMachineRec.Body.String())
@@ -578,7 +580,7 @@ func TestMachineRoutes(t *testing.T) {
 		server,
 		http.MethodPatch,
 		"/api/v1/machines/"+createMachinePayload.Machine.ID,
-		`{"status":"online","description":"A100 worker"}`,
+		`{"status":"online","description":"A100 worker","advertised_endpoint":"wss://gpu-01.example.com/openase"}`,
 	)
 	if patchMachineRec.Code != http.StatusOK {
 		t.Fatalf("expected machine patch 200, got %d: %s", patchMachineRec.Code, patchMachineRec.Body.String())
@@ -763,6 +765,63 @@ func TestMachineResourcesExposeEnvironmentProvisioningPlan(t *testing.T) {
 	}
 	if len(payload.EnvironmentProvisioning.RequiredSkills) != 4 {
 		t.Fatalf("expected 4 required skills, got %+v", payload.EnvironmentProvisioning)
+	}
+}
+
+func TestMachineRoutesMaskSecretLikeEnvVarsAndPreserveMaskedPatchValues(t *testing.T) {
+	service := newFakeCatalogService()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		service,
+		nil,
+	)
+
+	orgID := uuid.New()
+	service.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	machineID := uuid.New()
+	advertisedEndpoint := "wss://builder-01.example.com/openase"
+	service.machines[machineID] = domain.Machine{
+		ID:                 machineID,
+		OrganizationID:     orgID,
+		Name:               "builder-01",
+		Host:               "10.0.1.13",
+		Port:               22,
+		AdvertisedEndpoint: &advertisedEndpoint,
+		Status:             "online",
+		EnvVars:            []string{"OPENAI_API_KEY=sk-live-1234", "CUDA_VISIBLE_DEVICES=0"},
+	}
+
+	getRec := performJSONRequest(t, server, http.MethodGet, "/api/v1/machines/"+machineID.String(), "")
+	if getRec.Code != http.StatusOK {
+		t.Fatalf("expected machine get 200, got %d: %s", getRec.Code, getRec.Body.String())
+	}
+	if !strings.Contains(getRec.Body.String(), "OPENAI_API_KEY=[redacted]") ||
+		strings.Contains(getRec.Body.String(), "sk-live-1234") {
+		t.Fatalf("expected masked machine env vars, got %s", getRec.Body.String())
+	}
+
+	patchRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/machines/"+machineID.String(),
+		`{"env_vars":["OPENAI_API_KEY=[redacted]","CUDA_VISIBLE_DEVICES=1"],"status":"online"}`,
+	)
+	if patchRec.Code != http.StatusOK {
+		t.Fatalf("expected machine patch 200, got %d: %s", patchRec.Code, patchRec.Body.String())
+	}
+	updated := service.machines[machineID]
+	if got := updated.EnvVars[0]; got != "OPENAI_API_KEY=sk-live-1234" {
+		t.Fatalf("expected masked patch to preserve secret env var, got %+v", updated.EnvVars)
+	}
+	if got := updated.EnvVars[1]; got != "CUDA_VISIBLE_DEVICES=1" {
+		t.Fatalf("expected non-secret env var update to apply, got %+v", updated.EnvVars)
 	}
 }
 
@@ -1237,6 +1296,135 @@ func TestTicketRepoScopeRoutesPublishTicketRefreshEvents(t *testing.T) {
 		nil,
 	)
 	assertStringSet(t, readTicketEventTicketIDs(t, stream, 1), ticket.ID.String())
+}
+
+func TestTicketRepoScopeRoutesPublishPullRequestActivityEvents(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Acme Repo Scope PR Events").
+		SetSlug("acme-repo-scope-pr-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Repo Scope PR Events").
+		SetSlug("openase-repo-scope-pr-events").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	status, err := client.TicketStatus.Create().
+		SetProjectID(project.ID).
+		SetName("Todo").
+		SetColor("#111111").
+		SetPosition(1).
+		SetIsDefault(true).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create status: %v", err)
+	}
+	ticket, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-44").
+		SetTitle("repo scope pr events").
+		SetStatusID(status.ID).
+		SetCreatedBy("codex").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	repo, err := client.ProjectRepo.Create().
+		SetProjectID(project.ID).
+		SetName("backend").
+		SetRepositoryURL("https://github.com/acme/backend.git").
+		SetDefaultBranch("main").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create repo: %v", err)
+	}
+
+	activityStream := subscribeTopicEvents(t, bus, activityStreamTopic)
+
+	var createResp struct {
+		RepoScope ticketRepoScopeResponse `json:"repo_scope"`
+	}
+	executeJSON(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes",
+		map[string]any{"repo_id": repo.ID.String()},
+		http.StatusCreated,
+		&createResp,
+	)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		map[string]any{"pull_request_url": "https://github.com/acme/backend/pull/44"},
+		http.StatusOK,
+		nil,
+	)
+
+	opened := readEventType(t, activityStream, provider.MustParseEventType(activityevent.TypePROpened.String()), 3)
+
+	var openedPayload struct {
+		Event struct {
+			Message   string         `json:"message"`
+			EventType string         `json:"event_type"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(opened.Payload, &openedPayload); err != nil {
+		t.Fatalf("decode pr.opened payload: %v", err)
+	}
+	if openedPayload.Event.EventType != activityevent.TypePROpened.String() || openedPayload.Event.Metadata["pull_request_url"] != "https://github.com/acme/backend/pull/44" {
+		t.Fatalf("unexpected pr.opened payload: %+v", openedPayload)
+	}
+
+	executeJSON(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		nil,
+		http.StatusOK,
+		nil,
+	)
+
+	closed := readEventType(t, activityStream, provider.MustParseEventType(activityevent.TypePRClosed.String()), 2)
+
+	var closedPayload struct {
+		Event struct {
+			Message   string         `json:"message"`
+			EventType string         `json:"event_type"`
+			Metadata  map[string]any `json:"metadata"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(closed.Payload, &closedPayload); err != nil {
+		t.Fatalf("decode pr.closed payload: %v", err)
+	}
+	if closedPayload.Event.EventType != activityevent.TypePRClosed.String() || closedPayload.Event.Metadata["previous_pr_url"] != "https://github.com/acme/backend/pull/44" {
+		t.Fatalf("unexpected pr.closed payload: %+v", closedPayload)
+	}
 }
 
 func performJSONRequest(t *testing.T, server *Server, method string, target string, body string) *httptest.ResponseRecorder {

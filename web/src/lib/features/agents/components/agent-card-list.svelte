@@ -41,11 +41,8 @@
 
   function toggleExpand(agentId: string) {
     const next = new Set(expandedIds)
-    if (next.has(agentId)) {
-      next.delete(agentId)
-    } else {
-      next.add(agentId)
-    }
+    if (next.has(agentId)) next.delete(agentId)
+    else next.add(agentId)
     expandedIds = next
   }
 
@@ -86,15 +83,7 @@
     terminated: 'bg-slate-500',
   }
 
-  function canInterrupt(agent: AgentInstance) {
-    return (
-      agent.runtimeControlState === 'active' &&
-      agent.activeRunCount > 0 &&
-      (agent.status === 'claimed' || agent.status === 'running')
-    )
-  }
-
-  function canPause(agent: AgentInstance) {
+  function canControlActiveRun(agent: AgentInstance) {
     return (
       agent.runtimeControlState === 'active' &&
       agent.activeRunCount > 0 &&
@@ -107,23 +96,27 @@
   }
 
   function activeRuns(agentId: string): AgentRunInstance[] {
-    const runs = runsByAgentId.get(agentId)
-    if (!runs) return []
-    return runs.filter(
+    return (runsByAgentId.get(agentId) ?? []).filter(
       (r) => r.status === 'launching' || r.status === 'ready' || r.status === 'executing',
     )
   }
 
-  function truncate(text: string, max: number): string {
-    return text.length > max ? text.slice(0, max) + '…' : text
-  }
+  const truncate = (text: string, max: number) =>
+    text.length > max ? text.slice(0, max) + '…' : text
 </script>
 
 {#if agents.length === 0}
   <div
-    class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
+    class="border-border bg-card animate-fade-in-up rounded-xl border border-dashed px-4 py-14 text-center"
   >
-    No agent definitions registered yet. Register an agent to get started.
+    <div class="bg-muted/60 mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
+      <Bot class="text-muted-foreground size-5" />
+    </div>
+    <p class="text-foreground text-sm font-medium">No agents registered</p>
+    <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+      Agents are AI workers that pick up and execute tickets. Register an agent definition to
+      connect a Claude model to this project's workflow.
+    </p>
   </div>
 {:else}
   <div class="space-y-2">
@@ -134,7 +127,9 @@
       {@const hasRuns = runs.length > 0}
 
       <div class="border-border/60 bg-card/60 rounded-xl border">
-        <div class="flex items-center gap-3 px-4 py-2.5">
+        <div
+          class="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2.5 sm:flex-nowrap sm:gap-3 sm:px-4"
+        >
           <button
             type="button"
             class="flex shrink-0 items-center"
@@ -192,7 +187,7 @@
             </span>
           {/if}
 
-          <span class="flex-1"></span>
+          <span class="hidden flex-1 sm:block"></span>
 
           {#if agent.lastHeartbeat}
             <span class="text-muted-foreground hidden text-[11px] whitespace-nowrap sm:inline">
@@ -200,7 +195,7 @@
             </span>
           {/if}
 
-          <div class="flex shrink-0 items-center gap-0.5">
+          <div class="ml-auto flex shrink-0 items-center gap-0.5 sm:ml-0">
             <Button
               variant="ghost"
               size="icon-xs"
@@ -214,7 +209,7 @@
               variant="ghost"
               size="icon-xs"
               aria-label="Interrupt agent"
-              disabled={!canInterrupt(agent) || runtimeActionAgentId === agent.id}
+              disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
               title="Interrupt this agent run"
               onclick={() => onInterruptAgent?.(agent.id)}
             >
@@ -236,7 +231,7 @@
                 variant="ghost"
                 size="icon-xs"
                 aria-label="Pause agent"
-                disabled={!canPause(agent) || runtimeActionAgentId === agent.id}
+                disabled={!canControlActiveRun(agent) || runtimeActionAgentId === agent.id}
                 title="Pause this agent"
                 onclick={() => onPauseAgent?.(agent.id)}
               >
@@ -247,10 +242,10 @@
         </div>
 
         {#if expanded && hasRuns}
-          <div class="border-border border-t px-4 py-2">
+          <div class="border-border border-t px-3 py-2 sm:px-4">
             <div class="space-y-1.5">
               {#each runs as run (run.id)}
-                <div class="flex items-center gap-2 text-xs">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
                   <span class={cn('size-2 shrink-0 rounded-full', runStatusColors[run.status])}
                   ></span>
                   <button

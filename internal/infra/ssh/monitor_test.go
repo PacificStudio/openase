@@ -118,6 +118,12 @@ func TestSystemResourceScriptCollectsParseableMetricsOnCurrentPlatform(t *testin
 	}
 }
 
+func TestSystemResourceScriptFormatsLinuxCPUCountersAsPlainIntegers(t *testing.T) {
+	if !strings.Contains(systemResourceScript, `printf "%.0f %.0f\n"`) {
+		t.Fatalf("expected linux cpu counters to use explicit integer formatting, got %q", systemResourceScript)
+	}
+}
+
 func TestSystemResourceScriptIncludesDarwinCollector(t *testing.T) {
 	if !strings.Contains(systemResourceScript, `collect_darwin_system_resources()`) {
 		t.Fatalf("expected darwin collector in system resource script, got %q", systemResourceScript)

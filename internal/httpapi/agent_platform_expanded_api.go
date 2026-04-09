@@ -2,10 +2,8 @@ package httpapi
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	scheduledjobservice "github.com/BetterAndBetterII/openase/internal/scheduledjob"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -55,8 +53,6 @@ func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.POST("/skills/:skillId/disable", s.handleAgentDisableSkill)
 	api.POST("/skills/:skillId/bind", s.handleAgentBindSkill)
 	api.POST("/skills/:skillId/unbind", s.handleAgentUnbindSkill)
-	api.POST("/skills/:skillId/refinement-runs", s.handleAgentStartSkillRefinement)
-	api.DELETE("/skills/refinement-runs/:sessionId", s.handleAgentDeleteSkillRefinementSession)
 	api.POST("/workflows/:workflowId/skills/bind", s.handleAgentBindWorkflowSkills)
 	api.POST("/workflows/:workflowId/skills/unbind", s.handleAgentUnbindWorkflowSkills)
 }
@@ -581,102 +577,4 @@ func (s *Server) handleAgentUnbindWorkflowSkills(c echo.Context) error {
 		return nil
 	}
 	return s.handleUnbindWorkflowSkills(c)
-}
-
-func (s *Server) handleAgentStartSkillRefinement(c echo.Context) error {
-	if s.skillRefinementService == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "skill refinement service unavailable")
-	}
-
-	claims, ok := s.requireAgentSkillAnyScope(c, agentplatform.ScopeSkillsRefine)
-	if !ok {
-		return nil
-	}
-
-	skillID, err := parseUUIDPathParamValue(c, "skillId")
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
-	}
-
-	var raw rawSkillRefinementRequest
-	if err := decodeJSON(c, &raw); err != nil {
-		return err
-	}
-	input, err := parseSkillRefinementRequest(skillID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-	if input.ProjectID != claims.ProjectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
-	}
-
-	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
-	defer cancel()
-
-	stream, err := s.skillRefinementService.Start(streamCtx, agentPlatformSkillRefinementUserID(claims), input)
-	if err != nil {
-		return writeSkillRefinementError(c, err)
-	}
-	heartbeat := time.NewTicker(s.chatStreamKeepaliveInterval())
-	defer heartbeat.Stop()
-
-	response := c.Response()
-	response.Header().Set(echo.HeaderContentType, "text/event-stream")
-	response.Header().Set(echo.HeaderCacheControl, "no-cache")
-	response.Header().Set("Connection", "keep-alive")
-	response.Header().Set("X-Accel-Buffering", "no")
-	response.WriteHeader(http.StatusOK)
-
-	flusher, ok := response.Writer.(http.Flusher)
-	if !ok {
-		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "response writer does not support flushing")
-	}
-	if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
-		return nil
-	}
-	flusher.Flush()
-
-	for {
-		select {
-		case <-streamCtx.Done():
-			return nil
-		case <-heartbeat.C:
-			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
-				return nil
-			}
-			flusher.Flush()
-		case event, ok := <-stream.Events:
-			if !ok {
-				return nil
-			}
-			if err := writeSSEFrame(response, event.Event, event.Payload); err != nil {
-				return nil
-			}
-			flusher.Flush()
-		}
-	}
-}
-
-func (s *Server) handleAgentDeleteSkillRefinementSession(c echo.Context) error {
-	if s.skillRefinementService == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "skill refinement service unavailable")
-	}
-
-	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeSkillsRefine)
-	if !ok {
-		return nil
-	}
-
-	sessionID, err := chatservice.ParseCloseSessionID(c.Param("sessionId"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
-	}
-	if !s.skillRefinementService.CloseSession(agentPlatformSkillRefinementUserID(claims), sessionID) {
-		return writeAPIError(c, http.StatusNotFound, "SKILL_REFINEMENT_SESSION_NOT_FOUND", "skill refinement session not found")
-	}
-	return c.NoContent(http.StatusNoContent)
-}
-
-func agentPlatformSkillRefinementUserID(claims agentplatform.Claims) chatservice.UserID {
-	return chatservice.UserID("agent-platform:" + claims.CreatedBy())
 }

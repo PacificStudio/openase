@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -13,65 +14,89 @@ import (
 func TestSummarizeConversationWorkspaceRepoHandlesUnbornHead(t *testing.T) {
 	t.Parallel()
 
-	workspaceRoot := t.TempDir()
-	repoPath := filepath.Join(workspaceRoot, "repo")
-	projectConversationGit(t, workspaceRoot, "init", "repo")
-
-	if err := os.WriteFile(filepath.Join(repoPath, "tracked.txt"), []byte("alpha\nbeta\n"), 0o600); err != nil {
+	repoPath, branch := createConversationUnbornGitRepo(t)
+	trackedPath := filepath.Join(repoPath, "tracked.txt")
+	if err := os.WriteFile(trackedPath, []byte("alpha\nbeta\n"), 0o600); err != nil {
 		t.Fatalf("write tracked file: %v", err)
 	}
-	projectConversationGit(t, repoPath, "add", "tracked.txt")
+	runConversationGitCommand(t, "", "git", "-C", repoPath, "add", "tracked.txt")
 	if err := os.WriteFile(filepath.Join(repoPath, "notes.txt"), []byte("gamma\n"), 0o600); err != nil {
 		t.Fatalf("write untracked file: %v", err)
 	}
 
 	service := &ProjectConversationService{}
-	repoSummary, err := service.summarizeConversationWorkspaceRepo(
+	summary, err := service.summarizeConversationWorkspaceRepo(
 		context.Background(),
-		catalogdomain.Machine{Name: catalogdomain.LocalMachineName, Host: catalogdomain.LocalMachineHost},
-		projectConversationWorkspaceRepoLocation{
-			name:         "repo",
-			repoPath:     repoPath,
-			relativePath: "repo",
-		},
+		catalogdomain.Machine{Host: catalogdomain.LocalMachineHost},
+		projectConversationWorkspaceRepoLocation{name: "backend", repoPath: repoPath, relativePath: "backend"},
 	)
 	if err != nil {
-		t.Fatalf("summarize workspace repo: %v", err)
+		t.Fatalf("summarizeConversationWorkspaceRepo() error = %v", err)
+	}
+	if !summary.Dirty || summary.Branch != branch {
+		t.Fatalf("unexpected repo summary header: %+v", summary)
+	}
+	if summary.Name != "backend" || summary.Path != "backend" {
+		t.Fatalf("unexpected repo identity: %+v", summary)
+	}
+	if summary.FilesChanged != 2 || summary.Added != 3 || summary.Removed != 0 {
+		t.Fatalf("unexpected unborn HEAD totals: %+v", summary)
 	}
 
-	if !repoSummary.Dirty {
-		t.Fatalf("expected repo to be dirty, got %+v", repoSummary)
-	}
-	if repoSummary.Branch == "" {
-		t.Fatalf("expected unborn repo branch name to be captured, got %+v", repoSummary)
-	}
-	if repoSummary.FilesChanged != 2 {
-		t.Fatalf("expected two changed files, got %+v", repoSummary)
-	}
-	if repoSummary.Added != 3 || repoSummary.Removed != 0 {
-		t.Fatalf("expected added/removed counts from unborn repo diff, got %+v", repoSummary)
-	}
-
-	filesByPath := make(map[string]ProjectConversationWorkspaceFileDiff, len(repoSummary.Files))
-	for _, file := range repoSummary.Files {
+	filesByPath := make(map[string]ProjectConversationWorkspaceFileDiff, len(summary.Files))
+	for _, file := range summary.Files {
 		filesByPath[file.Path] = file
 	}
-	if filesByPath["tracked.txt"].Status != ProjectConversationWorkspaceFileStatusAdded || filesByPath["tracked.txt"].Added != 2 {
-		t.Fatalf("expected staged file stats to survive unborn HEAD, got %+v", filesByPath["tracked.txt"])
+	if filesByPath["tracked.txt"].Status != ProjectConversationWorkspaceFileStatusAdded || filesByPath["tracked.txt"].Added != 2 || filesByPath["tracked.txt"].Removed != 0 {
+		t.Fatalf("unexpected tracked file diff: %+v", filesByPath["tracked.txt"])
 	}
-	if filesByPath["notes.txt"].Status != ProjectConversationWorkspaceFileStatusUntracked || filesByPath["notes.txt"].Added != 1 {
-		t.Fatalf("expected untracked file stats, got %+v", filesByPath["notes.txt"])
+	if filesByPath["notes.txt"].Status != ProjectConversationWorkspaceFileStatusUntracked || filesByPath["notes.txt"].Added != 1 || filesByPath["notes.txt"].Removed != 0 {
+		t.Fatalf("unexpected untracked file diff: %+v", filesByPath["notes.txt"])
 	}
 }
 
-func projectConversationGit(t *testing.T, dir string, args ...string) {
+func TestSummarizeConversationWorkspaceRepoMissingGitDirectoryStillSkipped(t *testing.T) {
+	t.Parallel()
+
+	repoPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoPath, "README.md"), []byte("not a repo\n"), 0o600); err != nil {
+		t.Fatalf("write plain directory file: %v", err)
+	}
+	service := &ProjectConversationService{}
+
+	summary, err := service.summarizeConversationWorkspaceRepo(
+		context.Background(),
+		catalogdomain.Machine{Host: catalogdomain.LocalMachineHost},
+		projectConversationWorkspaceRepoLocation{name: "backend", repoPath: repoPath, relativePath: "backend"},
+	)
+	if err != nil {
+		t.Fatalf("summarizeConversationWorkspaceRepo() error = %v", err)
+	}
+	if summary.Dirty || summary.Branch != "" || len(summary.Files) != 0 || summary.FilesChanged != 0 || summary.Added != 0 || summary.Removed != 0 {
+		t.Fatalf("expected non-git directory to be skipped, got %+v", summary)
+	}
+}
+
+func createConversationUnbornGitRepo(t *testing.T) (string, string) {
 	t.Helper()
 
-	//nolint:gosec // Test helper intentionally invokes local git with controlled arguments.
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
+	repoPath := filepath.Join(t.TempDir(), "repo")
+	runConversationGitCommand(t, "", "git", "init", repoPath)
+	runConversationGitCommand(t, "", "git", "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/main")
+	branch := strings.TrimSpace(runConversationGitCommand(t, "", "git", "-C", repoPath, "symbolic-ref", "-q", "--short", "HEAD"))
+	return repoPath, branch
+}
+
+func runConversationGitCommand(t *testing.T, dir string, name string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(name, args...) // #nosec G204 -- test helper executes fixed commands.
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("run git %v in %s: %v\n%s", args, dir, err, string(output))
+		t.Fatalf("%s %s failed: %v\n%s", name, strings.Join(args, " "), err, string(output))
 	}
+	return string(output)
 }

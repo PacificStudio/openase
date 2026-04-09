@@ -56,27 +56,25 @@ type MachineProbe struct {
 }
 
 type MachineInput struct {
-	Name                  string                         `json:"name"`
-	Host                  string                         `json:"host"`
-	Port                  *int                           `json:"port"`
-	ReachabilityMode      string                         `json:"reachability_mode"`
-	ExecutionMode         string                         `json:"execution_mode"`
-	ConnectionMode        string                         `json:"connection_mode"`
-	TransportCapabilities []string                       `json:"transport_capabilities"`
-	SSHUser               *string                        `json:"ssh_user"`
-	SSHKeyPath            *string                        `json:"ssh_key_path"`
-	AdvertisedEndpoint    *string                        `json:"advertised_endpoint"`
-	DaemonStatus          MachineDaemonStatusInput       `json:"daemon_status"`
-	DetectedOS            string                         `json:"detected_os"`
-	DetectedArch          string                         `json:"detected_arch"`
-	DetectionStatus       string                         `json:"detection_status"`
-	ChannelCredential     *MachineChannelCredentialInput `json:"channel_credential"`
-	Description           string                         `json:"description"`
-	Labels                []string                       `json:"labels"`
-	Status                string                         `json:"status"`
-	WorkspaceRoot         *string                        `json:"workspace_root"`
-	AgentCLIPath          *string                        `json:"agent_cli_path"`
-	EnvVars               []string                       `json:"env_vars"`
+	Name               string                         `json:"name"`
+	Host               string                         `json:"host"`
+	Port               *int                           `json:"port"`
+	ReachabilityMode   string                         `json:"reachability_mode"`
+	ExecutionMode      string                         `json:"execution_mode"`
+	SSHUser            *string                        `json:"ssh_user"`
+	SSHKeyPath         *string                        `json:"ssh_key_path"`
+	AdvertisedEndpoint *string                        `json:"advertised_endpoint"`
+	DaemonStatus       MachineDaemonStatusInput       `json:"daemon_status"`
+	DetectedOS         string                         `json:"detected_os"`
+	DetectedArch       string                         `json:"detected_arch"`
+	DetectionStatus    string                         `json:"detection_status"`
+	ChannelCredential  *MachineChannelCredentialInput `json:"channel_credential"`
+	Description        string                         `json:"description"`
+	Labels             []string                       `json:"labels"`
+	Status             string                         `json:"status"`
+	WorkspaceRoot      *string                        `json:"workspace_root"`
+	AgentCLIPath       *string                        `json:"agent_cli_path"`
+	EnvVars            []string                       `json:"env_vars"`
 }
 
 type CreateMachine struct {
@@ -159,7 +157,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 	}
 
 	connectionMode, reachabilityMode, executionMode, err := ResolveMachineConnectionMode(
-		raw.ConnectionMode,
+		"",
 		raw.ReachabilityMode,
 		raw.ExecutionMode,
 		host,
@@ -181,18 +179,7 @@ func ParseCreateMachine(organizationID uuid.UUID, raw MachineInput) (CreateMachi
 
 	sshUser := parseOptionalText(raw.SSHUser)
 	sshKeyPath := parseOptionalText(raw.SSHKeyPath)
-	if connectionMode == MachineConnectionModeSSH {
-		if sshUser == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_user must not be empty for ssh machines")
-		}
-		if sshKeyPath == nil {
-			return CreateMachine{}, fmt.Errorf("ssh_key_path must not be empty for ssh machines")
-		}
-	}
-	transportCapabilities, err := parseMachineTransportCapabilities(raw.TransportCapabilities, connectionMode)
-	if err != nil {
-		return CreateMachine{}, err
-	}
+	transportCapabilities := defaultMachineTransportCapabilities(connectionMode)
 	advertisedEndpoint, err := parseMachineAdvertisedEndpoint(raw.AdvertisedEndpoint, connectionMode)
 	if err != nil {
 		return CreateMachine{}, err

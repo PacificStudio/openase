@@ -1,9 +1,12 @@
 <script lang="ts">
   import type { EffectivePermissionsResponse, RoleBinding } from '$lib/api/auth'
+  import { OrganizationMembersSection } from '$lib/features/organizations'
   import type { HumanAuthUser } from '$lib/stores/auth.svelte'
   import { LockKeyhole, Users } from '@lucide/svelte'
   import SecuritySettingsHumanAuthAccessCard from './security-settings-human-auth-access-card.svelte'
   import SecuritySettingsHumanAuthBindingSection from './security-settings-human-auth-binding-section.svelte'
+  import SecuritySettingsHumanAuthSessions from './security-settings-human-auth-sessions.svelte'
+  import SecuritySettingsUserDirectory from './security-settings-user-directory.svelte'
   import type { BindingDraft, ScopeKind, SubjectKind } from './security-settings-human-auth.model'
 
   type GroupSummary = {
@@ -20,17 +23,22 @@
 
   let {
     user = null,
+    currentOrgId = '',
     currentOrgName = '',
     currentProjectName = '',
     currentGroups = [],
     approvalPolicies = null,
     error = '',
+    instancePermissions = null,
     orgPermissions = null,
     projectPermissions = null,
+    instanceBindings = [],
     orgBindings = [],
     projectBindings = [],
+    canManageInstanceBindings = false,
     canManageOrgBindings = false,
     canManageProjectBindings = false,
+    instanceDraft,
     orgDraft,
     projectDraft,
     mutationKey = '',
@@ -42,17 +50,22 @@
     onDeleteBinding,
   }: {
     user?: HumanAuthUser | null
+    currentOrgId?: string
     currentOrgName?: string
     currentProjectName?: string
     currentGroups?: GroupSummary[]
     approvalPolicies?: ApprovalPoliciesSummary | null
     error?: string
+    instancePermissions?: EffectivePermissionsResponse | null
     orgPermissions?: EffectivePermissionsResponse | null
     projectPermissions?: EffectivePermissionsResponse | null
+    instanceBindings?: RoleBinding[]
     orgBindings?: RoleBinding[]
     projectBindings?: RoleBinding[]
+    canManageInstanceBindings?: boolean
     canManageOrgBindings?: boolean
     canManageProjectBindings?: boolean
+    instanceDraft: BindingDraft
     orgDraft: BindingDraft
     projectDraft: BindingDraft
     mutationKey?: string
@@ -63,6 +76,13 @@
     onCreateBinding?: (scope: ScopeKind) => void
     onDeleteBinding?: (scope: ScopeKind, bindingId: string) => void
   } = $props()
+
+  const canReadUserDirectory = $derived(
+    instancePermissions?.permissions.includes('security_setting.read') ?? false,
+  )
+  const canManageUserDirectory = $derived(
+    instancePermissions?.permissions.includes('security_setting.update') ?? false,
+  )
 </script>
 
 <div class="grid gap-4 xl:grid-cols-2">
@@ -118,7 +138,16 @@
   </div>
 </div>
 
-<div class="grid gap-4 xl:grid-cols-2">
+<div class="grid gap-4 xl:grid-cols-3">
+  <SecuritySettingsHumanAuthAccessCard
+    title="Instance effective access"
+    subtitle="Control plane"
+    roles={instancePermissions?.roles ?? []}
+    permissions={instancePermissions?.permissions ?? []}
+    emptyRoles="No instance roles"
+    emptyPermissions="No instance permissions"
+  />
+
   <SecuritySettingsHumanAuthAccessCard
     title="Organization effective access"
     subtitle={currentOrgName}
@@ -138,9 +167,32 @@
   />
 </div>
 
+<div class="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-xs">
+  Human permissions are evaluated by backend RBAC on resource/action keys. Agent scopes are related
+  runtime token capabilities, but they are not reused as human permissions.
+</div>
+
 {#if error}
   <div class="text-destructive text-sm">{error}</div>
 {/if}
+
+<SecuritySettingsHumanAuthSessions />
+
+<SecuritySettingsUserDirectory canRead={canReadUserDirectory} canManage={canManageUserDirectory} />
+
+<SecuritySettingsHumanAuthBindingSection
+  scope="instance"
+  bindings={instanceBindings}
+  canManage={canManageInstanceBindings}
+  draft={instanceDraft}
+  {mutationKey}
+  onSubjectKind={onDraftSubjectKind}
+  onSubjectKey={onDraftSubjectKey}
+  onRoleKey={onDraftRoleKey}
+  onExpiresAt={onDraftExpiresAt}
+  onCreate={onCreateBinding}
+  onDelete={onDeleteBinding}
+/>
 
 <SecuritySettingsHumanAuthBindingSection
   scope="organization"
@@ -169,3 +221,7 @@
   onCreate={onCreateBinding}
   onDelete={onDeleteBinding}
 />
+
+{#if currentOrgId}
+  <OrganizationMembersSection organizationId={currentOrgId} />
+{/if}

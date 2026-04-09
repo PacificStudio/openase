@@ -14,6 +14,8 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/organizationdailytokenusage"
+	"github.com/BetterAndBetterII/openase/ent/organizationinvitation"
+	"github.com/BetterAndBetterII/openase/ent/organizationmembership"
 	"github.com/BetterAndBetterII/openase/ent/project"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
@@ -165,6 +167,36 @@ func (_c *OrganizationCreate) AddDailyTokenUsage(v ...*OrganizationDailyTokenUsa
 		ids[i] = v[i].ID
 	}
 	return _c.AddDailyTokenUsageIDs(ids...)
+}
+
+// AddMembershipIDs adds the "memberships" edge to the OrganizationMembership entity by IDs.
+func (_c *OrganizationCreate) AddMembershipIDs(ids ...uuid.UUID) *OrganizationCreate {
+	_c.mutation.AddMembershipIDs(ids...)
+	return _c
+}
+
+// AddMemberships adds the "memberships" edges to the OrganizationMembership entity.
+func (_c *OrganizationCreate) AddMemberships(v ...*OrganizationMembership) *OrganizationCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddMembershipIDs(ids...)
+}
+
+// AddInvitationIDs adds the "invitations" edge to the OrganizationInvitation entity by IDs.
+func (_c *OrganizationCreate) AddInvitationIDs(ids ...uuid.UUID) *OrganizationCreate {
+	_c.mutation.AddInvitationIDs(ids...)
+	return _c
+}
+
+// AddInvitations adds the "invitations" edges to the OrganizationInvitation entity.
+func (_c *OrganizationCreate) AddInvitations(v ...*OrganizationInvitation) *OrganizationCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddInvitationIDs(ids...)
 }
 
 // SetDefaultAgentProvider sets the "default_agent_provider" edge to the AgentProvider entity.
@@ -371,6 +403,38 @@ func (_c *OrganizationCreate) createSpec() (*Organization, *sqlgraph.CreateSpec)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(organizationdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.MembershipsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.MembershipsTable,
+			Columns: []string{organization.MembershipsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationmembership.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.InvitationsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   organization.InvitationsTable,
+			Columns: []string{organization.InvitationsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(organizationinvitation.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

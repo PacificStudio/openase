@@ -112,6 +112,7 @@ Those files are explicitly tracked as refactor debt. New oversized route files a
 ```sh
 pnpm install
 pnpm run lint
+pnpm run lint:mobile
 pnpm run lint:structure
 pnpm run lint:deps
 pnpm run check
@@ -120,10 +121,26 @@ pnpm run ci
 ```
 
 - `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
+- `pnpm run lint:mobile`: validates that every project route declares a mobile support policy and that responsive routes wire into the mobile regression templates.
 - `pnpm run lint:structure`: custom file budget enforcement with explicit waivers for current debt only.
 - `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
 - `pnpm run check`: `svelte-check` type validation.
 - `pnpm run ci`: unified local and CI entrypoint for the frontend gate.
+
+## Mobile Route Policy
+
+All project routes under `src/routes/(app)/orgs/[orgId]/projects/[projectId]` must declare a support policy in `tests/e2e/mobile/policies.js`.
+
+- `mobile-supported`: the route must pass phone and tablet mobile smoke + interaction coverage.
+- `tablet-supported`: the route must pass tablet coverage but can opt out of phone layouts.
+- `desktop-only`: the route is blocked from mobile coverage and must include an explicit reason.
+
+When adding a new responsive page:
+
+1. add the route policy entry in `tests/e2e/mobile/policies.js`
+2. choose an existing `interaction.kind` template or add a new reusable one in `tests/e2e/mobile/interactions.spec.ts`
+3. list the route's critical controls so the smoke/layout suite can catch overlap and reachability regressions
+4. run `pnpm run test:e2e:mobile`
 
 ## Review Checklist
 

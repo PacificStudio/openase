@@ -22,12 +22,11 @@ const providers: AgentProvider[] = [
     availability_reason: null,
     capabilities: {
       ephemeral_chat: { state: 'unsupported', reason: 'unsupported_adapter' },
-      harness_ai: { state: 'unsupported', reason: 'unsupported_adapter' },
-      skill_ai: { state: 'unsupported', reason: 'skill_ai_requires_codex' },
     },
     cli_command: 'custom-chat',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'manual',
@@ -56,12 +55,11 @@ const providers: AgentProvider[] = [
     availability_reason: null,
     capabilities: {
       ephemeral_chat: { state: 'available', reason: null },
-      harness_ai: { state: 'available', reason: null },
-      skill_ai: { state: 'unsupported', reason: 'skill_ai_requires_codex' },
     },
     cli_command: 'codex',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'gpt-5.4',
@@ -90,12 +88,11 @@ const providers: AgentProvider[] = [
     availability_reason: null,
     capabilities: {
       ephemeral_chat: { state: 'available', reason: null },
-      harness_ai: { state: 'unsupported', reason: 'remote_machine_not_supported' },
-      skill_ai: { state: 'unsupported', reason: 'remote_machine_not_supported' },
     },
     cli_command: 'codex',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'gpt-5.4',
@@ -124,12 +121,11 @@ const providers: AgentProvider[] = [
     availability_reason: null,
     capabilities: {
       ephemeral_chat: { state: 'available', reason: null },
-      harness_ai: { state: 'available', reason: null },
-      skill_ai: { state: 'available', reason: null },
     },
     cli_command: 'claude',
     cli_args: [],
     auth_config: {},
+    secret_bindings: [],
     cli_rate_limit: null,
     cli_rate_limit_updated_at: null,
     model_name: 'claude-sonnet-4',
@@ -143,7 +139,7 @@ const providers: AgentProvider[] = [
 ]
 
 describe('provider-options', () => {
-  it('filters providers per surface and falls back to the first available match', () => {
+  it('filters providers by ephemeral chat capability and falls back to the first available match', () => {
     const ephemeralChatProviders = listProviderCapabilityProviders(providers, 'ephemeral_chat')
     expect(ephemeralChatProviders.map((provider) => provider.id)).toEqual([
       'provider-claude',
@@ -151,20 +147,23 @@ describe('provider-options', () => {
       'provider-codex-local',
     ])
 
-    const harnessProviders = listProviderCapabilityProviders(providers, 'harness_ai')
-    expect(harnessProviders.map((provider) => provider.id)).toEqual([
-      'provider-claude',
-      'provider-codex-local',
-    ])
-
-    const skillProviders = listProviderCapabilityProviders(providers, 'skill_ai')
-    expect(skillProviders.map((provider) => provider.id)).toEqual(['provider-codex-local'])
-
     expect(
-      pickDefaultProviderCapability(harnessProviders, 'provider-codex-remote', 'harness_ai'),
+      pickDefaultProviderCapability(
+        ephemeralChatProviders,
+        'provider-codex-remote',
+        'ephemeral_chat',
+      ),
+    ).toBe('provider-codex-remote')
+    expect(
+      pickDefaultProviderCapability(ephemeralChatProviders, 'provider-custom', 'ephemeral_chat'),
     ).toBe('provider-claude')
-    expect(pickDefaultProviderCapability(skillProviders, 'provider-claude', 'skill_ai')).toBe(
-      'provider-codex-local',
+    expect(
+      pickDefaultProviderCapability(ephemeralChatProviders, 'provider-claude', 'ephemeral_chat'),
+    ).toBe('provider-claude')
+    expect(pickDefaultProviderCapability([], 'provider-claude', 'ephemeral_chat')).toBe('')
+    expect(ephemeralChatProviders).toHaveLength(3)
+    expect(ephemeralChatProviders.every((provider) => provider.capabilities.ephemeral_chat)).toBe(
+      true,
     )
   })
 })

@@ -16,7 +16,6 @@ import (
 
 type skillImportPayload struct {
 	Name      string                   `json:"name"`
-	CreatedBy string                   `json:"created_by,omitempty"`
 	IsEnabled *bool                    `json:"is_enabled,omitempty"`
 	Files     []skillImportPayloadFile `json:"files"`
 }
@@ -31,7 +30,6 @@ type skillImportPayloadFile struct {
 func newSkillImportCommand() *cobra.Command {
 	var apiOptions apiCommandOptions
 	var output apiOutputOptions
-	var createdBy string
 	var nameOverride string
 	var enableNow bool
 	var disableNow bool
@@ -72,7 +70,7 @@ openase skill import $OPENASE_PROJECT_ID ./skills/deploy-openase --enable
 				return fmt.Errorf("dir must not be empty")
 			}
 
-			payload, err := buildSkillImportPayload(dir, strings.TrimSpace(nameOverride), strings.TrimSpace(createdBy), enableFlagValue(enableNow, disableNow))
+			payload, err := buildSkillImportPayload(dir, strings.TrimSpace(nameOverride), enableFlagValue(enableNow, disableNow))
 			if err != nil {
 				return err
 			}
@@ -101,14 +99,13 @@ openase skill import $OPENASE_PROJECT_ID ./skills/deploy-openase --enable
 	applyCLIFlagNormalization(command.Flags())
 	bindAPICommandFlags(command.Flags(), &apiOptions)
 	bindAPIOutputFlags(command.Flags(), &output)
-	command.Flags().StringVar(&createdBy, "created_by", "", "Override the bundle creator recorded by the API.")
 	command.Flags().StringVar(&nameOverride, "name", "", "Override the skill name. Must match SKILL.md frontmatter.")
 	command.Flags().BoolVar(&enableNow, "enable", false, "Enable the imported skill immediately.")
 	command.Flags().BoolVar(&disableNow, "disable", false, "Import the skill in a disabled state.")
 	return markCLICommandAPICoverageSpec(command, spec)
 }
 
-func buildSkillImportPayload(dir string, nameOverride string, createdBy string, enabled *bool) (skillImportPayload, error) {
+func buildSkillImportPayload(dir string, nameOverride string, enabled *bool) (skillImportPayload, error) {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		return skillImportPayload{}, fmt.Errorf("resolve skill import dir: %w", err)
@@ -173,7 +170,6 @@ func buildSkillImportPayload(dir string, nameOverride string, createdBy string, 
 	}
 	return skillImportPayload{
 		Name:      name,
-		CreatedBy: createdBy,
 		IsEnabled: enabled,
 		Files:     files,
 	}, nil

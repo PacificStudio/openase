@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
-import { buildAddDependencyMutation } from './mutation-builders'
+import { buildAddDependencyMutation, buildAddExternalLinkMutation } from './mutation-builders'
 import type { TicketDetail, TicketReferenceOption } from './types'
+
+const now = vi.spyOn(Date, 'now').mockReturnValue(1234567890)
 
 const currentTicket: TicketDetail = {
   id: 'ticket-1',
@@ -66,4 +68,55 @@ describe('buildAddDependencyMutation', () => {
       },
     ])
   })
+})
+
+describe('buildAddExternalLinkMutation', () => {
+  it('treats type as optional and does not synthesize a relation fallback', () => {
+    const result = buildAddExternalLinkMutation({
+      type: '   ',
+      url: ' https://docs.example.com/spec ',
+      externalId: ' SPEC-1 ',
+      title: ' Product spec ',
+      status: ' open ',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.body).toEqual({
+      url: 'https://docs.example.com/spec',
+      external_id: 'SPEC-1',
+      title: 'Product spec',
+      status: 'open',
+    })
+    expect(result.value.optimisticUpdate(currentTicket).externalLinks).toEqual([
+      {
+        id: 'pending-1234567890',
+        url: 'https://docs.example.com/spec',
+        externalId: 'SPEC-1',
+        title: 'Product spec',
+        status: 'open',
+      },
+    ])
+  })
+
+  it('preserves a provided freeform type', () => {
+    const result = buildAddExternalLinkMutation({
+      type: 'review doc',
+      url: 'https://docs.example.com/review',
+      externalId: 'DOC-9',
+      title: '',
+      status: '',
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.body.type).toBe('review doc')
+    expect(result.value.optimisticUpdate(currentTicket).externalLinks[0]?.type).toBe('review doc')
+  })
+})
+
+afterAll(() => {
+  now.mockRestore()
 })

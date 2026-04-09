@@ -81,6 +81,11 @@ func Status(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldStatus, v))
 }
 
+// Title applies equality check predicate on the "title" field. It's identical to TitleEQ.
+func Title(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldTitle, v))
+}
+
 // ProviderThreadID applies equality check predicate on the "provider_thread_id" field. It's identical to ProviderThreadIDEQ.
 func ProviderThreadID(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldEQ(FieldProviderThreadID, v))
@@ -369,6 +374,81 @@ func StatusEqualFold(v string) predicate.ChatConversation {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.ChatConversation {
 	return predicate.ChatConversation(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// TitleEQ applies the EQ predicate on the "title" field.
+func TitleEQ(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEQ(FieldTitle, v))
+}
+
+// TitleNEQ applies the NEQ predicate on the "title" field.
+func TitleNEQ(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNEQ(FieldTitle, v))
+}
+
+// TitleIn applies the In predicate on the "title" field.
+func TitleIn(vs ...string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIn(FieldTitle, vs...))
+}
+
+// TitleNotIn applies the NotIn predicate on the "title" field.
+func TitleNotIn(vs ...string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotIn(FieldTitle, vs...))
+}
+
+// TitleGT applies the GT predicate on the "title" field.
+func TitleGT(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGT(FieldTitle, v))
+}
+
+// TitleGTE applies the GTE predicate on the "title" field.
+func TitleGTE(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldGTE(FieldTitle, v))
+}
+
+// TitleLT applies the LT predicate on the "title" field.
+func TitleLT(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLT(FieldTitle, v))
+}
+
+// TitleLTE applies the LTE predicate on the "title" field.
+func TitleLTE(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldLTE(FieldTitle, v))
+}
+
+// TitleContains applies the Contains predicate on the "title" field.
+func TitleContains(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldContains(FieldTitle, v))
+}
+
+// TitleHasPrefix applies the HasPrefix predicate on the "title" field.
+func TitleHasPrefix(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldHasPrefix(FieldTitle, v))
+}
+
+// TitleHasSuffix applies the HasSuffix predicate on the "title" field.
+func TitleHasSuffix(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldHasSuffix(FieldTitle, v))
+}
+
+// TitleIsNil applies the IsNil predicate on the "title" field.
+func TitleIsNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldIsNull(FieldTitle))
+}
+
+// TitleNotNil applies the NotNil predicate on the "title" field.
+func TitleNotNil() predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldNotNull(FieldTitle))
+}
+
+// TitleEqualFold applies the EqualFold predicate on the "title" field.
+func TitleEqualFold(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldEqualFold(FieldTitle, v))
+}
+
+// TitleContainsFold applies the ContainsFold predicate on the "title" field.
+func TitleContainsFold(v string) predicate.ChatConversation {
+	return predicate.ChatConversation(sql.FieldContainsFold(FieldTitle, v))
 }
 
 // ProviderThreadIDEQ applies the EQ predicate on the "provider_thread_id" field.

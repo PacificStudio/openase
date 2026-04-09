@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ProjectConversationPanel, type ProjectAIFocus } from '$lib/features/chat'
+  import { viewport } from '$lib/stores/viewport.svelte'
   import { cn } from '$lib/utils'
+  import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '$ui/sheet'
 
   let {
     organizationId,
@@ -28,6 +30,7 @@
 
   const MIN_ASSISTANT_WIDTH = 280
   const MAX_ASSISTANT_WIDTH = 640
+  const isMobile = $derived(viewport.isMobile)
 
   function handleResizeStart(event: PointerEvent) {
     event.preventDefault()
@@ -51,7 +54,37 @@
   }
 </script>
 
-{#if open}
+{#if isMobile}
+  <Sheet
+    {open}
+    onOpenChange={(nextOpen) => {
+      if (!nextOpen) onClose()
+    }}
+  >
+    <SheetContent
+      side="bottom"
+      class="flex h-[calc(100dvh-48px)] flex-col gap-0 p-0"
+      showCloseButton={false}
+    >
+      <SheetHeader class="sr-only">
+        <SheetTitle>Project AI</SheetTitle>
+        <SheetDescription>AI assistant for the current project</SheetDescription>
+      </SheetHeader>
+      <div class="flex min-h-0 flex-1 flex-col">
+        <ProjectConversationPanel
+          {organizationId}
+          {defaultProviderId}
+          context={{ projectId, projectName }}
+          {focus}
+          title="Project AI"
+          placeholder="Ask anything about this project…"
+          {initialPrompt}
+          {onClose}
+        />
+      </div>
+    </SheetContent>
+  </Sheet>
+{:else if open}
   <aside class="bg-background relative flex h-full shrink-0 flex-col" style="width: {width}px">
     <div
       class={cn(

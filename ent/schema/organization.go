@@ -40,6 +40,8 @@ func (Organization) Edges() []ent.Edge {
 		edge.To("machines", Machine.Type),
 		edge.To("notification_channels", NotificationChannel.Type),
 		edge.To("daily_token_usage", OrganizationDailyTokenUsage.Type),
+		edge.To("memberships", OrganizationMembership.Type),
+		edge.To("invitations", OrganizationInvitation.Type),
 		edge.To("default_agent_provider", AgentProvider.Type).
 			Field("default_agent_provider_id").
 			Unique(),

@@ -4,6 +4,7 @@ export const settingsSections = [
   'statuses',
   'agents',
   'notifications',
+  'access',
   'security',
   'archived',
 ] as const

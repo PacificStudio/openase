@@ -77,8 +77,7 @@ describe('StepFirstTicket', () => {
       expect(createTicket).toHaveBeenCalledWith(
         'project-1',
         expect.objectContaining({
-          title: 'Review project requirements and draft the first PRD',
-          description: undefined,
+          title: 'Draft the initial product requirements',
           status_id: 'status-backlog',
         }),
       )

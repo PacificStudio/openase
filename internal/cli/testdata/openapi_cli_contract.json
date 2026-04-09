@@ -1,5 +1,5 @@
 {
-  "openapi_sha256": "f12b214f4de060ba590e81abba170c6d6e34c4d296d6f93cb50f95e282cd6210",
+  "openapi_sha256": "dd75deee5eb04244ccf51fc9a7776bf70abca80bc925b73e629d49d2df2286f9",
   "commands": [
     {
       "use": "list [projectId]",
@@ -104,11 +104,6 @@
           "kind": "float64"
         },
         {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the ticket.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Ticket description or problem statement.",
           "kind": "string"
@@ -176,11 +171,6 @@
           "name": "budget_usd",
           "description": "Optional budget limit for the ticket in USD.",
           "kind": "float64"
-        },
-        {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the ticket.",
-          "kind": "string"
         },
         {
           "name": "description",
@@ -303,11 +293,6 @@
           "name": "body",
           "description": "Markdown body content for the ticket comment.",
           "kind": "string"
-        },
-        {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the comment.",
-          "kind": "string"
         }
       ]
     },
@@ -343,11 +328,6 @@
         {
           "name": "edit_reason",
           "description": "Reason recorded for editing the comment.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Actor identifier recorded as the editor of the comment.",
           "kind": "string"
         }
       ]
@@ -646,6 +626,52 @@
           "name": "ticket_id",
           "description": "Filter activity by ticket ID.",
           "kind": "string_slice"
+        }
+      ]
+    },
+    {
+      "use": "list",
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "operation_id": "listAuthSessions"
+    },
+    {
+      "use": "revoke [id]",
+      "method": "DELETE",
+      "path": "/api/v1/auth/sessions/{id}",
+      "operation_id": "revokeAuthSession",
+      "positional_params": [
+        "id"
+      ],
+      "path_params": [
+        {
+          "name": "id",
+          "description": "Browser session ID to revoke.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "revoke-all",
+      "method": "POST",
+      "path": "/api/v1/auth/sessions/revoke-all",
+      "operation_id": "revokeAllOtherAuthSessions"
+    },
+    {
+      "use": "revoke-sessions [userId]",
+      "method": "POST",
+      "path": "/api/v1/auth/users/{userId}/sessions/revoke",
+      "operation_id": "adminRevokeUserAuthSessions",
+      "positional_params": [
+        "userId"
+      ],
+      "path_params": [
+        {
+          "name": "userId",
+          "description": "User ID whose browser sessions should be revoked.",
+          "required": true,
+          "kind": "string"
         }
       ]
     },
@@ -1194,6 +1220,301 @@
     {
       "use": "list [projectId]",
       "method": "GET",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "operation_id": "listScopedSecrets",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets",
+      "operation_id": "createScopedSecret",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "description",
+          "description": "Human-readable description that explains what the secret is used for.",
+          "kind": "string"
+        },
+        {
+          "name": "kind",
+          "description": "Secret kind. Currently only opaque is supported.",
+          "kind": "string"
+        },
+        {
+          "name": "name",
+          "description": "Stable secret name. Names are normalized to upper snake case before persistence.",
+          "kind": "string"
+        },
+        {
+          "name": "scope",
+          "description": "Secret scope. Supported values are organization and project.",
+          "kind": "string"
+        },
+        {
+          "name": "value",
+          "description": "Plaintext secret value to encrypt and persist at rest.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "update [projectId] [secretId]",
+      "method": "PATCH",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "operation_id": "updateScopedSecretMetadata",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "description",
+          "description": "Updated human-readable description for the secret.",
+          "kind": "string"
+        },
+        {
+          "name": "name",
+          "description": "Updated secret name. Names are normalized to upper snake case when provided.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "rotate [projectId] [secretId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/rotate",
+      "operation_id": "rotateScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "value",
+          "description": "New plaintext secret value to encrypt and store as the latest rotated material.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "disable [projectId] [secretId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}/disable",
+      "operation_id": "disableScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [secretId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/{secretId}",
+      "operation_id": "deleteScopedSecret",
+      "positional_params": [
+        "projectId",
+        "secretId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "secretId",
+          "description": "Secret ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "resolve [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secrets/resolve-for-runtime",
+      "operation_id": "resolveScopedSecretsForRuntime",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "agent_id",
+          "description": "Optional agent ID included in the resolution precedence chain.",
+          "kind": "string"
+        },
+        {
+          "name": "binding_keys",
+          "description": "Binding keys to resolve for the runtime. Keys are normalized to upper snake case and deduplicated.",
+          "kind": "string_slice"
+        },
+        {
+          "name": "ticket_id",
+          "description": "Optional ticket ID included in the resolution precedence chain.",
+          "kind": "string"
+        },
+        {
+          "name": "workflow_id",
+          "description": "Optional workflow ID included in the resolution precedence chain.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings",
+      "operation_id": "listScopedSecretBindings",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "create [projectId]",
+      "method": "POST",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings",
+      "operation_id": "createScopedSecretBinding",
+      "positional_params": [
+        "projectId"
+      ],
+      "path_params": [
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ],
+      "body_fields": [
+        {
+          "name": "binding_key",
+          "description": "Runtime environment binding key. Keys are normalized to upper snake case before persistence.",
+          "kind": "string"
+        },
+        {
+          "name": "scope",
+          "description": "Binding scope. Supported values are workflow and ticket.",
+          "kind": "string"
+        },
+        {
+          "name": "scope_resource_id",
+          "description": "Workflow or ticket ID that owns this binding.",
+          "kind": "string"
+        },
+        {
+          "name": "secret_id",
+          "description": "Secret ID to bind into workflow or ticket runtime resolution.",
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "delete [projectId] [bindingId]",
+      "method": "DELETE",
+      "path": "/api/v1/projects/{projectId}/security-settings/secret-bindings/{bindingId}",
+      "operation_id": "deleteScopedSecretBinding",
+      "positional_params": [
+        "projectId",
+        "bindingId"
+      ],
+      "path_params": [
+        {
+          "name": "bindingId",
+          "description": "Secret binding ID.",
+          "required": true,
+          "kind": "string"
+        },
+        {
+          "name": "projectId",
+          "description": "Project ID.",
+          "required": true,
+          "kind": "string"
+        }
+      ]
+    },
+    {
+      "use": "list [projectId]",
+      "method": "GET",
       "path": "/api/v1/projects/{projectId}/updates",
       "operation_id": "listProjectUpdates",
       "positional_params": [
@@ -1227,12 +1548,7 @@
       "body_fields": [
         {
           "name": "body",
-          "description": "Markdown body content for the project update thread.",
-          "kind": "string"
-        },
-        {
-          "name": "created_by",
-          "description": "Actor identifier recorded as the creator of the update thread.",
+          "description": "Required markdown body content for the project update thread.",
           "kind": "string"
         },
         {
@@ -1242,7 +1558,7 @@
         },
         {
           "name": "title",
-          "description": "Human-readable project update title.",
+          "description": "Optional human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
           "kind": "string"
         }
       ]
@@ -1273,17 +1589,12 @@
       "body_fields": [
         {
           "name": "body",
-          "description": "Updated markdown body content for the project update thread.",
+          "description": "Required updated markdown body content for the project update thread.",
           "kind": "string"
         },
         {
           "name": "edit_reason",
           "description": "Reason recorded for editing the update thread.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Actor identifier recorded as the editor of the update thread.",
           "kind": "string"
         },
         {
@@ -1293,7 +1604,7 @@
         },
         {
           "name": "title",
-          "description": "Updated human-readable project update title.",
+          "description": "Optional updated human-readable project update title. When omitted, the server derives it from the first 100 body characters at a word boundary.",
           "kind": "string"
         }
       ]
@@ -1768,11 +2079,6 @@
           "kind": "string"
         },
         {
-          "name": "created_by",
-          "description": "Optional creator descriptor recorded on the initial workflow harness version.",
-          "kind": "string"
-        },
-        {
           "name": "finish_status_ids",
           "description": "Ticket status IDs that mark workflow completion.",
           "kind": "string_slice"
@@ -1874,11 +2180,6 @@
         {
           "name": "agent_id",
           "description": "Agent ID assigned to execute this workflow.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Optional editor descriptor recorded on subsequent workflow harness versions.",
           "kind": "string"
         },
         {
@@ -2024,11 +2325,6 @@
         {
           "name": "content",
           "description": "Harness content to write or validate.",
-          "kind": "string"
-        },
-        {
-          "name": "edited_by",
-          "description": "Optional editor descriptor recorded on the published workflow harness version.",
           "kind": "string"
         }
       ]
@@ -2233,11 +2529,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2264,7 +2555,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2306,11 +2597,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -2347,11 +2633,6 @@
           "kind": "string"
         },
         {
-          "name": "connection_mode",
-          "description": "Legacy compatibility field derived from reachability_mode and execution_mode. New clients should prefer the separated fields.",
-          "kind": "string"
-        },
-        {
           "name": "description",
           "description": "Human-readable machine description.",
           "kind": "string"
@@ -2378,7 +2659,7 @@
         },
         {
           "name": "execution_mode",
-          "description": "Execution path currently used by this record: local_process or websocket. Older records may still surface as ssh_compat until they are migrated.",
+          "description": "Execution path currently used by this record: local_process or websocket.",
           "kind": "string"
         },
         {
@@ -2420,11 +2701,6 @@
           "name": "status",
           "description": "Machine lifecycle status value.",
           "kind": "string"
-        },
-        {
-          "name": "transport_capabilities",
-          "description": "Legacy compatibility alias for execution_capabilities.",
-          "kind": "string_slice"
         },
         {
           "name": "workspace_root",
@@ -3203,11 +3479,6 @@
         {
           "name": "content",
           "description": "Skill markdown content. Frontmatter is optional on input and will be normalized on write.",
-          "kind": "string"
-        },
-        {
-          "name": "created_by",
-          "description": "Optional creator descriptor such as user:gary or agent:codex-01 via ASE-42.",
           "kind": "string"
         },
         {

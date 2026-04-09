@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiError } from '$lib/api/client'
 import type { Organization, Project } from '$lib/api/contracts'
@@ -15,6 +15,7 @@ const {
   unbindWorkflowSkills,
   listBuiltinRoles,
   getBuiltinRole,
+  getScopeGroups,
 } = vi.hoisted(() => ({
   loadWorkflowPageData: vi.fn(),
   loadWorkflowHarness: vi.fn(),
@@ -24,6 +25,7 @@ const {
   unbindWorkflowSkills: vi.fn(),
   listBuiltinRoles: vi.fn(),
   getBuiltinRole: vi.fn(),
+  getScopeGroups: vi.fn(),
 }))
 
 vi.mock('../data', () => ({
@@ -38,6 +40,7 @@ vi.mock('$lib/api/openase', () => ({
   unbindWorkflowSkills,
   listBuiltinRoles,
   getBuiltinRole,
+  getScopeGroups,
 }))
 
 const { toastStore } = vi.hoisted(() => ({
@@ -51,10 +54,6 @@ const { toastStore } = vi.hoisted(() => ({
 
 vi.mock('$lib/stores/toast.svelte', () => ({
   toastStore,
-}))
-
-vi.mock('./harness-ai-sidebar.svelte', () => ({
-  default: vi.fn(),
 }))
 
 vi.mock('./workflow-creation-dialog.svelte', () => ({
@@ -113,7 +112,6 @@ const pageDataFixture = {
   ],
   selectedWorkflowId: 'wf-1',
   agentOptions: [],
-  providers: [],
   skillStates: [
     {
       name: 'lint',
@@ -136,6 +134,10 @@ const pageDataFixture = {
 }
 
 describe('WorkflowsPage', () => {
+  beforeEach(() => {
+    getScopeGroups.mockResolvedValue([])
+  })
+
   afterEach(() => {
     cleanup()
     appStore.currentOrg = null

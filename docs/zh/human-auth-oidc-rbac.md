@@ -1,6 +1,11 @@
 # OpenASE 人类认证、OIDC 与 RBAC
 
-本文档描述了 OpenASE 中控制面板的人类认证模型。
+本文档描述了 OpenASE 当前已经落地的 OIDC 配置与 RBAC 行为。
+
+关于 `auth.mode=disabled` 与 `auth.mode=oidc` 如何长期共存的正式 IAM
+契约，请参见 [`docs/zh/iam-dual-mode-contract.md`](./iam-dual-mode-contract.md)。
+关于 instance admin、org admin 与 project settings 之间的稳态边界，请参见
+[`docs/zh/iam-admin-boundaries.md`](./iam-admin-boundaries.md)。
 
 ## 概述
 
@@ -12,6 +17,21 @@ OpenASE 支持基于浏览器的人类认证，具备以下特性：
 - 项目聊天、项目会话、提案审批和审计操作者均来自已认证的人类主体
 
 浏览器永远不会收到上游 OIDC 的 access token 或 refresh token。
+
+## 如何选择模式
+
+请按真实部署场景选择认证模式：
+
+- `auth.mode=disabled` 适合个人电脑、本地演示、临时沙箱，以及“实际上只有一个操作者”的控制面环境。
+- 当实例开始被团队共享、暴露到 loopback 之外，或需要按用户审计、邀请、成员管理、会话隔离时，应优先使用 `auth.mode=oidc`。
+- 如果你现在只有一个管理员，但希望提前启用浏览器登录与未来多用户能力，也可以选择 `oidc + instance_admin`。这是可选升级路径，不是必须动作。
+- `instance_admin` 是 OIDC 模式内部的最高授权角色；它不能替代 disabled 模式下的本地引导主体。
+
+实操建议：
+
+- 当 OIDC 只会增加配置负担、却没有带来真实安全或协作收益时，继续使用 `disabled`。
+- 当你需要真实用户身份、组织成员生命周期、会话清单或可审计的管理员分离时，切换到 `oidc`。
+- 对于非 loopback / 公网暴露实例，`auth.mode=disabled` 只能视为临时应急姿态。
 
 ## 配置
 
@@ -49,6 +69,43 @@ auth:
 
 OpenASE 也支持通过正常配置加载器使用等价的 `OPENASE_AUTH_*` 环境变量。
 
+## Settings UI 与显式启用 OIDC
+
+OpenASE 现在把人类 IAM 拆分到四个稳态 surface：
+
+- `/admin/auth`：实例级 auth mode、OIDC 草稿、bootstrap admin、验证、启用与回滚指引
+- `/admin`：实例级用户目录、session governance 与 break-glass 诊断
+- `/orgs/:orgId/admin/*`：组织成员、邀请与组织级 role binding
+- Project Settings -> `#access`：项目级 role binding 与有效 project access
+- Project Settings -> `#security`：仅保留项目自有凭证、webhook 边界与运行时 token posture
+
+当 OpenASE 运行在 `auth.mode=disabled` 时，`/admin/auth` 会在不破坏本地管理员体验的前提下提供 OIDC rollout 流程：
+
+- 页面会明确说明当前处于 disabled / 本地单用户模式
+- 本地引导管理员主体会继续可用
+- 你可以先保存 OIDC 草稿，而不会中断当前 disabled 使用
+- 可以先测试 provider discovery，再决定是否启用
+- 切换到 OIDC 必须通过显式的 `Enable OIDC` 操作完成
+
+Disabled 模式下的设置表单支持：
+
+- issuer URL
+- client ID
+- client secret
+- redirect URL
+- scopes
+- allowed email domains
+- bootstrap admin emails
+
+当前产品行为：
+
+1. `Save draft` 会把 OIDC 草稿持久化到配置文件，但不会改变当前运行中的 auth mode。
+2. `Test configuration` 会执行 provider discovery，并返回可操作的 endpoint 诊断信息与 warning。
+3. `Enable OIDC` 会再次验证 discovery，然后写入 `auth.mode=oidc` 并返回下一步指引。
+4. 当前版本仍然需要重启服务，新的 configured mode 才会成为 active mode。
+
+Project Settings -> Security 在兼容期内仍然存在，但它只负责项目级安全配置与迁移提示，不能再继续充当实例级 auth control plane。
+
 ## 浏览器流程
 
 OpenASE 使用授权码 + PKCE：
@@ -65,6 +122,7 @@ OpenASE 使用授权码 + PKCE：
 
 浏览器会话存储在 `browser_sessions` 表中，包含：
 
+- 设备元数据，供 session inventory 展示
 - 绝对过期时间
 - 空闲过期时间
 - 撤销状态
@@ -77,8 +135,24 @@ OpenASE 在活跃使用时刷新空闲截止时间。在 OpenASE 数据库中禁
 相关路由：
 
 - `GET /auth/session`：返回认证模式、当前用户、CSRF Token、有效实例角色和权限。
+- `GET /auth/sessions`：返回当前用户的活跃浏览器 session inventory、auth 审计时间线，以及预留的 step-up 元数据。
+- `DELETE /auth/sessions/:id`：撤销单个浏览器 session，必要时也可用于当前 session。
+- `POST /auth/sessions/revoke-all`：在保留当前 session 的前提下，撤销其它所有浏览器 session。
+- `POST /auth/users/:userId/sessions/revoke`：允许实例级管理员强制撤销指定用户的全部 session。
+- `GET /api/v1/instance/users`：返回缓存的 OIDC 用户目录，支持搜索与状态过滤。
+- `GET /api/v1/instance/users/:userId`：返回单个用户的 identities、缓存 groups、活跃 session 数和最近 auth 审计。
+- `POST /api/v1/instance/users/:userId/status`：执行带审计原因的用户启用 / 停用迁移，并可立即撤销现有浏览器 session。
 - `POST /auth/logout`：撤销当前会话并清除会话 Cookie。
 - `GET /api/v1/auth/me/permissions`：评估实例、组织或项目范围的有效角色和权限。
+
+Auth 审计事件会记录：
+
+- 登录成功
+- 登录失败
+- 注销
+- session 撤销
+- session 过期
+- 登录后用户被禁用的强制拦截
 
 ## CSRF 保护
 
@@ -89,6 +163,8 @@ OpenASE 在活跃使用时刷新空闲截止时间。在 OpenASE 数据库中禁
 - 受保护写操作上的每会话 CSRF Token 检查
 
 前端代码应从 `GET /auth/session` 获取 CSRF Token，并通过正常的 API 客户端在同源变更请求中发送。
+
+如果 OpenASE 部署在受信任的反向代理后面，或者本地开发时需要允许单独的前端入口，可以通过 `auth.csrf.trusted_origins` 放行额外的浏览器来源。每个条目都必须是绝对 origin，例如 `http://localhost:4173`，且不能包含路径、查询参数或 hash。
 
 ## 用户缓存与身份同步
 
@@ -104,6 +180,31 @@ OpenASE 将本地授权缓存和组成员关系存储在自己的数据库中，
 - 后续登录时可以刷新个人信息变更
 - 组可以支撑 OpenASE 角色绑定
 - 禁用的用户可以被 OpenASE 阻止，无论上游浏览器状态是否过期
+
+Identity 同步语义：
+
+- 规范的上游 identity 主键是 `issuer + subject`
+- email、display name、avatar URL 和 group memberships 都是可变缓存字段，会在同一 `issuer + subject` 的后续登录中刷新
+- 当上游 `issuer + subject` 不变时，email 变化不会创建重复本地用户
+- 如果一个新的 `issuer + subject` 与已缓存邮箱冲突，登录会直接失败；当前不会自动 link、unlink 或 merge
+
+当前用户目录边界：
+
+- OpenASE 当前只支持一个缓存用户对应一个规范上游 identity
+- 手动 link、unlink、merge 暂不支持
+- 如果管理员操作或未来迁移造成一个用户拥有多个 identities，这属于当前契约之外状态，系统不会提供自动合并
+
+Group 同步策略：
+
+- 当前只提供 OIDC group cache
+- 同步后的 groups 可以直接参与 RBAC 绑定评估
+- 独立的本地 group catalog 延后到后续 IAM 工单
+
+去配 / 离职生命周期：
+
+- 当前已支持管理员手动停用用户
+- 停用用户会立即撤销其现有浏览器 session，并保留 auth 审计历史
+- 上游自动同步、webhook 回调、SCIM 等自动去配入口仍然作为后续集成点保留
 
 ## RBAC 模型
 
@@ -137,6 +238,20 @@ RBAC 评估规则：
 - 直接用户绑定和组绑定取并集。
 - 组织绑定向下继承到子项目范围。
 - 权限默认拒绝。
+- 人类权限采用资源/动作粒度。内置角色会展开为明确权限键，例如
+  `org.read`、`project.create`、`ticket_comment.update`、`workflow.delete`、
+  `harness.update`、`status.read`、`security_setting.update`、
+  `notification.read`、`conversation.create`。
+- list / index 类 API 在返回组织、项目、仓库等人类可见集合前，会先按当前
+  principal 的 effective visibility 过滤。
+
+人类权限与 agent scopes 有关联，但不是同一套键：
+
+- 人类权限用于浏览器认证的人类控制面操作。
+- Agent scopes 用于签发给运行时 token 的能力，例如 `projects.update`、
+  `tickets.update.self`。
+- 名称相似不代表可互换；人类权限不会直接 mint agent scope，agent scope 也
+  不会满足人类 RBAC 判定。
 
 角色绑定可通过以下路由管理：
 
@@ -159,7 +274,18 @@ RBAC 评估规则：
 
 ## 聊天、会话与审计操作者
 
-项目聊天和项目会话从已认证的人类主体获取用户身份，而非浏览器本地的随机 ID。
+AI 会话归属始终派生自服务端定义的主体：
+
+- 在 `auth.mode=oidc` 下，项目聊天、项目会话以及其他浏览器驱动的 AI 流程使用已认证的人类主体
+- 在 `auth.mode=disabled` 下，服务端签发并复用 `openase_ai_principal` 浏览器 Cookie，其值是稳定的 `browser-session:<uuid>` 主体
+
+浏览器本地随机 ID 和 `X-OpenASE-Chat-User` 请求头不再是权威 owner 输入。
+
+当 `auth.mode=disabled` 时，持久 Project Conversation 会切换到服务端定义的本地稳定主体：`local-user:default`。
+
+- 这样可以让会话归属跨前端 dev server 端口与浏览器本地存储重置保持稳定
+- `localStorage` 仅保留标签布局和草稿等 UI 恢复职责，不再作为持久会话 owner 的真相来源
+- 该模式明确是本地单用户 / 共享实例 fallback，不是多用户隔离模型
 
 审计语义：
 
@@ -173,10 +299,20 @@ RBAC 评估规则：
 控制面板的 Settings 视图暴露了人类认证状态，包括：
 
 - 当前认证模式
+- 配置文件中的 configured auth mode
 - Issuer URL
+- bootstrap admin 摘要
+- disabled 模式下的本地引导管理员说明
+- 已保存的 OIDC 草稿字段，以及显式的 save / test / enable 动作
 - 当前已认证用户
+- session inventory，包括当前设备识别与撤销动作
+- 浏览器访问相关的 auth 审计时间线
+- 稳定的 Project Conversation owner 语义（OIDC 下为 `user:<user-id>`，关闭认证时为 `local-user:default`）
 - 有效角色和权限
-- 组织/项目角色绑定管理
+- 人类权限与可 mint agent scopes 的区别
+- 实例 / 组织 / 项目角色绑定管理
+- 组织成员与邀请管理
+- 指向迁移、回退与 rollout 计划的文档入口
 
 `GET /auth/session` 和 `GET /api/v1/auth/me/permissions` 是用于脚本和诊断的 API 等价物。
 

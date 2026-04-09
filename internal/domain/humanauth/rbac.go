@@ -8,140 +8,162 @@ type RoleDefinition struct {
 }
 
 func BuiltinRoles() map[RoleKey]RoleDefinition {
-	allProjectAdmin := []PermissionKey{
+	projectViewer := []PermissionKey{
 		PermissionOrgRead,
 		PermissionProjectRead,
-		PermissionProjectUpdate,
-		PermissionProjectDelete,
 		PermissionRepoRead,
-		PermissionRepoManage,
 		PermissionTicketRead,
-		PermissionTicketCreate,
-		PermissionTicketUpdate,
-		PermissionTicketComment,
+		PermissionTicketCommentRead,
+		PermissionProjectUpdateRead,
 		PermissionWorkflowRead,
-		PermissionWorkflowManage,
+		PermissionHarnessRead,
+		PermissionStatusRead,
 		PermissionSkillRead,
-		PermissionSkillManage,
 		PermissionAgentRead,
-		PermissionAgentManage,
 		PermissionJobRead,
-		PermissionJobManage,
 		PermissionSecurityRead,
-		PermissionSecurityManage,
-		PermissionProposalApprove,
-		PermissionRBACManage,
+		PermissionNotificationRead,
+		PermissionConversationRead,
 	}
+	projectMember := appendPermissionLists(
+		projectViewer,
+		[]PermissionKey{
+			PermissionTicketCreate,
+			PermissionTicketUpdate,
+			PermissionTicketCommentCreate,
+			PermissionTicketCommentUpdate,
+			PermissionProjectUpdateCreate,
+			PermissionProjectUpdateUpdate,
+			PermissionConversationCreate,
+			PermissionConversationUpdate,
+		},
+	)
+	projectOperator := appendPermissionLists(
+		projectMember,
+		[]PermissionKey{
+			PermissionProjectUpdate,
+			PermissionRepoCreate,
+			PermissionRepoUpdate,
+			PermissionRepoDelete,
+			PermissionWorkflowCreate,
+			PermissionWorkflowUpdate,
+			PermissionWorkflowDelete,
+			PermissionHarnessUpdate,
+			PermissionStatusCreate,
+			PermissionStatusUpdate,
+			PermissionStatusDelete,
+			PermissionSkillCreate,
+			PermissionSkillUpdate,
+			PermissionSkillDelete,
+			PermissionAgentCreate,
+			PermissionAgentUpdate,
+			PermissionAgentDelete,
+			PermissionAgentControl,
+			PermissionJobCreate,
+			PermissionJobUpdate,
+			PermissionJobDelete,
+			PermissionJobTrigger,
+			PermissionNotificationCreate,
+			PermissionNotificationUpdate,
+			PermissionNotificationDelete,
+		},
+	)
+	projectAdmin := appendPermissionLists(
+		projectOperator,
+		[]PermissionKey{
+			PermissionProjectDelete,
+			PermissionSecurityUpdate,
+			PermissionConversationDelete,
+			PermissionProposalApprove,
+			PermissionRBACManage,
+		},
+	)
+	orgOperator := appendPermissionLists(
+		projectAdmin,
+		[]PermissionKey{
+			PermissionProjectCreate,
+			PermissionMachineRead,
+			PermissionMachineCreate,
+			PermissionMachineUpdate,
+			PermissionMachineDelete,
+			PermissionProviderRead,
+			PermissionProviderCreate,
+			PermissionProviderUpdate,
+			PermissionProviderDelete,
+		},
+	)
+	instanceAdmin := appendPermissionLists(
+		orgOperator,
+		[]PermissionKey{
+			PermissionOrgCreate,
+			PermissionOrgUpdate,
+			PermissionOrgDelete,
+		},
+	)
+	orgAdmin := appendPermissionLists(
+		orgOperator,
+		[]PermissionKey{
+			PermissionOrgRead,
+			PermissionOrgUpdate,
+		},
+	)
+	orgOwner := appendPermissionLists(
+		orgAdmin,
+		[]PermissionKey{
+			PermissionOrgDelete,
+		},
+	)
+
 	return map[RoleKey]RoleDefinition{
 		RoleInstanceAdmin: {
-			Key: RoleInstanceAdmin,
-			Permissions: append([]PermissionKey{
-				PermissionOrgUpdate,
-			}, allProjectAdmin...),
+			Key:         RoleInstanceAdmin,
+			Permissions: instanceAdmin,
 		},
 		RoleOrgOwner: {
-			Key: RoleOrgOwner,
-			Permissions: append([]PermissionKey{
-				PermissionOrgRead,
-				PermissionOrgUpdate,
-			}, allProjectAdmin...),
+			Key:         RoleOrgOwner,
+			Permissions: orgOwner,
 		},
 		RoleOrgAdmin: {
-			Key: RoleOrgAdmin,
-			Permissions: append([]PermissionKey{
-				PermissionOrgRead,
-				PermissionOrgUpdate,
-			}, allProjectAdmin...),
+			Key:         RoleOrgAdmin,
+			Permissions: orgAdmin,
 		},
 		RoleOrgMember: {
 			Key: RoleOrgMember,
-			Permissions: []PermissionKey{
-				PermissionOrgRead,
-				PermissionProjectRead,
-				PermissionRepoRead,
-				PermissionTicketRead,
-				PermissionTicketCreate,
-				PermissionTicketUpdate,
-				PermissionTicketComment,
-				PermissionWorkflowRead,
-				PermissionSkillRead,
-				PermissionAgentRead,
-				PermissionJobRead,
-				PermissionSecurityRead,
-			},
+			Permissions: appendPermissionLists(
+				projectMember,
+				[]PermissionKey{
+					PermissionMachineRead,
+					PermissionProviderRead,
+				},
+			),
 		},
 		RoleProjectAdmin: {
 			Key:         RoleProjectAdmin,
-			Permissions: allProjectAdmin,
+			Permissions: projectAdmin,
 		},
 		RoleProjectOperator: {
-			Key: RoleProjectOperator,
-			Permissions: []PermissionKey{
-				PermissionOrgRead,
-				PermissionProjectRead,
-				PermissionProjectUpdate,
-				PermissionRepoRead,
-				PermissionRepoManage,
-				PermissionTicketRead,
-				PermissionTicketCreate,
-				PermissionTicketUpdate,
-				PermissionTicketComment,
-				PermissionWorkflowRead,
-				PermissionWorkflowManage,
-				PermissionSkillRead,
-				PermissionSkillManage,
-				PermissionAgentRead,
-				PermissionAgentManage,
-				PermissionJobRead,
-				PermissionJobManage,
-				PermissionSecurityRead,
-			},
+			Key:         RoleProjectOperator,
+			Permissions: projectOperator,
 		},
 		RoleProjectReviewer: {
 			Key: RoleProjectReviewer,
-			Permissions: []PermissionKey{
-				PermissionOrgRead,
-				PermissionProjectRead,
-				PermissionRepoRead,
-				PermissionTicketRead,
-				PermissionTicketComment,
-				PermissionWorkflowRead,
-				PermissionSkillRead,
-				PermissionAgentRead,
-				PermissionJobRead,
-				PermissionProposalApprove,
-			},
+			Permissions: appendPermissionLists(
+				projectViewer,
+				[]PermissionKey{
+					PermissionTicketCommentCreate,
+					PermissionTicketCommentUpdate,
+					PermissionConversationCreate,
+					PermissionProposalApprove,
+				},
+			),
 		},
 		RoleProjectMember: {
-			Key: RoleProjectMember,
-			Permissions: []PermissionKey{
-				PermissionOrgRead,
-				PermissionProjectRead,
-				PermissionProjectUpdate,
-				PermissionRepoRead,
-				PermissionTicketRead,
-				PermissionTicketCreate,
-				PermissionTicketUpdate,
-				PermissionTicketComment,
-				PermissionWorkflowRead,
-				PermissionSkillRead,
-				PermissionAgentRead,
-				PermissionJobRead,
-			},
+			Key:         RoleProjectMember,
+			Permissions: projectMember,
 		},
 		RoleProjectViewer: {
-			Key: RoleProjectViewer,
-			Permissions: []PermissionKey{
-				PermissionOrgRead,
-				PermissionProjectRead,
-				PermissionRepoRead,
-				PermissionTicketRead,
-				PermissionWorkflowRead,
-				PermissionSkillRead,
-				PermissionAgentRead,
-				PermissionJobRead,
-				PermissionSecurityRead,
-			},
+			Key:         RoleProjectViewer,
+			Permissions: projectViewer,
 		},
 	}
 }
@@ -164,4 +186,18 @@ func PermissionsForRoles(roles []RoleKey) []PermissionKey {
 	}
 	sort.Slice(permissions, func(i, j int) bool { return permissions[i] < permissions[j] })
 	return permissions
+}
+
+func appendPermissionLists(base []PermissionKey, extra []PermissionKey) []PermissionKey {
+	seen := map[PermissionKey]struct{}{}
+	combined := make([]PermissionKey, 0, len(base)+len(extra))
+	for _, permission := range append(append([]PermissionKey{}, base...), extra...) {
+		if _, ok := seen[permission]; ok {
+			continue
+		}
+		seen[permission] = struct{}{}
+		combined = append(combined, permission)
+	}
+	sort.Slice(combined, func(i, j int) bool { return combined[i] < combined[j] })
+	return combined
 }

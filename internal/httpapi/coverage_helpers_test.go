@@ -198,7 +198,7 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 	pickup := []string{statusA.String()}
 	finish := []string{statusB.String()}
 
-	input, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{
+	input, err := parseUpdateWorkflowRequest(workflowID, "", rawUpdateWorkflowRequest{
 		AgentID:             stringPointer(agentID.String()),
 		Name:                &name,
 		Type:                &workflowType,
@@ -227,7 +227,7 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 	if !input.Type.Set || input.Type.Value.String() != "custom" {
 		t.Fatalf("Type = %+v", input.Type)
 	}
-	if _, err := parseUpdateWorkflowRequest(workflowID, rawUpdateWorkflowRequest{
+	if _, err := parseUpdateWorkflowRequest(workflowID, "", rawUpdateWorkflowRequest{
 		RoleSlug: stringPointer("new-role-slug"),
 	}); err == nil || !strings.Contains(err.Error(), "role_slug cannot be updated") {
 		t.Fatalf("parseUpdateWorkflowRequest(role slug) error = %v", err)
@@ -278,7 +278,7 @@ func TestWorkflowRequestParsersCoverTrimmedAndInvalidInputs(t *testing.T) {
 		{name: "invalid finish", raw: rawUpdateWorkflowRequest{FinishStatusIDs: &[]string{"bad"}}, want: "finish_status_ids must be a valid UUID"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			if _, err := parseUpdateWorkflowRequest(workflowID, testCase.raw); err == nil || err.Error() == "" || !strings.Contains(err.Error(), testCase.want) {
+			if _, err := parseUpdateWorkflowRequest(workflowID, "", testCase.raw); err == nil || err.Error() == "" || !strings.Contains(err.Error(), testCase.want) {
 				t.Fatalf("parseUpdateWorkflowRequest() error = %v, want substring %q", err, testCase.want)
 			}
 		})

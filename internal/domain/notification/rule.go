@@ -15,6 +15,27 @@ import (
 // RuleEventType identifies a supported notification subscription event.
 type RuleEventType string
 
+type RuleEventGroup string
+
+const (
+	RuleEventGroupTicketLifecycle RuleEventGroup = "Ticket lifecycle"
+	RuleEventGroupAgentExecution  RuleEventGroup = "Agent / execution"
+	RuleEventGroupHookIntegration RuleEventGroup = "Hook / integration"
+	RuleEventGroupPRReview        RuleEventGroup = "PR / review"
+)
+
+type RuleEventLevel string
+
+const (
+	RuleEventLevelInfo     RuleEventLevel = "info"
+	RuleEventLevelWarning  RuleEventLevel = "warning"
+	RuleEventLevelCritical RuleEventLevel = "critical"
+)
+
+func (g RuleEventGroup) String() string { return string(g) }
+
+func (l RuleEventLevel) String() string { return string(l) }
+
 const (
 	RuleEventTypeTicketCreated         RuleEventType = RuleEventType(activityevent.TypeTicketCreated)
 	RuleEventTypeTicketUpdated         RuleEventType = RuleEventType(activityevent.TypeTicketUpdated)
@@ -44,6 +65,8 @@ const (
 type RuleEventCatalogEntry struct {
 	EventType       RuleEventType
 	Label           string
+	Group           RuleEventGroup
+	Level           RuleEventLevel
 	DefaultTemplate string
 }
 
@@ -51,112 +74,72 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 	{
 		EventType:       RuleEventTypeTicketCreated,
 		Label:           "Ticket Created",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket created: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}\nPriority: {{ ticket.priority }}",
 	},
 	{
 		EventType:       RuleEventTypeTicketUpdated,
 		Label:           "Ticket Updated",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket updated: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}",
 	},
 	{
 		EventType:       RuleEventTypeTicketStatusChanged,
 		Label:           "Ticket Status Changed",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket status changed: {{ ticket.identifier }}\n{{ ticket.title }}\nNew status: {{ new_status }}",
-	},
-	{
-		EventType:       RuleEventTypeTicketCompleted,
-		Label:           "Ticket Completed",
-		DefaultTemplate: "{{ ticket.identifier }} completed",
-	},
-	{
-		EventType:       RuleEventTypeTicketCancelled,
-		Label:           "Ticket Cancelled",
-		DefaultTemplate: "{{ ticket.identifier }} cancelled",
-	},
-	{
-		EventType:       RuleEventTypeTicketRetryScheduled,
-		Label:           "Ticket Retry Scheduled",
-		DefaultTemplate: "{{ ticket.identifier }} will retry at {{ next_retry_at }}",
 	},
 	{
 		EventType:       RuleEventTypeTicketRetryPaused,
 		Label:           "Ticket Retry Paused",
-		DefaultTemplate: "{{ ticket.identifier }} retry paused: {{ pause_reason }}",
-	},
-	{
-		EventType:       RuleEventTypeTicketBudgetExhausted,
-		Label:           "Ticket Budget Exhausted",
-		DefaultTemplate: "{{ ticket.identifier }} budget exhausted (${{ cost_amount }}/${{ budget_usd }})",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelWarning,
+		DefaultTemplate: "{{ message }}\nPause reason: {{ pause_reason }}",
 	},
 	{
 		EventType:       RuleEventTypeAgentClaimed,
 		Label:           "Agent Claimed",
-		DefaultTemplate: "{{ agent.name }} claimed {{ ticket.identifier }}",
+		Group:           RuleEventGroupAgentExecution,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "Agent {{ agent.name }} claimed ticket {{ current_ticket_id }}",
 	},
 	{
 		EventType:       RuleEventTypeAgentFailed,
 		Label:           "Agent Failed",
-		DefaultTemplate: "Agent {{ agent.name }} failed {{ ticket.identifier }}: {{ error }}",
+		Group:           RuleEventGroupAgentExecution,
+		Level:           RuleEventLevelCritical,
+		DefaultTemplate: "Agent {{ agent.name }} failed ticket {{ current_ticket_id }}\nStatus: {{ status }}",
 	},
 	{
 		EventType:       RuleEventTypeHookFailed,
 		Label:           "Hook Failed",
-		DefaultTemplate: "{{ ticket.identifier }} hook {{ hook_name }} failed: {{ error }}",
+		Group:           RuleEventGroupHookIntegration,
+		Level:           RuleEventLevelCritical,
+		DefaultTemplate: "{{ ticket_identifier }} hook {{ hook_name }} failed\n{{ error }}",
 	},
 	{
 		EventType:       RuleEventTypeHookPassed,
 		Label:           "Hook Passed",
-		DefaultTemplate: "{{ ticket.identifier }} hook {{ hook_name }} passed",
+		Group:           RuleEventGroupHookIntegration,
+		Level:           RuleEventLevelWarning,
+		DefaultTemplate: "{{ ticket_identifier }} hook {{ hook_name }} passed",
 	},
 	{
 		EventType:       RuleEventTypePROpened,
 		Label:           "PR Opened",
-		DefaultTemplate: "{{ ticket.identifier }} PR opened: {{ pull_request_url }}",
-	},
-	{
-		EventType:       RuleEventTypePRMerged,
-		Label:           "PR Merged",
-		DefaultTemplate: "{{ ticket.identifier }} PR merged: {{ pull_request_url }}",
+		Group:           RuleEventGroupPRReview,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "{{ ticket_identifier }} PR opened\n{{ pull_request_url }}",
 	},
 	{
 		EventType:       RuleEventTypePRClosed,
 		Label:           "PR Closed",
-		DefaultTemplate: "{{ ticket.identifier }} PR closed: {{ pull_request_url }}",
-	},
-	{
-		EventType:       RuleEventTypeTicketStalled,
-		Label:           "Ticket Stalled",
-		DefaultTemplate: "{{ ticket.identifier }} agent is stalled",
-	},
-	{
-		EventType:       RuleEventTypeTicketErrorRateHigh,
-		Label:           "Ticket Error Rate High",
-		DefaultTemplate: "{{ ticket.identifier }} failed {{ consecutive_errors }} times",
-	},
-	{
-		EventType:       RuleEventTypeMachineOffline,
-		Label:           "Machine Offline",
-		DefaultTemplate: "Machine {{ machine.name }} is offline",
-	},
-	{
-		EventType:       RuleEventTypeMachineOnline,
-		Label:           "Machine Online",
-		DefaultTemplate: "Machine {{ machine.name }} is online",
-	},
-	{
-		EventType:       RuleEventTypeMachineDegraded,
-		Label:           "Machine Degraded",
-		DefaultTemplate: "Machine {{ machine.name }} degraded: {{ disk_free_gb }}GB free",
-	},
-	{
-		EventType:       RuleEventTypeConnectorSyncError,
-		Label:           "Connector Sync Error",
-		DefaultTemplate: "Connector {{ connector.name }} sync failed: {{ error }}",
-	},
-	{
-		EventType:       RuleEventTypeBudgetThreshold,
-		Label:           "Budget Threshold",
-		DefaultTemplate: "Project {{ project.name }} spent ${{ cost_usd }}",
+		Group:           RuleEventGroupPRReview,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "{{ ticket_identifier }} PR closed\n{{ pull_request_url }}",
 	},
 }
 
@@ -243,6 +226,20 @@ func ParseRuleEventType(raw string) (RuleEventType, error) {
 
 func (t RuleEventType) String() string {
 	return string(t)
+}
+
+func (t RuleEventType) Group() RuleEventGroup {
+	if item, ok := supportedRuleEventIndex[t]; ok {
+		return item.Group
+	}
+	return ""
+}
+
+func (t RuleEventType) Level() RuleEventLevel {
+	if item, ok := supportedRuleEventIndex[t]; ok {
+		return item.Level
+	}
+	return RuleEventLevelInfo
 }
 
 // DefaultTemplate returns the built-in template for the event type.
@@ -359,7 +356,7 @@ func (r Rule) RenderMessage(context map[string]any) (Message, error) {
 		return Message{}, err
 	}
 
-	return messageFromRenderedText(rendered), nil
+	return messageFromRenderedText(rendered, r.EventType.Level()), nil
 }
 
 func normalizeRuleFilter(raw map[string]any) (map[string]any, error) {
@@ -475,7 +472,7 @@ func renderRuleTemplate(templateText string, context map[string]any) (string, er
 	return strings.TrimSpace(rendered), nil
 }
 
-func messageFromRenderedText(rendered string) Message {
+func messageFromRenderedText(rendered string, level RuleEventLevel) Message {
 	trimmed := strings.TrimSpace(rendered)
 	if trimmed == "" {
 		return Message{}
@@ -491,6 +488,6 @@ func messageFromRenderedText(rendered string) Message {
 	return Message{
 		Title: title,
 		Body:  body,
-		Level: "info",
+		Level: level.String(),
 	}
 }

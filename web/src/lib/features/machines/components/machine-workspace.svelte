@@ -85,7 +85,10 @@
   )
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col px-6 pb-6" data-testid="machines-workspace">
+<div
+  class="flex min-h-0 flex-1 flex-col px-4 pb-4 sm:px-6 sm:pb-6"
+  data-testid="machines-workspace"
+>
   {#if state === 'no-org'}
     <div
       class="animate-fade-in-up border-border bg-card rounded-xl border border-dashed px-4 py-14 text-center"
@@ -102,7 +105,7 @@
     <div class="space-y-3">
       {#each { length: 3 } as _}
         <div class="border-border bg-card rounded-lg border p-4">
-          <div class="grid gap-4 xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] xl:items-start">
+          <div class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] lg:items-start">
             <div class="space-y-3">
               <div class="space-y-1.5">
                 <div class="flex items-center gap-2">
@@ -149,8 +152,9 @@
         <Server class="text-muted-foreground size-5" />
       </div>
       <p class="text-foreground text-sm font-medium">No machines configured</p>
-      <p class="text-muted-foreground mt-1 text-sm">
-        Register a remote worker to make it available for orchestration and routing.
+      <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-sm">
+        Machines are remote workers that run agent tasks. Register one to connect a development
+        environment and make it available for ticket execution.
       </p>
       <div class="mt-4">
         <Button onclick={onCreate}>New machine</Button>

@@ -57,16 +57,3 @@ const (
 func ParseExternalLinkType(raw string) (ExternalLinkType, error) {
 	return domain.ParseExternalLinkType(raw)
 }
-
-type ExternalLinkRelation = domain.ExternalLinkRelation
-
-const (
-	DefaultExternalLinkRelation  = domain.DefaultExternalLinkRelation
-	ExternalLinkRelationResolves = domain.ExternalLinkRelationResolves
-	ExternalLinkRelationRelated  = domain.ExternalLinkRelationRelated
-	ExternalLinkRelationCausedBy = domain.ExternalLinkRelationCausedBy
-)
-
-func ParseExternalLinkRelation(raw string) (ExternalLinkRelation, error) {
-	return domain.ParseExternalLinkRelation(raw)
-}

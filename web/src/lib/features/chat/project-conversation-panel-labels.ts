@@ -23,39 +23,44 @@ function truncateLabel(value: string) {
   return value.length > MAX_LABEL_LENGTH ? `${value.slice(0, MAX_LABEL_LENGTH)}…` : value
 }
 
-function findRecentUserMessage(entries: ProjectConversationTranscriptEntry[]) {
-  return [...entries]
-    .reverse()
-    .find(
-      (entry): entry is ProjectConversationTextEntry =>
-        entry.kind === 'text' && entry.role === 'user' && entry.content.trim().length > 0,
-    )
+function findFirstUserMessage(entries: ProjectConversationTranscriptEntry[]) {
+  return entries.find(
+    (entry): entry is ProjectConversationTextEntry =>
+      entry.kind === 'text' && entry.role === 'user' && entry.content.trim().length > 0,
+  )
 }
 
-export function formatProjectConversationLabel(
-  tab: Pick<ProjectConversationTabView, 'conversationId' | 'entries' | 'draft'>,
-  conversations: ProjectConversation[],
+function conversationTitle(conversation?: ProjectConversation) {
+  return (conversation?.title ?? '').trim()
+}
+
+function summaryText(conversation?: ProjectConversation) {
+  return (conversation?.rollingSummary ?? '').trim()
+}
+
+function titleFromTranscript(entries: ProjectConversationTranscriptEntry[]) {
+  return findFirstUserMessage(entries)?.content?.trim() ?? ''
+}
+
+export function getProjectConversationDisplayTitle(conversation?: ProjectConversation) {
+  return conversationTitle(conversation)
+}
+
+export function getProjectConversationSummary(conversation?: ProjectConversation) {
+  return summaryText(conversation)
+}
+
+export function getProjectConversationTitleFromTranscript(
+  entries: ProjectConversationTranscriptEntry[],
 ) {
-  const conversation = conversations.find((item) => item.id === tab.conversationId)
-  const summary = (conversation?.rollingSummary ?? '').trim()
-  if (summary) {
-    return truncateLabel(summary)
-  }
+  return titleFromTranscript(entries)
+}
 
-  const recentUserMessage = findRecentUserMessage(tab.entries)
-  if (recentUserMessage?.content) {
-    return truncateLabel(recentUserMessage.content.trim())
-  }
+function findTranscriptFallbackTitle(entries: ProjectConversationTranscriptEntry[]) {
+  return titleFromTranscript(entries)
+}
 
-  const draft = tab.draft.trim()
-  if (draft) {
-    return truncateLabel(draft)
-  }
-
-  if (!tab.conversationId) {
-    return 'New tab'
-  }
-
+function conversationTimestampLabel(conversation?: ProjectConversation) {
   const timestamp = new Date(conversation?.lastActivityAt ?? '')
   if (Number.isNaN(timestamp.getTime())) {
     return 'Conversation'
@@ -67,6 +72,33 @@ export function formatProjectConversationLabel(
     hour: '2-digit',
     minute: '2-digit',
   })}`
+}
+
+export function formatProjectConversationLabel(
+  tab: Pick<ProjectConversationTabView, 'conversationId' | 'entries' | 'draft'>,
+  conversations: ProjectConversation[],
+) {
+  const conversation = conversations.find((item) => item.id === tab.conversationId)
+  const title = conversationTitle(conversation)
+  if (title) {
+    return truncateLabel(title)
+  }
+
+  const transcriptTitle = findTranscriptFallbackTitle(tab.entries)
+  if (transcriptTitle) {
+    return truncateLabel(transcriptTitle)
+  }
+
+  const draft = tab.draft.trim()
+  if (draft) {
+    return truncateLabel(draft)
+  }
+
+  if (!tab.conversationId) {
+    return 'New tab'
+  }
+
+  return conversationTimestampLabel(conversation)
 }
 
 export function formatProjectConversationTabStatus(

@@ -6,10 +6,10 @@ import type { LayoutLoad } from './$types'
 export const load: LayoutLoad = async ({ params, url, fetch }) => {
   const routeContext = parseAppRouteContext(params)
   const authSession = await getAuthSession(fetch)
-  if (authSession.authMode === 'oidc' && !authSession.authenticated) {
+  if (authSession.authCapabilities.availableAuthMethods.length > 0 && !authSession.authenticated) {
     throw redirect(
       307,
-      `/login?return_to=${encodeURIComponent(normalizeReturnTo(url.pathname + url.search + url.hash))}`,
+      `/login?return_to=${encodeURIComponent(normalizeReturnTo(url.pathname + url.search))}`,
     )
   }
 

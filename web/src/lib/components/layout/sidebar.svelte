@@ -15,8 +15,10 @@
     currentProjectId = null,
     projectSelected = false,
     agentCount = 0,
+    mobile = false,
     onOpenProjectAssistant,
     onToggleCollapse,
+    onNavigate,
   }: {
     collapsed?: boolean
     currentPath?: string
@@ -24,8 +26,10 @@
     currentProjectId?: string | null
     projectSelected?: boolean
     agentCount?: number
+    mobile?: boolean
     onOpenProjectAssistant?: () => void
     onToggleCollapse?: () => void
+    onNavigate?: () => void
   } = $props()
 
   const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
@@ -36,131 +40,86 @@
   function warmRoute(href: string) {
     void preloadCode(href)
   }
+
+  function handleNavClick() {
+    onNavigate?.()
+  }
 </script>
 
-<nav class="flex h-full flex-col overflow-hidden">
-  <div class="flex-1 overflow-y-auto px-2 py-3">
-    <div class="space-y-0.5">
-      {#each globalNav as item}
-        {@const Icon = item.icon}
-        {#if collapsed}
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              {#snippet child({ props })}
-                <a
-                  href={item.href}
-                  {...props}
-                  data-sveltekit-preload-code="hover"
-                  class={cn(
-                    'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
-                    item.active
-                      ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
-                      : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                  )}
-                  onpointerenter={() => warmRoute(item.href)}
-                >
-                  <Icon class="size-4" />
-                </a>
-              {/snippet}
-            </Tooltip.Trigger>
-            <Tooltip.Content side="right" class="text-xs">
-              {item.label}
-            </Tooltip.Content>
-          </Tooltip.Root>
-        {:else}
+{#snippet navLink(item: SidebarNavItem)}
+  {@const Icon = item.icon}
+  {#if collapsed && !mobile}
+    <Tooltip.Root>
+      <Tooltip.Trigger>
+        {#snippet child({ props })}
           <a
             href={item.href}
+            {...props}
             data-sveltekit-preload-code="hover"
             class={cn(
-              'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
+              'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
               item.active
                 ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
                 : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
             )}
             onpointerenter={() => warmRoute(item.href)}
           >
-            <Icon class="size-4 shrink-0" />
-            <span class="truncate transition-opacity duration-200">{item.label}</span>
-            {#if item.badge}
-              <Badge
-                variant="secondary"
-                class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px] transition-opacity duration-200"
-              >
-                {item.badge}
-              </Badge>
-            {/if}
+            <Icon class="size-4" />
           </a>
+        {/snippet}
+      </Tooltip.Trigger>
+      <Tooltip.Content side="right" class="text-xs">
+        <span>{item.label}</span>
+        {#if item.badge}
+          <Badge variant="secondary" class="ml-1.5 h-4 min-w-4 justify-center px-1 text-[10px]">
+            {item.badge}
+          </Badge>
         {/if}
+      </Tooltip.Content>
+    </Tooltip.Root>
+  {:else}
+    <a
+      href={item.href}
+      data-sveltekit-preload-code="hover"
+      class={cn(
+        'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
+        item.active
+          ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
+          : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
+      )}
+      onpointerenter={() => warmRoute(item.href)}
+      onclick={mobile ? handleNavClick : undefined}
+    >
+      <Icon class="size-4 shrink-0" />
+      <span class="truncate">{item.label}</span>
+      {#if item.badge}
+        <Badge variant="secondary" class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px]">
+          {item.badge}
+        </Badge>
+      {/if}
+    </a>
+  {/if}
+{/snippet}
+
+<nav class="flex h-full flex-col overflow-hidden">
+  <div class="flex-1 overflow-y-auto px-2 py-3">
+    <div class="space-y-0.5">
+      {#each globalNav as item}
+        {@render navLink(item)}
       {/each}
     </div>
     {#if projectSelected}
       <Separator class="my-3" />
       <div class="space-y-0.5">
         {#each projectNav as item}
-          {@const Icon = item.icon}
-          {#if collapsed}
-            <Tooltip.Root>
-              <Tooltip.Trigger>
-                {#snippet child({ props })}
-                  <a
-                    href={item.href}
-                    {...props}
-                    data-sveltekit-preload-code="hover"
-                    class={cn(
-                      'flex h-8 w-full items-center justify-center rounded-md text-sm transition-colors',
-                      item.active
-                        ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
-                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
-                    )}
-                    onpointerenter={() => warmRoute(item.href)}
-                  >
-                    <Icon class="size-4" />
-                  </a>
-                {/snippet}
-              </Tooltip.Trigger>
-              <Tooltip.Content side="right" class="text-xs">
-                <span>{item.label}</span>
-                {#if item.badge}
-                  <Badge
-                    variant="secondary"
-                    class="ml-1.5 h-4 min-w-4 justify-center px-1 text-[10px]"
-                  >
-                    {item.badge}
-                  </Badge>
-                {/if}
-              </Tooltip.Content>
-            </Tooltip.Root>
-          {:else}
-            <a
-              href={item.href}
-              data-sveltekit-preload-code="hover"
-              class={cn(
-                'flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors',
-                item.active
-                  ? 'border-primary bg-sidebar-accent text-sidebar-foreground border-l-2'
-                  : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
-              )}
-              onpointerenter={() => warmRoute(item.href)}
-            >
-              <Icon class="size-4 shrink-0" />
-              <span class="truncate">{item.label}</span>
-              {#if item.badge}
-                <Badge
-                  variant="secondary"
-                  class="ml-auto h-5 min-w-5 justify-center px-1 text-[10px]"
-                >
-                  {item.badge}
-                </Badge>
-              {/if}
-            </a>
-          {/if}
+          {@render navLink(item)}
         {/each}
       </div>
     {/if}
   </div>
   <div class="border-border shrink-0 border-t p-2">
     {#if projectSelected}
-      {#if collapsed}
+      {#if collapsed && !mobile}
         <Tooltip.Root>
           <Tooltip.Trigger>
             {#snippet child({ props })}
@@ -193,22 +152,26 @@
         >
           <Bot class="mr-2 size-4" />
           <span class="flex-1 text-left text-xs">Ask AI</span>
-          <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
+          {#if !mobile}
+            <kbd class="text-muted-foreground/50 text-[10px] font-normal">⌘I</kbd>
+          {/if}
         </Button>
       {/if}
     {/if}
-    <Button
-      variant="ghost"
-      size="sm"
-      class={cn('w-full', collapsed ? 'justify-center px-0' : 'justify-start')}
-      onclick={onToggleCollapse}
-    >
-      {#if collapsed}
-        <ChevronsRight class="size-4" />
-      {:else}
-        <ChevronsLeft class="mr-2 size-4" />
-        <span class="text-muted-foreground text-xs">Collapse</span>
-      {/if}
-    </Button>
+    {#if !mobile}
+      <Button
+        variant="ghost"
+        size="sm"
+        class={cn('w-full', collapsed ? 'justify-center px-0' : 'justify-start')}
+        onclick={onToggleCollapse}
+      >
+        {#if collapsed}
+          <ChevronsRight class="size-4" />
+        {:else}
+          <ChevronsLeft class="mr-2 size-4" />
+          <span class="text-muted-foreground text-xs">Collapse</span>
+        {/if}
+      </Button>
+    {/if}
   </div>
 </nav>

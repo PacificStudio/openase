@@ -2,14 +2,9 @@ package httpapi
 
 import (
 	"encoding/base64"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
-	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
-	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
-	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/labstack/echo/v4"
 )
@@ -86,8 +81,6 @@ func (s *Server) registerSkillRoutes(api *echo.Group) {
 	api.POST("/skills/:skillId/disable", s.handleDisableSkill)
 	api.POST("/skills/:skillId/bind", s.handleBindSkill)
 	api.POST("/skills/:skillId/unbind", s.handleUnbindSkill)
-	api.POST("/skills/:skillId/refinement-runs", s.handleStartSkillRefinement)
-	api.DELETE("/skills/refinement-runs/:sessionId", s.handleDeleteSkillRefinementSession)
 	api.POST("/workflows/:workflowId/skills/bind", s.handleBindWorkflowSkills)
 	api.POST("/workflows/:workflowId/skills/unbind", s.handleUnbindWorkflowSkills)
 }
@@ -126,11 +119,8 @@ func (s *Server) handleCreateSkill(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
-		raw.CreatedBy = actor
-	}
 
-	input, err := parseCreateSkillRequest(projectID, raw)
+	input, err := parseCreateSkillRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -157,11 +147,8 @@ func (s *Server) handleImportSkillBundle(c echo.Context) error {
 	if err := decodeJSON(c, &raw); err != nil {
 		return err
 	}
-	if actor := actorFromHumanPrincipal(c); strings.TrimSpace(raw.CreatedBy) == "" {
-		raw.CreatedBy = actor
-	}
 
-	input, err := parseImportSkillBundleRequest(projectID, raw)
+	input, err := parseImportSkillBundleRequest(projectID, actorFromWritePrincipal(c), raw)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
@@ -357,102 +344,6 @@ func (s *Server) handleUnbindSkill(c echo.Context) error {
 	return s.handleSkillBindings(c, false)
 }
 
-func (s *Server) handleStartSkillRefinement(c echo.Context) error {
-	if s.skillRefinementService == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "skill refinement service unavailable")
-	}
-
-	skillID, err := parseUUIDPathParamValue(c, "skillId")
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_SKILL_ID", err.Error())
-	}
-
-	var raw rawSkillRefinementRequest
-	if err := decodeJSON(c, &raw); err != nil {
-		return err
-	}
-	input, err := parseSkillRefinementRequest(skillID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-	userID, err := s.currentRequestChatUserID(c)
-	if err != nil {
-		if errors.Is(err, humanauthservice.ErrUnauthorized) {
-			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
-		}
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
-	}
-
-	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
-	defer cancel()
-
-	stream, err := s.skillRefinementService.Start(streamCtx, userID, input)
-	if err != nil {
-		return writeSkillRefinementError(c, err)
-	}
-
-	heartbeat := time.NewTicker(s.chatStreamKeepaliveInterval())
-	defer heartbeat.Stop()
-
-	response := c.Response()
-	response.Header().Set(echo.HeaderContentType, "text/event-stream")
-	response.Header().Set(echo.HeaderCacheControl, "no-cache")
-	response.Header().Set("Connection", "keep-alive")
-	response.Header().Set("X-Accel-Buffering", "no")
-	response.WriteHeader(http.StatusOK)
-
-	flusher, ok := response.Writer.(http.Flusher)
-	if !ok {
-		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "response writer does not support flushing")
-	}
-	if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
-		return nil
-	}
-	flusher.Flush()
-
-	for {
-		select {
-		case <-streamCtx.Done():
-			return nil
-		case <-heartbeat.C:
-			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
-				return nil
-			}
-			flusher.Flush()
-		case event, ok := <-stream.Events:
-			if !ok {
-				return nil
-			}
-			if err := writeSSEFrame(response, event.Event, event.Payload); err != nil {
-				return nil
-			}
-			flusher.Flush()
-		}
-	}
-}
-
-func (s *Server) handleDeleteSkillRefinementSession(c echo.Context) error {
-	if s.skillRefinementService == nil {
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "skill refinement service unavailable")
-	}
-
-	sessionID, err := chatservice.ParseCloseSessionID(c.Param("sessionId"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_SESSION_ID", err.Error())
-	}
-	userID, err := s.currentRequestChatUserID(c)
-	if err != nil {
-		if errors.Is(err, humanauthservice.ErrUnauthorized) {
-			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", err.Error())
-		}
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_CHAT_USER", err.Error())
-	}
-	if !s.skillRefinementService.CloseSession(userID, sessionID) {
-		return writeAPIError(c, http.StatusNotFound, "SKILL_REFINEMENT_SESSION_NOT_FOUND", "skill refinement session not found")
-	}
-	return c.NoContent(http.StatusNoContent)
-}
-
 func (s *Server) handleSkillBindings(c echo.Context, bind bool) error {
 	if s.workflowService == nil {
 		return writeWorkflowError(c, workflowservice.ErrUnavailable)
@@ -622,22 +513,4 @@ func mapSkillVersionResponses(items []workflowservice.VersionSummary) []skillVer
 		})
 	}
 	return response
-}
-
-func writeSkillRefinementError(c echo.Context, err error) error {
-	switch {
-	case errors.Is(err, chatservice.ErrSkillRefinementUnavailable):
-		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", err.Error())
-	case errors.Is(err, chatservice.ErrProviderNotFound):
-		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_NOT_CONFIGURED", err.Error())
-	case errors.Is(err, chatservice.ErrProviderUnavailable):
-		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNAVAILABLE", err.Error())
-	case errors.Is(err, chatservice.ErrProviderUnsupported):
-		return writeAPIError(c, http.StatusConflict, "CHAT_PROVIDER_UNSUPPORTED", err.Error())
-	case errors.Is(err, workflowservice.ErrSkillNotFound),
-		errors.Is(err, catalogservice.ErrNotFound):
-		return writeAPIError(c, http.StatusNotFound, "CHAT_CONTEXT_NOT_FOUND", err.Error())
-	default:
-		return writeAPIError(c, http.StatusInternalServerError, "INTERNAL_ERROR", err.Error())
-	}
 }

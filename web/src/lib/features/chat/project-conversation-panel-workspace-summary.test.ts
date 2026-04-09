@@ -36,6 +36,7 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'

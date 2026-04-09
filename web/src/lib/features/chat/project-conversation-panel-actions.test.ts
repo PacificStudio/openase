@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/svelte'
+import { cleanup, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -33,6 +33,7 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
@@ -48,7 +49,7 @@ const seedConversationStorage = () =>
     }),
   )
 
-describe('ProjectConversationPanel legacy proposal rendering', () => {
+describe('ProjectConversationPanel transcript filtering', () => {
   beforeAll(() => {
     HTMLElement.prototype.scrollIntoView ??= vi.fn()
     HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
@@ -66,13 +67,13 @@ describe('ProjectConversationPanel legacy proposal rendering', () => {
     window.localStorage.clear()
   })
 
-  it('renders legacy action proposal entries as assistant text without confirm controls', async () => {
+  it('does not render unsupported persisted transcript entries', async () => {
     seedConversationStorage()
     listProjectConversations.mockResolvedValue({
       conversations: [
         {
           id: 'conversation-1',
-          rollingSummary: 'Legacy proposal thread',
+          rollingSummary: 'Filtered transcript thread',
           lastActivityAt: '2026-04-01T10:00:00Z',
           providerId: 'provider-1',
         },
@@ -85,10 +86,10 @@ describe('ProjectConversationPanel legacy proposal rendering', () => {
           conversationId: 'conversation-1',
           turnId: 'turn-1',
           seq: 1,
-          kind: 'action_proposal',
+          kind: 'unsupported_structured_entry',
           payload: {
             summary: 'Create 1 child ticket',
-            actions: [{ method: 'POST', path: '/api/v1/projects/project-1/tickets' }],
+            items: [{ name: 'child-ticket' }],
           },
           createdAt: '2026-04-01T10:00:00Z',
         },
@@ -97,7 +98,7 @@ describe('ProjectConversationPanel legacy proposal rendering', () => {
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { findByText, queryByRole } = render(ProjectConversationPanel, {
+    const { queryByText, queryByRole } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -106,7 +107,9 @@ describe('ProjectConversationPanel legacy proposal rendering', () => {
       },
     })
 
-    expect(await findByText('Create 1 child ticket')).toBeTruthy()
+    await waitFor(() => {
+      expect(queryByText('Create 1 child ticket')).toBeNull()
+    })
     expect(queryByRole('button', { name: 'Confirm' })).toBeNull()
     expect(queryByRole('button', { name: 'Cancel' })).toBeNull()
   })

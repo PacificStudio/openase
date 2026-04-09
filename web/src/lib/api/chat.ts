@@ -2,11 +2,7 @@ import { ApiError, buildRequestHeaders } from './client'
 import { consumeEventStream, type SSEFrame } from './sse'
 import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
-const chatUserHeader = 'X-OpenASE-Chat-User'
-const chatUserStorageKey = 'openase.chat.user'
-let cachedChatUserId = ''
-
-export type ChatSource = 'harness_editor' | 'skill_editor' | 'project_sidebar' | 'ticket_detail'
+export type ChatSource = 'project_sidebar' | 'ticket_detail'
 
 export type ChatTurnRequest = {
   message: string
@@ -15,12 +11,7 @@ export type ChatTurnRequest = {
   sessionId?: string
   context: {
     projectId: string
-    workflowId?: string
     ticketId?: string
-    harnessDraft?: string
-    skillId?: string
-    skillFilePath?: string
-    skillFileDraft?: string
   }
 }
 
@@ -100,6 +91,7 @@ export type ProjectConversation = {
   userId: string
   source: 'project_sidebar'
   providerId: string
+  title: string
   providerAnchorKind?: 'thread' | 'session'
   providerAnchorId?: string
   providerTurnId?: string
@@ -203,6 +195,15 @@ export type ProjectConversationTurnDonePayload = {
   costUSD?: number
 }
 
+export type ProjectConversationTurnResponse = {
+  turn: {
+    id: string
+    turnIndex: number
+    status: string
+  }
+  conversation: ProjectConversation
+}
+
 export type ProjectConversationReasoningUpdatedPayload = {
   threadId: string
   turnId: string
@@ -224,6 +225,8 @@ export type ProjectConversationDiffUpdatedPayload = {
 export type ProjectConversationSessionPayload = {
   conversationId: string
   runtimeState: string
+  title?: string
+  rollingSummary?: string
   providerAnchorKind?: 'thread' | 'session'
   providerAnchorId?: string
   providerTurnId?: string
@@ -259,6 +262,7 @@ type RawProjectConversation = {
   source?: string
   provider_id?: string
   status?: string
+  title?: string
   provider_anchor_kind?: string
   provider_anchor_id?: string
   provider_turn_id?: string
@@ -292,7 +296,6 @@ export async function streamChatTurn(
   const headers = buildRequestHeaders('POST', {
     accept: 'text/event-stream',
     'Content-Type': 'application/json',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch('/api/v1/chat', {
     method: 'POST',
@@ -304,12 +307,7 @@ export async function streamChatTurn(
       session_id: request.sessionId,
       context: {
         project_id: request.context.projectId,
-        workflow_id: request.context.workflowId,
         ticket_id: request.context.ticketId,
-        harness_draft: request.context.harnessDraft,
-        skill_id: request.context.skillId,
-        skill_file_path: request.context.skillFilePath,
-        skill_file_draft: request.context.skillFileDraft,
       },
     }),
     credentials: 'same-origin',
@@ -333,9 +331,7 @@ export async function streamChatTurn(
 }
 
 export async function closeChatSession(sessionId: string) {
-  const headers = buildRequestHeaders('DELETE', {
-    [chatUserHeader]: resolveEphemeralChatUserId(),
-  })
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(`/api/v1/chat/${encodeURIComponent(sessionId)}`, {
     method: 'DELETE',
     headers,
@@ -408,7 +404,7 @@ export function startProjectConversationTurn(
   conversationId: string,
   request: ProjectConversationTurnRequest,
 ) {
-  return fetchJSON<{ turn: { id: string; turn_index: number; status: string } }>(
+  return fetchJSON<{ turn?: Record<string, unknown>; conversation?: RawProjectConversation }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
     {
       method: 'POST',
@@ -417,7 +413,18 @@ export function startProjectConversationTurn(
         focus: serializeProjectConversationFocus(request.focus),
       },
     },
-  )
+  ).then((payload) => {
+    const object = parseRequiredObject(payload)
+    const turn = parseRequiredObject(object.turn)
+    return {
+      turn: {
+        id: readRequiredString(turn, 'id'),
+        turnIndex: readRequiredNumber(turn, 'turn_index'),
+        status: readRequiredString(turn, 'status'),
+      },
+      conversation: parseProjectConversation(object.conversation),
+    } satisfies ProjectConversationTurnResponse
+  })
 }
 
 function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefined) {
@@ -531,7 +538,6 @@ export async function watchProjectConversation(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/stream`,
@@ -569,7 +575,6 @@ export async function watchProjectConversationMuxStream(
 ) {
   const headers = buildRequestHeaders('GET', {
     accept: 'text/event-stream',
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
   const response = await fetch(
     `/api/v1/chat/projects/${encodeURIComponent(projectId)}/conversations/stream`,
@@ -619,9 +624,7 @@ export function respondProjectConversationInterrupt(
 }
 
 export async function closeProjectConversationRuntime(conversationId: string) {
-  const headers = buildRequestHeaders('DELETE', {
-    [chatUserHeader]: resolveEphemeralChatUserId(),
-  })
+  const headers = buildRequestHeaders('DELETE')
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
     {
@@ -680,6 +683,8 @@ function parseProjectConversationStreamPayload(
         payload: {
           conversationId: readRequiredString(object, 'conversation_id'),
           runtimeState: readRequiredString(object, 'runtime_state'),
+          title: readOptionalString(object, 'title'),
+          rollingSummary: readOptionalString(object, 'rolling_summary'),
           providerAnchorKind: readProviderAnchorKind(object),
           providerAnchorId:
             readOptionalString(object, 'provider_anchor_id') ??
@@ -890,15 +895,6 @@ function parseMessagePayload(payload: unknown): ChatMessagePayload {
     }
   }
 
-  if (type === 'action_proposal' || type === 'platform_command_proposal') {
-    return {
-      type: 'text',
-      content:
-        readOptionalString(object, 'summary') ??
-        'Legacy proposal payload omitted. Ask the assistant to perform the action directly.',
-    }
-  }
-
   if (type === 'diff') {
     return {
       type,
@@ -957,6 +953,7 @@ function parseProjectConversation(value: unknown): ProjectConversation {
     userId: readOptionalString(object, 'user_id') ?? '',
     source: 'project_sidebar',
     providerId: readOptionalString(object, 'provider_id') ?? '',
+    title: readOptionalString(object, 'title') ?? '',
     providerAnchorKind: readProviderAnchorKind(object),
     providerAnchorId:
       readOptionalString(object, 'provider_anchor_id') ??
@@ -1218,7 +1215,6 @@ async function fetchJSON<T>(
   const method = options?.method ?? 'GET'
   const headers = buildRequestHeaders(method, {
     ...(options?.body ? { 'Content-Type': 'application/json' } : {}),
-    [chatUserHeader]: resolveEphemeralChatUserId(),
   })
 
   const response = await fetch(url.toString(), {
@@ -1235,39 +1231,4 @@ async function fetchJSON<T>(
     return undefined as T
   }
   return response.json() as Promise<T>
-}
-
-function resolveEphemeralChatUserId() {
-  if (cachedChatUserId) {
-    return cachedChatUserId
-  }
-
-  if (typeof window === 'undefined') {
-    cachedChatUserId = 'anonymous-browser'
-    return cachedChatUserId
-  }
-
-  try {
-    const stored = window.localStorage.getItem(chatUserStorageKey)?.trim()
-    if (stored) {
-      cachedChatUserId = stored
-      return cachedChatUserId
-    }
-  } catch {
-    // Ignore storage access failures and fall back to an in-memory identifier.
-  }
-
-  const generated =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : `chat-user-${Date.now().toString(36)}`
-  cachedChatUserId = generated
-
-  try {
-    window.localStorage.setItem(chatUserStorageKey, generated)
-  } catch {
-    // Ignore storage write failures and keep the in-memory identifier.
-  }
-
-  return cachedChatUserId
 }

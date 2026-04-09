@@ -1,69 +1,73 @@
 import { ApiError } from '$lib/api/client'
-import {
-  createProjectUpdateComment,
-  createProjectUpdateThread,
-  deleteProjectUpdateComment,
-  deleteProjectUpdateThread,
-  listProjectUpdates,
-  updateProjectUpdateComment,
-  updateProjectUpdateThread,
-} from '$lib/api/openase'
+import { listProjectUpdates } from '$lib/api/openase'
 import { isProjectUpdateEvent, subscribeProjectEvents } from '$lib/features/project-events'
 import { toastStore } from '$lib/stores/toast.svelte'
-import { parseProjectUpdateThreads } from './model'
+import { mergeProjectUpdateThreads, parseProjectUpdatePage } from './model'
 import {
-  markProjectUpdatesCacheDirty,
-  readProjectUpdatesCache,
-  writeProjectUpdatesCache,
-} from './project-updates-cache'
-import type { ProjectUpdateStatus, ProjectUpdateThread } from './types'
-
-type LoadProjectUpdatesOptions = {
-  showLoading?: boolean
-}
+  defaultThreadPageLimit,
+  persistProjectUpdatesSnapshot,
+  type LoadProjectUpdatesOptions,
+} from './project-updates-controller-helpers'
+import { createProjectUpdateMutationHandlers } from './project-updates-controller-mutations'
+import { markProjectUpdatesCacheDirty, readProjectUpdatesCache } from './project-updates-cache'
+import type { ProjectUpdateThread } from './types'
 
 type CreateProjectUpdatesControllerInput = {
   getProjectId: () => string
+  threadPageLimit?: number
 }
 
 export function createProjectUpdatesController(input: CreateProjectUpdatesControllerInput) {
   let threads = $state<ProjectUpdateThread[]>([])
   let loading = $state(false)
+  let loadingMoreThreads = $state(false)
   let loadError = $state('')
   let initialLoaded = $state(false)
   let creatingThread = $state(false)
+  let hasMoreThreads = $state(false)
+  let nextCursor = $state('')
 
   let requestVersion = 0
   let activeProjectId: string | null = null
   let queuedReload = false
   let reloadInFlight = false
+  let loadedMorePages = false
+
+  const threadPageLimit = Math.max(1, Math.trunc(input.threadPageLimit ?? defaultThreadPageLimit))
 
   $effect(() => {
     const projectId = input.getProjectId()
     activeProjectId = projectId || null
     queuedReload = false
     reloadInFlight = false
+    loadedMorePages = false
 
     if (!projectId) {
       threads = []
       initialLoaded = false
       loading = false
+      loadingMoreThreads = false
       loadError = ''
+      hasMoreThreads = false
+      nextCursor = ''
       return
     }
 
     const cachedUpdates = readProjectUpdatesCache(projectId)
     if (cachedUpdates) {
       threads = cachedUpdates.snapshot.threads
+      hasMoreThreads = cachedUpdates.snapshot.hasMoreThreads
+      nextCursor = cachedUpdates.snapshot.nextCursor
+      loadedMorePages = cachedUpdates.snapshot.loadedMorePages
       initialLoaded = true
       loading = false
       loadError = ''
       if (cachedUpdates.dirty) {
-        void loadProjectUpdates(projectId)
+        void refreshLatestThreads(projectId)
       }
     } else {
       initialLoaded = false
-      void loadProjectUpdates(projectId, { showLoading: true })
+      void refreshLatestThreads(projectId, { showLoading: true })
     }
 
     return subscribeProjectEvents(projectId, (event) => {
@@ -75,7 +79,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     })
   })
 
-  async function loadProjectUpdates(projectId: string, options: LoadProjectUpdatesOptions = {}) {
+  async function refreshLatestThreads(projectId: string, options: LoadProjectUpdatesOptions = {}) {
     const version = ++requestVersion
     if (options.showLoading) {
       loading = true
@@ -83,14 +87,24 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     loadError = ''
 
     try {
-      const payload = await listProjectUpdates(projectId)
+      const payload = await listProjectUpdates(projectId, { limit: threadPageLimit })
       if (version !== requestVersion || activeProjectId !== projectId) {
         return
       }
-      const nextThreads = parseProjectUpdateThreads(payload.threads)
-      threads = nextThreads
+
+      const page = parseProjectUpdatePage(payload)
+      threads = loadedMorePages ? mergeProjectUpdateThreads(page.threads, threads) : page.threads
+      if (!loadedMorePages) {
+        hasMoreThreads = page.hasMore
+        nextCursor = page.nextCursor
+      }
       initialLoaded = true
-      writeProjectUpdatesCache(projectId, nextThreads)
+      persistProjectUpdatesSnapshot(projectId, {
+        threads,
+        nextCursor,
+        hasMoreThreads,
+        loadedMorePages,
+      })
     } catch (caughtError) {
       if (version !== requestVersion || activeProjectId !== projectId) {
         return
@@ -99,6 +113,48 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     } finally {
       if (version === requestVersion && activeProjectId === projectId) {
         loading = false
+      }
+    }
+  }
+
+  async function handleLoadMoreThreads() {
+    const projectId = input.getProjectId()
+    if (!projectId || loadingMoreThreads || !hasMoreThreads || !nextCursor) {
+      return false
+    }
+
+    loadingMoreThreads = true
+    try {
+      const payload = await listProjectUpdates(projectId, {
+        limit: threadPageLimit,
+        before: nextCursor,
+      })
+      if (activeProjectId !== projectId) {
+        return false
+      }
+
+      const page = parseProjectUpdatePage(payload)
+      threads = mergeProjectUpdateThreads(threads, page.threads)
+      hasMoreThreads = page.hasMore
+      nextCursor = page.nextCursor
+      loadedMorePages = true
+      persistProjectUpdatesSnapshot(projectId, {
+        threads,
+        nextCursor,
+        hasMoreThreads,
+        loadedMorePages,
+      })
+      return true
+    } catch (caughtError) {
+      if (activeProjectId === projectId) {
+        toastStore.error(
+          caughtError instanceof ApiError ? caughtError.detail : 'Failed to load older updates.',
+        )
+      }
+      return false
+    } finally {
+      if (activeProjectId === projectId) {
+        loadingMoreThreads = false
       }
     }
   }
@@ -116,7 +172,7 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     reloadInFlight = true
     queuedReload = false
     try {
-      await loadProjectUpdates(projectId)
+      await refreshLatestThreads(projectId)
     } finally {
       reloadInFlight = false
       if (queuedReload && activeProjectId === projectId) {
@@ -125,127 +181,21 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     }
   }
 
-  async function handleCreateThread(draft: { status: ProjectUpdateStatus; body: string }) {
-    const projectId = input.getProjectId()
-    if (!projectId || creatingThread) {
-      return false
-    }
-
-    creatingThread = true
-
-    try {
-      await createProjectUpdateThread(projectId, draft)
-      toastStore.success('Update posted.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.',
-      )
-      return false
-    } finally {
-      creatingThread = false
-    }
-  }
-
-  async function handleSaveThread(
-    threadId: string,
-    draft: { status: ProjectUpdateStatus; body: string },
-  ) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-    try {
-      await updateProjectUpdateThread(projectId, threadId, draft)
-      toastStore.success('Update edited.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.',
-      )
-      return false
-    }
-  }
-
-  async function handleDeleteThread(threadId: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await deleteProjectUpdateThread(projectId, threadId)
-      toastStore.success('Update deleted.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.',
-      )
-      await loadProjectUpdates(projectId)
-      return false
-    }
-  }
-
-  async function handleCreateComment(threadId: string, body: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await createProjectUpdateComment(projectId, threadId, { body })
-      toastStore.success('Comment added.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
-      )
-      return false
-    }
-  }
-
-  async function handleSaveComment(threadId: string, commentId: string, body: string) {
-    const projectId = input.getProjectId()
-    if (!projectId || !body) {
-      return false
-    }
-
-    try {
-      await updateProjectUpdateComment(projectId, threadId, commentId, { body })
-      toastStore.success('Comment edited.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.',
-      )
-      return false
-    }
-  }
-
-  async function handleDeleteComment(threadId: string, commentId: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await deleteProjectUpdateComment(projectId, threadId, commentId)
-      toastStore.success('Comment deleted.')
-      await loadProjectUpdates(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
-      )
-      await loadProjectUpdates(projectId)
-      return false
-    }
-  }
+  const {
+    handleCreateThread,
+    handleSaveThread,
+    handleDeleteThread,
+    handleCreateComment,
+    handleSaveComment,
+    handleDeleteComment,
+  } = createProjectUpdateMutationHandlers({
+    getProjectId: input.getProjectId,
+    isCreatingThread: () => creatingThread,
+    setCreatingThread: (value) => {
+      creatingThread = value
+    },
+    refreshLatestThreads,
+  })
 
   return {
     get threads() {
@@ -253,6 +203,15 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     },
     get loading() {
       return loading
+    },
+    get loadingMoreThreads() {
+      return loadingMoreThreads
+    },
+    get hasMoreThreads() {
+      return hasMoreThreads
+    },
+    get nextCursor() {
+      return nextCursor
     },
     get loadError() {
       return loadError
@@ -269,5 +228,6 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     handleCreateComment,
     handleSaveComment,
     handleDeleteComment,
+    handleLoadMoreThreads,
   }
 }

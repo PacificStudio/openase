@@ -324,7 +324,7 @@ func TestNotificationRequestAndContextHelpers(t *testing.T) {
 
 	badTopicEvent := event
 	badTopicEvent.Topic = provider.MustParseTopic("runtime.events")
-	if _, _, err := buildRuleContext(badTopicEvent); err == nil || !strings.Contains(err.Error(), "unsupported topic") {
+	if _, _, err := buildRuleContext(badTopicEvent); err == nil || !strings.Contains(err.Error(), "not wired") {
 		t.Fatalf("buildRuleContext bad topic error = %v", err)
 	}
 	badJSONEvent := event
@@ -391,7 +391,7 @@ func (f *fakeEventProvider) Publish(_ context.Context, _ provider.Event) error {
 }
 
 func (f *fakeEventProvider) Subscribe(_ context.Context, topics ...provider.Topic) (<-chan provider.Event, error) {
-	if len(topics) != 1 || topics[0] != ticketEventsTopic {
+	if len(topics) != 3 || topics[0] != ticketEventsTopic || topics[1] != agentEventsTopic || topics[2] != activityEventsTopic {
 		return nil, errors.New("unexpected topics")
 	}
 	select {

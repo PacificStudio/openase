@@ -345,7 +345,7 @@ The OpenASE backend uses a four-layer DDD (Domain-Driven Design) architecture, c
 - `cmd/openase`: CLI entry point, responsible for startup commands, parameter wiring, and exit code handling
 - `internal/httpapi`: Echo HTTP API handlers, route registration, request binding, error mapping, SSE/HTTP entry points; server/runtime wiring remains separated from route/handler registration
 - `internal/cli`: CLI subcommands and terminal interaction
-- `internal/setup`, `internal/webui`: current terminal setup, legacy web bootstrap, and Web UI entry points
+- `internal/setup`, `internal/webui`: terminal setup helpers and Web UI entry points
 
 ### 5.6 Provider Cross-Cutting Architecture
 
@@ -455,7 +455,7 @@ openase/
 │   ├── cli/                     # CLI subcommands
 │   ├── orchestrator/            # scheduling and runtime orchestration
 │   ├── runtime/                 # runtime support (DB, observability)
-│   ├── setup/                   # terminal setup + legacy web bootstrap
+│   ├── setup/                   # terminal setup helpers
 │   └── webui/                   # embedded Web UI handler
 │
 ├── web/                         # Svelte frontend (embedded after build)
@@ -3117,22 +3117,14 @@ Current setup **no longer** requires or defaults to the following actions:
 - Does not collect repo URL, default branch, collaboration mode, or “individual / team / enterprise” mode cards during setup.
 - Does not generate a repo-local `.openase/` scaffold in the repository root.
 
-### 14.2 Compatibility Path: Legacy Web Setup and `openase up`
+### 14.2 Compatibility Path: `openase up`
 
-The code still keeps a legacy browser troubleshooting path:
-
-```bash
-openase setup --web --host 127.0.0.1 --port 19836
-```
-
-This entrypoint starts a lightweight HTTP server, exposes `/setup`, and attempts to open a browser; but it is a **hidden and deprecated compatibility path**, used only for troubleshooting or transition, and should no longer be described in PRD as the current default onboarding.
-
-Similarly, `openase up` also needs to be described with two-phase semantics:
+The remaining compatibility behavior in this area is `openase up`, which still has two-phase semantics:
 
 1. If `~/.openase/config.yaml` does not exist, it enters terminal setup.
 2. If configuration already exists, it is only responsible for installing or refreshing the current-user service definition and is not equivalent to re-entering a multi-step Setup Wizard.
 
-Therefore, `/setup`, automatic browser opening, and automatic post-completion redirection are all compatibility/transitional surface behaviors, not part of the core contract for current local setup.
+There is no supported Web Setup Wizard, no `/setup` setup page, and no setup-specific HTTP bootstrap/test/complete API in the current local setup contract.
 
 ### 14.3 Current Service Management Contract: Config-only + Current-user Managed Service
 
@@ -3168,11 +3160,10 @@ To prevent setup/service onboarding from drifting again, this chapter defines bo
   - `config-only` / current-user managed service runtime options (`systemd --user` on Linux, `launchd` on macOS)
   - initialization of config, logs, workspace, and default control plane data under `~/.openase/`
 - Compatibility paths:
-  - `openase setup --web` legacy browser flow
   - `openase up` dual-mode behavior of entering setup when no config exists / installing service when config exists
   - cross-platform fallback from managed service installation to `config-only` when the local login session cannot support the expected service manager
 - Non-goals / not-yet-delivered commitments:
-  - Using Web Setup Wizard as the current primary path
+  - reintroducing a Web Setup Wizard or `/setup` browser bootstrap flow
   - automatic browser redirect after setup completion
   - repo binding, project template selection, or persona routing during setup
   - mixing broader team/enterprise onboarding into local runtime bootstrap
@@ -3203,7 +3194,7 @@ The entry behavior must be fixed:
   4. Automatically create the first Agent and Workflow
   5. Create the first Ticket
   6. Observe Agent updates in the Ticket
-  7. Experience Project AI and Harness AI
+  7. Experience Project AI
 
 This panel is not a “suggested list,” but the **main workspace for the empty-state project**. Users may leave the page, but returning to that project Dashboard must resume from the first unfinished step.
 
@@ -3419,14 +3410,11 @@ openase ticket create --title "Add input validation to login form" --workflow co
 openase watch ASE-1
 ```
 
-#### 14.5.7 Step F — Let Users Immediately Experience Project AI and Harness AI
+#### 14.5.7 Step F — Let Users Immediately Experience Project AI
 
-After the first Ticket has started executing, onboarding should not end immediately; it should continue to lead users to two high-value AI entry points in OpenASE:
+After the first Ticket has started executing, onboarding should not end immediately; it should continue to lead users into the main interactive AI surface in OpenASE: `Project AI`.
 
-- `Project AI`
-- `Harness AI`
-
-The goal here is not to explain concepts again, but to let users complete the two most important “next actions” in the same project.
+The goal here is not to explain concepts again, but to let users complete the most important “next action” in the same project.
 
 Project AI onboarding requirements:
 
@@ -3435,19 +3423,12 @@ Project AI onboarding requirements:
 - First prefilled question suggestions:
   - `Based on the current project and existing Tickets, help me break down 3 more follow-up tickets`
   - `What should I do next?`
-- After user confirmation, Project AI can help create follow-up tickets via `platform_command_proposal`; compatibility with legacy `action_proposal` is still maintained during migration.
-
-Harness AI onboarding requirements:
-
-- When a newly created bootstrap Workflow exists, show CTA: `Use Harness AI to adjust how this role works`
-- Clicking opens the newly created Workflow editor and Harness AI sidebar directly
-- First prefilled question suggestions:
-  - `Help me optimize this Workflow so it fits the current project better`
-  - `Help me add clearer acceptance criteria for this role`
+- After the user confirms intent, Project AI can help create follow-up tickets by using the runtime tools, CLI, and skills available in Project Conversation directly.
+- Workflow editing remains part of the normal workflow editor experience; onboarding no longer requires a separate Harness AI step or hidden AI sidebar.
 
 Completion rules:
 
-- Empty project onboarding can only be marked fully complete when the user completes at least one Project AI interaction and has opened Harness AI at least once.
+- Empty project onboarding can only be marked fully complete when the user completes at least one Project AI interaction.
 - After completion, Dashboard switches from “strong guidance mode” to regular project Dashboard.
 
 #### 14.5.8 Fixed Layout on First Dashboard Entry
@@ -3457,7 +3438,7 @@ In `empty_project_onboarding` mode, project-level Dashboard is not a normal over
 | Area | Content |
 |------|---------|
 | Top welcome strip | Current project name, project status, GitHub connection status, default Provider status |
-| Onboarding Checklist | GitHub Token → Repo → Provider → Agent/Workflow → First Ticket → Observe Ticket → Project AI / Harness AI |
+| Onboarding Checklist | GitHub Token → Repo → Provider → Agent/Workflow → First Ticket → Observe Ticket → Project AI |
 | Board Snapshot | Initial columns are empty, but each column’s purpose is described |
 | Help entry | GitHub token help, CLI installation docs, sample Harness, CLI examples |
 
@@ -5643,9 +5624,7 @@ database:
 
 # ═══ Authentication ═══
 auth:
-  mode: "local"                  # local | oidc
-  local:
-    token: "${OPENASE_AUTH_TOKEN}"  # at least 50 characters
+  mode: "disabled"               # disabled | oidc
   oidc:                          # required when mode=oidc
     issuer_url: ""
     client_id: ""
@@ -5711,7 +5690,7 @@ git:
 DB_PASSWORD=your_db_password
 
 # Authentication
-OPENASE_AUTH_TOKEN=your_local_auth_token_at_least_50_characters_long_xxxxx
+# disabled mode does not require an auth secret
 OIDC_CLIENT_SECRET=                    # required when mode=oidc
 
 # Agent CLI API Keys
@@ -8656,9 +8635,8 @@ Direct Chat still reuses the existing Agent adapter, but it is neither an orches
 ┌─────────────────────────────────────────────────────────────┐
 │ Frontend                                                  │
 │                                                           │
-│  Harness AI / Cron AI ─────────────────┐ │                 │
-│  Project Sidebar Ask AI ─────────────┐ │ │                 │
-│  Ticket Drawer AI(ticket-focused) ──┐ │ │                 │
+│  Project Sidebar Ask AI ────────────┐ │                   │
+│  Ticket Drawer AI(ticket-focused) ─┐ │ │                  │
 │                                     ▼ ▼                 │
 │                        Chat API + SSE / watch stream        │
 └──────────────────────────────┬────────────────────────────┘
@@ -8695,17 +8673,13 @@ Core principles:
 - Direct Chat can have a lightweight runtime registry, but it is not a worker and does not participate in ticket claim/retry/health reconciliation
 - `project_sidebar` introduces persisted transcript and interrupt recovery; other entry points remain lightweight
 
-At the current implementation stage, the real product contract for editor-side AI surfaces still needs to be clarified:
+At the current implementation stage, the formal interactive AI product contract is intentionally narrow:
 
-- `Project AI` (`project_sidebar`) is still the mainline machine-aware Direct Chat; the goal is to execute on the machine where the provider is running
-- `Harness AI` is currently a **local-only** editor-side Ephemeral Chat
-  - Only allow selecting Codex / Claude / Gemini providers bound to the OpenASE host machine where the service runs
-  - Remote-machine providers must be treated as unsupported in both UI and API until editor-side machine-aware execution is fully implemented
-- `Skill AI` is currently not a universal Ephemeral Chat; it is the skill refinement loop in Chapter 34
-  - Phase 1 contract is **local Codex-only**
-  - Claude / Gemini providers and remote Codex provider are not in current support scope
+- `Project AI` (`project_sidebar`) is the mainline machine-aware Direct Chat surface; the goal is to execute on the machine where the provider is running
+- `ticket_detail(ticket-focused)` is not a separate Ticket AI product; it opens or reuses a Project AI conversation with ticket focus applied
+- Historical Harness AI and Skill refinement AI surfaces are removed and are not part of the supported product surface
 
-Therefore, `ephemeral_chat` cannot be treated as a single source of truth for all editor-side AI surfaces; `Harness AI` and `Skill AI` must each expose independent, testable provider eligibility contracts.
+Therefore, provider eligibility and runtime behavior should converge on Project AI contracts instead of maintaining separate legacy editor-side AI variants.
 
 Current recommended CLI run modes:
 
@@ -8719,11 +8693,11 @@ A new Claude Code requirement: when using `-p/--print` with `--output-format str
 
 | Dimension | Ephemeral Chat | Project Conversation |
 |------|----------------|----------------------|
-| Typical entry points | Harness AI, Cron AI | `project_sidebar`, `ticket_detail(ticket-focused)` |
+| Typical entry points | Planned lightweight helpers | `project_sidebar`, `ticket_detail(ticket-focused)` |
 | Transcript | Not persisted by default | Persisted |
 | After UI close | Session ends | Conversation retained after UI close |
 | Resume method | `session_id` within the same live session | Resume transcript by `conversation_id`; continue on same thread if live runtime exists, otherwise rebuild by resume strategy |
-| Approval | User confirmation only for `action_proposal` | `platform_command_proposal` (compatibility with `action_proposal` during migration) + Codex native tool approval / user input interrupt |
+| Approval | Provider-native tool approval / user input interrupt when needed | Provider-native tool approval / user input interrupt with persisted recovery |
 | API | Single-turn SSE is sufficient | Requires conversation + turn + stream + interrupt response interfaces |
 
 ### 31.2.2 Multiple CLI Providers
@@ -8814,98 +8788,42 @@ Injection rules:
 Common constraints:
 
 - AI must not claim that platform write operations were already executed unless it receives a confirmed execution result event
-- `project_sidebar` / ticket-focused Project Conversation platform write operations should prefer `platform_command_proposal`; other direct chat entry points can still use `action_proposal`
-- During migration, backend must remain compatible with legacy `action_proposal` until Project Conversation migration is complete
+- `project_sidebar` / ticket-focused Project Conversation platform write operations must execute through runtime skills / CLI / tools directly, without proposal JSON compatibility paths
 - When recovering Project Conversation, Turn 1 does not need verbatim replay of full history; prioritize injecting rolling summary + recent entries
 
 ### 31.4 Platform Operations and Approval
 
-Direct Chat has two completely different kinds of “approval/confirmation,” and they must be strictly separated:
+Direct Chat now has only one formal execution model for platform operations: the assistant uses the runtime tools, CLI, and skills that are actually available in the current session. There is no separate proposal JSON protocol.
 
-- **Platform write operation confirmation**
-  - `Project Conversation` should primarily propose via `platform_command_proposal`; other entry points or migration fallback can still use `action_proposal`
-  - Platform API executes only after user confirmation
+- **Runtime execution**
+  - `Project Conversation` and other chat entry points perform platform writes through runtime-available skills / CLI / tools when the request is actionable
+  - If the context is insufficient, AI asks the smallest focused clarification question first
+  - Frontend must not introduce proposal-card confirmation UX for platform mutations
 - **CLI native tool approval / user input**
   - Initiated by provider during the current turn
   - For example, Codex command execution approval, file change approval, requestUserInput
   - Continue the same turn after handling
 
-These two mechanisms must not be mixed.
+These provider-native pauses must not be confused with the removed proposal JSON compatibility flow.
 
-### 31.4.1 Platform operations: Project Conversation prioritizes `platform_command_proposal`
+### 31.4.1 Platform operations execute through runtime tools / CLI / skills
 
-When users in `Project Conversation` request platform write operations such as creating/updating tickets, adding project progress, adjusting workflows, or updating project configuration, AI must primarily output structured `platform_command_proposal` and wait for user confirmation. This protocol must be a restricted command DSL rather than raw REST path + body.
-
-```json
-{
-  "type": "platform_command_proposal",
-  "commands": [
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement user registration API",
-        "parent_ticket": "ASE-42"
-      }
-    },
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement user login API"
-      }
-    },
-    {
-      "command": "ticket.create",
-      "args": {
-        "project": "ASE",
-        "title": "Implement RBAC permission model"
-      }
-    }
-  ],
-  "summary": "Create 3 subtickets"
-}
-```
-
-Initial restricted command set:
-
-- `project_update.create`
-- `ticket.update`
-- `ticket.create`
-
-Command arguments may reference human-readable identifiers, for example:
-
-- `project`: project name / slug / UUID
-- `ticket`: ticket identifier / UUID
-- `status`: status name / UUID
-- `workflow`: workflow name / UUID
-
-Backend must complete parsing before execution:
-
-1. Parse proposal JSON into typed domain command
-2. Resolve human-readable references like `project` / `ticket` / `status` / `workflow` into UUIDs
-3. Call existing service-layer mutations to execute, rather than replaying handwritten internal HTTP requests
-4. Write structured per-command execution results back into conversation transcript
+When users in `Project Conversation` request platform write operations such as creating/updating tickets, adding project progress, adjusting workflows, or updating project configuration, AI must use the runtime-available skill / CLI / tool directly instead of emitting structured proposal JSON or a restricted command DSL.
 
 Execution flow:
 
-1. AI outputs `platform_command_proposal`
-2. Frontend renders confirmation UI
-3. User clicks confirm
-4. Backend parses commands, resolves references, executes existing service mutation, and writes structured results back as conversation entries
-5. Actual platform write operations continue through standard API, audit, and ActivityEvent
+1. AI checks whether the current context is sufficient to execute safely
+2. If not, AI asks a focused clarification question instead of guessing IDs or mutable fields
+3. If sufficient, AI invokes the runtime skill / CLI / tool directly
+4. Existing platform APIs and service-layer mutations perform the write, audit logging, and ActivityEvent recording normally
+5. Conversation transcript records the resulting assistant text, tool/runtime events, diffs, and interrupts rather than proposal entries
 
-It is recommended that backend executes the proposal instead of having the frontend call business APIs one by one. Reasons:
+Requirements:
 
-- Execution state is not lost on page refresh
-- Execution results can be stably written back to conversation transcript
-- Audit boundaries are clearer
-
-Compatibility requirements:
-
-- Continue accepting legacy `action_proposal` during migration
-- New prompt / UI / executor default to `platform_command_proposal`
-- If a reference cannot be uniquely resolved, AI should ask for clarification first, rather than guessing UUIDs or REST fields
+- Do not emit or accept legacy proposal entry kinds
+- Do not keep migration fallback that downgrades chat mutations back into proposal JSON
+- Keep audit attribution explicit through the runtime principal and executed platform mutation path
+- If a target cannot be resolved uniquely, ask before mutating
 
 ### 31.4.2 Codex Native Tool Approval and User Input
 
@@ -8943,7 +8861,7 @@ Project Conversation turn interrupt flow:
 Note:
 
 - This type of interrupt is a pause point in conversation runtime, not a replacement for ticket state approval in section 7.5
-- Platform write operations must still go through `platform_command_proposal` or migration-period compatible `action_proposal`; they cannot be allowed through Codex tool approval alone
+- Platform write operations requested from chat still happen through runtime tools / CLI / skills inside the active turn; tool approval only gates provider-native execution steps
 
 ### 31.5 Frontend Entry Points
 
@@ -8958,8 +8876,7 @@ Note:
 All entry points must include a provider selector consistent with their real runtime contract:
 
 - `Project AI` continues to allow switching the current conversation provider among Claude Code / Codex / Gemini CLI
-- `Harness AI` only shows local providers that can actually execute on this surface
-- `Skill AI` only shows locally supported Codex providers currently supported by the skill refinement flow in Chapter 34
+- Removed legacy Harness AI / Skill refinement surfaces must not keep separate provider-selection contracts in the product or API surface
 
 Additional interaction constraints:
 
@@ -8994,7 +8911,7 @@ Requirements:
 
 - When user requests Harness edits, return structured `diff` first
 - Clicking “Apply to Editor” should apply the patch directly to editor content and support undo
-- Normal Harness suggestions should avoid outputting `action_proposal`
+- Normal Harness suggestions should avoid outputting proposal JSON and should stay focused on actionable diffs or concise guidance
 
 ### 31.7 Conversation Management and Persistence
 
@@ -9020,7 +8937,7 @@ Project Conversation needs a minimal persistence model:
 | `project_conversation_step_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | Step-level event stream for conversation runtime |
 | `project_conversation_trace_events` | `id`, `conversation_run_id`, `conversation_principal_id`, `conversation_id`, `event_type`, `payload_json`, `created_at` | Trace/output/token/interrupt event stream for conversation runtime |
 | `chat_turns` | `id`, `conversation_id`, `turn_index`, `provider_turn_id`, `status`, `started_at`, `completed_at` | One user message corresponds to one turn |
-| `chat_entries` | `id`, `conversation_id`, `turn_id`, `seq`, `kind`, `payload_json` | Append-only transcript covering text / diff / platform_command_proposal / action_proposal / interrupt / result |
+| `chat_entries` | `id`, `conversation_id`, `turn_id`, `seq`, `kind`, `payload_json` | Append-only transcript covering user text / assistant text / diff / runtime system events / interrupts |
 | `chat_pending_interrupts` | `id`, `conversation_id`, `turn_id`, `provider_request_id`, `kind`, `payload_json`, `status`, `resolved_at` | Persisted Codex-native approval / user-input interruptions |
 
 Field semantics:
@@ -9131,7 +9048,6 @@ Request body:
 | POST | `/api/v1/chat/conversations/:conversationId/turns` | Send one user turn |
 | GET | `/api/v1/chat/conversations/:conversationId/stream` | Watch real-time events for current conversation |
 | POST | `/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond` | Submit decision / answer for Codex interrupt |
-| POST | `/api/v1/chat/conversations/:conversationId/action-proposals/:entryId/execute` | Confirm and execute action proposal |
 | DELETE | `/api/v1/chat/conversations/:conversationId/runtime` | Close live runtime while preserving conversation and transcript |
 
 Create conversation request example:
@@ -9183,7 +9099,7 @@ event: message
 data: {"type":"diff","file":"harness content","hunks":[...]}
 
 event: message
-data: {"type":"platform_command_proposal","summary":"Create 3 subtickets","commands":[...]}
+data: {"type":"task_notification","raw":{"tool":"functions.exec_command","arguments":{"cmd":"git status"}}}
 
 event: interrupt_requested
 data: {
@@ -9209,6 +9125,7 @@ Constraints:
 - `project_sidebar` one assistant turn corresponds to one assistant transcript block
 - Provider deltas can only be merged into the current block, and chunk boundaries must not appear as multiple bubbles
 - `interrupt_requested` is not `turn_done`
+- Structured runtime events should be represented as typed system/runtime payloads, not proposal entries
 
 Besides transcript stream, backend must also keep separate runtime observability:
 
@@ -9217,14 +9134,14 @@ Besides transcript stream, backend must also keep separate runtime observability
 - `ProjectConversationTraceEvent` records model output, trace, tool / token / session events
 - UI recovery and debugging should first read typed runtime state rather than reverse-parse transcript payload
 
-#### 31.8.4 Audit Semantics for Proposal Execution
+#### 31.8.4 Audit Semantics for Runtime-Executed Platform Mutations
 
-Platform write operations in Project Conversation default to `platform_command_proposal` + human confirmation; compatibility with `action_proposal` remains during migration. Final audit semantics must explicitly distinguish origin:
+Platform write operations initiated from Project Conversation happen through runtime tools / CLI / skills during the active turn. Audit semantics must explicitly distinguish that origin:
 
-- For platform changes executed after user confirms a proposal in conversation UI, audit actor should be `user:<id> via project-conversation:<conversation_id>`
-- If certain `project_conversation` direct mutation scopes are opened in the future, allowed scope, principal attribution, and test coverage must be defined separately; user confirmation semantics cannot be silently reused
+- Platform changes executed from the conversation runtime must retain explicit attribution to the runtime principal and initiating user context
+- If certain `project_conversation` direct mutation scopes are opened in the future, allowed scope, principal attribution, and test coverage must be defined separately
 - Do not silently attribute conversation-initiated changes to synthetic ticket agent
-- Whether invoking service-layer mutation directly or replaying internal API during migration, the above audited origin must be explicitly written into mutation payload or equivalent audit field
+- Existing service-layer or API-layer mutation paths must keep audit fields explicit when invoked from the conversation runtime
 
 ### 31.9 Difference from Ticket Agent
 
@@ -9237,7 +9154,7 @@ Platform write operations in Project Conversation default to `platform_command_p
 | Hook | on_claim / on_complete / on_done | None |
 | Cost tracking | Recorded in ticket `cost_amount` | Recorded in project-level direct chat / conversation cost |
 | Runtime identity | `Ticket Agent` / `agent_id` | `ProjectConversationPrincipal` / `conversation_id` |
-| Platform operations | `ticket_agent` principal token executes directly | Default `platform_command_proposal` with user confirmation before execution; migration compatibility with `action_proposal`; token principal is `project_conversation` principal |
+| Platform operations | `ticket_agent` principal token executes directly | `project_conversation` principal executes through runtime tools / CLI / skills during the active turn |
 | Tool approval | Orchestrator run is default unattended | Project Conversation supports Codex native interrupt |
 | Persistence | Layered persistence with `AgentTraceEvent + AgentStepEvent + ActivityEvent` | Ephemeral Chat not persisted by default; Project Conversation uses `ProjectConversationPrincipal + Run + StepEvent + TraceEvent + transcript` layered persistence |
 | Concurrency | Multiple Agent definitions can execute tickets in parallel; same Agent definition may drive multiple AgentRuns concurrently when concurrency limit allows | Live runtime concurrency is limited by user/project/provider dimensions |
@@ -10068,19 +9985,13 @@ Default behavior remains:
 - New runtimes automatically take the latest version
 - Running runtimes do not auto-refresh
 
-### 34.11 Skill Editor fix-and-verify feedback loop
+### 34.11 Skill Editor AI scope
 
-A Skill Editor cannot provide only “unverified suggestions.” For a draft skill bundle, the platform must provide an independent **fix-and-verify refinement loop** separate from project conversation / ticket workspace.
+The historical Skill refinement AI loop is removed.
 
-#### 34.11.1 Independent session
-
-- Each `Fix and verify` creates an independent skill refinement session
-- Session maintains:
-  - selected Provider (Phase 1 supports Codex first)
-  - an isolated temporary workspace
-  - multiple retry turns on the same workspace
-  - explicit runtime session closure and cleanup logic
-- This is not a variant of project conversation; do not reuse ticket workspace or workflow run workspace
+- Skill editing no longer creates an independent AI refinement session
+- The supported interactive AI product surface remains Project AI
+- Any future skill-editing assistant must be re-specified explicitly before reintroduction; do not keep hidden APIs, runtimes, or compatibility flows for the removed refinement loop
 
 Suggested directory:
 
@@ -10374,14 +10285,14 @@ AI assistant (Ephemeral Chat):
 
    [One-click project configuration]"
 
-User clicks → AI calls Platform API via action_proposal:
+User clicks → AI uses the available runtime tools / CLI / platform skills directly:
   → Register backend repo + frontend repo
   → Activate architect role (Harness: roles/architect.md, pickup: "Backlog")
   → Activate coding role (Harness: roles/fullstack-developer.md, pickup: "Todo")
   → Create the first ticket: "Design technical architecture for Todo App", place it in Backlog
 ```
 
-- Dependency: Chapter 31 Ephemeral Chat (AI assistant), Chapter 27 Agent Autonomous Loop (action_proposal), Chapter 26 Role System (role library)
+- Dependency: Chapter 31 Ephemeral Chat (AI assistant), Chapter 27 Agent Autonomous Loop, Chapter 26 Role System (role library)
 - **Fully supported** ✅
 
 **Step 3: Design Assistant Takes Over**
@@ -10908,7 +10819,7 @@ Layer 11 (enterprise + open ecosystem)
 
 | ID | Task | Effort | Dependencies | PRD section |
 |----|------|--------|--------------|--------------|
-| F28 | **terminal-first local setup** (database preparation/check + CLI checks + auth/runtime selection + default control plane data initialization; keep legacy web compatibility entrypoint) | 5d | F04, F10 | 14 |
+| F28 | **terminal-first local setup** (database preparation/check + CLI checks + auth/runtime selection + default control plane data initialization) | 5d | F04, F10 | 14 |
 | F29 | current-user service management (`systemd --user` on Linux, `launchd` on macOS, shared `openase up/down/restart/logs`) | 3d | F01 | 14 |
 | F30 | `openase up` startup flow (detect config → enter setup if absent / update services if present) | 2d | F28, F29 | 14 |
 | F31 | openase doctor environment diagnosis | 2d | F01, F10 | 14 |
@@ -10945,7 +10856,7 @@ Layer 11 (enterprise + open ecosystem)
 
 | ID | Task | Effort | Dependencies | PRD section |
 |----|------|--------|--------------|--------------|
-| F51 | **Ephemeral Chat** (embedded AI assistant + context injection + action_proposal) | 5d | F13, F06 | 31 |
+| F51 | **Ephemeral Chat** (embedded AI assistant + context injection + direct runtime tool usage) | 5d | F13, F06 | 31 |
 | F52 | Harness editor AI assistance (side-panel chat + diff application) | 3d | F51, F27 | 31 |
 | F53 | Harness variable dictionary API + editor autocomplete + live preview | 3d | F20, F27 | 30 |
 | F56 | ScheduledJob timed tasks (robfig/cron + ticket templates + UI) | 3d | F06, F09 | 6 |

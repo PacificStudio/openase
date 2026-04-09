@@ -58,7 +58,7 @@
     class="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
     data-testid="provider-config-sheet"
   >
-    <SheetHeader class="border-border border-b px-6 py-5 text-left">
+    <SheetHeader class="border-border border-b px-4 py-4 text-left sm:px-6 sm:py-5">
       <div class="flex items-center gap-2">
         <SheetTitle>{provider?.name ?? 'Provider configuration'}</SheetTitle>
         {#if provider?.isDefault}
@@ -71,7 +71,7 @@
     </SheetHeader>
 
     {#if provider}
-      <div class="flex-1 overflow-y-auto px-6 py-5">
+      <div class="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
         <ProviderFormFields
           {draft}
           {modelCatalog}

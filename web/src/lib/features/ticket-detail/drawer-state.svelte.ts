@@ -121,6 +121,9 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
         if (requestId === loadRequestId && !options.background) {
           state.loading = false
         }
+        if (requestId === loadRequestId) {
+          await referenceController.flushPendingRefreshes(projectId, ticketId)
+        }
       }
     },
     async refreshTimeline(projectId: string, ticketId: string) {

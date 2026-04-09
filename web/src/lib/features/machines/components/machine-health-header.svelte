@@ -30,8 +30,8 @@
   const setupGuide = $derived(buildMachineSetupGuide({ machine, snapshot }))
 </script>
 
-<div class="flex items-start justify-between gap-3">
-  <div class="space-y-3">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+  <div class="min-w-0 space-y-3">
     <h3 class="text-foreground text-sm font-semibold">Health snapshot</h3>
     <p class="text-muted-foreground mt-1 text-xs">
       {#if snapshot?.checkedAt}

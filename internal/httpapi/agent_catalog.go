@@ -17,40 +17,46 @@ import (
 )
 
 type agentProviderResponse struct {
-	ID                    string                             `json:"id"`
-	OrganizationID        string                             `json:"organization_id"`
-	MachineID             string                             `json:"machine_id"`
-	MachineName           string                             `json:"machine_name"`
-	MachineHost           string                             `json:"machine_host"`
-	MachineStatus         string                             `json:"machine_status"`
-	MachineSSHUser        *string                            `json:"machine_ssh_user,omitempty"`
-	MachineWorkspaceRoot  *string                            `json:"machine_workspace_root,omitempty"`
-	Name                  string                             `json:"name"`
-	AdapterType           string                             `json:"adapter_type"`
-	PermissionProfile     string                             `json:"permission_profile"`
-	AvailabilityState     string                             `json:"availability_state"`
-	Available             bool                               `json:"available"`
-	AvailabilityCheckedAt *string                            `json:"availability_checked_at,omitempty"`
-	AvailabilityReason    *string                            `json:"availability_reason,omitempty"`
-	Capabilities          agentProviderCapabilitiesResponse  `json:"capabilities"`
-	CliCommand            string                             `json:"cli_command"`
-	CliArgs               []string                           `json:"cli_args"`
-	AuthConfig            map[string]any                     `json:"auth_config"`
-	CLIRateLimit          *agentProviderCLIRateLimitResponse `json:"cli_rate_limit,omitempty"`
-	CLIRateLimitUpdatedAt *string                            `json:"cli_rate_limit_updated_at,omitempty"`
-	ModelName             string                             `json:"model_name"`
-	ModelTemperature      float64                            `json:"model_temperature"`
-	ModelMaxTokens        int                                `json:"model_max_tokens"`
-	MaxParallelRuns       int                                `json:"max_parallel_runs"`
-	CostPerInputToken     float64                            `json:"cost_per_input_token"`
-	CostPerOutputToken    float64                            `json:"cost_per_output_token"`
-	PricingConfig         pricing.ProviderModelPricingConfig `json:"pricing_config"`
+	ID                    string                               `json:"id"`
+	OrganizationID        string                               `json:"organization_id"`
+	MachineID             string                               `json:"machine_id"`
+	MachineName           string                               `json:"machine_name"`
+	MachineHost           string                               `json:"machine_host"`
+	MachineStatus         string                               `json:"machine_status"`
+	MachineSSHUser        *string                              `json:"machine_ssh_user,omitempty"`
+	MachineWorkspaceRoot  *string                              `json:"machine_workspace_root,omitempty"`
+	Name                  string                               `json:"name"`
+	AdapterType           string                               `json:"adapter_type"`
+	PermissionProfile     string                               `json:"permission_profile"`
+	AvailabilityState     string                               `json:"availability_state"`
+	Available             bool                                 `json:"available"`
+	AvailabilityCheckedAt *string                              `json:"availability_checked_at,omitempty"`
+	AvailabilityReason    *string                              `json:"availability_reason,omitempty"`
+	Capabilities          agentProviderCapabilitiesResponse    `json:"capabilities"`
+	CliCommand            string                               `json:"cli_command"`
+	CliArgs               []string                             `json:"cli_args"`
+	AuthConfig            map[string]any                       `json:"auth_config"`
+	SecretBindings        []agentProviderSecretBindingResponse `json:"secret_bindings"`
+	CLIRateLimit          *agentProviderCLIRateLimitResponse   `json:"cli_rate_limit,omitempty"`
+	CLIRateLimitUpdatedAt *string                              `json:"cli_rate_limit_updated_at,omitempty"`
+	ModelName             string                               `json:"model_name"`
+	ModelTemperature      float64                              `json:"model_temperature"`
+	ModelMaxTokens        int                                  `json:"model_max_tokens"`
+	MaxParallelRuns       int                                  `json:"max_parallel_runs"`
+	CostPerInputToken     float64                              `json:"cost_per_input_token"`
+	CostPerOutputToken    float64                              `json:"cost_per_output_token"`
+	PricingConfig         pricing.ProviderModelPricingConfig   `json:"pricing_config"`
+}
+
+type agentProviderSecretBindingResponse struct {
+	EnvVarKey  string `json:"env_var_key"`
+	BindingKey string `json:"binding_key"`
+	Configured bool   `json:"configured"`
+	Source     string `json:"source"`
 }
 
 type agentProviderCapabilitiesResponse struct {
 	EphemeralChat agentProviderCapabilityResponse `json:"ephemeral_chat"`
-	HarnessAI     agentProviderCapabilityResponse `json:"harness_ai"`
-	SkillAI       agentProviderCapabilityResponse `json:"skill_ai"`
 }
 
 type agentProviderCapabilityResponse struct {
@@ -722,14 +728,6 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 	if !ephemeralChatState.IsValid() {
 		ephemeralChatState = domain.AgentProviderCapabilityStateUnsupported
 	}
-	harnessAIState := capabilities.HarnessAI.State
-	if !harnessAIState.IsValid() {
-		harnessAIState = domain.AgentProviderCapabilityStateUnsupported
-	}
-	skillAIState := capabilities.SkillAI.State
-	if !skillAIState.IsValid() {
-		skillAIState = domain.AgentProviderCapabilityStateUnsupported
-	}
 
 	return agentProviderResponse{
 		ID:                    item.ID.String(),
@@ -752,18 +750,11 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 				State:  ephemeralChatState.String(),
 				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
 			},
-			HarnessAI: agentProviderCapabilityResponse{
-				State:  harnessAIState.String(),
-				Reason: stringPointerValue(capabilities.HarnessAI.Reason),
-			},
-			SkillAI: agentProviderCapabilityResponse{
-				State:  skillAIState.String(),
-				Reason: stringPointerValue(capabilities.SkillAI.Reason),
-			},
 		},
 		CliCommand:            item.CliCommand,
 		CliArgs:               cloneStringSlice(item.CliArgs),
-		AuthConfig:            cloneMap(item.AuthConfig),
+		AuthConfig:            cloneMap(domain.VisibleAgentProviderAuthConfig(item.AdapterType, item.AuthConfig)),
+		SecretBindings:        mapAgentProviderSecretBindingResponses(domain.AgentProviderSecretBindings(item.AdapterType, item.AuthConfig)),
 		CLIRateLimit:          mapAgentProviderCLIRateLimitResponse(item.CLIRateLimit),
 		CLIRateLimitUpdatedAt: timePointerString(item.CLIRateLimitUpdatedAt),
 		ModelName:             item.ModelName,
@@ -774,6 +765,24 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 		CostPerOutputToken:    item.CostPerOutputToken,
 		PricingConfig:         item.PricingConfig.Clone(),
 	}
+}
+
+func mapAgentProviderSecretBindingResponses(
+	items []domain.AgentProviderSecretBinding,
+) []agentProviderSecretBindingResponse {
+	if len(items) == 0 {
+		return nil
+	}
+	response := make([]agentProviderSecretBindingResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, agentProviderSecretBindingResponse{
+			EnvVarKey:  item.EnvVarKey,
+			BindingKey: item.BindingKey,
+			Configured: item.Configured,
+			Source:     string(item.Source),
+		})
+	}
+	return response
 }
 
 func mapAgentProviderCLIRateLimitResponse(raw map[string]any) *agentProviderCLIRateLimitResponse {

@@ -12,6 +12,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -23,6 +24,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -36,11 +38,21 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
+
+function mockLiveMuxStream() {
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, handlers) => {
+    handlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      handlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+}
 
 async function waitForComposerReady(getByPlaceholderText: (text: string) => HTMLElement) {
   await waitFor(() => {
@@ -69,6 +81,7 @@ describe('ProjectConversationPanel tab close', () => {
   })
 
   it('closes one tab without affecting the other tab', async () => {
+    mockLiveMuxStream()
     listProjectConversations.mockResolvedValue({ conversations: [] })
     createProjectConversation
       .mockResolvedValueOnce({
@@ -88,7 +101,6 @@ describe('ProjectConversationPanel tab close', () => {
     getProjectConversationWorkspaceDiff
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
-    watchProjectConversation.mockResolvedValue(undefined)
     startProjectConversationTurn.mockResolvedValue({
       turn: { id: 'turn-4', turn_index: 1, status: 'started' },
     })

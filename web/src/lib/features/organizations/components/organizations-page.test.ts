@@ -53,12 +53,11 @@ const providerFixture: AgentProvider = {
   availability_reason: null,
   capabilities: {
     ephemeral_chat: { state: 'available', reason: null },
-    harness_ai: { state: 'available', reason: null },
-    skill_ai: { state: 'available', reason: null },
   },
   cli_command: 'codex',
   cli_args: [],
   auth_config: {},
+  secret_bindings: [],
   cli_rate_limit: null,
   cli_rate_limit_updated_at: null,
   model_name: 'gpt-5.4',
@@ -115,10 +114,14 @@ describe('OrganizationsPage', () => {
 
   it('renders the organizations loaded into app context for /orgs', async () => {
     const view = render(OrganizationsPage)
+    const scrollContainer = view.getByTestId('route-scroll-container')
 
     expect(view.getByText('Workspace')).toBeTruthy()
     expect(view.getByText('Acme')).toBeTruthy()
     expect(view.getByText('Beta')).toBeTruthy()
+    expect(scrollContainer.className).toContain('min-h-0')
+    expect(scrollContainer.className).toContain('flex-1')
+    expect(scrollContainer.className).toContain('overflow-y-auto')
 
     await waitFor(() => {
       expect(loadWorkspaceDashboardSummary).toHaveBeenCalledTimes(1)
@@ -149,6 +152,7 @@ describe('OrganizationsPage', () => {
 
     const view = render(OrganizationsPage)
 
+    expect(view.getByTestId('route-scroll-container').className).toContain('overflow-y-auto')
     expect(view.getByText('No organizations yet.')).toBeTruthy()
     expect(view.getByText('Create your first organization to get started')).toBeTruthy()
 

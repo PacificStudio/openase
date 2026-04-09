@@ -4,38 +4,43 @@ import (
 	"fmt"
 	"strings"
 
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/google/uuid"
 )
 
 type rawCreateProjectUpdateThreadRequest struct {
-	Status    string  `json:"status"`
-	Title     *string `json:"title"`
-	Body      string  `json:"body"`
-	CreatedBy *string `json:"created_by"`
+	Status string  `json:"status"`
+	Title  *string `json:"title"`
+	Body   string  `json:"body"`
 }
 
 type rawUpdateProjectUpdateThreadRequest struct {
 	Status     string  `json:"status"`
 	Title      *string `json:"title"`
 	Body       string  `json:"body"`
-	EditedBy   *string `json:"edited_by"`
 	EditReason *string `json:"edit_reason"`
 }
 
 type rawCreateProjectUpdateCommentRequest struct {
-	Body      string  `json:"body"`
-	CreatedBy *string `json:"created_by"`
+	Body string `json:"body"`
 }
 
 type rawUpdateProjectUpdateCommentRequest struct {
 	Body       string  `json:"body"`
-	EditedBy   *string `json:"edited_by"`
 	EditReason *string `json:"edit_reason"`
+}
+
+func parseListProjectUpdatesPageRequest(
+	projectID uuid.UUID,
+	raw projectupdatedomain.ListThreadsPageRequest,
+) (projectupdatedomain.ListThreadsPage, error) {
+	return projectupdatedomain.ParseListThreadsPage(projectID, raw)
 }
 
 func parseCreateProjectUpdateThreadRequest(
 	projectID uuid.UUID,
+	auditActor string,
 	raw rawCreateProjectUpdateThreadRequest,
 ) (projectupdateservice.AddThreadInput, error) {
 	status, err := parseProjectUpdateStatus(raw.Status)
@@ -52,11 +57,11 @@ func parseCreateProjectUpdateThreadRequest(
 		Status:    status,
 		Body:      body,
 	}
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = strings.TrimSpace(auditActor)
+	}
 	if raw.Title != nil {
 		input.Title = strings.TrimSpace(*raw.Title)
-	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
 	}
 	return input, nil
 }
@@ -64,6 +69,7 @@ func parseCreateProjectUpdateThreadRequest(
 func parseUpdateProjectUpdateThreadRequest(
 	projectID uuid.UUID,
 	threadID uuid.UUID,
+	auditActor string,
 	raw rawUpdateProjectUpdateThreadRequest,
 ) (projectupdateservice.UpdateThreadInput, error) {
 	status, err := parseProjectUpdateStatus(raw.Status)
@@ -81,11 +87,11 @@ func parseUpdateProjectUpdateThreadRequest(
 		Status:    status,
 		Body:      body,
 	}
+	if strings.TrimSpace(auditActor) != "" {
+		input.EditedBy = strings.TrimSpace(auditActor)
+	}
 	if raw.Title != nil {
 		input.Title = strings.TrimSpace(*raw.Title)
-	}
-	if raw.EditedBy != nil {
-		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
 	}
 	if raw.EditReason != nil {
 		input.EditReason = strings.TrimSpace(*raw.EditReason)
@@ -96,6 +102,7 @@ func parseUpdateProjectUpdateThreadRequest(
 func parseCreateProjectUpdateCommentRequest(
 	projectID uuid.UUID,
 	threadID uuid.UUID,
+	auditActor string,
 	raw rawCreateProjectUpdateCommentRequest,
 ) (projectupdateservice.AddCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
@@ -107,8 +114,8 @@ func parseCreateProjectUpdateCommentRequest(
 		ThreadID:  threadID,
 		Body:      body,
 	}
-	if raw.CreatedBy != nil {
-		input.CreatedBy = strings.TrimSpace(*raw.CreatedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.CreatedBy = strings.TrimSpace(auditActor)
 	}
 	return input, nil
 }
@@ -117,6 +124,7 @@ func parseUpdateProjectUpdateCommentRequest(
 	projectID uuid.UUID,
 	threadID uuid.UUID,
 	commentID uuid.UUID,
+	auditActor string,
 	raw rawUpdateProjectUpdateCommentRequest,
 ) (projectupdateservice.UpdateCommentInput, error) {
 	body := strings.TrimSpace(raw.Body)
@@ -129,8 +137,8 @@ func parseUpdateProjectUpdateCommentRequest(
 		CommentID: commentID,
 		Body:      body,
 	}
-	if raw.EditedBy != nil {
-		input.EditedBy = strings.TrimSpace(*raw.EditedBy)
+	if strings.TrimSpace(auditActor) != "" {
+		input.EditedBy = strings.TrimSpace(auditActor)
 	}
 	if raw.EditReason != nil {
 		input.EditReason = strings.TrimSpace(*raw.EditReason)
