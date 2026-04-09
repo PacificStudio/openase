@@ -16,11 +16,10 @@
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { SecuritySettingsHumanAuthGuideLinks } from '$lib/features/settings'
-  import * as Collapsible from '$ui/collapsible'
-  import { ChevronDown } from '@lucide/svelte'
   import AdminAuthDiagnostics from './admin-auth-diagnostics.svelte'
   import AdminAuthForm from './admin-auth-form.svelte'
   import AdminAuthOverview from './admin-auth-overview.svelte'
+  import AdminAuthRuntimeDetails from './admin-auth-runtime-details.svelte'
 
   type OIDCFormState = {
     issuerURL: string
@@ -40,7 +39,6 @@
   let auth = $state<SecurityAuthSettings | null>(null)
   let transition = $state<AdminAuthModeTransitionResponse['transition'] | null>(null)
   let lastDraftSignature = $state('')
-  let runtimeOpen = $state(false)
   let oidcForm = $state<OIDCFormState>({
     issuerURL: '',
     clientID: '',
@@ -170,9 +168,7 @@
         applyValidationResult(payload)
         transition = null
         toastStore.success(
-          payload.issuer_url
-            ? `Validation passed — ${payload.issuer_url}`
-            : 'Validation passed.',
+          payload.issuer_url ? `Validation passed — ${payload.issuer_url}` : 'Validation passed.',
         )
       },
       'Validation failed.',
@@ -260,51 +256,7 @@
       <AdminAuthDiagnostics {auth} {transition} />
 
       <!-- 4. Runtime details (collapsible) -->
-      <Collapsible.Root bind:open={runtimeOpen}>
-        <div class="border-border bg-card rounded-2xl border">
-          <Collapsible.Trigger class="flex w-full items-center justify-between px-5 py-4 text-left">
-            <span class="text-sm font-semibold">Runtime details</span>
-            <ChevronDown
-              class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 {runtimeOpen
-                ? 'rotate-180'
-                : ''}"
-            />
-          </Collapsible.Trigger>
-          <Collapsible.Content>
-            <div class="space-y-4 border-t px-5 pb-5 pt-4">
-              <div class="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <div class="text-muted-foreground text-xs">Session TTL</div>
-                  <div class="mt-1 text-sm font-medium">{auth.session_policy.session_ttl}</div>
-                </div>
-                <div>
-                  <div class="text-muted-foreground text-xs">Idle TTL</div>
-                  <div class="mt-1 text-sm font-medium">{auth.session_policy.session_idle_ttl}</div>
-                </div>
-                <div>
-                  <div class="text-muted-foreground text-xs">Config file</div>
-                  <div class="mt-1 font-mono text-xs break-all">
-                    {auth.config_path || 'Not available'}
-                  </div>
-                </div>
-              </div>
-
-              {#if auth.next_steps.length > 0}
-                <div>
-                  <div class="text-muted-foreground mb-2 text-xs font-medium">Next steps</div>
-                  <ol
-                    class="text-muted-foreground list-inside list-decimal space-y-1.5 text-sm leading-relaxed"
-                  >
-                    {#each auth.next_steps as step (step)}
-                      <li>{step}</li>
-                    {/each}
-                  </ol>
-                </div>
-              {/if}
-            </div>
-          </Collapsible.Content>
-        </div>
-      </Collapsible.Root>
+      <AdminAuthRuntimeDetails {auth} />
 
       <!-- 5. Guide links -->
       {#if auth.docs.length > 0}

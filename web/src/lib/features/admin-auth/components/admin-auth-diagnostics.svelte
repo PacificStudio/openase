@@ -14,9 +14,7 @@
   } = $props()
 
   // Auto-expand when there's a transition or a failure
-  let open = $state(
-    !!transition || auth.last_validation.status === 'failed',
-  )
+  let open = $state(!!transition || auth.last_validation.status === 'failed')
 </script>
 
 <Collapsible.Root bind:open>
@@ -47,7 +45,7 @@
     </Collapsible.Trigger>
 
     <Collapsible.Content>
-      <div class="space-y-4 border-t px-5 pb-5 pt-4">
+      <div class="space-y-4 border-t px-5 pt-4 pb-5">
         <!-- Validation message -->
         <div class="rounded-xl border px-4 py-3">
           <div class="flex items-start gap-2">

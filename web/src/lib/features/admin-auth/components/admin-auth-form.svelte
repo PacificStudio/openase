@@ -107,8 +107,7 @@
           placeholder={auth.oidc_draft.client_secret_configured
             ? 'Leave blank to keep the saved secret'
             : 'Paste the current client secret'}
-          oninput={(event) =>
-            (form.clientSecret = (event.currentTarget as HTMLInputElement).value)}
+          oninput={(event) => (form.clientSecret = (event.currentTarget as HTMLInputElement).value)}
         />
         {#if auth.oidc_draft.client_secret_configured}
           <p class="text-muted-foreground text-[11px]">Already configured. Leave blank to keep.</p>
@@ -211,7 +210,9 @@
                     value={form.allowedDomainsText}
                     placeholder="example.com"
                     oninput={(event) =>
-                      (form.allowedDomainsText = (event.currentTarget as HTMLTextAreaElement).value)}
+                      (form.allowedDomainsText = (
+                        event.currentTarget as HTMLTextAreaElement
+                      ).value)}
                   />
                   <p class="text-muted-foreground text-[11px]">Leave blank to allow all.</p>
                 </div>
@@ -225,9 +226,13 @@
                     value={form.bootstrapAdminEmailsText}
                     placeholder="admin@example.com"
                     oninput={(event) =>
-                      (form.bootstrapAdminEmailsText = (event.currentTarget as HTMLTextAreaElement).value)}
+                      (form.bootstrapAdminEmailsText = (
+                        event.currentTarget as HTMLTextAreaElement
+                      ).value)}
                   />
-                  <p class="text-muted-foreground text-[11px]">Auto-granted admin on first login.</p>
+                  <p class="text-muted-foreground text-[11px]">
+                    Auto-granted admin on first login.
+                  </p>
                 </div>
               </div>
             </Dialog.Body>

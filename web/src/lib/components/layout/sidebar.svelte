@@ -32,9 +32,7 @@
     onNavigate?: () => void
   } = $props()
 
-  const globalNav: SidebarNavItem[] = $derived(
-    buildGlobalNav(currentPath, currentOrgId),
-  )
+  const globalNav: SidebarNavItem[] = $derived(buildGlobalNav(currentPath, currentOrgId))
   const projectNav: SidebarNavItem[] = $derived(
     buildProjectNav({ currentPath, currentOrgId, currentProjectId, agentCount }),
   )

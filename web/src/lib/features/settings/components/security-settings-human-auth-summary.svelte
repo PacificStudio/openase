@@ -75,7 +75,9 @@
     <code class="mx-1">httpOnly cookie + CSRF header</code>
     <span class="mx-1">·</span>
     {#if publicExposureRisk === 'high'}
-      <span class="font-medium">Public exposure detected — configure OIDC before wider rollout.</span>
+      <span class="font-medium"
+        >Public exposure detected — configure OIDC before wider rollout.</span
+      >
     {:else}
       <span>OIDC tokens stay server-side.</span>
     {/if}

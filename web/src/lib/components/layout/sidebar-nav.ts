@@ -41,10 +41,7 @@ const projectSections = [
   { label: 'Settings', icon: Settings, section: 'settings' as const },
 ]
 
-export function buildGlobalNav(
-  currentPath: string,
-  currentOrgId: string | null,
-): SidebarNavItem[] {
+export function buildGlobalNav(currentPath: string, currentOrgId: string | null): SidebarNavItem[] {
   const href = currentOrgId ? organizationPath(currentOrgId) : '/'
   return [
     {

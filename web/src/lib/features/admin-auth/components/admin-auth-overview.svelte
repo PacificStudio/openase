@@ -101,7 +101,6 @@
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- Bootstrap link hint -->
@@ -109,10 +108,10 @@
     <div class="border-t px-6 py-4">
       <details class="group">
         <summary
-          class="text-muted-foreground hover:text-foreground flex cursor-pointer select-none items-center gap-1.5 text-xs"
+          class="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 text-xs select-none"
         >
           <span
-            class="border-muted-foreground/40 group-open:border-foreground/40 flex size-3.5 items-center justify-center rounded-full border text-[9px] font-bold leading-none transition-colors"
+            class="border-muted-foreground/40 group-open:border-foreground/40 flex size-3.5 items-center justify-center rounded-full border text-[9px] leading-none font-bold transition-colors"
             >?</span
           >
           Browser access
