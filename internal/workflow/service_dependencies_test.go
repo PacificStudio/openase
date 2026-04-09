@@ -88,7 +88,7 @@ func (s stubProjectValidationRepository) StatusNames(ctx context.Context, status
 type stubWorkflowRepository struct {
 	list              func(context.Context, uuid.UUID) ([]domain.Workflow, error)
 	get               func(context.Context, uuid.UUID) (domain.Workflow, error)
-	create            func(context.Context, domain.Workflow, string, string) (domain.Workflow, error)
+	create            func(context.Context, domain.Workflow, []uuid.UUID, string, string) (domain.Workflow, error)
 	update            func(context.Context, domain.Workflow) (domain.Workflow, error)
 	impactAnalysis    func(context.Context, uuid.UUID) (domain.WorkflowImpactAnalysis, error)
 	replaceReferences func(context.Context, domain.ReplaceWorkflowReferencesInput) (domain.ReplaceWorkflowReferencesResult, error)
@@ -109,9 +109,9 @@ func (s stubWorkflowRepository) Get(ctx context.Context, workflowID uuid.UUID) (
 	return domain.Workflow{}, nil
 }
 
-func (s stubWorkflowRepository) Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error) {
+func (s stubWorkflowRepository) Create(ctx context.Context, workflow domain.Workflow, skillIDs []uuid.UUID, harnessContent string, createdBy string) (domain.Workflow, error) {
 	if s.create != nil {
-		return s.create(ctx, workflow, harnessContent, createdBy)
+		return s.create(ctx, workflow, skillIDs, harnessContent, createdBy)
 	}
 	return domain.Workflow{}, nil
 }

@@ -4,7 +4,7 @@
   import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
   import * as Popover from '$ui/popover'
-  import { Blocks, Link, Settings, Unlink } from '@lucide/svelte'
+  import { Blocks, Link, Lock, Settings, Unlink } from '@lucide/svelte'
   import type { SkillState } from '../model'
 
   let {
@@ -94,7 +94,16 @@
               )}
             ></span>
             <div class="min-w-0 flex-1">
-              <div class="text-foreground truncate text-sm">{skill.name}</div>
+              <div class="text-foreground flex items-center gap-2 truncate text-sm">
+                <span class="truncate">{skill.name}</span>
+                {#if skill.required}
+                  <span
+                    class="text-primary rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                  >
+                    Required
+                  </span>
+                {/if}
+              </div>
               {#if skill.description && !isExpanded}
                 <div class="text-muted-foreground truncate text-xs">{skill.description}</div>
               {/if}
@@ -104,17 +113,26 @@
               size="icon-sm"
               class={cn(
                 'size-6 shrink-0',
-                skill.bound
-                  ? 'text-primary hover:text-destructive'
-                  : 'text-muted-foreground hover:text-primary',
+                skill.required
+                  ? 'text-muted-foreground'
+                  : skill.bound
+                    ? 'text-primary hover:text-destructive'
+                    : 'text-muted-foreground hover:text-primary',
               )}
+              disabled={skill.required}
               onclick={(e) => {
                 e.stopPropagation()
                 onToggleSkill?.(skill)
               }}
-              title={skill.bound ? 'Unbind skill' : 'Bind skill'}
+              title={skill.required
+                ? 'Required skill'
+                : skill.bound
+                  ? 'Unbind skill'
+                  : 'Bind skill'}
             >
-              {#if skill.bound}
+              {#if skill.required}
+                <Lock class="size-3" />
+              {:else if skill.bound}
                 <Link class="size-3" />
               {:else}
                 <Unlink class="size-3" />
@@ -127,6 +145,11 @@
               {#if skill.description}
                 <p class="text-muted-foreground mb-2 text-xs leading-relaxed">
                   {skill.description}
+                </p>
+              {/if}
+              {#if skill.required}
+                <p class="text-primary mb-2 text-xs leading-relaxed">
+                  {skill.lockReason}
                 </p>
               {/if}
               <div

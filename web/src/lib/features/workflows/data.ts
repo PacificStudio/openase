@@ -21,6 +21,10 @@ import type {
   WorkflowVersionSummary,
 } from './types'
 import { mergeWorkflowHooksPayload, type WorkflowHooksPayload } from './workflow-hooks'
+import {
+  ensureWorkflowRequiredPlatformScopes,
+  isWorkflowRequiredSkillName,
+} from './workflow-requirements'
 import { buildWorkflowSummary } from './workflow-summary'
 
 export function mapWorkflowSummary(
@@ -191,7 +195,7 @@ export async function createWorkflowWithBinding(
     role_slug: input.roleSlug,
     role_name: input.roleName,
     role_description: input.roleDescription,
-    platform_access_allowed: input.platformAccessAllowed ?? [],
+    platform_access_allowed: ensureWorkflowRequiredPlatformScopes(input.platformAccessAllowed),
     skill_names: input.skillNames ?? [],
     harness_path: input.harnessPath ?? null,
     pickup_status_ids: input.pickupStatusIds,
@@ -216,7 +220,7 @@ export async function createWorkflowWithBinding(
       roleSlug: input.roleSlug,
       roleName: input.roleName,
       roleDescription: input.roleDescription,
-      platformAccessAllowed: input.platformAccessAllowed,
+      platformAccessAllowed: ensureWorkflowRequiredPlatformScopes(input.platformAccessAllowed),
     },
   })
 
@@ -237,10 +241,16 @@ function mapSkillStates(
   workflowId?: string,
 ): SkillState[] {
   return skills.map((skill) => ({
+    bound:
+      isWorkflowRequiredSkillName(skill.name) ||
+      Boolean(skill.bound_workflows.some((workflow) => workflow.id === workflowId)),
     id: skill.id,
     name: skill.name,
     description: skill.description,
     path: skill.path,
-    bound: Boolean(skill.bound_workflows.some((workflow) => workflow.id === workflowId)),
+    required: isWorkflowRequiredSkillName(skill.name),
+    lockReason: isWorkflowRequiredSkillName(skill.name)
+      ? 'Required by every workflow runtime.'
+      : '',
   }))
 }
