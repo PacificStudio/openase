@@ -26,6 +26,9 @@ auth:
     session_ttl: 8h
     session_idle_ttl: 30m
 
+security:
+  cipher_seed: ""
+
 database:
   dsn: postgres://openase:openase@localhost:5432/openase?sslmode=disable
 

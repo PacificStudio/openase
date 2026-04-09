@@ -156,10 +156,13 @@ Useful overrides:
 
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+export OPENASE_SECURITY_CIPHER_SEED=shared-cluster-seed
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
+
+When you migrate an existing OpenASE database between environments with different PostgreSQL DSNs, set the same `OPENASE_SECURITY_CIPHER_SEED` everywhere. Otherwise OpenASE falls back to its legacy DSN-derived seed for GitHub credential encryption, and previously stored encrypted credentials will no longer decrypt across environments.
 
 ### Docker PostgreSQL Example On A Non-default Port
 

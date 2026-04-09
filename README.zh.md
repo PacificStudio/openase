@@ -570,6 +570,7 @@ loginctl enable-linger "$USER"
 
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+export OPENASE_SECURITY_CIPHER_SEED=shared-cluster-seed
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 
@@ -593,9 +594,12 @@ set -a && source ~/.openase/.env && set +a
 |------|--------|------|
 | `OPENASE_SERVER_PORT` | `19836` | HTTP 服务器端口 |
 | `OPENASE_DATABASE_DSN` | — | PostgreSQL 连接字符串（**必需**） |
+| `OPENASE_SECURITY_CIPHER_SEED` | 空 | 可选的共享加密种子，用于 GitHub 凭据存储；当多个环境需要读取同一批加密记录时应显式设置 |
 | `OPENASE_ORCHESTRATOR_TICK_INTERVAL` | `5s` | 编排器轮询间隔 |
 | `OPENASE_LOG_FORMAT` | `text` | 日志格式（`text` 或 `json`） |
 | `OPENASE_LOG_LEVEL` | `info` | 日志级别 |
+
+`OPENASE_SECURITY_CIPHER_SEED` 对应配置文件里的 `security.cipher_seed`。如果不设置，OpenASE 会保持现有兼容行为，继续从 `database.dsn` 推导 GitHub 凭据加密种子。
 
 ### 配置文件查找顺序
 

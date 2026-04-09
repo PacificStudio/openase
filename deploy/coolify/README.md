@@ -32,6 +32,7 @@ OPENASE_DATABASE_DSN=postgres://openase:secret@postgres.internal:5432/openase?ss
 - `OPENASE_SERVER_HOST`: defaults to `0.0.0.0` and should usually stay that way in containers.
 - `OPENASE_SERVER_PORT`: defaults to `40023`.
 - `OPENASE_PUBLISH_PORT`: host-side published port in the sample compose file; defaults to `40023`.
+- `OPENASE_SECURITY_CIPHER_SEED`: optional shared encryption seed for GitHub credential storage; set the same value across local and Coolify deployments if they need to read the same encrypted rows.
 - `OPENASE_ORCHESTRATOR_TICK_INTERVAL`: defaults to `5s`.
 - `OPENASE_EVENT_DRIVER`: defaults to `auto`.
 - `OPENASE_LOG_LEVEL`: defaults to `info`.
@@ -67,6 +68,7 @@ Run it with env only:
 docker run --rm \
   -p 40023:40023 \
   -e OPENASE_DATABASE_DSN='postgres://openase:secret@postgres.internal:5432/openase?sslmode=disable' \
+  -e OPENASE_SECURITY_CIPHER_SEED='shared-cluster-seed' \
   -v openase-data:/var/lib/openase \
   openase:local
 ```
@@ -88,9 +90,10 @@ Recommended flow in Coolify:
 2. Choose the Docker Compose deployment mode.
 3. Point Coolify at `deploy/coolify/docker-compose.yml`.
 4. Set at least `OPENASE_DATABASE_DSN` in the environment UI.
-5. Keep the persistent volume mounted at `/var/lib/openase`.
-6. If using OIDC, set `OPENASE_AUTH_MODE=oidc` and add the four required OIDC env vars.
-7. Expose the service on the same internal port as `OPENASE_SERVER_PORT`.
+5. If the database was migrated from another environment and you need existing encrypted GitHub credentials to keep working, set the same `OPENASE_SECURITY_CIPHER_SEED` value used by the source environment.
+6. Keep the persistent volume mounted at `/var/lib/openase`.
+7. If using OIDC, set `OPENASE_AUTH_MODE=oidc` and add the four required OIDC env vars.
+8. Expose the service on the same internal port as `OPENASE_SERVER_PORT`.
 
 If your Coolify setup prefers a Dockerfile-based service instead of a compose service, you can use the repository root `Dockerfile` directly and copy the same environment variables from this document.
 
@@ -129,6 +132,10 @@ The entrypoint only checks that the DSN exists. If OpenASE then exits with a Pos
 - verify the hostname, port, username, password, database name, and `sslmode` in `OPENASE_DATABASE_DSN`
 - confirm the PostgreSQL instance accepts connections from the Coolify host
 - confirm the target database already exists
+
+### GitHub credentials stopped decrypting after a database migration
+
+OpenASE encrypts stored GitHub credentials with a seed derived from `OPENASE_SECURITY_CIPHER_SEED` when it is set, or from `OPENASE_DATABASE_DSN` for legacy setups. If you moved the same database between environments with different DSNs, set the same `OPENASE_SECURITY_CIPHER_SEED` value in every environment that must read those credentials.
 
 ### Health check stays unhealthy
 

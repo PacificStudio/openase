@@ -23,6 +23,7 @@ const (
 type Config struct {
 	Server        ServerConfig
 	Auth          AuthConfig
+	Security      SecurityConfig
 	GitHub        GitHubConfig
 	Database      DatabaseConfig
 	Orchestrator  OrchestratorConfig
@@ -47,6 +48,10 @@ type ServerConfig struct {
 
 type GitHubConfig struct {
 	WebhookSecret string
+}
+
+type SecurityConfig struct {
+	CipherSeed string
 }
 
 type ServerMode string
@@ -137,6 +142,7 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("server.write_timeout", 15*time.Second)
 	v.SetDefault("server.shutdown_timeout", 10*time.Second)
 	configureAuthDefaults(v)
+	v.SetDefault("security.cipher_seed", "")
 	v.SetDefault("github.webhook_secret", "")
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
@@ -229,6 +235,11 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		return Config{}, err
 	}
 
+	securityCipherSeed, err := parseOptionalString(v.Get("security.cipher_seed"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse security.cipher_seed: %w", err)
+	}
+
 	gitHubWebhookSecret, err := parseOptionalString(v.Get("github.webhook_secret"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse github.webhook_secret: %w", err)
@@ -304,6 +315,9 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			ShutdownTimeout: shutdownTimeout,
 		},
 		Auth: authConfig,
+		Security: SecurityConfig{
+			CipherSeed: securityCipherSeed,
+		},
 		GitHub: GitHubConfig{
 			WebhookSecret: gitHubWebhookSecret,
 		},
@@ -530,6 +544,13 @@ func validateConfig(cfg Config) error {
 	}
 
 	return nil
+}
+
+func (cfg Config) ResolvedSecurityCipherSeed() string {
+	if trimmed := strings.TrimSpace(cfg.Security.CipherSeed); trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimSpace(cfg.Database.DSN)
 }
 
 func (cfg Config) ResolvedEventDriver() (EventDriver, error) {

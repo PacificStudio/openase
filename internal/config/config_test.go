@@ -17,6 +17,7 @@ func clearOpenASEEnv(t *testing.T) {
 		"OPENASE_SERVER_MODE",
 		"OPENASE_SERVER_HOST",
 		"OPENASE_SERVER_PORT",
+		"OPENASE_SECURITY_CIPHER_SEED",
 		"OPENASE_GITHUB_WEBHOOK_SECRET",
 		"OPENASE_DATABASE_DSN",
 		"OPENASE_ORCHESTRATOR_TICK_INTERVAL",
@@ -94,6 +95,7 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
+	t.Setenv("OPENASE_SECURITY_CIPHER_SEED", "shared-cluster-seed")
 	t.Setenv("OPENASE_GITHUB_WEBHOOK_SECRET", "topsecret")
 	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
@@ -119,6 +121,10 @@ func TestLoadFromEnvironment(t *testing.T) {
 
 	if cfg.Server.Mode != ServerModeServe {
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.Security.CipherSeed != "shared-cluster-seed" {
+		t.Fatalf("expected security cipher seed from env, got %q", cfg.Security.CipherSeed)
 	}
 
 	if cfg.GitHub.WebhookSecret != "topsecret" {
@@ -188,6 +194,8 @@ server:
   shutdown_timeout: 12s
 github:
   webhook_secret: config-file-secret
+security:
+  cipher_seed: config-file-shared-seed
 database:
   dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable
 orchestrator:
@@ -225,6 +233,10 @@ log:
 
 	if cfg.Server.Mode != ServerModeServe {
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
+	}
+
+	if cfg.Security.CipherSeed != "config-file-shared-seed" {
+		t.Fatalf("expected config file security cipher seed, got %q", cfg.Security.CipherSeed)
 	}
 
 	if cfg.GitHub.WebhookSecret != "config-file-secret" {
@@ -549,6 +561,19 @@ func TestConfigValidationHelpers(t *testing.T) {
 	}
 	if err := validateConfig(Config{Server: ServerConfig{Mode: ServerModeServe}, Event: EventConfig{Driver: EventDriverAuto}}); err == nil {
 		t.Fatal("validateConfig(pgnotify without dsn) expected error")
+	}
+
+	cfg = Config{
+		Security: SecurityConfig{CipherSeed: " shared-seed "},
+		Database: DatabaseConfig{DSN: "postgres://ignored"},
+	}
+	if got := cfg.ResolvedSecurityCipherSeed(); got != "shared-seed" {
+		t.Fatalf("ResolvedSecurityCipherSeed(explicit) = %q", got)
+	}
+
+	cfg = Config{Database: DatabaseConfig{DSN: " postgres://fallback "}}
+	if got := cfg.ResolvedSecurityCipherSeed(); got != "postgres://fallback" {
+		t.Fatalf("ResolvedSecurityCipherSeed(fallback) = %q", got)
 	}
 }
 
