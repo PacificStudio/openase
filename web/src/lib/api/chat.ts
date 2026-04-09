@@ -1,5 +1,5 @@
 import { ApiError, buildRequestHeaders } from './client'
-import { consumeEventStream, type SSEFrame } from './sse'
+import { consumeEventStream, defaultActivityTimeoutMs, type SSEFrame } from './sse'
 import type { ProjectAIFocus } from '$lib/features/chat/project-ai-focus'
 
 export type ChatSource = 'project_sidebar' | 'ticket_detail'
@@ -571,6 +571,7 @@ export async function watchProjectConversationMuxStream(
     signal?: AbortSignal
     onOpen?: () => void
     onFrame: (frame: ProjectConversationMuxFrame) => void
+    activityTimeoutMs?: number
   },
 ) {
   const headers = buildRequestHeaders('GET', {
@@ -595,12 +596,16 @@ export async function watchProjectConversationMuxStream(
   }
 
   handlers.onOpen?.()
-  await consumeEventStream(response.body, (frame) => {
-    const parsed = parseRawProjectConversationMuxFrame(frame)
-    if (parsed.ok) {
-      handlers.onFrame(parsed.value)
-    }
-  })
+  await consumeEventStream(
+    response.body,
+    (frame) => {
+      const parsed = parseRawProjectConversationMuxFrame(frame)
+      if (parsed.ok) {
+        handlers.onFrame(parsed.value)
+      }
+    },
+    { activityTimeoutMs: handlers.activityTimeoutMs ?? defaultActivityTimeoutMs },
+  )
 }
 
 export function respondProjectConversationInterrupt(
