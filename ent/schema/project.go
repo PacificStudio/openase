@@ -5,6 +5,7 @@ import (
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	githubauth "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
@@ -30,6 +31,15 @@ func (Project) Fields() []ent.Field {
 		field.UUID("default_agent_provider_id", uuidZero()).
 			Optional().
 			Nillable(),
+		field.JSON("project_ai_platform_access_allowed", []string{}).
+			Default(func() []string {
+				return append(
+					[]string(nil),
+					agentplatformdomain.SupportedScopesForPrincipalKind(
+						agentplatformdomain.PrincipalKindProjectConversation,
+					)...,
+				)
+			}),
 		field.JSON("accessible_machine_ids", []uuid.UUID{}).
 			Default(emptyUUIDs),
 		field.Int("max_concurrent_agents").Default(0),

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
 
@@ -649,11 +650,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 || createProject.AgentRunSummaryPrompt != "Summarize the run outcome." {
 		t.Fatalf("ParseCreateProject() = %+v", createProject)
 	}
+	if got, want := createProject.ProjectAIPlatformAccessAllowed, agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ParseCreateProject() project ai scopes = %v, want %v", got, want)
+	}
 	updateProject, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p"})
 	if err != nil {
 		t.Fatalf("ParseUpdateProject() error = %v", err)
 	}
-	if updateProject.Status != DefaultProjectStatus || updateProject.MaxConcurrentAgents != DefaultProjectMaxConcurrentAgents {
+	if updateProject.Status != DefaultProjectStatus || updateProject.MaxConcurrentAgents != DefaultProjectMaxConcurrentAgents || len(updateProject.ProjectAIPlatformAccessAllowed) != 0 {
 		t.Fatalf("ParseUpdateProject() defaults = %+v", updateProject)
 	}
 	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "Project", Slug: "project", Status: ProjectStatusCompleted.String()})
@@ -677,6 +681,13 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "bad"}); err == nil {
 		t.Fatal("ParseCreateProject() expected status validation error")
+	}
+	if _, err := ParseCreateProject(orgID, ProjectInput{
+		Name:                           "P",
+		Slug:                           "p",
+		ProjectAIPlatformAccessAllowed: []string{"tickets.update.self"},
+	}); err == nil {
+		t.Fatal("ParseCreateProject() expected invalid project ai scope error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "planning"}); err == nil {
 		t.Fatal("ParseCreateProject() expected legacy status validation error")

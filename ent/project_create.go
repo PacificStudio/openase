@@ -109,6 +109,12 @@ func (_c *ProjectCreate) SetNillableDefaultAgentProviderID(v *uuid.UUID) *Projec
 	return _c
 }
 
+// SetProjectAiPlatformAccessAllowed sets the "project_ai_platform_access_allowed" field.
+func (_c *ProjectCreate) SetProjectAiPlatformAccessAllowed(v []string) *ProjectCreate {
+	_c.mutation.SetProjectAiPlatformAccessAllowed(v)
+	return _c
+}
+
 // SetAccessibleMachineIds sets the "accessible_machine_ids" field.
 func (_c *ProjectCreate) SetAccessibleMachineIds(v []uuid.UUID) *ProjectCreate {
 	_c.mutation.SetAccessibleMachineIds(v)
@@ -416,6 +422,10 @@ func (_c *ProjectCreate) defaults() {
 		v := project.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.ProjectAiPlatformAccessAllowed(); !ok {
+		v := project.DefaultProjectAiPlatformAccessAllowed()
+		_c.mutation.SetProjectAiPlatformAccessAllowed(v)
+	}
 	if _, ok := _c.mutation.AccessibleMachineIds(); !ok {
 		v := project.DefaultAccessibleMachineIds()
 		_c.mutation.SetAccessibleMachineIds(v)
@@ -453,6 +463,9 @@ func (_c *ProjectCreate) check() error {
 	}
 	if _, ok := _c.mutation.Status(); !ok {
 		return &ValidationError{Name: "status", err: errors.New(`ent: missing required field "Project.status"`)}
+	}
+	if _, ok := _c.mutation.ProjectAiPlatformAccessAllowed(); !ok {
+		return &ValidationError{Name: "project_ai_platform_access_allowed", err: errors.New(`ent: missing required field "Project.project_ai_platform_access_allowed"`)}
 	}
 	if _, ok := _c.mutation.AccessibleMachineIds(); !ok {
 		return &ValidationError{Name: "accessible_machine_ids", err: errors.New(`ent: missing required field "Project.accessible_machine_ids"`)}
@@ -521,6 +534,10 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.GithubTokenProbe(); ok {
 		_spec.SetField(project.FieldGithubTokenProbe, field.TypeJSON, value)
 		_node.GithubTokenProbe = value
+	}
+	if value, ok := _c.mutation.ProjectAiPlatformAccessAllowed(); ok {
+		_spec.SetField(project.FieldProjectAiPlatformAccessAllowed, field.TypeJSON, value)
+		_node.ProjectAiPlatformAccessAllowed = value
 	}
 	if value, ok := _c.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)

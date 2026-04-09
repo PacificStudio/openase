@@ -138,6 +138,7 @@ export type Project = Omit<
   agent_run_summary_prompt?: string
   effective_agent_run_summary_prompt?: string
   agent_run_summary_prompt_source?: 'builtin' | 'project_override'
+  project_ai_platform_access_allowed?: string[]
 }
 export type ProjectPayload = Omit<RawProjectPayload, 'projects'> & {
   projects: Project[]

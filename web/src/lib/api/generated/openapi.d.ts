@@ -9550,6 +9550,7 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
               slug?: string
               status?: string
             }[]
@@ -9620,6 +9621,8 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string
+          /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
+          project_ai_platform_access_allowed?: string[]
           /** @description Stable URL-safe project slug. */
           slug?: string
           /** @description Current project lifecycle status name. */
@@ -9646,6 +9649,7 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
               slug?: string
               status?: string
             }
@@ -10891,6 +10895,7 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
               slug?: string
               status?: string
             }
@@ -10965,6 +10970,7 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
               slug?: string
               status?: string
             }
@@ -11047,6 +11053,8 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string | null
+          /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
+          project_ai_platform_access_allowed?: string[] | null
           /** @description Stable URL-safe project slug. */
           slug?: string | null
           /** @description Current project lifecycle status name. */
@@ -11073,6 +11081,7 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
               slug?: string
               status?: string
             }

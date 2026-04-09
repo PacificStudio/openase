@@ -131,6 +131,7 @@ func buildProjectPatchActivityInputs(current domain.Project, item domain.Project
 	changedFields := make([]string, 0, 4)
 	if current.Name != item.Name || current.Slug != item.Slug || current.Description != item.Description ||
 		!slices.Equal(current.AccessibleMachineIDs, item.AccessibleMachineIDs) ||
+		!slices.Equal(current.ProjectAIPlatformAccessAllowed, item.ProjectAIPlatformAccessAllowed) ||
 		current.AgentRunSummaryPrompt != item.AgentRunSummaryPrompt {
 		changedFields = append(changedFields, "project")
 	}

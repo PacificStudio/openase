@@ -808,12 +808,16 @@ func init() {
 	projectDescStatus := projectFields[5].Descriptor()
 	// project.DefaultStatus holds the default value on creation for the status field.
 	project.DefaultStatus = projectDescStatus.Default.(string)
+	// projectDescProjectAiPlatformAccessAllowed is the schema descriptor for project_ai_platform_access_allowed field.
+	projectDescProjectAiPlatformAccessAllowed := projectFields[9].Descriptor()
+	// project.DefaultProjectAiPlatformAccessAllowed holds the default value on creation for the project_ai_platform_access_allowed field.
+	project.DefaultProjectAiPlatformAccessAllowed = projectDescProjectAiPlatformAccessAllowed.Default.(func() []string)
 	// projectDescAccessibleMachineIds is the schema descriptor for accessible_machine_ids field.
-	projectDescAccessibleMachineIds := projectFields[9].Descriptor()
+	projectDescAccessibleMachineIds := projectFields[10].Descriptor()
 	// project.DefaultAccessibleMachineIds holds the default value on creation for the accessible_machine_ids field.
 	project.DefaultAccessibleMachineIds = projectDescAccessibleMachineIds.Default.(func() []uuid.UUID)
 	// projectDescMaxConcurrentAgents is the schema descriptor for max_concurrent_agents field.
-	projectDescMaxConcurrentAgents := projectFields[10].Descriptor()
+	projectDescMaxConcurrentAgents := projectFields[11].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
 	// projectDescID is the schema descriptor for id field.

@@ -12848,6 +12848,12 @@
                           "organization_id": {
                             "type": "string"
                           },
+                          "project_ai_platform_access_allowed": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
                           "slug": {
                             "type": "string"
                           },
@@ -12975,6 +12981,13 @@
                     "description": "Human-readable project name.",
                     "type": "string"
                   },
+                  "project_ai_platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "type": "string"
@@ -13033,6 +13046,12 @@
                         },
                         "organization_id": {
                           "type": "string"
+                        },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "slug": {
                           "type": "string"
@@ -15519,6 +15538,12 @@
                         "organization_id": {
                           "type": "string"
                         },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -15670,6 +15695,12 @@
                         "organization_id": {
                           "type": "string"
                         },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -15798,6 +15829,14 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "project_ai_platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "nullable": true,
@@ -15858,6 +15897,12 @@
                         },
                         "organization_id": {
                           "type": "string"
+                        },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
                         },
                         "slug": {
                           "type": "string"

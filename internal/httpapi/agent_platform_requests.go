@@ -49,14 +49,15 @@ type rawAgentTicketCommentRequest struct {
 }
 
 type rawAgentProjectPatchRequest struct {
-	Name                   *string   `json:"name"`
-	Slug                   *string   `json:"slug"`
-	Description            *string   `json:"description"`
-	Status                 *string   `json:"status"`
-	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
-	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
-	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string   `json:"agent_run_summary_prompt"`
+	Name                           *string   `json:"name"`
+	Slug                           *string   `json:"slug"`
+	Description                    *string   `json:"description"`
+	Status                         *string   `json:"status"`
+	DefaultAgentProviderID         *string   `json:"default_agent_provider_id"`
+	ProjectAIPlatformAccessAllowed *[]string `json:"project_ai_platform_access_allowed"`
+	AccessibleMachineIDs           *[]string `json:"accessible_machine_ids"`
+	MaxConcurrentAgents            *int      `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string   `json:"agent_run_summary_prompt"`
 }
 
 type rawAgentCreateProjectUpdateThreadRequest struct {
@@ -214,6 +215,7 @@ func parseAgentProjectPatchRequest(
 		raw.Description == nil &&
 		raw.Status == nil &&
 		raw.DefaultAgentProviderID == nil &&
+		raw.ProjectAIPlatformAccessAllowed == nil &&
 		raw.AccessibleMachineIDs == nil &&
 		raw.MaxConcurrentAgents == nil &&
 		raw.AgentRunSummaryPrompt == nil {
@@ -221,14 +223,15 @@ func parseAgentProjectPatchRequest(
 	}
 
 	request := domain.ProjectInput{
-		Name:                   current.Name,
-		Slug:                   current.Slug,
-		Description:            current.Description,
-		Status:                 current.Status.String(),
-		DefaultAgentProviderID: uuidToStringPointer(current.DefaultAgentProviderID),
-		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
-		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
-		AgentRunSummaryPrompt:  stringPointerOrNil(current.AgentRunSummaryPrompt),
+		Name:                           current.Name,
+		Slug:                           current.Slug,
+		Description:                    current.Description,
+		Status:                         current.Status.String(),
+		DefaultAgentProviderID:         uuidToStringPointer(current.DefaultAgentProviderID),
+		ProjectAIPlatformAccessAllowed: cloneStringSlice(current.ProjectAIPlatformAccessAllowed),
+		AccessibleMachineIDs:           uuidSliceToStrings(current.AccessibleMachineIDs),
+		MaxConcurrentAgents:            intPointer(current.MaxConcurrentAgents),
+		AgentRunSummaryPrompt:          stringPointerOrNil(current.AgentRunSummaryPrompt),
 	}
 	if raw.Name != nil {
 		request.Name = strings.TrimSpace(*raw.Name)
@@ -244,6 +247,9 @@ func parseAgentProjectPatchRequest(
 	}
 	if raw.DefaultAgentProviderID != nil {
 		request.DefaultAgentProviderID = raw.DefaultAgentProviderID
+	}
+	if raw.ProjectAIPlatformAccessAllowed != nil {
+		request.ProjectAIPlatformAccessAllowed = cloneStringSlice(*raw.ProjectAIPlatformAccessAllowed)
 	}
 	if raw.AccessibleMachineIDs != nil {
 		request.AccessibleMachineIDs = cloneStringSlice(*raw.AccessibleMachineIDs)

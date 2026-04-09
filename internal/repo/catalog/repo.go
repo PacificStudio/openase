@@ -203,6 +203,7 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetSlug(input.Slug).
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
+		SetProjectAiPlatformAccessAllowed(input.ProjectAIPlatformAccessAllowed).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
 		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
@@ -234,6 +235,7 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetSlug(input.Slug).
 		SetDescription(input.Description).
 		SetStatus(toEntProjectStatus(input.Status)).
+		SetProjectAiPlatformAccessAllowed(input.ProjectAIPlatformAccessAllowed).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
 		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
@@ -783,16 +785,17 @@ func mapProjects(items []*ent.Project) []domain.Project {
 
 func mapProject(item *ent.Project) domain.Project {
 	return domain.Project{
-		ID:                     item.ID,
-		OrganizationID:         item.OrganizationID,
-		Name:                   item.Name,
-		Slug:                   item.Slug,
-		Description:            item.Description,
-		Status:                 toDomainProjectStatus(item.Status),
-		DefaultAgentProviderID: item.DefaultAgentProviderID,
-		AccessibleMachineIDs:   append([]uuid.UUID(nil), item.AccessibleMachineIds...),
-		MaxConcurrentAgents:    item.MaxConcurrentAgents,
-		AgentRunSummaryPrompt:  item.AgentRunSummaryPrompt,
+		ID:                             item.ID,
+		OrganizationID:                 item.OrganizationID,
+		Name:                           item.Name,
+		Slug:                           item.Slug,
+		Description:                    item.Description,
+		Status:                         toDomainProjectStatus(item.Status),
+		DefaultAgentProviderID:         item.DefaultAgentProviderID,
+		ProjectAIPlatformAccessAllowed: append([]string(nil), item.ProjectAiPlatformAccessAllowed...),
+		AccessibleMachineIDs:           append([]uuid.UUID(nil), item.AccessibleMachineIds...),
+		MaxConcurrentAgents:            item.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:          item.AgentRunSummaryPrompt,
 	}
 }
 
