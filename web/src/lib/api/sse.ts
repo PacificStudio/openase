@@ -13,8 +13,8 @@ type StreamOptions = {
   activityTimeoutMs?: number
 }
 
-const defaultRetryDelayMs = 2000
-const defaultActivityTimeoutMs = 10000
+export const defaultRetryDelayMs = 2000
+export const defaultActivityTimeoutMs = 10000
 
 class StreamInactivityError extends Error {
   constructor(timeoutMs: number) {

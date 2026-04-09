@@ -79,6 +79,17 @@ function resolvedMuxSubscription() {
   }
 }
 
+function startedTurnResponse(conversationId = 'conversation-1', providerId = 'provider-1') {
+  return {
+    turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    conversation: {
+      id: conversationId,
+      providerId,
+      lastActivityAt: '2026-04-01T10:00:00Z',
+    },
+  }
+}
+
 function seedProjectConversationTabsStorage(
   tabs: Array<{
     conversationId: string
@@ -125,9 +136,7 @@ describe('createProjectConversationController', () => {
       stream: stream.promise,
       connected: connected.promise,
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -180,9 +189,7 @@ describe('createProjectConversationController', () => {
       },
     })
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -233,9 +240,7 @@ describe('createProjectConversationController', () => {
       streamHandlers = params
       return resolvedMuxSubscription()
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -283,9 +288,7 @@ describe('createProjectConversationController', () => {
       streamHandlers = params
       return resolvedMuxSubscription()
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -372,9 +375,7 @@ describe('createProjectConversationController', () => {
       streamHandlers.set(params.conversationId, params)
       return resolvedMuxSubscription()
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -429,9 +430,7 @@ describe('createProjectConversationController', () => {
     createProjectConversation.mockReturnValue(create.promise)
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -482,9 +481,7 @@ describe('createProjectConversationController', () => {
       streamHandlers.set(params.conversationId, params)
       return resolvedMuxSubscription()
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -521,6 +518,7 @@ describe('createProjectConversationController', () => {
       | {
           onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
           onReconnect?: () => void
+          onRetrying?: () => void
         }
       | undefined
 
@@ -541,9 +539,7 @@ describe('createProjectConversationController', () => {
         connected: Promise.resolve(),
       }
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
     getProjectConversation.mockResolvedValue({
       conversation: {
         id: 'conversation-1',
@@ -592,6 +588,9 @@ describe('createProjectConversationController', () => {
       },
     })
 
+    streamHandlers?.onRetrying?.()
+    expect(controller.phase).toBe('connecting_stream')
+
     streamHandlers?.onReconnect?.()
     stream.resolve()
 
@@ -621,9 +620,7 @@ describe('createProjectConversationController', () => {
       },
     })
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -671,9 +668,7 @@ describe('createProjectConversationController', () => {
       streamHandlers.set(params.conversationId, params)
       return resolvedMuxSubscription()
     })
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
     respondProjectConversationInterrupt.mockResolvedValue({
       interrupt: {},
     })
@@ -837,9 +832,7 @@ describe('createProjectConversationController', () => {
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -872,9 +865,7 @@ describe('createProjectConversationController', () => {
     })
     getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
@@ -919,9 +910,7 @@ describe('createProjectConversationController', () => {
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
       .mockResolvedValueOnce(createWorkspaceDiff('conversation-2'))
     watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
-    startProjectConversationTurn.mockResolvedValue({
-      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
-    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
 
     const controller = createProjectConversationController({
       getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),

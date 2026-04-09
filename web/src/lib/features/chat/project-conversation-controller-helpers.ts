@@ -139,6 +139,7 @@ export function connectProjectConversationStream(params: {
   onError?: (message: string) => void
   onEvent?: (event: ProjectConversationStreamEvent) => void
   onReconnect?: (streamId: number) => void
+  onRetrying?: (streamId: number) => void
   onClosed?: (streamId: number) => void
 }) {
   const initialState = params.resolveState?.() ?? params.state
@@ -165,6 +166,13 @@ export function connectProjectConversationStream(params: {
         return
       }
       params.onReconnect?.(currentStreamId)
+    },
+    onRetrying: () => {
+      const liveState = params.resolveState?.() ?? params.state
+      if (currentStreamId !== liveState.streamId) {
+        return
+      }
+      params.onRetrying?.(currentStreamId)
     },
     onError: (message) => {
       const liveState = params.resolveState?.() ?? params.state
