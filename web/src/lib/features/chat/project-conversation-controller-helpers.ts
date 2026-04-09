@@ -144,8 +144,8 @@ export function connectProjectConversationStream(params: {
 }) {
   const initialState = params.resolveState?.() ?? params.state
   const currentStreamId = initialState.streamId + 1
-  let streamFailed = false
-  let receivedNonSessionEvent = false
+  let streamFailed = false,
+    receivedNonSessionEvent = false
   const started = startProjectConversationStream({
     projectId: params.projectId,
     conversationId: params.conversationId,
@@ -162,16 +162,12 @@ export function connectProjectConversationStream(params: {
     },
     onReconnect: () => {
       const liveState = params.resolveState?.() ?? params.state
-      if (currentStreamId !== liveState.streamId) {
-        return
-      }
+      if (currentStreamId !== liveState.streamId) return
       params.onReconnect?.(currentStreamId)
     },
     onRetrying: () => {
       const liveState = params.resolveState?.() ?? params.state
-      if (currentStreamId !== liveState.streamId) {
-        return
-      }
+      if (currentStreamId !== liveState.streamId) return
       params.onRetrying?.(currentStreamId)
     },
     onError: (message) => {
