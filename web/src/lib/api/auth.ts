@@ -413,7 +413,9 @@ function normalizeAuthCapabilities(
     return {
       availableAuthMethods: nextAvailableAuthMethods,
       currentAuthMethod:
-        currentAuthMethod || nextAvailableAuthMethods[0] || normalizeFallbackAuthMethod(authMode, raw),
+        currentAuthMethod ||
+        nextAvailableAuthMethods[0] ||
+        normalizeFallbackAuthMethod(authMode, raw),
     }
   }
 
@@ -463,10 +465,7 @@ function normalizeAuthenticated(raw: RawAuthSessionResponse, loginRequired: bool
   return !loginRequired
 }
 
-function normalizePrincipalKind(
-  raw: RawAuthSessionResponse,
-  authenticated: boolean,
-) {
+function normalizePrincipalKind(raw: RawAuthSessionResponse, authenticated: boolean) {
   const explicit = raw.principal_kind?.trim()
   if (explicit) {
     return explicit

@@ -14,10 +14,7 @@ export async function redeemLocalBootstrapBrowserSession(
   await redeemLocalBootstrapAuthorization(input)
 }
 
-export function parseLocalBootstrapRedeemURL(
-  raw: string,
-  currentOrigin: string,
-): string | null {
+export function parseLocalBootstrapRedeemURL(raw: string, currentOrigin: string): string | null {
   const trimmed = raw.trim()
   if (!trimmed) {
     return null
@@ -33,10 +30,7 @@ export function parseLocalBootstrapRedeemURL(
         return null
       }
     }
-    parsed.searchParams.set(
-      'return_to',
-      normalizeReturnTo(parsed.searchParams.get('return_to')),
-    )
+    parsed.searchParams.set('return_to', normalizeReturnTo(parsed.searchParams.get('return_to')))
     return `${parsed.pathname}?${parsed.searchParams.toString()}`
   } catch {
     return null

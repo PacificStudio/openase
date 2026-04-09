@@ -45,13 +45,14 @@
     <Card.Header class="gap-2">
       <Card.Title class="text-2xl">Authorize Browser</Card.Title>
       <Card.Description>
-        OpenASE always routes browser access through an auth gate before entering the control
-        plane.
+        OpenASE always routes browser access through an auth gate before entering the control plane.
       </Card.Description>
     </Card.Header>
 
     <Card.Content class="space-y-4">
-      <div class="bg-muted/40 border-border grid gap-3 rounded-xl border px-4 py-3 text-sm md:grid-cols-2">
+      <div
+        class="bg-muted/40 border-border grid gap-3 rounded-xl border px-4 py-3 text-sm md:grid-cols-2"
+      >
         <div>
           <div class="text-muted-foreground">Current interactive auth</div>
           <div class="text-foreground mt-1 font-medium">{currentAuthMethodLabel}</div>
