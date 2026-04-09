@@ -30330,6 +30330,22 @@
               "format": "uuid",
               "type": "string"
             }
+          },
+          {
+            "description": "Maximum number of update threads to return.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Load update threads older than this cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -30338,6 +30354,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "has_more": {
+                      "type": "boolean"
+                    },
+                    "next_cursor": {
+                      "type": "string"
+                    },
                     "threads": {
                       "items": {
                         "properties": {

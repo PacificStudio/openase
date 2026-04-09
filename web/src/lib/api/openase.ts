@@ -656,8 +656,14 @@ export function listActivity(
   return api.get<ActivityPayload>(`/api/v1/projects/${projectId}/activity`, { params })
 }
 
-export function listProjectUpdates(projectId: string) {
-  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`)
+export function listProjectUpdates(
+  projectId: string,
+  params?: {
+    limit?: number
+    before?: string
+  },
+) {
+  return api.get<ProjectUpdatePayload>(`/api/v1/projects/${projectId}/updates`, { params })
 }
 
 export function createProjectUpdateThread(

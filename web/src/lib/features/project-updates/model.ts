@@ -1,7 +1,28 @@
-import type { ProjectUpdateCommentRecord, ProjectUpdateThreadRecord } from '$lib/api/contracts'
+import type {
+  ProjectUpdateCommentRecord,
+  ProjectUpdatePayload,
+  ProjectUpdateThreadRecord,
+} from '$lib/api/contracts'
 import type { ProjectUpdateComment, ProjectUpdateStatus, ProjectUpdateThread } from './types'
 
 const validStatuses = new Set<ProjectUpdateStatus>(['on_track', 'at_risk', 'off_track'])
+
+export type ProjectUpdatePage = {
+  threads: ProjectUpdateThread[]
+  nextCursor: string
+  hasMore: boolean
+}
+
+export function parseProjectUpdatePage(raw: ProjectUpdatePayload): ProjectUpdatePage {
+  const nextCursor = (raw.next_cursor ?? '').trim()
+  const hasMore = Boolean(raw.has_more) && nextCursor.length > 0
+
+  return {
+    threads: parseProjectUpdateThreads(raw.threads),
+    nextCursor,
+    hasMore,
+  }
+}
 
 export function parseProjectUpdateThreads(
   rawThreads: ProjectUpdateThreadRecord[],
@@ -9,7 +30,31 @@ export function parseProjectUpdateThreads(
   return rawThreads
     .map(parseProjectUpdateThread)
     .filter((thread): thread is ProjectUpdateThread => thread !== null)
-    .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt))
+    .sort(compareProjectUpdateThreads)
+}
+
+export function mergeProjectUpdateThreads(
+  preferred: ProjectUpdateThread[],
+  fallback: ProjectUpdateThread[],
+): ProjectUpdateThread[] {
+  const merged = new Map<string, ProjectUpdateThread>()
+
+  for (const thread of fallback) {
+    merged.set(thread.id, thread)
+  }
+  for (const thread of preferred) {
+    merged.set(thread.id, thread)
+  }
+
+  return [...merged.values()].sort(compareProjectUpdateThreads)
+}
+
+export function compareProjectUpdateThreads(left: ProjectUpdateThread, right: ProjectUpdateThread) {
+  const byActivity = right.lastActivityAt.localeCompare(left.lastActivityAt)
+  if (byActivity !== 0) {
+    return byActivity
+  }
+  return right.id.localeCompare(left.id)
 }
 
 function parseProjectUpdateThread(raw: ProjectUpdateThreadRecord): ProjectUpdateThread | null {

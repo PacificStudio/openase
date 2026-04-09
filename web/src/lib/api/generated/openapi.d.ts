@@ -18026,7 +18026,12 @@ export interface operations {
   }
   listProjectUpdates: {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Maximum number of update threads to return. */
+        limit?: number
+        /** @description Load update threads older than this cursor. */
+        before?: string
+      }
       header?: never
       path: {
         /** @description Project ID. */
@@ -18043,6 +18048,8 @@ export interface operations {
         }
         content: {
           'application/json': {
+            has_more?: boolean
+            next_cursor?: string
             threads?: {
               body_markdown?: string
               comment_count?: number

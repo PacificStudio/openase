@@ -1347,7 +1347,9 @@ type OpenAPITicketCommentDeleteResponse struct {
 }
 
 type OpenAPIProjectUpdateThreadsResponse struct {
-	Threads []OpenAPIProjectUpdateThread `json:"threads"`
+	Threads    []OpenAPIProjectUpdateThread `json:"threads"`
+	NextCursor string                       `json:"next_cursor,omitempty"`
+	HasMore    bool                         `json:"has_more"`
 }
 
 type OpenAPIProjectUpdateThreadResponse struct {
@@ -4234,6 +4236,10 @@ func (b openAPISpecBuilder) addCatalogOperations() error {
 		return err
 	}
 	projectUpdatesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	projectUpdatesGet.AddParameter(intQueryParameter("limit", "Maximum number of update threads to return."))
+	projectUpdatesGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Load update threads older than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/updates", http.MethodGet, projectUpdatesGet)
 
 	projectUpdatesPost, err := b.jsonOperation(

@@ -265,7 +265,10 @@
               initialLoaded={controller.projectUpdates.initialLoaded}
               creatingThread={controller.projectUpdates.creatingThread}
               loadError={controller.projectUpdates.loadError}
+              hasMoreThreads={controller.projectUpdates.hasMoreThreads}
+              loadingMoreThreads={controller.projectUpdates.loadingMoreThreads}
               onSubmit={controller.projectUpdates.handleCreateThread}
+              onLoadMoreThreads={controller.projectUpdates.handleLoadMoreThreads}
               onUpdateThread={controller.projectUpdates.handleSaveThread}
               onDeleteThread={controller.projectUpdates.handleDeleteThread}
               onCreateComment={controller.projectUpdates.handleCreateComment}

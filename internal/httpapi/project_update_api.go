@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/labstack/echo/v4"
 )
@@ -85,12 +86,21 @@ func (s *Server) handleListProjectUpdates(c echo.Context) error {
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
 	}
-	items, err := s.projectUpdateService.ListThreads(c.Request().Context(), projectID)
+	pageInput, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_UPDATES_PAGE", err.Error())
+	}
+	page, err := s.projectUpdateService.ListThreadPage(c.Request().Context(), pageInput)
 	if err != nil {
 		return writeProjectUpdateError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"threads": mapProjectUpdateThreadResponses(items),
+		"threads":     mapProjectUpdateThreadResponses(page.Threads),
+		"next_cursor": page.NextCursor,
+		"has_more":    page.HasMore,
 	})
 }
 

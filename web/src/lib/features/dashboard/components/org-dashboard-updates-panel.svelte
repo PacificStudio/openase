@@ -1,5 +1,6 @@
 <script lang="ts">
   import { MessageSquare } from '@lucide/svelte'
+  import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
   import { ProjectUpdateComposer, ProjectUpdateThreadCard } from '$lib/features/project-updates'
   import type { ProjectUpdateThread } from '$lib/features/project-updates'
@@ -11,7 +12,10 @@
     initialLoaded,
     creatingThread,
     loadError,
+    hasMoreThreads,
+    loadingMoreThreads,
     onSubmit,
+    onLoadMoreThreads,
     onUpdateThread,
     onDeleteThread,
     onCreateComment,
@@ -23,7 +27,10 @@
     initialLoaded: boolean
     creatingThread: boolean
     loadError: string
+    hasMoreThreads: boolean
+    loadingMoreThreads: boolean
     onSubmit?: (draft: { status: ProjectUpdateStatus; body: string }) => Promise<boolean> | boolean
+    onLoadMoreThreads?: () => Promise<boolean> | boolean
     onUpdateThread?: (
       threadId: string,
       draft: { status: ProjectUpdateStatus; body: string },
@@ -86,6 +93,18 @@
           {onDeleteComment}
         />
       {/each}
+
+      {#if hasMoreThreads}
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-7 w-full text-xs"
+          onclick={onLoadMoreThreads}
+          disabled={loadingMoreThreads}
+        >
+          {loadingMoreThreads ? 'Loading…' : 'Load more'}
+        </Button>
+      {/if}
     </div>
   {/if}
 </div>

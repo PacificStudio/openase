@@ -115,7 +115,7 @@ describe('OrgDashboard', () => {
     listActivity.mockResolvedValue(activityPayload)
     getSystemDashboard.mockResolvedValue(systemDashboardPayload)
     getHRAdvisor.mockResolvedValue(hrAdvisorPayload)
-    listProjectUpdates.mockResolvedValue({ threads: [] })
+    listProjectUpdates.mockResolvedValue({ threads: [], has_more: false, next_cursor: '' })
     loadOrganizationDashboardSummary.mockResolvedValue(organizationSummaryPayload)
   })
 

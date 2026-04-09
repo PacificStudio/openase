@@ -16,6 +16,7 @@ import (
 	entprojectupdatethreadrevision "github.com/BetterAndBetterII/openase/ent/projectupdatethreadrevision"
 	"github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	"github.com/google/uuid"
 )
 
@@ -135,6 +136,12 @@ type DeleteCommentResult struct {
 	DeletedCommentID uuid.UUID `json:"deleted_comment_id"`
 }
 
+type ThreadPage struct {
+	Threads    []Thread `json:"threads"`
+	NextCursor string   `json:"next_cursor,omitempty"`
+	HasMore    bool     `json:"has_more"`
+}
+
 type Service struct {
 	client          *entdb.Client
 	activityEmitter *activity.Emitter
@@ -145,29 +152,80 @@ func NewService(client *entdb.Client, activityEmitter *activity.Emitter) *Servic
 }
 
 func (s *Service) ListThreads(ctx context.Context, projectID uuid.UUID) ([]Thread, error) {
-	if s.client == nil {
-		return nil, ErrUnavailable
-	}
-	if err := s.ensureProjectExists(ctx, projectID); err != nil {
+	page, err := s.listThreadPage(ctx, projectID, nil, 0)
+	if err != nil {
 		return nil, err
 	}
+	return page.Threads, nil
+}
 
-	items, err := s.client.ProjectUpdateThread.Query().
+func (s *Service) ListThreadPage(
+	ctx context.Context,
+	input projectupdatedomain.ListThreadsPage,
+) (ThreadPage, error) {
+	return s.listThreadPage(ctx, input.ProjectID, input.Before, input.Limit)
+}
+
+func (s *Service) listThreadPage(
+	ctx context.Context,
+	projectID uuid.UUID,
+	before *projectupdatedomain.ThreadCursor,
+	limit int,
+) (ThreadPage, error) {
+	if s.client == nil {
+		return ThreadPage{}, ErrUnavailable
+	}
+	if err := s.ensureProjectExists(ctx, projectID); err != nil {
+		return ThreadPage{}, err
+	}
+
+	query := s.client.ProjectUpdateThread.Query().
 		Where(entprojectupdatethread.ProjectIDEQ(projectID)).
 		Order(entdb.Desc(entprojectupdatethread.FieldLastActivityAt), entdb.Desc(entprojectupdatethread.FieldID)).
 		WithComments(func(query *entdb.ProjectUpdateCommentQuery) {
 			query.Order(entdb.Asc(entprojectupdatecomment.FieldCreatedAt), entdb.Asc(entprojectupdatecomment.FieldID))
-		}).
-		All(ctx)
+		})
+	if before != nil {
+		query.Where(
+			entprojectupdatethread.Or(
+				entprojectupdatethread.LastActivityAtLT(before.LastActivityAt),
+				entprojectupdatethread.And(
+					entprojectupdatethread.LastActivityAtEQ(before.LastActivityAt),
+					entprojectupdatethread.IDLT(before.ID),
+				),
+			),
+		)
+	}
+	if limit > 0 {
+		query.Limit(limit + 1)
+	}
+
+	items, err := query.All(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list project update threads: %w", err)
+		return ThreadPage{}, fmt.Errorf("list project update threads: %w", err)
+	}
+
+	hasMore := false
+	if limit > 0 && len(items) > limit {
+		hasMore = true
+		items = items[:limit]
 	}
 
 	threads := make([]Thread, 0, len(items))
 	for _, item := range items {
 		threads = append(threads, mapThread(item))
 	}
-	return threads, nil
+
+	nextCursor := ""
+	if hasMore && len(items) > 0 {
+		nextCursor = threadCursorForEntity(items[len(items)-1]).String()
+	}
+
+	return ThreadPage{
+		Threads:    threads,
+		NextCursor: nextCursor,
+		HasMore:    hasMore,
+	}, nil
 }
 
 func (s *Service) ListThreadRevisions(ctx context.Context, projectID, threadID uuid.UUID) ([]ThreadRevision, error) {
@@ -951,6 +1009,13 @@ func mapCommentRevision(item *entdb.ProjectUpdateCommentRevision) CommentRevisio
 		EditedBy:       item.EditedBy,
 		EditedAt:       item.EditedAt,
 		EditReason:     item.EditReason,
+	}
+}
+
+func threadCursorForEntity(item *entdb.ProjectUpdateThread) projectupdatedomain.ThreadCursor {
+	return projectupdatedomain.ThreadCursor{
+		LastActivityAt: item.LastActivityAt.UTC(),
+		ID:             item.ID,
 	}
 }
 
