@@ -70,7 +70,6 @@ type Bootstrap struct {
 	ConfigExists bool                   `json:"config_exists"`
 	ConfigPath   string                 `json:"config_path"`
 	Sources      []DatabaseSourceOption `json:"sources"`
-	AuthModes    []AuthModeOption       `json:"auth_modes"`
 	Agents       []AgentOption          `json:"agents"`
 	CLI          []CLIDiagnostic        `json:"cli"`
 	Defaults     Defaults               `json:"defaults"`
@@ -79,7 +78,6 @@ type Bootstrap struct {
 type Defaults struct {
 	ManualDatabase RawDatabaseInput       `json:"manual_database"`
 	DockerDatabase RawDockerDatabaseInput `json:"docker_database"`
-	Auth           RawAuthInput           `json:"auth"`
 }
 
 type RawDatabaseInput struct {
@@ -472,14 +470,9 @@ func parseCompleteRequest(raw RawCompleteRequest) (CompleteRequest, error) {
 	if err != nil {
 		return CompleteRequest{}, err
 	}
-	auth, err := parseAuthInput(raw.Auth)
-	if err != nil {
-		return CompleteRequest{}, err
-	}
 
 	return CompleteRequest{
 		Database:       database,
-		Auth:           auth,
 		AllowOverwrite: raw.AllowOverwrite,
 	}, nil
 }

@@ -140,7 +140,7 @@ OpenASE 开箱即用支持**多组织（Org）**管理。每个 Org 包含自己
 - 仅在你信任 Agent 访问范围的机器上运行 OpenASE。
 - 根据需要限制操作系统级权限（用户账户、文件系统边界）。
 - **本项目不是为公网部署设计的。** 它面向本地开发、私有网络和受信任的环境。
-- 默认情况下，OpenASE 以 **Demo 模式**（认证关闭）运行 — 无需登录，网络上的任何人都可以访问控制面板。这对于快速本地体验很方便，但**在局域网或多用户部署场景下，请务必配置 HTTPS + OIDC 认证**以保护你的数据和 Agent 访问权限。参见 [OIDC & RBAC 指南](docs/guide/zh/settings.md)了解配置方法。
+- 浏览器访问现在始终先经过授权门禁。全新本地安装默认通过 **local bootstrap 链接**进入，而不是匿名管理员直通；面向局域网、多用户或长期部署时，应尽快切换到 **HTTPS + OIDC**。参见 [OIDC & RBAC 指南](docs/guide/zh/settings.md)了解 rollout 模型。
 
 ### 愿景
 
@@ -474,9 +474,9 @@ go build -o ./bin/openase ./cmd/openase
 
 1. **数据库** — 自动启动 Docker PostgreSQL，或输入已有的 PostgreSQL 连接（`host`、`port`、`database`、`user`、`password`、`sslmode`）
 2. **CLI 检测** — 检查 PATH 上的 `git`、`claude`、`codex`、`gemini`
-3. **认证模式** — `disabled`（本地开发）或 `oidc`（浏览器登录）
-4. **服务模式** — 仅配置，或安装托管用户服务（Linux `systemd --user`、macOS `launchd`）
-5. **种子数据** — 创建 Org、项目、工单状态和检测到的 Provider
+3. **运行模式** — 仅配置，或安装托管用户服务（Linux `systemd --user`、macOS `launchd`）
+4. **种子数据** — 创建 Org、项目、工单状态和检测到的 Provider
+5. **本地浏览器引导授权** — 启动后通过 `openase auth bootstrap create-link --return-to / --format text` 生成一次性 local bootstrap 链接
 
 安装会在 `~/.openase/` 下创建以下内容：
 
@@ -606,10 +606,9 @@ set -a && source ~/.openase/.env && set +a
 
 ### 认证
 
-| 模式 | 说明 | 使用场景 |
-|------|------|---------|
-| `disabled` | 无需登录；OpenASE 使用稳定的本地管理员主体承载个人模式 | 本地开发、个人部署 |
-| `oidc` | 通过 OIDC 提供商浏览器登录 | 生产环境、团队使用 |
+- 全新本地安装通过一次性的 **local bootstrap 链接**进入浏览器控制面，不再暴露匿名管理员访问。
+- **OIDC** 仍然是共享实例、团队环境和网络化部署的长期浏览器认证路径。
+- 如果 active OIDC 配错导致无法登录，先执行 `openase auth break-glass disable-oidc`，再通过 `openase auth bootstrap create-link --return-to /admin/auth --format text` 重新进入 `/admin/auth` 修复配置。
 
 OIDC 支持标准提供商：Auth0、Azure Entra ID 以及任何 OpenID Connect
 兼容的 IdP。关于产品层面的双模式模型，请参见 IAM 双模式契约

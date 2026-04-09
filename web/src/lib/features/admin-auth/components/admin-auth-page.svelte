@@ -192,9 +192,11 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success('Disabled mode is now the configured fallback for the instance.')
+        toastStore.success(
+          'OIDC is now inactive. Use local bootstrap until you are ready to retry rollout.',
+        )
       },
-      'Failed to revert the instance auth mode to disabled.',
+      'Failed to switch the instance back to local bootstrap access.',
     )
   }
 

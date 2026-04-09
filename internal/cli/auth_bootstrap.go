@@ -82,10 +82,9 @@ long-lived bearer token.
 			}
 			authStateSvc, err := accesscontrolservice.New(
 				accesscontrolrepo.NewEntRepository(client),
-				cmd.CommandPath()+":"+firstNonEmpty(options.configFile, cfg.Database.DSN),
+				cfg.Database.DSN,
 				options.configFile,
 				homeDir,
-				cfg.Auth,
 			)
 			if err != nil {
 				return err

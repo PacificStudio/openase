@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
@@ -38,10 +39,18 @@ func newLocalBootstrapFixture(t *testing.T, cfg config.AuthConfig) localBootstra
 		t.Name(),
 		"",
 		"",
-		cfg,
 	)
 	if err != nil {
 		t.Fatalf("new instance auth service: %v", err)
+	}
+	if cfg.Mode == config.AuthModeOIDC {
+		now := time.Now().UTC()
+		if _, err := instanceAuthSvc.Activate(context.Background(), testActiveOIDCConfig(cfg), iam.OIDCActivationMetadata{
+			ActivatedAt: &now,
+			Source:      "test-local-bootstrap",
+		}); err != nil {
+			t.Fatalf("seed active instance auth state: %v", err)
+		}
 	}
 	humanAuthSvc := humanauthservice.NewService(repository, nil, instanceAuthSvc)
 	server := NewServer(

@@ -72,10 +72,6 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 				{ID: setup.DatabaseSourceDocker, Name: "Docker", Description: "docker"},
 				{ID: setup.DatabaseSourceManual, Name: "Manual", Description: "manual"},
 			},
-			AuthModes: []setup.AuthModeOption{
-				{ID: setup.AuthModeDisabled, Name: "Disabled", Description: "disabled"},
-				{ID: setup.AuthModeOIDC, Name: "OIDC", Description: "oidc"},
-			},
 			CLI: []setup.CLIDiagnostic{
 				{ID: "git", Name: "Git", Command: "git", Status: "ready", Version: "git version 2.48.1", Path: "/usr/bin/git"},
 				{ID: "codex", Name: "OpenAI Codex", Command: "codex", Status: "ready", Version: "codex 1.0.0", Path: "/usr/local/bin/codex"},
@@ -96,16 +92,6 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 					Port:          15432,
 					VolumeName:    "openase-local-postgres-data",
 					Image:         "postgres:16-alpine",
-				},
-				Auth: setup.RawAuthInput{
-					Mode: string(setup.AuthModeDisabled),
-					OIDC: &setup.RawOIDCInput{
-						ClientID:       "openase",
-						RedirectURL:    setup.DefaultOIDCRedirectURL,
-						Scopes:         setup.DefaultOIDCScopes,
-						SessionTTL:     setup.DefaultOIDCSessionTTL,
-						SessionIdleTTL: setup.DefaultOIDCIdleTTL,
-					},
 				},
 			},
 		},
@@ -138,7 +124,6 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 		"",  // user
 		"",  // password
 		"",  // ssl mode default
-		"",  // disabled auth
 		"",  // config-only runtime
 		"",  // write files confirm
 	}, "\n"))
@@ -170,13 +155,13 @@ func TestRunSetupFlowManualDatabase(t *testing.T) {
 	if service.prepareInput.Type != string(setup.DatabaseSourceManual) {
 		t.Fatalf("prepare input = %+v", service.prepareInput)
 	}
-	if service.completeInput.Auth.Mode != string(setup.AuthModeDisabled) {
-		t.Fatalf("complete auth input = %+v", service.completeInput.Auth)
-	}
 	if !strings.Contains(output.String(), "OpenASE setup completed.") {
 		t.Fatalf("output = %q", output.String())
 	}
 	if !strings.Contains(output.String(), "Open "+defaultSetupURL) {
+		t.Fatalf("output = %q", output.String())
+	}
+	if !strings.Contains(output.String(), "openase auth bootstrap create-link --return-to / --format text") {
 		t.Fatalf("output = %q", output.String())
 	}
 	if strings.Contains(output.String(), "legacy web setup") {
@@ -192,10 +177,6 @@ func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 			Sources: []setup.DatabaseSourceOption{
 				{ID: setup.DatabaseSourceManual, Name: "Manual", Description: "manual"},
 			},
-			AuthModes: []setup.AuthModeOption{
-				{ID: setup.AuthModeDisabled, Name: "Disabled", Description: "disabled"},
-				{ID: setup.AuthModeOIDC, Name: "OIDC", Description: "oidc"},
-			},
 			Defaults: setup.Defaults{
 				ManualDatabase: setup.RawDatabaseInput{
 					Host:    "127.0.0.1",
@@ -203,16 +184,6 @@ func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 					Name:    "openase",
 					User:    "openase",
 					SSLMode: "disable",
-				},
-				Auth: setup.RawAuthInput{
-					Mode: string(setup.AuthModeDisabled),
-					OIDC: &setup.RawOIDCInput{
-						ClientID:       "openase",
-						RedirectURL:    setup.DefaultOIDCRedirectURL,
-						Scopes:         setup.DefaultOIDCScopes,
-						SessionTTL:     setup.DefaultOIDCSessionTTL,
-						SessionIdleTTL: setup.DefaultOIDCIdleTTL,
-					},
 				},
 			},
 		},
@@ -240,16 +211,8 @@ func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 	input := strings.NewReader(strings.Join([]string{
 		"",                     // manual database
 		"", "", "", "", "", "", // manual db defaults
-		"2",                          // oidc auth
-		"https://example.auth0.com/", // issuer
-		"",                           // client id default
-		"oidc-secret",                // client secret
-		"",                           // redirect default
-		"",                           // scopes default
-		"admin@example.com",          // bootstrap admins
-		"",                           // allowed domains
-		"2",                          // systemd runtime
-		"",                           // final confirm
+		"2", // systemd runtime
+		"",  // final confirm
 	}, "\n"))
 
 	if err := runSetupFlowWithDeps(context.Background(), input, &output, service, setupFlowOptions{}, setupFlowDeps{
@@ -273,19 +236,13 @@ func TestRunSetupFlowOIDCAndManagedService(t *testing.T) {
 		t.Fatalf("runSetupFlowWithDeps() error = %v", err)
 	}
 
-	if service.completeInput.Auth.Mode != string(setup.AuthModeOIDC) {
-		t.Fatalf("complete auth input = %+v", service.completeInput.Auth)
-	}
-	if service.completeInput.Auth.OIDC == nil || service.completeInput.Auth.OIDC.ClientSecret != "oidc-secret" {
-		t.Fatalf("oidc config = %+v", service.completeInput.Auth.OIDC)
-	}
 	if manager.applySpec.Name != managedServiceName {
 		t.Fatalf("service install spec = %+v", manager.applySpec)
 	}
 	if !strings.Contains(output.String(), "systemctl --user status openase") {
 		t.Fatalf("output = %q", output.String())
 	}
-	if !strings.Contains(output.String(), oidcGuideURL) {
+	if !strings.Contains(output.String(), "openase auth break-glass disable-oidc") {
 		t.Fatalf("output = %q", output.String())
 	}
 }
@@ -298,10 +255,6 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 			Sources: []setup.DatabaseSourceOption{
 				{ID: setup.DatabaseSourceManual, Name: "Manual", Description: "manual"},
 			},
-			AuthModes: []setup.AuthModeOption{
-				{ID: setup.AuthModeDisabled, Name: "Disabled", Description: "disabled"},
-				{ID: setup.AuthModeOIDC, Name: "OIDC", Description: "oidc"},
-			},
 			Defaults: setup.Defaults{
 				ManualDatabase: setup.RawDatabaseInput{
 					Host:    "127.0.0.1",
@@ -309,16 +262,6 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 					Name:    "openase",
 					User:    "openase",
 					SSLMode: "disable",
-				},
-				Auth: setup.RawAuthInput{
-					Mode: string(setup.AuthModeDisabled),
-					OIDC: &setup.RawOIDCInput{
-						ClientID:       "openase",
-						RedirectURL:    setup.DefaultOIDCRedirectURL,
-						Scopes:         setup.DefaultOIDCScopes,
-						SessionTTL:     setup.DefaultOIDCSessionTTL,
-						SessionIdleTTL: setup.DefaultOIDCIdleTTL,
-					},
 				},
 			},
 		},
@@ -352,16 +295,8 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 	input := strings.NewReader(strings.Join([]string{
 		"",                     // manual database
 		"", "", "", "", "", "", // manual db defaults
-		"2",                          // oidc auth
-		"https://example.auth0.com/", // issuer
-		"",                           // client id default
-		"oidc-secret",                // client secret
-		"",                           // redirect default
-		"",                           // scopes default
-		"admin@example.com",          // bootstrap admins
-		"",                           // allowed domains
-		"2",                          // launchd runtime
-		"",                           // final confirm
+		"2", // launchd runtime
+		"",  // final confirm
 	}, "\n"))
 
 	if err := runSetupFlowWithDeps(context.Background(), input, &output, service, setupFlowOptions{}, setupFlowDeps{
@@ -406,12 +341,6 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 	if !supportChecked || !managerBuilt || !installSpecBuilt || !serviceVerified {
 		t.Fatalf("launchd flow hooks support=%t manager=%t spec=%t verify=%t", supportChecked, managerBuilt, installSpecBuilt, serviceVerified)
 	}
-	if service.completeInput.Auth.Mode != string(setup.AuthModeOIDC) {
-		t.Fatalf("complete auth input = %+v", service.completeInput.Auth)
-	}
-	if service.completeInput.Auth.OIDC == nil || service.completeInput.Auth.OIDC.ClientSecret != "oidc-secret" {
-		t.Fatalf("oidc config = %+v", service.completeInput.Auth.OIDC)
-	}
 	if manager.applySpec.Name != managedServiceName {
 		t.Fatalf("service install spec = %+v", manager.applySpec)
 	}
@@ -424,7 +353,7 @@ func TestRunSetupFlowOIDCAndLaunchdManagedService(t *testing.T) {
 		"/Users/tester/Library/LaunchAgents/com.openase.plist",
 		"/Users/tester/.openase/logs/openase.stdout.log",
 		"/Users/tester/.openase/logs/openase.stderr.log",
-		oidcGuideURL,
+		"openase auth break-glass disable-oidc",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("output = %q, want substring %q", text, want)
@@ -471,7 +400,6 @@ func TestRunSetupFlowFallsBackWhenSystemdUnavailable(t *testing.T) {
 	var output bytes.Buffer
 	input := strings.NewReader(strings.Join([]string{
 		"", "", "", "", "", "", "", // manual database defaults
-		"",  // disabled auth
 		"2", // choose service mode
 		"",  // accept fallback to config-only
 		"",  // final confirm
@@ -544,7 +472,6 @@ func TestRunSetupFlowFallsBackWhenLaunchdUnavailableOnDarwin(t *testing.T) {
 	)
 	input := strings.NewReader(strings.Join([]string{
 		"", "", "", "", "", "", "", // manual database defaults
-		"",  // disabled auth
 		"2", // choose service mode
 		"",  // accept fallback to config-only
 		"",  // final confirm
@@ -662,7 +589,7 @@ func TestPrintSetupSuccessLaunchdHints(t *testing.T) {
 			Name: "openase",
 			User: "openase",
 		},
-	}, setup.AuthConfig{Mode: setup.AuthModeDisabled}, &installedSetupService{
+	}, &installedSetupService{
 		Name:     managedServiceName,
 		Platform: "launchd",
 		InstallSpec: provider.UserServiceInstallSpec{

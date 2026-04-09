@@ -24,7 +24,9 @@ import (
 	entuser "github.com/BetterAndBetterII/openase/ent/user"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	humanauthrepo "github.com/BetterAndBetterII/openase/internal/repo/humanauth"
 	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
@@ -1719,9 +1721,16 @@ func newHumanAuthFixture(t *testing.T) humanAuthFixture {
 		},
 	}
 	repository := humanauthrepo.NewEntRepository(client)
-	authStateSvc, err := accesscontrolservice.New(nil, t.Name(), "", "", cfg)
+	authStateSvc, err := accesscontrolservice.New(accesscontrolrepo.NewEntRepository(client), t.Name(), "", "")
 	if err != nil {
 		t.Fatalf("new access control runtime service: %v", err)
+	}
+	now := time.Now().UTC()
+	if _, err := authStateSvc.Activate(context.Background(), testActiveOIDCConfig(cfg), iam.OIDCActivationMetadata{
+		ActivatedAt: &now,
+		Source:      "test-human-fixture",
+	}); err != nil {
+		t.Fatalf("seed active access control runtime state: %v", err)
 	}
 	service := humanauthservice.NewService(repository, nil, authStateSvc)
 	authorizer := humanauthservice.NewAuthorizer(repository)

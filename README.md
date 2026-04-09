@@ -140,7 +140,7 @@ To maximize unattended Workflow execution efficiency, OpenASE launches CLI agent
 - Only run OpenASE on machines where you trust the agent's scope of access.
 - Restrict OS-level permissions (user accounts, filesystem boundaries) as appropriate.
 - **This project is NOT designed for public-facing deployment.** It is intended for local development, private networks, and trusted environments.
-- By default, OpenASE runs in **Demo Mode** (auth disabled) — no login required, anyone on the network can access the control plane. This is convenient for quick local evaluation, but **for LAN or multi-user deployments, always configure HTTPS + OIDC authentication** to protect your data and agent access. See the [OIDC & RBAC Guide](docs/guide/en/settings.md) for setup instructions.
+- Browser access is always authorization-gated. Fresh local installs start with **local bootstrap links** instead of anonymous admin access, and shared or networked deployments should move to **HTTPS + OIDC** as soon as practical. See the [OIDC & RBAC Guide](docs/guide/en/settings.md) for the rollout model.
 
 ### The Vision
 
@@ -474,9 +474,9 @@ The interactive terminal setup will walk you through:
 
 1. **Database** — start a Docker PostgreSQL automatically, or enter an existing PostgreSQL connection (`host`, `port`, `database`, `user`, `password`, `sslmode`)
 2. **CLI detection** — checks for `git`, `claude`, `codex`, `gemini` on PATH
-3. **Auth mode** — `disabled` (local dev) or `oidc` (browser login)
-4. **Service mode** — config-only, or install the managed user service (`systemd --user` on Linux, `launchd` on macOS)
-5. **Seed data** — creates org, project, ticket statuses, and detected providers
+3. **Runtime mode** — config-only, or install the managed user service (`systemd --user` on Linux, `launchd` on macOS)
+4. **Seed data** — creates org, project, ticket statuses, and detected providers
+5. **Local browser bootstrap** — after startup, generate a one-time local bootstrap link with `openase auth bootstrap create-link --return-to / --format text`
 
 Setup creates the following under `~/.openase/`:
 
@@ -610,10 +610,9 @@ set -a && source ~/.openase/.env && set +a
 
 ### Authentication
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| `disabled` | No login required; OpenASE uses a stable local admin principal for personal mode | Local development, personal deployments |
-| `oidc` | Browser login via OIDC provider | Production, team use |
+- Fresh local installs use one-time **local bootstrap links** for browser authorization; they no longer expose anonymous admin access.
+- **OIDC** remains the long-term browser auth path for shared, team, and networked deployments.
+- If an active OIDC rollout breaks login, use `openase auth break-glass disable-oidc`, then re-enter through `openase auth bootstrap create-link --return-to /admin/auth --format text`.
 
 OIDC supports standard providers: Auth0, Azure Entra ID, and any OpenID
 Connect compliant IdP. See the IAM Dual-Mode Contract

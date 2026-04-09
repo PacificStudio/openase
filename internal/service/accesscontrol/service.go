@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BetterAndBetterII/openase/internal/config"
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	repo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 	"go.yaml.in/yaml/v3"
@@ -32,7 +31,6 @@ type Service struct {
 	block          cipher.Block
 	configFilePath string
 	homeDir        string
-	bootstrap      config.AuthConfig
 	now            func() time.Time
 	snapshotMu     sync.RWMutex
 	snapshot       ReadResult
@@ -81,7 +79,7 @@ type legacyValidationSection struct {
 	Warnings              []string `yaml:"warnings"`
 }
 
-func New(repository repo.Repository, cipherSeed string, configFilePath string, homeDir string, bootstrap config.AuthConfig) (*Service, error) {
+func New(repository repo.Repository, cipherSeed string, configFilePath string, homeDir string) (*Service, error) {
 	hash := sha256.Sum256([]byte(strings.TrimSpace(cipherSeed)))
 	block, err := aes.NewCipher(hash[:])
 	if err != nil {
@@ -92,7 +90,6 @@ func New(repository repo.Repository, cipherSeed string, configFilePath string, h
 		block:          block,
 		configFilePath: strings.TrimSpace(configFilePath),
 		homeDir:        strings.TrimSpace(homeDir),
-		bootstrap:      bootstrap,
 		now:            time.Now,
 	}, nil
 }
@@ -149,6 +146,13 @@ func (s *Service) loadSnapshot(ctx context.Context) (ReadResult, error) {
 	input, location, err := s.readLegacyFallback()
 	if err != nil {
 		return ReadResult{}, err
+	}
+	if s.repo != nil && shouldImportLegacyFallback(input, location) {
+		imported, err := s.importLegacyFallback(ctx, input)
+		if err != nil {
+			return ReadResult{}, err
+		}
+		return imported, nil
 	}
 	state, err := iam.ParseAccessControlState(input)
 	if err != nil {
@@ -413,9 +417,16 @@ func (s *Service) openSecret(secret *iam.EncryptedSecret) (string, error) {
 
 func (s *Service) readLegacyFallback() (iam.AccessControlStateInput, string, error) {
 	resolvedPath := s.resolvedConfigPath()
-	input := legacyInputFromBootstrap(s.bootstrap)
+	input := iam.AccessControlStateInput{
+		Status: iam.AccessControlStatusAbsent.String(),
+		Validation: iam.OIDCValidationMetadataInput{
+			Status:   "not_tested",
+			Message:  "No OIDC validation has been recorded yet.",
+			Warnings: []string{},
+		},
+	}
 	if resolvedPath == "" {
-		return input, "runtime:bootstrap", nil
+		return input, "runtime:no-config", nil
 	}
 	// #nosec G304 -- The resolved config path comes from trusted bootstrap runtime configuration.
 	payload, err := os.ReadFile(resolvedPath)
@@ -433,6 +444,29 @@ func (s *Service) readLegacyFallback() (iam.AccessControlStateInput, string, err
 	return mergeLegacyInput(input, doc), resolvedPath, nil
 }
 
+func (s *Service) importLegacyFallback(ctx context.Context, input iam.AccessControlStateInput) (ReadResult, error) {
+	state, err := iam.ParseAccessControlState(input)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	record, err := s.recordFromState(state)
+	if err != nil {
+		return ReadResult{}, err
+	}
+	if err := s.persist(ctx, record); err != nil {
+		return ReadResult{}, err
+	}
+	return ReadResult{State: state, StorageLocation: storageLocationDB}, nil
+}
+
+func shouldImportLegacyFallback(input iam.AccessControlStateInput, location string) bool {
+	if strings.TrimSpace(location) == "" || strings.HasPrefix(location, "runtime:") {
+		return false
+	}
+	return strings.TrimSpace(input.Status) == iam.AccessControlStatusDraft.String() ||
+		strings.TrimSpace(input.Status) == iam.AccessControlStatusActive.String()
+}
+
 func (s *Service) resolvedConfigPath() string {
 	if s.configFilePath != "" {
 		return s.configFilePath
@@ -446,42 +480,11 @@ func (s *Service) resolvedConfigPath() string {
 	return ""
 }
 
-func legacyInputFromBootstrap(cfg config.AuthConfig) iam.AccessControlStateInput {
-	status := iam.AccessControlStatusAbsent.String()
-	if cfg.Mode == config.AuthModeOIDC {
-		status = iam.AccessControlStatusActive.String()
-	} else if hasOIDCDraft(cfg) {
-		status = iam.AccessControlStatusDraft.String()
-	}
-	return iam.AccessControlStateInput{
-		Status:               status,
-		IssuerURL:            strings.TrimSpace(cfg.OIDC.IssuerURL),
-		ClientID:             strings.TrimSpace(cfg.OIDC.ClientID),
-		ClientSecret:         strings.TrimSpace(cfg.OIDC.ClientSecret),
-		FixedRedirectURL:     strings.TrimSpace(cfg.OIDC.RedirectURL),
-		RedirectURL:          strings.TrimSpace(cfg.OIDC.RedirectURL),
-		Scopes:               append([]string(nil), cfg.OIDC.Scopes...),
-		EmailClaim:           strings.TrimSpace(cfg.OIDC.EmailClaim),
-		NameClaim:            strings.TrimSpace(cfg.OIDC.NameClaim),
-		UsernameClaim:        strings.TrimSpace(cfg.OIDC.UsernameClaim),
-		GroupsClaim:          strings.TrimSpace(cfg.OIDC.GroupsClaim),
-		AllowedEmailDomains:  append([]string(nil), cfg.OIDC.AllowedEmailDomains...),
-		BootstrapAdminEmails: append([]string(nil), cfg.OIDC.BootstrapAdminEmails...),
-		SessionTTL:           durationStringOrEmpty(cfg.OIDC.SessionTTL),
-		SessionIdleTTL:       durationStringOrEmpty(cfg.OIDC.SessionIdleTTL),
-		Validation: iam.OIDCValidationMetadataInput{
-			Status:   "not_tested",
-			Message:  "No OIDC validation has been recorded yet.",
-			Warnings: []string{},
-		},
-	}
-}
-
 func mergeLegacyInput(base iam.AccessControlStateInput, doc legacyConfigDoc) iam.AccessControlStateInput {
 	switch strings.ToLower(strings.TrimSpace(doc.Auth.Mode)) {
-	case string(config.AuthModeOIDC):
+	case "oidc":
 		base.Status = iam.AccessControlStatusActive.String()
-	case string(config.AuthModeDisabled), "":
+	case "disabled", "":
 		if hasLegacyOIDCValues(doc.Auth.OIDC) {
 			base.Status = iam.AccessControlStatusDraft.String()
 		} else if base.Status == "" {
@@ -540,15 +543,6 @@ func mergeLegacyInput(base iam.AccessControlStateInput, doc legacyConfigDoc) iam
 	return base
 }
 
-func hasOIDCDraft(cfg config.AuthConfig) bool {
-	return strings.TrimSpace(cfg.OIDC.IssuerURL) != "" ||
-		strings.TrimSpace(cfg.OIDC.ClientID) != "" ||
-		strings.TrimSpace(cfg.OIDC.ClientSecret) != "" ||
-		strings.TrimSpace(cfg.OIDC.RedirectURL) != "" ||
-		len(cfg.OIDC.AllowedEmailDomains) > 0 ||
-		len(cfg.OIDC.BootstrapAdminEmails) > 0
-}
-
 func hasLegacyOIDCValues(raw legacyOIDCSection) bool {
 	return strings.TrimSpace(raw.IssuerURL) != "" ||
 		strings.TrimSpace(raw.ClientID) != "" ||
@@ -565,13 +559,6 @@ func hasLegacyOIDCValues(raw legacyOIDCSection) bool {
 		len(raw.BootstrapAdminEmails) > 0 ||
 		strings.TrimSpace(raw.SessionTTL) != "" ||
 		strings.TrimSpace(raw.SessionIdleTTL) != ""
-}
-
-func durationStringOrEmpty(raw time.Duration) string {
-	if raw <= 0 {
-		return ""
-	}
-	return raw.String()
 }
 
 func parseOptionalRFC3339(raw string) *time.Time {

@@ -40,7 +40,7 @@
     {#if user?.primaryEmail}
       <div class="text-muted-foreground break-all">{user.primaryEmail}</div>
     {:else if localPrincipal}
-      <div class="text-muted-foreground">Disabled mode keeps this local admin available.</div>
+      <div class="text-muted-foreground">Local bootstrap keeps this admin path available.</div>
     {/if}
   </div>
   <div>

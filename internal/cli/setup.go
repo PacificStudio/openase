@@ -24,7 +24,6 @@ import (
 const (
 	defaultSetupURL        = "http://127.0.0.1:19836"
 	defaultSetupConfigPath = "~/.openase/config.yaml"
-	oidcGuideURL           = "https://github.com/PacificStudio/openase/blob/main/docs/human-auth-oidc-rbac.md"
 )
 
 var errSetupAborted = errors.New("setup aborted")
@@ -271,15 +270,6 @@ func runSetupFlowWithDeps(
 	}
 
 	printCLIDiagnostics(out, bootstrap.CLI)
-	auth, err := promptAuthConfig(prompter, bootstrap)
-	if err != nil {
-		if errors.Is(err, errSetupAborted) {
-			_, _ = fmt.Fprintln(out, "\nSetup cancelled.")
-			return nil
-		}
-		return err
-	}
-
 	runtimeMode, err := promptRuntimeMode(ctx, prompter, deps)
 	if err != nil {
 		if errors.Is(err, errSetupAborted) {
@@ -291,7 +281,7 @@ func runSetupFlowWithDeps(
 
 	goos := deps.targetGOOS()
 
-	printSetupSummary(out, bootstrap, prepared, auth, runtimeMode, goos)
+	printSetupSummary(out, bootstrap, prepared, runtimeMode, goos)
 
 	confirmationLabel := "Write ~/.openase/config.yaml and ~/.openase/.env now?"
 	if runtimeMode == setupRuntimeModeManagedUserService {
@@ -318,7 +308,6 @@ func runSetupFlowWithDeps(
 
 	result, err := service.Complete(ctx, setup.RawCompleteRequest{
 		Database:       prepared.Config.Raw(),
-		Auth:           auth.Raw(),
 		AllowOverwrite: allowOverwrite,
 	})
 	if err != nil {
@@ -333,7 +322,7 @@ func runSetupFlowWithDeps(
 		}
 	}
 
-	printSetupSuccess(out, result, prepared, auth, installedService)
+	printSetupSuccess(out, result, prepared, installedService)
 	return nil
 }
 
@@ -482,7 +471,7 @@ func printSetupIntro(out io.Writer, bootstrap setup.Bootstrap) {
 	_, _ = fmt.Fprintln(out, "This flow will:")
 	_, _ = fmt.Fprintln(out, "  1. Prepare and validate PostgreSQL")
 	_, _ = fmt.Fprintln(out, "  2. Check key local CLIs such as git, codex, and claude")
-	_, _ = fmt.Fprintln(out, "  3. Configure auth mode and optional OIDC browser login")
+	_, _ = fmt.Fprintln(out, "  3. Configure local runtime defaults without legacy auth.mode or inline OIDC YAML")
 	_, _ = fmt.Fprintln(out, "  4. Choose config-only mode or managed user service mode")
 	_, _ = fmt.Fprintln(out, "  5. Write ~/.openase/config.yaml and ~/.openase/.env")
 	_, _ = fmt.Fprintln(out, "  6. Initialize the default local workspace metadata")
@@ -528,7 +517,6 @@ func printSetupSummary(
 	out io.Writer,
 	bootstrap setup.Bootstrap,
 	prepared setup.PreparedDatabase,
-	auth setup.AuthConfig,
 	runtimeMode setupRuntimeMode,
 	goos string,
 ) {
@@ -548,7 +536,7 @@ func printSetupSummary(
 		_, _ = fmt.Fprintf(out, "  Docker container: %s\n", prepared.Docker.ContainerName)
 		_, _ = fmt.Fprintf(out, "  Docker volume:    %s\n", prepared.Docker.VolumeName)
 	}
-	_, _ = fmt.Fprintf(out, "  Auth mode: %s\n", describeSetupAuthMode(auth))
+	_, _ = fmt.Fprintln(out, "  Browser auth: local bootstrap link until an active OIDC config is enabled later")
 	_, _ = fmt.Fprintf(out, "  Runtime:   %s\n", describeSetupRuntimeMode(runtimeMode, goos))
 	_, _ = fmt.Fprintf(out, "  Config path: %s\n", bootstrap.ConfigPath)
 }
@@ -557,7 +545,6 @@ func printSetupSuccess(
 	out io.Writer,
 	result setup.CompleteResult,
 	prepared setup.PreparedDatabase,
-	auth setup.AuthConfig,
 	installedService *installedSetupService,
 ) {
 	_, _ = fmt.Fprintln(out)
@@ -575,7 +562,7 @@ func printSetupSuccess(
 		prepared.Config.Name,
 		prepared.Config.User,
 	)
-	_, _ = fmt.Fprintf(out, "Auth mode: %s\n", describeSetupAuthMode(auth))
+	_, _ = fmt.Fprintln(out, "Browser auth: local bootstrap link")
 	if prepared.Docker != nil {
 		_, _ = fmt.Fprintf(out, "Docker container: %s\n", prepared.Docker.ContainerName)
 		_, _ = fmt.Fprintf(out, "Docker volume:    %s\n", prepared.Docker.VolumeName)
@@ -588,14 +575,17 @@ func printSetupSuccess(
 	_, _ = fmt.Fprintln(out)
 	_, _ = fmt.Fprintln(out, "Browser:")
 	_, _ = fmt.Fprintf(out, "  Open %s\n", defaultSetupURL)
+	_, _ = fmt.Fprintln(out, "  OpenASE no longer grants anonymous browser admin access.")
+	_, _ = fmt.Fprintln(out, "  Generate a one-time local bootstrap link before signing in:")
+	_, _ = fmt.Fprintln(out, "    openase auth bootstrap create-link --return-to / --format text")
+	_, _ = fmt.Fprintln(out, "  Break-glass repair path if OIDC is misconfigured later:")
+	_, _ = fmt.Fprintln(out, "    openase auth break-glass disable-oidc")
+	_, _ = fmt.Fprintln(out, "    openase auth bootstrap create-link --return-to /admin/auth --format text")
 	_, _ = fmt.Fprintf(out, "Next: openase doctor --config %s\n", result.ConfigPath)
 	if installedService != nil {
 		printManagedServiceSuccessHints(out, installedService)
 	} else {
 		_, _ = fmt.Fprintf(out, "Next: openase all-in-one --config %s\n", result.ConfigPath)
-	}
-	if auth.Mode == setup.AuthModeOIDC {
-		_, _ = fmt.Fprintf(out, "OIDC guide: %s\n", oidcGuideURL)
 	}
 }
 
@@ -779,118 +769,6 @@ func terminalFileDescriptor(file *os.File) (int, bool) {
 	return int(fd), true
 }
 
-func promptAuthConfig(prompter *setupPrompter, bootstrap setup.Bootstrap) (setup.AuthConfig, error) {
-	modes := bootstrap.AuthModes
-	if len(modes) == 0 {
-		modes = []setup.AuthModeOption{
-			{
-				ID:          setup.AuthModeDisabled,
-				Name:        "Disable Browser Login",
-				Description: "Use local token auth only and skip OIDC configuration during setup.",
-			},
-			{
-				ID:          setup.AuthModeOIDC,
-				Name:        "Configure OIDC Browser Login",
-				Description: "Set up browser login with an OIDC provider such as Auth0 or Azure Entra ID.",
-			},
-		}
-	}
-
-	defaults := bootstrap.Defaults.Auth
-	if defaults.OIDC == nil {
-		defaults = setup.RawAuthInput{
-			Mode: string(setup.AuthModeDisabled),
-			OIDC: &setup.RawOIDCInput{
-				ClientID:       "openase",
-				RedirectURL:    setup.DefaultOIDCRedirectURL,
-				Scopes:         setup.DefaultOIDCScopes,
-				SessionTTL:     setup.DefaultOIDCSessionTTL,
-				SessionIdleTTL: setup.DefaultOIDCIdleTTL,
-			},
-		}
-	}
-
-	options := make([]string, 0, len(modes))
-	defaultIndex := 0
-	for index, mode := range modes {
-		options = append(options, fmt.Sprintf("%s: %s", mode.Name, mode.Description))
-		if mode.ID == setup.AuthModeDisabled {
-			defaultIndex = index
-		}
-	}
-
-	index, err := prompter.choose("Choose a browser auth mode", options, defaultIndex)
-	if err != nil {
-		return setup.AuthConfig{}, err
-	}
-	if modes[index].ID == setup.AuthModeDisabled {
-		return setup.ParseAuthInput(setup.RawAuthInput{Mode: string(setup.AuthModeDisabled)})
-	}
-
-	current := defaults
-	current.Mode = string(setup.AuthModeOIDC)
-	if current.OIDC == nil {
-		current.OIDC = &setup.RawOIDCInput{}
-	}
-
-	_, _ = fmt.Fprintln(prompter.out)
-	_, _ = fmt.Fprintln(prompter.out, "OIDC setup notes:")
-	_, _ = fmt.Fprintln(prompter.out, "  - Recommended providers: Auth0 or Azure Entra ID")
-	_, _ = fmt.Fprintf(prompter.out, "  - Guide: %s\n", oidcGuideURL)
-
-	for {
-		var promptErr error
-		current.OIDC.IssuerURL, promptErr = prompter.stringValue("OIDC issuer URL", current.OIDC.IssuerURL)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.ClientID, promptErr = prompter.stringValue("OIDC client ID", current.OIDC.ClientID)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.ClientSecret, promptErr = prompter.secretValue("OIDC client secret", current.OIDC.ClientSecret)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.RedirectURL, promptErr = prompter.stringValue("OIDC redirect URL", current.OIDC.RedirectURL)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.Scopes, promptErr = prompter.csvValue("OIDC scopes (comma-separated)", current.OIDC.Scopes)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.BootstrapAdminEmails, promptErr = prompter.csvValue(
-			"Bootstrap admin emails (comma-separated, optional)",
-			current.OIDC.BootstrapAdminEmails,
-		)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-		current.OIDC.AllowedEmailDomains, promptErr = prompter.csvValue(
-			"Allowed email domains (comma-separated, optional)",
-			current.OIDC.AllowedEmailDomains,
-		)
-		if promptErr != nil {
-			return setup.AuthConfig{}, promptErr
-		}
-
-		auth, parseErr := setup.ParseAuthInput(current)
-		if parseErr == nil {
-			return auth, nil
-		}
-
-		_, _ = fmt.Fprintf(prompter.out, "\nOIDC configuration is invalid: %v\n", parseErr)
-		retry, confirmErr := prompter.confirm("Edit the OIDC settings and try again?", true)
-		if confirmErr != nil {
-			return setup.AuthConfig{}, confirmErr
-		}
-		if !retry {
-			return setup.AuthConfig{}, errSetupAborted
-		}
-	}
-}
-
 func promptRuntimeMode(ctx context.Context, prompter *setupPrompter, deps setupFlowDeps) (setupRuntimeMode, error) {
 	goos := deps.targetGOOS()
 	options := []string{
@@ -947,15 +825,6 @@ func installSetupManagedService(
 	}
 
 	return deps.installedSetupServiceBuilder()(ctx, manager.Platform(), spec), nil
-}
-
-func describeSetupAuthMode(auth setup.AuthConfig) string {
-	switch auth.Mode {
-	case setup.AuthModeOIDC:
-		return "oidc"
-	default:
-		return "disabled"
-	}
 }
 
 func describeSetupRuntimeMode(mode setupRuntimeMode, goos string) string {

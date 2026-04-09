@@ -290,6 +290,7 @@ func newAuthCommand(options *rootOptions) *cobra.Command {
 	}))
 	command.AddCommand(users)
 	command.AddCommand(newAuthBootstrapCommand(options))
+	command.AddCommand(newAuthBreakGlassCommand(options))
 
 	return command
 }

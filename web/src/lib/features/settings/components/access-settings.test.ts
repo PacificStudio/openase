@@ -59,7 +59,7 @@ describe('Access settings', () => {
     vi.clearAllMocks()
   })
 
-  it('shows migration guidance for disabled mode without loading oidc access state', async () => {
+  it('shows migration guidance for local bootstrap access without loading oidc access state', async () => {
     authStore.hydrate({
       authMode: 'oidc',
       loginRequired: false,
@@ -77,7 +77,7 @@ describe('Access settings', () => {
 
     const { findByText, queryByText } = render(AccessSettings)
 
-    expect(await findByText('Disabled-mode project access')).toBeTruthy()
+    expect(await findByText('Local bootstrap project access')).toBeTruthy()
     expect(queryByText('Project effective access')).toBeNull()
     expect(getEffectivePermissions).not.toHaveBeenCalled()
     expect(listProjectRoleBindings).not.toHaveBeenCalled()

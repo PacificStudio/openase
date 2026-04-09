@@ -210,15 +210,15 @@ func (s *Server) handleDisableAdminAuth(c echo.Context) error {
 	}
 
 	nextSteps := []string{
-		"Confirm the local instance admin path is reachable again before exposing the service.",
+		"Create a local bootstrap link and confirm `/admin/auth` is reachable again on this machine before exposing the service.",
 		"Keep the saved OIDC draft so you can retest before the next rollout attempt.",
-		"Use disabled mode only for trusted personal or local-only deployments.",
+		"Do not rely on OIDC-inactive access for shared or public deployments; re-enable managed auth after recovery.",
 	}
 
 	return c.JSON(http.StatusOK, adminAuthModeTransitionResponse{
 		Transition: securityOIDCActivationResponse{
 			Status:          "disabled",
-			Message:         "Disabled mode is now the configured auth mode for this instance. The saved OIDC draft stays available for future rollout attempts.",
+			Message:         "OIDC is now inactive for this instance. The saved draft stays available so you can recover through local bootstrap and retry rollout later.",
 			RestartRequired: false,
 			NextSteps:       nextSteps,
 		},
@@ -237,7 +237,7 @@ func (s *Server) readInstanceAccessControlState(c echo.Context) (accesscontrolse
 	if s.instanceAuthService != nil {
 		return s.instanceAuthService.Read(c.Request().Context())
 	}
-	fallback, err := accesscontrolservice.New(nil, s.configFilePath+":"+s.homeDir, s.configFilePath, s.homeDir, s.auth)
+	fallback, err := accesscontrolservice.New(nil, s.configFilePath+":"+s.homeDir, s.configFilePath, s.homeDir)
 	if err != nil {
 		return accesscontrolservice.ReadResult{}, err
 	}

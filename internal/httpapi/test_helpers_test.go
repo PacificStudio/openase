@@ -13,6 +13,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
@@ -54,12 +55,56 @@ func newInstanceAuthTestService(t *testing.T, bootstrap config.AuthConfig, confi
 		t.Name()+":"+configPath,
 		configPath,
 		"",
-		bootstrap,
 	)
 	if err != nil {
 		t.Fatalf("new instance auth service: %v", err)
 	}
+	if bootstrap.Mode == config.AuthModeOIDC {
+		now := time.Now().UTC()
+		_, err = service.Activate(context.Background(), testActiveOIDCConfig(bootstrap), iam.OIDCActivationMetadata{
+			ActivatedAt: &now,
+			Source:      "test-bootstrap",
+		})
+		if err != nil {
+			t.Fatalf("seed active instance auth state: %v", err)
+		}
+	}
 	return client, service
+}
+
+func testActiveOIDCConfig(cfg config.AuthConfig) iam.ActiveOIDCConfig {
+	claims := iam.DefaultDraftOIDCConfig().Claims
+	if cfg.OIDC.EmailClaim != "" {
+		claims.EmailClaim = cfg.OIDC.EmailClaim
+	}
+	if cfg.OIDC.NameClaim != "" {
+		claims.NameClaim = cfg.OIDC.NameClaim
+	}
+	if cfg.OIDC.UsernameClaim != "" {
+		claims.UsernameClaim = cfg.OIDC.UsernameClaim
+	}
+	if cfg.OIDC.GroupsClaim != "" {
+		claims.GroupsClaim = cfg.OIDC.GroupsClaim
+	}
+	sessionPolicy := iam.DefaultDraftOIDCConfig().SessionPolicy
+	if cfg.OIDC.SessionTTL > 0 {
+		sessionPolicy.SessionTTL = cfg.OIDC.SessionTTL
+	}
+	if cfg.OIDC.SessionIdleTTL > 0 {
+		sessionPolicy.SessionIdleTTL = cfg.OIDC.SessionIdleTTL
+	}
+	return iam.ActiveOIDCConfig{
+		IssuerURL:            cfg.OIDC.IssuerURL,
+		ClientID:             cfg.OIDC.ClientID,
+		ClientSecret:         cfg.OIDC.ClientSecret,
+		RedirectMode:         iam.OIDCRedirectModeFixed,
+		FixedRedirectURL:     cfg.OIDC.RedirectURL,
+		Scopes:               append([]string(nil), cfg.OIDC.Scopes...),
+		Claims:               claims,
+		AllowedEmailDomains:  append([]string(nil), cfg.OIDC.AllowedEmailDomains...),
+		BootstrapAdminEmails: append([]string(nil), cfg.OIDC.BootstrapAdminEmails...),
+		SessionPolicy:        sessionPolicy,
+	}
 }
 
 func findStatusIDByName(t *testing.T, statuses []ticketstatus.Status, name string) uuid.UUID {

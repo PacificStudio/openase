@@ -29,16 +29,17 @@ function disabledAdminAuthFixture(): SecurityAuthSettings {
     issuer_url: '',
     local_principal: 'local_instance_admin:default',
     mode_summary:
-      'Disabled mode keeps OpenASE in local single-user operation. The current user keeps local highest privilege without browser login or OIDC dependency.',
+      'OIDC is inactive. Browser access on this machine goes through local bootstrap links until you enable OIDC, and the saved OIDC draft remains available for rollout.',
     recommended_mode:
-      'Keep disabled mode for personal or local-only use. Move to OIDC + instance_admin when you need real multi-user browser access control.',
+      'Use local bootstrap for personal or recovery access, and enable OIDC when you need managed multi-user browser login.',
     public_exposure_risk: 'local_only',
     warnings: [
-      'Disabled mode is appropriate for local-only or single-user use on a loopback-bound instance.',
+      'OIDC is inactive on a loopback-bound instance. Use local bootstrap links for browser access, or enable OIDC before sharing the instance.',
     ],
     next_steps: [
-      'You can keep disabled mode for local single-user use with no extra IAM overhead.',
-      'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for multi-user browser login.',
+      'Create a local bootstrap link for administrators who still need browser access on this machine.',
+      'Save draft OIDC settings, test discovery, then enable OIDC only when you are ready for managed multi-user browser login.',
+      'If an OIDC rollout locks you out, run `openase auth break-glass disable-oidc` locally before creating a fresh bootstrap link.',
     ],
     config_path: 'db:instance_auth_configs',
     bootstrap_state: {
@@ -77,19 +78,19 @@ function disabledAdminAuthFixture(): SecurityAuthSettings {
         title: 'Mode selection guide',
         href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/human-auth-oidc-rbac.md',
         summary:
-          'Choose between disabled mode and OIDC, including local-user and instance_admin guidance.',
+          'Plan local bootstrap access, OIDC rollout, and instance_admin bootstrap coverage.',
       },
       {
         title: 'Dual-mode contract',
         href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-dual-mode-contract.md',
         summary:
-          'Read the long-term disabled versus OIDC contract and the explicit enable / rollback flow.',
+          'Read the access-control contract, YAML import behavior, and local recovery paths.',
       },
       {
         title: 'IAM rollout checklist',
         href: 'https://github.com/pacificstudio/openase/blob/main/docs/en/iam-admin-console-rollout.md',
         summary:
-          'Roll out the full IAM console in stages with migration checks, rollback steps, and validation coverage.',
+          'Roll out IAM with validation checks plus a documented break-glass recovery procedure.',
       },
     ],
   }
@@ -143,7 +144,7 @@ describe('Admin auth page', () => {
     disableAdminAuth.mockResolvedValue({
       transition: {
         status: 'disabled',
-        message: 'Disabled mode is configured again.',
+        message: 'OIDC is inactive again.',
         restart_required: false,
         next_steps: ['Keep the saved OIDC draft'],
       },
@@ -189,6 +190,6 @@ describe('Admin auth page', () => {
     await waitFor(() => {
       expect(disableAdminAuth).toHaveBeenCalledTimes(1)
     })
-    expect(await findByText('Disabled mode is configured again.')).toBeTruthy()
+    expect(await findByText('OIDC is inactive again.')).toBeTruthy()
   })
 })

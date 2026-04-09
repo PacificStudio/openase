@@ -252,7 +252,6 @@ func (a *App) RunServe(ctx context.Context) error {
 		a.config.Database.DSN,
 		a.config.Metadata.ConfigFile,
 		homeDir,
-		a.config.Auth,
 	)
 	if err != nil {
 		return fmt.Errorf("construct instance auth service: %w", err)

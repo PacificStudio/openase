@@ -184,24 +184,11 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 				Description: "Provide host, port, database, user, password, and sslmode for an existing database.",
 			},
 		},
-		AuthModes: []AuthModeOption{
-			{
-				ID:          AuthModeDisabled,
-				Name:        "Disable Browser Login",
-				Description: "Use local token auth only and skip OIDC configuration during setup.",
-			},
-			{
-				ID:          AuthModeOIDC,
-				Name:        "Configure OIDC Browser Login",
-				Description: "Set up browser login with an OIDC provider such as Auth0 or Azure Entra ID.",
-			},
-		},
 		Agents: agentOptions,
 		CLI:    cliDiagnostics,
 		Defaults: Defaults{
 			ManualDatabase: defaultRawDatabaseInput(),
 			DockerDatabase: defaultRawDockerDatabaseInput(),
-			Auth:           defaultRawAuthInput(),
 		},
 	}, nil
 }
@@ -280,7 +267,6 @@ func (s *Service) DesktopApply(ctx context.Context, raw RawDesktopApplyRequest) 
 
 	completed, err := s.Complete(ctx, RawCompleteRequest{
 		Database:       prepared.Config.Raw(),
-		Auth:           defaultRawAuthInput(),
 		AllowOverwrite: raw.AllowOverwrite,
 	})
 	if err != nil {
@@ -445,25 +431,6 @@ func (s *Service) writeConfigFile(request CompleteRequest, agents []AgentOption)
 		Level  string `yaml:"level"`
 		Format string `yaml:"format"`
 	}
-	type oidcConfig struct {
-		IssuerURL            string   `yaml:"issuer_url"`
-		ClientID             string   `yaml:"client_id"`
-		ClientSecret         string   `yaml:"client_secret"`
-		RedirectURL          string   `yaml:"redirect_url"`
-		Scopes               []string `yaml:"scopes"`
-		EmailClaim           string   `yaml:"email_claim"`
-		NameClaim            string   `yaml:"name_claim"`
-		UsernameClaim        string   `yaml:"username_claim"`
-		GroupsClaim          string   `yaml:"groups_claim"`
-		AllowedEmailDomains  []string `yaml:"allowed_email_domains"`
-		BootstrapAdminEmails []string `yaml:"bootstrap_admin_emails"`
-		SessionTTL           string   `yaml:"session_ttl"`
-		SessionIdleTTL       string   `yaml:"session_idle_ttl"`
-	}
-	type authConfig struct {
-		Mode AuthModeType `yaml:"mode"`
-		OIDC *oidcConfig  `yaml:"oidc,omitempty"`
-	}
 	type setupConfig struct {
 		OrganizationName string   `yaml:"organization_name"`
 		OrganizationSlug string   `yaml:"organization_slug"`
@@ -473,7 +440,6 @@ func (s *Service) writeConfigFile(request CompleteRequest, agents []AgentOption)
 	}
 	payload := struct {
 		Server        serverConfig        `yaml:"server"`
-		Auth          authConfig          `yaml:"auth"`
 		Database      databaseConfig      `yaml:"database"`
 		Orchestrator  orchestratorConfig  `yaml:"orchestrator"`
 		Event         eventConfig         `yaml:"event"`
@@ -485,9 +451,6 @@ func (s *Service) writeConfigFile(request CompleteRequest, agents []AgentOption)
 			Host: "127.0.0.1",
 			Port: 19836,
 			Mode: "all-in-one",
-		},
-		Auth: authConfig{
-			Mode: request.Auth.Mode,
 		},
 		Database: databaseConfig{
 			DSN: request.Database.DSN(),
@@ -517,23 +480,6 @@ func (s *Service) writeConfigFile(request CompleteRequest, agents []AgentOption)
 			ProjectSlug:      DefaultProjectSlug,
 			Agents:           agentIDs(agents),
 		},
-	}
-	if request.Auth.Mode == AuthModeOIDC && request.Auth.OIDC != nil {
-		payload.Auth.OIDC = &oidcConfig{
-			IssuerURL:            request.Auth.OIDC.IssuerURL,
-			ClientID:             request.Auth.OIDC.ClientID,
-			ClientSecret:         request.Auth.OIDC.ClientSecret,
-			RedirectURL:          request.Auth.OIDC.RedirectURL,
-			Scopes:               append([]string(nil), request.Auth.OIDC.Scopes...),
-			EmailClaim:           "email",
-			NameClaim:            "name",
-			UsernameClaim:        "preferred_username",
-			GroupsClaim:          "groups",
-			AllowedEmailDomains:  append([]string(nil), request.Auth.OIDC.AllowedEmailDomains...),
-			BootstrapAdminEmails: append([]string(nil), request.Auth.OIDC.BootstrapAdminEmails...),
-			SessionTTL:           request.Auth.OIDC.SessionTTL,
-			SessionIdleTTL:       request.Auth.OIDC.SessionIdleTTL,
-		}
 	}
 
 	content, err := yaml.Marshal(payload)

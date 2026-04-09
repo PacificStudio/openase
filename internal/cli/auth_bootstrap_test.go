@@ -9,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
+	accesscontrolrepo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
+	accesscontrolservice "github.com/BetterAndBetterII/openase/internal/service/accesscontrol"
 )
 
 func TestAuthBootstrapCreateLinkOutputsShortLivedAuthorizationURL(t *testing.T) {
@@ -58,12 +62,15 @@ func TestAuthBootstrapCreateLinkOutputsShortLivedAuthorizationURL(t *testing.T) 
 }
 
 func TestAuthBootstrapCreateLinkRejectsActiveOIDC(t *testing.T) {
-	_, dsn := openCLIEntClient(t)
+	client, dsn := openCLIEntClient(t)
+	t.Setenv("OPENASE_DATABASE_DSN", dsn)
+	t.Setenv("OPENASE_SERVER_HOST", "127.0.0.1")
+	t.Setenv("OPENASE_SERVER_PORT", "19836")
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
 	configBody := strings.TrimSpace(`
 database:
-  dsn: ` + dsn + `
+  dsn: "` + dsn + `"
 server:
   host: 127.0.0.1
   port: 19836
@@ -83,11 +90,30 @@ auth:
 	}
 
 	command := newAuthBootstrapCreateLinkCommand(&rootOptions{configFile: configPath})
+	stateSvc, err := accesscontrolservice.New(accesscontrolrepo.NewEntRepository(client), dsn, configPath, "")
+	if err != nil {
+		t.Fatalf("new access control service: %v", err)
+	}
+	now := time.Now().UTC()
+	_, err = stateSvc.Activate(context.Background(), iam.ActiveOIDCConfig{
+		IssuerURL:        "https://idp.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "secret",
+		RedirectMode:     iam.OIDCRedirectModeFixed,
+		FixedRedirectURL: "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		Scopes:           []string{"openid", "profile", "email"},
+		Claims:           iam.DefaultDraftOIDCConfig().Claims,
+		SessionPolicy:    iam.DefaultDraftOIDCConfig().SessionPolicy,
+	}, iam.OIDCActivationMetadata{ActivatedAt: &now, Source: "test"})
+	if err != nil {
+		t.Fatalf("seed active oidc: %v", err)
+	}
+
 	var stdout bytes.Buffer
 	command.SetOut(&stdout)
 	command.SetErr(&stdout)
 
-	err := command.ExecuteContext(context.Background())
+	err = command.ExecuteContext(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "local bootstrap authorization is disabled") {
 		t.Fatalf("expected oidc-active rejection, got %v", err)
 	}

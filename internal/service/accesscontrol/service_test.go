@@ -2,12 +2,13 @@ package accesscontrol
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
-	"github.com/BetterAndBetterII/openase/internal/config"
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
 	repo "github.com/BetterAndBetterII/openase/internal/repo/accesscontrol"
 )
@@ -26,7 +27,7 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 		_ = client.Close()
 	}()
 
-	service, err := New(repo.NewEntRepository(client), "test-cipher-seed", "", "", config.AuthConfig{Mode: config.AuthModeDisabled})
+	service, err := New(repo.NewEntRepository(client), "test-cipher-seed", "", "")
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -145,5 +146,110 @@ func TestServicePersistsAbsentDraftAndActiveStates(t *testing.T) {
 	}
 	if storedDisabled.Status != iam.AccessControlStatusDraft.String() {
 		t.Fatalf("stored disabled status = %q", storedDisabled.Status)
+	}
+}
+
+func TestServiceImportsLegacyYAMLOIDCConfigIntoDBWhenRepositoryIsEmpty(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	defer func() {
+		_ = client.Close()
+	}()
+
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	configBody := strings.TrimSpace(`
+auth:
+  mode: oidc
+  oidc:
+    issuer_url: https://idp.example.com
+    client_id: openase
+    client_secret: legacy-secret
+    redirect_url: http://127.0.0.1:19836/api/v1/auth/oidc/callback
+    scopes: [openid, profile, email]
+    bootstrap_admin_emails: [admin@example.com]
+    session_ttl: 8h
+    session_idle_ttl: 30m
+  last_validation:
+    status: ok
+    message: Imported from legacy YAML
+`)
+	if err := os.WriteFile(configPath, []byte(configBody+"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	service, err := New(repo.NewEntRepository(client), "test-cipher-seed", configPath, "")
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+
+	result, err := service.Read(ctx)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if result.StorageLocation != storageLocationDB {
+		t.Fatalf("storage location = %q, want %q", result.StorageLocation, storageLocationDB)
+	}
+	if result.State.Status != iam.AccessControlStatusActive {
+		t.Fatalf("status = %q, want active", result.State.Status)
+	}
+	if result.State.Validation.Status != "ok" {
+		t.Fatalf("validation.status = %q, want ok", result.State.Validation.Status)
+	}
+
+	stored, err := client.InstanceAuthConfig.Query().Only(ctx)
+	if err != nil {
+		t.Fatalf("query imported record: %v", err)
+	}
+	if stored.Status != iam.AccessControlStatusActive.String() {
+		t.Fatalf("stored status = %q, want active", stored.Status)
+	}
+	if stored.ClientSecretEncrypted == nil || strings.TrimSpace(stored.ClientSecretEncrypted.Ciphertext) == "" {
+		t.Fatalf("expected encrypted imported client secret, got %+v", stored.ClientSecretEncrypted)
+	}
+}
+
+func TestServiceReadsStoredSecretAcrossFreshServiceInstances(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	defer func() {
+		_ = client.Close()
+	}()
+
+	const seed = "shared-seed"
+	first, err := New(repo.NewEntRepository(client), seed, "", "")
+	if err != nil {
+		t.Fatalf("first New() error = %v", err)
+	}
+	now := time.Now().UTC()
+	if _, err := first.Activate(ctx, iam.ActiveOIDCConfig{
+		IssuerURL:        "https://idp.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "super-secret",
+		RedirectMode:     iam.OIDCRedirectModeFixed,
+		FixedRedirectURL: "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		Scopes:           []string{"openid", "profile", "email"},
+		Claims:           iam.DefaultDraftOIDCConfig().Claims,
+		SessionPolicy:    iam.DefaultDraftOIDCConfig().SessionPolicy,
+	}, iam.OIDCActivationMetadata{ActivatedAt: &now, Source: "test"}); err != nil {
+		t.Fatalf("Activate() error = %v", err)
+	}
+
+	second, err := New(repo.NewEntRepository(client), seed, "", "")
+	if err != nil {
+		t.Fatalf("second New() error = %v", err)
+	}
+	result, err := second.Read(ctx)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if result.State.Status != iam.AccessControlStatusActive {
+		t.Fatalf("status = %q, want active", result.State.Status)
+	}
+	if result.State.Active == nil || result.State.Active.ClientSecret != "super-secret" {
+		t.Fatalf("active config = %#v", result.State.Active)
 	}
 }

@@ -89,8 +89,8 @@
         <p class="text-muted-foreground text-sm leading-relaxed">{auth.mode_summary}</p>
         <p class="text-muted-foreground text-xs leading-relaxed">
           Your current local admin principal is <code>{auth.local_principal}</code>. You can keep
-          using disabled mode for personal or local work, or configure OIDC now and enable it only
-          when you want multi-user browser access.
+          using local bootstrap links for personal or recovery access, or configure OIDC now and
+          enable it only when you want managed multi-user browser access.
         </p>
       </div>
 

@@ -115,7 +115,7 @@
       onSecurityChange?.(payload.security)
       oidcEnableResult = null
       toastStore.success(
-        'OIDC draft saved. Disabled mode remains active until you explicitly enable OIDC.',
+        'OIDC draft saved. Local bootstrap remains the browser access path until you explicitly enable OIDC.',
       )
     })
   }

@@ -387,6 +387,38 @@ func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
 	}
 }
 
+func TestLoadIgnoresLegacyAuthParsingFailures(t *testing.T) {
+	clearOpenASEEnv(t)
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	configBody := strings.TrimSpace(`
+server:
+  mode: all-in-one
+  host: 127.0.0.1
+  port: 19836
+database:
+  dsn: postgres://openase:secret@127.0.0.1:5432/openase?sslmode=disable
+auth:
+  mode: definitely-not-supported
+  oidc:
+    scopes:
+      bad: shape
+`)
+	if err := os.WriteFile(configPath, []byte(configBody+"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load(LoadOptions{ConfigFile: configPath})
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Database.DSN == "" {
+		t.Fatalf("expected non-auth config to keep loading, got %+v", cfg)
+	}
+	if cfg.Auth.Mode != "" {
+		t.Fatalf("expected legacy auth parse failure to fall back to zero auth config, got %+v", cfg.Auth)
+	}
+}
+
 func slicesEqual[T comparable](got []T, want []T) bool {
 	if len(got) != len(want) {
 		return false
