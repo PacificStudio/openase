@@ -4513,6 +4513,182 @@ func TestProjectConversationWorkspaceDiffStillFailsForStartedConversationWithout
 	}
 }
 
+func TestProjectConversationWorkspaceBrowser(t *testing.T) {
+	t.Parallel()
+
+	t.Run("metadata tree preview and patch", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name: "backend",
+				files: map[string]string{
+					"README.md":  "line one\nline two\n",
+					"src/app.ts": "export const app = 1\n",
+				},
+			},
+		})
+		writeConversationWorkspaceFile(
+			t,
+			filepath.Join(fixture.repoPaths["backend"], "README.md"),
+			"line one\nline two\nline three\n",
+		)
+		writeConversationWorkspaceFile(
+			t,
+			filepath.Join(fixture.repoPaths["backend"], "notes.txt"),
+			"fresh note\n",
+		)
+
+		metadata, err := fixture.service.GetWorkspaceMetadata(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceMetadata() error = %v", err)
+		}
+		if !metadata.Available || metadata.WorkspacePath != fixture.workspacePath {
+			t.Fatalf("unexpected workspace metadata: %+v", metadata)
+		}
+		if len(metadata.Repos) != 1 {
+			t.Fatalf("expected one repo metadata entry, got %+v", metadata.Repos)
+		}
+		repo := metadata.Repos[0]
+		if repo.Name != "backend" || repo.Path != "backend" || repo.Branch != "main" {
+			t.Fatalf("unexpected repo metadata: %+v", repo)
+		}
+		if !repo.Dirty || repo.FilesChanged != 2 || repo.Added != 2 || repo.Removed != 0 {
+			t.Fatalf("unexpected repo totals: %+v", repo)
+		}
+		if len(repo.HeadCommit) != 12 || strings.TrimSpace(repo.HeadSummary) == "" {
+			t.Fatalf("unexpected repo head fields: %+v", repo)
+		}
+
+		rootTree, err := fixture.service.ListWorkspaceTree(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"",
+		)
+		if err != nil {
+			t.Fatalf("ListWorkspaceTree(root) error = %v", err)
+		}
+		if len(rootTree.Entries) != 3 {
+			t.Fatalf("expected three root entries, got %+v", rootTree.Entries)
+		}
+		if rootTree.Entries[0].Name != "src" || rootTree.Entries[0].Kind != ProjectConversationWorkspaceTreeEntryKindDirectory {
+			t.Fatalf("expected directory-first ordering, got %+v", rootTree.Entries)
+		}
+
+		srcTree, err := fixture.service.ListWorkspaceTree(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"src",
+		)
+		if err != nil {
+			t.Fatalf("ListWorkspaceTree(src) error = %v", err)
+		}
+		if len(srcTree.Entries) != 1 || srcTree.Entries[0].Path != "src/app.ts" {
+			t.Fatalf("unexpected src tree: %+v", srcTree.Entries)
+		}
+
+		preview, err := fixture.service.ReadWorkspaceFilePreview(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"README.md",
+		)
+		if err != nil {
+			t.Fatalf("ReadWorkspaceFilePreview() error = %v", err)
+		}
+		if preview.PreviewKind != ProjectConversationWorkspacePreviewKindText || !strings.Contains(preview.Content, "line three") {
+			t.Fatalf("unexpected file preview: %+v", preview)
+		}
+
+		patch, err := fixture.service.ReadWorkspaceFilePatch(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"README.md",
+		)
+		if err != nil {
+			t.Fatalf("ReadWorkspaceFilePatch(tracked) error = %v", err)
+		}
+		if patch.Status != ProjectConversationWorkspaceFileStatusModified || patch.DiffKind != ProjectConversationWorkspaceDiffKindText || !strings.Contains(patch.Diff, "+line three") {
+			t.Fatalf("unexpected tracked patch: %+v", patch)
+		}
+
+		untrackedPatch, err := fixture.service.ReadWorkspaceFilePatch(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			repo.Path,
+			"notes.txt",
+		)
+		if err != nil {
+			t.Fatalf("ReadWorkspaceFilePatch(untracked) error = %v", err)
+		}
+		if untrackedPatch.Status != ProjectConversationWorkspaceFileStatusUntracked || untrackedPatch.DiffKind != ProjectConversationWorkspaceDiffKindText || !strings.Contains(untrackedPatch.Diff, "+++ ") {
+			t.Fatalf("unexpected untracked patch: %+v", untrackedPatch)
+		}
+	})
+
+	t.Run("scopes access to the repo root", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+		repoPath := fixture.repoPaths["backend"]
+		outsidePath := filepath.Join(t.TempDir(), "outside.txt")
+		writeConversationWorkspaceFile(t, outsidePath, "outside\n")
+		if err := os.Symlink(outsidePath, filepath.Join(repoPath, "outside.txt")); err != nil {
+			t.Fatalf("symlink outside.txt: %v", err)
+		}
+
+		_, err := fixture.service.ListWorkspaceTree(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			"../",
+		)
+		if !errors.Is(err, ErrProjectConversationWorkspacePathInvalid) {
+			t.Fatalf("ListWorkspaceTree(escape) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
+		}
+
+		_, err = fixture.service.ReadWorkspaceFilePreview(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			".git/config",
+		)
+		if !errors.Is(err, ErrProjectConversationWorkspacePathInvalid) {
+			t.Fatalf("ReadWorkspaceFilePreview(.git) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
+		}
+
+		_, err = fixture.service.ReadWorkspaceFilePreview(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"backend",
+			"outside.txt",
+		)
+		if !errors.Is(err, ErrProjectConversationWorkspacePathInvalid) {
+			t.Fatalf("ReadWorkspaceFilePreview(symlink escape) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
+		}
+	})
+}
+
 type fakeProjectConversationCatalog struct {
 	fakeCatalogReader
 	machine    catalogdomain.Machine

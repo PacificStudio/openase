@@ -11,11 +11,15 @@
     workspaceDiff = null,
     loading = false,
     error = '',
+    browserOpen = false,
+    onBrowse,
   }: {
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     loading?: boolean
     error?: string
+    browserOpen?: boolean
+    onBrowse?: () => void
   } = $props()
 
   let expanded = $state(false)
@@ -66,37 +70,52 @@
   <!-- No conversation — hide entirely -->
 {:else}
   <div class="border-border border-b">
-    <button
-      type="button"
-      class="hover:bg-muted/30 flex w-full items-center gap-2 px-3 py-1 text-left text-[11px] transition-colors"
-      onclick={() => {
-        if (hasContent) expanded = !expanded
-      }}
-      disabled={!hasContent}
-    >
-      {#if hasContent}
-        <ChevronRight
-          class={cn(
-            'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
-            expanded && 'rotate-90',
-          )}
-        />
-      {/if}
-
-      <span class="text-muted-foreground">Workspace changes</span>
-
-      {#if loading}
-        <span class="text-muted-foreground/60">Loading...</span>
-      {:else if error}
-        <span class="text-destructive truncate">{error}</span>
-      {:else if workspaceDiff}
-        {#if isDirty}
-          <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
-        {:else}
-          <span class="text-muted-foreground/60">Clean workspace</span>
+    <div class="flex items-center gap-2 px-3 py-1">
+      <button
+        type="button"
+        class="hover:bg-muted/30 flex min-w-0 flex-1 items-center gap-2 rounded-md px-0.5 py-0.5 text-left text-[11px] transition-colors"
+        onclick={() => {
+          if (hasContent) expanded = !expanded
+        }}
+        disabled={!hasContent}
+      >
+        {#if hasContent}
+          <ChevronRight
+            class={cn(
+              'text-muted-foreground size-3 shrink-0 transition-transform duration-150',
+              expanded && 'rotate-90',
+            )}
+          />
         {/if}
+
+        <span class="text-muted-foreground">Workspace changes</span>
+
+        {#if loading}
+          <span class="text-muted-foreground/60">Loading...</span>
+        {:else if error}
+          <span class="text-destructive truncate">{error}</span>
+        {:else if workspaceDiff}
+          {#if isDirty}
+            <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
+          {:else}
+            <span class="text-muted-foreground/60">Clean workspace</span>
+          {/if}
+        {/if}
+      </button>
+
+      {#if conversationId}
+        <button
+          type="button"
+          class="border-border bg-background hover:bg-muted/40 hidden rounded-md border px-2 py-1 text-[11px] font-medium transition-colors lg:inline-flex"
+          onclick={(event) => {
+            event.stopPropagation()
+            onBrowse?.()
+          }}
+        >
+          {browserOpen ? 'Hide browser' : 'Browse'}
+        </button>
       {/if}
-    </button>
+    </div>
 
     {#if expanded && workspaceDiff}
       <div class="border-border border-t text-[11px]">

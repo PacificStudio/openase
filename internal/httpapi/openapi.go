@@ -518,6 +518,76 @@ type OpenAPIProjectConversationWorkspaceDiffResponse struct {
 	WorkspaceDiff OpenAPIProjectConversationWorkspaceDiff `json:"workspace_diff"`
 }
 
+type OpenAPIProjectConversationWorkspaceRepoMetadata struct {
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Branch       string `json:"branch"`
+	HeadCommit   string `json:"head_commit"`
+	HeadSummary  string `json:"head_summary"`
+	Dirty        bool   `json:"dirty"`
+	FilesChanged int    `json:"files_changed"`
+	Added        int    `json:"added"`
+	Removed      int    `json:"removed"`
+}
+
+type OpenAPIProjectConversationWorkspaceMetadata struct {
+	ConversationID string                                            `json:"conversation_id"`
+	Available      bool                                              `json:"available"`
+	WorkspacePath  string                                            `json:"workspace_path"`
+	Repos          []OpenAPIProjectConversationWorkspaceRepoMetadata `json:"repos"`
+}
+
+type OpenAPIProjectConversationWorkspaceMetadataResponse struct {
+	Workspace OpenAPIProjectConversationWorkspaceMetadata `json:"workspace"`
+}
+
+type OpenAPIProjectConversationWorkspaceTreeEntry struct {
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
+type OpenAPIProjectConversationWorkspaceTree struct {
+	ConversationID string                                         `json:"conversation_id"`
+	RepoPath       string                                         `json:"repo_path"`
+	Path           string                                         `json:"path"`
+	Entries        []OpenAPIProjectConversationWorkspaceTreeEntry `json:"entries"`
+}
+
+type OpenAPIProjectConversationWorkspaceTreeResponse struct {
+	WorkspaceTree OpenAPIProjectConversationWorkspaceTree `json:"workspace_tree"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePreview struct {
+	ConversationID string `json:"conversation_id"`
+	RepoPath       string `json:"repo_path"`
+	Path           string `json:"path"`
+	SizeBytes      int64  `json:"size_bytes"`
+	MediaType      string `json:"media_type"`
+	PreviewKind    string `json:"preview_kind"`
+	Truncated      bool   `json:"truncated"`
+	Content        string `json:"content"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePreviewResponse struct {
+	FilePreview OpenAPIProjectConversationWorkspaceFilePreview `json:"file_preview"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePatch struct {
+	ConversationID string `json:"conversation_id"`
+	RepoPath       string `json:"repo_path"`
+	Path           string `json:"path"`
+	Status         string `json:"status"`
+	DiffKind       string `json:"diff_kind"`
+	Truncated      bool   `json:"truncated"`
+	Diff           string `json:"diff"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePatchResponse struct {
+	FilePatch OpenAPIProjectConversationWorkspaceFilePatch `json:"file_patch"`
+}
+
 type OpenAPIProjectConversationTurn struct {
 	ID        string `json:"id"`
 	TurnIndex int    `json:"turn_index"`
@@ -6273,6 +6343,106 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationEntries.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/entries", http.MethodGet, projectConversationEntries)
+
+	projectConversationWorkspace, err := b.jsonOperation(
+		"getProjectConversationWorkspace",
+		"Get project conversation workspace metadata",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceMetadataResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspace.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace", http.MethodGet, projectConversationWorkspace)
+
+	projectConversationWorkspaceTree, err := b.jsonOperation(
+		"listProjectConversationWorkspaceTree",
+		"List one directory from the project conversation workspace tree",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceTreeResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceTree.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceTree.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceTree.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Optional repo-relative directory path to browse. Leave empty for the repo root.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/tree", http.MethodGet, projectConversationWorkspaceTree)
+
+	projectConversationWorkspaceFile, err := b.jsonOperation(
+		"getProjectConversationWorkspaceFile",
+		"Read a project conversation workspace file preview",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceFilePreviewResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceFile.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceFile.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceFile.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Repo-relative file path to preview.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file", http.MethodGet, projectConversationWorkspaceFile)
+
+	projectConversationWorkspaceFilePatch, err := b.jsonOperation(
+		"getProjectConversationWorkspaceFilePatch",
+		"Read one project conversation workspace file diff",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceFilePatchResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceFilePatch.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceFilePatch.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceFilePatch.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Repo-relative file path whose git diff should be loaded.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file-patch", http.MethodGet, projectConversationWorkspaceFilePatch)
 
 	projectConversationWorkspaceDiff, err := b.jsonOperation(
 		"getProjectConversationWorkspaceDiff",
