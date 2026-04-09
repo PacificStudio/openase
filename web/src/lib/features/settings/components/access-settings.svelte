@@ -24,7 +24,6 @@
     formatError,
     type BindingDraft,
   } from './security-settings-human-auth.model'
-
   let accessLoading = $state(false)
   let accessError = $state('')
   let mutationKey = $state('')
