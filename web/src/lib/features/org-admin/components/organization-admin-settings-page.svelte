@@ -3,7 +3,6 @@
   import { OrganizationProvidersSection } from '$lib/features/dashboard'
   import { OrganizationScopedSecretsPanel } from '$lib/features/settings'
   import { appStore } from '$lib/stores/app.svelte'
-  import { Button } from '$ui/button'
 
   let { organizationId }: { organizationId: string } = $props()
 
@@ -19,19 +18,11 @@
 </script>
 
 <div class="space-y-8" data-organization-id={organizationId}>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div class="text-sm font-semibold">Providers</div>
-      <Button variant="outline" size="sm" onclick={() => (showProviderDialog = true)}>
-        Add provider
-      </Button>
-    </div>
-    <OrganizationProvidersSection
-      {providers}
-      defaultProviderId={currentOrg?.default_agent_provider_id ?? null}
-      onAddProvider={() => (showProviderDialog = true)}
-    />
-  </div>
+  <OrganizationProvidersSection
+    {providers}
+    defaultProviderId={currentOrg?.default_agent_provider_id ?? null}
+    onAddProvider={() => (showProviderDialog = true)}
+  />
 
   {#if currentOrg}
     <OrganizationSettingsPanel organization={currentOrg} {providers} />

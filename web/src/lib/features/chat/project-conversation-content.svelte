@@ -59,6 +59,9 @@
   error={workspaceDiffError}
 />
 
-<ScrollArea class="min-h-0 flex-1 px-4 py-4">
+<ScrollArea
+  class="min-h-0 flex-1 px-4 py-4"
+  scrollbarYClasses="data-vertical:w-[3px] data-vertical:pr-0"
+>
   <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
 </ScrollArea>

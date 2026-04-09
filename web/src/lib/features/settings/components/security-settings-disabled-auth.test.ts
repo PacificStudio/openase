@@ -13,7 +13,7 @@ vi.mock('$lib/api/openase', () => ({
   getSecuritySettings,
 }))
 
-describe('Security settings disabled auth migration', () => {
+describe('Security settings disabled auth', () => {
   afterEach(() => {
     cleanup()
     appStore.currentOrg = null
@@ -21,18 +21,13 @@ describe('Security settings disabled auth migration', () => {
     vi.clearAllMocks()
   })
 
-  it('renders migration guidance instead of the legacy auth setup form', async () => {
+  it('does not render the OIDC configuration form in disabled auth mode', async () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: disabledSecurity() })
 
-    const { findByRole, findByText, queryByLabelText } = render(SecuritySettings)
+    const { findByText, queryByLabelText } = render(SecuritySettings)
 
-    expect(await findByText('Migration note')).toBeTruthy()
-    expect(await findByText('Active: disabled')).toBeTruthy()
-    expect(await findByRole('link', { name: 'Open /admin/auth' })).toBeTruthy()
-    expect(await findByRole('link', { name: 'Open org admin' })).toBeTruthy()
-    expect(await findByRole('link', { name: 'Open Settings -> Access' })).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(queryByLabelText('Issuer URL')).toBeNull()
   })

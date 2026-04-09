@@ -1,8 +1,6 @@
 <script lang="ts">
   import type { SecuritySettingsResponse } from '$lib/api/contracts'
-  import { organizationPath } from '$lib/stores/app-context'
-  import { appStore } from '$lib/stores/app.svelte'
-  import { ArrowRight, ShieldCheck } from '@lucide/svelte'
+  import { ShieldCheck } from '@lucide/svelte'
 
   import GitHubCredentialScopeCard from './security-settings-github-scope-card.svelte'
 
@@ -22,12 +20,6 @@
     onAction: (action: 'save' | 'import' | 'retest' | 'delete') => void
     onManualTokenChange: (value: string) => void
   } = $props()
-
-  const orgAdminHref = $derived(
-    appStore.currentOrg?.id
-      ? `${organizationPath(appStore.currentOrg.id)}/admin/credentials`
-      : null,
-  )
 
   const deviceFlowSummary = $derived(
     security.deferred.find((item) => item.key === 'github-device-flow')?.summary ??
@@ -62,15 +54,7 @@
     if (!value) return ''
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return value
-    return parsed.toLocaleString()
-  }
-
-  function orgSlotStatusDot(): string {
-    const slot = security.github.organization
-    if (!slot.configured) return 'bg-slate-300'
-    if (slot.probe.valid) return 'bg-emerald-500'
-    if (slot.probe.state === 'error' || slot.probe.state === 'revoked') return 'bg-rose-500'
-    return 'bg-amber-500'
+    return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
   }
 </script>
 
@@ -81,107 +65,56 @@
   </div>
 
   <!-- Effective credential status bar -->
-  <div class="bg-muted/40 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-4 py-3">
-    <div class="flex items-center gap-2">
-      <span class="text-muted-foreground text-xs font-medium tracking-wide uppercase"
-        >Effective credential</span
-      >
-      <span
-        class={`inline-block size-2 rounded-full ${effectiveStatusDot(security.github.effective)}`}
-      ></span>
-      <span class="text-sm font-medium capitalize">{effectiveLabel(security.github.effective)}</span
-      >
+  <div class="bg-muted/40 rounded-lg px-4 py-3">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div class="flex items-center gap-1.5">
+        <span
+          class={`inline-block size-2 shrink-0 rounded-full ${effectiveStatusDot(security.github.effective)}`}
+        ></span>
+        <span class="text-sm font-medium capitalize"
+          >{effectiveLabel(security.github.effective)}</span
+        >
+      </div>
+      {#if security.github.effective.configured}
+        <span class="text-muted-foreground text-xs">
+          {scopeSourceLabel(security.github.effective)}
+          {#if security.github.effective.source}
+            · {security.github.effective.source.replaceAll('_', ' ')}
+          {/if}
+        </span>
+      {:else}
+        <span class="text-muted-foreground text-xs">No credential configured.</span>
+      {/if}
+      {#if security.github.effective.probe.last_error}
+        <span class="text-destructive text-xs">{security.github.effective.probe.last_error}</span>
+      {/if}
     </div>
     {#if security.github.effective.configured}
-      <span class="text-muted-foreground text-xs">
-        {scopeSourceLabel(security.github.effective)}
-        {#if security.github.effective.source}
-          · {security.github.effective.source.replaceAll('_', ' ')}
+      <div
+        class="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs"
+      >
+        {#if displayLogin(security.github.effective)}
+          <span>{displayLogin(security.github.effective)}</span>
         {/if}
-      </span>
-      {#if displayLogin(security.github.effective)}
-        <span class="text-muted-foreground text-xs"
-          >User {displayLogin(security.github.effective)}</span
-        >
-      {/if}
-      <code class="text-muted-foreground text-xs">{security.github.effective.token_preview}</code>
-      {#if security.github.effective.probe.permissions.length}
-        <span class="text-muted-foreground text-xs"
-          >{security.github.effective.probe.permissions.join(', ')}</span
-        >
-      {/if}
-      {#if formatCheckedAt(security.github.effective.probe.checked_at)}
-        <span class="text-muted-foreground text-xs"
-          >Checked {formatCheckedAt(security.github.effective.probe.checked_at)}</span
-        >
-      {/if}
-    {/if}
-    {#if security.github.effective.probe.last_error}
-      <span class="text-destructive text-xs">{security.github.effective.probe.last_error}</span>
-    {/if}
-  </div>
-
-  <div class="grid gap-4 lg:grid-cols-2">
-    <!-- Org default: read-only reference -->
-    <div class="border-border bg-muted/20 rounded-lg border p-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span class={`inline-block size-2 rounded-full ${orgSlotStatusDot()}`}></span>
-          <span class="text-sm font-medium">Org default</span>
-          <span class="text-muted-foreground text-xs capitalize">
-            {security.github.organization.configured
-              ? security.github.organization.probe.state.replaceAll('_', ' ')
-              : 'Not configured'}
-          </span>
-        </div>
+        <code class="font-mono">{security.github.effective.token_preview}</code>
+        {#if security.github.effective.probe.permissions.length}
+          <span>{security.github.effective.probe.permissions.join(', ')}</span>
+        {/if}
+        {#if formatCheckedAt(security.github.effective.probe.checked_at)}
+          <span>Checked {formatCheckedAt(security.github.effective.probe.checked_at)}</span>
+        {/if}
       </div>
-      {#if security.github.organization.configured}
-        <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-          {#if (security.github.organization.probe as typeof security.github.organization.probe & { login?: string }).login}
-            <div>
-              <span class="text-muted-foreground">User</span>
-              <div>
-                @{(
-                  security.github.organization
-                    .probe as typeof security.github.organization.probe & { login?: string }
-                ).login}
-              </div>
-            </div>
-          {/if}
-          <div>
-            <span class="text-muted-foreground">Token</span>
-            <div class="font-mono">{security.github.organization.token_preview}</div>
-          </div>
-          {#if security.github.organization.probe.permissions.length}
-            <div class="col-span-2">
-              <span class="text-muted-foreground">Permissions</span>
-              <div>{security.github.organization.probe.permissions.join(', ')}</div>
-            </div>
-          {/if}
-        </div>
-      {:else}
-        <p class="text-muted-foreground mt-2 text-xs">No org default configured.</p>
-      {/if}
-      {#if orgAdminHref}
-        <a
-          href={orgAdminHref}
-          class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300"
-        >
-          Manage in org admin <ArrowRight class="size-3" />
-        </a>
-      {/if}
-    </div>
-
-    <!-- Project override: full edit card -->
-    <GitHubCredentialScopeCard
-      slot={security.github.project_override}
-      tokenValue={manualToken}
-      {actionKey}
-      organizationConfigured={security.github.organization.configured}
-      {onAction}
-      onTokenChange={onManualTokenChange}
-    />
+    {/if}
   </div>
+
+  <GitHubCredentialScopeCard
+    slot={security.github.project_override}
+    tokenValue={manualToken}
+    {actionKey}
+    organizationConfigured={security.github.organization.configured}
+    {onAction}
+    onTokenChange={onManualTokenChange}
+  />
 
   <p class="text-muted-foreground text-xs">
     <span class="font-medium">Device Flow</span> — {deviceFlowSummary}

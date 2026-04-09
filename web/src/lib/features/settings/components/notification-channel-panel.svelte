@@ -2,6 +2,7 @@
   import type { NotificationChannel } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { Switch } from '$ui/switch'
   import {
     buildCreateChannelInput,
@@ -33,8 +34,9 @@
   } = $props()
 
   let editingChannel = $state<NotificationChannel | null>(null)
-  let creatingNew = $state(false)
   let draft = $state<ChannelDraft>(createChannelDraft())
+  let dialogOpen = $state(false)
+  let confirmDeleteOpen = $state(false)
   let saving = $state(false)
   let deleting = $state(false)
   let testing = $state(false)
@@ -42,19 +44,20 @@
 
   function openNew() {
     editingChannel = null
-    creatingNew = true
     draft = createChannelDraft()
+    dialogOpen = true
   }
 
   function openEdit(channel: NotificationChannel) {
     editingChannel = channel
-    creatingNew = true
     draft = channelDraftFromRecord(channel)
+    dialogOpen = true
   }
 
-  function closeEditor() {
+  function closeDialog() {
+    if (saving || deleting) return
+    dialogOpen = false
     editingChannel = null
-    creatingNew = false
   }
 
   async function handleSave() {
@@ -68,12 +71,12 @@
         toastStore.info('No channel changes to save.')
         return
       }
-
       saving = true
       try {
         await onUpdate(editingChannel.id, parsed.value.value)
         toastStore.success('Channel updated.')
-        closeEditor()
+        dialogOpen = false
+        editingChannel = null
       } catch (caughtError) {
         toastStore.error(actionErrorMessage(caughtError, 'Failed to update channel.'))
       } finally {
@@ -87,12 +90,11 @@
       toastStore.error(parsed.error)
       return
     }
-
     saving = true
     try {
       await onCreate(parsed.value)
       toastStore.success('Channel created.')
-      closeEditor()
+      dialogOpen = false
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to create channel.'))
     } finally {
@@ -102,13 +104,13 @@
 
   async function handleDelete() {
     if (!editingChannel) return
-    if (!window.confirm(`Delete channel "${editingChannel.name}"?`)) return
-
     deleting = true
     try {
       await onDelete(editingChannel.id)
       toastStore.success('Channel deleted.')
-      closeEditor()
+      dialogOpen = false
+      confirmDeleteOpen = false
+      editingChannel = null
     } catch (caughtError) {
       toastStore.error(actionErrorMessage(caughtError, 'Failed to delete channel.'))
     } finally {
@@ -159,7 +161,7 @@
     <Button variant="outline" size="sm" onclick={openNew}>Add channel</Button>
   </div>
 
-  {#if channels.length === 0 && !creatingNew}
+  {#if channels.length === 0}
     <div
       class="border-border bg-muted/30 flex flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center"
     >
@@ -183,14 +185,10 @@
       </p>
       <Button variant="outline" size="sm" class="mt-2" onclick={openNew}>Add channel</Button>
     </div>
-  {/if}
-
-  {#if channels.length > 0}
+  {:else}
     <div class="grid gap-3 sm:grid-cols-2">
       {#each channels as channel (channel.id)}
-        <div
-          class="border-border bg-card group hover:border-border rounded-lg border px-4 py-3 transition-colors"
-        >
+        <div class="border-border bg-card rounded-lg border px-4 py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
@@ -225,35 +223,83 @@
               disabled={testing}
               onclick={() => handleTest(channel)}
             >
-              {testing ? 'Sending...' : 'Send test'}
+              {testing ? 'Sending…' : 'Send test'}
             </Button>
           </div>
         </div>
       {/each}
     </div>
   {/if}
+</div>
 
-  {#if creatingNew}
-    <div class="border-border bg-card rounded-lg border">
-      <div class="border-border/50 flex items-center justify-between border-b px-5 py-3">
-        <h4 class="text-sm font-medium">
-          {editingChannel ? `Edit: ${editingChannel.name}` : 'New channel'}
-        </h4>
-        <Button variant="ghost" size="sm" class="h-7 px-2 text-xs" onclick={closeEditor}>
-          Cancel
-        </Button>
-      </div>
+<!-- Channel create / edit dialog -->
+<Dialog.Root
+  bind:open={dialogOpen}
+  onOpenChange={(open) => {
+    if (!open) closeDialog()
+  }}
+>
+  <Dialog.Content class="sm:max-w-lg">
+    <Dialog.Header>
+      <Dialog.Title>{editingChannel ? 'Edit channel' : 'New channel'}</Dialog.Title>
+      {#if editingChannel}
+        <Dialog.Description>{editingChannel.name}</Dialog.Description>
+      {:else}
+        <Dialog.Description>Configure a new notification delivery endpoint.</Dialog.Description>
+      {/if}
+    </Dialog.Header>
+
+    <div class="overflow-y-auto">
       <NotificationChannelEditor
         {draft}
         selectedChannel={editingChannel}
-        {saving}
-        {deleting}
         onDraftChange={(nextDraft) => {
           draft = nextDraft
         }}
-        onSave={handleSave}
-        onDelete={handleDelete}
       />
     </div>
-  {/if}
-</div>
+
+    <Dialog.Footer>
+      {#if editingChannel}
+        <Button
+          variant="destructive"
+          onclick={() => (confirmDeleteOpen = true)}
+          disabled={saving || deleting}
+          class="mr-auto"
+        >
+          Delete
+        </Button>
+      {/if}
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={saving || deleting}>Cancel</Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button onclick={handleSave} disabled={saving || deleting}>
+        {saving ? 'Saving…' : editingChannel ? 'Save changes' : 'Create channel'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
+
+<!-- Delete confirmation dialog -->
+<Dialog.Root bind:open={confirmDeleteOpen}>
+  <Dialog.Content class="sm:max-w-sm">
+    <Dialog.Header>
+      <Dialog.Title>Delete {editingChannel?.name}?</Dialog.Title>
+      <Dialog.Description>
+        This removes the channel and any rules that route to it. This cannot be undone.
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={deleting}>Cancel</Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button variant="destructive" onclick={handleDelete} disabled={deleting}>
+        {deleting ? 'Deleting…' : 'Delete channel'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>
