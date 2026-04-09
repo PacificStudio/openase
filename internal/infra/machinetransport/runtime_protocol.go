@@ -513,7 +513,7 @@ func (s *runtimeProtocolServer) handleWorkspacePrepare(ctx context.Context, enve
 			RunID:     payload.RunID,
 			TicketID:  payload.TicketID,
 		},
-		Repos:            make([]workspaceinfra.RepoInput, 0, len(payload.Repos)),
+		Repos: make([]workspaceinfra.RepoInput, 0, len(payload.Repos)),
 	}
 	for _, repo := range payload.Repos {
 		item := workspaceinfra.RepoInput{

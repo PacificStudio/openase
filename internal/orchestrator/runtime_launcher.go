@@ -52,20 +52,20 @@ const (
 var errExplicitRepoScopeRequired = errors.New("explicit repo scope required for multi-repo project")
 
 type RuntimeLauncher struct {
-	client         *ent.Client
-	logger         *slog.Logger
-	events         provider.EventProvider
-	processManager provider.AgentCLIProcessManager
-	sshPool        *sshinfra.Pool
-	transports     *machinetransport.Resolver
-	workflow       *workflowservice.Service
-	agentPlatform  runtimeAgentPlatform
-	platformAPIURL string
-	githubAuth     githubauthservice.TokenResolver
-	secretResolver runtimesecretenv.Resolver
-	secretManager  runtimeSecretManager
-	metrics        provider.MetricsProvider
-	now            func() time.Time
+	client                   *ent.Client
+	logger                   *slog.Logger
+	events                   provider.EventProvider
+	processManager           provider.AgentCLIProcessManager
+	sshPool                  *sshinfra.Pool
+	transports               *machinetransport.Resolver
+	workflow                 *workflowservice.Service
+	agentPlatform            runtimeAgentPlatform
+	platformAPIURL           string
+	githubAuth               githubauthservice.TokenResolver
+	secretResolver           runtimesecretenv.Resolver
+	secretManager            runtimeSecretManager
+	metrics                  provider.MetricsProvider
+	now                      func() time.Time
 	workspacePrepareTimeout  time.Duration
 	agentSessionStartTimeout time.Duration
 	eventTimeout             time.Duration
@@ -113,24 +113,24 @@ func NewRuntimeLauncher(
 	}
 
 	launcher := &RuntimeLauncher{
-		client:         client,
-		logger:         logger.With("component", "runtime-launcher"),
-		events:         events,
-		processManager: processManager,
-		sshPool:        sshPool,
-		transports:     machinetransport.NewResolver(processManager, sshPool),
-		workflow:       workflow,
-		metrics:        provider.NewNoopMetricsProvider(),
-		now:            time.Now,
+		client:                   client,
+		logger:                   logger.With("component", "runtime-launcher"),
+		events:                   events,
+		processManager:           processManager,
+		sshPool:                  sshPool,
+		transports:               machinetransport.NewResolver(processManager, sshPool),
+		workflow:                 workflow,
+		metrics:                  provider.NewNoopMetricsProvider(),
+		now:                      time.Now,
 		workspacePrepareTimeout:  defaultWorkspacePrepareTimeout,
 		agentSessionStartTimeout: defaultAgentSessionStartTimeout,
 		eventTimeout:             defaultLifecyclePublishTimeout,
-		sessions:       newRuntimeSessionRegistry(),
-		launches:       newRuntimeRunTracker(),
-		executions:     newRuntimeRunTracker(),
-		adapters:       newDefaultAgentAdapterRegistry(),
-		runtime:        NewRuntimeStateStore(),
-		tickets:        ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		sessions:                 newRuntimeSessionRegistry(),
+		launches:                 newRuntimeRunTracker(),
+		executions:               newRuntimeRunTracker(),
+		adapters:                 newDefaultAgentAdapterRegistry(),
+		runtime:                  NewRuntimeStateStore(),
+		tickets:                  ticketservice.NewService(ticketrepo.NewEntRepository(client)),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	launcher.tickets.ConfigureTransportResolver(launcher.transports)

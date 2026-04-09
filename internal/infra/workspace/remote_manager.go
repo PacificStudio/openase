@@ -188,40 +188,40 @@ func buildPrepareWorkspaceCommand(request SetupRequest) (string, error) {
 			return "", err
 		}
 		lines = append(lines,
-			buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "repo_prepare_begin", "0", "", ""),
+			buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "repo_prepare_begin", "0", ""),
 			"mkdir -p "+sshinfra.ShellQuote(filepath.Dir(repoPath)),
 			"if [ -e "+sshinfra.ShellQuote(repoPath)+" ] && [ ! -d "+sshinfra.ShellQuote(filepath.Join(repoPath, ".git"))+" ]; then echo "+sshinfra.ShellQuote("repository path "+repoPath+" is not a git clone")+" >&2; exit 1; fi",
 			"repo_prepare_started_ms=$(date +%s%3N)",
 		)
 		if repo.HTTPBasicAuth != nil {
-			lines = append(lines, buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "auth_inject", "0", "configured", ""))
+			lines = append(lines, buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "auth_inject", "0", "configured"))
 		}
 		lines = append(lines,
 			"if [ ! -e "+sshinfra.ShellQuote(repoPath)+" ]; then "+
 				"phase_started_ms=$(date +%s%3N); "+
 				cloneCommand+"; "+
 				"phase_duration_ms=$(($(date +%s%3N)-phase_started_ms)); "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "clone_or_open", "$phase_duration_ms", "clone", "")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "clone_or_open", "$phase_duration_ms", "clone")+"; "+
 				"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin); "+
 				"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi; "+
 				"phase_started_ms=$(date +%s%3N); "+
 				fetchCommand+"; "+
 				"phase_duration_ms=$(($(date +%s%3N)-phase_started_ms)); "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "fetch", "$phase_duration_ms", "", "")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "fetch", "$phase_duration_ms", "")+"; "+
 				"git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+" >/dev/null; "+
 				"phase_started_ms=$(date +%s%3N); "+
 				"if git -C "+sshinfra.ShellQuote(repoPath)+" rev-parse --verify "+sshinfra.ShellQuote("origin/"+repo.BranchName)+" >/dev/null 2>&1; then git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.BranchName)+"; else git -C "+sshinfra.ShellQuote(repoPath)+" checkout -B "+sshinfra.ShellQuote(repo.BranchName)+" "+sshinfra.ShellQuote("origin/"+repo.DefaultBranch)+"; fi; "+
 				"phase_duration_ms=$(($(date +%s%3N)-phase_started_ms)); "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "checkout_reset", "$phase_duration_ms", "", "")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "checkout_reset", "$phase_duration_ms", "")+"; "+
 				"else "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "clone_or_open", "0", "open_existing", "")+"; "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "fetch", "0", "skipped_existing_clone", "")+"; "+
-				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "checkout_reset", "0", "skipped_existing_clone", "")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "clone_or_open", "0", "open_existing")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "fetch", "0", "skipped_existing_clone")+"; "+
+				buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "checkout_reset", "0", "skipped_existing_clone")+"; "+
 				"fi",
 			"actual_origin=$(git -C "+sshinfra.ShellQuote(repoPath)+" remote get-url origin)",
 			"if [ \"$actual_origin\" != "+sshinfra.ShellQuote(repo.RepositoryURL)+" ]; then echo "+sshinfra.ShellQuote("origin remote URL mismatch")+" >&2; exit 1; fi",
 			"repo_prepare_duration_ms=$(($(date +%s%3N)-repo_prepare_started_ms))",
-			buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "repo_prepare_done", "$repo_prepare_duration_ms", "", ""),
+			buildRemotePreparePhaseEmitCommand(request.Observability, repo.Name, repoPath, "repo_prepare_done", "$repo_prepare_duration_ms", ""),
 		)
 	}
 
@@ -235,12 +235,11 @@ func buildRemotePreparePhaseEmitCommand(
 	phase string,
 	durationExpr string,
 	phaseResult string,
-	note string,
 ) string {
 	if strings.TrimSpace(durationExpr) == "" {
 		durationExpr = "0"
 	}
-	return "printf '%s|%s|%s|%s|%s|%s|%s|%s|%s\\n' " +
+	return "printf '%s|%s|%s|%s|%s|%s|%s|%s\\n' " +
 		sshinfra.ShellQuote(strings.TrimSuffix(remotePreparePhasePrefix, "|")) + " " +
 		sshinfra.ShellQuote(strings.TrimSpace(observability.MachineID)) + " " +
 		sshinfra.ShellQuote(strings.TrimSpace(observability.RunID)) + " " +
@@ -249,8 +248,7 @@ func buildRemotePreparePhaseEmitCommand(
 		sshinfra.ShellQuote(strings.TrimSpace(repoPath)) + " " +
 		sshinfra.ShellQuote(strings.TrimSpace(phase)) + " " +
 		durationExpr + " " +
-		sshinfra.ShellQuote(strings.TrimSpace(phaseResult)) + " " +
-		sshinfra.ShellQuote(strings.TrimSpace(note))
+		sshinfra.ShellQuote(strings.TrimSpace(phaseResult))
 }
 
 func buildRemoteGitCommand(repo RepoRequest, args ...string) (string, error) {

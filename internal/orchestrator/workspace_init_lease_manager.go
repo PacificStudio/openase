@@ -214,10 +214,10 @@ func (h *workspaceInitLeaseHandle) Release(ctx context.Context) error {
 }
 
 func (h *workspaceInitLeaseHandle) runHeartbeat() {
-	defer close(h.done)
 	if h == nil || h.manager == nil || h.manager.repo == nil {
 		return
 	}
+	defer close(h.done)
 
 	interval := h.manager.heartbeatInterval
 	if interval <= 0 {
@@ -232,7 +232,7 @@ func (h *workspaceInitLeaseHandle) runHeartbeat() {
 			return
 		case <-ticker.C:
 			now := h.manager.currentTime()
-			renewCtx, cancel := context.WithTimeout(context.Background(), interval)
+			renewCtx, cancel := context.WithTimeout(context.WithoutCancel(h.ctx), interval)
 			ok, err := h.manager.repo.Renew(renewCtx, workspaceinitleaserepo.RenewInput{
 				LeaseKey:       h.leaseKey,
 				OwnerRunID:     h.ownerRunID,
