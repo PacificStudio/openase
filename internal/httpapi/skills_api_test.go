@@ -243,6 +243,9 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	if !platformSkill.IsBuiltin {
 		t.Fatalf("expected openase-platform to be marked as built-in, got %+v", platformSkill)
 	}
+	if len(platformSkill.BoundWorkflows) != 1 || platformSkill.BoundWorkflows[0].Name != "Coding Workflow" {
+		t.Fatalf("expected openase-platform to stay bound to Coding Workflow, got %+v", platformSkill)
+	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
@@ -334,6 +337,17 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		t.Fatalf("expected unbind to preserve pure harness body, got %q", unbindResp.Harness.Content)
 	}
 
+	requiredUnbindRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/workflows/%s/skills/unbind", createdWorkflow.ID),
+		`{"skills":["openase-platform"]}`,
+	)
+	if requiredUnbindRec.Code != http.StatusBadRequest || !strings.Contains(requiredUnbindRec.Body.String(), "INVALID_SKILL") {
+		t.Fatalf("expected required skill unbind to fail, got %d %s", requiredUnbindRec.Code, requiredUnbindRec.Body.String())
+	}
+
 	listAfterResp := struct {
 		Skills []skillResponse `json:"skills"`
 	}{}
@@ -350,6 +364,12 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		t.Fatalf("expected %d skills after deprecated harvest attempt, got %+v", len(builtin.Skills()), listAfterResp.Skills)
 	}
 	for _, item := range listAfterResp.Skills {
+		if item.Name == "openase-platform" {
+			if len(item.BoundWorkflows) != 1 || item.BoundWorkflows[0].Name != "Coding Workflow" {
+				t.Fatalf("expected openase-platform to remain required, got %+v", item)
+			}
+			continue
+		}
 		if len(item.BoundWorkflows) != 0 {
 			t.Fatalf("expected %s to have no bound workflows, got %+v", item.Name, item.BoundWorkflows)
 		}

@@ -227,6 +227,10 @@ export async function handleToggleWorkflowSkill(
   skill: SkillState,
 ) {
   if (!state.selectedId) return
+  if (skill.required) {
+    toastStore.info(skill.lockReason || `${skill.name} is required for workflow runtimes.`)
+    return
+  }
   if (state.isDirty) {
     toastStore.warning('Please save your harness changes before binding or unbinding skills.')
     return
