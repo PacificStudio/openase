@@ -1,28 +1,16 @@
 import { ApiError } from '$lib/api/client'
-import {
-  createProjectUpdateComment,
-  createProjectUpdateThread,
-  deleteProjectUpdateComment,
-  deleteProjectUpdateThread,
-  listProjectUpdates,
-  updateProjectUpdateComment,
-  updateProjectUpdateThread,
-} from '$lib/api/openase'
+import { listProjectUpdates } from '$lib/api/openase'
 import { isProjectUpdateEvent, subscribeProjectEvents } from '$lib/features/project-events'
 import { toastStore } from '$lib/stores/toast.svelte'
 import { mergeProjectUpdateThreads, parseProjectUpdatePage } from './model'
 import {
-  markProjectUpdatesCacheDirty,
-  readProjectUpdatesCache,
-  writeProjectUpdatesCache,
-} from './project-updates-cache'
+  defaultThreadPageLimit,
+  persistProjectUpdatesSnapshot,
+  type LoadProjectUpdatesOptions,
+} from './project-updates-controller-helpers'
+import { createProjectUpdateMutationHandlers } from './project-updates-controller-mutations'
+import { markProjectUpdatesCacheDirty, readProjectUpdatesCache } from './project-updates-cache'
 import type { ProjectUpdateStatus, ProjectUpdateThread } from './types'
-
-const defaultThreadPageLimit = 10
-
-type LoadProjectUpdatesOptions = {
-  showLoading?: boolean
-}
 
 type CreateProjectUpdatesControllerInput = {
   getProjectId: () => string
@@ -111,7 +99,12 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
         nextCursor = page.nextCursor
       }
       initialLoaded = true
-      writeSnapshot(projectId)
+      persistProjectUpdatesSnapshot(projectId, {
+        threads,
+        nextCursor,
+        hasMoreThreads,
+        loadedMorePages,
+      })
     } catch (caughtError) {
       if (version !== requestVersion || activeProjectId !== projectId) {
         return
@@ -145,7 +138,12 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
       hasMoreThreads = page.hasMore
       nextCursor = page.nextCursor
       loadedMorePages = true
-      writeSnapshot(projectId)
+      persistProjectUpdatesSnapshot(projectId, {
+        threads,
+        nextCursor,
+        hasMoreThreads,
+        loadedMorePages,
+      })
       return true
     } catch (caughtError) {
       if (activeProjectId === projectId) {
@@ -183,136 +181,21 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
     }
   }
 
-  async function handleCreateThread(draft: { status: ProjectUpdateStatus; body: string }) {
-    const projectId = input.getProjectId()
-    if (!projectId || creatingThread) {
-      return false
-    }
-
-    creatingThread = true
-
-    try {
-      await createProjectUpdateThread(projectId, draft)
-      toastStore.success('Update posted.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to post update.',
-      )
-      return false
-    } finally {
-      creatingThread = false
-    }
-  }
-
-  async function handleSaveThread(
-    threadId: string,
-    draft: { status: ProjectUpdateStatus; body: string },
-  ) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-    try {
-      await updateProjectUpdateThread(projectId, threadId, draft)
-      toastStore.success('Update edited.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit update.',
-      )
-      return false
-    }
-  }
-
-  async function handleDeleteThread(threadId: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await deleteProjectUpdateThread(projectId, threadId)
-      toastStore.success('Update deleted.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete update.',
-      )
-      await refreshLatestThreads(projectId)
-      return false
-    }
-  }
-
-  async function handleCreateComment(threadId: string, body: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await createProjectUpdateComment(projectId, threadId, { body })
-      toastStore.success('Comment added.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to add comment.',
-      )
-      return false
-    }
-  }
-
-  async function handleSaveComment(threadId: string, commentId: string, body: string) {
-    const projectId = input.getProjectId()
-    if (!projectId || !body) {
-      return false
-    }
-
-    try {
-      await updateProjectUpdateComment(projectId, threadId, commentId, { body })
-      toastStore.success('Comment edited.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to edit comment.',
-      )
-      return false
-    }
-  }
-
-  async function handleDeleteComment(threadId: string, commentId: string) {
-    const projectId = input.getProjectId()
-    if (!projectId) {
-      return false
-    }
-
-    try {
-      await deleteProjectUpdateComment(projectId, threadId, commentId)
-      toastStore.success('Comment deleted.')
-      await refreshLatestThreads(projectId)
-      return true
-    } catch (caughtError) {
-      toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete comment.',
-      )
-      await refreshLatestThreads(projectId)
-      return false
-    }
-  }
-
-  function writeSnapshot(projectId: string) {
-    writeProjectUpdatesCache(projectId, {
-      threads,
-      nextCursor,
-      hasMoreThreads,
-      loadedMorePages,
-    })
-  }
+  const {
+    handleCreateThread,
+    handleSaveThread,
+    handleDeleteThread,
+    handleCreateComment,
+    handleSaveComment,
+    handleDeleteComment,
+  } = createProjectUpdateMutationHandlers({
+    getProjectId: input.getProjectId,
+    isCreatingThread: () => creatingThread,
+    setCreatingThread: (value) => {
+      creatingThread = value
+    },
+    refreshLatestThreads,
+  })
 
   return {
     get threads() {
