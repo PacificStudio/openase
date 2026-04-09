@@ -164,8 +164,8 @@ func newSignedOIDCProviderServer(t *testing.T, audience string, email string) *s
 						"kid": "test-key",
 						"use": "sig",
 						"alg": "RS256",
-						"n":   base64.RawURLEncoding.EncodeToString(provider.key.PublicKey.N.Bytes()),
-						"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(provider.key.PublicKey.E)).Bytes()),
+						"n":   base64.RawURLEncoding.EncodeToString(provider.key.N.Bytes()),
+						"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(provider.key.E)).Bytes()),
 					},
 				},
 			})
