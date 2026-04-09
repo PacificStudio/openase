@@ -82,6 +82,7 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 
 	client, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
 	repository := humanauthrepo.NewEntRepository(client)
+	humanAuthSvc := humanauthservice.NewService(repository, nil, instanceAuthSvc)
 	server := NewServer(
 		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
 		config.GitHubConfig{},
@@ -94,7 +95,7 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 		nil,
 		WithRuntimeConfigFile(configPath),
 		WithInstanceAuthService(instanceAuthSvc),
-		WithHumanAuthService(humanauthservice.NewService(repository, nil, instanceAuthSvc), humanauthservice.NewAuthorizer(repository)),
+		WithHumanAuthService(humanAuthSvc, humanauthservice.NewAuthorizer(repository)),
 	)
 
 	startDisabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)
@@ -104,12 +105,41 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 		t.Fatalf("initial oidc start status = %d, want 404", startDisabledRec.Code)
 	}
 
+	issued, err := humanAuthSvc.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "test:auth-api",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+
+	redeemRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeemRec.Code != http.StatusOK {
+		t.Fatalf("redeem local bootstrap status = %d: %s", redeemRec.Code, redeemRec.Body.String())
+	}
+	var redeemSession authSessionResponse
+	decodeResponse(t, redeemRec, &redeemSession)
+	cookies := redeemRec.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != humanSessionCookieName || cookies[0].Value == "" {
+		t.Fatalf("expected local bootstrap session cookie, got %#v", cookies)
+	}
+
 	enableReq := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/auth/oidc-enable",
 		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	enableReq.Header.Set("Content-Type", "application/json")
+	enableReq.Header.Set("Origin", "http://example.com")
+	enableReq.Header.Set(csrfHeaderName, redeemSession.CSRFToken)
+	enableReq.AddCookie(cookies[0])
 	enableRec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(enableRec, enableReq)
 	if enableRec.Code != http.StatusOK {
@@ -137,6 +167,10 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 	}
 	if enabledSession.PrincipalKind != "anonymous" {
 		t.Fatalf("enabled principal_kind = %q, want anonymous", enabledSession.PrincipalKind)
+	}
+	assertStringSet(t, enabledSession.AvailableAuthMethods, "oidc")
+	if enabledSession.CurrentAuthMethod != "oidc" {
+		t.Fatalf("enabled current_auth_method = %q, want oidc", enabledSession.CurrentAuthMethod)
 	}
 	if !enabledSession.AuthConfigured {
 		t.Fatal("enabled auth_configured = false, want true")
@@ -189,14 +223,18 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 	if disabledSession.AuthMode != "disabled" {
 		t.Fatalf("disabled auth_mode = %q, want disabled", disabledSession.AuthMode)
 	}
-	if disabledSession.LoginRequired {
-		t.Fatal("disabled login_required = true, want false")
+	if !disabledSession.LoginRequired {
+		t.Fatal("disabled login_required = false, want true")
 	}
-	if !disabledSession.Authenticated {
-		t.Fatal("disabled authenticated = false, want true")
+	if disabledSession.Authenticated {
+		t.Fatal("disabled authenticated = true, want false")
 	}
-	if disabledSession.PrincipalKind != "local_bootstrap" {
-		t.Fatalf("disabled principal_kind = %q, want local_bootstrap", disabledSession.PrincipalKind)
+	if disabledSession.PrincipalKind != "anonymous" {
+		t.Fatalf("disabled principal_kind = %q, want anonymous", disabledSession.PrincipalKind)
+	}
+	assertStringSet(t, disabledSession.AvailableAuthMethods, "local_bootstrap_link")
+	if disabledSession.CurrentAuthMethod != "local_bootstrap_link" {
+		t.Fatalf("disabled current_auth_method = %q, want local_bootstrap_link", disabledSession.CurrentAuthMethod)
 	}
 	if disabledSession.AuthConfigured {
 		t.Fatal("disabled auth_configured = true, want false")
@@ -204,14 +242,11 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 	if disabledSession.SessionGovernanceAvailable {
 		t.Fatal("disabled session_governance_available = true, want false")
 	}
-	if !disabledSession.CanManageAuth {
-		t.Fatal("disabled can_manage_auth = false, want true")
+	if disabledSession.CanManageAuth {
+		t.Fatal("disabled can_manage_auth = true, want false")
 	}
-	assertStringSet(t, disabledSession.Roles, "instance_admin")
-	for _, permission := range []string{"security_setting.read", "security_setting.update"} {
-		if !slices.Contains(disabledSession.Permissions, permission) {
-			t.Fatalf("disabled permissions missing %q in %+v", permission, disabledSession.Permissions)
-		}
+	if len(disabledSession.Roles) != 0 || len(disabledSession.Permissions) != 0 {
+		t.Fatalf("expected disabled anonymous session to have no grants, got %+v", disabledSession)
 	}
 
 	startDisabledAgainReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start", http.NoBody)

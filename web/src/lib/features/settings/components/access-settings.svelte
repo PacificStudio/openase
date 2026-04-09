@@ -24,6 +24,7 @@
     formatError,
     type BindingDraft,
   } from './security-settings-human-auth.model'
+
   let accessLoading = $state(false)
   let accessError = $state('')
   let mutationKey = $state('')
@@ -50,7 +51,7 @@
 
   $effect(() => {
     const projectId = currentProjectId
-    if (!authStore.loginRequired || !authStore.authenticated || !projectId) {
+    if (!authStore.usesOIDC || !authStore.authenticated || !projectId) {
       accessLoading = false
       accessError = ''
       projectPermissions = null
@@ -147,7 +148,7 @@
       control planes.
     </p>
   </div>
-  {#if !authStore.loginRequired}
+  {#if authStore.usesLocalBootstrap}
     <AccessSettingsDisabledCard />
   {:else if !authStore.authenticated}
     <SecuritySettingsHumanAuthSignInHint />

@@ -370,6 +370,8 @@ func (s *Server) handleGetMyPermissions(c echo.Context) error {
 		"login_required":               authContext.LoginRequired,
 		"authenticated":                authContext.Authenticated,
 		"principal_kind":               string(authContext.PrincipalKind),
+		"available_auth_methods":       authMethodCapabilitiesToStrings(authContext.AvailableAuthMethods),
+		"current_auth_method":          string(authContext.CurrentAuthMethod),
 		"auth_configured":              authContext.AuthConfigured,
 		"session_governance_available": authContext.SessionGovernanceAvailable,
 		"can_manage_auth":              authContext.CanManageAuth,

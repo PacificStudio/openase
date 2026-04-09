@@ -109,7 +109,7 @@ describe('Admin auth page', () => {
 
     expect(await findByText('Instance scope')).toBeTruthy()
     expect(await findByText('Last validation diagnostics')).toBeTruthy()
-    expect(await findByText('OIDC configuration')).toBeTruthy()
+    expect(await findByText('Draft, validation, and activation')).toBeTruthy()
     expect(await findByLabelText('Issuer URL')).toBeTruthy()
     expect(await findByText('8h0m0s')).toBeTruthy()
     expect(await findByText('Source of truth')).toBeTruthy()
@@ -150,7 +150,7 @@ describe('Admin auth page', () => {
       auth: disabledAdminAuthFixture(),
     })
 
-    const { findByLabelText, findByRole, findByText } = render(AdminAuthPage)
+    const { findAllByText, findByLabelText, findByRole, findByText } = render(AdminAuthPage)
 
     await fireEvent.input(await findByLabelText('Issuer URL'), {
       target: { value: 'https://idp.example.com' },
@@ -158,7 +158,7 @@ describe('Admin auth page', () => {
     await fireEvent.input(await findByLabelText('Client ID'), {
       target: { value: 'openase' },
     })
-    await fireEvent.click(await findByRole('button', { name: 'Save configuration' }))
+    await fireEvent.click(await findByRole('button', { name: 'Save draft' }))
 
     await waitFor(() => {
       expect(saveAdminOIDCDraft).toHaveBeenCalledWith({
@@ -173,19 +173,19 @@ describe('Admin auth page', () => {
       })
     })
 
-    await fireEvent.click(await findByRole('button', { name: 'Test configuration' }))
+    await fireEvent.click(await findByRole('button', { name: 'Validate draft' }))
     await waitFor(() => {
       expect(testAdminOIDCDraft).toHaveBeenCalledTimes(1)
     })
     expect(await findByText('OIDC discovery succeeded.')).toBeTruthy()
 
-    await fireEvent.click(await findByRole('button', { name: 'Enable OIDC' }))
+    await fireEvent.click(await findByRole('button', { name: 'Activate OIDC' }))
     await waitFor(() => {
       expect(enableAdminOIDC).toHaveBeenCalledTimes(1)
     })
-    expect(await findByText('Configured oidc')).toBeTruthy()
+    expect((await findAllByText('Configured: oidc')).length).toBeGreaterThan(0)
 
-    await fireEvent.click(await findByRole('button', { name: 'Revert to disabled' }))
+    await fireEvent.click(await findByRole('button', { name: 'Keep local bootstrap' }))
     await waitFor(() => {
       expect(disableAdminAuth).toHaveBeenCalledTimes(1)
     })

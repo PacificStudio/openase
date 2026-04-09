@@ -2700,8 +2700,17 @@
                     "authenticated": {
                       "type": "boolean"
                     },
+                    "available_auth_methods": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "can_manage_auth": {
                       "type": "boolean"
+                    },
+                    "current_auth_method": {
+                      "type": "string"
                     },
                     "groups": {
                       "items": {
@@ -2986,10 +2995,19 @@
                     "authenticated": {
                       "type": "boolean"
                     },
+                    "available_auth_methods": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
                     "can_manage_auth": {
                       "type": "boolean"
                     },
                     "csrf_token": {
+                      "type": "string"
+                    },
+                    "current_auth_method": {
                       "type": "string"
                     },
                     "issuer_url": {

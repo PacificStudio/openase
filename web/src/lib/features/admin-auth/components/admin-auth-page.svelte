@@ -205,7 +205,7 @@
 
 <PageScaffold
   title="Admin Auth"
-  description="Instance-level authentication, OIDC rollout, bootstrap admins, and validation diagnostics."
+  description="Current browser auth method, OIDC draft state, validation diagnostics, and activation controls."
 >
   {#if loading}
     <div class="space-y-4">
@@ -228,7 +228,7 @@
 
       <AdminAuthForm
         {auth}
-        form={oidcForm}
+        bind:form={oidcForm}
         {actionKey}
         onSave={() => void handleSave()}
         onTest={() => void handleTest()}

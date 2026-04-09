@@ -1829,6 +1829,8 @@ type OpenAPIAuthSessionResponse struct {
 	LoginRequired              bool                    `json:"login_required"`
 	Authenticated              bool                    `json:"authenticated"`
 	PrincipalKind              string                  `json:"principal_kind"`
+	AvailableAuthMethods       []string                `json:"available_auth_methods,omitempty"`
+	CurrentAuthMethod          string                  `json:"current_auth_method,omitempty"`
 	AuthConfigured             bool                    `json:"auth_configured"`
 	SessionGovernanceAvailable bool                    `json:"session_governance_available"`
 	CanManageAuth              bool                    `json:"can_manage_auth"`
@@ -1975,6 +1977,8 @@ type OpenAPIAuthPermissionsResponse struct {
 	LoginRequired              bool                          `json:"login_required"`
 	Authenticated              bool                          `json:"authenticated"`
 	PrincipalKind              string                        `json:"principal_kind"`
+	AvailableAuthMethods       []string                      `json:"available_auth_methods,omitempty"`
+	CurrentAuthMethod          string                        `json:"current_auth_method,omitempty"`
 	AuthConfigured             bool                          `json:"auth_configured"`
 	SessionGovernanceAvailable bool                          `json:"session_governance_available"`
 	CanManageAuth              bool                          `json:"can_manage_auth"`

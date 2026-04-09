@@ -20,7 +20,16 @@
 
   let {
     auth,
-    form,
+    form = $bindable({
+      issuerURL: '',
+      clientID: '',
+      clientSecret: '',
+      redirectMode: 'auto',
+      fixedRedirectURL: '',
+      scopesText: '',
+      allowedDomainsText: '',
+      bootstrapAdminEmailsText: '',
+    } satisfies OIDCFormState),
     actionKey = '',
     onSave,
     onTest,
@@ -28,7 +37,7 @@
     onDisable,
   }: {
     auth: SecurityAuthSettings
-    form: OIDCFormState
+    form?: OIDCFormState
     actionKey?: string
     onSave: () => void
     onTest: () => void
@@ -39,24 +48,30 @@
 
 <div class="border-border bg-card space-y-5 rounded-2xl border p-5">
   <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-    <div class="text-sm font-semibold">OIDC configuration</div>
+    <div>
+      <div class="text-sm font-semibold">Draft, validation, and activation</div>
+      <p class="text-muted-foreground mt-1 text-xs">
+        Save the draft, validate discovery, then activate OIDC when you are ready to replace the
+        local bootstrap auth gate.
+      </p>
+    </div>
 
     <div class="flex flex-wrap gap-2">
       <Button variant="outline" onclick={onSave} disabled={actionKey !== ''}>
         <Save class="size-4" />
-        {actionKey === 'save' ? 'Saving…' : 'Save configuration'}
+        {actionKey === 'save' ? 'Saving…' : 'Save draft'}
       </Button>
       <Button variant="outline" onclick={onTest} disabled={actionKey !== ''}>
         <TestTube2 class="size-4" />
-        {actionKey === 'test' ? 'Testing…' : 'Test configuration'}
+        {actionKey === 'test' ? 'Validating…' : 'Validate draft'}
       </Button>
       <Button onclick={onEnable} disabled={actionKey !== ''}>
         <Rocket class="size-4" />
-        {actionKey === 'enable' ? 'Enabling…' : 'Enable OIDC'}
+        {actionKey === 'enable' ? 'Activating…' : 'Activate OIDC'}
       </Button>
       <Button variant="outline" onclick={onDisable} disabled={actionKey !== ''}>
         <RefreshCcw class="size-4" />
-        {actionKey === 'disable' ? 'Reverting…' : 'Revert to disabled'}
+        {actionKey === 'disable' ? 'Switching…' : 'Keep local bootstrap'}
       </Button>
     </div>
   </div>

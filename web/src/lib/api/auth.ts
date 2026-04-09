@@ -1,5 +1,10 @@
 import { api, ApiError } from './client'
-import type { HumanAuthSession, HumanAuthUser } from '$lib/stores/auth.svelte'
+import type {
+  HumanAuthCapabilities,
+  HumanAuthMethod,
+  HumanAuthSession,
+  HumanAuthUser,
+} from '$lib/stores/auth.svelte'
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
 
@@ -8,6 +13,8 @@ type RawAuthSessionResponse = {
   login_required?: boolean
   authenticated?: boolean
   principal_kind?: string
+  available_auth_methods?: string[]
+  current_auth_method?: string
   auth_configured?: boolean
   session_governance_available?: boolean
   can_manage_auth?: boolean
@@ -28,6 +35,8 @@ export type EffectivePermissionsResponse = {
   login_required?: boolean
   authenticated?: boolean
   principal_kind?: string
+  available_auth_methods?: string[]
+  current_auth_method?: string
   auth_configured?: boolean
   session_governance_available?: boolean
   can_manage_auth?: boolean
@@ -371,14 +380,79 @@ function normalizeAuthMode(raw: string | null | undefined) {
   return raw?.trim() || 'disabled'
 }
 
-function normalizeLoginRequired(raw: RawAuthSessionResponse) {
+function normalizeAuthMethod(raw: string | null | undefined): HumanAuthMethod | '' {
+  const value = raw?.trim()
+  if (value === 'oidc' || value === 'local_bootstrap_link') {
+    return value
+  }
+  return ''
+}
+
+function normalizeAvailableAuthMethods(raw: string[] | null | undefined): HumanAuthMethod[] {
+  if (!Array.isArray(raw)) {
+    return []
+  }
+  const values = raw
+    .map((item) => normalizeAuthMethod(item))
+    .filter((item): item is HumanAuthMethod => item !== '')
+  return Array.from(new Set(values))
+}
+
+function normalizeAuthCapabilities(
+  raw: RawAuthSessionResponse,
+  authMode: string,
+): HumanAuthCapabilities {
+  const availableAuthMethods = normalizeAvailableAuthMethods(raw.available_auth_methods)
+  const currentAuthMethod = normalizeAuthMethod(raw.current_auth_method)
+
+  if (availableAuthMethods.length > 0 || currentAuthMethod) {
+    const nextAvailableAuthMethods =
+      currentAuthMethod && !availableAuthMethods.includes(currentAuthMethod)
+        ? [...availableAuthMethods, currentAuthMethod]
+        : availableAuthMethods
+    return {
+      availableAuthMethods: nextAvailableAuthMethods,
+      currentAuthMethod:
+        currentAuthMethod ||
+        nextAvailableAuthMethods[0] ||
+        normalizeFallbackAuthMethod(authMode, raw),
+    }
+  }
+
+  const fallbackMethod = normalizeFallbackAuthMethod(authMode, raw)
+  return {
+    availableAuthMethods: fallbackMethod ? [fallbackMethod] : [],
+    currentAuthMethod: fallbackMethod,
+  }
+}
+
+function normalizeFallbackAuthMethod(
+  authMode: string,
+  raw: Pick<RawAuthSessionResponse, 'login_required'>,
+): HumanAuthMethod | '' {
+  if (raw.login_required === true) {
+    return 'oidc'
+  }
+  if (raw.login_required === false) {
+    return 'local_bootstrap_link'
+  }
+  if (authMode === 'oidc') {
+    return 'oidc'
+  }
+  return 'local_bootstrap_link'
+}
+
+function normalizeLoginRequired(
+  raw: RawAuthSessionResponse,
+  authCapabilities: HumanAuthCapabilities,
+) {
   if (raw.login_required === true) {
     return true
   }
   if (raw.login_required === false) {
     return false
   }
-  return normalizeAuthMode(raw.auth_mode) === 'oidc'
+  return authCapabilities.availableAuthMethods.length > 0
 }
 
 function normalizeAuthenticated(raw: RawAuthSessionResponse, loginRequired: boolean) {
@@ -391,17 +465,13 @@ function normalizeAuthenticated(raw: RawAuthSessionResponse, loginRequired: bool
   return !loginRequired
 }
 
-function normalizePrincipalKind(
-  raw: RawAuthSessionResponse,
-  loginRequired: boolean,
-  authenticated: boolean,
-) {
+function normalizePrincipalKind(raw: RawAuthSessionResponse, authenticated: boolean) {
   const explicit = raw.principal_kind?.trim()
   if (explicit) {
     return explicit
   }
   if (!authenticated) {
-    return loginRequired ? 'anonymous' : 'local_bootstrap'
+    return 'anonymous'
   }
   return raw.user?.id ? 'human_session' : 'local_bootstrap'
 }
@@ -436,7 +506,8 @@ export function normalizeReturnTo(raw: string | null | undefined) {
 
 function parseAuthSession(payload: RawAuthSessionResponse): HumanAuthSession {
   const authMode = normalizeAuthMode(payload.auth_mode)
-  const loginRequired = normalizeLoginRequired(payload)
+  const authCapabilities = normalizeAuthCapabilities(payload, authMode)
+  const loginRequired = normalizeLoginRequired(payload, authCapabilities)
   const authenticated = normalizeAuthenticated(payload, loginRequired)
   const permissions = Array.isArray(payload.permissions)
     ? payload.permissions.filter((value) => value.trim() !== '')
@@ -445,10 +516,15 @@ function parseAuthSession(payload: RawAuthSessionResponse): HumanAuthSession {
     authMode,
     loginRequired,
     authenticated,
-    principalKind: normalizePrincipalKind(payload, loginRequired, authenticated),
-    authConfigured: payload.auth_configured === true || authMode === 'oidc',
+    principalKind: normalizePrincipalKind(payload, authenticated),
+    authCapabilities,
+    authConfigured:
+      payload.auth_configured === true ||
+      authCapabilities.currentAuthMethod === 'oidc' ||
+      authMode === 'oidc',
     sessionGovernanceAvailable:
-      payload.session_governance_available === true || (authMode === 'oidc' && authenticated),
+      payload.session_governance_available === true ||
+      (authCapabilities.currentAuthMethod === 'oidc' && authenticated),
     canManageAuth: normalizeCanManageAuth(payload, permissions),
     issuerURL: payload.issuer_url?.trim() || '',
     user: parseUser(payload.user),
