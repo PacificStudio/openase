@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,6 +35,54 @@ func TestNewRootCommandIncludesTypedAPICommands(t *testing.T) {
 		}
 		if command == nil {
 			t.Fatalf("expected command %v", path)
+		}
+	}
+}
+
+func TestRootStatusAndWorkflowHelpMentionAgentPlatformDefaults(t *testing.T) {
+	root := NewRootCommand("dev")
+
+	for _, tc := range []struct {
+		path []string
+		want []string
+	}{
+		{
+			path: []string{"status"},
+			want: []string{
+				"agent platform API",
+				"OPENASE_PROJECT_ID",
+				"OPENASE_API_URL",
+			},
+		},
+		{
+			path: []string{"workflow"},
+			want: []string{
+				"agent platform API",
+				"OPENASE_PROJECT_ID",
+				"workflow harness",
+			},
+		},
+	} {
+		command, _, err := root.Find(tc.path)
+		if err != nil {
+			t.Fatalf("Find(%v) returned error: %v", tc.path, err)
+		}
+		if command == nil {
+			t.Fatalf("expected command %v", tc.path)
+		}
+
+		var stdout bytes.Buffer
+		command.SetOut(&stdout)
+		command.SetErr(&stdout)
+		if err := command.Help(); err != nil {
+			t.Fatalf("Help(%v) returned error: %v", tc.path, err)
+		}
+
+		output := stdout.String()
+		for _, want := range tc.want {
+			if !strings.Contains(output, want) {
+				t.Fatalf("expected %v help to contain %q, got %q", tc.path, want, output)
+			}
 		}
 	}
 }
@@ -109,6 +158,120 @@ func TestTicketCreateCommandUsesAgentPlatformEnvironment(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), `"title": "Follow-up"`) {
 		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
+	}
+}
+
+func TestRootStatusListUsesPlatformBaseURLProjectFallbackAndAgentToken(t *testing.T) {
+	var method string
+	var authHeader string
+	var path string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		authHeader = r.Header.Get("Authorization")
+		path = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"statuses":[{"id":"status-1","name":"Todo"}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL+"/api/v1/platform")
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+
+	root := NewRootCommand("dev")
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stdout)
+	root.SetArgs([]string{"status", "list"})
+
+	if err := root.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodGet {
+		t.Fatalf("expected GET, got %s", method)
+	}
+	if authHeader != "Bearer ase_agent_test" {
+		t.Fatalf("expected bearer auth header, got %q", authHeader)
+	}
+	if path != "/api/v1/platform/projects/project-123/statuses" {
+		t.Fatalf("expected platform status path, got %q", path)
+	}
+	if !strings.Contains(stdout.String(), `"name": "Todo"`) {
+		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
+	}
+}
+
+func TestRootWorkflowHarnessVariablesUsesPlatformBaseURLAndAgentToken(t *testing.T) {
+	var method string
+	var authHeader string
+	var path string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		method = r.Method
+		authHeader = r.Header.Get("Authorization")
+		path = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"groups":[{"name":"workflow","variables":[{"name":"ticket.id"}]}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL+"/api/v1/platform")
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+
+	root := NewRootCommand("dev")
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetErr(&stdout)
+	root.SetArgs([]string{"workflow", "harness", "variables"})
+
+	if err := root.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if method != http.MethodGet {
+		t.Fatalf("expected GET, got %s", method)
+	}
+	if authHeader != "Bearer ase_agent_test" {
+		t.Fatalf("expected bearer auth header, got %q", authHeader)
+	}
+	if path != "/api/v1/platform/harness/variables" {
+		t.Fatalf("expected platform harness variables path, got %q", path)
+	}
+	if !strings.Contains(stdout.String(), `"name": "workflow"`) {
+		t.Fatalf("expected pretty JSON output, got %q", stdout.String())
+	}
+}
+
+func TestRootStatusWrapperPreservesAPIErrorCode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"code":"status_forbidden","message":"nope"}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL+"/api/v1/platform")
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+
+	root := NewRootCommand("dev")
+	root.SetArgs([]string{"status", "delete", "status-123"})
+
+	err := root.ExecuteContext(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+
+	var httpErr *apiHTTPError
+	if !errors.As(err, &httpErr) {
+		t.Fatalf("expected apiHTTPError, got %T: %v", err, err)
+	}
+	if httpErr.Code != "status_forbidden" {
+		t.Fatalf("expected api error code, got %+v", httpErr)
+	}
+	if !strings.Contains(err.Error(), "403 Forbidden") || !strings.Contains(err.Error(), "[status_forbidden]") {
+		t.Fatalf("expected platform error details, got %q", err.Error())
 	}
 }
 
