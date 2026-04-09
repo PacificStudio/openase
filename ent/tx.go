@@ -124,6 +124,8 @@ type Tx struct {
 	WorkflowSkillBinding *WorkflowSkillBindingClient
 	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
 	WorkflowVersion *WorkflowVersionClient
+	// WorkspaceInitLease is the client for interacting with the WorkspaceInitLease builders.
+	WorkspaceInitLease *WorkspaceInitLeaseClient
 
 	// lazily loaded.
 	client     *Client
@@ -311,6 +313,7 @@ func (tx *Tx) init() {
 	tx.Workflow = NewWorkflowClient(tx.config)
 	tx.WorkflowSkillBinding = NewWorkflowSkillBindingClient(tx.config)
 	tx.WorkflowVersion = NewWorkflowVersionClient(tx.config)
+	tx.WorkspaceInitLease = NewWorkspaceInitLeaseClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

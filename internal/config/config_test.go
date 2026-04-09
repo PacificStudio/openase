@@ -21,6 +21,8 @@ func clearOpenASEEnv(t *testing.T) {
 		"OPENASE_GITHUB_WEBHOOK_SECRET",
 		"OPENASE_DATABASE_DSN",
 		"OPENASE_ORCHESTRATOR_TICK_INTERVAL",
+		"OPENASE_ORCHESTRATOR_WORKSPACE_PREPARE_TIMEOUT",
+		"OPENASE_ORCHESTRATOR_AGENT_SESSION_START_TIMEOUT",
 		"OPENASE_EVENT_DRIVER",
 		"OPENASE_OBSERVABILITY_METRICS_ENABLED",
 		"OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS",
@@ -59,6 +61,12 @@ func TestLoadDefaults(t *testing.T) {
 
 	if cfg.Orchestrator.TickInterval != 5*time.Second {
 		t.Fatalf("expected default tick interval, got %s", cfg.Orchestrator.TickInterval)
+	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 5*time.Minute {
+		t.Fatalf("expected default workspace prepare timeout, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 30*time.Second {
+		t.Fatalf("expected default agent session start timeout, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
 	}
 
 	if cfg.Logging.Level != slog.LevelInfo {
@@ -99,6 +107,8 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("OPENASE_GITHUB_WEBHOOK_SECRET", "topsecret")
 	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
+	t.Setenv("OPENASE_ORCHESTRATOR_WORKSPACE_PREPARE_TIMEOUT", "6m")
+	t.Setenv("OPENASE_ORCHESTRATOR_AGENT_SESSION_START_TIMEOUT", "45s")
 	t.Setenv("OPENASE_EVENT_DRIVER", "pgnotify")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_ENABLED", "false")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS", "true")
@@ -137,6 +147,12 @@ func TestLoadFromEnvironment(t *testing.T) {
 
 	if cfg.Orchestrator.TickInterval != 2*time.Second {
 		t.Fatalf("expected env tick interval, got %s", cfg.Orchestrator.TickInterval)
+	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 6*time.Minute {
+		t.Fatalf("expected env workspace prepare timeout, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 45*time.Second {
+		t.Fatalf("expected env agent session start timeout, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
 	}
 
 	if cfg.Event.Driver != EventDriverPGNotify {
@@ -200,6 +216,8 @@ database:
   dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable
 orchestrator:
   tick_interval: 3s
+  workspace_prepare_timeout: 7m
+  agent_session_start_timeout: 40s
 event:
   driver: pgnotify
 observability:
@@ -253,6 +271,12 @@ log:
 
 	if cfg.Orchestrator.TickInterval != 3*time.Second {
 		t.Fatalf("expected tick interval 3s, got %s", cfg.Orchestrator.TickInterval)
+	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 7*time.Minute {
+		t.Fatalf("expected workspace prepare timeout 7m, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 40*time.Second {
+		t.Fatalf("expected agent session start timeout 40s, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
 	}
 
 	if cfg.Event.Driver != EventDriverPGNotify {

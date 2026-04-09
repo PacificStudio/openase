@@ -67,7 +67,9 @@ type DatabaseConfig struct {
 }
 
 type OrchestratorConfig struct {
-	TickInterval time.Duration
+	TickInterval             time.Duration
+	WorkspacePrepareTimeout  time.Duration
+	AgentSessionStartTimeout time.Duration
 }
 
 type EventConfig struct {
@@ -146,6 +148,8 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("github.webhook_secret", "")
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
+	v.SetDefault("orchestrator.workspace_prepare_timeout", 5*time.Minute)
+	v.SetDefault("orchestrator.agent_session_start_timeout", 30*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
 	v.SetDefault("observability.metrics.enabled", true)
 	v.SetDefault("observability.metrics.export.prometheus", false)
@@ -254,6 +258,14 @@ func parseConfig(v *viper.Viper) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("parse orchestrator.tick_interval: %w", err)
 	}
+	workspacePrepareTimeout, err := parseDuration(v.Get("orchestrator.workspace_prepare_timeout"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse orchestrator.workspace_prepare_timeout: %w", err)
+	}
+	agentSessionStartTimeout, err := parseDuration(v.Get("orchestrator.agent_session_start_timeout"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse orchestrator.agent_session_start_timeout: %w", err)
+	}
 
 	eventDriver, err := parseEventDriver(v.Get("event.driver"))
 	if err != nil {
@@ -325,7 +337,9 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			DSN: databaseDSN,
 		},
 		Orchestrator: OrchestratorConfig{
-			TickInterval: tickInterval,
+			TickInterval:             tickInterval,
+			WorkspacePrepareTimeout:  workspacePrepareTimeout,
+			AgentSessionStartTimeout: agentSessionStartTimeout,
 		},
 		Event: EventConfig{
 			Driver: eventDriver,

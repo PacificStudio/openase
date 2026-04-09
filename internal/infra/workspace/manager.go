@@ -5,11 +5,13 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/logging"
 	git "github.com/go-git/go-git/v5"
@@ -30,6 +32,7 @@ type SetupInput struct {
 	ProjectSlug      string
 	AgentName        string
 	TicketIdentifier string
+	Observability    PrepareObservability
 	Repos            []RepoInput
 }
 
@@ -56,6 +59,7 @@ type SetupRequest struct {
 	ProjectSlug      string
 	TicketIdentifier string
 	BranchName       string
+	Observability    PrepareObservability
 	Repos            []RepoRequest
 }
 
@@ -95,11 +99,18 @@ type PreparedRepo struct {
 }
 
 // Manager prepares ticket workspaces and repository clones.
-type Manager struct{}
+type Manager struct {
+	logger *slog.Logger
+}
 
 // NewManager constructs a workspace preparation manager.
 func NewManager() *Manager {
-	return &Manager{}
+	return NewManagerWithLogger(nil)
+}
+
+// NewManagerWithLogger constructs a workspace preparation manager with a logger.
+func NewManagerWithLogger(logger *slog.Logger) *Manager {
+	return &Manager{logger: newWorkspaceLogger(logger, "workspace-manager")}
 }
 
 // ParseSetupRequest validates raw workspace setup input into a parsed request.
@@ -148,6 +159,7 @@ func ParseSetupRequest(input SetupInput) (SetupRequest, error) {
 		ProjectSlug:      projectSlug,
 		TicketIdentifier: ticketIdentifier,
 		BranchName:       branchName,
+		Observability:    input.Observability,
 		Repos:            repos,
 	}, nil
 }
@@ -178,7 +190,7 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 			return Workspace{}, fmt.Errorf("create parent directory for repo %s: %w", repo.Name, err)
 		}
 
-		headCommit, err := prepareRepository(ctx, repoPath, repo)
+		headCommit, err := m.prepareRepository(ctx, request.Observability, repoPath, repo)
 		if err != nil {
 			return Workspace{}, err
 		}
@@ -199,6 +211,69 @@ func (m *Manager) Prepare(ctx context.Context, request SetupRequest) (Workspace,
 		BranchName: request.BranchName,
 		Repos:      preparedRepos,
 	}, nil
+}
+
+func (m *Manager) prepareRepository(
+	ctx context.Context,
+	observability PrepareObservability,
+	repoPath string,
+	repo RepoRequest,
+) (string, error) {
+	startedAt := time.Now()
+	logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "repo_prepare_begin", 0)
+
+	cloneOrOpenStarted := time.Now()
+	repository, existing, err := openOrCloneRepository(ctx, repoPath, repo)
+	if err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+	cloneOrOpenResult := "clone"
+	if existing {
+		cloneOrOpenResult = "open_existing"
+	}
+	logRepoPreparePhase(
+		m.logger,
+		observability,
+		repo.Name,
+		repoPath,
+		"clone_or_open",
+		time.Since(cloneOrOpenStarted),
+		"phase_result", cloneOrOpenResult,
+	)
+
+	if repo.HTTPBasicAuth != nil {
+		logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "auth_inject", 0, "phase_result", "configured")
+	}
+
+	if err := ensureOriginMatches(repository, repo.RepositoryURL); err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+
+	if existing {
+		logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "fetch", 0, "phase_result", "skipped_existing_clone")
+		logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "checkout_reset", 0, "phase_result", "skipped_existing_clone")
+		head, err := repository.Head()
+		if err != nil {
+			return "", fmt.Errorf("prepare repo %s: resolve existing head: %w", repo.Name, err)
+		}
+		logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "repo_prepare_done", time.Since(startedAt), "head_commit", head.Hash().String())
+		return head.Hash().String(), nil
+	}
+
+	fetchStarted := time.Now()
+	if err := fetchRepository(ctx, repository, repo); err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+	logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "fetch", time.Since(fetchStarted))
+
+	checkoutStarted := time.Now()
+	headCommit, err := ensureFeatureBranchCheckedOut(repository, repo.DefaultBranch, repo.BranchName)
+	if err != nil {
+		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
+	}
+	logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "checkout_reset", time.Since(checkoutStarted), "head_commit", headCommit)
+	logRepoPreparePhase(m.logger, observability, repo.Name, repoPath, "repo_prepare_done", time.Since(startedAt), "head_commit", headCommit)
+	return headCommit, nil
 }
 
 func parseRepoInput(index int, input RepoInput, branchName string) (RepoRequest, error) {
@@ -353,31 +428,6 @@ func parseRepositorySource(fieldName string, raw string) (string, error) {
 	// URLs so clone/fetch can target repositories reachable on the current
 	// machine without requiring a hosted provider.
 	return trimmed, nil
-}
-
-func prepareRepository(ctx context.Context, repoPath string, repo RepoRequest) (string, error) {
-	repository, existing, err := openOrCloneRepository(ctx, repoPath, repo)
-	if err != nil {
-		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
-	}
-
-	if err := ensureOriginMatches(repository, repo.RepositoryURL); err != nil {
-		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
-	}
-	if existing {
-		head, err := repository.Head()
-		if err != nil {
-			return "", fmt.Errorf("prepare repo %s: resolve existing head: %w", repo.Name, err)
-		}
-		return head.Hash().String(), nil
-	}
-
-	headCommit, err := ensureFeatureBranchCheckedOut(repository, repo.DefaultBranch, repo.BranchName)
-	if err != nil {
-		return "", fmt.Errorf("prepare repo %s: %w", repo.Name, err)
-	}
-
-	return headCommit, nil
 }
 
 func cloneOrOpenRepository(ctx context.Context, repoPath string, repo RepoRequest) (*git.Repository, error) {
