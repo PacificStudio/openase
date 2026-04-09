@@ -328,3 +328,65 @@ auth:
 		t.Fatalf("reloaded active config = %#v", reloaded.State.Active)
 	}
 }
+
+func TestServiceRecoversStoredSecretFromRuntimeFallbackWhenCipherSeedChanges(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	defer func() {
+		_ = client.Close()
+	}()
+	homeDir := t.TempDir()
+
+	now := time.Now().UTC()
+	first, err := New(repo.NewEntRepository(client), "old-seed", "", "")
+	if err != nil {
+		t.Fatalf("first New() error = %v", err)
+	}
+	if _, err := first.Activate(ctx, iam.ActiveOIDCConfig{
+		IssuerURL:        "https://idp.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "review-secret",
+		RedirectMode:     iam.OIDCRedirectModeFixed,
+		FixedRedirectURL: "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		Scopes:           []string{"openid", "profile", "email"},
+		Claims:           iam.DefaultDraftOIDCConfig().Claims,
+		SessionPolicy:    iam.DefaultDraftOIDCConfig().SessionPolicy,
+	}, iam.OIDCActivationMetadata{ActivatedAt: &now, Source: "test"}); err != nil {
+		t.Fatalf("Activate() error = %v", err)
+	}
+
+	second, err := New(repo.NewEntRepository(client), "new-seed", "", homeDir)
+	if err != nil {
+		t.Fatalf("second New() error = %v", err)
+	}
+	second.ConfigureRuntimeFallback(iam.AccessControlStateInput{
+		Status:           iam.AccessControlStatusActive.String(),
+		IssuerURL:        "https://idp.example.com",
+		ClientID:         "openase",
+		ClientSecret:     "review-secret",
+		RedirectMode:     iam.OIDCRedirectModeFixed.String(),
+		FixedRedirectURL: "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		RedirectURL:      "http://127.0.0.1:19836/api/v1/auth/oidc/callback",
+		Scopes:           []string{"openid", "profile", "email"},
+		EmailClaim:       iam.DefaultDraftOIDCConfig().Claims.EmailClaim,
+		NameClaim:        iam.DefaultDraftOIDCConfig().Claims.NameClaim,
+		UsernameClaim:    iam.DefaultDraftOIDCConfig().Claims.UsernameClaim,
+		GroupsClaim:      iam.DefaultDraftOIDCConfig().Claims.GroupsClaim,
+		SessionTTL:       iam.DefaultDraftOIDCConfig().SessionPolicy.SessionTTL.String(),
+		SessionIdleTTL:   iam.DefaultDraftOIDCConfig().SessionPolicy.SessionIdleTTL.String(),
+		Validation: iam.OIDCValidationMetadataInput{
+			Status:   "not_tested",
+			Message:  "No OIDC validation has been recorded yet.",
+			Warnings: []string{},
+		},
+	})
+	result, err := second.Read(ctx)
+	if err != nil {
+		t.Fatalf("Read() error = %v", err)
+	}
+	if result.State.Active == nil || result.State.Active.ClientSecret != "review-secret" {
+		t.Fatalf("active config = %#v", result.State.Active)
+	}
+}

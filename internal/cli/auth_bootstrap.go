@@ -89,6 +89,9 @@ long-lived bearer token.
 			if err != nil {
 				return err
 			}
+			if fallback, ok := accesscontrolservice.RuntimeFallbackInputFromConfig(cfg.Auth); ok {
+				authStateSvc.ConfigureRuntimeFallback(fallback)
+			}
 
 			requestedByValue := strings.TrimSpace(requestedBy)
 			if requestedByValue == "" {

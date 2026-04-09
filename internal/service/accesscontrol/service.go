@@ -33,6 +33,7 @@ type Service struct {
 	block          cipher.Block
 	configFilePath string
 	homeDir        string
+	runtimeFallback *iam.AccessControlStateInput
 	now            func() time.Time
 	snapshotMu     sync.RWMutex
 	snapshot       ReadResult
@@ -166,6 +167,15 @@ func (s *Service) loadSnapshot(ctx context.Context) (ReadResult, error) {
 		return ReadResult{}, err
 	}
 	return ReadResult{State: state, StorageLocation: location}, nil
+}
+
+func (s *Service) ConfigureRuntimeFallback(input iam.AccessControlStateInput) {
+	cloned := input
+	cloned.Scopes = append([]string(nil), input.Scopes...)
+	cloned.AllowedEmailDomains = append([]string(nil), input.AllowedEmailDomains...)
+	cloned.BootstrapAdminEmails = append([]string(nil), input.BootstrapAdminEmails...)
+	cloned.Validation.Warnings = append([]string(nil), input.Validation.Warnings...)
+	s.runtimeFallback = &cloned
 }
 
 func (s *Service) recoverFromLegacyFallback(ctx context.Context, readErr error) (*ReadResult, error) {
@@ -450,6 +460,9 @@ func (s *Service) readLegacyFallback() (iam.AccessControlStateInput, string, err
 			Warnings: []string{},
 		},
 	}
+	if s.runtimeFallback != nil && resolvedPath == "" {
+		return cloneAccessControlStateInput(*s.runtimeFallback), "runtime:config", nil
+	}
 	if resolvedPath == "" {
 		return input, "runtime:no-config", nil
 	}
@@ -457,6 +470,9 @@ func (s *Service) readLegacyFallback() (iam.AccessControlStateInput, string, err
 	payload, err := os.ReadFile(resolvedPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
+			if s.runtimeFallback != nil {
+				return cloneAccessControlStateInput(*s.runtimeFallback), "runtime:config", nil
+			}
 			return input, resolvedPath, nil
 		}
 		return iam.AccessControlStateInput{}, "", fmt.Errorf("read config file: %w", err)
@@ -485,7 +501,7 @@ func (s *Service) importLegacyFallback(ctx context.Context, input iam.AccessCont
 }
 
 func shouldImportLegacyFallback(input iam.AccessControlStateInput, location string) bool {
-	if strings.TrimSpace(location) == "" || strings.HasPrefix(location, "runtime:") {
+	if strings.TrimSpace(location) == "" || strings.TrimSpace(location) == "runtime:no-config" {
 		return false
 	}
 	return strings.TrimSpace(input.Status) == iam.AccessControlStatusDraft.String() ||
@@ -627,4 +643,15 @@ func cloneTime(raw *time.Time) *time.Time {
 	}
 	cloned := raw.UTC()
 	return &cloned
+}
+
+func cloneAccessControlStateInput(input iam.AccessControlStateInput) iam.AccessControlStateInput {
+	cloned := input
+	cloned.Scopes = append([]string(nil), input.Scopes...)
+	cloned.AllowedEmailDomains = append([]string(nil), input.AllowedEmailDomains...)
+	cloned.BootstrapAdminEmails = append([]string(nil), input.BootstrapAdminEmails...)
+	cloned.Validation.Warnings = append([]string(nil), input.Validation.Warnings...)
+	cloned.Validation.CheckedAt = cloneTime(input.Validation.CheckedAt)
+	cloned.Activation.ActivatedAt = cloneTime(input.Activation.ActivatedAt)
+	return cloned
 }

@@ -73,6 +73,9 @@ bootstrap link.
 			if err != nil {
 				return err
 			}
+			if fallback, ok := accesscontrolservice.RuntimeFallbackInputFromConfig(cfg.Auth); ok {
+				service.ConfigureRuntimeFallback(fallback)
+			}
 
 			current, err := service.Read(cmd.Context())
 			if err != nil {

@@ -256,6 +256,9 @@ func (a *App) RunServe(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("construct instance auth service: %w", err)
 	}
+	if fallback, ok := accesscontrolservice.RuntimeFallbackInputFromConfig(a.config.Auth); ok {
+		instanceAuthSvc.ConfigureRuntimeFallback(fallback)
+	}
 	if _, err := instanceAuthSvc.Refresh(ctx); err != nil {
 		return fmt.Errorf("initialize instance auth runtime state: %w", err)
 	}
