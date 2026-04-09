@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/BetterAndBetterII/openase/internal/logging"
 )
 
 const remotePreparePhasePrefix = "__OPENASE_REPO_PHASE__|"
@@ -16,10 +18,7 @@ type PrepareObservability struct {
 }
 
 func newWorkspaceLogger(base *slog.Logger, component string) *slog.Logger {
-	if base == nil {
-		base = slog.Default()
-	}
-	return base.With("component", component)
+	return logging.WithComponent(base, component)
 }
 
 func logRepoPreparePhase(
