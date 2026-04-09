@@ -379,10 +379,22 @@ func TestProbeResolvedCredentialMarksInsufficientPermissions(t *testing.T) {
 
 type stubRepository struct {
 	context                  domain.ProjectContext
+	orgContext               domain.OrgContext
 	savedOrganizationProbe   *domain.TokenProbe
 	savedProjectProbe        *domain.TokenProbe
 	organizationProbeHistory []domain.TokenProbe
 	projectProbeHistory      []domain.TokenProbe
+}
+
+func (s *stubRepository) GetOrganizationContext(context.Context, uuid.UUID) (domain.OrgContext, error) {
+	if s.orgContext.OrganizationID != uuid.Nil {
+		return s.orgContext, nil
+	}
+	return domain.OrgContext{
+		OrganizationID: s.context.OrganizationID,
+		Credential:     s.context.OrganizationCredential,
+		Probe:          s.context.OrganizationProbe,
+	}, nil
 }
 
 func (s *stubRepository) GetProjectContext(context.Context, uuid.UUID) (domain.ProjectContext, error) {

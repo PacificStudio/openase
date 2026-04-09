@@ -13,12 +13,9 @@
   } from '@lucide/svelte'
 
   type Security = SecuritySettingsResponse['security']
-  type GitHubScope = 'organization' | 'project'
-  type GitHubSlot = Security['github']['organization']
+  type GitHubSlot = Security['github']['project_override']
 
   let {
-    scope,
-    title,
     slot,
     tokenValue,
     actionKey,
@@ -26,14 +23,12 @@
     onAction,
     onTokenChange,
   }: {
-    scope: GitHubScope
-    title: string
     slot: GitHubSlot
     tokenValue: string
     actionKey: string
     organizationConfigured: boolean
-    onAction: (scope: GitHubScope, action: 'save' | 'import' | 'retest' | 'delete') => void
-    onTokenChange: (scope: GitHubScope, value: string) => void
+    onAction: (action: 'save' | 'import' | 'retest' | 'delete') => void
+    onTokenChange: (value: string) => void
   } = $props()
 
   let tokenExpanded = $state(false)
@@ -64,7 +59,7 @@
   }
 
   function isBusy(action: 'save' | 'import' | 'retest' | 'delete') {
-    return actionKey === `${scope}:${action}`
+    return actionKey === action
   }
 
   const anyBusy = $derived(actionKey !== '')
@@ -75,7 +70,7 @@
   <div class="flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
       <span class={`inline-block size-2 rounded-full ${statusDot()}`}></span>
-      <span class="text-sm font-medium">{title}</span>
+      <span class="text-sm font-medium">Project override</span>
       <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
     </div>
     {#if slot.configured}
@@ -84,7 +79,7 @@
           variant="ghost"
           size="icon"
           class="size-7"
-          onclick={() => onAction(scope, 'retest')}
+          onclick={() => onAction('retest')}
           disabled={anyBusy}
           title="Retest"
         >
@@ -98,7 +93,7 @@
           variant="ghost"
           size="icon"
           class="text-destructive hover:text-destructive size-7"
-          onclick={() => onAction(scope, 'delete')}
+          onclick={() => onAction('delete')}
           disabled={anyBusy}
           title="Delete"
         >
@@ -149,9 +144,9 @@
         <p class="text-destructive mt-2 text-xs">{slot.probe.last_error}</p>
       {/if}
     </div>
-  {:else if scope === 'project' && organizationConfigured}
+  {:else if organizationConfigured}
     <div class="border-border border-t px-4 py-3">
-      <p class="text-muted-foreground text-xs">Falls back to the organization default.</p>
+      <p class="text-muted-foreground text-xs">Falls back to the org default.</p>
     </div>
   {/if}
 
@@ -171,7 +166,7 @@
           variant="ghost"
           size="sm"
           class="text-muted-foreground h-auto px-1 py-0 text-xs"
-          onclick={() => onAction(scope, 'import')}
+          onclick={() => onAction('import')}
           disabled={anyBusy}
         >
           {#if isBusy('import')}
@@ -198,14 +193,9 @@
           placeholder="ghu_xxx or github_pat_xxx"
           disabled={anyBusy}
           class="h-8 text-xs"
-          oninput={(event) => onTokenChange(scope, event.currentTarget.value)}
+          oninput={(event) => onTokenChange(event.currentTarget.value)}
         />
-        <Button
-          size="sm"
-          class="h-8 shrink-0"
-          onclick={() => onAction(scope, 'save')}
-          disabled={anyBusy}
-        >
+        <Button size="sm" class="h-8 shrink-0" onclick={() => onAction('save')} disabled={anyBusy}>
           {#if isBusy('save')}
             <LoaderCircle class="mr-1.5 size-3 animate-spin" />
           {:else}
@@ -217,7 +207,7 @@
           variant="outline"
           size="sm"
           class="h-8 shrink-0"
-          onclick={() => onAction(scope, 'import')}
+          onclick={() => onAction('import')}
           disabled={anyBusy}
         >
           {#if isBusy('import')}

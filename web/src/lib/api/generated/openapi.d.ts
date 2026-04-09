@@ -1570,7 +1570,7 @@ export interface paths {
     /** Save a platform-managed GitHub outbound credential */
     put: operations['saveGitHubOutboundCredential']
     post?: never
-    /** Delete a stored platform-managed GitHub outbound credential */
+    /** Delete the project-level GitHub credential override */
     delete: operations['deleteGitHubOutboundCredential']
     options?: never
     head?: never
@@ -1586,7 +1586,7 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Import the current gh auth token into platform-managed GitHub credential storage */
+    /** Import the current gh auth token as the project-level GitHub credential override */
     post: operations['importGitHubOutboundCredentialFromGHCLI']
     delete?: never
     options?: never
@@ -1603,7 +1603,7 @@ export interface paths {
     }
     get?: never
     put?: never
-    /** Retest a stored platform-managed GitHub outbound credential */
+    /** Retest the stored project-level GitHub credential override */
     post: operations['retestGitHubOutboundCredential']
     delete?: never
     options?: never
@@ -2766,8 +2766,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -2868,8 +2869,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -2946,9 +2948,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -2996,8 +3002,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -3080,9 +3087,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -3188,9 +3199,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -3238,8 +3253,9 @@ export interface operations {
                 bootstrap_admin_emails?: string[]
                 client_id?: string
                 client_secret_configured?: boolean
+                fixed_redirect_url?: string
                 issuer_url?: string
-                redirect_url?: string
+                redirect_mode?: string
                 scopes?: string[]
               }
               public_exposure_risk?: string
@@ -6962,7 +6978,7 @@ export interface operations {
           detected_os?: string | null
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string | null
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[] | null
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string | null
@@ -8982,7 +8998,7 @@ export interface operations {
           detected_os?: string
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[]
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string
@@ -12348,6 +12364,7 @@ export interface operations {
                 pause_reason?: string
                 priority?: string
                 project_id?: string
+                pull_request_urls?: string[]
                 retry_paused?: boolean
                 started_at?: string | null
                 status_id?: string
@@ -13458,8 +13475,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13527,7 +13545,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13612,8 +13642,6 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
           /** @description GitHub token value copied into platform-managed secret storage. */
           token?: string
         }
@@ -13677,8 +13705,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13746,7 +13775,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13819,10 +13860,7 @@ export interface operations {
   }
   deleteGitHubOutboundCredential: {
     parameters: {
-      query: {
-        /** @description Credential scope to delete. Supported values are organization and project. */
-        scope: string
-      }
+      query?: never
       header?: never
       path: {
         /** @description Project ID. */
@@ -13832,7 +13870,7 @@ export interface operations {
     }
     requestBody?: never
     responses: {
-      /** @description Delete a stored platform-managed GitHub outbound credential response. */
+      /** @description Delete the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -13889,8 +13927,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -13958,7 +13997,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14039,17 +14090,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Import the current gh auth token into platform-managed GitHub credential storage request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Import the current gh auth token into platform-managed GitHub credential storage response. */
+      /** @description Import the current gh auth token as the project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -14106,8 +14149,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -14175,7 +14219,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14256,17 +14312,9 @@ export interface operations {
       }
       cookie?: never
     }
-    /** @description Retest a stored platform-managed GitHub outbound credential request body. */
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @description Credential scope to mutate. Supported values are organization and project. */
-          scope?: string
-        }
-      }
-    }
+    requestBody?: never
     responses: {
-      /** @description Retest a stored platform-managed GitHub outbound credential response. */
+      /** @description Retest the stored project-level GitHub credential override response. */
       200: {
         headers: {
           [name: string]: unknown
@@ -14323,8 +14371,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -14392,7 +14441,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14485,9 +14546,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -14552,8 +14617,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -14621,7 +14687,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14714,9 +14792,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -14825,9 +14907,13 @@ export interface operations {
           client_id?: string
           /** @description OAuth client secret stored server-side for the configured OIDC client. */
           client_secret?: string
+          /** @description Explicit browser callback URL used only when redirect_mode=fixed. */
+          fixed_redirect_url?: string
           /** @description OIDC issuer discovery URL used to resolve the provider metadata document. */
           issuer_url?: string
-          /** @description Browser callback URL that must match the OIDC provider client registration. */
+          /** @description OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback. */
+          redirect_mode?: string
+          /** @description Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode. */
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
@@ -14898,8 +14984,9 @@ export interface operations {
                   bootstrap_admin_emails?: string[]
                   client_id?: string
                   client_secret_configured?: boolean
+                  fixed_redirect_url?: string
                   issuer_url?: string
-                  redirect_url?: string
+                  redirect_mode?: string
                   scopes?: string[]
                 }
                 public_exposure_risk?: string
@@ -14967,7 +15054,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -16647,6 +16746,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -16813,6 +16913,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -16962,6 +17063,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -17226,6 +17328,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -20030,6 +20133,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -21194,6 +21298,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -21353,6 +21458,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string
@@ -22205,6 +22311,7 @@ export interface operations {
               pause_reason?: string
               priority?: string
               project_id?: string
+              pull_request_urls?: string[]
               retry_paused?: boolean
               started_at?: string | null
               status_id?: string

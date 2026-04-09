@@ -16,7 +16,8 @@
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -36,7 +37,8 @@
     issuerURL: '',
     clientID: '',
     clientSecret: '',
-    redirectURL: '',
+    redirectMode: 'auto',
+    fixedRedirectURL: '',
     scopesText: '',
     allowedDomainsText: '',
     bootstrapAdminEmailsText: '',
@@ -56,7 +58,8 @@
       issuerURL: auth.oidc_draft.issuer_url,
       clientID: auth.oidc_draft.client_id,
       clientSecret: '',
-      redirectURL: auth.oidc_draft.redirect_url,
+      redirectMode: auth.oidc_draft.redirect_mode === 'fixed' ? 'fixed' : 'auto',
+      fixedRedirectURL: auth.oidc_draft.fixed_redirect_url,
       scopesText: auth.oidc_draft.scopes.join('\n'),
       allowedDomainsText: auth.oidc_draft.allowed_email_domains.join('\n'),
       bootstrapAdminEmailsText: auth.oidc_draft.bootstrap_admin_emails.join('\n'),
@@ -76,7 +79,8 @@
       issuer_url: oidcForm.issuerURL.trim(),
       client_id: oidcForm.clientID.trim(),
       client_secret: oidcForm.clientSecret.trim(),
-      redirect_url: oidcForm.redirectURL.trim(),
+      redirect_mode: oidcForm.redirectMode,
+      fixed_redirect_url: oidcForm.fixedRedirectURL.trim(),
       scopes: parseListInput(oidcForm.scopesText),
       allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
       bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),
@@ -146,7 +150,8 @@
   onIssuerURL={(value) => (oidcForm.issuerURL = value)}
   onClientID={(value) => (oidcForm.clientID = value)}
   onClientSecret={(value) => (oidcForm.clientSecret = value)}
-  onRedirectURL={(value) => (oidcForm.redirectURL = value)}
+  onRedirectMode={(value) => (oidcForm.redirectMode = value)}
+  onFixedRedirectURL={(value) => (oidcForm.fixedRedirectURL = value)}
   onScopes={(value) => (oidcForm.scopesText = value)}
   onAllowedDomains={(value) => (oidcForm.allowedDomainsText = value)}
   onBootstrapAdmins={(value) => (oidcForm.bootstrapAdminEmailsText = value)}

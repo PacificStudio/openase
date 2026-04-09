@@ -16,7 +16,8 @@ type StoredConfigRecord struct {
 	IssuerURL             string
 	ClientID              string
 	ClientSecretEncrypted *iam.EncryptedSecret
-	RedirectURL           string
+	RedirectMode          string
+	FixedRedirectURL      string
 	Scopes                []string
 	EmailClaim            string
 	NameClaim             string
@@ -63,7 +64,8 @@ func (r *EntRepository) Upsert(ctx context.Context, record StoredConfigRecord) (
 		SetStatus(record.Status).
 		SetIssuerURL(record.IssuerURL).
 		SetClientID(record.ClientID).
-		SetRedirectURL(record.RedirectURL).
+		SetRedirectMode(record.RedirectMode).
+		SetRedirectURL(record.FixedRedirectURL).
 		SetScopes(record.Scopes).
 		SetEmailClaim(record.EmailClaim).
 		SetNameClaim(record.NameClaim).
@@ -109,7 +111,8 @@ func (r *EntRepository) Upsert(ctx context.Context, record StoredConfigRecord) (
 		SetStatus(record.Status).
 		SetIssuerURL(record.IssuerURL).
 		SetClientID(record.ClientID).
-		SetRedirectURL(record.RedirectURL).
+		SetRedirectMode(record.RedirectMode).
+		SetRedirectURL(record.FixedRedirectURL).
 		SetScopes(record.Scopes).
 		SetEmailClaim(record.EmailClaim).
 		SetNameClaim(record.NameClaim).
@@ -153,7 +156,8 @@ func mapStoredConfigRecord(item *ent.InstanceAuthConfig) StoredConfigRecord {
 		IssuerURL:             item.IssuerURL,
 		ClientID:              item.ClientID,
 		ClientSecretEncrypted: cloneSecret(item.ClientSecretEncrypted),
-		RedirectURL:           item.RedirectURL,
+		RedirectMode:          item.RedirectMode,
+		FixedRedirectURL:      item.RedirectURL,
 		Scopes:                cloneStrings(item.Scopes),
 		EmailClaim:            item.EmailClaim,
 		NameClaim:             item.NameClaim,

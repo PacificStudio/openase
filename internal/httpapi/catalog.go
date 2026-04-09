@@ -350,7 +350,7 @@ func mapMachineResponse(item domain.Machine) machineResponse {
 		Status:                item.Status.String(),
 		WorkspaceRoot:         item.WorkspaceRoot,
 		AgentCLIPath:          item.AgentCLIPath,
-		EnvVars:               cloneStringSlice(item.EnvVars),
+		EnvVars:               domain.MaskMachineEnvVars(item.EnvVars),
 		LastHeartbeatAt:       timeToStringPointer(item.LastHeartbeatAt),
 		Resources:             cloneMap(item.Resources),
 	}

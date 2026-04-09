@@ -24,7 +24,8 @@
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -40,7 +41,8 @@
     issuerURL: '',
     clientID: '',
     clientSecret: '',
-    redirectURL: '',
+    redirectMode: 'auto',
+    fixedRedirectURL: '',
     scopesText: '',
     allowedDomainsText: '',
     bootstrapAdminEmailsText: '',
@@ -62,7 +64,8 @@
       issuerURL: nextAuth.oidc_draft.issuer_url,
       clientID: nextAuth.oidc_draft.client_id,
       clientSecret: '',
-      redirectURL: nextAuth.oidc_draft.redirect_url,
+      redirectMode: nextAuth.oidc_draft.redirect_mode === 'fixed' ? 'fixed' : 'auto',
+      fixedRedirectURL: nextAuth.oidc_draft.fixed_redirect_url,
       scopesText: nextAuth.oidc_draft.scopes.join('\n'),
       allowedDomainsText: nextAuth.oidc_draft.allowed_email_domains.join('\n'),
       bootstrapAdminEmailsText: nextAuth.oidc_draft.bootstrap_admin_emails.join('\n'),
@@ -75,7 +78,8 @@
       issuer_url: oidcForm.issuerURL.trim(),
       client_id: oidcForm.clientID.trim(),
       client_secret: oidcForm.clientSecret.trim(),
-      redirect_url: oidcForm.redirectURL.trim(),
+      redirect_mode: oidcForm.redirectMode,
+      fixed_redirect_url: oidcForm.fixedRedirectURL.trim(),
       scopes: parseListInput(oidcForm.scopesText),
       allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
       bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),

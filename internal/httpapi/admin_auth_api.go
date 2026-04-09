@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	iam "github.com/BetterAndBetterII/openase/internal/domain/iam"
@@ -53,7 +54,10 @@ func (s *Server) handlePutAdminOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	stored, err := service.SaveDraft(c.Request().Context(), draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "ADMIN_AUTH_CONFIG_FAILED", err.Error())
@@ -80,17 +84,25 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), strings.TrimSpace(draft.FixedRedirectURL), s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), strings.TrimSpace(draft.FixedRedirectURL), s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 	authCfg := completeOIDCAuthConfigFromAccessControl(active)
 
-	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
 
@@ -100,7 +112,7 @@ func (s *Server) handleTestAdminOIDCDraft(c echo.Context) error {
 		IssuerURL:             diagnostics.IssuerURL,
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
-		RedirectURL:           authCfg.OIDC.RedirectURL,
+		RedirectURL:           redirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	}
 	if err := service.SaveValidation(c.Request().Context(), securityOIDCValidationSuccessMetadata(response)); err != nil {
@@ -125,17 +137,25 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), draft.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), strings.TrimSpace(draft.FixedRedirectURL), s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), strings.TrimSpace(draft.FixedRedirectURL), s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
 	authCfg := completeOIDCAuthConfigFromAccessControl(active)
 
-	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
 
@@ -145,7 +165,7 @@ func (s *Server) handleEnableAdminOIDC(c echo.Context) error {
 		IssuerURL:             diagnostics.IssuerURL,
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
-		RedirectURL:           authCfg.OIDC.RedirectURL,
+		RedirectURL:           redirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	})
 	if err := service.SaveValidation(c.Request().Context(), successValidation); err != nil {

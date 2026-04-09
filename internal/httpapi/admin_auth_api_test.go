@@ -100,7 +100,7 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	draftReq := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/admin/auth/oidc-draft",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	draftReq.Header.Set("Content-Type", "application/json")
 	draftRec := httptest.NewRecorder()
@@ -130,6 +130,12 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	if !draftPayload.Auth.OIDCDraft.ClientSecretConfigured {
 		t.Fatal("draft should report stored client_secret_configured = true")
 	}
+	if draftPayload.Auth.OIDCDraft.RedirectMode != "fixed" {
+		t.Fatalf("draft redirect_mode = %q, want fixed", draftPayload.Auth.OIDCDraft.RedirectMode)
+	}
+	if draftPayload.Auth.OIDCDraft.FixedRedirectURL != "http://127.0.0.1:19836/api/v1/auth/oidc/callback" {
+		t.Fatalf("draft fixed_redirect_url = %q", draftPayload.Auth.OIDCDraft.FixedRedirectURL)
+	}
 	storedDraft, err := client.InstanceAuthConfig.Query().Only(draftReq.Context())
 	if err != nil {
 		t.Fatalf("load draft instance auth config: %v", err)
@@ -141,7 +147,7 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	enableReq := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/auth/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	enableReq.Header.Set("Content-Type", "application/json")
 	enableRec := httptest.NewRecorder()
@@ -173,6 +179,9 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	}
 	if enablePayload.Auth.LastValidation.Status != "ok" {
 		t.Fatalf("last_validation.status = %q, want ok", enablePayload.Auth.LastValidation.Status)
+	}
+	if enablePayload.Auth.LastValidation.RedirectURL != "http://127.0.0.1:19836/api/v1/auth/oidc/callback" {
+		t.Fatalf("last_validation.redirect_url = %q", enablePayload.Auth.LastValidation.RedirectURL)
 	}
 	storedActive, err := client.InstanceAuthConfig.Query().Only(enableReq.Context())
 	if err != nil {
@@ -261,7 +270,7 @@ func TestAdminAuthRouteRequiresInstanceAdminInOIDCMode(t *testing.T) {
 		t,
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
-		`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`,
+		`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`,
 		map[string]string{
 			"Cookie":         humanSessionCookieName + "=" + sessionToken,
 			"Origin":         "http://example.com",

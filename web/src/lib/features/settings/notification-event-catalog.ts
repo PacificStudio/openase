@@ -16,6 +16,144 @@ export type CatalogEvent = {
   groupKey: string
 }
 
+export type TemplateVariable = {
+  name: string
+  description: string
+}
+
+export type TemplateVariableGroup = {
+  label: string
+  variables: TemplateVariable[]
+}
+
+const COMMON_VARS: TemplateVariable[] = [
+  { name: 'event_type', description: 'Event type identifier' },
+  { name: 'project_id', description: 'Project UUID' },
+  { name: 'published_at', description: 'Event timestamp (RFC3339)' },
+]
+
+const TICKET_VARS: TemplateVariable[] = [
+  { name: 'ticket.identifier', description: 'Ticket identifier (e.g. PROJ-42)' },
+  { name: 'ticket.title', description: 'Ticket title' },
+  { name: 'ticket.status_name', description: 'Current status name' },
+  { name: 'ticket.priority', description: 'Priority level' },
+]
+
+const TICKET_SHORTHAND_VARS: TemplateVariable[] = [
+  { name: 'identifier', description: 'Shorthand: ticket identifier' },
+  { name: 'title', description: 'Shorthand: ticket title' },
+  { name: 'status_name', description: 'Shorthand: status name' },
+  { name: 'priority', description: 'Shorthand: priority' },
+]
+
+const HOOK_VARS: TemplateVariable[] = [
+  { name: 'ticket_identifier', description: 'Ticket identifier' },
+  { name: 'hook_name', description: 'Name of the hook' },
+  { name: 'message', description: 'Event message' },
+]
+
+const PR_VARS: TemplateVariable[] = [
+  { name: 'ticket_identifier', description: 'Ticket identifier' },
+  { name: 'pull_request_url', description: 'Pull request URL' },
+  { name: 'message', description: 'Event message' },
+]
+
+const AGENT_VARS: TemplateVariable[] = [
+  { name: 'agent.name', description: 'Agent name' },
+  { name: 'agent.status', description: 'Agent status' },
+  { name: 'current_ticket_id', description: 'ID of the assigned ticket' },
+  { name: 'ticket_id', description: 'Alias: current ticket ID' },
+  { name: 'name', description: 'Shorthand: agent name' },
+  { name: 'status', description: 'Shorthand: agent status' },
+]
+
+const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
+  'ticket.created': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.updated': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.status_changed': [
+    {
+      label: 'Ticket',
+      variables: [...TICKET_VARS, { name: 'new_status', description: 'New status after change' }],
+    },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.completed': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.cancelled': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.retry_scheduled': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.retry_paused': [
+    {
+      label: 'Event',
+      variables: [
+        { name: 'message', description: 'Event message' },
+        { name: 'pause_reason', description: 'Reason pausing retry' },
+      ],
+    },
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.budget_exhausted': [
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'agent.claimed': [
+    { label: 'Agent', variables: AGENT_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'agent.failed': [
+    { label: 'Agent', variables: AGENT_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'hook.passed': [
+    { label: 'Hook', variables: HOOK_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'hook.failed': [
+    {
+      label: 'Hook',
+      variables: [...HOOK_VARS, { name: 'error', description: 'Error message' }],
+    },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'pr.opened': [
+    { label: 'Pull Request', variables: PR_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'pr.merged': [
+    { label: 'Pull Request', variables: PR_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'pr.closed': [
+    { label: 'Pull Request', variables: PR_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+}
+
+export function getTemplateVariables(eventType: string): TemplateVariableGroup[] {
+  return TEMPLATE_VARS[eventType] ?? [{ label: 'Common', variables: COMMON_VARS }]
+}
+
 function normalizeSeverity(level: string | undefined): EventSeverity {
   if (level === 'critical' || level === 'warning' || level === 'info') return level
   return 'info'

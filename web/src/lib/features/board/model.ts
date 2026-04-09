@@ -258,6 +258,16 @@ function buildBoardTicketsByStatusId(
       labels: [],
       anomaly: inferAnomaly(ticket),
       isBlocked: isBlocked || undefined,
+      externalLinks: ticket.external_links?.map((link) => ({
+        id: link.id ?? '',
+        type: link.type ?? '',
+        url: link.url ?? '',
+        externalId: link.external_id ?? '',
+        title: link.title,
+        status: link.status,
+        relation: link.relation ?? '',
+      })),
+      pullRequestURLs: ticket.pull_request_urls,
     }
 
     const current = ticketsByStatusId.get(ticket.status_id)

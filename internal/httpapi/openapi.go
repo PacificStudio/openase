@@ -774,6 +774,7 @@ type OpenAPITicket struct {
 	Children          []OpenAPITicketReference    `json:"children"`
 	Dependencies      []OpenAPITicketDependency   `json:"dependencies"`
 	ExternalLinks     []OpenAPITicketExternalLink `json:"external_links"`
+	PullRequestURLs   []string                    `json:"pull_request_urls"`
 	ExternalRef       string                      `json:"external_ref"`
 	BudgetUSD         float64                     `json:"budget_usd"`
 	CostTokensInput   int64                       `json:"cost_tokens_input"`
@@ -1580,7 +1581,8 @@ type OpenAPISecurityOIDCDraft struct {
 	IssuerURL              string   `json:"issuer_url"`
 	ClientID               string   `json:"client_id"`
 	ClientSecretConfigured bool     `json:"client_secret_configured"`
-	RedirectURL            string   `json:"redirect_url"`
+	RedirectMode           string   `json:"redirect_mode"`
+	FixedRedirectURL       string   `json:"fixed_redirect_url"`
 	Scopes                 []string `json:"scopes"`
 	AllowedEmailDomains    []string `json:"allowed_email_domains"`
 	BootstrapAdminEmails   []string `json:"bootstrap_admin_emails"`
@@ -1631,7 +1633,21 @@ type OpenAPISecurityWebhooks struct {
 }
 
 type OpenAPISecuritySecretHygiene struct {
-	NotificationChannelConfigsRedacted bool `json:"notification_channel_configs_redacted"`
+	NotificationChannelConfigsRedacted bool                                        `json:"notification_channel_configs_redacted"`
+	MachineEnvVarsRedacted             bool                                        `json:"machine_env_vars_redacted"`
+	RuntimeSecretResponsesRedacted     bool                                        `json:"runtime_secret_responses_redacted"`
+	LegacyProvidersRequiringMigration  int                                         `json:"legacy_providers_requiring_migration"`
+	LegacyProviderInlineSecretBindings int                                         `json:"legacy_provider_inline_secret_bindings"`
+	LegacyMachinesRequiringMigration   int                                         `json:"legacy_machines_requiring_migration"`
+	LegacyMachineSecretEnvVars         int                                         `json:"legacy_machine_secret_env_vars"`
+	RolloutChecklist                   []OpenAPISecuritySecretRolloutChecklistItem `json:"rollout_checklist"`
+}
+
+type OpenAPISecuritySecretRolloutChecklistItem struct {
+	Key     string `json:"key"`
+	Title   string `json:"title"`
+	Status  string `json:"status"`
+	Summary string `json:"summary"`
 }
 
 type OpenAPISecurityApprovalPolicies struct {
@@ -2078,7 +2094,6 @@ type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
-type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
 type OpenAPICreateScopedSecretRequest rawCreateScopedSecretRequest
 type OpenAPICreateScopedSecretBindingRequest rawCreateScopedSecretBindingRequest
@@ -2179,7 +2194,7 @@ var (
 		"status":                            "Machine lifecycle status value.",
 		"workspace_root":                    "Filesystem root directory where ticket workspaces are created on the machine.",
 		"agent_cli_path":                    "Absolute path to the agent CLI executable on the machine.",
-		"env_vars":                          "Environment variable entries exported when work runs on the machine.",
+		"env_vars":                          "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{
 		"name":                      "Human-readable project name.",
@@ -2192,23 +2207,35 @@ var (
 		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
-		"name":                          "Human-readable provider name.",
-		"machine_id":                    "Machine ID where this provider runs.",
-		"adapter_type":                  "Adapter type used to launch and communicate with the provider.",
-		"permission_profile":            "Managed permission profile used to render adapter-specific approval and sandbox options.",
-		"cli_command":                   "CLI command used to launch the provider.",
-		"cli_args":                      "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
-		"auth_config":                   "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
-		"secret_bindings":               "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
-		"secret_bindings[].env_var_key": "Environment variable name injected into the provider runtime, normalized to upper snake case.",
-		"secret_bindings[].binding_key": "Secret binding alias to resolve for the matching runtime environment variable.",
-		"model_name":                    "Model name configured for the provider.",
-		"model_temperature":             "Sampling temperature configured for the provider model.",
-		"model_max_tokens":              "Maximum number of output tokens allowed for the provider model.",
-		"max_parallel_runs":             "Maximum number of concurrent runs allowed for the provider.",
-		"cost_per_input_token":          "Estimated USD cost per input token.",
-		"cost_per_output_token":         "Estimated USD cost per output token.",
-		"pricing_config":                "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
+		"name":                                   "Human-readable provider name.",
+		"machine_id":                             "Machine ID where this provider runs.",
+		"adapter_type":                           "Adapter type used to launch and communicate with the provider.",
+		"permission_profile":                     "Managed permission profile used to render adapter-specific approval and sandbox options.",
+		"cli_command":                            "CLI command used to launch the provider.",
+		"cli_args":                               "Additional CLI arguments passed to the provider command after OpenASE applies adapter-managed launch settings.",
+		"auth_config":                            "Provider-specific non-secret authentication/configuration object. Secret-like entries are withheld from responses and represented in secret_bindings instead.",
+		"secret_bindings":                        "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
+		"secret_bindings[].env_var_key":          "Environment variable name injected into the provider runtime, normalized to upper snake case.",
+		"secret_bindings[].binding_key":          "Secret binding alias to resolve for the matching runtime environment variable.",
+		"notification_channel_configs_redacted":  "Whether notification channel responses redact stored secret values.",
+		"machine_env_vars_redacted":              "Whether secret-like machine env_vars are masked in HTTP responses.",
+		"runtime_secret_responses_redacted":      "Whether runtime secret inspection responses return masked previews instead of raw values.",
+		"legacy_providers_requiring_migration":   "Number of providers that still carry legacy inline auth_config secrets.",
+		"legacy_provider_inline_secret_bindings": "Total count of legacy inline provider secret entries still pending migration.",
+		"legacy_machines_requiring_migration":    "Number of machines that still carry secret-like env_vars.",
+		"legacy_machine_secret_env_vars":         "Total count of secret-like machine env_vars still pending migration.",
+		"rollout_checklist":                      "Compatibility and rollout checklist entries for the scoped secret migration.",
+		"rollout_checklist[].key":                "Stable machine-readable rollout checklist key.",
+		"rollout_checklist[].title":              "Human-readable rollout checklist title.",
+		"rollout_checklist[].status":             "Checklist status, such as done or pending.",
+		"rollout_checklist[].summary":            "Short operator-facing rollout guidance for this checklist item.",
+		"model_name":                             "Model name configured for the provider.",
+		"model_temperature":                      "Sampling temperature configured for the provider model.",
+		"model_max_tokens":                       "Maximum number of output tokens allowed for the provider model.",
+		"max_parallel_runs":                      "Maximum number of concurrent runs allowed for the provider.",
+		"cost_per_input_token":                   "Estimated USD cost per input token.",
+		"cost_per_output_token":                  "Estimated USD cost per output token.",
+		"pricing_config":                         "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
 	}
 	openAPIRepoRequestDescriptions = map[string]string{
 		"name":              "Human-readable repository name within the project.",
@@ -2254,13 +2281,16 @@ var (
 		"ticket_id":    "Optional ticket ID included in the resolution precedence chain.",
 		"workflow_id":  "Optional workflow ID included in the resolution precedence chain.",
 		"agent_id":     "Optional agent ID included in the resolution precedence chain.",
+		"value":        "Masked preview of the resolved secret value. Raw secret material is never returned from this API.",
 	}
 	// #nosec G101 -- "client_secret" is an OpenAPI field name/description, not a credential literal.
 	openAPIOIDCDraftDescriptions = map[string]string{
 		"issuer_url":             "OIDC issuer discovery URL used to resolve the provider metadata document.",
 		"client_id":              "OAuth client ID registered for the OpenASE browser login application.",
 		"client_secret":          "OAuth client secret stored server-side for the configured OIDC client.",
-		"redirect_url":           "Browser callback URL that must match the OIDC provider client registration.",
+		"redirect_mode":          "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+		"fixed_redirect_url":     "Explicit browser callback URL used only when redirect_mode=fixed.",
+		"redirect_url":           "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
 		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
 		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
 		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
@@ -6052,11 +6082,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityImport, err := b.jsonOperation(
 		"importGitHubOutboundCredentialFromGHCLI",
-		"Import the current gh auth token into platform-managed GitHub credential storage",
+		"Import the current gh auth token as the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -6071,11 +6101,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityRetest, err := b.jsonOperation(
 		"retestGitHubOutboundCredential",
-		"Retest a stored platform-managed GitHub outbound credential",
+		"Retest the stored project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -6090,7 +6120,7 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityDelete, err := b.jsonOperation(
 		"deleteGitHubOutboundCredential",
-		"Delete a stored platform-managed GitHub outbound credential",
+		"Delete the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
@@ -6105,10 +6135,6 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 		return err
 	}
 	securityDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	securityDelete.AddParameter(openapi3.NewQueryParameter("scope").
-		WithDescription("Credential scope to delete. Supported values are organization and project.").
-		WithRequired(true).
-		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential", http.MethodDelete, securityDelete)
 
 	return nil

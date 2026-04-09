@@ -7,6 +7,7 @@
   import type { BoardColumn, BoardTicket } from '../types'
   import StageIcon from './stage-icon.svelte'
   import PriorityIcon from './priority-icon.svelte'
+  import TicketLinkBadges from './ticket-link-badges.svelte'
 
   let {
     columns,
@@ -46,6 +47,7 @@
             <th class="px-4 py-2.5 font-medium">Priority</th>
             <th class="px-4 py-2.5 font-medium">Workflow</th>
             <th class="px-4 py-2.5 font-medium">Agent</th>
+            <th class="px-4 py-2.5 font-medium">Links</th>
             <th class="px-4 py-2.5 text-right font-medium">Updated</th>
           </tr>
         </thead>
@@ -121,6 +123,12 @@
                     {/if}
                   {/if}
                 </span>
+              </td>
+              <td class="px-4 py-3">
+                <TicketLinkBadges
+                  links={row.ticket.externalLinks}
+                  pullRequestURLs={row.ticket.pullRequestURLs}
+                />
               </td>
               <td class="px-4 py-3 text-right">
                 <span class="text-muted-foreground text-xs">

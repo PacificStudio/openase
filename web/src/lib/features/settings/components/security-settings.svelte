@@ -20,16 +20,12 @@
   import { normalizeSecuritySettings } from '../security-settings'
 
   type Security = SecuritySettingsResponse['security']
-  type GitHubScope = 'organization' | 'project'
 
   let security = $state<Security | null>(null)
   let loading = $state(false)
   let error = $state('')
   let actionKey = $state('')
-  let manualTokens = $state<Record<GitHubScope, string>>({
-    organization: '',
-    project: '',
-  })
+  let manualToken = $state('')
 
   $effect(() => {
     const projectId = appStore.currentProject?.id
@@ -44,7 +40,6 @@
     const load = async () => {
       loading = true
       error = ''
-
       try {
         const payload = await getSecuritySettings(projectId)
         if (cancelled) return
@@ -54,59 +49,48 @@
         security = null
         error = formatError(caughtError, 'Failed to load security settings.')
       } finally {
-        if (!cancelled) {
-          loading = false
-        }
+        if (!cancelled) loading = false
       }
     }
 
     void load()
-
     return () => {
       cancelled = true
     }
   })
+
   function formatError(caughtError: unknown, fallback: string) {
     return caughtError instanceof ApiError ? caughtError.detail : fallback
   }
 
-  function scopeLabel(scope: GitHubScope) {
-    return scope === 'organization' ? 'organization' : 'project override'
-  }
-
-  function handleManualTokenChange(scope: GitHubScope, value: string) {
-    manualTokens[scope] = value
-  }
-
-  async function mutateScope(scope: GitHubScope, action: 'save' | 'import' | 'retest' | 'delete') {
+  async function mutate(action: 'save' | 'import' | 'retest' | 'delete') {
     const projectId = appStore.currentProject?.id
     if (!projectId) return
 
-    const key = `${scope}:${action}`
-    actionKey = key
+    actionKey = action
     error = ''
 
     try {
       let payload: SecuritySettingsResponse
       if (action === 'save') {
-        const token = manualTokens[scope].trim()
+        const token = manualToken.trim()
         if (!token) {
           toastStore.error('GitHub token is required.')
           return
         }
-        payload = await saveGitHubOutboundCredential(projectId, { scope, token })
-        manualTokens[scope] = ''
-        toastStore.success(`Saved ${scopeLabel(scope)} GitHub credential.`)
+        payload = await saveGitHubOutboundCredential(projectId, { token })
+        manualToken = ''
+        toastStore.success('Saved project GitHub credential.')
       } else if (action === 'import') {
-        payload = await importGitHubOutboundCredentialFromGHCLI(projectId, { scope })
-        toastStore.success(`Imported ${scopeLabel(scope)} credential from gh.`)
+        payload = await importGitHubOutboundCredentialFromGHCLI(projectId)
+        toastStore.success('Imported project credential from gh.')
       } else if (action === 'retest') {
-        payload = await retestGitHubOutboundCredential(projectId, { scope })
-        toastStore.success(`Retested ${scopeLabel(scope)} GitHub credential.`)
+        payload = await retestGitHubOutboundCredential(projectId)
+        toastStore.success('Retested project GitHub credential.')
       } else {
-        payload = await deleteGitHubOutboundCredential(projectId, scope)
-        manualTokens[scope] = ''
-        toastStore.success(`Deleted ${scopeLabel(scope)} GitHub credential.`)
+        payload = await deleteGitHubOutboundCredential(projectId)
+        manualToken = ''
+        toastStore.success('Deleted project GitHub credential.')
       }
       security = normalizeSecuritySettings(payload.security)
     } catch (caughtError) {
@@ -129,26 +113,20 @@
 
   {#if loading}
     <div class="space-y-6">
-      <div class="bg-muted h-24 animate-pulse rounded-2xl"></div>
-      <!-- Skeleton: GitHub credentials section -->
       <div class="space-y-3">
         <div class="bg-muted h-4 w-44 animate-pulse rounded"></div>
-        <div class="bg-muted h-3 w-72 animate-pulse rounded"></div>
-        {#each { length: 2 } as _}
-          <div class="border-border bg-card rounded-lg border p-4">
-            <div class="flex items-center gap-3">
-              <div class="bg-muted size-8 shrink-0 animate-pulse rounded-lg"></div>
-              <div class="flex-1 space-y-1.5">
-                <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
-                <div class="bg-muted h-3 w-40 animate-pulse rounded"></div>
-              </div>
-              <div class="bg-muted h-7 w-20 animate-pulse rounded-md"></div>
+        <div class="border-border bg-card rounded-lg border p-4">
+          <div class="flex items-center gap-3">
+            <div class="bg-muted size-8 shrink-0 animate-pulse rounded-lg"></div>
+            <div class="flex-1 space-y-1.5">
+              <div class="bg-muted h-4 w-28 animate-pulse rounded"></div>
+              <div class="bg-muted h-3 w-40 animate-pulse rounded"></div>
             </div>
+            <div class="bg-muted h-7 w-20 animate-pulse rounded-md"></div>
           </div>
-        {/each}
+        </div>
       </div>
       <div class="bg-border h-px"></div>
-      <!-- Skeleton: platform details -->
       <div class="space-y-3">
         <div class="bg-muted h-4 w-32 animate-pulse rounded"></div>
         <div class="grid grid-cols-2 gap-3">
@@ -183,9 +161,9 @@
     <GitHubOutboundCredentialsPanel
       {security}
       {actionKey}
-      {manualTokens}
-      onAction={mutateScope}
-      onManualTokenChange={handleManualTokenChange}
+      {manualToken}
+      onAction={mutate}
+      onManualTokenChange={(value) => (manualToken = value)}
     />
 
     <Separator />

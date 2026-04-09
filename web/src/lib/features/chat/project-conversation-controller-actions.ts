@@ -54,17 +54,22 @@ export async function sendNextQueuedProjectConversationTurn(input: {
     focus: ProjectAIFocus | null,
   ) => Promise<boolean>
 }) {
-  const nextQueued = input.tab?.queuedTurns[0]
-  if (!input.tab || !nextQueued) {
+  const tab = input.tab
+  const nextQueued = tab?.queuedTurns[0]
+  if (!tab || !nextQueued) {
     return false
   }
 
-  const sent = await input.sendTurnInTab(input.tab, nextQueued.message, nextQueued.focus)
+  tab.queuedTurns = tab.queuedTurns.filter((turn) => turn.id !== nextQueued.id)
+
+  const sent = await input.sendTurnInTab(tab, nextQueued.message, nextQueued.focus)
   if (!sent) {
+    if (!tab.queuedTurns.some((turn) => turn.id === nextQueued.id)) {
+      tab.queuedTurns = [nextQueued, ...tab.queuedTurns]
+    }
     return false
   }
 
-  input.tab.queuedTurns = input.tab.queuedTurns.filter((turn) => turn.id !== nextQueued.id)
   return true
 }
 
