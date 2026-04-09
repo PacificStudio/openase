@@ -44,6 +44,8 @@ var (
 	ticketRunSummaryStreamType  = provider.MustParseEventType("ticket.run.summary")
 )
 
+const runCompletionSummaryEmptyTreeOID = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
 type runtimeCompletionSummaryCoordinator struct {
 	client         *ent.Client
 	logger         *slog.Logger
@@ -983,14 +985,9 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	workspaceRoot string,
 	workspace *ent.TicketRepoWorkspace,
 ) (runCompletionRepoDiff, error) {
-	branchOutput, err := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", workspace.RepoPath, "rev-parse", "--abbrev-ref", "HEAD"},
-		false,
-	)
+	branchName, hasHead, err := c.readRunCompletionWorkspaceBranch(ctx, machine, workspace.RepoPath)
 	if err != nil {
-		if isMissingRunCompletionGitWorkspace(branchOutput) {
+		if isMissingRunCompletionGitWorkspace([]byte(err.Error())) {
 			return runCompletionRepoDiff{}, nil
 		}
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace branch for %s: %w", workspace.RepoPath, err)
@@ -1012,12 +1009,7 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 		return runCompletionRepoDiff{}, nil
 	}
 
-	numstatOutput, err := c.runCompletionSummaryGitCommand(
-		ctx,
-		machine,
-		[]string{"git", "-C", workspace.RepoPath, "diff", "--numstat", "-z", "-M", "HEAD", "--"},
-		false,
-	)
+	numstatOutput, err := c.readRunCompletionWorkspaceNumstat(ctx, machine, workspace.RepoPath, hasHead)
 	if err != nil {
 		return runCompletionRepoDiff{}, fmt.Errorf("read workspace diff stats for %s: %w", workspace.RepoPath, err)
 	}
@@ -1041,7 +1033,7 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	repoSummary := runCompletionRepoDiff{
 		Name:   filepath.Base(workspace.RepoPath),
 		Path:   relativeRepoPath,
-		Branch: strings.TrimSpace(string(branchOutput)),
+		Branch: branchName,
 		Dirty:  true,
 	}
 	for _, status := range statuses {
@@ -1068,6 +1060,56 @@ func (c *runtimeCompletionSummaryCoordinator) captureRunCompletionWorkspaceRepo(
 	repoSummary.Files = files
 	repoSummary.FilesChanged = len(files)
 	return repoSummary, nil
+}
+
+func (c *runtimeCompletionSummaryCoordinator) readRunCompletionWorkspaceBranch(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoPath string,
+) (string, bool, error) {
+	branchOutput, err := c.runCompletionSummaryGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD"},
+		false,
+	)
+	if err == nil {
+		return strings.TrimSpace(string(branchOutput)), true, nil
+	}
+	if isMissingRunCompletionGitWorkspace(branchOutput) {
+		return "", false, fmt.Errorf("%s", strings.TrimSpace(string(branchOutput)))
+	}
+
+	// Repositories created but not yet checked out can have an unborn HEAD while still
+	// exposing the target branch via symbolic-ref.
+	symbolicOutput, symbolicErr := c.runCompletionSummaryGitCommand(
+		ctx,
+		machine,
+		[]string{"git", "-C", repoPath, "symbolic-ref", "-q", "--short", "HEAD"},
+		false,
+	)
+	if symbolicErr == nil {
+		return strings.TrimSpace(string(symbolicOutput)), false, nil
+	}
+	if isMissingRunCompletionGitWorkspace(symbolicOutput) {
+		return "", false, fmt.Errorf("%s", strings.TrimSpace(string(symbolicOutput)))
+	}
+	return "", false, err
+}
+
+func (c *runtimeCompletionSummaryCoordinator) readRunCompletionWorkspaceNumstat(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	repoPath string,
+	hasHead bool,
+) ([]byte, error) {
+	args := []string{"git", "-C", repoPath, "diff", "--numstat", "-z", "-M"}
+	if hasHead {
+		args = append(args, "HEAD", "--")
+	} else {
+		args = append(args, runCompletionSummaryEmptyTreeOID, "--")
+	}
+	return c.runCompletionSummaryGitCommand(ctx, machine, args, false)
 }
 
 func (c *runtimeCompletionSummaryCoordinator) readRunCompletionUntrackedNumstat(
