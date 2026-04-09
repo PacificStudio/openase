@@ -1,19 +1,32 @@
 import { fireEvent, render } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 
-import { parseProjectUpdateThreads } from '$lib/features/project-updates/model'
-import { makeThreadRecord } from '$lib/features/project-updates/components/project-updates-page.test-support'
+import { parseProjectUpdateThreads } from '$lib/features/project-updates'
 import OrgDashboardUpdatesPanel from './org-dashboard-updates-panel.svelte'
 
 describe('OrgDashboardUpdatesPanel', () => {
   it('shows a load more button and calls the handler when older threads are available', async () => {
     const onLoadMoreThreads = vi.fn()
     const threads = parseProjectUpdateThreads([
-      makeThreadRecord({
+      {
         id: 'thread-1',
+        project_id: 'project-1',
+        status: 'on_track',
         title: 'Newest thread',
         body_markdown: 'Top of the list',
-      }),
+        created_by: 'user:codex',
+        created_at: '2026-04-01T10:00:00Z',
+        updated_at: '2026-04-01T10:00:00Z',
+        edited_at: null,
+        edit_count: 0,
+        last_edited_by: null,
+        is_deleted: false,
+        deleted_at: null,
+        deleted_by: null,
+        last_activity_at: '2026-04-01T10:00:00Z',
+        comment_count: 0,
+        comments: [],
+      },
     ])
 
     const view = render(OrgDashboardUpdatesPanel, {
