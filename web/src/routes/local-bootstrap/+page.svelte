@@ -18,7 +18,7 @@
   async function redeem() {
     if (!data.requestID || !data.code || !data.nonce) {
       message =
-        'This link is incomplete. Generate a fresh local bootstrap authorization link from the CLI.'
+        'This authorization bundle is incomplete. Generate a fresh local bootstrap bundle from the CLI.'
       return
     }
 

@@ -1,10 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { parseLocalBootstrapRedeemURL } from '$lib/features/auth/local-bootstrap'
+  import {
+    buildLocalBootstrapRedeemPath,
+    parseLocalBootstrapAuthorizationBundle,
+  } from '$lib/features/auth/local-bootstrap'
   import type { HumanAuthSession } from '$lib/stores/auth.svelte'
   import { Button } from '$ui/button'
   import * as Card from '$ui/card'
-  import { Input } from '$ui/input'
+  import { Textarea } from '$ui/textarea'
 
   type LoginGatePageData = {
     returnTo: string
@@ -12,7 +15,7 @@
   }
 
   let { data }: { data: LoginGatePageData } = $props()
-  let localBootstrapURL = $state('')
+  let localBootstrapBundle = $state('')
   let localBootstrapError = $state('')
 
   const loginHref = $derived(
@@ -29,15 +32,15 @@
         : 'Unknown',
   )
 
-  async function openLocalBootstrapLink() {
-    const destination = parseLocalBootstrapRedeemURL(localBootstrapURL, window.location.origin)
-    if (!destination) {
+  async function continueWithLocalBootstrap() {
+    const bundle = parseLocalBootstrapAuthorizationBundle(localBootstrapBundle, data.returnTo)
+    if (!bundle) {
       localBootstrapError =
-        'Paste a full local bootstrap URL from `openase auth bootstrap create-link`.'
+        'Paste the CLI JSON, text output, or URL from `openase auth bootstrap create-link`.'
       return
     }
     localBootstrapError = ''
-    await goto(destination)
+    await goto(buildLocalBootstrapRedeemPath(bundle))
   }
 </script>
 
@@ -103,8 +106,9 @@
           <div>
             <div class="text-sm font-semibold">Local bootstrap authorization</div>
             <p class="text-muted-foreground mt-1 text-xs leading-5">
-              Generate a short-lived authorization link from the machine running OpenASE, then open
-              it here to redeem a browser session.
+              Generate a short-lived authorization bundle on the machine running OpenASE, then paste
+              the CLI output here to redeem a browser session through this browser's current
+              entrypoint.
             </p>
           </div>
 
@@ -113,24 +117,30 @@
           </div>
 
           <div class="space-y-2">
-            <label class="text-xs font-medium" for="local-bootstrap-url">
-              Paste local bootstrap URL
+            <label class="text-xs font-medium" for="local-bootstrap-bundle">
+              Paste local bootstrap bundle
             </label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id="local-bootstrap-url"
-                value={localBootstrapURL}
-                placeholder="http://127.0.0.1:19836/local-bootstrap?request_id=..."
+            <div class="space-y-2">
+              <Textarea
+                id="local-bootstrap-bundle"
+                value={localBootstrapBundle}
+                class="min-h-32 font-mono text-xs"
+                placeholder={'{\n  "request_id": "...",\n  "code": "...",\n  "nonce": "..."\n}'}
                 oninput={(event) =>
-                  (localBootstrapURL = (event.currentTarget as HTMLInputElement).value)}
+                  (localBootstrapBundle = (event.currentTarget as HTMLTextAreaElement).value)}
               />
-              <Button class="sm:min-w-44" onclick={() => void openLocalBootstrapLink()}>
-                Open authorization link
+              <Button class="w-full sm:w-auto" onclick={() => void continueWithLocalBootstrap()}>
+                Continue with local bootstrap
               </Button>
             </div>
             {#if localBootstrapError}
               <div class="text-destructive text-xs">{localBootstrapError}</div>
             {/if}
+            <div class="text-muted-foreground text-xs leading-5">
+              Accepted formats: the CLI JSON output, the text-mode URL output, or a copied
+              `/local-bootstrap?...` link from another entrypoint. OpenASE will redeem the
+              short-lived request through this browser's current origin.
+            </div>
           </div>
         </div>
       {/if}

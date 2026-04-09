@@ -84,8 +84,9 @@
 
   {#if currentAuthMethodLabel === 'Local bootstrap link'}
     <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
-      Browser access currently enters through the local bootstrap auth gate. Generate one-time links
-      from the host machine with <code>openase auth bootstrap create-link</code>.
+      Browser access currently enters through the local bootstrap auth gate. Generate a one-time
+      authorization bundle from the host machine with <code>openase auth bootstrap create-link</code
+      >, then paste the CLI output into the browser gate.
     </div>
   {/if}
 
