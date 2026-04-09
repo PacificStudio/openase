@@ -13,11 +13,14 @@ import (
 
 const (
 	defaultHumanSessionStateRelativePath = ".openase/human-session.json"
-	envHumanSessionFile                  = "OPENASE_HUMAN_SESSION_FILE"
-	envHumanSessionToken                 = "OPENASE_HUMAN_SESSION_TOKEN"
-	envHumanCSRFToken                    = "OPENASE_HUMAN_CSRF_TOKEN"
-	humanSessionCookieHeaderName         = "openase_session"
-	openASECLIUserAgent                  = "openase-cli"
+	// #nosec G101 -- environment variable names only; no secret material is embedded here.
+	envHumanSessionFile = "OPENASE_HUMAN_SESSION_FILE"
+	// #nosec G101 -- environment variable names only; no secret material is embedded here.
+	envHumanSessionToken = "OPENASE_HUMAN_SESSION_TOKEN"
+	// #nosec G101 -- environment variable names only; no secret material is embedded here.
+	envHumanCSRFToken            = "OPENASE_HUMAN_CSRF_TOKEN"
+	humanSessionCookieHeaderName = "openase_session"
+	openASECLIUserAgent          = "openase-cli"
 )
 
 var errHumanSessionStateNotFound = errors.New("human session state not found")
@@ -91,6 +94,7 @@ func saveHumanSessionState(path string, state humanSessionState) error {
 	if state.SavedAt == "" {
 		state.SavedAt = time.Now().UTC().Format(time.RFC3339)
 	}
+	// #nosec G117 -- persisting the CLI human session file is intentional; it is stored with 0600 permissions.
 	body, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal human session state: %w", err)

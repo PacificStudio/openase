@@ -18,16 +18,16 @@ func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
 		t.Fatalf("saveHumanSessionState() error = %v", err)
 	}
 
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	serverURL := ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Cookie"); got != humanSessionCookieHeaderName+"=session-token" {
 			t.Fatalf("cookie = %q", got)
 		}
 		if got := r.Header.Get("X-OpenASE-CSRF"); got != "csrf-token" {
 			t.Fatalf("csrf header = %q", got)
 		}
-		if got := r.Header.Get("Origin"); got != server.URL {
-			t.Fatalf("origin = %q, want %q", got, server.URL)
+		if got := r.Header.Get("Origin"); got != serverURL {
+			t.Fatalf("origin = %q, want %q", got, serverURL)
 		}
 		if got := r.Header.Get("User-Agent"); got != openASECLIUserAgent {
 			t.Fatalf("user-agent = %q, want %q", got, openASECLIUserAgent)
@@ -35,6 +35,7 @@ func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer server.Close()
+	serverURL = server.URL
 
 	ctx, err := (apiCommandOptions{
 		apiURL:           server.URL + "/api/v1",
@@ -61,8 +62,7 @@ func TestAPICommandContextUsesStoredHumanSessionForReadsWithoutCSRF(t *testing.T
 		t.Fatalf("saveHumanSessionState() error = %v", err)
 	}
 
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Cookie"); got != humanSessionCookieHeaderName+"=session-token" {
 			t.Fatalf("cookie = %q", got)
 		}
@@ -102,8 +102,7 @@ func TestAPICommandContextPrefersBearerTokenOverStoredHumanSession(t *testing.T)
 		t.Fatalf("saveHumanSessionState() error = %v", err)
 	}
 
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != "Bearer agent-token" {
 			t.Fatalf("authorization = %q", got)
 		}
