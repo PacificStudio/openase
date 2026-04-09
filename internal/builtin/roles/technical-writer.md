@@ -24,7 +24,7 @@ Ticket description:
 {% if ticket.links %}
 External links:
 {% for link in ticket.links %}
-- {{ link.type }} {{ link.title | default("untitled") | markdown_escape }} relation={{ link.relation | default("related") }} status={{ link.status | default("unknown") }} url={{ link.url }}
+- {{ link.type | default("external") }} {{ link.title | default("untitled") | markdown_escape }} status={{ link.status | default("unknown") }} url={{ link.url }}
 {% endfor %}
 {% endif %}
 

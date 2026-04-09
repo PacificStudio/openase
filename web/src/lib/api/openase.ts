@@ -977,12 +977,11 @@ export function deleteTicketDependency(ticketId: string, dependencyId: string) {
 export function addTicketExternalLink(
   ticketId: string,
   body: {
-    type: string
+    type?: string | null
     url: string
     external_id: string
     title?: string | null
     status?: string | null
-    relation?: string | null
   },
 ) {
   return api.post<TicketExternalLinkResponse>(`/api/v1/tickets/${ticketId}/external-links`, {

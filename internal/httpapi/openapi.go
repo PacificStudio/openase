@@ -646,12 +646,11 @@ type OpenAPITicketDependency struct {
 
 type OpenAPITicketExternalLink struct {
 	ID         string `json:"id"`
-	Type       string `json:"type"`
+	Type       string `json:"type,omitempty"`
 	URL        string `json:"url"`
 	ExternalID string `json:"external_id"`
 	Title      string `json:"title,omitempty"`
 	Status     string `json:"status,omitempty"`
-	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -2373,12 +2372,11 @@ var (
 		"target_ticket_id": "Target ticket ID referenced by the dependency.",
 	}
 	openAPIExternalLinkRequestDescriptions = map[string]string{
-		"type":        "External link type.",
+		"type":        "Optional freeform external link type.",
 		"url":         "URL of the external resource.",
 		"external_id": "External system identifier for the linked resource.",
 		"title":       "Optional title for the external resource.",
 		"status":      "Optional external status value.",
-		"relation":    "Relationship between the ticket and the external resource.",
 	}
 	openAPIStatusRequestDescriptions = map[string]string{
 		"name":            "Human-readable status name.",

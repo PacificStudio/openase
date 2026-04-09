@@ -44,16 +44,22 @@ func (_u *TicketExternalLinkUpdate) SetNillableTicketID(v *uuid.UUID) *TicketExt
 }
 
 // SetLinkType sets the "link_type" field.
-func (_u *TicketExternalLinkUpdate) SetLinkType(v ticketexternallink.LinkType) *TicketExternalLinkUpdate {
+func (_u *TicketExternalLinkUpdate) SetLinkType(v string) *TicketExternalLinkUpdate {
 	_u.mutation.SetLinkType(v)
 	return _u
 }
 
 // SetNillableLinkType sets the "link_type" field if the given value is not nil.
-func (_u *TicketExternalLinkUpdate) SetNillableLinkType(v *ticketexternallink.LinkType) *TicketExternalLinkUpdate {
+func (_u *TicketExternalLinkUpdate) SetNillableLinkType(v *string) *TicketExternalLinkUpdate {
 	if v != nil {
 		_u.SetLinkType(*v)
 	}
+	return _u
+}
+
+// ClearLinkType clears the value of the "link_type" field.
+func (_u *TicketExternalLinkUpdate) ClearLinkType() *TicketExternalLinkUpdate {
+	_u.mutation.ClearLinkType()
 	return _u
 }
 
@@ -125,20 +131,6 @@ func (_u *TicketExternalLinkUpdate) ClearStatus() *TicketExternalLinkUpdate {
 	return _u
 }
 
-// SetRelation sets the "relation" field.
-func (_u *TicketExternalLinkUpdate) SetRelation(v ticketexternallink.Relation) *TicketExternalLinkUpdate {
-	_u.mutation.SetRelation(v)
-	return _u
-}
-
-// SetNillableRelation sets the "relation" field if the given value is not nil.
-func (_u *TicketExternalLinkUpdate) SetNillableRelation(v *ticketexternallink.Relation) *TicketExternalLinkUpdate {
-	if v != nil {
-		_u.SetRelation(*v)
-	}
-	return _u
-}
-
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketExternalLinkUpdate) SetTicket(v *Ticket) *TicketExternalLinkUpdate {
 	return _u.SetTicketID(v.ID)
@@ -184,11 +176,6 @@ func (_u *TicketExternalLinkUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *TicketExternalLinkUpdate) check() error {
-	if v, ok := _u.mutation.LinkType(); ok {
-		if err := ticketexternallink.LinkTypeValidator(v); err != nil {
-			return &ValidationError{Name: "link_type", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.link_type": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.URL(); ok {
 		if err := ticketexternallink.URLValidator(v); err != nil {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.url": %w`, err)}
@@ -197,11 +184,6 @@ func (_u *TicketExternalLinkUpdate) check() error {
 	if v, ok := _u.mutation.ExternalID(); ok {
 		if err := ticketexternallink.ExternalIDValidator(v); err != nil {
 			return &ValidationError{Name: "external_id", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.external_id": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Relation(); ok {
-		if err := ticketexternallink.RelationValidator(v); err != nil {
-			return &ValidationError{Name: "relation", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.relation": %w`, err)}
 		}
 	}
 	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
@@ -223,7 +205,10 @@ func (_u *TicketExternalLinkUpdate) sqlSave(ctx context.Context) (_node int, err
 		}
 	}
 	if value, ok := _u.mutation.LinkType(); ok {
-		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeEnum, value)
+		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeString, value)
+	}
+	if _u.mutation.LinkTypeCleared() {
+		_spec.ClearField(ticketexternallink.FieldLinkType, field.TypeString)
 	}
 	if value, ok := _u.mutation.URL(); ok {
 		_spec.SetField(ticketexternallink.FieldURL, field.TypeString, value)
@@ -242,9 +227,6 @@ func (_u *TicketExternalLinkUpdate) sqlSave(ctx context.Context) (_node int, err
 	}
 	if _u.mutation.StatusCleared() {
 		_spec.ClearField(ticketexternallink.FieldStatus, field.TypeString)
-	}
-	if value, ok := _u.mutation.Relation(); ok {
-		_spec.SetField(ticketexternallink.FieldRelation, field.TypeEnum, value)
 	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -310,16 +292,22 @@ func (_u *TicketExternalLinkUpdateOne) SetNillableTicketID(v *uuid.UUID) *Ticket
 }
 
 // SetLinkType sets the "link_type" field.
-func (_u *TicketExternalLinkUpdateOne) SetLinkType(v ticketexternallink.LinkType) *TicketExternalLinkUpdateOne {
+func (_u *TicketExternalLinkUpdateOne) SetLinkType(v string) *TicketExternalLinkUpdateOne {
 	_u.mutation.SetLinkType(v)
 	return _u
 }
 
 // SetNillableLinkType sets the "link_type" field if the given value is not nil.
-func (_u *TicketExternalLinkUpdateOne) SetNillableLinkType(v *ticketexternallink.LinkType) *TicketExternalLinkUpdateOne {
+func (_u *TicketExternalLinkUpdateOne) SetNillableLinkType(v *string) *TicketExternalLinkUpdateOne {
 	if v != nil {
 		_u.SetLinkType(*v)
 	}
+	return _u
+}
+
+// ClearLinkType clears the value of the "link_type" field.
+func (_u *TicketExternalLinkUpdateOne) ClearLinkType() *TicketExternalLinkUpdateOne {
+	_u.mutation.ClearLinkType()
 	return _u
 }
 
@@ -391,20 +379,6 @@ func (_u *TicketExternalLinkUpdateOne) ClearStatus() *TicketExternalLinkUpdateOn
 	return _u
 }
 
-// SetRelation sets the "relation" field.
-func (_u *TicketExternalLinkUpdateOne) SetRelation(v ticketexternallink.Relation) *TicketExternalLinkUpdateOne {
-	_u.mutation.SetRelation(v)
-	return _u
-}
-
-// SetNillableRelation sets the "relation" field if the given value is not nil.
-func (_u *TicketExternalLinkUpdateOne) SetNillableRelation(v *ticketexternallink.Relation) *TicketExternalLinkUpdateOne {
-	if v != nil {
-		_u.SetRelation(*v)
-	}
-	return _u
-}
-
 // SetTicket sets the "ticket" edge to the Ticket entity.
 func (_u *TicketExternalLinkUpdateOne) SetTicket(v *Ticket) *TicketExternalLinkUpdateOne {
 	return _u.SetTicketID(v.ID)
@@ -463,11 +437,6 @@ func (_u *TicketExternalLinkUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *TicketExternalLinkUpdateOne) check() error {
-	if v, ok := _u.mutation.LinkType(); ok {
-		if err := ticketexternallink.LinkTypeValidator(v); err != nil {
-			return &ValidationError{Name: "link_type", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.link_type": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.URL(); ok {
 		if err := ticketexternallink.URLValidator(v); err != nil {
 			return &ValidationError{Name: "url", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.url": %w`, err)}
@@ -476,11 +445,6 @@ func (_u *TicketExternalLinkUpdateOne) check() error {
 	if v, ok := _u.mutation.ExternalID(); ok {
 		if err := ticketexternallink.ExternalIDValidator(v); err != nil {
 			return &ValidationError{Name: "external_id", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.external_id": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.Relation(); ok {
-		if err := ticketexternallink.RelationValidator(v); err != nil {
-			return &ValidationError{Name: "relation", err: fmt.Errorf(`ent: validator failed for field "TicketExternalLink.relation": %w`, err)}
 		}
 	}
 	if _u.mutation.TicketCleared() && len(_u.mutation.TicketIDs()) > 0 {
@@ -519,7 +483,10 @@ func (_u *TicketExternalLinkUpdateOne) sqlSave(ctx context.Context) (_node *Tick
 		}
 	}
 	if value, ok := _u.mutation.LinkType(); ok {
-		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeEnum, value)
+		_spec.SetField(ticketexternallink.FieldLinkType, field.TypeString, value)
+	}
+	if _u.mutation.LinkTypeCleared() {
+		_spec.ClearField(ticketexternallink.FieldLinkType, field.TypeString)
 	}
 	if value, ok := _u.mutation.URL(); ok {
 		_spec.SetField(ticketexternallink.FieldURL, field.TypeString, value)
@@ -538,9 +505,6 @@ func (_u *TicketExternalLinkUpdateOne) sqlSave(ctx context.Context) (_node *Tick
 	}
 	if _u.mutation.StatusCleared() {
 		_spec.ClearField(ticketexternallink.FieldStatus, field.TypeString)
-	}
-	if value, ok := _u.mutation.Relation(); ok {
-		_spec.SetField(ticketexternallink.FieldRelation, field.TypeEnum, value)
 	}
 	if _u.mutation.TicketCleared() {
 		edge := &sqlgraph.EdgeSpec{

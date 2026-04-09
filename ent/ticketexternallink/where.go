@@ -61,6 +61,11 @@ func TicketID(v uuid.UUID) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldEQ(FieldTicketID, v))
 }
 
+// LinkType applies equality check predicate on the "link_type" field. It's identical to LinkTypeEQ.
+func LinkType(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldEQ(FieldLinkType, v))
+}
+
 // URL applies equality check predicate on the "url" field. It's identical to URLEQ.
 func URL(v string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldEQ(FieldURL, v))
@@ -107,23 +112,78 @@ func TicketIDNotIn(vs ...uuid.UUID) predicate.TicketExternalLink {
 }
 
 // LinkTypeEQ applies the EQ predicate on the "link_type" field.
-func LinkTypeEQ(v LinkType) predicate.TicketExternalLink {
+func LinkTypeEQ(v string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldEQ(FieldLinkType, v))
 }
 
 // LinkTypeNEQ applies the NEQ predicate on the "link_type" field.
-func LinkTypeNEQ(v LinkType) predicate.TicketExternalLink {
+func LinkTypeNEQ(v string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldNEQ(FieldLinkType, v))
 }
 
 // LinkTypeIn applies the In predicate on the "link_type" field.
-func LinkTypeIn(vs ...LinkType) predicate.TicketExternalLink {
+func LinkTypeIn(vs ...string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldIn(FieldLinkType, vs...))
 }
 
 // LinkTypeNotIn applies the NotIn predicate on the "link_type" field.
-func LinkTypeNotIn(vs ...LinkType) predicate.TicketExternalLink {
+func LinkTypeNotIn(vs ...string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldNotIn(FieldLinkType, vs...))
+}
+
+// LinkTypeGT applies the GT predicate on the "link_type" field.
+func LinkTypeGT(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldGT(FieldLinkType, v))
+}
+
+// LinkTypeGTE applies the GTE predicate on the "link_type" field.
+func LinkTypeGTE(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldGTE(FieldLinkType, v))
+}
+
+// LinkTypeLT applies the LT predicate on the "link_type" field.
+func LinkTypeLT(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldLT(FieldLinkType, v))
+}
+
+// LinkTypeLTE applies the LTE predicate on the "link_type" field.
+func LinkTypeLTE(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldLTE(FieldLinkType, v))
+}
+
+// LinkTypeContains applies the Contains predicate on the "link_type" field.
+func LinkTypeContains(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldContains(FieldLinkType, v))
+}
+
+// LinkTypeHasPrefix applies the HasPrefix predicate on the "link_type" field.
+func LinkTypeHasPrefix(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldHasPrefix(FieldLinkType, v))
+}
+
+// LinkTypeHasSuffix applies the HasSuffix predicate on the "link_type" field.
+func LinkTypeHasSuffix(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldHasSuffix(FieldLinkType, v))
+}
+
+// LinkTypeIsNil applies the IsNil predicate on the "link_type" field.
+func LinkTypeIsNil() predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldIsNull(FieldLinkType))
+}
+
+// LinkTypeNotNil applies the NotNil predicate on the "link_type" field.
+func LinkTypeNotNil() predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldNotNull(FieldLinkType))
+}
+
+// LinkTypeEqualFold applies the EqualFold predicate on the "link_type" field.
+func LinkTypeEqualFold(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldEqualFold(FieldLinkType, v))
+}
+
+// LinkTypeContainsFold applies the ContainsFold predicate on the "link_type" field.
+func LinkTypeContainsFold(v string) predicate.TicketExternalLink {
+	return predicate.TicketExternalLink(sql.FieldContainsFold(FieldLinkType, v))
 }
 
 // URLEQ applies the EQ predicate on the "url" field.
@@ -404,26 +464,6 @@ func StatusEqualFold(v string) predicate.TicketExternalLink {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.TicketExternalLink {
 	return predicate.TicketExternalLink(sql.FieldContainsFold(FieldStatus, v))
-}
-
-// RelationEQ applies the EQ predicate on the "relation" field.
-func RelationEQ(v Relation) predicate.TicketExternalLink {
-	return predicate.TicketExternalLink(sql.FieldEQ(FieldRelation, v))
-}
-
-// RelationNEQ applies the NEQ predicate on the "relation" field.
-func RelationNEQ(v Relation) predicate.TicketExternalLink {
-	return predicate.TicketExternalLink(sql.FieldNEQ(FieldRelation, v))
-}
-
-// RelationIn applies the In predicate on the "relation" field.
-func RelationIn(vs ...Relation) predicate.TicketExternalLink {
-	return predicate.TicketExternalLink(sql.FieldIn(FieldRelation, vs...))
-}
-
-// RelationNotIn applies the NotIn predicate on the "relation" field.
-func RelationNotIn(vs ...Relation) predicate.TicketExternalLink {
-	return predicate.TicketExternalLink(sql.FieldNotIn(FieldRelation, vs...))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

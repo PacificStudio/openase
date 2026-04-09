@@ -260,12 +260,11 @@ function buildBoardTicketsByStatusId(
       isBlocked: isBlocked || undefined,
       externalLinks: ticket.external_links?.map((link) => ({
         id: link.id ?? '',
-        type: link.type ?? '',
+        type: link.type ?? undefined,
         url: link.url ?? '',
         externalId: link.external_id ?? '',
         title: link.title,
         status: link.status,
-        relation: link.relation ?? '',
       })),
       pullRequestURLs: ticket.pull_request_urls,
     }

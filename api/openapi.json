@@ -18218,9 +18218,6 @@
                                   "id": {
                                     "type": "string"
                                   },
-                                  "relation": {
-                                    "type": "string"
-                                  },
                                   "status": {
                                     "type": "string"
                                   },
@@ -27489,9 +27486,6 @@
                                 "id": {
                                   "type": "string"
                                 },
-                                "relation": {
-                                  "type": "string"
-                                },
                                 "status": {
                                   "type": "string"
                                 },
@@ -27874,9 +27868,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -28218,9 +28209,6 @@
                                   "type": "string"
                                 },
                                 "id": {
-                                  "type": "string"
-                                },
-                                "relation": {
                                   "type": "string"
                                 },
                                 "status": {
@@ -28943,9 +28931,6 @@
                                 "type": "string"
                               },
                               "id": {
-                                "type": "string"
-                              },
-                              "relation": {
                                 "type": "string"
                               },
                               "status": {
@@ -34616,9 +34601,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -36924,9 +36906,6 @@
                               "id": {
                                 "type": "string"
                               },
-                              "relation": {
-                                "type": "string"
-                              },
                               "status": {
                                 "type": "string"
                               },
@@ -37289,9 +37268,6 @@
                                 "type": "string"
                               },
                               "id": {
-                                "type": "string"
-                              },
-                              "relation": {
                                 "type": "string"
                               },
                               "status": {
@@ -38472,11 +38448,6 @@
                     "description": "External system identifier for the linked resource.",
                     "type": "string"
                   },
-                  "relation": {
-                    "description": "Relationship between the ticket and the external resource.",
-                    "nullable": true,
-                    "type": "string"
-                  },
                   "status": {
                     "description": "Optional external status value.",
                     "nullable": true,
@@ -38488,7 +38459,8 @@
                     "type": "string"
                   },
                   "type": {
-                    "description": "External link type.",
+                    "description": "Optional freeform external link type.",
+                    "nullable": true,
                     "type": "string"
                   },
                   "url": {
@@ -38518,9 +38490,6 @@
                           "type": "string"
                         },
                         "id": {
-                          "type": "string"
-                        },
-                        "relation": {
                           "type": "string"
                         },
                         "status": {
@@ -38862,9 +38831,6 @@
                                 "type": "string"
                               },
                               "id": {
-                                "type": "string"
-                              },
-                              "relation": {
                                 "type": "string"
                               },
                               "status": {

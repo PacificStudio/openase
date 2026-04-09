@@ -1419,7 +1419,7 @@ func TestWorkflowServiceBuildHarnessTemplateDataProjectContext(t *testing.T) {
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
-Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
+Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].status }}
 Deps {% for dep in ticket.dependencies %}{{ dep.identifier }}:{{ dep.type }}:{{ dep.status }}{% endfor %}
 Repos {% for repo in repos %}{{ repo.name }}@{{ repo.branch }} labels={{ repo.labels | join(",") }} path={{ repo.path }}{% endfor %}
 All {{ all_repos | map(attribute="name") | join(",") }}
@@ -1621,7 +1621,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetExternalID("42").
 		SetTitle("Login validation broken on Safari").
 		SetStatus("open").
-		SetRelation("resolves").
 		Save(ctx); err != nil {
 		t.Fatalf("create external link: %v", err)
 	}
@@ -1707,7 +1706,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	if data.Ticket.ParentIdentifier != "ASE-30" || len(data.Ticket.Links) != 1 || len(data.Ticket.Dependencies) != 1 {
 		t.Fatalf("ticket harness data = %+v", data.Ticket)
 	}
-	if data.Ticket.Links[0].Type != "github_issue" || data.Ticket.Links[0].Relation != "resolves" {
+	if data.Ticket.Links[0].Type != "github_issue" || data.Ticket.Links[0].Status != "open" {
 		t.Fatalf("ticket links = %+v", data.Ticket.Links)
 	}
 	if data.Ticket.Dependencies[0].Identifier != "ASE-31" || data.Ticket.Dependencies[0].Status != "Done" {

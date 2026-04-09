@@ -15,21 +15,6 @@
     onCancel?: () => void
   } = $props()
 
-  const typeOptions = [
-    { value: 'github_pr', label: 'GitHub PR' },
-    { value: 'github_issue', label: 'GitHub Issue' },
-    { value: 'gitlab_mr', label: 'GitLab MR' },
-    { value: 'gitlab_issue', label: 'GitLab Issue' },
-    { value: 'jira_ticket', label: 'Jira Ticket' },
-    { value: 'custom', label: 'Custom' },
-  ]
-
-  const relationOptions = [
-    { value: 'resolves', label: 'Resolves' },
-    { value: 'related', label: 'Related' },
-    { value: 'caused_by', label: 'Caused by' },
-  ]
-
   const statusOptions = [
     { value: '', label: 'None' },
     { value: 'open', label: 'Open' },
@@ -40,17 +25,15 @@
   ]
 
   const defaultDraft: TicketExternalLinkDraft = {
-    type: 'github_pr',
+    type: '',
     url: '',
     externalId: '',
     title: '',
     status: '',
-    relation: 'resolves',
   }
 
   let draft = $state<TicketExternalLinkDraft>({ ...defaultDraft })
 
-  // Auto-detect type and externalId when URL changes
   function handleUrlChange(url: string) {
     draft.url = url
 
@@ -88,30 +71,15 @@
   async function handleSubmit() {
     const accepted = (await onCreate?.(draft)) ?? false
     if (accepted) {
-      draft = {
-        ...defaultDraft,
-        type: draft.type || defaultDraft.type,
-        relation: draft.relation || defaultDraft.relation,
-      }
+      draft = { ...defaultDraft }
     }
   }
 
-  const typeLabel = $derived(typeOptions.find((o) => o.value === draft.type)?.label ?? draft.type)
-  const relationLabel = $derived(
-    relationOptions.find((o) => o.value === draft.relation)?.label ?? draft.relation,
-  )
   const statusLabel = $derived(statusOptions.find((o) => o.value === draft.status)?.label ?? 'None')
-
-  const canSubmit = $derived(
-    draft.url.trim().length > 0 &&
-      draft.type &&
-      draft.relation &&
-      draft.externalId.trim().length > 0,
-  )
+  const canSubmit = $derived(draft.url.trim().length > 0 && draft.externalId.trim().length > 0)
 </script>
 
 <div class="grid gap-4">
-  <!-- URL — required -->
   <div class="space-y-1.5">
     <Label for="external-link-url">
       URL <span class="text-destructive">*</span>
@@ -126,55 +94,27 @@
   </div>
 
   <div class="grid gap-4 sm:grid-cols-2">
-    <!-- Type — required -->
     <div class="space-y-1.5">
-      <Label>Type <span class="text-destructive">*</span></Label>
-      <Select.Root
-        type="single"
-        value={draft.type}
-        onValueChange={(v) => {
-          if (v) draft.type = v
-        }}
-      >
-        <Select.Trigger class="w-full">{typeLabel}</Select.Trigger>
-        <Select.Content>
-          {#each typeOptions as opt (opt.value)}
-            <Select.Item value={opt.value}>{opt.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+      <Label for="external-link-type">
+        Type
+        <span class="text-muted-foreground text-xs font-normal">(optional)</span>
+      </Label>
+      <Input
+        id="external-link-type"
+        bind:value={draft.type}
+        placeholder="github_pr, jira_ticket, doc, spec"
+      />
     </div>
 
-    <!-- Relation — required -->
-    <div class="space-y-1.5">
-      <Label>Relation <span class="text-destructive">*</span></Label>
-      <Select.Root
-        type="single"
-        value={draft.relation}
-        onValueChange={(v) => {
-          if (v) draft.relation = v
-        }}
-      >
-        <Select.Trigger class="w-full">{relationLabel}</Select.Trigger>
-        <Select.Content>
-          {#each relationOptions as opt (opt.value)}
-            <Select.Item value={opt.value}>{opt.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-    </div>
-  </div>
-
-  <div class="grid gap-4 sm:grid-cols-2">
-    <!-- External ID — required, auto-filled for GitHub -->
     <div class="space-y-1.5">
       <Label for="external-link-id">
         External ID <span class="text-destructive">*</span>
       </Label>
       <Input id="external-link-id" bind:value={draft.externalId} placeholder="PR-123" />
     </div>
+  </div>
 
-    <!-- Status — optional -->
+  <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
       <Label>
         Status
@@ -195,20 +135,23 @@
         </Select.Content>
       </Select.Root>
     </div>
+
+    <div class="space-y-1.5">
+      <Label for="external-link-title">
+        Title
+        <span class="text-muted-foreground text-xs font-normal">(optional)</span>
+      </Label>
+      <Input
+        id="external-link-title"
+        bind:value={draft.title}
+        placeholder="Short description of this link"
+      />
+    </div>
   </div>
 
-  <!-- Title — optional -->
-  <div class="space-y-1.5">
-    <Label for="external-link-title">
-      Title
-      <span class="text-muted-foreground text-xs font-normal">(optional)</span>
-    </Label>
-    <Input
-      id="external-link-title"
-      bind:value={draft.title}
-      placeholder="Short description of this link"
-    />
-  </div>
+  <p class="text-muted-foreground text-xs">
+    Type is optional freeform text. Leave it blank to use the backend default semantics.
+  </p>
 
   <div class="flex justify-end gap-2">
     {#if onCancel}

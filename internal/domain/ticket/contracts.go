@@ -114,37 +114,15 @@ const (
 )
 
 func ParseExternalLinkType(raw string) (ExternalLinkType, error) {
-	linkType := ExternalLinkType(strings.ToLower(strings.TrimSpace(raw)))
-	switch linkType {
-	case ExternalLinkTypeGithubIssue, ExternalLinkTypeGitlabIssue, ExternalLinkTypeJiraTicket, ExternalLinkTypeGithubPR, ExternalLinkTypeGitlabMR, ExternalLinkTypeCustom:
-		return linkType, nil
-	default:
-		return "", fmt.Errorf("type must be one of github_issue, gitlab_issue, jira_ticket, github_pr, gitlab_mr, custom")
+	linkType := ExternalLinkType(strings.TrimSpace(raw))
+	if linkType == "" {
+		return "", fmt.Errorf("type must not be empty")
 	}
+
+	return linkType, nil
 }
 
 func (t ExternalLinkType) String() string { return string(t) }
-
-type ExternalLinkRelation string
-
-const (
-	DefaultExternalLinkRelation  ExternalLinkRelation = ExternalLinkRelationRelated
-	ExternalLinkRelationResolves ExternalLinkRelation = "resolves"
-	ExternalLinkRelationRelated  ExternalLinkRelation = "related"
-	ExternalLinkRelationCausedBy ExternalLinkRelation = "caused_by"
-)
-
-func ParseExternalLinkRelation(raw string) (ExternalLinkRelation, error) {
-	relation := ExternalLinkRelation(strings.ToLower(strings.TrimSpace(raw)))
-	switch relation {
-	case ExternalLinkRelationResolves, ExternalLinkRelationRelated, ExternalLinkRelationCausedBy:
-		return relation, nil
-	default:
-		return "", fmt.Errorf("relation must be one of resolves, related, caused_by")
-	}
-}
-
-func (r ExternalLinkRelation) String() string { return string(r) }
 
 type TicketReference struct {
 	ID         uuid.UUID `json:"id"`
@@ -161,14 +139,13 @@ type Dependency struct {
 }
 
 type ExternalLink struct {
-	ID         uuid.UUID            `json:"id"`
-	LinkType   ExternalLinkType     `json:"link_type"`
-	URL        string               `json:"url"`
-	ExternalID string               `json:"external_id"`
-	Title      string               `json:"title,omitempty"`
-	Status     string               `json:"status,omitempty"`
-	Relation   ExternalLinkRelation `json:"relation"`
-	CreatedAt  time.Time            `json:"created_at"`
+	ID         uuid.UUID        `json:"id"`
+	LinkType   ExternalLinkType `json:"link_type,omitempty"`
+	URL        string           `json:"url"`
+	ExternalID string           `json:"external_id"`
+	Title      string           `json:"title,omitempty"`
+	Status     string           `json:"status,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
 }
 
 type Comment struct {
@@ -302,7 +279,6 @@ type AddExternalLinkInput struct {
 	ExternalID string
 	Title      string
 	Status     string
-	Relation   ExternalLinkRelation
 }
 
 type ResumeRetryInput struct {

@@ -101,56 +101,56 @@ export function buildAddExternalLinkMutation(draft: {
   externalId: string
   title: string
   status: string
-  relation: string
 }): ParseResult<{
   body: {
-    type: string
+    type?: string | null
     url: string
     external_id: string
     title: string | null
     status: string | null
-    relation: string | null
   }
   optimisticUpdate: (ticket: TicketDetail) => TicketDetail
   successMessage: string
 }> {
-  const type = parseRequiredText(draft.type, 'Link type is required.', (value) =>
-    value.toLowerCase(),
-  )
-  if (!type.ok) return type
-
   const url = parseRequiredText(draft.url, 'Link URL is required.')
   if (!url.ok) return url
 
   const externalId = parseRequiredText(draft.externalId, 'External ID is required.')
   if (!externalId.ok) return externalId
 
+  const type = normalizeOptionalText(draft.type)
   const title = normalizeOptionalText(draft.title)
   const status = normalizeOptionalText(draft.status)
-  const relation = normalizeOptionalText(draft.relation) ?? 'references'
+  const body: {
+    type?: string | null
+    url: string
+    external_id: string
+    title: string | null
+    status: string | null
+  } = {
+    url: url.value,
+    external_id: externalId.value,
+    title,
+    status,
+  }
+  if (type) {
+    body.type = type
+  }
 
   return {
     ok: true,
     value: {
-      body: {
-        type: type.value,
-        url: url.value,
-        external_id: externalId.value,
-        title,
-        status,
-        relation,
-      },
+      body,
       optimisticUpdate: (ticket) => ({
         ...ticket,
         externalLinks: [
           ...ticket.externalLinks,
           buildOptimisticExternalLink({
-            type: type.value,
+            type,
             url: url.value,
             externalId: externalId.value,
             title,
             status,
-            relation,
           }),
         ],
       }),
@@ -207,22 +207,19 @@ function buildOptimisticExternalLink({
   externalId,
   title,
   status,
-  relation,
 }: {
-  type: string
+  type: string | null
   url: string
   externalId: string
   title: string | null
   status: string | null
-  relation: string
 }) {
   return {
     id: `pending-${Date.now()}`,
-    type,
+    type: type ?? undefined,
     url,
     externalId,
     title: title ?? undefined,
     status: status ?? undefined,
-    relation,
   }
 }
