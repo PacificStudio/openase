@@ -105,6 +105,7 @@ type ticketResponse struct {
 	Children          []ticketReferenceResponse    `json:"children"`
 	Dependencies      []ticketDependencyResponse   `json:"dependencies"`
 	ExternalLinks     []ticketExternalLinkResponse `json:"external_links"`
+	PullRequestURLs   []string                     `json:"pull_request_urls"`
 	ExternalRef       string                       `json:"external_ref"`
 	BudgetUSD         float64                      `json:"budget_usd"`
 	CostTokensInput   int64                        `json:"cost_tokens_input"`
@@ -1251,6 +1252,7 @@ func mapTicketResponse(item ticketservice.Ticket) ticketResponse {
 		Children:          []ticketReferenceResponse{},
 		Dependencies:      []ticketDependencyResponse{},
 		ExternalLinks:     []ticketExternalLinkResponse{},
+		PullRequestURLs:   orEmptyStringSlice(item.PullRequestURLs),
 		ExternalRef:       item.ExternalRef,
 		BudgetUSD:         item.BudgetUSD,
 		CostTokensInput:   item.CostTokensInput,
@@ -1324,6 +1326,13 @@ func mapTicketDependencyResponses(item ticketservice.Ticket) []ticketDependencyR
 	}
 
 	return responses
+}
+
+func orEmptyStringSlice(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 func findTicketDependencyResponse(item ticketservice.Ticket, dependencyID uuid.UUID) (ticketDependencyResponse, bool) {

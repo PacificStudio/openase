@@ -6,12 +6,14 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import OIDCRedirectFields from './oidc-redirect-fields.svelte'
 
   type OIDCFormState = {
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -44,7 +46,8 @@
     onIssuerURL,
     onClientID,
     onClientSecret,
-    onRedirectURL,
+    onRedirectMode,
+    onFixedRedirectURL,
     onScopes,
     onAllowedDomains,
     onBootstrapAdmins,
@@ -61,7 +64,8 @@
     onIssuerURL: (value: string) => void
     onClientID: (value: string) => void
     onClientSecret: (value: string) => void
-    onRedirectURL: (value: string) => void
+    onRedirectMode: (value: 'auto' | 'fixed') => void
+    onFixedRedirectURL: (value: string) => void
     onScopes: (value: string) => void
     onAllowedDomains: (value: string) => void
     onBootstrapAdmins: (value: string) => void
@@ -170,15 +174,12 @@
             : 'The client secret is stored server-side and never shown back in the UI.'}
         </p>
       </div>
-      <div class="space-y-2">
-        <Label for="oidc-redirect-url">Redirect URL</Label>
-        <Input
-          id="oidc-redirect-url"
-          value={form.redirectURL}
-          placeholder="http://127.0.0.1:19836/api/v1/auth/oidc/callback"
-          oninput={(event) => onRedirectURL((event.currentTarget as HTMLInputElement).value)}
-        />
-      </div>
+      <OIDCRedirectFields
+        redirectMode={form.redirectMode}
+        fixedRedirectURL={form.fixedRedirectURL}
+        {onRedirectMode}
+        {onFixedRedirectURL}
+      />
       <div class="space-y-2 lg:col-span-2">
         <Label for="oidc-scopes">Scopes</Label>
         <Textarea

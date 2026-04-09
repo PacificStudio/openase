@@ -197,7 +197,7 @@ func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential",
-		strings.NewReader(`{"scope":"organization","token":"ghu_manual_token"}`),
+		strings.NewReader(`{"token":"ghu_manual_token"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -207,7 +207,7 @@ func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if authSvc.lastSaveInput.Scope != githubauthdomain.ScopeOrganization || authSvc.lastSaveInput.Token != "ghu_manual_token" {
+	if authSvc.lastSaveInput.Scope != githubauthdomain.ScopeProject || authSvc.lastSaveInput.Token != "ghu_manual_token" {
 		t.Fatalf("SaveManualCredential() input = %+v", authSvc.lastSaveInput)
 	}
 }
@@ -302,7 +302,7 @@ func TestSecuritySettingsRouteDeletesCredential(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodDelete,
-		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential?scope=organization",
+		"/api/v1/projects/"+projectID.String()+"/security-settings/github-outbound-credential",
 		http.NoBody,
 	)
 	rec := httptest.NewRecorder()
@@ -312,7 +312,7 @@ func TestSecuritySettingsRouteDeletesCredential(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeOrganization {
+	if authSvc.lastScopeInput.Scope != githubauthdomain.ScopeProject {
 		t.Fatalf("DeleteCredential() input = %+v", authSvc.lastScopeInput)
 	}
 }
@@ -395,7 +395,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
-		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -420,6 +420,9 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	}
 	if payload.Security.Auth.OIDCDraft.IssuerURL != "https://idp.example.com" {
 		t.Fatalf("issuer_url = %q", payload.Security.Auth.OIDCDraft.IssuerURL)
+	}
+	if payload.Security.Auth.OIDCDraft.RedirectMode != "fixed" {
+		t.Fatalf("redirect_mode = %q, want fixed", payload.Security.Auth.OIDCDraft.RedirectMode)
 	}
 	if !payload.Security.Auth.OIDCDraft.ClientSecretConfigured {
 		t.Fatal("expected saved oidc client secret to be marked as configured")
@@ -461,9 +464,12 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft/test",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-Host", "desktop.example.com")
+	req.Header.Set("X-Forwarded-Port", "43123")
 	rec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(rec, req)
@@ -480,6 +486,9 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	}
 	if payload.AuthorizationEndpoint == "" || payload.TokenEndpoint == "" {
 		t.Fatalf("expected discovery endpoints, got %+v", payload)
+	}
+	if payload.RedirectURL != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("redirect_url = %q", payload.RedirectURL)
 	}
 }
 
@@ -509,7 +518,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

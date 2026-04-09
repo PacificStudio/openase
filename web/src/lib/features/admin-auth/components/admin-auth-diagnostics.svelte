@@ -63,7 +63,9 @@
     <div>
       <div class="text-muted-foreground text-xs">Redirect URL</div>
       <div class="mt-1 text-sm break-all">
-        {auth.last_validation.redirect_url || auth.oidc_draft.redirect_url || 'Not configured'}
+        {auth.last_validation.redirect_url ||
+          auth.oidc_draft.fixed_redirect_url ||
+          'Not configured'}
       </div>
     </div>
     {#if auth.last_validation.warnings.length > 0}

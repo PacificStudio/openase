@@ -774,6 +774,7 @@ type OpenAPITicket struct {
 	Children          []OpenAPITicketReference    `json:"children"`
 	Dependencies      []OpenAPITicketDependency   `json:"dependencies"`
 	ExternalLinks     []OpenAPITicketExternalLink `json:"external_links"`
+	PullRequestURLs   []string                    `json:"pull_request_urls"`
 	ExternalRef       string                      `json:"external_ref"`
 	BudgetUSD         float64                     `json:"budget_usd"`
 	CostTokensInput   int64                       `json:"cost_tokens_input"`
@@ -1580,7 +1581,8 @@ type OpenAPISecurityOIDCDraft struct {
 	IssuerURL              string   `json:"issuer_url"`
 	ClientID               string   `json:"client_id"`
 	ClientSecretConfigured bool     `json:"client_secret_configured"`
-	RedirectURL            string   `json:"redirect_url"`
+	RedirectMode           string   `json:"redirect_mode"`
+	FixedRedirectURL       string   `json:"fixed_redirect_url"`
 	Scopes                 []string `json:"scopes"`
 	AllowedEmailDomains    []string `json:"allowed_email_domains"`
 	BootstrapAdminEmails   []string `json:"bootstrap_admin_emails"`
@@ -2092,7 +2094,6 @@ type OpenAPICreateProjectRepoRequest catalogdomain.ProjectRepoInput
 type OpenAPIUpdateProjectRepoRequest projectRepoPatchRequest
 type OpenAPICreateGitHubRepositoryRequest githubrepodomain.CreateRepositoryRequest
 type OpenAPISaveGitHubOutboundCredentialRequest rawSaveGitHubOutboundCredentialRequest
-type OpenAPIGitHubCredentialScopeRequest rawGitHubCredentialScopeRequest
 type OpenAPISecurityOIDCDraftRequest rawSecurityOIDCDraftRequest
 type OpenAPICreateScopedSecretRequest rawCreateScopedSecretRequest
 type OpenAPICreateScopedSecretBindingRequest rawCreateScopedSecretBindingRequest
@@ -2287,7 +2288,9 @@ var (
 		"issuer_url":             "OIDC issuer discovery URL used to resolve the provider metadata document.",
 		"client_id":              "OAuth client ID registered for the OpenASE browser login application.",
 		"client_secret":          "OAuth client secret stored server-side for the configured OIDC client.",
-		"redirect_url":           "Browser callback URL that must match the OIDC provider client registration.",
+		"redirect_mode":          "OIDC redirect handling mode. Use auto to derive the callback from the current external request base URL, or fixed for a strict provider callback.",
+		"fixed_redirect_url":     "Explicit browser callback URL used only when redirect_mode=fixed.",
+		"redirect_url":           "Legacy alias for fixed_redirect_url. New clients should send fixed_redirect_url together with redirect_mode.",
 		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
 		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
 		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
@@ -6079,11 +6082,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityImport, err := b.jsonOperation(
 		"importGitHubOutboundCredentialFromGHCLI",
-		"Import the current gh auth token into platform-managed GitHub credential storage",
+		"Import the current gh auth token as the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -6098,11 +6101,11 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityRetest, err := b.jsonOperation(
 		"retestGitHubOutboundCredential",
-		"Retest a stored platform-managed GitHub outbound credential",
+		"Retest the stored project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
-		OpenAPIGitHubCredentialScopeRequest{},
+		nil,
 		http.StatusBadRequest,
 		http.StatusNotFound,
 		http.StatusServiceUnavailable,
@@ -6117,7 +6120,7 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 
 	securityDelete, err := b.jsonOperation(
 		"deleteGitHubOutboundCredential",
-		"Delete a stored platform-managed GitHub outbound credential",
+		"Delete the project-level GitHub credential override",
 		[]string{"security-settings"},
 		http.StatusOK,
 		OpenAPISecuritySettingsResponse{},
@@ -6132,10 +6135,6 @@ func (b openAPISpecBuilder) addSecurityOperations() error {
 		return err
 	}
 	securityDelete.AddParameter(uuidPathParameter("projectId", "Project ID."))
-	securityDelete.AddParameter(openapi3.NewQueryParameter("scope").
-		WithDescription("Credential scope to delete. Supported values are organization and project.").
-		WithRequired(true).
-		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/security-settings/github-outbound-credential", http.MethodDelete, securityDelete)
 
 	return nil

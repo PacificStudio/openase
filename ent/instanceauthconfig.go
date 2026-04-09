@@ -31,6 +31,8 @@ type InstanceAuthConfig struct {
 	ClientID string `json:"client_id,omitempty"`
 	// ClientSecretEncrypted holds the value of the "client_secret_encrypted" field.
 	ClientSecretEncrypted *iam.EncryptedSecret `json:"client_secret_encrypted,omitempty"`
+	// RedirectMode holds the value of the "redirect_mode" field.
+	RedirectMode string `json:"redirect_mode,omitempty"`
 	// RedirectURL holds the value of the "redirect_url" field.
 	RedirectURL string `json:"redirect_url,omitempty"`
 	// Scopes holds the value of the "scopes" field.
@@ -71,7 +73,7 @@ func (*InstanceAuthConfig) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case instanceauthconfig.FieldScopes, instanceauthconfig.FieldAllowedEmailDomains, instanceauthconfig.FieldBootstrapAdminEmails:
 			values[i] = new(pgarray.StringArray)
-		case instanceauthconfig.FieldScopeKey, instanceauthconfig.FieldStatus, instanceauthconfig.FieldIssuerURL, instanceauthconfig.FieldClientID, instanceauthconfig.FieldRedirectURL, instanceauthconfig.FieldEmailClaim, instanceauthconfig.FieldNameClaim, instanceauthconfig.FieldUsernameClaim, instanceauthconfig.FieldGroupsClaim, instanceauthconfig.FieldSessionTTL, instanceauthconfig.FieldSessionIdleTTL:
+		case instanceauthconfig.FieldScopeKey, instanceauthconfig.FieldStatus, instanceauthconfig.FieldIssuerURL, instanceauthconfig.FieldClientID, instanceauthconfig.FieldRedirectMode, instanceauthconfig.FieldRedirectURL, instanceauthconfig.FieldEmailClaim, instanceauthconfig.FieldNameClaim, instanceauthconfig.FieldUsernameClaim, instanceauthconfig.FieldGroupsClaim, instanceauthconfig.FieldSessionTTL, instanceauthconfig.FieldSessionIdleTTL:
 			values[i] = new(sql.NullString)
 		case instanceauthconfig.FieldCreatedAt, instanceauthconfig.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -129,6 +131,12 @@ func (_m *InstanceAuthConfig) assignValues(columns []string, values []any) error
 				if err := json.Unmarshal(*value, &_m.ClientSecretEncrypted); err != nil {
 					return fmt.Errorf("unmarshal field client_secret_encrypted: %w", err)
 				}
+			}
+		case instanceauthconfig.FieldRedirectMode:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field redirect_mode", values[i])
+			} else if value.Valid {
+				_m.RedirectMode = value.String
 			}
 		case instanceauthconfig.FieldRedirectURL:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -268,6 +276,9 @@ func (_m *InstanceAuthConfig) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("client_secret_encrypted=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ClientSecretEncrypted))
+	builder.WriteString(", ")
+	builder.WriteString("redirect_mode=")
+	builder.WriteString(_m.RedirectMode)
 	builder.WriteString(", ")
 	builder.WriteString("redirect_url=")
 	builder.WriteString(_m.RedirectURL)

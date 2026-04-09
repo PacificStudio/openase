@@ -17389,6 +17389,7 @@ type InstanceAuthConfigMutation struct {
 	issuer_url              *string
 	client_id               *string
 	client_secret_encrypted **iam.EncryptedSecret
+	redirect_mode           *string
 	redirect_url            *string
 	scopes                  *pgarray.StringArray
 	email_claim             *string
@@ -17704,6 +17705,42 @@ func (m *InstanceAuthConfigMutation) ClientSecretEncryptedCleared() bool {
 func (m *InstanceAuthConfigMutation) ResetClientSecretEncrypted() {
 	m.client_secret_encrypted = nil
 	delete(m.clearedFields, instanceauthconfig.FieldClientSecretEncrypted)
+}
+
+// SetRedirectMode sets the "redirect_mode" field.
+func (m *InstanceAuthConfigMutation) SetRedirectMode(s string) {
+	m.redirect_mode = &s
+}
+
+// RedirectMode returns the value of the "redirect_mode" field in the mutation.
+func (m *InstanceAuthConfigMutation) RedirectMode() (r string, exists bool) {
+	v := m.redirect_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRedirectMode returns the old "redirect_mode" field's value of the InstanceAuthConfig entity.
+// If the InstanceAuthConfig object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstanceAuthConfigMutation) OldRedirectMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRedirectMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRedirectMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRedirectMode: %w", err)
+	}
+	return oldValue.RedirectMode, nil
+}
+
+// ResetRedirectMode resets all changes to the "redirect_mode" field.
+func (m *InstanceAuthConfigMutation) ResetRedirectMode() {
+	m.redirect_mode = nil
 }
 
 // SetRedirectURL sets the "redirect_url" field.
@@ -18283,7 +18320,7 @@ func (m *InstanceAuthConfigMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *InstanceAuthConfigMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 20)
 	if m.scope_key != nil {
 		fields = append(fields, instanceauthconfig.FieldScopeKey)
 	}
@@ -18298,6 +18335,9 @@ func (m *InstanceAuthConfigMutation) Fields() []string {
 	}
 	if m.client_secret_encrypted != nil {
 		fields = append(fields, instanceauthconfig.FieldClientSecretEncrypted)
+	}
+	if m.redirect_mode != nil {
+		fields = append(fields, instanceauthconfig.FieldRedirectMode)
 	}
 	if m.redirect_url != nil {
 		fields = append(fields, instanceauthconfig.FieldRedirectURL)
@@ -18359,6 +18399,8 @@ func (m *InstanceAuthConfigMutation) Field(name string) (ent.Value, bool) {
 		return m.ClientID()
 	case instanceauthconfig.FieldClientSecretEncrypted:
 		return m.ClientSecretEncrypted()
+	case instanceauthconfig.FieldRedirectMode:
+		return m.RedirectMode()
 	case instanceauthconfig.FieldRedirectURL:
 		return m.RedirectURL()
 	case instanceauthconfig.FieldScopes:
@@ -18406,6 +18448,8 @@ func (m *InstanceAuthConfigMutation) OldField(ctx context.Context, name string) 
 		return m.OldClientID(ctx)
 	case instanceauthconfig.FieldClientSecretEncrypted:
 		return m.OldClientSecretEncrypted(ctx)
+	case instanceauthconfig.FieldRedirectMode:
+		return m.OldRedirectMode(ctx)
 	case instanceauthconfig.FieldRedirectURL:
 		return m.OldRedirectURL(ctx)
 	case instanceauthconfig.FieldScopes:
@@ -18477,6 +18521,13 @@ func (m *InstanceAuthConfigMutation) SetField(name string, value ent.Value) erro
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetClientSecretEncrypted(v)
+		return nil
+	case instanceauthconfig.FieldRedirectMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRedirectMode(v)
 		return nil
 	case instanceauthconfig.FieldRedirectURL:
 		v, ok := value.(string)
@@ -18666,6 +18717,9 @@ func (m *InstanceAuthConfigMutation) ResetField(name string) error {
 		return nil
 	case instanceauthconfig.FieldClientSecretEncrypted:
 		m.ResetClientSecretEncrypted()
+		return nil
+	case instanceauthconfig.FieldRedirectMode:
+		m.ResetRedirectMode()
 		return nil
 	case instanceauthconfig.FieldRedirectURL:
 		m.ResetRedirectURL()

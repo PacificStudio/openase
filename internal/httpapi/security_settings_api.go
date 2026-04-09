@@ -178,6 +178,9 @@ func (s *Server) handlePutGitHubOutboundCredential(c echo.Context) error {
 	return s.writeSecuritySettingsResponse(c, projectID, mapGitHubSecurityResponse(security))
 }
 
+// Org credential scope is no longer accepted on project endpoints.
+// Use /orgs/:orgId/security/github-credential for org-level management.
+
 func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 	projectID, err := s.requireProjectSecurityContext(c)
 	if err != nil {
@@ -198,7 +201,10 @@ func (s *Server) handlePutOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	stored, err := service.SaveDraft(c.Request().Context(), draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusInternalServerError, "SECURITY_SETTINGS_CONFIG_FAILED", err.Error())
@@ -236,15 +242,22 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
-	authCfg := completeOIDCAuthConfigFromAccessControl(active)
-	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	authCfg := completeOIDCAuthConfigFromAccessControl(active)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_TEST_FAILED", err.Error())
 	}
 	response := securityOIDCTestResultResponse{
@@ -253,7 +266,7 @@ func (s *Server) handleTestOIDCDraft(c echo.Context) error {
 		IssuerURL:             diagnostics.IssuerURL,
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
-		RedirectURL:           authCfg.OIDC.RedirectURL,
+		RedirectURL:           redirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	}
 	if err := service.SaveValidation(c.Request().Context(), securityOIDCValidationSuccessMetadata(response)); err != nil {
@@ -284,15 +297,22 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
 	}
 
-	draft := draftOIDCConfigFromRequest(raw, current.State)
+	draft, err := draftOIDCConfigFromRequest(raw, current.State)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
 	active, err := activeOIDCConfigFromDraft(draft)
 	if err != nil {
 		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
 	}
-	authCfg := completeOIDCAuthConfigFromAccessControl(active)
-	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil)
+	redirectURL, err := active.EffectiveRedirectURL(requestExternalBaseURL(c.Request()))
 	if err != nil {
-		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), authCfg.OIDC.RedirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
+		return writeAPIError(c, http.StatusBadRequest, "OIDC_CONFIG_INVALID", err.Error())
+	}
+	authCfg := completeOIDCAuthConfigFromAccessControl(active)
+	diagnostics, err := humanauthservice.InspectOIDCProvider(c.Request().Context(), authCfg, nil, redirectURL)
+	if err != nil {
+		_ = service.SaveValidation(c.Request().Context(), securityOIDCValidationFailureMetadata(err.Error(), redirectURL, s.cfg.Host, runtimeConfigAuthMode(runtimeState)))
 		return writeAPIError(c, http.StatusBadGateway, "OIDC_ENABLE_FAILED", err.Error())
 	}
 	successValidation := securityOIDCValidationSuccessMetadata(securityOIDCTestResultResponse{
@@ -301,7 +321,7 @@ func (s *Server) handleEnableOIDC(c echo.Context) error {
 		IssuerURL:             diagnostics.IssuerURL,
 		AuthorizationEndpoint: diagnostics.AuthorizationEndpoint,
 		TokenEndpoint:         diagnostics.TokenEndpoint,
-		RedirectURL:           authCfg.OIDC.RedirectURL,
+		RedirectURL:           redirectURL,
 		Warnings:              securityPublicExposureWarnings(s.cfg.Host, runtimeConfigAuthMode(runtimeState)),
 	})
 	if err := service.SaveValidation(c.Request().Context(), successValidation); err != nil {
@@ -349,16 +369,7 @@ func (s *Server) handleImportGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.ImportGHCLICredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -374,16 +385,7 @@ func (s *Server) handleRetestGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	var raw rawGitHubCredentialScopeRequest
-	if err := c.Bind(&raw); err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", "invalid JSON body")
-	}
-	input, err := parseGitHubCredentialScopeRequest(projectID, raw)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.RetestCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}
@@ -399,12 +401,7 @@ func (s *Server) handleDeleteGitHubOutboundCredential(c echo.Context) error {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", githubauthservice.ErrUnavailable.Error())
 	}
 
-	input, err := parseGitHubCredentialScopeQuery(projectID, c.QueryParam("scope"))
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
-	}
-
-	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), input)
+	security, err := s.githubAuthService.DeleteCredential(c.Request().Context(), parseGitHubCredentialScopeRequest(projectID))
 	if err != nil {
 		return writeGitHubAuthError(c, err)
 	}

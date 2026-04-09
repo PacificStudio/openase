@@ -529,7 +529,8 @@ export type SecurityOIDCDraft = {
   issuer_url: string
   client_id: string
   client_secret_configured: boolean
-  redirect_url: string
+  redirect_mode: string
+  fixed_redirect_url: string
   scopes: string[]
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
@@ -654,3 +655,24 @@ export type RetestGitHubOutboundCredentialResponse = DeepRequired<
 export type DeleteGitHubOutboundCredentialResponse = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/security-settings/github-outbound-credential', 'delete'>
 >
+
+// Org-level GitHub credential — managed under /orgs/:orgId/security/github-credential
+export type GitHubCredentialSlot = {
+  configured: boolean
+  scope?: string
+  source?: string
+  token_preview?: string
+  probe: {
+    state: string
+    configured: boolean
+    valid: boolean
+    login?: string
+    permissions: string[]
+    repo_access: string
+    checked_at?: string
+    last_error?: string
+  }
+}
+export type OrgGitHubCredentialResponse = {
+  credential: GitHubCredentialSlot
+}

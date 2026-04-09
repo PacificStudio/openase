@@ -25,6 +25,8 @@ const (
 	FieldClientID = "client_id"
 	// FieldClientSecretEncrypted holds the string denoting the client_secret_encrypted field in the database.
 	FieldClientSecretEncrypted = "client_secret_encrypted"
+	// FieldRedirectMode holds the string denoting the redirect_mode field in the database.
+	FieldRedirectMode = "redirect_mode"
 	// FieldRedirectURL holds the string denoting the redirect_url field in the database.
 	FieldRedirectURL = "redirect_url"
 	// FieldScopes holds the string denoting the scopes field in the database.
@@ -65,6 +67,7 @@ var Columns = []string{
 	FieldIssuerURL,
 	FieldClientID,
 	FieldClientSecretEncrypted,
+	FieldRedirectMode,
 	FieldRedirectURL,
 	FieldScopes,
 	FieldEmailClaim,
@@ -100,6 +103,8 @@ var (
 	DefaultIssuerURL string
 	// DefaultClientID holds the default value on creation for the "client_id" field.
 	DefaultClientID string
+	// DefaultRedirectMode holds the default value on creation for the "redirect_mode" field.
+	DefaultRedirectMode string
 	// DefaultRedirectURL holds the default value on creation for the "redirect_url" field.
 	DefaultRedirectURL string
 	// DefaultEmailClaim holds the default value on creation for the "email_claim" field.
@@ -154,6 +159,11 @@ func ByIssuerURL(opts ...sql.OrderTermOption) OrderOption {
 // ByClientID orders the results by the client_id field.
 func ByClientID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldClientID, opts...).ToFunc()
+}
+
+// ByRedirectMode orders the results by the redirect_mode field.
+func ByRedirectMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRedirectMode, opts...).ToFunc()
 }
 
 // ByRedirectURL orders the results by the redirect_url field.

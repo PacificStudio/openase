@@ -41,11 +41,12 @@ func bootstrapRuntimeAccessControlState(cfg config.AuthConfig) iam.RuntimeAccess
 	}
 
 	active, err := activeOIDCConfigFromDraft(iam.DraftOIDCConfig{
-		IssuerURL:    strings.TrimSpace(cfg.OIDC.IssuerURL),
-		ClientID:     strings.TrimSpace(cfg.OIDC.ClientID),
-		ClientSecret: strings.TrimSpace(cfg.OIDC.ClientSecret),
-		RedirectURL:  strings.TrimSpace(cfg.OIDC.RedirectURL),
-		Scopes:       append([]string(nil), cfg.OIDC.Scopes...),
+		IssuerURL:        strings.TrimSpace(cfg.OIDC.IssuerURL),
+		ClientID:         strings.TrimSpace(cfg.OIDC.ClientID),
+		ClientSecret:     strings.TrimSpace(cfg.OIDC.ClientSecret),
+		RedirectMode:     iam.OIDCRedirectModeFixed,
+		FixedRedirectURL: strings.TrimSpace(cfg.OIDC.RedirectURL),
+		Scopes:           append([]string(nil), cfg.OIDC.Scopes...),
 		Claims: iam.OIDCClaims{
 			EmailClaim:    strings.TrimSpace(cfg.OIDC.EmailClaim),
 			NameClaim:     strings.TrimSpace(cfg.OIDC.NameClaim),

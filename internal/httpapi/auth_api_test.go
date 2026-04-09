@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -106,7 +107,7 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 	enableReq := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/auth/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	enableReq.Header.Set("Content-Type", "application/json")
 	enableRec := httptest.NewRecorder()
@@ -151,13 +152,24 @@ func TestAuthRoutesUseRuntimeAccessControlStateTransitions(t *testing.T) {
 	}
 
 	startEnabledReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oidc/start?return_to=/projects", http.NoBody)
+	startEnabledReq.Header.Set("X-Forwarded-Proto", "https")
+	startEnabledReq.Header.Set("X-Forwarded-Host", "desktop.example.com")
+	startEnabledReq.Header.Set("X-Forwarded-Port", "43123")
 	startEnabledRec := httptest.NewRecorder()
 	server.Handler().ServeHTTP(startEnabledRec, startEnabledReq)
 	if startEnabledRec.Code != http.StatusFound {
 		t.Fatalf("enabled oidc start status = %d, want 302: %s", startEnabledRec.Code, startEnabledRec.Body.String())
 	}
-	if location := startEnabledRec.Header().Get("Location"); !strings.HasPrefix(location, issuerServer.URL+"/authorize") {
+	location := startEnabledRec.Header().Get("Location")
+	if !strings.HasPrefix(location, issuerServer.URL+"/authorize") {
 		t.Fatalf("enabled oidc redirect = %q, want issuer authorize endpoint", location)
+	}
+	locationURL, err := url.Parse(location)
+	if err != nil {
+		t.Fatalf("parse oidc redirect url: %v", err)
+	}
+	if got := locationURL.Query().Get("redirect_uri"); got != "https://desktop.example.com:43123/api/v1/auth/oidc/callback" {
+		t.Fatalf("redirect_uri = %q", got)
 	}
 
 	if _, err := instanceAuthSvc.Disable(context.Background()); err != nil {

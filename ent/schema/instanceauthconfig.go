@@ -21,6 +21,7 @@ func (InstanceAuthConfig) Fields() []ent.Field {
 		field.String("issuer_url").Default(""),
 		field.String("client_id").Default(""),
 		field.JSON("client_secret_encrypted", &iam.EncryptedSecret{}).Optional(),
+		field.String("redirect_mode").Default(""),
 		field.String("redirect_url").Default(""),
 		textArrayField("scopes"),
 		field.String("email_claim").Default("email"),

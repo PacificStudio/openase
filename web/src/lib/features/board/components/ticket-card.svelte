@@ -9,7 +9,6 @@
     Cog,
     Loader,
     CircleX,
-    Ellipsis,
   } from '@lucide/svelte'
   import * as Tooltip from '$ui/tooltip'
   import type { BoardStatusOption, BoardTicket } from '../types'
@@ -17,6 +16,7 @@
   import StatusPicker from './status-picker.svelte'
   import PriorityPicker from './priority-picker.svelte'
   import TicketCardContextMenu from './ticket-card-context-menu.svelte'
+  import TicketLinkBadges from './ticket-link-badges.svelte'
 
   let {
     ticket,
@@ -78,19 +78,28 @@
     }
     if (e.shiftKey && e.key === 'F10') {
       e.preventDefault()
-      contextMenuOpen = true
+      openContextMenuFromElement(e.currentTarget)
     }
     if (e.key === 'ContextMenu') {
       e.preventDefault()
-      contextMenuOpen = true
+      openContextMenuFromElement(e.currentTarget)
     }
   }
 
-  function handleContextMenu(e: MouseEvent) {
-    if (isDragging) return
-    e.preventDefault()
-    e.stopPropagation()
-    contextMenuOpen = true
+  function openContextMenuFromElement(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement) || isDragging || isPendingMove) {
+      return
+    }
+
+    const rect = target.getBoundingClientRect()
+    target.dispatchEvent(
+      new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }),
+    )
   }
 
   function handleDragStart(event: DragEvent) {
@@ -122,149 +131,134 @@
   }
 </script>
 
-<button
-  type="button"
-  draggable={!isPendingMove && !contextMenuOpen}
-  class={cn(
-    'border-border bg-card w-full shrink-0 rounded-md border p-2.5 text-left',
-    'cursor-grab active:cursor-grabbing',
-    'hover:border-border/80 hover:bg-accent/50 transition-colors',
-    'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
-    isDragging && 'border-primary/60 bg-primary/5 opacity-70 shadow-sm',
-    isPendingMove && 'cursor-progress opacity-80',
-    className,
-  )}
-  aria-grabbed={isDragging}
-  disabled={isPendingMove}
-  onclick={handleClick}
-  onkeydown={handleKeydown}
-  oncontextmenu={handleContextMenu}
-  ondragstart={handleDragStart}
-  ondragend={handleDragEnd}
->
-  <div class="flex items-start gap-2">
-    <div class="relative mt-0.5 shrink-0">
-      <StatusPicker {ticket} {statuses} disabled={isPendingMove} {onStatusChange} />
-      {#if ticket.isBlocked}
-        <svg
-          viewBox="0 0 16 16"
-          class="absolute right-0 bottom-1 size-2.5 text-red-500"
-          role="img"
-          aria-label="Blocked"
-        >
-          <polygon points="5,1 11,1 15,5 15,11 11,15 5,15 1,11 1,5" fill="currentColor" />
-          <rect x="4" y="7" width="8" height="2" rx="0.5" fill="white" />
-        </svg>
-      {/if}
-    </div>
-    <div class="min-w-0 flex-1">
-      <div class="flex items-center gap-1.5">
-        <span class="text-muted-foreground text-xs font-medium">{ticket.identifier}</span>
-        {#if isPendingMove}
-          <span class="text-muted-foreground text-[10px]">Moving…</span>
-        {/if}
-        <div class="ml-auto flex items-center gap-0.5">
-          <span
-            role="button"
-            tabindex={0}
-            class="text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted inline-flex size-5 items-center justify-center rounded transition-colors"
-            aria-label="Ticket actions"
-            onclick={(e: MouseEvent) => {
-              e.stopPropagation()
-              contextMenuOpen = true
-            }}
-            onkeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                e.stopPropagation()
-                contextMenuOpen = true
-              }
-            }}
-          >
-            <Ellipsis class="size-3" />
-          </span>
-          <GripVertical class="text-muted-foreground/50 size-3.5 shrink-0" />
-        </div>
-      </div>
-      <p class="text-foreground mt-0.5 text-sm leading-snug font-medium">
-        {truncate(ticket.title, 60)}
-      </p>
-    </div>
-  </div>
-
-  <div class="mt-2 flex flex-wrap items-center gap-1.5">
-    <PriorityPicker {ticket} disabled={isPendingMove} {onPriorityChange} />
-
-    {#if ticket.workflowType}
-      <span
-        class={cn(
-          'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
-          workflowColors[ticket.workflowType] ?? 'bg-muted text-muted-foreground',
-        )}
-      >
-        {ticket.workflowType}
-      </span>
-    {/if}
-
-    {#if ticket.anomaly}
-      {@const config = anomalyConfig[ticket.anomaly]}
-      {#if config}
-        <Badge variant={config.variant} class="h-4 gap-1 text-[10px]">
-          <config.icon class="size-2.5" />
-          {config.label}
-        </Badge>
-      {/if}
-    {/if}
-
-    {#if ticket.runtimePhase === 'executing'}
-      <span class="inline-flex items-center text-emerald-500" title="Executing">
-        <Cog class="size-3 animate-spin" />
-      </span>
-    {:else if ticket.runtimePhase === 'ready'}
-      <span class="inline-flex items-center text-emerald-500" title="Ready">
-        <Cog class="size-3" />
-      </span>
-    {:else if ticket.runtimePhase === 'launching'}
-      <span class="inline-flex items-center text-amber-500" title="Launching">
-        <Loader class="size-3 animate-spin [animation-duration:2s]" />
-      </span>
-    {:else if ticket.runtimePhase === 'failed'}
-      {#if ticket.lastError}
-        <Tooltip.Provider>
-          <Tooltip.Root>
-            <Tooltip.Trigger class="inline-flex items-center text-red-500">
-              <CircleX class="size-3" />
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                side="top"
-                class="bg-popover text-popover-foreground max-w-64 rounded-md border px-3 py-2 text-xs shadow-md"
-              >
-                {ticket.lastError}
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
-        </Tooltip.Provider>
-      {:else}
-        <span class="inline-flex items-center text-red-500" title="Failed">
-          <CircleX class="size-3" />
-        </span>
-      {/if}
-    {/if}
-  </div>
-
-  <div class="text-muted-foreground/70 mt-1.5 text-[10px]">
-    {formatRelativeTime(ticket.updatedAt)}
-  </div>
-</button>
-
 <TicketCardContextMenu
   {ticket}
   {statuses}
+  disabled={isDragging || isPendingMove}
   {isPendingMove}
   bind:open={contextMenuOpen}
   onOpenDetails={handleOpenDetails}
   {onStatusChange}
   onPriorityChange={handleContextPriorityChange}
   onArchive={onArchiveTicket}
-/>
+>
+  <button
+    type="button"
+    draggable={!isPendingMove && !contextMenuOpen}
+    class={cn(
+      'border-border bg-card w-full shrink-0 rounded-md border p-2.5 text-left',
+      'cursor-grab active:cursor-grabbing',
+      'hover:border-border/80 hover:bg-accent/50 transition-colors',
+      'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
+      isDragging && 'border-primary/60 bg-primary/5 opacity-70 shadow-sm',
+      isPendingMove && 'cursor-progress opacity-80',
+      className,
+    )}
+    aria-grabbed={isDragging}
+    disabled={isPendingMove}
+    onclick={handleClick}
+    onkeydown={handleKeydown}
+    ondragstart={handleDragStart}
+    ondragend={handleDragEnd}
+  >
+    <div class="flex items-start gap-2">
+      <div class="relative mt-0.5 shrink-0">
+        <StatusPicker {ticket} {statuses} disabled={isPendingMove} {onStatusChange} />
+        {#if ticket.isBlocked}
+          <svg
+            viewBox="0 0 16 16"
+            class="absolute right-0 bottom-1 size-2.5 text-red-500"
+            role="img"
+            aria-label="Blocked"
+          >
+            <polygon points="5,1 11,1 15,5 15,11 11,15 5,15 1,11 1,5" fill="currentColor" />
+            <rect x="4" y="7" width="8" height="2" rx="0.5" fill="white" />
+          </svg>
+        {/if}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5">
+          <span class="text-muted-foreground text-xs font-medium">{ticket.identifier}</span>
+          {#if isPendingMove}
+            <span class="text-muted-foreground text-[10px]">Moving…</span>
+          {/if}
+          <div
+            class="text-muted-foreground/50 ml-auto flex items-center"
+            title="Right-click for actions"
+          >
+            <GripVertical class="text-muted-foreground/50 size-3.5 shrink-0" />
+          </div>
+        </div>
+        <p class="text-foreground mt-0.5 text-sm leading-snug font-medium">
+          {truncate(ticket.title, 60)}
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+      <PriorityPicker {ticket} disabled={isPendingMove} {onPriorityChange} />
+      <TicketLinkBadges links={ticket.externalLinks} pullRequestURLs={ticket.pullRequestURLs} />
+
+      {#if ticket.workflowType}
+        <span
+          class={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
+            workflowColors[ticket.workflowType] ?? 'bg-muted text-muted-foreground',
+          )}
+        >
+          {ticket.workflowType}
+        </span>
+      {/if}
+
+      {#if ticket.anomaly}
+        {@const config = anomalyConfig[ticket.anomaly]}
+        {#if config}
+          <Badge variant={config.variant} class="h-4 gap-1 text-[10px]">
+            <config.icon class="size-2.5" />
+            {config.label}
+          </Badge>
+        {/if}
+      {/if}
+
+      {#if ticket.runtimePhase === 'executing'}
+        <span class="inline-flex items-center text-emerald-500" title="Executing">
+          <Cog class="size-3 animate-spin" />
+        </span>
+      {:else if ticket.runtimePhase === 'ready'}
+        <span class="inline-flex items-center text-emerald-500" title="Ready">
+          <Cog class="size-3" />
+        </span>
+      {:else if ticket.runtimePhase === 'launching'}
+        <span class="inline-flex items-center text-amber-500" title="Launching">
+          <Loader class="size-3 animate-spin [animation-duration:2s]" />
+        </span>
+      {:else if ticket.runtimePhase === 'failed'}
+        {#if ticket.lastError}
+          <Tooltip.Provider>
+            <Tooltip.Root>
+              <Tooltip.Trigger class="inline-flex items-center text-red-500">
+                <CircleX class="size-3" />
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side="top"
+                  class="bg-popover text-popover-foreground max-w-64 rounded-md border px-3 py-2 text-xs shadow-md"
+                >
+                  {ticket.lastError}
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        {:else}
+          <span class="inline-flex items-center text-red-500" title="Failed">
+            <CircleX class="size-3" />
+          </span>
+        {/if}
+      {/if}
+    </div>
+
+    <div class="text-muted-foreground/70 mt-1.5 text-[10px]">
+      {formatRelativeTime(ticket.updatedAt)}
+    </div>
+  </button>
+</TicketCardContextMenu>

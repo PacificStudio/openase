@@ -56,6 +56,8 @@ type legacyOIDCSection struct {
 	IssuerURL            string   `yaml:"issuer_url"`
 	ClientID             string   `yaml:"client_id"`
 	ClientSecret         string   `yaml:"client_secret"`
+	RedirectMode         string   `yaml:"redirect_mode"`
+	FixedRedirectURL     string   `yaml:"fixed_redirect_url"`
 	RedirectURL          string   `yaml:"redirect_url"`
 	Scopes               []string `yaml:"scopes"`
 	EmailClaim           string   `yaml:"email_claim"`
@@ -285,7 +287,8 @@ func (s *Service) recordFromDraft(status iam.AccessControlStatus, draft iam.Draf
 		IssuerURL:             draft.IssuerURL,
 		ClientID:              draft.ClientID,
 		ClientSecretEncrypted: sealed,
-		RedirectURL:           draft.RedirectURL,
+		RedirectMode:          draft.RedirectMode.String(),
+		FixedRedirectURL:      draft.FixedRedirectURL,
 		Scopes:                append([]string(nil), draft.Scopes...),
 		EmailClaim:            draft.Claims.EmailClaim,
 		NameClaim:             draft.Claims.NameClaim,
@@ -310,7 +313,8 @@ func (s *Service) recordFromActive(active iam.ActiveOIDCConfig, validation iam.O
 		IssuerURL:             active.IssuerURL,
 		ClientID:              active.ClientID,
 		ClientSecretEncrypted: sealed,
-		RedirectURL:           active.RedirectURL,
+		RedirectMode:          active.RedirectMode.String(),
+		FixedRedirectURL:      active.FixedRedirectURL,
 		Scopes:                append([]string(nil), active.Scopes...),
 		EmailClaim:            active.Claims.EmailClaim,
 		NameClaim:             active.Claims.NameClaim,
@@ -343,7 +347,8 @@ func (s *Service) parseStoredRecord(record repo.StoredConfigRecord) (iam.AccessC
 		IssuerURL:            record.IssuerURL,
 		ClientID:             record.ClientID,
 		ClientSecret:         secret,
-		RedirectURL:          record.RedirectURL,
+		RedirectMode:         record.RedirectMode,
+		FixedRedirectURL:     record.FixedRedirectURL,
 		Scopes:               append([]string(nil), record.Scopes...),
 		EmailClaim:           record.EmailClaim,
 		NameClaim:            record.NameClaim,
@@ -453,6 +458,7 @@ func legacyInputFromBootstrap(cfg config.AuthConfig) iam.AccessControlStateInput
 		IssuerURL:            strings.TrimSpace(cfg.OIDC.IssuerURL),
 		ClientID:             strings.TrimSpace(cfg.OIDC.ClientID),
 		ClientSecret:         strings.TrimSpace(cfg.OIDC.ClientSecret),
+		FixedRedirectURL:     strings.TrimSpace(cfg.OIDC.RedirectURL),
 		RedirectURL:          strings.TrimSpace(cfg.OIDC.RedirectURL),
 		Scopes:               append([]string(nil), cfg.OIDC.Scopes...),
 		EmailClaim:           strings.TrimSpace(cfg.OIDC.EmailClaim),
@@ -503,6 +509,11 @@ func mergeLegacyInput(base iam.AccessControlStateInput, doc legacyConfigDoc) iam
 	base.IssuerURL = mergeString(base.IssuerURL, doc.Auth.OIDC.IssuerURL)
 	base.ClientID = mergeString(base.ClientID, doc.Auth.OIDC.ClientID)
 	base.ClientSecret = mergeString(base.ClientSecret, doc.Auth.OIDC.ClientSecret)
+	base.RedirectMode = mergeString(base.RedirectMode, doc.Auth.OIDC.RedirectMode)
+	base.FixedRedirectURL = mergeString(base.FixedRedirectURL, doc.Auth.OIDC.FixedRedirectURL)
+	if base.FixedRedirectURL == "" {
+		base.FixedRedirectURL = mergeString(base.FixedRedirectURL, doc.Auth.OIDC.RedirectURL)
+	}
 	base.RedirectURL = mergeString(base.RedirectURL, doc.Auth.OIDC.RedirectURL)
 	base.Scopes = mergeList(base.Scopes, doc.Auth.OIDC.Scopes)
 	base.EmailClaim = mergeString(base.EmailClaim, doc.Auth.OIDC.EmailClaim)
@@ -542,6 +553,8 @@ func hasLegacyOIDCValues(raw legacyOIDCSection) bool {
 	return strings.TrimSpace(raw.IssuerURL) != "" ||
 		strings.TrimSpace(raw.ClientID) != "" ||
 		strings.TrimSpace(raw.ClientSecret) != "" ||
+		strings.TrimSpace(raw.RedirectMode) != "" ||
+		strings.TrimSpace(raw.FixedRedirectURL) != "" ||
 		strings.TrimSpace(raw.RedirectURL) != "" ||
 		len(raw.Scopes) > 0 ||
 		strings.TrimSpace(raw.EmailClaim) != "" ||

@@ -216,6 +216,7 @@ type Ticket struct {
 	Dependencies         []Dependency      `json:"dependencies"`
 	IncomingDependencies []Dependency      `json:"incoming_dependencies"`
 	ExternalLinks        []ExternalLink    `json:"external_links"`
+	PullRequestURLs      []string          `json:"pull_request_urls"`
 	ExternalRef          string            `json:"external_ref"`
 	BudgetUSD            float64           `json:"budget_usd"`
 	CostTokensInput      int64             `json:"cost_tokens_input"`

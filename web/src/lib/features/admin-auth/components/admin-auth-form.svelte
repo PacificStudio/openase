@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SecurityAuthSettings } from '$lib/api/contracts'
+  import * as Select from '$ui/select'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -10,7 +11,8 @@
     issuerURL: string
     clientID: string
     clientSecret: string
-    redirectURL: string
+    redirectMode: 'auto' | 'fixed'
+    fixedRedirectURL: string
     scopesText: string
     allowedDomainsText: string
     bootstrapAdminEmailsText: string
@@ -96,13 +98,47 @@
       </p>
     </div>
     <div class="space-y-2">
-      <Label for="admin-oidc-redirect-url">Redirect URL</Label>
+      <Label for="admin-oidc-redirect-mode">Redirect mode</Label>
+      <Select.Root
+        type="single"
+        value={form.redirectMode}
+        onValueChange={(value) => {
+          if (value === 'auto' || value === 'fixed') {
+            form.redirectMode = value
+          }
+        }}
+      >
+        <Select.Trigger id="admin-oidc-redirect-mode" class="h-10 w-full text-sm">
+          {form.redirectMode === 'fixed'
+            ? 'Fixed redirect URL'
+            : 'Auto-derived from current request'}
+        </Select.Trigger>
+        <Select.Content>
+          <Select.Item value="auto">Auto-derived from current request</Select.Item>
+          <Select.Item value="fixed">Fixed redirect URL</Select.Item>
+        </Select.Content>
+      </Select.Root>
+      <p class="text-muted-foreground text-[11px]">
+        Auto uses the current browser-facing scheme and host to derive
+        <code>/api/v1/auth/oidc/callback</code>. Use fixed only when the IdP requires one exact
+        registered callback.
+      </p>
+    </div>
+    <div class="space-y-2">
+      <Label for="admin-oidc-fixed-redirect-url">Fixed redirect URL</Label>
       <Input
-        id="admin-oidc-redirect-url"
-        value={form.redirectURL}
-        placeholder="http://127.0.0.1:19836/api/v1/auth/oidc/callback"
-        oninput={(event) => (form.redirectURL = (event.currentTarget as HTMLInputElement).value)}
+        id="admin-oidc-fixed-redirect-url"
+        value={form.fixedRedirectURL}
+        placeholder="https://openase.example.com/api/v1/auth/oidc/callback"
+        disabled={form.redirectMode !== 'fixed'}
+        oninput={(event) =>
+          (form.fixedRedirectURL = (event.currentTarget as HTMLInputElement).value)}
       />
+      <p class="text-muted-foreground text-[11px]">
+        {form.redirectMode === 'fixed'
+          ? 'This exact callback must be registered with the OIDC provider.'
+          : 'Optional saved override for strict IdPs. Auto mode ignores this value until you switch back to fixed.'}
+      </p>
     </div>
     <div class="space-y-2 lg:col-span-2">
       <Label for="admin-oidc-scopes">Scopes</Label>
