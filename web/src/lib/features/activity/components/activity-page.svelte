@@ -14,12 +14,15 @@
   import { Skeleton } from '$ui/skeleton'
   import * as Select from '$ui/select'
   import { Activity, Search } from '@lucide/svelte'
-  import type { ActivityPayload, TicketPayload } from '$lib/api/contracts'
   import type { ActivityEntry } from '../types'
   import { activityEventFilterOptions } from '../event-catalog'
+  import {
+    activityPageSize,
+    mapActivityEntries,
+    mergeActivityEntries,
+    type ActivitySnapshotState,
+  } from './activity-page-state'
   import ActivityTimeline from './activity-timeline.svelte'
-
-  const activityPageSize = 40
 
   let entries = $state<ActivityEntry[]>([])
   let loading = $state(false)
@@ -53,51 +56,13 @@
   const isStaleLoad = (projectId: string, version: number) =>
     activeProjectId !== projectId || version !== requestVersion
 
-  function compareActivityEntries(left: ActivityEntry, right: ActivityEntry) {
-    if (left.timestamp !== right.timestamp) {
-      return right.timestamp.localeCompare(left.timestamp)
-    }
-    return right.id.localeCompare(left.id)
-  }
-
-  function mapActivityEntries(activityPayload: ActivityPayload, ticketPayload: TicketPayload) {
-    const ticketIdentifiers = new Map(
-      ticketPayload.tickets.map((ticket) => [ticket.id, ticket.identifier]),
-    )
-
-    return activityPayload.events.map((event) => ({
-      id: event.id,
-      eventType: event.event_type,
-      message: event.message,
-      timestamp: event.created_at,
-      ticketIdentifier: event.ticket_id
-        ? (ticketIdentifiers.get(event.ticket_id) ?? event.ticket_id)
-        : undefined,
-      agentName: agentNameFromMetadata(event.metadata),
-      metadata: event.metadata,
-    }))
-  }
-
-  function mergeActivityEntries(currentEntries: ActivityEntry[], incomingEntries: ActivityEntry[]) {
-    const merged = new Map(currentEntries.map((entry) => [entry.id, entry]))
-    for (const entry of incomingEntries) {
-      merged.set(entry.id, entry)
-    }
-    return [...merged.values()].sort(compareActivityEntries)
-  }
-
-  function writeSnapshot(
-    projectId: string,
-    snapshot: { entries: ActivityEntry[]; nextCursor: string; hasMore: boolean },
-  ) {
+  function writeSnapshot(projectId: string, snapshot: ActivitySnapshotState) {
     writeProjectActivityCache(projectId, snapshot)
   }
 
   async function loadActivityEntries(projectId: string, showLoading: boolean) {
     const version = ++requestVersion
-    if (showLoading) {
-      loading = true
-    }
+    if (showLoading) loading = true
     error = ''
 
     try {
@@ -174,11 +139,10 @@
       }
     }
   }
-
-  const requestReload = (projectId: string) => {
-    queuedReload = true
+  const requestReload = (projectId: string) => (
+    (queuedReload = true),
     void drainReloadQueue(projectId)
-  }
+  )
 
   async function drainReloadQueue(projectId: string) {
     if (!queuedReload || reloadInFlight || activeProjectId !== projectId) {
@@ -222,9 +186,7 @@
       loading = false
       loadingMore = false
       error = ''
-      if (cachedActivity.dirty) {
-        void loadActivityEntries(projectId, false)
-      }
+      if (cachedActivity.dirty) void loadActivityEntries(projectId, false)
     } else {
       initialLoaded = false
       hasMore = false
@@ -244,11 +206,6 @@
       disconnect()
     }
   })
-
-  function agentNameFromMetadata(metadata: Record<string, unknown>) {
-    const value = metadata.agent_name
-    return typeof value === 'string' ? value : undefined
-  }
 </script>
 
 <PageScaffold title="Activity" description="Runtime events and agent lifecycle updates.">
