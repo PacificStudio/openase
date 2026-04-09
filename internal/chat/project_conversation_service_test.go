@@ -4402,6 +4402,236 @@ func TestProjectConversationWorkspaceDiffSummary(t *testing.T) {
 	})
 }
 
+func TestProjectConversationWorkspaceMetadataListsRepos(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name:  "backend",
+			files: map[string]string{"README.md": "hello\n"},
+		},
+		{
+			name:             "frontend",
+			workspaceDirname: "apps/frontend",
+			files:            map[string]string{"src/app.ts": "export const app = 1\n"},
+		},
+	})
+
+	metadata, err := fixture.service.GetWorkspaceMetadata(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+	)
+	if err != nil {
+		t.Fatalf("GetWorkspaceMetadata() error = %v", err)
+	}
+	if !metadata.Available || metadata.WorkspacePath != fixture.workspacePath {
+		t.Fatalf("unexpected metadata availability: %+v", metadata)
+	}
+	if len(metadata.Repos) != 2 {
+		t.Fatalf("metadata repo count = %d, want 2", len(metadata.Repos))
+	}
+	if metadata.Repos[0].Name != "frontend" || metadata.Repos[0].Path != "apps/frontend/frontend" || !metadata.Repos[0].Available || metadata.Repos[0].Branch != "main" {
+		t.Fatalf("unexpected frontend metadata: %+v", metadata.Repos[0])
+	}
+	if metadata.Repos[1].Name != "backend" || metadata.Repos[1].Path != "backend" || !metadata.Repos[1].Available || metadata.Repos[1].Branch != "main" {
+		t.Fatalf("unexpected backend metadata: %+v", metadata.Repos[1])
+	}
+}
+
+func TestProjectConversationWorkspaceTreeAndFileRead(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md":   "line one\n",
+				"src/main.go": "package main\n",
+			},
+		},
+	})
+
+	tree, err := fixture.service.ListWorkspaceTree(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.WorkspaceTreeInput{
+			RepoName: "backend",
+			Path:     "",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ListWorkspaceTree() error = %v", err)
+	}
+	if len(tree.Entries) != 2 {
+		t.Fatalf("tree entry count = %d, want 2", len(tree.Entries))
+	}
+	if tree.Entries[0].Kind != ProjectConversationWorkspaceTreeEntryKindDirectory || tree.Entries[0].Path != "src" {
+		t.Fatalf("unexpected first tree entry: %+v", tree.Entries[0])
+	}
+	if tree.Entries[1].Kind != ProjectConversationWorkspaceTreeEntryKindFile || tree.Entries[1].Path != "README.md" {
+		t.Fatalf("unexpected second tree entry: %+v", tree.Entries[1])
+	}
+
+	file, err := fixture.service.ReadWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.WorkspaceFileInput{
+			RepoName: "backend",
+			Path:     "README.md",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ReadWorkspaceFile() error = %v", err)
+	}
+	if file.PreviewStatus != ProjectConversationWorkspaceFilePreviewStatusAvailable || file.PreviewEncoding != "utf8" || file.PreviewContent != "line one\n" {
+		t.Fatalf("unexpected file preview: %+v", file)
+	}
+}
+
+func TestProjectConversationWorkspaceFilePreviewUnavailableStates(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "hello\n",
+			},
+		},
+	})
+	if err := os.WriteFile(filepath.Join(fixture.repoPaths["backend"], "binary.bin"), []byte{0x00, 0x01, 0x02}, 0o600); err != nil {
+		t.Fatalf("write binary file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(fixture.repoPaths["backend"], "large.txt"), []byte(strings.Repeat("a", int(projectConversationWorkspacePreviewMaxBytes)+1)), 0o600); err != nil {
+		t.Fatalf("write large file: %v", err)
+	}
+
+	binaryFile, err := fixture.service.ReadWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.WorkspaceFileInput{RepoName: "backend", Path: "binary.bin"},
+	)
+	if err != nil {
+		t.Fatalf("ReadWorkspaceFile(binary) error = %v", err)
+	}
+	if binaryFile.PreviewStatus != ProjectConversationWorkspaceFilePreviewStatusUnavailable || binaryFile.UnavailableReason != ProjectConversationWorkspaceFileUnavailableReasonNonText {
+		t.Fatalf("unexpected binary preview result: %+v", binaryFile)
+	}
+
+	largeFile, err := fixture.service.ReadWorkspaceFile(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.WorkspaceFileInput{RepoName: "backend", Path: "large.txt"},
+	)
+	if err != nil {
+		t.Fatalf("ReadWorkspaceFile(large) error = %v", err)
+	}
+	if largeFile.PreviewStatus != ProjectConversationWorkspaceFilePreviewStatusUnavailable || largeFile.UnavailableReason != ProjectConversationWorkspaceFileUnavailableReasonTooLarge {
+		t.Fatalf("unexpected large preview result: %+v", largeFile)
+	}
+}
+
+func TestProjectConversationWorkspaceRemoteTreeAndFileRead(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     "user:conversation",
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	sshClient := &projectConversationSSHClient{
+		sessions: []sshinfra.Session{
+			&projectConversationSSHPrepareSession{
+				output: []byte("directory\x00src\x000\x00file\x00README.md\x009\x00"),
+			},
+			&projectConversationSSHPrepareSession{
+				output: []byte("9\nhello ssh"),
+			},
+		},
+	}
+	sshPool := newProjectConversationTestSSHPool(t, sshClient)
+
+	service := NewProjectConversationService(nil, repoStore, fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			projectRepos: []catalogdomain.ProjectRepo{
+				{
+					ID:            uuid.New(),
+					ProjectID:     project.ID,
+					Name:          "backend",
+					RepositoryURL: "git@example.com/backend.git",
+					DefaultBranch: "main",
+				},
+			},
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{
+				providerID: {
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+				},
+			},
+		},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          "remote-builder",
+			Host:          "10.0.0.25",
+			Port:          22,
+			SSHUser:       stringPointer("tester"),
+			SSHKeyPath:    stringPointer("id_ed25519"),
+			WorkspaceRoot: stringPointer("/srv/openase/workspaces"),
+		},
+	}, fakeTicketReader{}, harnessWorkflowReader{}, nil, sshPool)
+
+	tree, err := service.ListWorkspaceTree(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		chatdomain.WorkspaceTreeInput{RepoName: "backend", Path: ""},
+	)
+	if err != nil {
+		t.Fatalf("ListWorkspaceTree(remote) error = %v", err)
+	}
+	if len(tree.Entries) != 2 || tree.Entries[0].Path != "src" || tree.Entries[1].Path != "README.md" {
+		t.Fatalf("unexpected remote tree: %+v", tree)
+	}
+
+	file, err := service.ReadWorkspaceFile(
+		ctx,
+		UserID("user:conversation"),
+		conversation.ID,
+		chatdomain.WorkspaceFileInput{RepoName: "backend", Path: "README.md"},
+	)
+	if err != nil {
+		t.Fatalf("ReadWorkspaceFile(remote) error = %v", err)
+	}
+	if file.PreviewStatus != ProjectConversationWorkspaceFilePreviewStatusAvailable || file.PreviewContent != "hello ssh" {
+		t.Fatalf("unexpected remote file preview: %+v", file)
+	}
+}
+
 func TestProjectConversationWorkspaceDiffToleratesUnresolvedWorkspaceDuringInitialSession(t *testing.T) {
 	t.Parallel()
 

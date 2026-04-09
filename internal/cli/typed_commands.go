@@ -415,6 +415,27 @@ func newChatCommand() *cobra.Command {
 		PositionalParams: []string{"conversationId"},
 	}))
 	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "workspace [conversationId]",
+		Short:            "Get project conversation workspace metadata.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/workspace",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "workspace-tree [conversationId]",
+		Short:            "List one directory inside the project conversation workspace.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/workspace/tree",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "workspace-file [conversationId]",
+		Short:            "Read one text file preview from the project conversation workspace.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/chat/conversations/{conversationId}/workspace/file",
+		PositionalParams: []string{"conversationId"},
+	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
 		Use:              "workspace-diff [conversationId]",
 		Short:            "Get project conversation workspace diff summary.",
 		Method:           http.MethodGet,
@@ -2226,6 +2247,9 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "list", Short: "List project conversations.", Method: http.MethodGet, Path: "/api/v1/chat/conversations"},
 		{Use: "get [conversationId]", Short: "Get a project conversation.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}", PositionalParams: []string{"conversationId"}},
 		{Use: "entries [conversationId]", Short: "List project conversation transcript entries.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/entries", PositionalParams: []string{"conversationId"}},
+		{Use: "workspace [conversationId]", Short: "Get project conversation workspace metadata.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace", PositionalParams: []string{"conversationId"}},
+		{Use: "workspace-tree [conversationId]", Short: "List one directory inside the project conversation workspace.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace/tree", PositionalParams: []string{"conversationId"}},
+		{Use: "workspace-file [conversationId]", Short: "Read one text file preview from the project conversation workspace.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace/file", PositionalParams: []string{"conversationId"}},
 		{Use: "workspace-diff [conversationId]", Short: "Get project conversation workspace diff summary.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace-diff", PositionalParams: []string{"conversationId"}},
 		{Use: "turn [conversationId]", Short: "Start a project conversation turn.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/turns", PositionalParams: []string{"conversationId"}},
 		{Use: "watch [conversationId]", Short: "Watch project conversation events.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/stream", PositionalParams: []string{"conversationId"}},

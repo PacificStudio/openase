@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	sshinfra "github.com/BetterAndBetterII/openase/internal/infra/ssh"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -209,6 +211,21 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			target: "/api/v1/chat/conversations/" + conversationID + "/entries",
 		},
 		{
+			name:   "workspace metadata",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace",
+		},
+		{
+			name:   "workspace tree",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/tree?repo=backend",
+		},
+		{
+			name:   "workspace file",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/file?repo=backend&path=README.md",
+		},
+		{
 			name:   "workspace diff",
 			method: http.MethodGet,
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace-diff",
@@ -272,6 +289,252 @@ func TestMapProjectConversationResponseIncludesProviderAnchors(t *testing.T) {
 	flags, ok := response["provider_thread_active_flags"].([]string)
 	if !ok || len(flags) != 1 || flags[0] != "waitingOnApproval" {
 		t.Fatalf("unexpected provider active flags: %+v", response["provider_thread_active_flags"])
+	}
+}
+
+func TestGetProjectConversationWorkspaceReturnsUnavailableWhenWorkspaceMissing(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().SetName("Acme").SetSlug("acme").Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     chatservice.LocalProjectConversationUserID.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		chatCatalogStub{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:   machineID,
+				Name: "remote-builder",
+				Host: "10.0.0.25",
+			},
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	rec := performJSONRequest(t, server, http.MethodGet, "/api/v1/chat/conversations/"+conversation.ID.String()+"/workspace", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Workspace struct {
+			Available bool `json:"available"`
+		} `json:"workspace"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if payload.Workspace.Available {
+		t.Fatalf("workspace should be unavailable: %s", rec.Body.String())
+	}
+}
+
+func TestProjectConversationWorkspaceFileRouteHandlesPathBoundsAndPreviewUnavailable(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().SetName("Acme").SetSlug("acme").Save(ctx)
+	if err != nil {
+		t.Fatalf("create org: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     chatservice.LocalProjectConversationUserID.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	sshPool := newWorkspaceBrowserTestSSHPool(&workspaceBrowserSSHClientStub{
+		sessions: []sshinfra.Session{
+			&workspaceBrowserSSHSessionStub{output: []byte("65537\n")},
+			&workspaceBrowserSSHSessionStub{output: []byte("3\n\x00\x01\x02")},
+		},
+	})
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		chatCatalogStub{
+			project: catalogdomain.Project{
+				ID:             project.ID,
+				OrganizationID: org.ID,
+				Name:           "OpenASE",
+				Slug:           "openase",
+			},
+			providers: []catalogdomain.AgentProvider{
+				{
+					ID:             providerID,
+					OrganizationID: org.ID,
+					MachineID:      machineID,
+					AdapterType:    catalogdomain.AgentProviderAdapterTypeCodexAppServer,
+					CliCommand:     "codex",
+				},
+			},
+			projectRepos: []catalogdomain.ProjectRepo{
+				{
+					ID:            uuid.New(),
+					ProjectID:     project.ID,
+					Name:          "backend",
+					RepositoryURL: "git@example.com/backend.git",
+					DefaultBranch: "main",
+				},
+			},
+			machine: catalogdomain.Machine{
+				ID:            machineID,
+				Name:          "remote-builder",
+				Host:          "10.0.0.25",
+				Port:          22,
+				SSHUser:       stringPointer("tester"),
+				SSHKeyPath:    stringPointer("id_ed25519"),
+				WorkspaceRoot: stringPointer("/srv/openase/workspaces"),
+			},
+		},
+		nil,
+		nil,
+		nil,
+		sshPool,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	invalid := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+conversation.ID.String()+"/workspace/file?repo=backend&path=../secret.txt",
+		"",
+	)
+	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), "INVALID_REQUEST") {
+		t.Fatalf("expected invalid request, got %d: %s", invalid.Code, invalid.Body.String())
+	}
+
+	tooLarge := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+conversation.ID.String()+"/workspace/file?repo=backend&path=large.txt",
+		"",
+	)
+	if tooLarge.Code != http.StatusOK {
+		t.Fatalf("tooLarge status = %d, body = %s", tooLarge.Code, tooLarge.Body.String())
+	}
+	var tooLargePayload struct {
+		WorkspaceFile struct {
+			PreviewStatus     string `json:"preview_status"`
+			UnavailableReason string `json:"unavailable_reason"`
+		} `json:"workspace_file"`
+	}
+	if err := json.Unmarshal(tooLarge.Body.Bytes(), &tooLargePayload); err != nil {
+		t.Fatalf("decode too large response: %v", err)
+	}
+	if tooLargePayload.WorkspaceFile.PreviewStatus != "unavailable" || tooLargePayload.WorkspaceFile.UnavailableReason != "too_large" {
+		t.Fatalf("unexpected too large response: %s", tooLarge.Body.String())
+	}
+
+	binary := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		"/api/v1/chat/conversations/"+conversation.ID.String()+"/workspace/file?repo=backend&path=binary.bin",
+		"",
+	)
+	if binary.Code != http.StatusOK {
+		t.Fatalf("binary status = %d, body = %s", binary.Code, binary.Body.String())
+	}
+	var binaryPayload struct {
+		WorkspaceFile struct {
+			PreviewStatus     string `json:"preview_status"`
+			UnavailableReason string `json:"unavailable_reason"`
+		} `json:"workspace_file"`
+	}
+	if err := json.Unmarshal(binary.Body.Bytes(), &binaryPayload); err != nil {
+		t.Fatalf("decode binary response: %v", err)
+	}
+	if binaryPayload.WorkspaceFile.PreviewStatus != "unavailable" || binaryPayload.WorkspaceFile.UnavailableReason != "non_text" {
+		t.Fatalf("unexpected binary response: %s", binary.Body.String())
 	}
 }
 
@@ -1499,8 +1762,10 @@ func (s chatRuntimeStub) CloseSession(chatservice.SessionID) bool {
 }
 
 type chatCatalogStub struct {
-	project   catalogdomain.Project
-	providers []catalogdomain.AgentProvider
+	project      catalogdomain.Project
+	providers    []catalogdomain.AgentProvider
+	projectRepos []catalogdomain.ProjectRepo
+	machine      catalogdomain.Machine
 }
 
 func (s chatCatalogStub) GetProject(context.Context, uuid.UUID) (catalogdomain.Project, error) {
@@ -1512,7 +1777,7 @@ func (s chatCatalogStub) ListActivityEvents(context.Context, catalogdomain.ListA
 }
 
 func (s chatCatalogStub) ListProjectRepos(context.Context, uuid.UUID) ([]catalogdomain.ProjectRepo, error) {
-	return nil, nil
+	return append([]catalogdomain.ProjectRepo(nil), s.projectRepos...), nil
 }
 
 func (s chatCatalogStub) ListTicketRepoScopes(context.Context, uuid.UUID, uuid.UUID) ([]catalogdomain.TicketRepoScope, error) {
@@ -1528,6 +1793,13 @@ func (s chatCatalogStub) GetAgentProvider(context.Context, uuid.UUID) (catalogdo
 		return catalogdomain.AgentProvider{}, errors.New("provider not found")
 	}
 	return s.providers[0], nil
+}
+
+func (s chatCatalogStub) GetMachine(context.Context, uuid.UUID) (catalogdomain.Machine, error) {
+	if s.machine.ID == uuid.Nil {
+		return catalogdomain.Machine{}, errors.New("machine not found")
+	}
+	return s.machine, nil
 }
 
 type chatTicketStub struct{}
@@ -1549,6 +1821,71 @@ func (chatWorkflowStub) Get(context.Context, uuid.UUID) (workflowservice.Workflo
 func (chatWorkflowStub) List(context.Context, uuid.UUID) ([]workflowservice.Workflow, error) {
 	return nil, nil
 }
+
+func newWorkspaceBrowserTestSSHPool(client sshinfra.Client) *sshinfra.Pool {
+	return sshinfra.NewPool("/tmp/openase", sshinfra.WithDialer(workspaceBrowserSSHDialerStub{client: client}), sshinfra.WithReadFile(func(string) ([]byte, error) {
+		return []byte("key"), nil
+	}))
+}
+
+type workspaceBrowserSSHDialerStub struct {
+	client sshinfra.Client
+}
+
+func (d workspaceBrowserSSHDialerStub) DialContext(context.Context, sshinfra.DialConfig) (sshinfra.Client, error) {
+	return d.client, nil
+}
+
+type workspaceBrowserSSHClientStub struct {
+	sessions   []sshinfra.Session
+	sessionIdx int
+}
+
+func (c *workspaceBrowserSSHClientStub) NewSession() (sshinfra.Session, error) {
+	if c.sessionIdx >= len(c.sessions) {
+		return nil, fmt.Errorf("unexpected ssh session request %d", c.sessionIdx)
+	}
+	session := c.sessions[c.sessionIdx]
+	c.sessionIdx++
+	return session, nil
+}
+
+func (c *workspaceBrowserSSHClientStub) SendRequest(string, bool, []byte) (bool, []byte, error) {
+	return true, nil, nil
+}
+
+func (c *workspaceBrowserSSHClientStub) Close() error {
+	return nil
+}
+
+type workspaceBrowserSSHSessionStub struct {
+	output []byte
+	err    error
+}
+
+func (s *workspaceBrowserSSHSessionStub) CombinedOutput(string) ([]byte, error) {
+	return s.output, s.err
+}
+
+func (s *workspaceBrowserSSHSessionStub) StdinPipe() (io.WriteCloser, error) {
+	return nil, fmt.Errorf("not supported")
+}
+
+func (s *workspaceBrowserSSHSessionStub) StdoutPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+
+func (s *workspaceBrowserSSHSessionStub) StderrPipe() (io.Reader, error) {
+	return strings.NewReader(""), nil
+}
+
+func (s *workspaceBrowserSSHSessionStub) Start(string) error { return fmt.Errorf("not supported") }
+
+func (s *workspaceBrowserSSHSessionStub) Signal(string) error { return nil }
+
+func (s *workspaceBrowserSSHSessionStub) Wait() error { return s.err }
+
+func (s *workspaceBrowserSSHSessionStub) Close() error { return nil }
 
 func (chatWorkflowStub) GetSkill(context.Context, uuid.UUID) (workflowservice.SkillDetail, error) {
 	return workflowservice.SkillDetail{}, errors.New("not implemented")
