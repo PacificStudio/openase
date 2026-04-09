@@ -125,6 +125,33 @@ Desktop v1 只预留扩展路径，不在本 ticket 内交付生产可用的 man
 
 该能力应通过独立 runtime/provider 合同落地，而不是把数据库托管逻辑侵入业务层。
 
+## Electron 39 兼容性说明
+
+Desktop v1 现在以 Electron 39.x 为目标版本。本次升级重点对照了 Electron 39 可能影响桌面壳的 breaking changes：
+
+- `--host-rules` 弃用：桌面壳未使用。
+- `window.open` 弹窗一律可调整大小：不适用，desktop v1 只维护一个顶层 `BrowserWindow`，没有创建 popup 子窗口。
+- macOS 14.2+ 下 `desktopCapturer` 需要 `NSAudioCaptureUsageDescription`：不适用，desktop v1 未使用 `desktopCapturer`。
+- shared texture offscreen rendering 的 `paint` 事件结构变化：不适用，desktop v1 未使用 offscreen rendering。
+
+本次 review 实际盘点的仍是 v1 当前活跃路径：
+
+- `desktop/main/app-controller.js` 中的启动与主界面切换
+- `desktop/main/runtime/single-instance.js` 中的单实例锁
+- `desktop/main/menu.js`、`desktop/main/ipc.js`、`desktop/preload/index.js` 中的 menu / shell / preload / bridge 行为
+- `desktop/scripts/package-desktop.mjs` 与 `desktop/scripts/smoke-package.mjs` 中的打包与 smoke 验证
+
+已接受风险：
+
+- Electron 39 虽然仍是本次升级目标，但其 release schedule 当前标注的 EOL 是 2026-05-05。本次升级应视为从 Electron 38 EOS 脱离出来的受控过渡，而不是长期最终基线。
+- 当前本地 Linux 工作区没有显示服务，因此本地能覆盖 package smoke 与 headless Electron E2E；真正的交互式安装包验收仍需依赖 CI 和具备 GUI 的 review 机器补充确认。
+
+回滚策略：
+
+1. 将 `desktop/package.json` 与 `desktop/pnpm-lock.yaml` 回退到上一版 Electron 38.x 基线
+2. 重新执行 `make desktop-validate` 与 package smoke
+3. 保持 PR #584 关闭或被替代，避免未评估的 major bump 再次成为默认落地路径
+
 ## 命令
 
 以下命令都在仓库根目录运行。
