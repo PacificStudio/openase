@@ -26,6 +26,8 @@ const storageLocationDB = "db:instance_auth_configs"
 //nolint:gosec // Persisted metadata label, not a secret.
 const secretAlgorithm = "aes-256-gcm"
 
+var ErrSecretDecrypt = errors.New("decrypt access control secret")
+
 type Service struct {
 	repo           repo.Repository
 	block          cipher.Block
@@ -137,6 +139,11 @@ func (s *Service) loadSnapshot(ctx context.Context) (ReadResult, error) {
 		if record != nil {
 			state, err := s.parseStoredRecord(*record)
 			if err != nil {
+				if recovered, recoverErr := s.recoverFromLegacyFallback(ctx, err); recoverErr != nil {
+					return ReadResult{}, recoverErr
+				} else if recovered != nil {
+					return *recovered, nil
+				}
 				return ReadResult{}, err
 			}
 			return ReadResult{State: state, StorageLocation: storageLocationDB}, nil
@@ -159,6 +166,24 @@ func (s *Service) loadSnapshot(ctx context.Context) (ReadResult, error) {
 		return ReadResult{}, err
 	}
 	return ReadResult{State: state, StorageLocation: location}, nil
+}
+
+func (s *Service) recoverFromLegacyFallback(ctx context.Context, readErr error) (*ReadResult, error) {
+	if !errors.Is(readErr, ErrSecretDecrypt) {
+		return nil, nil
+	}
+	input, location, err := s.readLegacyFallback()
+	if err != nil {
+		return nil, err
+	}
+	if !shouldImportLegacyFallback(input, location) {
+		return nil, nil
+	}
+	recovered, err := s.importLegacyFallback(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return &recovered, nil
 }
 
 func (s *Service) storeSnapshot(snapshot ReadResult) {
@@ -410,7 +435,7 @@ func (s *Service) openSecret(secret *iam.EncryptedSecret) (string, error) {
 	}
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return "", fmt.Errorf("decrypt access control secret: %w", err)
+		return "", fmt.Errorf("%w: %s", ErrSecretDecrypt, err)
 	}
 	return string(plaintext), nil
 }
