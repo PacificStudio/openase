@@ -545,7 +545,8 @@ func (s *ProjectConversationService) runProjectConversationShellCommand(
 	allowExitCodeOne bool,
 ) ([]byte, error) {
 	if machine.Host == catalogdomain.LocalMachineHost {
-		command := exec.CommandContext(ctx, "sh", "-lc", script)
+		command := exec.CommandContext(ctx, "sh")
+		command.Stdin = strings.NewReader(script)
 		output, err := command.CombinedOutput()
 		if err != nil && (!allowExitCodeOne || !projectConversationCommandExitedWithCode(err, 1)) {
 			return output, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(output)))
