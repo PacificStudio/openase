@@ -171,7 +171,7 @@ describe('Instance admin page', () => {
     expect(await findByText('Your session')).toBeTruthy()
     expect(await findByText('Recovery')).toBeTruthy()
     expect((await findAllByText('local_instance_admin:default')).length).toBeGreaterThan(0)
-    expect(await findByText(/Running in single-user disabled mode/)).toBeTruthy()
+    expect(await findByText(/Local bootstrap is the active browser auth method/)).toBeTruthy()
     expect(getEffectivePermissions).not.toHaveBeenCalled()
   })
 

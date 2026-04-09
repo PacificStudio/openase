@@ -17,12 +17,34 @@ func (s *Server) requireHumanSession(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil {
 			return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
 		}
-		if !runtimeState.LoginRequired || s.humanAuthService == nil {
+		if s.humanAuthService == nil {
 			return next(c)
 		}
 		cookie, err := c.Cookie(humanSessionCookieName)
 		if err != nil || strings.TrimSpace(cookie.Value) == "" {
 			return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_REQUIRED", humanauthservice.ErrUnauthorized.Error())
+		}
+		if !runtimeState.LoginRequired {
+			localSession, err := s.humanAuthService.AuthenticateLocalSession(
+				c.Request().Context(),
+				cookie.Value,
+				c.Request().UserAgent(),
+				c.RealIP(),
+				true,
+			)
+			if err != nil {
+				s.clearHumanSessionCookies(c)
+				switch {
+				case errors.Is(err, humanauthservice.ErrSessionExpired):
+					return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_EXPIRED", err.Error())
+				default:
+					return writeAPIError(c, http.StatusUnauthorized, "HUMAN_SESSION_INVALID", err.Error())
+				}
+			}
+			if err := s.validateMutatingCSRFRequest(c, localSession.CSRFToken); err != nil {
+				return err
+			}
+			return next(c)
 		}
 		principal, err := s.humanAuthService.AuthenticateSession(
 			c.Request().Context(),
@@ -54,6 +76,10 @@ func (s *Server) validateMutatingHumanRequest(
 	c echo.Context,
 	principal humanauthdomain.AuthenticatedPrincipal,
 ) error {
+	return s.validateMutatingCSRFRequest(c, principal.Session.CSRFSecret)
+}
+
+func (s *Server) validateMutatingCSRFRequest(c echo.Context, csrfToken string) error {
 	switch c.Request().Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:
 		return nil
@@ -61,7 +87,7 @@ func (s *Server) validateMutatingHumanRequest(
 	if !sameOriginRequest(c.Request()) {
 		return writeAPIError(c, http.StatusForbidden, "CSRF_ORIGIN_FORBIDDEN", "origin or referer must match this host")
 	}
-	if strings.TrimSpace(c.Request().Header.Get(csrfHeaderName)) != strings.TrimSpace(principal.Session.CSRFSecret) {
+	if strings.TrimSpace(c.Request().Header.Get(csrfHeaderName)) != strings.TrimSpace(csrfToken) {
 		return writeAPIError(c, http.StatusForbidden, "CSRF_TOKEN_INVALID", "csrf token is missing or invalid")
 	}
 	return nil

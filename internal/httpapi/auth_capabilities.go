@@ -17,6 +17,13 @@ const (
 	authRequestPrincipalKindHumanSession   authRequestPrincipalKind = "human_session"
 )
 
+type authMethodCapability string
+
+const (
+	authMethodCapabilityOIDC               authMethodCapability = "oidc"
+	authMethodCapabilityLocalBootstrapLink authMethodCapability = "local_bootstrap_link"
+)
+
 type invalidHumanSessionDisposition uint8
 
 const (
@@ -29,6 +36,8 @@ type resolvedAuthRequestContext struct {
 	LoginRequired              bool
 	Authenticated              bool
 	PrincipalKind              authRequestPrincipalKind
+	AvailableAuthMethods       []authMethodCapability
+	CurrentAuthMethod          authMethodCapability
 	AuthConfigured             bool
 	SessionGovernanceAvailable bool
 	CanManageAuth              bool
@@ -49,22 +58,31 @@ func (s *Server) resolveAuthRequestContext(
 	if err != nil {
 		return resolvedAuthRequestContext{}, err
 	}
+	capabilities := resolveAuthCapabilities(runtimeState, s.humanAuthService != nil)
 	ctx := resolvedAuthRequestContext{
-		RuntimeState:   runtimeState,
-		LoginRequired:  runtimeState.LoginRequired,
-		AuthConfigured: runtimeState.AuthMode == iam.AuthModeOIDC,
-		PrincipalKind:  authRequestPrincipalKindAnonymous,
+		RuntimeState:         runtimeState,
+		LoginRequired:        capabilities.RequiresAuthorization,
+		PrincipalKind:        authRequestPrincipalKindAnonymous,
+		AvailableAuthMethods: capabilities.AvailableAuthMethods,
+		CurrentAuthMethod:    capabilities.CurrentAuthMethod,
+		AuthConfigured:       runtimeState.AuthMode == iam.AuthModeOIDC,
 	}
 	if runtimeState.ResolvedOIDCConfig != nil {
 		ctx.IssuerURL = runtimeState.ResolvedOIDCConfig.IssuerURL
 	}
-	if !runtimeState.LoginRequired || s.humanAuthService == nil {
+	if !capabilities.RequiresAuthorization {
 		ctx.Authenticated = true
 		ctx.PrincipalKind = authRequestPrincipalKindLocalBootstrap
 		ctx.Roles = localBootstrapRoles()
 		ctx.Permissions = localBootstrapPermissions()
 		ctx.CanManageAuth = true
 		return ctx, nil
+	}
+	if s.humanAuthService == nil {
+		return ctx, nil
+	}
+	if !runtimeState.LoginRequired {
+		return s.resolveLocalBootstrapRequestContext(c, ctx, invalidDisposition)
 	}
 	cookie, err := c.Cookie(humanSessionCookieName)
 	if err != nil || cookie.Value == "" {
@@ -102,6 +120,65 @@ func (s *Server) resolveAuthRequestContext(
 	return ctx, nil
 }
 
+type authCapabilities struct {
+	RequiresAuthorization bool
+	AvailableAuthMethods  []authMethodCapability
+	CurrentAuthMethod     authMethodCapability
+}
+
+func resolveAuthCapabilities(
+	runtimeState iam.RuntimeAccessControlState,
+	humanAuthAvailable bool,
+) authCapabilities {
+	if runtimeState.LoginRequired {
+		return authCapabilities{
+			RequiresAuthorization: true,
+			AvailableAuthMethods:  []authMethodCapability{authMethodCapabilityOIDC},
+			CurrentAuthMethod:     authMethodCapabilityOIDC,
+		}
+	}
+	if humanAuthAvailable {
+		return authCapabilities{
+			RequiresAuthorization: true,
+			AvailableAuthMethods:  []authMethodCapability{authMethodCapabilityLocalBootstrapLink},
+			CurrentAuthMethod:     authMethodCapabilityLocalBootstrapLink,
+		}
+	}
+	return authCapabilities{}
+}
+
+func (s *Server) resolveLocalBootstrapRequestContext(
+	c echo.Context,
+	ctx resolvedAuthRequestContext,
+	invalidDisposition invalidHumanSessionDisposition,
+) (resolvedAuthRequestContext, error) {
+	cookie, err := c.Cookie(humanSessionCookieName)
+	if err != nil || cookie.Value == "" {
+		return ctx, nil
+	}
+	localSession, err := s.humanAuthService.AuthenticateLocalSession(
+		c.Request().Context(),
+		cookie.Value,
+		c.Request().UserAgent(),
+		c.RealIP(),
+		true,
+	)
+	if err != nil {
+		if invalidDisposition == invalidHumanSessionAsAnonymous {
+			s.clearHumanSessionCookies(c)
+			return ctx, nil
+		}
+		return resolvedAuthRequestContext{}, err
+	}
+	ctx.Authenticated = true
+	ctx.PrincipalKind = authRequestPrincipalKindLocalBootstrap
+	ctx.CanManageAuth = true
+	ctx.CSRFToken = localSession.CSRFToken
+	ctx.Roles = append([]humanauthdomain.RoleKey(nil), localSession.Roles...)
+	ctx.Permissions = append([]humanauthdomain.PermissionKey(nil), localSession.Permissions...)
+	return ctx, nil
+}
+
 func writeHumanSessionAuthError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, humanauthservice.ErrUserDisabled):
@@ -132,4 +209,21 @@ func authPermissionsIncludeManageAuth(permissions []humanauthdomain.PermissionKe
 		}
 	}
 	return false
+}
+
+func authMethodCapabilitiesToStrings(methods []authMethodCapability) []string {
+	if len(methods) == 0 {
+		return nil
+	}
+	values := make([]string, 0, len(methods))
+	for _, method := range methods {
+		if method == "" {
+			continue
+		}
+		values = append(values, string(method))
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	return values
 }

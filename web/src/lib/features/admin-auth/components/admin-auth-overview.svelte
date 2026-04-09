@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { HumanAuthUser } from '$lib/stores/auth.svelte'
+  import { authStore } from '$lib/stores/auth.svelte'
   import type { SecurityAuthSettings } from '$lib/api/contracts'
   import { SecuritySettingsHumanAuthSummary } from '$lib/features/settings'
   import { Badge } from '$ui/badge'
@@ -12,16 +13,27 @@
     auth: SecurityAuthSettings
     user?: HumanAuthUser | null
   } = $props()
+
+  const currentAuthMethodLabel = $derived(
+    authStore.currentAuthMethod === 'local_bootstrap_link'
+      ? 'Local bootstrap link'
+      : authStore.currentAuthMethod === 'oidc'
+        ? 'OIDC login'
+        : auth.active_mode === 'oidc'
+          ? 'OIDC login'
+          : 'Local bootstrap link',
+  )
 </script>
 
 <div class="border-border bg-card space-y-4 rounded-2xl border p-5">
   <div class="flex flex-wrap items-center gap-2">
     <Badge variant="outline">Instance scope</Badge>
-    <Badge variant={auth.active_mode === 'oidc' ? 'default' : 'secondary'}>
-      Active {auth.active_mode}
+    <Badge variant={authStore.usesOIDC || auth.active_mode === 'oidc' ? 'default' : 'secondary'}>
+      Current interactive auth: {currentAuthMethodLabel}
     </Badge>
+    <Badge variant="outline">Active runtime: {auth.active_mode}</Badge>
     {#if auth.configured_mode !== auth.active_mode}
-      <Badge variant="outline">Configured {auth.configured_mode}</Badge>
+      <Badge variant="outline">Draft ready: {auth.configured_mode}</Badge>
     {/if}
     <Badge variant={auth.public_exposure_risk === 'high' ? 'destructive' : 'secondary'}>
       {auth.public_exposure_risk === 'high' ? 'Public exposure risk' : 'Local-ready posture'}
@@ -69,6 +81,13 @@
       <div class="mt-1 font-mono text-xs break-all">{auth.config_path || 'Not available'}</div>
     </div>
   </div>
+
+  {#if currentAuthMethodLabel === 'Local bootstrap link'}
+    <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-950">
+      Browser access currently enters through the local bootstrap auth gate. Generate one-time
+      links from the host machine with <code>openase auth bootstrap create-link</code>.
+    </div>
+  {/if}
 
   <div class="space-y-2">
     <div class="text-sm font-semibold">Next steps</div>

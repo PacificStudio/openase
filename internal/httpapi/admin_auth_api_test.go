@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
@@ -96,6 +97,32 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 		WithHumanAuthService(humanAuthSvc, humanAuthorizer),
 	)
 	fixture := humanAuthFixture{client: client, repo: humanRepo, server: server}
+	issued, err := humanAuthSvc.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "test:admin-auth",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+	redeemRec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeemRec.Code != http.StatusOK {
+		t.Fatalf("expected local bootstrap redeem 200, got %d: %s", redeemRec.Code, redeemRec.Body.String())
+	}
+	var bootstrapSession authSessionResponse
+	if err := json.Unmarshal(redeemRec.Body.Bytes(), &bootstrapSession); err != nil {
+		t.Fatalf("unmarshal local bootstrap redeem response: %v", err)
+	}
+	bootstrapCookies := redeemRec.Result().Cookies()
+	if len(bootstrapCookies) != 1 || bootstrapCookies[0].Name != humanSessionCookieName || bootstrapCookies[0].Value == "" {
+		t.Fatalf("expected bootstrap session cookie, got %#v", bootstrapCookies)
+	}
 
 	draftReq := httptest.NewRequest(
 		http.MethodPut,
@@ -103,6 +130,9 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	draftReq.Header.Set("Content-Type", "application/json")
+	draftReq.Header.Set("Origin", "http://example.com")
+	draftReq.Header.Set(csrfHeaderName, bootstrapSession.CSRFToken)
+	draftReq.AddCookie(bootstrapCookies[0])
 	draftRec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(draftRec, draftReq)
@@ -150,6 +180,9 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
 	)
 	enableReq.Header.Set("Content-Type", "application/json")
+	enableReq.Header.Set("Origin", "http://example.com")
+	enableReq.Header.Set(csrfHeaderName, bootstrapSession.CSRFToken)
+	enableReq.AddCookie(bootstrapCookies[0])
 	enableRec := httptest.NewRecorder()
 
 	server.Handler().ServeHTTP(enableRec, enableReq)

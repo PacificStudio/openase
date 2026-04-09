@@ -24,6 +24,8 @@ type authSessionResponse struct {
 	LoginRequired              bool                     `json:"login_required"`
 	Authenticated              bool                     `json:"authenticated"`
 	PrincipalKind              string                   `json:"principal_kind"`
+	AvailableAuthMethods       []string                 `json:"available_auth_methods,omitempty"`
+	CurrentAuthMethod          string                   `json:"current_auth_method,omitempty"`
 	AuthConfigured             bool                     `json:"auth_configured"`
 	SessionGovernanceAvailable bool                     `json:"session_governance_available"`
 	CanManageAuth              bool                     `json:"can_manage_auth"`
@@ -164,45 +166,7 @@ func (s *Server) handleAuthSession(c echo.Context) error {
 	if err != nil {
 		return writeAuthRuntimeUnavailable(c, "AUTH_RUNTIME_STATE_FAILED", err)
 	}
-	response := authSessionResponse{
-		AuthMode:                   authContext.RuntimeState.AuthMode.String(),
-		LoginRequired:              authContext.LoginRequired,
-		Authenticated:              authContext.Authenticated,
-		PrincipalKind:              string(authContext.PrincipalKind),
-		AuthConfigured:             authContext.AuthConfigured,
-		SessionGovernanceAvailable: authContext.SessionGovernanceAvailable,
-		CanManageAuth:              authContext.CanManageAuth,
-		IssuerURL:                  authContext.IssuerURL,
-		User:                       authContext.User,
-		CSRFToken:                  authContext.CSRFToken,
-		Roles:                      roleKeysToStrings(authContext.Roles),
-		Permissions:                permissionKeysToStrings(authContext.Permissions),
-	}
-	if authContext.RuntimeState.LoginRequired || s.humanAuthService == nil {
-		return c.JSON(http.StatusOK, response)
-	}
-	cookie, err := c.Cookie(humanSessionCookieName)
-	if err != nil || strings.TrimSpace(cookie.Value) == "" {
-		return c.JSON(http.StatusOK, response)
-	}
-	localSession, authErr := s.humanAuthService.AuthenticateLocalSession(
-		c.Request().Context(),
-		cookie.Value,
-		c.Request().UserAgent(),
-		c.RealIP(),
-		true,
-	)
-	if authErr != nil {
-		s.clearHumanSessionCookies(c)
-		return c.JSON(http.StatusOK, response)
-	}
-	response.Authenticated = true
-	response.PrincipalKind = string(authRequestPrincipalKindLocalBootstrap)
-	response.CanManageAuth = true
-	response.CSRFToken = localSession.CSRFToken
-	response.Roles = roleKeysToStrings(localSession.Roles)
-	response.Permissions = permissionKeysToStrings(localSession.Permissions)
-	return c.JSON(http.StatusOK, response)
+	return c.JSON(http.StatusOK, newAuthSessionResponse(authContext))
 }
 
 func (s *Server) handleLogout(c echo.Context) error {
@@ -276,14 +240,36 @@ func (s *Server) handleLocalBootstrapRedeem(c echo.Context) error {
 	}
 	s.setHumanSessionCookie(c, result.SessionToken)
 	return c.JSON(http.StatusOK, authSessionResponse{
-		AuthMode:      runtimeState.AuthMode.String(),
-		Authenticated: true,
-		PrincipalKind: string(authRequestPrincipalKindLocalBootstrap),
-		CanManageAuth: true,
-		CSRFToken:     result.CSRFToken,
-		Roles:         roleKeysToStrings(result.Principal.EffectiveRoles),
-		Permissions:   permissionKeysToStrings(result.Principal.Permissions),
+		AuthMode:             runtimeState.AuthMode.String(),
+		LoginRequired:        true,
+		Authenticated:        true,
+		PrincipalKind:        string(authRequestPrincipalKindLocalBootstrap),
+		AvailableAuthMethods: []string{string(authMethodCapabilityLocalBootstrapLink)},
+		CurrentAuthMethod:    string(authMethodCapabilityLocalBootstrapLink),
+		CanManageAuth:        true,
+		CSRFToken:            result.CSRFToken,
+		Roles:                roleKeysToStrings(result.Principal.EffectiveRoles),
+		Permissions:          permissionKeysToStrings(result.Principal.Permissions),
 	})
+}
+
+func newAuthSessionResponse(authContext resolvedAuthRequestContext) authSessionResponse {
+	return authSessionResponse{
+		AuthMode:                   authContext.RuntimeState.AuthMode.String(),
+		LoginRequired:              authContext.LoginRequired,
+		Authenticated:              authContext.Authenticated,
+		PrincipalKind:              string(authContext.PrincipalKind),
+		AvailableAuthMethods:       authMethodCapabilitiesToStrings(authContext.AvailableAuthMethods),
+		CurrentAuthMethod:          string(authContext.CurrentAuthMethod),
+		AuthConfigured:             authContext.AuthConfigured,
+		SessionGovernanceAvailable: authContext.SessionGovernanceAvailable,
+		CanManageAuth:              authContext.CanManageAuth,
+		IssuerURL:                  authContext.IssuerURL,
+		User:                       authContext.User,
+		CSRFToken:                  authContext.CSRFToken,
+		Roles:                      roleKeysToStrings(authContext.Roles),
+		Permissions:                permissionKeysToStrings(authContext.Permissions),
+	}
 }
 
 func (s *Server) handleListSessions(c echo.Context) error {

@@ -95,7 +95,7 @@
 
   $effect(() => {
     const projectId = currentProjectId
-    if (!authStore.loginRequired || !authStore.authenticated || !projectId) {
+    if (!authStore.usesOIDC || !authStore.authenticated || !projectId) {
       accessLoading = false
       accessError = ''
       projectPermissions = null
@@ -211,7 +211,7 @@
       showDocs={true}
     />
 
-    {#if !authStore.loginRequired}
+    {#if authStore.usesLocalBootstrap}
       <AccessSettingsDisabledCard />
     {:else if !authStore.authenticated}
       <SecuritySettingsHumanAuthSignInHint />

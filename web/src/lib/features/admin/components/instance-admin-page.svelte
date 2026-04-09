@@ -20,9 +20,12 @@
   const canManageDirectory = $derived(
     instancePermissions?.permissions.includes('security_setting.update') ?? false,
   )
+  const currentAuthMethodLabel = $derived(
+    authStore.currentAuthMethod === 'local_bootstrap_link' ? 'Local bootstrap' : 'OIDC',
+  )
 
   $effect(() => {
-    if (!authStore.loginRequired || !authStore.authenticated) {
+    if (!authStore.usesOIDC || !authStore.authenticated) {
       loading = false
       error = ''
       instancePermissions = null
@@ -75,7 +78,7 @@
           <div class="text-sm font-semibold">Your session</div>
         </div>
         <div class="flex flex-wrap gap-2 text-xs">
-          <Badge variant="secondary">{authStore.loginRequired ? 'OIDC' : 'Local bootstrap'}</Badge>
+          <Badge variant="secondary">{currentAuthMethodLabel}</Badge>
           {#if authStore.user}
             <Badge variant="outline">{authStore.user.primaryEmail}</Badge>
           {:else}
@@ -114,12 +117,12 @@
       </div>
     </div>
 
-    {#if !authStore.loginRequired}
+    {#if authStore.usesLocalBootstrap}
       <div class="border-border bg-card flex items-center gap-3 rounded-lg border p-4">
         <Users class="text-muted-foreground size-4 shrink-0" />
         <p class="text-muted-foreground text-sm">
-          Running in single-user disabled mode. Switch to OIDC for per-user governance and audit
-          logs.
+          Local bootstrap is the active browser auth method. Switch to OIDC when you need per-user
+          governance, user directory sync, and session audits.
         </p>
       </div>
     {:else}

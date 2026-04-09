@@ -94,9 +94,16 @@ func TestLocalBootstrapRedeemCreatesLocalBrowserSession(t *testing.T) {
 	if payload.AuthMode != "disabled" {
 		t.Fatalf("auth_mode = %q, want disabled", payload.AuthMode)
 	}
+	if !payload.LoginRequired {
+		t.Fatal("login_required = false, want true")
+	}
 	if !payload.Authenticated {
 		t.Fatal("expected authenticated=true")
 	}
+	if payload.CurrentAuthMethod != "local_bootstrap_link" {
+		t.Fatalf("current_auth_method = %q, want local_bootstrap_link", payload.CurrentAuthMethod)
+	}
+	assertStringSet(t, payload.AvailableAuthMethods, "local_bootstrap_link")
 	assertStringSet(t, payload.Roles, "instance_admin")
 	if payload.CSRFToken == "" {
 		t.Fatal("expected csrf token")
@@ -116,10 +123,67 @@ func TestLocalBootstrapRedeemCreatesLocalBrowserSession(t *testing.T) {
 	}
 	var sessionPayload authSessionResponse
 	decodeResponse(t, sessionRec, &sessionPayload)
+	if !sessionPayload.LoginRequired {
+		t.Fatal("expected local bootstrap auth gate to remain required")
+	}
 	if !sessionPayload.Authenticated {
 		t.Fatal("expected authenticated local auth session")
 	}
+	if sessionPayload.PrincipalKind != "local_bootstrap" {
+		t.Fatalf("principal_kind = %q, want local_bootstrap", sessionPayload.PrincipalKind)
+	}
+	if sessionPayload.CurrentAuthMethod != "local_bootstrap_link" {
+		t.Fatalf("current_auth_method = %q, want local_bootstrap_link", sessionPayload.CurrentAuthMethod)
+	}
+	assertStringSet(t, sessionPayload.AvailableAuthMethods, "local_bootstrap_link")
 	assertStringSet(t, sessionPayload.Roles, "instance_admin")
+}
+
+func TestLocalBootstrapProtectedRoutesRequireAuthorizedBrowserSession(t *testing.T) {
+	t.Parallel()
+
+	fixture := newLocalBootstrapFixture(t, config.AuthConfig{Mode: config.AuthModeDisabled})
+
+	unauthorized := performJSONRequest(t, fixture.server, http.MethodGet, "/api/v1/auth/sessions", "")
+	assertAPIErrorResponse(
+		t,
+		unauthorized,
+		http.StatusUnauthorized,
+		"HUMAN_SESSION_REQUIRED",
+		humanauthservice.ErrUnauthorized.Error(),
+	)
+
+	issued, err := fixture.humanAuth.CreateLocalBootstrapRequest(context.Background(), humanauthservice.LocalBootstrapIssueInput{
+		RequestedBy: "cli:test",
+		Purpose:     "browser_session",
+		TTL:         5 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("CreateLocalBootstrapRequest() error = %v", err)
+	}
+
+	redeem := performJSONRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		"/api/v1/auth/local-bootstrap/redeem",
+		`{"request_id":"`+issued.RequestID+`","code":"`+issued.Code+`","nonce":"`+issued.Nonce+`"}`,
+	)
+	if redeem.Code != http.StatusOK {
+		t.Fatalf("expected redeem 200, got %d: %s", redeem.Code, redeem.Body.String())
+	}
+	cookies := redeem.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Value == "" {
+		t.Fatalf("expected redeemed session cookie, got %#v", cookies)
+	}
+
+	authorized := performJSONRequestWithHeaders(t, fixture.server, http.MethodGet, "/api/v1/auth/sessions", "", map[string]string{
+		"Cookie":     humanSessionCookieName + "=" + cookies[0].Value,
+		"User-Agent": "LocalBootstrapProtectedTest/1.0",
+	})
+	if authorized.Code != http.StatusOK {
+		t.Fatalf("expected authorized protected route 200, got %d: %s", authorized.Code, authorized.Body.String())
+	}
 }
 
 func TestLocalBootstrapRedeemRejectsExpiredRequest(t *testing.T) {
