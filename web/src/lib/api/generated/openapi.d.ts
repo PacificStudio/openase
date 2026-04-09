@@ -6978,7 +6978,7 @@ export interface operations {
           detected_os?: string | null
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string | null
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[] | null
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string | null
@@ -8998,7 +8998,7 @@ export interface operations {
           detected_os?: string
           /** @description Status of machine OS and architecture detection. */
           detection_status?: string
-          /** @description Environment variable entries exported when work runs on the machine. */
+          /** @description Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged. */
           env_vars?: string[]
           /** @description Execution path currently used by this record: local_process or websocket. */
           execution_mode?: string
@@ -13545,7 +13545,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13763,7 +13775,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -13973,7 +13997,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14183,7 +14219,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14393,7 +14441,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14627,7 +14687,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string
@@ -14982,7 +15054,19 @@ export interface operations {
               }
               project_id?: string
               secret_hygiene?: {
+                legacy_machine_secret_env_vars?: number
+                legacy_machines_requiring_migration?: number
+                legacy_provider_inline_secret_bindings?: number
+                legacy_providers_requiring_migration?: number
+                machine_env_vars_redacted?: boolean
                 notification_channel_configs_redacted?: boolean
+                rollout_checklist?: {
+                  key?: string
+                  status?: string
+                  summary?: string
+                  title?: string
+                }[]
+                runtime_secret_responses_redacted?: boolean
               }
               webhooks?: {
                 connector_endpoint?: string

@@ -7879,7 +7879,7 @@
                     "type": "string"
                   },
                   "env_vars": {
-                    "description": "Environment variable entries exported when work runs on the machine.",
+                    "description": "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
                     "items": {
                       "type": "string"
                     },
@@ -11709,7 +11709,7 @@
                     "type": "string"
                   },
                   "env_vars": {
-                    "description": "Environment variable entries exported when work runs on the machine.",
+                    "description": "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
                     "items": {
                       "type": "string"
                     },
@@ -20591,7 +20591,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -21126,7 +21164,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -21676,7 +21752,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -22211,7 +22325,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -22746,7 +22898,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -23339,7 +23529,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
@@ -24159,7 +24387,45 @@
                         },
                         "secret_hygiene": {
                           "properties": {
+                            "legacy_machine_secret_env_vars": {
+                              "type": "integer"
+                            },
+                            "legacy_machines_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "legacy_provider_inline_secret_bindings": {
+                              "type": "integer"
+                            },
+                            "legacy_providers_requiring_migration": {
+                              "type": "integer"
+                            },
+                            "machine_env_vars_redacted": {
+                              "type": "boolean"
+                            },
                             "notification_channel_configs_redacted": {
+                              "type": "boolean"
+                            },
+                            "rollout_checklist": {
+                              "items": {
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "summary": {
+                                    "type": "string"
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "runtime_secret_responses_redacted": {
                               "type": "boolean"
                             }
                           },
