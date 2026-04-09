@@ -68,6 +68,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -139,6 +140,7 @@ const (
 	TypeWorkflow                      = "Workflow"
 	TypeWorkflowSkillBinding          = "WorkflowSkillBinding"
 	TypeWorkflowVersion               = "WorkflowVersion"
+	TypeWorkspaceInitLease            = "WorkspaceInitLease"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -66316,4 +66318,660 @@ func (m *WorkflowVersionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown WorkflowVersion edge %s", name)
+}
+
+// WorkspaceInitLeaseMutation represents an operation that mutates the WorkspaceInitLease nodes in the graph.
+type WorkspaceInitLeaseMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	lease_key        *string
+	machine_id       *uuid.UUID
+	owner_run_id     *uuid.UUID
+	lease_expires_at *time.Time
+	heartbeat_at     *time.Time
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	done             bool
+	oldValue         func(context.Context) (*WorkspaceInitLease, error)
+	predicates       []predicate.WorkspaceInitLease
+}
+
+var _ ent.Mutation = (*WorkspaceInitLeaseMutation)(nil)
+
+// workspaceinitleaseOption allows management of the mutation configuration using functional options.
+type workspaceinitleaseOption func(*WorkspaceInitLeaseMutation)
+
+// newWorkspaceInitLeaseMutation creates new mutation for the WorkspaceInitLease entity.
+func newWorkspaceInitLeaseMutation(c config, op Op, opts ...workspaceinitleaseOption) *WorkspaceInitLeaseMutation {
+	m := &WorkspaceInitLeaseMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeWorkspaceInitLease,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withWorkspaceInitLeaseID sets the ID field of the mutation.
+func withWorkspaceInitLeaseID(id uuid.UUID) workspaceinitleaseOption {
+	return func(m *WorkspaceInitLeaseMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *WorkspaceInitLease
+		)
+		m.oldValue = func(ctx context.Context) (*WorkspaceInitLease, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().WorkspaceInitLease.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withWorkspaceInitLease sets the old WorkspaceInitLease of the mutation.
+func withWorkspaceInitLease(node *WorkspaceInitLease) workspaceinitleaseOption {
+	return func(m *WorkspaceInitLeaseMutation) {
+		m.oldValue = func(context.Context) (*WorkspaceInitLease, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m WorkspaceInitLeaseMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m WorkspaceInitLeaseMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of WorkspaceInitLease entities.
+func (m *WorkspaceInitLeaseMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *WorkspaceInitLeaseMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *WorkspaceInitLeaseMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().WorkspaceInitLease.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetLeaseKey sets the "lease_key" field.
+func (m *WorkspaceInitLeaseMutation) SetLeaseKey(s string) {
+	m.lease_key = &s
+}
+
+// LeaseKey returns the value of the "lease_key" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) LeaseKey() (r string, exists bool) {
+	v := m.lease_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaseKey returns the old "lease_key" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldLeaseKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaseKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaseKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaseKey: %w", err)
+	}
+	return oldValue.LeaseKey, nil
+}
+
+// ResetLeaseKey resets all changes to the "lease_key" field.
+func (m *WorkspaceInitLeaseMutation) ResetLeaseKey() {
+	m.lease_key = nil
+}
+
+// SetMachineID sets the "machine_id" field.
+func (m *WorkspaceInitLeaseMutation) SetMachineID(u uuid.UUID) {
+	m.machine_id = &u
+}
+
+// MachineID returns the value of the "machine_id" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) MachineID() (r uuid.UUID, exists bool) {
+	v := m.machine_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMachineID returns the old "machine_id" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldMachineID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMachineID: %w", err)
+	}
+	return oldValue.MachineID, nil
+}
+
+// ResetMachineID resets all changes to the "machine_id" field.
+func (m *WorkspaceInitLeaseMutation) ResetMachineID() {
+	m.machine_id = nil
+}
+
+// SetOwnerRunID sets the "owner_run_id" field.
+func (m *WorkspaceInitLeaseMutation) SetOwnerRunID(u uuid.UUID) {
+	m.owner_run_id = &u
+}
+
+// OwnerRunID returns the value of the "owner_run_id" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) OwnerRunID() (r uuid.UUID, exists bool) {
+	v := m.owner_run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerRunID returns the old "owner_run_id" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldOwnerRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerRunID: %w", err)
+	}
+	return oldValue.OwnerRunID, nil
+}
+
+// ResetOwnerRunID resets all changes to the "owner_run_id" field.
+func (m *WorkspaceInitLeaseMutation) ResetOwnerRunID() {
+	m.owner_run_id = nil
+}
+
+// SetLeaseExpiresAt sets the "lease_expires_at" field.
+func (m *WorkspaceInitLeaseMutation) SetLeaseExpiresAt(t time.Time) {
+	m.lease_expires_at = &t
+}
+
+// LeaseExpiresAt returns the value of the "lease_expires_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) LeaseExpiresAt() (r time.Time, exists bool) {
+	v := m.lease_expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaseExpiresAt returns the old "lease_expires_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldLeaseExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaseExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaseExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaseExpiresAt: %w", err)
+	}
+	return oldValue.LeaseExpiresAt, nil
+}
+
+// ResetLeaseExpiresAt resets all changes to the "lease_expires_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetLeaseExpiresAt() {
+	m.lease_expires_at = nil
+}
+
+// SetHeartbeatAt sets the "heartbeat_at" field.
+func (m *WorkspaceInitLeaseMutation) SetHeartbeatAt(t time.Time) {
+	m.heartbeat_at = &t
+}
+
+// HeartbeatAt returns the value of the "heartbeat_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) HeartbeatAt() (r time.Time, exists bool) {
+	v := m.heartbeat_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeartbeatAt returns the old "heartbeat_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldHeartbeatAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeartbeatAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeartbeatAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeartbeatAt: %w", err)
+	}
+	return oldValue.HeartbeatAt, nil
+}
+
+// ResetHeartbeatAt resets all changes to the "heartbeat_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetHeartbeatAt() {
+	m.heartbeat_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *WorkspaceInitLeaseMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *WorkspaceInitLeaseMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the WorkspaceInitLeaseMutation builder.
+func (m *WorkspaceInitLeaseMutation) Where(ps ...predicate.WorkspaceInitLease) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the WorkspaceInitLeaseMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *WorkspaceInitLeaseMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.WorkspaceInitLease, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *WorkspaceInitLeaseMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *WorkspaceInitLeaseMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (WorkspaceInitLease).
+func (m *WorkspaceInitLeaseMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *WorkspaceInitLeaseMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.lease_key != nil {
+		fields = append(fields, workspaceinitlease.FieldLeaseKey)
+	}
+	if m.machine_id != nil {
+		fields = append(fields, workspaceinitlease.FieldMachineID)
+	}
+	if m.owner_run_id != nil {
+		fields = append(fields, workspaceinitlease.FieldOwnerRunID)
+	}
+	if m.lease_expires_at != nil {
+		fields = append(fields, workspaceinitlease.FieldLeaseExpiresAt)
+	}
+	if m.heartbeat_at != nil {
+		fields = append(fields, workspaceinitlease.FieldHeartbeatAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, workspaceinitlease.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, workspaceinitlease.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *WorkspaceInitLeaseMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		return m.LeaseKey()
+	case workspaceinitlease.FieldMachineID:
+		return m.MachineID()
+	case workspaceinitlease.FieldOwnerRunID:
+		return m.OwnerRunID()
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		return m.LeaseExpiresAt()
+	case workspaceinitlease.FieldHeartbeatAt:
+		return m.HeartbeatAt()
+	case workspaceinitlease.FieldCreatedAt:
+		return m.CreatedAt()
+	case workspaceinitlease.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *WorkspaceInitLeaseMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		return m.OldLeaseKey(ctx)
+	case workspaceinitlease.FieldMachineID:
+		return m.OldMachineID(ctx)
+	case workspaceinitlease.FieldOwnerRunID:
+		return m.OldOwnerRunID(ctx)
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		return m.OldLeaseExpiresAt(ctx)
+	case workspaceinitlease.FieldHeartbeatAt:
+		return m.OldHeartbeatAt(ctx)
+	case workspaceinitlease.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case workspaceinitlease.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *WorkspaceInitLeaseMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaseKey(v)
+		return nil
+	case workspaceinitlease.FieldMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMachineID(v)
+		return nil
+	case workspaceinitlease.FieldOwnerRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerRunID(v)
+		return nil
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaseExpiresAt(v)
+		return nil
+	case workspaceinitlease.FieldHeartbeatAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeartbeatAt(v)
+		return nil
+	case workspaceinitlease.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case workspaceinitlease.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *WorkspaceInitLeaseMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *WorkspaceInitLeaseMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ResetField(name string) error {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		m.ResetLeaseKey()
+		return nil
+	case workspaceinitlease.FieldMachineID:
+		m.ResetMachineID()
+		return nil
+	case workspaceinitlease.FieldOwnerRunID:
+		m.ResetOwnerRunID()
+		return nil
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		m.ResetLeaseExpiresAt()
+		return nil
+	case workspaceinitlease.FieldHeartbeatAt:
+		m.ResetHeartbeatAt()
+		return nil
+	case workspaceinitlease.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case workspaceinitlease.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *WorkspaceInitLeaseMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *WorkspaceInitLeaseMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease edge %s", name)
 }

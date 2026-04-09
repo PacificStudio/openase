@@ -2,6 +2,7 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -20,12 +21,16 @@ import (
 )
 
 type runtimeWorkspaceProvisioner struct {
-	client     *ent.Client
-	logger     *slog.Logger
-	sshPool    *sshinfra.Pool
-	transports *machinetransport.Resolver
-	githubAuth githubauthservice.TokenResolver
-	now        func() time.Time
+	client             *ent.Client
+	logger             *slog.Logger
+	sshPool            *sshinfra.Pool
+	transports         *machinetransport.Resolver
+	githubAuth         githubauthservice.TokenResolver
+	leaseMgr           *workspaceInitLeaseManager
+	prepareTimeout     time.Duration
+	prepareWorkspace   func(context.Context, catalogdomain.Machine, workspaceinfra.SetupRequest) (workspaceinfra.Workspace, error)
+	syncInstructionHub func(context.Context, catalogdomain.Machine, machinetransport.ResolvedTransport, workspaceinfra.Workspace, string, bool) error
+	now                func() time.Time
 }
 
 func newRuntimeWorkspaceProvisioner(
@@ -41,11 +46,13 @@ func newRuntimeWorkspaceProvisioner(
 		now = time.Now
 	}
 	return &runtimeWorkspaceProvisioner{
-		client:     client,
-		logger:     logger.With("component", "runtime-workspace-provisioner"),
-		sshPool:    sshPool,
-		transports: machinetransport.NewResolver(nil, sshPool),
-		now:        now,
+		client:         client,
+		logger:         logger.With("component", "runtime-workspace-provisioner"),
+		sshPool:        sshPool,
+		transports:     machinetransport.NewResolver(nil, sshPool),
+		leaseMgr:       newWorkspaceInitLeaseManager(client, logger, now),
+		prepareTimeout: defaultWorkspacePrepareTimeout,
+		now:            now,
 	}
 }
 
@@ -56,9 +63,37 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	machine catalogdomain.Machine,
 	remote bool,
 ) (workspaceinfra.Workspace, error) {
+	var releaseLease func(context.Context) error
+	leaseHandle, err := p.acquireWorkspaceInitLease(ctx, machine.ID, runID, launchContext.ticket.ID)
+	if err != nil {
+		return workspaceinfra.Workspace{}, err
+	}
+	if leaseHandle != nil {
+		releaseLease = leaseHandle.Release
+		defer func() {
+			releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), defaultWorkspaceInitLeaseReleaseTimeout)
+			defer cancel()
+			if releaseErr := releaseLease(releaseCtx); releaseErr != nil {
+				p.logger.Warn("release workspace init lease", "machine_id", machine.ID, "run_id", runID, "ticket_id", launchContext.ticket.ID, "error", releaseErr)
+			}
+		}()
+		ctx = leaseHandle.Context()
+	}
+
+	if timeout := p.prepareTimeout; timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
 	request, repoPlans, err := buildWorkspaceRequest(launchContext, machine, remote)
 	if err != nil {
 		return workspaceinfra.Workspace{}, err
+	}
+	request.Observability = workspaceinfra.PrepareObservability{
+		MachineID: machine.ID.String(),
+		RunID:     runID.String(),
+		TicketID:  launchContext.ticket.ID.String(),
 	}
 	request, err = p.applyGitHubWorkspaceAuth(ctx, launchContext.project.ID, request)
 	if err != nil {
@@ -76,20 +111,20 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	if transportErr != nil {
 		err = transportErr
 	} else {
-		workspaceExecutor := resolved.WorkspaceExecutor()
-		if workspaceExecutor == nil {
-			err = fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
-		} else {
-			workspaceItem, err = workspaceExecutor.PrepareWorkspace(ctx, machine, request)
-		}
+		workspaceItem, err = p.executePrepareWorkspace(ctx, resolved, machine, request)
 	}
 	if err != nil {
-		if updateErr := p.setTicketRepoWorkspaceState(ctx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			err = fmt.Errorf("workspace prepare timed out after %s: %w", p.prepareTimeout, err)
+		}
+		updateCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), defaultWorkspaceInitLeaseReleaseTimeout)
+		defer cancel()
+		if updateErr := p.setTicketRepoWorkspaceState(updateCtx, runID, repoPlans, entticketrepoworkspace.StateFailed, err.Error()); updateErr != nil {
 			return workspaceinfra.Workspace{}, fmt.Errorf("prepare workspace failed: %w (ticket repo workspace state update failed: %v)", err, updateErr)
 		}
 		return workspaceinfra.Workspace{}, err
 	}
-	if err := p.materializeWorkspaceInstructionHub(
+	if err := p.materializeInstructionHub(
 		ctx,
 		machine,
 		resolved,
@@ -108,6 +143,48 @@ func (p *runtimeWorkspaceProvisioner) prepareTicketWorkspace(
 	}
 
 	return workspaceItem, nil
+}
+
+func (p *runtimeWorkspaceProvisioner) acquireWorkspaceInitLease(
+	ctx context.Context,
+	machineID uuid.UUID,
+	runID uuid.UUID,
+	ticketID uuid.UUID,
+) (*workspaceInitLeaseHandle, error) {
+	if p == nil || p.leaseMgr == nil {
+		return nil, nil
+	}
+	return p.leaseMgr.Acquire(ctx, machineID, runID, ticketID)
+}
+
+func (p *runtimeWorkspaceProvisioner) executePrepareWorkspace(
+	ctx context.Context,
+	resolved machinetransport.ResolvedTransport,
+	machine catalogdomain.Machine,
+	request workspaceinfra.SetupRequest,
+) (workspaceinfra.Workspace, error) {
+	if p != nil && p.prepareWorkspace != nil {
+		return p.prepareWorkspace(ctx, machine, request)
+	}
+	workspaceExecutor := resolved.WorkspaceExecutor()
+	if workspaceExecutor == nil {
+		return workspaceinfra.Workspace{}, fmt.Errorf("%w: workspace preparation unavailable for machine %s", machinetransport.ErrTransportUnavailable, machine.Name)
+	}
+	return workspaceExecutor.PrepareWorkspace(ctx, machine, request)
+}
+
+func (p *runtimeWorkspaceProvisioner) materializeInstructionHub(
+	ctx context.Context,
+	machine catalogdomain.Machine,
+	resolved machinetransport.ResolvedTransport,
+	workspaceItem workspaceinfra.Workspace,
+	adapterType string,
+	remote bool,
+) error {
+	if p != nil && p.syncInstructionHub != nil {
+		return p.syncInstructionHub(ctx, machine, resolved, workspaceItem, adapterType, remote)
+	}
+	return p.materializeWorkspaceInstructionHub(ctx, machine, resolved, workspaceItem, adapterType, remote)
 }
 
 func (p *runtimeWorkspaceProvisioner) applyGitHubWorkspaceAuth(

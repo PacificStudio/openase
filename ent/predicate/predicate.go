@@ -173,3 +173,6 @@ type WorkflowSkillBinding func(*sql.Selector)
 
 // WorkflowVersion is the predicate function for workflowversion builders.
 type WorkflowVersion func(*sql.Selector)
+
+// WorkspaceInitLease is the predicate function for workspaceinitlease builders.
+type WorkspaceInitLease func(*sql.Selector)

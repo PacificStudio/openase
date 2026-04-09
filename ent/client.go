@@ -72,6 +72,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 )
 
 // Client is the client that holds all ent builders.
@@ -191,6 +192,8 @@ type Client struct {
 	WorkflowSkillBinding *WorkflowSkillBindingClient
 	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
 	WorkflowVersion *WorkflowVersionClient
+	// WorkspaceInitLease is the client for interacting with the WorkspaceInitLease builders.
+	WorkspaceInitLease *WorkspaceInitLeaseClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -258,6 +261,7 @@ func (c *Client) init() {
 	c.Workflow = NewWorkflowClient(c.config)
 	c.WorkflowSkillBinding = NewWorkflowSkillBindingClient(c.config)
 	c.WorkflowVersion = NewWorkflowVersionClient(c.config)
+	c.WorkspaceInitLease = NewWorkspaceInitLeaseClient(c.config)
 }
 
 type (
@@ -406,6 +410,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Workflow:                      NewWorkflowClient(cfg),
 		WorkflowSkillBinding:          NewWorkflowSkillBindingClient(cfg),
 		WorkflowVersion:               NewWorkflowVersionClient(cfg),
+		WorkspaceInitLease:            NewWorkspaceInitLeaseClient(cfg),
 	}, nil
 }
 
@@ -481,6 +486,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Workflow:                      NewWorkflowClient(cfg),
 		WorkflowSkillBinding:          NewWorkflowSkillBindingClient(cfg),
 		WorkflowVersion:               NewWorkflowVersionClient(cfg),
+		WorkspaceInitLease:            NewWorkspaceInitLeaseClient(cfg),
 	}, nil
 }
 
@@ -525,7 +531,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
 		c.User, c.UserGroupMembership, c.UserIdentity, c.Workflow,
-		c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.WorkflowSkillBinding, c.WorkflowVersion, c.WorkspaceInitLease,
 	} {
 		n.Use(hooks...)
 	}
@@ -550,7 +556,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
 		c.TicketExternalLink, c.TicketRepoScope, c.TicketRepoWorkspace, c.TicketStatus,
 		c.User, c.UserGroupMembership, c.UserIdentity, c.Workflow,
-		c.WorkflowSkillBinding, c.WorkflowVersion,
+		c.WorkflowSkillBinding, c.WorkflowVersion, c.WorkspaceInitLease,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -671,6 +677,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.WorkflowSkillBinding.mutate(ctx, m)
 	case *WorkflowVersionMutation:
 		return c.WorkflowVersion.mutate(ctx, m)
+	case *WorkspaceInitLeaseMutation:
+		return c.WorkspaceInitLease.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
 	}
@@ -10748,6 +10756,139 @@ func (c *WorkflowVersionClient) mutate(ctx context.Context, m *WorkflowVersionMu
 	}
 }
 
+// WorkspaceInitLeaseClient is a client for the WorkspaceInitLease schema.
+type WorkspaceInitLeaseClient struct {
+	config
+}
+
+// NewWorkspaceInitLeaseClient returns a client for the WorkspaceInitLease from the given config.
+func NewWorkspaceInitLeaseClient(c config) *WorkspaceInitLeaseClient {
+	return &WorkspaceInitLeaseClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `workspaceinitlease.Hooks(f(g(h())))`.
+func (c *WorkspaceInitLeaseClient) Use(hooks ...Hook) {
+	c.hooks.WorkspaceInitLease = append(c.hooks.WorkspaceInitLease, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `workspaceinitlease.Intercept(f(g(h())))`.
+func (c *WorkspaceInitLeaseClient) Intercept(interceptors ...Interceptor) {
+	c.inters.WorkspaceInitLease = append(c.inters.WorkspaceInitLease, interceptors...)
+}
+
+// Create returns a builder for creating a WorkspaceInitLease entity.
+func (c *WorkspaceInitLeaseClient) Create() *WorkspaceInitLeaseCreate {
+	mutation := newWorkspaceInitLeaseMutation(c.config, OpCreate)
+	return &WorkspaceInitLeaseCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of WorkspaceInitLease entities.
+func (c *WorkspaceInitLeaseClient) CreateBulk(builders ...*WorkspaceInitLeaseCreate) *WorkspaceInitLeaseCreateBulk {
+	return &WorkspaceInitLeaseCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *WorkspaceInitLeaseClient) MapCreateBulk(slice any, setFunc func(*WorkspaceInitLeaseCreate, int)) *WorkspaceInitLeaseCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &WorkspaceInitLeaseCreateBulk{err: fmt.Errorf("calling to WorkspaceInitLeaseClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*WorkspaceInitLeaseCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &WorkspaceInitLeaseCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for WorkspaceInitLease.
+func (c *WorkspaceInitLeaseClient) Update() *WorkspaceInitLeaseUpdate {
+	mutation := newWorkspaceInitLeaseMutation(c.config, OpUpdate)
+	return &WorkspaceInitLeaseUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *WorkspaceInitLeaseClient) UpdateOne(_m *WorkspaceInitLease) *WorkspaceInitLeaseUpdateOne {
+	mutation := newWorkspaceInitLeaseMutation(c.config, OpUpdateOne, withWorkspaceInitLease(_m))
+	return &WorkspaceInitLeaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *WorkspaceInitLeaseClient) UpdateOneID(id uuid.UUID) *WorkspaceInitLeaseUpdateOne {
+	mutation := newWorkspaceInitLeaseMutation(c.config, OpUpdateOne, withWorkspaceInitLeaseID(id))
+	return &WorkspaceInitLeaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for WorkspaceInitLease.
+func (c *WorkspaceInitLeaseClient) Delete() *WorkspaceInitLeaseDelete {
+	mutation := newWorkspaceInitLeaseMutation(c.config, OpDelete)
+	return &WorkspaceInitLeaseDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *WorkspaceInitLeaseClient) DeleteOne(_m *WorkspaceInitLease) *WorkspaceInitLeaseDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *WorkspaceInitLeaseClient) DeleteOneID(id uuid.UUID) *WorkspaceInitLeaseDeleteOne {
+	builder := c.Delete().Where(workspaceinitlease.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &WorkspaceInitLeaseDeleteOne{builder}
+}
+
+// Query returns a query builder for WorkspaceInitLease.
+func (c *WorkspaceInitLeaseClient) Query() *WorkspaceInitLeaseQuery {
+	return &WorkspaceInitLeaseQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeWorkspaceInitLease},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a WorkspaceInitLease entity by its id.
+func (c *WorkspaceInitLeaseClient) Get(ctx context.Context, id uuid.UUID) (*WorkspaceInitLease, error) {
+	return c.Query().Where(workspaceinitlease.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *WorkspaceInitLeaseClient) GetX(ctx context.Context, id uuid.UUID) *WorkspaceInitLease {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *WorkspaceInitLeaseClient) Hooks() []Hook {
+	return c.hooks.WorkspaceInitLease
+}
+
+// Interceptors returns the client interceptors.
+func (c *WorkspaceInitLeaseClient) Interceptors() []Interceptor {
+	return c.inters.WorkspaceInitLease
+}
+
+func (c *WorkspaceInitLeaseClient) mutate(ctx context.Context, m *WorkspaceInitLeaseMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&WorkspaceInitLeaseCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&WorkspaceInitLeaseUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&WorkspaceInitLeaseUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&WorkspaceInitLeaseDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown WorkspaceInitLease mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
@@ -10764,7 +10905,7 @@ type (
 		Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
 		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
 		TicketRepoWorkspace, TicketStatus, User, UserGroupMembership, UserIdentity,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Hook
+		Workflow, WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
@@ -10780,6 +10921,7 @@ type (
 		Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
 		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
 		TicketRepoWorkspace, TicketStatus, User, UserGroupMembership, UserIdentity,
-		Workflow, WorkflowSkillBinding, WorkflowVersion []ent.Interceptor
+		Workflow, WorkflowSkillBinding, WorkflowVersion,
+		WorkspaceInitLease []ent.Interceptor
 	}
 )

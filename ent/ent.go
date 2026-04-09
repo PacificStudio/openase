@@ -68,6 +68,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 )
 
 // ent aliases to avoid import conflicts in user's code.
@@ -184,6 +185,7 @@ func checkColumn(t, c string) error {
 			workflow.Table:                      workflow.ValidColumn,
 			workflowskillbinding.Table:          workflowskillbinding.ValidColumn,
 			workflowversion.Table:               workflowversion.ValidColumn,
+			workspaceinitlease.Table:            workspaceinitlease.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)
