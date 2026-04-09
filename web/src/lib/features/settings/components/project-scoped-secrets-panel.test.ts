@@ -94,6 +94,8 @@ describe('ProjectScopedSecretsPanel', () => {
       organizationId: 'org-1',
     })
 
+    await fireEvent.click(await view.findByRole('button', { name: 'New override' }))
+
     await fireEvent.input(await view.findByLabelText('Secret name'), {
       target: { value: 'OPENAI_API_KEY' },
     })

@@ -11,11 +11,12 @@
   import { ApiError } from '$lib/api/client'
   import { getOrganizationSummary, getOrganizationTokenUsage } from '$lib/api/openase'
   import { PageScaffold } from '$lib/components/layout'
-  import { SettingsIAMMigrationPanel } from '$lib/features/settings'
+  import { StatCard } from '$lib/features/dashboard'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { cn } from '$lib/utils'
-  import type { Snippet } from 'svelte'
+  import type { Component, Snippet } from 'svelte'
+  import { Activity, FolderOpen, KeyRound, Settings, Shield, Users } from '@lucide/svelte'
 
   let {
     organizationId,
@@ -35,12 +36,21 @@
   let tokenSummary = $state<OrganizationTokenUsageSummary | null>(null)
   let memberStats = $state({ active: 0, invited: 0, suspended: 0 })
 
-  const adminTabs = $derived([
-    { label: 'Members', href: `${organizationPath(organizationId)}/admin/members` },
-    { label: 'Invitations', href: `${organizationPath(organizationId)}/admin/invitations` },
-    { label: 'Roles', href: `${organizationPath(organizationId)}/admin/roles` },
-    { label: 'Credentials', href: `${organizationPath(organizationId)}/admin/credentials` },
-    { label: 'Settings', href: `${organizationPath(organizationId)}/admin/settings` },
+  type NavItem = { label: string; href: string; icon: Component }
+
+  const adminTabs = $derived<NavItem[]>([
+    { label: 'Members', href: `${organizationPath(organizationId)}/admin/members`, icon: Users },
+    { label: 'Roles', href: `${organizationPath(organizationId)}/admin/roles`, icon: Shield },
+    {
+      label: 'Credentials',
+      href: `${organizationPath(organizationId)}/admin/credentials`,
+      icon: KeyRound,
+    },
+    {
+      label: 'Settings',
+      href: `${organizationPath(organizationId)}/admin/settings`,
+      icon: Settings,
+    },
   ])
 
   function dateRange() {
@@ -118,75 +128,52 @@
   description="Members, invitations, roles, credentials, and organization settings."
 >
   <div class="space-y-6">
-    <div class="grid gap-4 lg:grid-cols-4">
-      <div class="rounded-3xl border bg-white p-4 shadow-sm">
-        <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Members</div>
-        <div class="mt-3 text-3xl font-semibold">{memberStats.active}</div>
-        <div class="text-muted-foreground mt-1 text-sm">
-          {memberStats.invited} pending invites · {memberStats.suspended} suspended
-        </div>
-      </div>
-      <div class="rounded-3xl border bg-white p-4 shadow-sm">
-        <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Projects</div>
-        <div class="mt-3 text-3xl font-semibold">{summary?.project_count ?? 0}</div>
-        <div class="text-muted-foreground mt-1 text-sm">
-          {summary?.active_project_count ?? 0} active descendants inherit org decisions
-        </div>
-      </div>
-      <div class="rounded-3xl border bg-white p-4 shadow-sm">
-        <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Org access</div>
-        <div class="mt-3 text-lg font-semibold">
-          {permissions?.roles?.length ? permissions.roles.join(', ') : 'No org roles'}
-        </div>
-        <div class="text-muted-foreground mt-1 text-sm">
-          {permissions?.groups?.length ?? 0} synced groups currently contribute to effective access
-        </div>
-      </div>
-      <div class="rounded-3xl border bg-white p-4 shadow-sm">
-        <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">7d diagnostics</div>
-        <div class="mt-3 text-3xl font-semibold">{tokenSummary?.total_tokens ?? 0}</div>
-        <div class="text-muted-foreground mt-1 text-sm">
-          Avg {tokenSummary?.avg_daily_tokens ?? 0} tokens/day across this organization
-        </div>
-      </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard label="Members" value={memberStats.active} icon={Users} {loading} />
+      <StatCard label="Projects" value={summary?.project_count ?? 0} icon={FolderOpen} {loading} />
+      <StatCard
+        label="Org access"
+        value={permissions?.roles?.length ? permissions.roles.join(', ') : '—'}
+        icon={Shield}
+        {loading}
+      />
+      <StatCard
+        label="7d token usage"
+        value={tokenSummary?.total_tokens ?? 0}
+        icon={Activity}
+        {loading}
+      />
     </div>
 
-    <SettingsIAMMigrationPanel auth={null} {organizationId} projectAccessHref="/settings#access" />
+    <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
+      <nav class="flex w-full shrink-0 flex-wrap gap-1 lg:w-[180px] lg:flex-col lg:gap-0.5">
+        {#each adminTabs as tab (tab.href)}
+          {@const Icon = tab.icon}
+          <a
+            href={tab.href}
+            class={cn(
+              'flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors lg:w-full',
+              currentPath === tab.href
+                ? 'bg-muted text-foreground font-medium'
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+            )}
+          >
+            <Icon class="size-4 shrink-0" />
+            {tab.label}
+          </a>
+        {/each}
+      </nav>
 
-    <div class="flex flex-wrap gap-2 rounded-3xl border bg-white p-2 shadow-sm">
-      {#each adminTabs as tab (tab.href)}
-        <a
-          href={tab.href}
-          class={cn(
-            'rounded-2xl px-4 py-2 text-sm font-medium transition-colors',
-            currentPath === tab.href
-              ? 'bg-slate-950 text-white'
-              : 'text-muted-foreground hover:bg-slate-100 hover:text-slate-950',
-          )}
-        >
-          {tab.label}
-        </a>
-      {/each}
-      <a
-        href={organizationPath(organizationId)}
-        class="text-muted-foreground rounded-2xl px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-100 hover:text-slate-950"
-      >
-        Back to org dashboard
-      </a>
+      <div class="min-w-0 flex-1">
+        {#if error}
+          <div
+            class="border-destructive/30 bg-destructive/5 text-destructive mb-4 rounded-md border px-4 py-3 text-sm"
+          >
+            {error}
+          </div>
+        {/if}
+        {@render children()}
+      </div>
     </div>
-
-    {#if error}
-      <div
-        class="border-destructive/30 bg-destructive/5 text-destructive rounded-2xl border px-4 py-3 text-sm"
-      >
-        {error}
-      </div>
-    {:else if loading}
-      <div class="text-muted-foreground rounded-2xl border border-dashed px-4 py-8 text-sm">
-        Loading organization admin diagnostics…
-      </div>
-    {/if}
-
-    {@render children()}
   </div>
 </PageScaffold>

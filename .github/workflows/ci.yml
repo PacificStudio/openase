@@ -371,23 +371,20 @@ jobs:
       - name: Run Backend Formatting, Tests, And Coverage Gates
         timeout-minutes: 45
         shell: bash
-        env:
-          OPENASE_GO_TEST_PROGRESS_MODE: json
         run: |
           set -euo pipefail
 
           heartbeat_file="${OPENASE_GO_CACHE_ROOT}/backend-check-heartbeat.txt"
-          heartbeat_interval_seconds=30
+          heartbeat_interval_seconds=120
 
           heartbeat() {
             while true; do
+              sleep "${heartbeat_interval_seconds}"
               now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
               printf '%s\n' "${now}" > "${heartbeat_file}"
               printf '[backend-heartbeat] %s make check still running\n' "${now}"
-              # The self-hosted runner watchdog is more aggressive than the job
-              # timeout. Emit a short heartbeat even when `go test -json` is
-              # between package events.
-              sleep "${heartbeat_interval_seconds}"
+              # Keep a low-frequency heartbeat so quiet success-path test runs do
+              # not look stalled to the self-hosted runner watchdog.
             done
           }
 
@@ -397,9 +394,9 @@ jobs:
             kill "${heartbeat_pid}" 2>/dev/null || true
             wait "${heartbeat_pid}" 2>/dev/null || true
 
-            if [[ -f "${heartbeat_file}" ]]; then
+            if [[ "${status}" -ne 0 && -f "${heartbeat_file}" ]]; then
               printf 'Last backend heartbeat: %s\n' "$(cat "${heartbeat_file}")"
-            else
+            elif [[ "${status}" -ne 0 ]]; then
               printf 'Last backend heartbeat: unavailable\n'
             fi
 

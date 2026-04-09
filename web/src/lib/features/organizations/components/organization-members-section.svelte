@@ -56,15 +56,12 @@
   const canManagePrivilegedRoles = $derived(
     effectiveRoles.includes('instance_admin') || effectiveRoles.includes('org_owner'),
   )
-  const filteredMemberships = $derived.by(() => {
-    if (mode === 'invitations') {
-      return memberships.filter((item) => item.activeInvitation)
-    }
-    if (mode === 'members') {
-      return memberships.filter((item) => !item.activeInvitation)
-    }
-    return memberships
-  })
+  const pendingInvitations = $derived(memberships.filter((item) => item.activeInvitation))
+  const activeMembers = $derived(
+    memberships.filter((item) => !item.activeInvitation && item.status !== 'removed'),
+  )
+  const panelPendingInvitations = $derived(mode === 'members' ? [] : pendingInvitations)
+  const panelActiveMembers = $derived(mode === 'invitations' ? [] : activeMembers)
 
   function setBusy(key: string, active: boolean) {
     if (active) {
@@ -276,10 +273,12 @@
 </script>
 
 <!-- prettier-ignore -->
-<OrganizationMembersPanel {heading} {description} {counts} membershipsCount={memberships.length}
+<OrganizationMembersPanel {counts} membershipsCount={memberships.length}
+  {heading} {description} {emptyMessage}
   {canManageMemberships} {canManagePrivilegedRoles} bind:inviteEmail bind:inviteRole
-  {submittingInvite} {recentInviteToken} {recentInviteEmail} {loading} {emptyMessage}
-  {filteredMemberships} {currentUserId} {roleDrafts} {canManageEntry} {roleOptionsForEntry}
+  {submittingInvite} {recentInviteToken} {recentInviteEmail} {loading}
+  pendingInvitations={panelPendingInvitations} activeMembers={panelActiveMembers}
+  {currentUserId} {roleDrafts} {canManageEntry} {roleOptionsForEntry}
   {isBusy} onInvite={handleInvite}
   onCopyToken={async () => {
     try {
