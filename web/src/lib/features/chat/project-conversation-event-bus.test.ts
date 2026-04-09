@@ -222,4 +222,54 @@ describe('watchProjectConversationMux', () => {
 
     vi.useRealTimers()
   })
+
+  it('retries when the mux stream goes idle after connecting', async () => {
+    vi.useFakeTimers()
+
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    watchProjectConversationMuxStream.mockImplementation((_projectId, handlers) => {
+      handlers.onOpen?.()
+      return new Promise<void>((_resolve, reject) => {
+        const timeoutId = window.setTimeout(() => {
+          reject(new Error('stream went idle for 10000ms'))
+        }, 10000)
+        handlers.signal?.addEventListener(
+          'abort',
+          () => {
+            window.clearTimeout(timeoutId)
+            reject(new DOMException('Aborted', 'AbortError'))
+          },
+          { once: true },
+        )
+      })
+    })
+
+    const controller = new AbortController()
+    const onReconnect = vi.fn()
+    const watch = watchProjectConversationMux({
+      projectId: 'project-1',
+      conversationId: 'conversation-1',
+      signal: controller.signal,
+      onEvent: vi.fn(),
+      onReconnect,
+    })
+
+    await watch.connected
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(10000)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(2)
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+    expect(consoleError).toHaveBeenCalledWith(
+      'Project conversation mux bus error:',
+      expect.any(Error),
+    )
+
+    controller.abort()
+    await watch.stream
+
+    consoleError.mockRestore()
+    vi.useRealTimers()
+  })
 })

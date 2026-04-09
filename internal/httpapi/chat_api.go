@@ -200,6 +200,8 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 
 	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
 	defer cancel()
+	heartbeat := time.NewTicker(s.chatStreamKeepaliveInterval())
+	defer heartbeat.Stop()
 
 	events, cleanup, err := s.projectConversationService.WatchProjectConversations(
 		streamCtx,
@@ -235,6 +237,11 @@ func (s *Server) handleProjectConversationMuxStream(c echo.Context) error {
 		select {
 		case <-streamCtx.Done():
 			return nil
+		case <-heartbeat.C:
+			if _, err := response.Write([]byte(": keepalive\n\n")); err != nil {
+				return nil
+			}
+			flusher.Flush()
 		case event, ok := <-events:
 			if !ok {
 				return nil

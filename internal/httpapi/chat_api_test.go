@@ -1116,6 +1116,104 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	}
 }
 
+func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T) {
+	originalInterval := chatSSEKeepaliveInterval
+	chatSSEKeepaliveInterval = 5 * time.Millisecond
+	defer func() {
+		chatSSEKeepaliveInterval = originalInterval
+	}()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-mux-keepalive").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Mux Keepalive").
+		SetSlug("openase-mux-keepalive").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	principal := testBrowserSessionAIPrincipal()
+
+	repoStore := chatrepo.NewEntRepository(client)
+	if _, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     principal.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	}); err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	streamCtx, cancel := context.WithTimeout(ctx, 18*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/projects/"+project.ID.String()+"/conversations/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new mux stream request: %v", err)
+	}
+	addAIPrincipalCookie(req, principal)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open mux stream: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+		t.Fatalf("read mux stream body: %v", err)
+	}
+	if got := strings.Count(string(body), ": keepalive\n\n"); got < 2 {
+		t.Fatalf("expected at least two keepalive comments, got %d in %q", got, string(body))
+	}
+}
+
 func TestProjectConversationListRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
