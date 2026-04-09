@@ -5,7 +5,7 @@
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
   import * as Tooltip from '$ui/tooltip'
-  import { Check, ChevronDown, Plus } from '@lucide/svelte'
+  import { Check, ChevronDown, Plus, Settings, Shield } from '@lucide/svelte'
   import * as DropdownMenu from '$ui/dropdown-menu'
 
   let {
@@ -18,6 +18,7 @@
     projectName = '',
     projectHealth = null,
     projectHealthLabel = '',
+    adminEnabled = false,
     onCreateOrg,
     onCreateProject,
   }: {
@@ -26,6 +27,7 @@
     currentOrgId?: string | null
     currentProjectId?: string | null
     currentSection?: ProjectSection
+    adminEnabled?: boolean
     orgName?: string
     projectName?: string
     projectHealth?: 'healthy' | 'degraded' | 'critical' | null
@@ -118,6 +120,44 @@
     {/if}
   </DropdownMenu.Content>
 </DropdownMenu.Root>
+
+{#if currentOrgId}
+  <Tooltip.Root>
+    <Tooltip.Trigger>
+      {#snippet child({ props })}
+        <a
+          href={`${organizationPath(currentOrgId)}/admin/settings`}
+          {...props}
+          class="text-muted-foreground hover:text-foreground hover:bg-accent flex size-6 items-center justify-center rounded"
+          data-sveltekit-preload-code="hover"
+          onpointerenter={() => warmRoute(`${organizationPath(currentOrgId)}/admin/settings`)}
+        >
+          <Settings class="size-3.5" />
+        </a>
+      {/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content side="bottom" class="text-xs">Org settings</Tooltip.Content>
+  </Tooltip.Root>
+{/if}
+
+{#if adminEnabled}
+  <Tooltip.Root>
+    <Tooltip.Trigger>
+      {#snippet child({ props })}
+        <a
+          href="/admin"
+          {...props}
+          class="text-muted-foreground hover:text-foreground hover:bg-accent flex size-6 items-center justify-center rounded"
+          data-sveltekit-preload-code="hover"
+          onpointerenter={() => warmRoute('/admin')}
+        >
+          <Shield class="size-3.5" />
+        </a>
+      {/snippet}
+    </Tooltip.Trigger>
+    <Tooltip.Content side="bottom" class="text-xs">Admin</Tooltip.Content>
+  </Tooltip.Root>
+{/if}
 
 {#if currentOrgId && (projectName || projects.length > 0)}
   <span class="text-muted-foreground/50">/</span>

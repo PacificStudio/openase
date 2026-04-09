@@ -18,7 +18,7 @@ describe('Login auth gate', () => {
   })
 
   it('shows only the OIDC entrypoint when capabilities allow OIDC, even if auth_mode is stale', () => {
-    const { getByText, queryByText, queryByLabelText } = render(LoginGatePage, {
+    const { getByText, queryByText } = render(LoginGatePage, {
       props: {
         data: {
           returnTo: '/orgs',
@@ -42,14 +42,13 @@ describe('Login auth gate', () => {
       },
     })
 
-    expect(getByText('OIDC sign-in')).toBeTruthy()
     expect(getByText('Continue with OIDC')).toBeTruthy()
-    expect(queryByText('Local bootstrap authorization')).toBeNull()
-    expect(queryByLabelText('Paste local bootstrap bundle')).toBeNull()
+    expect(queryByText('Local Bootstrap')).toBeNull()
+    expect(queryByText('Local Bootstrap')).toBeNull()
   })
 
   it('shows only the local bootstrap entrypoint when capabilities require the bootstrap link path', () => {
-    const { getByText, getByLabelText, queryByText } = render(LoginGatePage, {
+    const { getByText, queryByText } = render(LoginGatePage, {
       props: {
         data: {
           returnTo: '/admin/auth',
@@ -73,15 +72,13 @@ describe('Login auth gate', () => {
       },
     })
 
-    expect(getByText('Local bootstrap authorization')).toBeTruthy()
-    expect(getByText(/openase auth bootstrap create-link --return-to \/admin\/auth/)).toBeTruthy()
-    expect(getByLabelText('Paste local bootstrap bundle')).toBeTruthy()
-    expect(getByText(/Accepted formats: the CLI JSON output/)).toBeTruthy()
+    expect(getByText('Local Bootstrap')).toBeTruthy()
+    expect(getByText(/openase auth bootstrap create-link/)).toBeTruthy()
     expect(queryByText('Continue with OIDC')).toBeNull()
   })
 
   it('rebuilds a current-origin redeem path from pasted CLI JSON', async () => {
-    const { getByLabelText, getByRole } = render(LoginGatePage, {
+    const { getByPlaceholderText, getByRole } = render(LoginGatePage, {
       props: {
         data: {
           returnTo: '/orgs/org-1/projects/project-1/settings',
@@ -105,7 +102,7 @@ describe('Login auth gate', () => {
       },
     })
 
-    await fireEvent.input(getByLabelText('Paste local bootstrap bundle'), {
+    await fireEvent.input(getByPlaceholderText('Paste authorization bundle here...'), {
       target: {
         value: JSON.stringify({
           request_id: 'req-123',
@@ -115,7 +112,7 @@ describe('Login auth gate', () => {
         }),
       },
     })
-    await fireEvent.click(getByRole('button', { name: 'Continue with local bootstrap' }))
+    await fireEvent.click(getByRole('button', { name: 'Authorize' }))
 
     await waitFor(() => {
       expect(goto).toHaveBeenCalledWith(

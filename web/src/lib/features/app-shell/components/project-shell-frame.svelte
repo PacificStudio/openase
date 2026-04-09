@@ -108,6 +108,7 @@
     currentOrgId={currentOrg?.id ?? null}
     currentProjectId={currentProject?.id ?? null}
     {currentSection}
+    {adminEnabled}
     orgName={currentOrg?.name ?? 'No organization'}
     projectName={currentProject?.name ?? ''}
     projectHealth={currentProject ? projectHealth : null}
@@ -151,7 +152,6 @@
             {currentPath}
             currentOrgId={currentOrg?.id ?? null}
             currentProjectId={currentProject?.id ?? null}
-            {adminEnabled}
             projectSelected={Boolean(currentProject)}
             {agentCount}
             onOpenProjectAssistant={() => {
@@ -175,7 +175,6 @@
           {currentPath}
           currentOrgId={currentOrg?.id ?? null}
           currentProjectId={currentProject?.id ?? null}
-          {adminEnabled}
           projectSelected={Boolean(currentProject)}
           {agentCount}
           onOpenProjectAssistant={() => onOpenProjectAssistant?.()}
