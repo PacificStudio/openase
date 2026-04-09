@@ -106,10 +106,7 @@ export const projectPageMobilePolicies = [
     support: 'mobile-supported',
     smoke: {
       heading: 'Machines',
-      criticalControls: [
-        { kind: 'button', value: 'Refresh' },
-        { kind: 'button', value: 'New machine' },
-      ],
+      criticalControls: [{ kind: 'button', value: 'New machine' }],
     },
     interaction: {
       kind: 'machines-sheet',

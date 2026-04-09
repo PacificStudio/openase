@@ -1298,7 +1298,7 @@ func TestBuildHarnessTemplateDataAndRenderBody(t *testing.T) {
 
 Ticket {{ ticket.identifier }} {{ ticket.title | markdown_escape }}
 Status {{ ticket.status }} parent={{ ticket.parent_identifier }} attempts={{ attempt }}/{{ max_attempts }}
-Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].relation }}
+Links {{ ticket.links | length }} {{ ticket.links[0].type }} {{ ticket.links[0].status }}
 Deps {% for dep in ticket.dependencies %}{{ dep.identifier }}:{{ dep.type }}:{{ dep.status }}{% endfor %}
 Repos {% for repo in repos %}{{ repo.name }}@{{ repo.branch }} labels={{ repo.labels | join(",") }} path={{ repo.path }}{% endfor %}
 All {{ all_repos | map(attribute="name") | join(",") }}
@@ -1474,7 +1474,6 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 		SetExternalID("42").
 		SetTitle("Login validation broken on Safari").
 		SetStatus("open").
-		SetRelation("resolves").
 		Save(ctx); err != nil {
 		t.Fatalf("create external link: %v", err)
 	}
@@ -1531,7 +1530,7 @@ Timestamp {{ timestamp }} Version {{ openase_version }} URL {{ ticket.url }}
 	for _, want := range []string{
 		`Ticket ASE-42 Escape \* markdown`,
 		"parent=ASE-30 attempts=2/3",
-		"Links 1 github_issue resolves",
+		"Links 1 github_issue open",
 		"ASE-31:blocks:Done",
 		"frontend@agent/claude-01/ASE-42 labels= path=/workspaces/ASE-42/frontend",
 		"All backend,frontend",

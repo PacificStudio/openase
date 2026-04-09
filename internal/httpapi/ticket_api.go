@@ -34,12 +34,11 @@ type ticketDependencyResponse struct {
 
 type ticketExternalLinkResponse struct {
 	ID         string `json:"id"`
-	Type       string `json:"type"`
+	Type       string `json:"type,omitempty"`
 	URL        string `json:"url"`
 	ExternalID string `json:"external_id"`
 	Title      string `json:"title,omitempty"`
 	Status     string `json:"status,omitempty"`
-	Relation   string `json:"relation"`
 	CreatedAt  string `json:"created_at"`
 }
 
@@ -1368,7 +1367,6 @@ func mapTicketExternalLinkResponse(item ticketservice.ExternalLink) ticketExtern
 		ExternalID: item.ExternalID,
 		Title:      item.Title,
 		Status:     item.Status,
-		Relation:   item.Relation.String(),
 		CreatedAt:  item.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }

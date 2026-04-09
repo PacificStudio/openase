@@ -751,10 +751,11 @@ func (r *EntRepository) AddExternalLink(ctx context.Context, input AddExternalLi
 
 	builder := tx.TicketExternalLink.Create().
 		SetTicketID(source.ID).
-		SetLinkType(toEntExternalLinkType(input.LinkType)).
 		SetURL(input.URL).
-		SetExternalID(input.ExternalID).
-		SetRelation(toEntExternalLinkRelation(input.Relation))
+		SetExternalID(input.ExternalID)
+	if input.LinkType != "" {
+		builder.SetLinkType(toEntExternalLinkType(input.LinkType))
+	}
 	if input.Title != "" {
 		builder.SetTitle(input.Title)
 	}
@@ -1591,12 +1592,8 @@ func toEntDependencyType(dependencyType DependencyType) entticketdependency.Type
 	return entticketdependency.Type(dependencyType.String())
 }
 
-func toEntExternalLinkType(linkType ExternalLinkType) entticketexternallink.LinkType {
-	return entticketexternallink.LinkType(linkType.String())
-}
-
-func toEntExternalLinkRelation(relation ExternalLinkRelation) entticketexternallink.Relation {
-	return entticketexternallink.Relation(relation.String())
+func toEntExternalLinkType(linkType ExternalLinkType) string {
+	return linkType.String()
 }
 
 func optionalUUIDPointerEqual(left *uuid.UUID, right *uuid.UUID) bool {
@@ -1704,7 +1701,6 @@ func mapExternalLink(item *ent.TicketExternalLink) ExternalLink {
 		ExternalID: item.ExternalID,
 		Title:      item.Title,
 		Status:     item.Status,
-		Relation:   ExternalLinkRelation(item.Relation),
 		CreatedAt:  item.CreatedAt,
 	}
 }

@@ -58,36 +58,19 @@ func TestParseDependencyType(t *testing.T) {
 }
 
 func TestParseExternalLinkType(t *testing.T) {
-	got, err := ParseExternalLinkType(" GitHub_PR ")
+	got, err := ParseExternalLinkType(" GitHub PR ")
 	if err != nil {
 		t.Fatalf("ParseExternalLinkType() error = %v", err)
 	}
-	if got != ExternalLinkTypeGithubPR {
+	if got != ExternalLinkType("GitHub PR") {
 		t.Fatalf("ParseExternalLinkType() = %q", got)
 	}
-	if got.String() != "github_pr" {
+	if got.String() != "GitHub PR" {
 		t.Fatalf("ExternalLinkType.String() = %q", got.String())
 	}
 
-	if _, err := ParseExternalLinkType("trello"); err == nil {
-		t.Fatal("expected invalid link type to fail")
-	}
-}
-
-func TestParseExternalLinkRelation(t *testing.T) {
-	got, err := ParseExternalLinkRelation(" caused_by ")
-	if err != nil {
-		t.Fatalf("ParseExternalLinkRelation() error = %v", err)
-	}
-	if got != ExternalLinkRelationCausedBy {
-		t.Fatalf("ParseExternalLinkRelation() = %q", got)
-	}
-	if got.String() != "caused_by" {
-		t.Fatalf("ExternalLinkRelation.String() = %q", got.String())
-	}
-
-	if _, err := ParseExternalLinkRelation("duplicates"); err == nil {
-		t.Fatal("expected invalid relation to fail")
+	if _, err := ParseExternalLinkType("   "); err == nil {
+		t.Fatal("expected blank link type to fail")
 	}
 }
 

@@ -185,24 +185,30 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	}
 
 	externalLinkInput, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{
-		Type:       " github_issue ",
+		Type:       strPtr(" GitHub PR "),
 		URL:        " https://github.com/acme/backend/issues/42 ",
 		ExternalID: " gh-42 ",
 		Title:      strPtr(" Ticket "),
 		Status:     strPtr(" open "),
-		Relation:   strPtr(" caused_by "),
 	})
 	if err != nil {
 		t.Fatalf("parseAddExternalLinkRequest() error = %v", err)
 	}
-	if externalLinkInput.LinkType != ticketservice.ExternalLinkTypeGithubIssue || externalLinkInput.Relation != ticketservice.ExternalLinkRelationCausedBy {
+	if externalLinkInput.LinkType != ticketservice.ExternalLinkType("GitHub PR") {
 		t.Fatalf("parseAddExternalLinkRequest() = %+v", externalLinkInput)
 	}
-	if _, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{Type: "custom", URL: "/relative", ExternalID: "x"}); err == nil || !strings.Contains(err.Error(), "valid absolute URL") {
+	if _, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{Type: strPtr("custom"), URL: "/relative", ExternalID: "x"}); err == nil || !strings.Contains(err.Error(), "valid absolute URL") {
 		t.Fatalf("parseAddExternalLinkRequest(bad URL) error = %v", err)
 	}
-	if _, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{Type: "custom", URL: "https://example.com", ExternalID: " "}); err == nil || !strings.Contains(err.Error(), "external_id must not be empty") {
+	if _, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{Type: strPtr("custom"), URL: "https://example.com", ExternalID: " "}); err == nil || !strings.Contains(err.Error(), "external_id must not be empty") {
 		t.Fatalf("parseAddExternalLinkRequest(blank external_id) error = %v", err)
+	}
+	if blankTypeInput, err := parseAddExternalLinkRequest(ticketID, rawAddExternalLinkRequest{
+		Type:       strPtr("   "),
+		URL:        "https://example.com/spec",
+		ExternalID: "spec-1",
+	}); err != nil || blankTypeInput.LinkType != "" {
+		t.Fatalf("parseAddExternalLinkRequest(blank type) = (%+v, %v)", blankTypeInput, err)
 	}
 
 	createCommentInput, err := parseCreateTicketCommentRequest(ticketID, "codex", rawCreateTicketCommentRequest{Body: " hello "})
@@ -245,11 +251,11 @@ func TestTicketRequestParserCoverage(t *testing.T) {
 	if got, err := parseExternalLinkType(" custom "); err != nil || got != ticketservice.ExternalLinkTypeCustom {
 		t.Fatalf("parseExternalLinkType() = (%q, %v)", got, err)
 	}
-	if got, err := parseExternalLinkRelation(" related "); err != nil || got != ticketservice.ExternalLinkRelationRelated {
-		t.Fatalf("parseExternalLinkRelation() = (%q, %v)", got, err)
+	if got, err := parseOptionalExternalLinkType(strPtr(" review doc ")); err != nil || got != ticketservice.ExternalLinkType("review doc") {
+		t.Fatalf("parseOptionalExternalLinkType() = (%q, %v)", got, err)
 	}
-	if _, err := parseExternalLinkRelation("invalid"); err == nil || !strings.Contains(err.Error(), "resolves, related, caused_by") {
-		t.Fatalf("parseExternalLinkRelation(invalid) error = %v", err)
+	if got, err := parseOptionalExternalLinkType(strPtr("   ")); err != nil || got != "" {
+		t.Fatalf("parseOptionalExternalLinkType(blank) = (%q, %v)", got, err)
 	}
 
 	e := echo.New()

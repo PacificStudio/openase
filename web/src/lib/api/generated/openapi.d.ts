@@ -12348,7 +12348,6 @@ export interface operations {
                   created_at?: string
                   external_id?: string
                   id?: string
-                  relation?: string
                   status?: string
                   title?: string
                   type?: string
@@ -16730,7 +16729,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -16897,7 +16895,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -17047,7 +17044,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -17312,7 +17308,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -20124,7 +20119,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -21289,7 +21283,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -21449,7 +21442,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string
@@ -22095,14 +22087,12 @@ export interface operations {
         'application/json': {
           /** @description External system identifier for the linked resource. */
           external_id?: string
-          /** @description Relationship between the ticket and the external resource. */
-          relation?: string | null
           /** @description Optional external status value. */
           status?: string | null
           /** @description Optional title for the external resource. */
           title?: string | null
-          /** @description External link type. */
-          type?: string
+          /** @description Optional freeform external link type. */
+          type?: string | null
           /** @description URL of the external resource. */
           url?: string
         }
@@ -22120,7 +22110,6 @@ export interface operations {
               created_at?: string
               external_id?: string
               id?: string
-              relation?: string
               status?: string
               title?: string
               type?: string
@@ -22302,7 +22291,6 @@ export interface operations {
                 created_at?: string
                 external_id?: string
                 id?: string
-                relation?: string
                 status?: string
                 title?: string
                 type?: string

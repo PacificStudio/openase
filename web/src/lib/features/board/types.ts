@@ -2,12 +2,11 @@ import type { BoardFilterPriority, BoardPriority } from './priority'
 
 export type BoardExternalLink = {
   id: string
-  type: string
+  type?: string
   url: string
   externalId: string
   title?: string
   status?: string
-  relation: string
 }
 
 export type BoardColumn = {

@@ -1463,7 +1463,7 @@ func init() {
 	// ticketexternallink.ExternalIDValidator is a validator for the "external_id" field. It is called by the builders before save.
 	ticketexternallink.ExternalIDValidator = ticketexternallinkDescExternalID.Validators[0].(func(string) error)
 	// ticketexternallinkDescCreatedAt is the schema descriptor for created_at field.
-	ticketexternallinkDescCreatedAt := ticketexternallinkFields[8].Descriptor()
+	ticketexternallinkDescCreatedAt := ticketexternallinkFields[7].Descriptor()
 	// ticketexternallink.DefaultCreatedAt holds the default value on creation for the created_at field.
 	ticketexternallink.DefaultCreatedAt = ticketexternallinkDescCreatedAt.Default.(func() time.Time)
 	// ticketexternallinkDescID is the schema descriptor for id field.
