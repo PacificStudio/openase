@@ -356,9 +356,7 @@ function normalizeOIDCDraftTestResponse(payload: OIDCDraftTestResponse): OIDCDra
 }
 
 export function getAdminAuth() {
-  return api
-    .get<AdminAuthResponse>('/api/v1/admin/auth')
-    .then((payload) => normalizeAdminAuthResponse(payload))
+  return api.get<AdminAuthResponse>('/api/v1/admin/auth').then(normalizeAdminAuthResponse)
 }
 
 export function saveAdminOIDCDraft(body: {
@@ -371,9 +369,8 @@ export function saveAdminOIDCDraft(body: {
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api
-    .put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
-    .then((payload) => normalizeAdminAuthResponse(payload))
+  const request = api.put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
+  return request.then(normalizeAdminAuthResponse)
 }
 
 export function testAdminOIDCDraft(body: {
@@ -386,9 +383,8 @@ export function testAdminOIDCDraft(body: {
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api
-    .post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
-    .then((payload) => normalizeOIDCDraftTestResponse(payload))
+  const request = api.post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
+  return request.then(normalizeOIDCDraftTestResponse)
 }
 
 export function enableAdminOIDC(body: {
@@ -401,21 +397,22 @@ export function enableAdminOIDC(body: {
   allowed_email_domains: string[]
   bootstrap_admin_emails: string[]
 }) {
-  return api
-    .post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', { body })
-    .then((payload) => normalizeAdminAuthModeTransitionResponse(payload))
+  const request = api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', {
+    body,
+  })
+  return request.then(normalizeAdminAuthModeTransitionResponse)
 }
 
 export function disableAdminAuth() {
-  return api
-    .post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/disable')
-    .then((payload) => normalizeAdminAuthModeTransitionResponse(payload))
+  const request = api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/disable')
+  return request.then(normalizeAdminAuthModeTransitionResponse)
 }
 
 export function getSecuritySettings(projectId: string) {
-  return api
-    .get<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings`)
-    .then((payload) => normalizeSecuritySettingsResponse(payload))
+  const request = api.get<SecuritySettingsResponse>(
+    `/api/v1/projects/${projectId}/security-settings`,
+  )
+  return request.then(normalizeSecuritySettingsResponse)
 }
 
 export function listScopedSecrets(projectId: string) {
@@ -539,11 +536,13 @@ export function saveOIDCDraft(
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api
-    .put<SecuritySettingsResponse>(`/api/v1/projects/${projectId}/security-settings/oidc-draft`, {
+  const request = api.put<SecuritySettingsResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
+    {
       body,
-    })
-    .then((payload) => normalizeSecuritySettingsResponse(payload))
+    },
+  )
+  return request.then(normalizeSecuritySettingsResponse)
 }
 
 export function testOIDCDraft(
@@ -559,12 +558,11 @@ export function testOIDCDraft(
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api
-    .post<OIDCDraftTestResponse>(
-      `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
-      { body },
-    )
-    .then((payload) => normalizeOIDCDraftTestResponse(payload))
+  const request = api.post<OIDCDraftTestResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
+    { body },
+  )
+  return request.then(normalizeOIDCDraftTestResponse)
 }
 
 export function enableOIDC(
@@ -580,14 +578,16 @@ export function enableOIDC(
     bootstrap_admin_emails: string[]
   },
 ) {
-  return api
-    .post<OIDCEnableResponse>(`/api/v1/projects/${projectId}/security-settings/oidc-enable`, {
+  const request = api.post<OIDCEnableResponse>(
+    `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
+    {
       body,
-    })
-    .then((payload) => ({
-      ...payload,
-      security: normalizeSecuritySettings(payload.security),
-    }))
+    },
+  )
+  return request.then((payload) => ({
+    ...payload,
+    security: normalizeSecuritySettings(payload.security),
+  }))
 }
 
 export function getSessionGovernance() {
