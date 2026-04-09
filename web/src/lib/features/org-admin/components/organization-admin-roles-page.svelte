@@ -17,7 +17,10 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
+  import { Label } from '$ui/label'
+  import { ShieldCheck } from '@lucide/svelte'
   import OrganizationAdminRolesBindingsList from './organization-admin-roles-bindings-list.svelte'
 
   let { organizationId }: { organizationId: string } = $props()
@@ -28,6 +31,7 @@
   let bindings = $state<RoleBinding[]>([])
   let permissions = $state<EffectivePermissionsResponse | null>(null)
   let draft = $state<BindingDraft>(defaultBindingDraftForScope())
+  let dialogOpen = $state(false)
 
   const canManageBindings = $derived(permissions?.permissions.includes('rbac.manage') ?? false)
   const canManagePrivilegedRoles = $derived(
@@ -40,9 +44,7 @@
   )
 
   function canDeleteBinding(binding: RoleBinding) {
-    if (!canManageBindings) {
-      return false
-    }
+    if (!canManageBindings) return false
     return canManagePrivilegedRoles || binding.roleKey === 'org_member'
   }
 
@@ -85,6 +87,7 @@
       })
       await createOrganizationRoleBinding(organizationId, payload)
       draft = defaultBindingDraftForScope()
+      dialogOpen = false
       await loadState()
       toastStore.success('Organization role binding added.')
     } catch (caughtError) {
@@ -118,155 +121,54 @@
     void organizationId
     void loadState()
   })
+
+  const selectClass =
+    'h-9 w-full rounded-md border border-input bg-background px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 </script>
 
-<div class="space-y-6">
-  <div class="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-    <div class="rounded-3xl border bg-white p-5 shadow-sm">
-      <div class="flex items-center gap-2">
-        <h2 class="text-lg font-semibold">Org-scoped role bindings</h2>
-        <Badge variant="outline">Inherited by projects</Badge>
-      </div>
-      <p class="text-muted-foreground mt-2 text-sm leading-6">
-        Bind users or synchronized groups to org roles. Every org role here flows into descendant
-        project permission evaluation, but instance-wide `/admin` bindings stay separate and are
-        never editable from this surface.
-      </p>
-      <div class="mt-4 grid gap-3 md:grid-cols-3">
-        {#each ['org_owner', 'org_admin', 'org_member'] as roleKey (roleKey)}
-          {@const role = resolveRoleOption(roleKey)}
-          <div class="rounded-2xl border border-slate-200 p-4">
-            <div class="font-medium">{role?.label ?? roleKey}</div>
-            <div class="text-muted-foreground mt-2 text-sm leading-6">{role?.summary}</div>
-          </div>
+<div class="space-y-4">
+  <!-- Header -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <ShieldCheck class="text-muted-foreground size-4" />
+      <h2 class="text-sm font-semibold">Org role bindings</h2>
+      <Badge variant="outline" class="text-xs">Inherited by projects</Badge>
+    </div>
+    {#if canManageBindings}
+      <Button size="sm" variant="outline" onclick={() => (dialogOpen = true)}>Add binding</Button>
+    {/if}
+  </div>
+
+  <!-- Your access status bar -->
+  <div class="bg-muted/40 rounded-md px-4 py-2.5">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span class="text-muted-foreground text-xs font-medium">Your access</span>
+      {#if permissions?.roles?.length}
+        {#each permissions.roles as role (role)}
+          <Badge variant="secondary" class="text-xs">{role}</Badge>
         {/each}
-      </div>
-    </div>
-
-    <div class="rounded-3xl border bg-white p-5 shadow-sm">
-      <h2 class="text-lg font-semibold">Identity and groups</h2>
-      <div class="mt-4 space-y-4 text-sm">
-        <div>
-          <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Current roles</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            {#if permissions?.roles?.length}
-              {#each permissions.roles as role (role)}
-                <Badge variant="secondary">{role}</Badge>
-              {/each}
-            {:else}
-              <span class="text-muted-foreground">No effective org roles</span>
-            {/if}
-          </div>
-        </div>
-        <div>
-          <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Synced groups</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            {#if permissions?.groups?.length}
-              {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
-                <code class="rounded-full bg-slate-100 px-3 py-1 text-xs">
-                  {group.group_name || group.group_key}
-                </code>
-              {/each}
-            {:else}
-              <span class="text-muted-foreground">No synchronized groups</span>
-            {/if}
-          </div>
-        </div>
-        <div
-          class="text-muted-foreground rounded-2xl border border-dashed px-3 py-3 text-xs leading-6"
+      {:else}
+        <span class="text-muted-foreground text-xs">No effective org roles</span>
+      {/if}
+      {#if permissions?.groups?.length}
+        <span class="text-muted-foreground text-xs">·</span>
+        {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
+          <code class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
+            {group.group_name || group.group_key}
+          </code>
+        {/each}
+      {/if}
+      {#if !canManageBindings}
+        <span class="text-muted-foreground text-xs">· Read only</span>
+      {:else if !canManagePrivilegedRoles}
+        <span class="text-muted-foreground text-xs"
+          >· Owner approval required to change privileged bindings</span
         >
-          Group bindings let org admins express durable access without editing each membership
-          individually. Subject keys must match the synchronized OIDC group key that appears in
-          effective permissions.
-        </div>
-      </div>
+      {/if}
     </div>
   </div>
 
-  <div class="rounded-3xl border bg-white p-5 shadow-sm">
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <h3 class="text-lg font-semibold">Manage bindings</h3>
-        <p class="text-muted-foreground mt-1 text-sm">
-          Org owners can grant `org_owner` and `org_admin`. Org admins can keep member-level
-          bindings current.
-        </p>
-      </div>
-      <Badge variant={canManageBindings ? 'secondary' : 'outline'}>
-        {canManageBindings ? 'Editable' : 'Read only'}
-      </Badge>
-    </div>
-
-    <div class="mt-5 grid gap-3 xl:grid-cols-[10rem_minmax(0,1fr)_12rem_12rem_auto]">
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Subject kind</span>
-        <select
-          class="border-input bg-background h-10 rounded-xl border px-3 text-sm"
-          value={draft.subjectKind}
-          onchange={(event) => {
-            draft = {
-              ...draft,
-              subjectKind: (event.currentTarget as HTMLSelectElement).value as 'user' | 'group',
-            }
-          }}
-          disabled={!canManageBindings}
-        >
-          <option value="user">User</option>
-          <option value="group">Group</option>
-        </select>
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Subject key</span>
-        <Input
-          value={draft.subjectKey}
-          placeholder={draft.subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'}
-          oninput={(event) => {
-            draft = { ...draft, subjectKey: (event.currentTarget as HTMLInputElement).value }
-          }}
-          disabled={!canManageBindings}
-        />
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Role</span>
-        <select
-          class="border-input bg-background h-10 rounded-xl border px-3 text-sm"
-          value={roleOptions.includes(draft.roleKey) ? draft.roleKey : roleOptions[0]}
-          onchange={(event) => {
-            draft = { ...draft, roleKey: (event.currentTarget as HTMLSelectElement).value }
-          }}
-          disabled={!canManageBindings}
-        >
-          {#each roleOptions as roleKey (roleKey)}
-            <option value={roleKey}>{resolveRoleOption(roleKey)?.label ?? roleKey}</option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Expires at</span>
-        <Input
-          type="datetime-local"
-          value={draft.expiresAtLocal}
-          oninput={(event) => {
-            draft = { ...draft, expiresAtLocal: (event.currentTarget as HTMLInputElement).value }
-          }}
-          disabled={!canManageBindings}
-        />
-      </label>
-
-      <div class="flex items-end">
-        <Button
-          onclick={handleCreateBinding}
-          disabled={!canManageBindings || mutationKey === 'create'}
-        >
-          {mutationKey === 'create' ? 'Adding…' : 'Add binding'}
-        </Button>
-      </div>
-    </div>
-  </div>
-
+  <!-- Bindings list -->
   <OrganizationAdminRolesBindingsList
     {loading}
     {error}
@@ -277,3 +179,83 @@
     onDeleteBinding={handleDeleteBinding}
   />
 </div>
+
+<!-- Add binding dialog -->
+<Dialog.Root bind:open={dialogOpen}>
+  <Dialog.Content class="sm:max-w-lg">
+    <Dialog.Header>
+      <Dialog.Title>Add role binding</Dialog.Title>
+      <Dialog.Description>
+        Bind a user or group to an org role. Org owners can grant <code>org_owner</code> and
+        <code>org_admin</code>; org admins can manage member-level bindings.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="space-y-1.5">
+        <Label>Subject kind</Label>
+        <select
+          class={selectClass}
+          value={draft.subjectKind}
+          onchange={(event) => {
+            draft = {
+              ...draft,
+              subjectKind: (event.currentTarget as HTMLSelectElement).value as 'user' | 'group',
+            }
+          }}
+        >
+          <option value="user">User</option>
+          <option value="group">Group</option>
+        </select>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label>Subject key</Label>
+        <Input
+          value={draft.subjectKey}
+          placeholder={draft.subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'}
+          oninput={(event) => {
+            draft = { ...draft, subjectKey: (event.currentTarget as HTMLInputElement).value }
+          }}
+        />
+      </div>
+
+      <div class="space-y-1.5">
+        <Label>Role</Label>
+        <select
+          class={selectClass}
+          value={roleOptions.includes(draft.roleKey) ? draft.roleKey : roleOptions[0]}
+          onchange={(event) => {
+            draft = { ...draft, roleKey: (event.currentTarget as HTMLSelectElement).value }
+          }}
+        >
+          {#each roleOptions as roleKey (roleKey)}
+            <option value={roleKey}>{resolveRoleOption(roleKey)?.label ?? roleKey}</option>
+          {/each}
+        </select>
+      </div>
+
+      <div class="space-y-1.5">
+        <Label>Expires at <span class="text-muted-foreground font-normal">(optional)</span></Label>
+        <Input
+          type="datetime-local"
+          value={draft.expiresAtLocal}
+          oninput={(event) => {
+            draft = { ...draft, expiresAtLocal: (event.currentTarget as HTMLInputElement).value }
+          }}
+        />
+      </div>
+    </div>
+
+    <Dialog.Footer>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={mutationKey === 'create'}>Cancel</Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button onclick={handleCreateBinding} disabled={mutationKey === 'create'}>
+        {mutationKey === 'create' ? 'Adding…' : 'Add binding'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

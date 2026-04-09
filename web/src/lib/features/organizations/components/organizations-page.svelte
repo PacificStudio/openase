@@ -20,7 +20,7 @@
   import { formatCount, formatCurrency } from '$lib/utils'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import { Bot, Coins, FolderOpen, Ticket } from '@lucide/svelte'
+  import { Bot, Coins, FolderOpen, Settings, Ticket } from '@lucide/svelte'
 
   const organizations = $derived(appStore.organizations)
   const providers = $derived(appStore.providers)
@@ -81,7 +81,13 @@
   <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-foreground text-2xl font-semibold">Workspace</h1>
+        <div class="flex items-center gap-1">
+          <h1 class="text-foreground text-2xl font-semibold">Workspace</h1>
+          <Button variant="ghost" size="icon" href="/admin" class="text-muted-foreground size-7">
+            <Settings class="size-4" />
+            <span class="sr-only">Instance settings</span>
+          </Button>
+        </div>
         <p class="text-muted-foreground mt-1 text-sm">
           {organizations.length}
           {organizations.length === 1 ? 'organization' : 'organizations'} · {totalProjects}

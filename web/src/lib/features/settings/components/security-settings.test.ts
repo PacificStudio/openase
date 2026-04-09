@@ -91,7 +91,7 @@ describe('Security settings', () => {
     listProjectScopedSecrets.mockResolvedValue({ secrets })
   }
 
-  it('renders the migration panel before project-owned security controls', async () => {
+  it('renders project-owned security controls', async () => {
     appStore.currentOrg = currentOrg()
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
@@ -121,14 +121,8 @@ describe('Security settings', () => {
       },
     ])
 
-    const { findByRole, findByText } = render(SecuritySettings)
+    const { findByText } = render(SecuritySettings)
 
-    expect(await findByText('Migration note')).toBeTruthy()
-    expect(await findByText('Instance auth and directory')).toBeTruthy()
-    expect(await findByText('Org members, invites, and roles')).toBeTruthy()
-    expect(await findByText('Project access stays here')).toBeTruthy()
-    expect(await findByRole('link', { name: 'Open /admin/auth' })).toBeTruthy()
-    expect(await findByRole('link', { name: 'Open org admin' })).toBeTruthy()
     expect(await findByText('Scoped secrets')).toBeTruthy()
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()

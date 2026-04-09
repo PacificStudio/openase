@@ -10,7 +10,7 @@
   } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
+  import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
@@ -20,12 +20,9 @@
 
   let loading = $state(false)
   let creating = $state(false)
+  let createDialogOpen = $state(false)
   let secrets = $state<ScopedSecretRecord[]>([])
-  let createDraft = $state({
-    name: '',
-    description: '',
-    value: '',
-  })
+  let createDraft = $state({ name: '', description: '', value: '' })
 
   $effect(() => {
     if (!organizationId) {
@@ -72,6 +69,7 @@
         value,
       })
       createDraft = { name: '', description: '', value: '' }
+      createDialogOpen = false
       toastStore.success('Created organization secret.')
       await loadSecrets()
     } catch (caughtError) {
@@ -115,60 +113,18 @@
   }
 </script>
 
-<div class="space-y-5">
-  <Card.Root class="rounded-2xl">
-    <Card.Header>
-      <Card.Title>Organization secrets</Card.Title>
-      <Card.Description>
-        Central secrets inherit into every project until a project chooses to override the same
-        binding key locally.
-      </Card.Description>
-    </Card.Header>
-    <Card.Content class="space-y-4">
-      <div class="grid gap-3 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-          <div>
-            <h3 class="text-sm font-semibold text-slate-950">Create organization secret</h3>
-            <p class="mt-1 text-sm text-slate-600">
-              New values become the default binding for every project in this org.
-            </p>
-          </div>
-
-          <div class="space-y-2">
-            <Label for="org-secret-name">Secret name</Label>
-            <Input id="org-secret-name" bind:value={createDraft.name} placeholder="GH_TOKEN" />
-          </div>
-          <div class="space-y-2">
-            <Label for="org-secret-value">Secret value</Label>
-            <Input
-              id="org-secret-value"
-              type="password"
-              bind:value={createDraft.value}
-              placeholder="Paste the new secret value"
-            />
-            <p class="text-xs text-slate-500">
-              Values are masked after write and never shown again.
-            </p>
-          </div>
-        </div>
-
-        <div class="space-y-2 rounded-2xl border border-slate-200 bg-white p-4">
-          <Label for="org-secret-description">Description</Label>
-          <Textarea
-            id="org-secret-description"
-            bind:value={createDraft.description}
-            rows={6}
-            placeholder="What this secret powers, who owns it, and when to rotate it."
-          />
-          <div class="flex justify-end pt-2">
-            <Button onclick={handleCreate} disabled={creating}>
-              {creating ? 'Creating…' : 'Create org secret'}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </Card.Content>
-  </Card.Root>
+<div class="space-y-3">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">Organization secrets</h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Central secrets inherit into every project until a project overrides the same key locally.
+      </p>
+    </div>
+    <Button variant="outline" size="sm" onclick={() => (createDialogOpen = true)}>
+      Add secret
+    </Button>
+  </div>
 
   <OrganizationScopedSecretsInventoryCard
     {loading}
@@ -178,3 +134,54 @@
     onDelete={handleDelete}
   />
 </div>
+
+<!-- Create secret dialog -->
+<Dialog.Root bind:open={createDialogOpen}>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Header>
+      <Dialog.Title>Add organization secret</Dialog.Title>
+      <Dialog.Description>
+        New values become the default binding for every project in this org. Values are masked after
+        write and never shown again.
+      </Dialog.Description>
+    </Dialog.Header>
+
+    <div class="space-y-4">
+      <div class="space-y-1.5">
+        <Label for="org-secret-name">Secret name</Label>
+        <Input id="org-secret-name" bind:value={createDraft.name} placeholder="GH_TOKEN" />
+      </div>
+      <div class="space-y-1.5">
+        <Label for="org-secret-value">Secret value</Label>
+        <Input
+          id="org-secret-value"
+          type="password"
+          bind:value={createDraft.value}
+          placeholder="Paste the secret value"
+        />
+      </div>
+      <div class="space-y-1.5">
+        <Label for="org-secret-description"
+          >Description <span class="text-muted-foreground font-normal">(optional)</span></Label
+        >
+        <Textarea
+          id="org-secret-description"
+          bind:value={createDraft.description}
+          rows={3}
+          placeholder="What this secret powers, who owns it, and when to rotate it."
+        />
+      </div>
+    </div>
+
+    <Dialog.Footer>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={creating}>Cancel</Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button onclick={handleCreate} disabled={creating}>
+        {creating ? 'Creating…' : 'Create secret'}
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

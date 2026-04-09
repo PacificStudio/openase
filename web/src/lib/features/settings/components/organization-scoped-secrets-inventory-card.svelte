@@ -2,7 +2,6 @@
   import type { ScopedSecretRecord } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -81,99 +80,82 @@
   }
 </script>
 
-<Card.Root class="rounded-2xl">
-  <Card.Header>
-    <Card.Title>Inventory</Card.Title>
-    <Card.Description>
-      Masked previews, usage signals, and rotation metadata — plaintext values are never shown again
-      after write.
-    </Card.Description>
-  </Card.Header>
-  <Card.Content>
-    {#if loading}
-      <div class="space-y-4">
-        {#each Array(3) as _, i (i)}
-          <div class="rounded-2xl border border-slate-200 p-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 space-y-2">
-                <Skeleton class="h-4 w-32" />
-                <Skeleton class="h-3 w-48" />
-                <Skeleton class="h-3 w-64" />
-              </div>
-              <div class="flex gap-2">
-                <Skeleton class="h-8 w-16 rounded-md" />
-                <Skeleton class="h-8 w-16 rounded-md" />
-                <Skeleton class="h-8 w-16 rounded-md" />
-              </div>
+{#if loading}
+  <div class="space-y-2">
+    {#each Array(3) as _, i (i)}
+      <div class="border-border rounded-md border p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 space-y-2">
+            <Skeleton class="h-4 w-32" />
+            <Skeleton class="h-3 w-48" />
+            <Skeleton class="h-3 w-64" />
+          </div>
+          <div class="flex gap-2">
+            <Skeleton class="h-8 w-16 rounded-md" />
+            <Skeleton class="h-8 w-16 rounded-md" />
+            <Skeleton class="h-8 w-16 rounded-md" />
+          </div>
+        </div>
+      </div>
+    {/each}
+  </div>
+{:else if secrets.length === 0}
+  <div class="border-border rounded-md border border-dashed p-8 text-center">
+    <p class="text-foreground text-sm font-medium">No organization secrets yet</p>
+    <p class="text-muted-foreground mt-1 text-sm">
+      Add a secret above — it will be available in every project in this org.
+    </p>
+  </div>
+{:else}
+  <div class="border-border divide-border divide-y rounded-md border">
+    {#each secrets as secret (secret.id)}
+      <div class="bg-card px-4 py-3 first:rounded-t-md last:rounded-b-md">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0 space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-foreground text-sm font-semibold">{secret.name}</span>
+              <Badge variant="secondary">Organization</Badge>
+              {#if secret.disabled}
+                <Badge variant="destructive">Disabled</Badge>
+              {/if}
+            </div>
+            <p class="text-muted-foreground text-sm">
+              {secret.description || 'No description.'}
+            </p>
+            <div class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <code class="bg-muted rounded px-1 py-0.5 font-mono">
+                {secret.encryption.value_preview}
+              </code>
+              <span>Rotated {formatSecretTimestamp(secret.encryption.rotated_at)}</span>
+              <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
+            </div>
+            <div class="flex flex-wrap gap-1">
+              <Badge variant="outline">{usageIndicator(secret)}</Badge>
+              {#each normalizeUsageScopes(secret) as scope (scope)}
+                <Badge variant="outline">{scope}</Badge>
+              {/each}
             </div>
           </div>
-        {/each}
-      </div>
-    {:else if secrets.length === 0}
-      <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-        <p class="text-sm font-medium text-slate-700">No organization secrets yet</p>
-        <p class="mt-1 text-sm text-slate-500">
-          Create your first secret above — it will be available in every project in this org.
-        </p>
-      </div>
-    {:else}
-      <div class="space-y-4">
-        {#each secrets as secret (secret.id)}
-          <div class="rounded-2xl border border-slate-200 bg-white p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0 space-y-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-semibold text-slate-950">{secret.name}</span>
-                  <Badge variant="secondary">Organization</Badge>
-                  {#if secret.disabled}
-                    <Badge variant="destructive">Disabled</Badge>
-                  {/if}
-                </div>
-                <p class="text-sm text-slate-600">
-                  {secret.description || 'No description.'}
-                </p>
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                  <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">
-                    {secret.encryption.value_preview}
-                  </code>
-                  <span>Rotated {formatSecretTimestamp(secret.encryption.rotated_at)}</span>
-                  <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                  <Badge variant="outline">{usageIndicator(secret)}</Badge>
-                  {#each normalizeUsageScopes(secret) as scope (scope)}
-                    <Badge variant="outline">{scope}</Badge>
-                  {/each}
-                </div>
-              </div>
 
-              <div class="flex shrink-0 flex-wrap gap-2">
-                <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>
-                  Rotate
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onclick={() => openConfirm('disable', secret)}
-                  disabled={secret.disabled}
-                >
-                  Disable
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onclick={() => openConfirm('delete', secret)}
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
+          <div class="flex shrink-0 flex-wrap gap-2">
+            <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>Rotate</Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => openConfirm('disable', secret)}
+              disabled={secret.disabled}
+            >
+              Disable
+            </Button>
+            <Button variant="destructive" size="sm" onclick={() => openConfirm('delete', secret)}>
+              Delete
+            </Button>
           </div>
-        {/each}
+        </div>
       </div>
-    {/if}
-  </Card.Content>
-</Card.Root>
+    {/each}
+  </div>
+{/if}
 
 <!-- Rotate dialog -->
 <Dialog.Root bind:open={rotateOpen}>
@@ -185,7 +167,7 @@
         recovered.
       </Dialog.Description>
     </Dialog.Header>
-    <div class="mt-4 space-y-2">
+    <div class="space-y-1.5">
       <Label for="org-rotate-value">New value</Label>
       <Input
         id="org-rotate-value"
@@ -197,7 +179,7 @@
         }}
       />
     </div>
-    <Dialog.Footer class="mt-6">
+    <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
           <Button variant="outline" {...props} disabled={rotateSubmitting}>Cancel</Button>
@@ -212,7 +194,7 @@
 
 <!-- Disable / Delete confirmation dialog -->
 <Dialog.Root bind:open={confirmOpen}>
-  <Dialog.Content class="sm:max-w-md">
+  <Dialog.Content class="sm:max-w-sm">
     <Dialog.Header>
       <Dialog.Title>
         {confirmTarget?.kind === 'delete' ? 'Delete' : 'Disable'}
@@ -228,7 +210,7 @@
         {/if}
       </Dialog.Description>
     </Dialog.Header>
-    <Dialog.Footer class="mt-6">
+    <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
           <Button variant="outline" {...props} disabled={confirmSubmitting}>Cancel</Button>

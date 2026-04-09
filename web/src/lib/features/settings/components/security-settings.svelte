@@ -16,7 +16,6 @@
   import ProjectScopedSecretsPanel from './project-scoped-secrets-panel.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import SecuritySettingsSecretBindingsSection from './security-settings-secret-bindings-section.svelte'
-  import SettingsIAMMigrationPanel from './settings-iam-migration-panel.svelte'
   import { normalizeSecuritySettings } from '../security-settings'
 
   type Security = SecuritySettingsResponse['security']
@@ -142,13 +141,6 @@
   {:else if error}
     <div class="text-destructive text-sm">{error}</div>
   {:else if security}
-    <Separator />
-
-    <SettingsIAMMigrationPanel
-      auth={security.auth}
-      organizationId={appStore.currentOrg?.id ?? ''}
-    />
-
     <Separator />
 
     <ProjectScopedSecretsPanel

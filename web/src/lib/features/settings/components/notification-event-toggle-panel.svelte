@@ -90,7 +90,7 @@
   }
 </script>
 
-<div class="border-border bg-card rounded-2xl border">
+<div class="border-border bg-card rounded-md border">
   <div class="border-border flex flex-wrap items-start justify-between gap-4 border-b px-5 py-4">
     <div>
       <h3 class="text-foreground text-base font-semibold">Event Toggles</h3>
@@ -122,7 +122,7 @@
 
   {#if availableChannels.length === 0}
     <div class="px-5 py-5">
-      <div class="border-border bg-muted/40 rounded-xl border px-4 py-3 text-sm">
+      <div class="border-border bg-muted/40 rounded-md border px-4 py-3 text-sm">
         Create and enable at least one notification channel before configuring grouped event
         toggles.
       </div>
@@ -150,7 +150,7 @@
               )}
               {@const busy = actionKey === `${selectedChannelId}:${eventType.event_type}`}
               <div
-                class="border-border/70 bg-background/80 flex items-center gap-3 rounded-xl border px-4 py-3"
+                class="border-border/70 bg-background/80 flex items-center gap-3 rounded-md border px-4 py-3"
               >
                 <Switch
                   checked={currentRule?.is_enabled ?? false}

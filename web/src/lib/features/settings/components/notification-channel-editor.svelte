@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { NotificationChannel } from '$lib/api/contracts'
-  import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -10,19 +9,11 @@
   let {
     draft,
     selectedChannel,
-    saving = false,
-    deleting = false,
     onDraftChange,
-    onSave,
-    onDelete,
   }: {
     draft: ChannelDraft
     selectedChannel: NotificationChannel | null
-    saving?: boolean
-    deleting?: boolean
     onDraftChange: (draft: ChannelDraft) => void
-    onSave: () => void
-    onDelete: () => void
   } = $props()
 
   function updateTextField(field: 'name' | 'configText', event: Event) {
@@ -31,7 +22,7 @@
   }
 </script>
 
-<div class="space-y-4 px-5 py-4">
+<div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
       <Label for="notification-channel-name">Name</Label>
@@ -93,16 +84,5 @@
         Existing values may be masked. Replace only when rotating credentials.
       {/if}
     </p>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-2 pt-1">
-    <Button size="sm" onclick={onSave} disabled={saving || deleting}>
-      {saving ? 'Saving...' : selectedChannel ? 'Save changes' : 'Create channel'}
-    </Button>
-    {#if selectedChannel}
-      <Button variant="destructive" size="sm" onclick={onDelete} disabled={saving || deleting}>
-        {deleting ? 'Deleting...' : 'Delete channel'}
-      </Button>
-    {/if}
   </div>
 </div>
