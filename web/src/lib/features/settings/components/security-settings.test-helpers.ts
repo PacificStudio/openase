@@ -162,6 +162,32 @@ export function configuredSecurity() {
     },
     secret_hygiene: {
       notification_channel_configs_redacted: true,
+      machine_env_vars_redacted: true,
+      runtime_secret_responses_redacted: true,
+      legacy_providers_requiring_migration: 1,
+      legacy_provider_inline_secret_bindings: 2,
+      legacy_machines_requiring_migration: 1,
+      legacy_machine_secret_env_vars: 1,
+      rollout_checklist: [
+        {
+          key: 'provider-inline-secrets',
+          title: 'Migrate inline provider auth_config secrets',
+          status: 'pending',
+          summary: 'Move legacy inline provider auth_config secrets into scoped secrets.',
+        },
+        {
+          key: 'machine-env-secrets',
+          title: 'Migrate machine env var secrets',
+          status: 'pending',
+          summary: 'Replace secret-like machine env_vars before rollout.',
+        },
+        {
+          key: 'audit-trail',
+          title: 'Verify secret activity events',
+          status: 'done',
+          summary: 'Secret lifecycle events are published to activity.',
+        },
+      ],
     },
     approval_policies: {
       status: 'reserved',

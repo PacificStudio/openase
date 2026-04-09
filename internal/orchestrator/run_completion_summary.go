@@ -28,7 +28,6 @@ import (
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimesecretenv "github.com/BetterAndBetterII/openase/internal/runtime/secretenv"
-	secretsservice "github.com/BetterAndBetterII/openase/internal/service/secrets"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
 )
@@ -443,11 +442,6 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	if err != nil {
 		return err
 	}
-	secretEnvironment, err := c.buildRuntimeSecretEnvironment(ctx, summaryCtx)
-	if err != nil {
-		return err
-	}
-	environment = append(environment, secretEnvironment...)
 	processSpec, err := provider.NewAgentCLIProcessSpec(
 		command,
 		append([]string(nil), summaryCtx.provider.CliArgs...),
@@ -535,27 +529,6 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 	}
 
 	return nil
-}
-
-func (c *runtimeCompletionSummaryCoordinator) buildRuntimeSecretEnvironment(ctx context.Context, summaryCtx runCompletionSummaryContext) ([]string, error) {
-	if c == nil || c.secretManager == nil || summaryCtx.project == nil || summaryCtx.ticket == nil || summaryCtx.agent == nil {
-		return nil, nil
-	}
-
-	resolved, err := c.secretManager.ResolveBoundForRuntime(ctx, secretsservice.ResolveBoundRuntimeInput{
-		ProjectID:  summaryCtx.project.ID,
-		TicketID:   uuidPointer(summaryCtx.ticket.ID),
-		WorkflowID: summaryCtx.ticket.WorkflowID,
-		AgentID:    uuidPointer(summaryCtx.agent.ID),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("resolve completion summary secret bindings: %w", err)
-	}
-	environment, err := secretsservice.BuildRuntimeEnvironment(resolved)
-	if err != nil {
-		return nil, fmt.Errorf("build completion summary secret environment: %w", err)
-	}
-	return environment, nil
 }
 
 func (c *runtimeCompletionSummaryCoordinator) markRunCompletionSummaryFailed(ctx context.Context, runID uuid.UUID, cause error) {

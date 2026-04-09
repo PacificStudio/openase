@@ -224,7 +224,10 @@
           placeholder={`CUDA_VISIBLE_DEVICES=0\nOPENASE_AGENT_HOME=/srv/openase`}
           oninput={(event) => updateField('envVars', event)}
         />
-        <p class="text-muted-foreground text-[11px]">One KEY=VALUE per line.</p>
+        <p class="text-muted-foreground text-[11px]">
+          One KEY=VALUE per line. Secret-like values may appear as `[redacted]`; leave them as-is to
+          preserve the stored value, or replace the value to rotate it.
+        </p>
       </div>
     </div>
   </section>

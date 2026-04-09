@@ -99,6 +99,83 @@ func TestSecuritySettingsRouteReturnsCurrentBoundary(t *testing.T) {
 	}
 }
 
+func TestSecuritySettingsRouteIncludesSecretMigrationDiagnostics(t *testing.T) {
+	projectID := uuid.New()
+	orgID := uuid.New()
+	machineID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.organizations[orgID] = domain.Organization{ID: orgID, Name: "Acme", Slug: "acme"}
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: orgID}
+	catalog.machines[machineID] = domain.Machine{
+		ID:             machineID,
+		OrganizationID: orgID,
+		Name:           "builder",
+		Host:           "builder.internal",
+		Status:         domain.MachineStatusOnline,
+		EnvVars:        []string{"OPENAI_API_KEY=sk-live-1234", "CUDA_VISIBLE_DEVICES=0"},
+	}
+	catalog.providers[uuid.New()] = domain.AgentProvider{
+		ID:             uuid.New(),
+		OrganizationID: orgID,
+		MachineID:      machineID,
+		MachineName:    "builder",
+		MachineHost:    "builder.internal",
+		MachineStatus:  domain.MachineStatusOnline,
+		Name:           "Codex",
+		AdapterType:    domain.AgentProviderAdapterTypeCodexAppServer,
+		AuthConfig: map[string]any{
+			"base_url":       "http://localhost:4318",
+			"openai_api_key": "legacy-inline-secret",
+		},
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithGitHubAuthService(&stubGitHubAuthService{
+			security: sampleProjectSecurity(),
+		}),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/projects/"+projectID.String()+"/security-settings",
+		http.NoBody,
+	)
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var payload struct {
+		Security securitySettingsResponse `json:"security"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("unmarshal response: %v", err)
+	}
+	if payload.Security.SecretHygiene.LegacyProvidersRequiringMigration != 1 ||
+		payload.Security.SecretHygiene.LegacyProviderInlineSecretBindings != 1 {
+		t.Fatalf("unexpected provider secret hygiene: %+v", payload.Security.SecretHygiene)
+	}
+	if payload.Security.SecretHygiene.LegacyMachinesRequiringMigration != 1 ||
+		payload.Security.SecretHygiene.LegacyMachineSecretEnvVars != 1 {
+		t.Fatalf("unexpected machine secret hygiene: %+v", payload.Security.SecretHygiene)
+	}
+	if len(payload.Security.SecretHygiene.RolloutChecklist) == 0 {
+		t.Fatalf("expected rollout checklist entries, got %+v", payload.Security.SecretHygiene)
+	}
+}
+
 func TestSecuritySettingsRouteSavesManualCredential(t *testing.T) {
 	projectID := uuid.New()
 	catalog := newFakeCatalogService()
