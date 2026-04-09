@@ -2,7 +2,6 @@
   import type { ScopedSecretRecord } from '$lib/api/contracts'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
-  import * as Card from '$ui/card'
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -25,13 +24,11 @@
     onDelete: (secret: ScopedSecretRecord) => Promise<void>
   } = $props()
 
-  // Rotate dialog
   let rotateOpen = $state(false)
   let rotateTarget = $state<ScopedSecretRecord | null>(null)
   let rotateDraft = $state('')
   let rotateSubmitting = $state(false)
 
-  // Disable / Delete confirmation dialog
   let confirmOpen = $state(false)
   let confirmTarget = $state<{ kind: 'disable' | 'delete'; secret: ScopedSecretRecord } | null>(
     null,
@@ -83,99 +80,88 @@
   }
 </script>
 
-<Card.Root class="rounded-2xl">
-  <Card.Header>
-    <Card.Title>Project overrides</Card.Title>
-    <Card.Description>
-      Project-scoped secrets can supersede org defaults with the same name or provide a project-only
-      value.
-    </Card.Description>
-  </Card.Header>
-  <Card.Content>
-    {#if loading}
-      <div class="space-y-4">
-        {#each Array(2) as _, i (i)}
-          <div class="rounded-2xl border border-slate-200 p-4">
-            <div class="flex items-start justify-between gap-3">
-              <div class="flex-1 space-y-2">
-                <Skeleton class="h-4 w-28" />
-                <Skeleton class="h-3 w-44" />
-                <Skeleton class="h-3 w-56" />
-              </div>
-              <div class="flex gap-2">
-                <Skeleton class="h-8 w-16 rounded-md" />
-                <Skeleton class="h-8 w-16 rounded-md" />
-                <Skeleton class="h-8 w-16 rounded-md" />
-              </div>
-            </div>
-          </div>
-        {/each}
-      </div>
-    {:else if projectOverrides.length === 0}
-      <div class="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-        <p class="text-sm font-medium text-slate-700">No project overrides yet</p>
-        <p class="mt-1 text-sm text-slate-500">
-          Override an org secret above to give this project a different value, or create a
-          project-only secret.
-        </p>
-      </div>
-    {:else}
-      <div class="space-y-4">
-        {#each projectOverrides as secret (secret.id)}
-          <div class="rounded-2xl border border-slate-200 bg-white p-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div class="min-w-0 space-y-2">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-semibold text-slate-950">{secret.name}</span>
-                  <Badge variant="default">Project</Badge>
-                  <Badge variant="outline">
-                    {isProjectOverride(secret, organizationSecrets)
-                      ? 'Overrides org default'
-                      : 'Project only'}
-                  </Badge>
-                  {#if secret.disabled}
-                    <Badge variant="destructive">Disabled</Badge>
-                  {/if}
-                </div>
-                <p class="text-sm text-slate-600">
-                  {secret.description || 'No description.'}
-                </p>
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                  <code class="rounded bg-slate-100 px-1 py-0.5 font-mono text-slate-700">
-                    {secret.encryption.value_preview}
-                  </code>
-                  <span>{usageIndicator(secret)}</span>
-                  <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
-                </div>
-              </div>
+<div class="space-y-3">
+  <h4 class="text-sm font-medium">Project overrides</h4>
 
-              <div class="flex shrink-0 flex-wrap gap-2">
-                <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>
-                  Rotate
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onclick={() => openConfirm('disable', secret)}
-                  disabled={secret.disabled}
-                >
-                  Disable
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onclick={() => openConfirm('delete', secret)}
-                >
-                  Delete
-                </Button>
-              </div>
+  {#if loading}
+    <div class="space-y-2">
+      {#each Array(2) as _, i (i)}
+        <div class="border-border rounded-lg border p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 space-y-2">
+              <Skeleton class="h-4 w-28" />
+              <Skeleton class="h-3 w-44" />
+              <Skeleton class="h-3 w-56" />
+            </div>
+            <div class="flex gap-2">
+              <Skeleton class="h-7 w-14 rounded-md" />
+              <Skeleton class="h-7 w-14 rounded-md" />
+              <Skeleton class="h-7 w-14 rounded-md" />
             </div>
           </div>
-        {/each}
-      </div>
-    {/if}
-  </Card.Content>
-</Card.Root>
+        </div>
+      {/each}
+    </div>
+  {:else if projectOverrides.length === 0}
+    <div class="border-border rounded-lg border border-dashed p-6 text-center">
+      <p class="text-muted-foreground text-sm">No project overrides yet</p>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Override an org secret above to give this project a different value, or create a
+        project-only secret.
+      </p>
+    </div>
+  {:else}
+    <div class="space-y-2">
+      {#each projectOverrides as secret (secret.id)}
+        <div class="border-border bg-card rounded-lg border p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 space-y-1.5">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-medium">{secret.name}</span>
+                <Badge variant="default">Project</Badge>
+                <Badge variant="outline">
+                  {isProjectOverride(secret, organizationSecrets)
+                    ? 'Overrides org default'
+                    : 'Project only'}
+                </Badge>
+                {#if secret.disabled}
+                  <Badge variant="destructive">Disabled</Badge>
+                {/if}
+              </div>
+              <p class="text-muted-foreground text-sm">
+                {secret.description || 'No description.'}
+              </p>
+              <div
+                class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+              >
+                <code class="bg-muted rounded px-1 py-0.5 font-mono">
+                  {secret.encryption.value_preview}
+                </code>
+                <span>{usageIndicator(secret)}</span>
+                <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
+              </div>
+            </div>
+
+            <div class="flex shrink-0 flex-wrap gap-2">
+              <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>Rotate</Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => openConfirm('disable', secret)}
+                disabled={secret.disabled}
+              >
+                Disable
+              </Button>
+              <Button variant="destructive" size="sm" onclick={() => openConfirm('delete', secret)}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+</div>
 
 <!-- Rotate dialog -->
 <Dialog.Root bind:open={rotateOpen}>

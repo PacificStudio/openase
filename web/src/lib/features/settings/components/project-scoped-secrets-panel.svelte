@@ -9,7 +9,6 @@
   } from '$lib/api/openase'
   import type { ScopedSecretRecord } from '$lib/api/contracts'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import ProjectScopedSecretsEffectiveCard from './project-scoped-secrets-effective-card.svelte'
   import ProjectScopedSecretsOrgDefaultsCard from './project-scoped-secrets-org-defaults-card.svelte'
   import ProjectScopedSecretsOverviewCard from './project-scoped-secrets-overview-card.svelte'
   import ProjectScopedSecretsOverridesCard from './project-scoped-secrets-overrides-card.svelte'
@@ -52,19 +51,19 @@
   function primeOverride(secret: ScopedSecretRecord) {
     createDraft.name = secret.name
     createDraft.description = secret.description
-    toastStore.info('Override form pre-filled — scroll up to set the value and save.')
+    toastStore.info('Override form pre-filled — set the value and save.')
   }
 
-  async function handleCreate() {
+  async function handleCreate(): Promise<boolean> {
     const name = createDraft.name.trim()
     const value = createDraft.value.trim()
     if (!name) {
       toastStore.error('Secret name is required.')
-      return
+      return false
     }
     if (!value) {
       toastStore.error('Secret value is required.')
-      return
+      return false
     }
 
     creating = true
@@ -78,8 +77,10 @@
       createDraft = { name: '', description: '', value: '' }
       toastStore.success('Created project override secret.')
       await loadSecrets()
+      return true
     } catch (caughtError) {
       toastStore.error(formatError(caughtError, 'Failed to create project secret.'))
+      return false
     } finally {
       creating = false
     }
@@ -119,7 +120,7 @@
   }
 </script>
 
-<div class="space-y-5">
+<div class="space-y-6">
   <ProjectScopedSecretsOverviewCard
     effectiveCount={inventory.effective.length}
     projectOverrideCount={inventory.projectOverrides.length}
@@ -130,12 +131,6 @@
     bind:description={createDraft.description}
     bind:value={createDraft.value}
     onCreate={handleCreate}
-  />
-
-  <ProjectScopedSecretsEffectiveCard
-    {loading}
-    effectiveSecrets={inventory.effective}
-    organizationSecrets={inventory.organizationSecrets}
   />
 
   <ProjectScopedSecretsOverridesCard

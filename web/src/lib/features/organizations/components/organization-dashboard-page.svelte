@@ -97,11 +97,6 @@
         </div>
       </div>
       <div class="flex gap-2">
-        {#if currentOrg}
-          <Button variant="outline" href={`${organizationPath(currentOrg.id)}/admin/members`}>
-            Org admin
-          </Button>
-        {/if}
         <Button onclick={() => (showProjectDialog = true)}>New project</Button>
       </div>
     </div>
