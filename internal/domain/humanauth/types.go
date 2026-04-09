@@ -209,6 +209,9 @@ const (
 	AuthAuditUserEnabled            AuthAuditEventType = "user.enabled"
 	AuthAuditUserDisabled           AuthAuditEventType = "user.disabled"
 	AuthAuditUserDisabledAfterLogin AuthAuditEventType = "user.disabled_after_login"
+	AuthAuditLocalBootstrapIssued   AuthAuditEventType = "local_bootstrap.issued"
+	AuthAuditLocalBootstrapRedeemed AuthAuditEventType = "local_bootstrap.redeemed"
+	AuthAuditLocalBootstrapFailed   AuthAuditEventType = "local_bootstrap.failed"
 )
 
 type AuthAuditEvent struct {
@@ -221,6 +224,20 @@ type AuthAuditEvent struct {
 	Metadata  map[string]any
 	CreatedAt time.Time
 }
+
+type LocalBootstrapAuthRequest struct {
+	ID            uuid.UUID
+	CodeHash      string
+	NonceHash     string
+	Purpose       string
+	RequestedBy   string
+	ExpiresAt     time.Time
+	UsedSessionID *uuid.UUID
+	UsedAt        *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
 type ApprovalPolicyRule struct {
 	ID                  uuid.UUID
 	ScopeKind           ScopeKind

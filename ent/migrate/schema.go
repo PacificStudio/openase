@@ -758,6 +758,37 @@ var (
 			},
 		},
 	}
+	// LocalBootstrapAuthRequestsColumns holds the columns for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "code_hash", Type: field.TypeString},
+		{Name: "nonce_hash", Type: field.TypeString},
+		{Name: "purpose", Type: field.TypeString, Default: "browser_session"},
+		{Name: "requested_by", Type: field.TypeString, Default: ""},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "used_session_id", Type: field.TypeUUID, Nullable: true},
+		{Name: "used_at", Type: field.TypeTime, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// LocalBootstrapAuthRequestsTable holds the schema information for the "local_bootstrap_auth_requests" table.
+	LocalBootstrapAuthRequestsTable = &schema.Table{
+		Name:       "local_bootstrap_auth_requests",
+		Columns:    LocalBootstrapAuthRequestsColumns,
+		PrimaryKey: []*schema.Column{LocalBootstrapAuthRequestsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "localbootstrapauthrequest_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[5]},
+			},
+			{
+				Name:    "localbootstrapauthrequest_used_at",
+				Unique:  false,
+				Columns: []*schema.Column{LocalBootstrapAuthRequestsColumns[7]},
+			},
+		},
+	}
 	// MachinesColumns holds the columns for the "machines" table.
 	MachinesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeUUID},
@@ -2568,6 +2599,7 @@ var (
 		ChatPendingInterruptsTable,
 		ChatTurnsTable,
 		InstanceAuthConfigsTable,
+		LocalBootstrapAuthRequestsTable,
 		MachinesTable,
 		MachineChannelTokensTable,
 		NotificationChannelsTable,

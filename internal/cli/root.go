@@ -41,7 +41,7 @@ func NewRootCommand(version string) *cobra.Command {
 	rootCmd.AddCommand(newLogsCommand(options))
 	rootCmd.AddCommand(newDoctorCommand(options))
 	rootCmd.AddCommand(newAPICommand())
-	rootCmd.AddCommand(newAuthCommand())
+	rootCmd.AddCommand(newAuthCommand(options))
 	rootCmd.AddCommand(newRootTicketCommand())
 	rootCmd.AddCommand(newStatusCommand())
 	rootCmd.AddCommand(newChatCommand())

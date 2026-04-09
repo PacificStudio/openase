@@ -27,6 +27,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
 	"github.com/BetterAndBetterII/openase/ent/chatturn"
 	"github.com/BetterAndBetterII/openase/ent/instanceauthconfig"
+	"github.com/BetterAndBetterII/openase/ent/localbootstrapauthrequest"
 	"github.com/BetterAndBetterII/openase/ent/machine"
 	"github.com/BetterAndBetterII/openase/ent/machinechanneltoken"
 	"github.com/BetterAndBetterII/openase/ent/notificationchannel"
@@ -142,6 +143,7 @@ func checkColumn(t, c string) error {
 			chatpendinginterrupt.Table:          chatpendinginterrupt.ValidColumn,
 			chatturn.Table:                      chatturn.ValidColumn,
 			instanceauthconfig.Table:            instanceauthconfig.ValidColumn,
+			localbootstrapauthrequest.Table:     localbootstrapauthrequest.ValidColumn,
 			machine.Table:                       machine.ValidColumn,
 			machinechanneltoken.Table:           machinechanneltoken.ValidColumn,
 			notificationchannel.Table:           notificationchannel.ValidColumn,

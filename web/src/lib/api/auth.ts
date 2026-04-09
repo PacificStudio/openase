@@ -434,16 +434,7 @@ export function normalizeReturnTo(raw: string | null | undefined) {
   }
 }
 
-export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSession> {
-  const execute = fetchFn ?? window.fetch.bind(window)
-  const response = await execute('/api/v1/auth/session', {
-    method: 'GET',
-    credentials: 'same-origin',
-  })
-  if (!response.ok) {
-    throw new ApiError(response.status, await response.text().catch(() => response.statusText))
-  }
-  const payload = (await response.json()) as RawAuthSessionResponse
+function parseAuthSession(payload: RawAuthSessionResponse): HumanAuthSession {
   const authMode = normalizeAuthMode(payload.auth_mode)
   const loginRequired = normalizeLoginRequired(payload)
   const authenticated = normalizeAuthenticated(payload, loginRequired)
@@ -465,6 +456,33 @@ export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSess
     roles: Array.isArray(payload.roles) ? payload.roles.filter((value) => value.trim() !== '') : [],
     permissions,
   }
+}
+
+export async function getAuthSession(fetchFn?: FetchLike): Promise<HumanAuthSession> {
+  const execute = fetchFn ?? window.fetch.bind(window)
+  const response = await execute('/api/v1/auth/session', {
+    method: 'GET',
+    credentials: 'same-origin',
+  })
+  if (!response.ok) {
+    throw new ApiError(response.status, await response.text().catch(() => response.statusText))
+  }
+  return parseAuthSession((await response.json()) as RawAuthSessionResponse)
+}
+
+export async function redeemLocalBootstrapAuthorization(input: {
+  requestID: string
+  code: string
+  nonce: string
+}): Promise<HumanAuthSession> {
+  const payload = await api.post<RawAuthSessionResponse>('/api/v1/auth/local-bootstrap/redeem', {
+    body: {
+      request_id: input.requestID,
+      code: input.code,
+      nonce: input.nonce,
+    },
+  })
+  return parseAuthSession(payload)
 }
 
 export function logoutHumanSession() {

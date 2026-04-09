@@ -233,7 +233,7 @@ func newActivityCommand() *cobra.Command {
 	return command
 }
 
-func newAuthCommand() *cobra.Command {
+func newAuthCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "auth",
 		Short: "Inspect and govern browser-auth sessions through the OpenASE API.",
@@ -289,6 +289,7 @@ func newAuthCommand() *cobra.Command {
 		Example: "openase auth users revoke-sessions $OPENASE_USER_ID",
 	}))
 	command.AddCommand(users)
+	command.AddCommand(newAuthBootstrapCommand(options))
 
 	return command
 }
