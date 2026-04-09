@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import OrganizationAdminRolesPage from './organization-admin-roles-page.svelte'
@@ -100,6 +100,8 @@ describe('OrganizationAdminRolesPage', () => {
 
     expect(view.getByText('Operators')).toBeTruthy()
     expect(view.getByText('Owner approval required to change privileged bindings.')).toBeTruthy()
+
+    await fireEvent.click(view.getByRole('button', { name: 'Add binding' }))
 
     const roleSelect = view.container.querySelectorAll('select')[1]
     const optionValues = Array.from(roleSelect.querySelectorAll('option')).map(

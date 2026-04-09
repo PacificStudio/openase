@@ -2,6 +2,7 @@
   import { PageScaffold } from '$lib/components/layout'
   import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
+  import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
   import { MessageSquare } from '@lucide/svelte'
   import { createProjectUpdatesController } from '../project-updates-controller.svelte'
@@ -74,6 +75,19 @@
             onDeleteComment={projectUpdates.handleDeleteComment}
           />
         {/each}
+
+        {#if projectUpdates.hasMoreThreads}
+          <div class="flex justify-center">
+            <Button
+              variant="outline"
+              class="min-w-36"
+              onclick={() => void projectUpdates.handleLoadMoreThreads()}
+              disabled={projectUpdates.loadingMoreThreads}
+            >
+              {projectUpdates.loadingMoreThreads ? 'Loading…' : 'Load more'}
+            </Button>
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

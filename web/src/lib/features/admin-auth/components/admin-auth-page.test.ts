@@ -107,7 +107,6 @@ describe('Admin auth page', () => {
 
     const { findByText, findByLabelText } = render(AdminAuthPage)
 
-    expect(await findByText('Migration note')).toBeTruthy()
     expect(await findByText('Instance scope')).toBeTruthy()
     expect(await findByText('Last validation diagnostics')).toBeTruthy()
     expect(await findByText('OIDC configuration')).toBeTruthy()

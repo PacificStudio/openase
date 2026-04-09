@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { OrganizationAdminInvitationsPage } from '$lib/features/org-admin'
-  import { appStore } from '$lib/stores/app.svelte'
+  import { goto } from '$app/navigation'
+  import { page } from '$app/state'
 
-  const organizationId = $derived(appStore.currentOrg?.id ?? '')
+  goto(`/orgs/${page.params.orgId}/admin/members`, { replaceState: true })
 </script>
-
-<OrganizationAdminInvitationsPage {organizationId} />

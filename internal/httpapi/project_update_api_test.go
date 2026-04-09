@@ -7,12 +7,15 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/config"
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
@@ -226,7 +229,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	}
 
 	listResp := struct {
-		Threads []projectUpdateThreadResponse `json:"threads"`
+		Threads    []projectUpdateThreadResponse `json:"threads"`
+		NextCursor string                        `json:"next_cursor"`
+		HasMore    bool                          `json:"has_more"`
 	}{}
 	executeJSON(
 		t,
@@ -240,6 +245,9 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	if len(listResp.Threads) != 2 {
 		t.Fatalf("list threads len = %d, want 2", len(listResp.Threads))
 	}
+	if listResp.HasMore || listResp.NextCursor != "" {
+		t.Fatalf("list threads pagination = %+v", listResp)
+	}
 	if listResp.Threads[0].ID != secondThreadResp.Thread.ID || !listResp.Threads[0].IsDeleted {
 		t.Fatalf("list threads[0] = %+v", listResp.Threads[0])
 	}
@@ -249,6 +257,155 @@ func TestProjectUpdateRoutesCRUDAndRevisions(t *testing.T) {
 	if listResp.Threads[1].CommentCount != 0 || len(listResp.Threads[1].Comments) != 1 || !listResp.Threads[1].Comments[0].IsDeleted {
 		t.Fatalf("list threads[1] = %+v", listResp.Threads[1])
 	}
+}
+
+func TestProjectUpdateRoutesSupportCursorPagination(t *testing.T) {
+	client := openTestEntClient(t)
+	projectUpdateSvc := projectupdateservice.NewService(client, nil)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+		WithProjectUpdateService(projectUpdateSvc),
+	)
+
+	ctx := context.Background()
+	projectID := seedHTTPProject(ctx, t, client)
+	sharedActivityAt := time.Date(2026, 4, 1, 11, 30, 0, 0, time.UTC)
+	olderActivityAt := sharedActivityAt.Add(-1 * time.Hour)
+
+	createThread := func(status, title, body string) string {
+		resp := struct {
+			Thread projectUpdateThreadResponse `json:"thread"`
+		}{}
+		executeJSON(
+			t,
+			server,
+			http.MethodPost,
+			fmt.Sprintf("/api/v1/projects/%s/updates", projectID),
+			map[string]any{
+				"status": status,
+				"title":  title,
+				"body":   body,
+			},
+			http.StatusCreated,
+			&resp,
+		)
+		return resp.Thread.ID
+	}
+
+	threadAID := createThread("on_track", "Thread A", "Alpha")
+	threadBID := createThread("at_risk", "Thread B", "Beta")
+	threadCID := createThread("off_track", "Thread C", "Gamma")
+
+	threadAUUID := uuid.MustParse(threadAID)
+	threadBUUID := uuid.MustParse(threadBID)
+	threadCUUID := uuid.MustParse(threadCID)
+
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadAUUID).
+		SetLastActivityAt(sharedActivityAt).
+		SetUpdatedAt(sharedActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadA activity: %v", err)
+	}
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadBUUID).
+		SetLastActivityAt(sharedActivityAt).
+		SetUpdatedAt(sharedActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadB activity: %v", err)
+	}
+	if _, err := client.ProjectUpdateThread.UpdateOneID(threadCUUID).
+		SetLastActivityAt(olderActivityAt).
+		SetUpdatedAt(olderActivityAt).
+		Save(ctx); err != nil {
+		t.Fatalf("set threadC activity: %v", err)
+	}
+
+	firstPage := struct {
+		Threads    []projectUpdateThreadResponse `json:"threads"`
+		NextCursor string                        `json:"next_cursor"`
+		HasMore    bool                          `json:"has_more"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/updates?limit=2", projectID),
+		nil,
+		http.StatusOK,
+		&firstPage,
+	)
+	if len(firstPage.Threads) != 2 || !firstPage.HasMore || firstPage.NextCursor == "" {
+		t.Fatalf("first page = %+v", firstPage)
+	}
+	if firstPage.Threads[0].LastActivityAt != sharedActivityAt.Format(time.RFC3339Nano) ||
+		firstPage.Threads[1].LastActivityAt != sharedActivityAt.Format(time.RFC3339Nano) {
+		t.Fatalf("first page shared timestamps = %+v", firstPage.Threads)
+	}
+	if firstPage.Threads[0].ID < firstPage.Threads[1].ID {
+		t.Fatalf("first page ids = %s, %s, want desc tie-break", firstPage.Threads[0].ID, firstPage.Threads[1].ID)
+	}
+
+	secondPage := struct {
+		Threads    []projectUpdateThreadResponse `json:"threads"`
+		NextCursor string                        `json:"next_cursor"`
+		HasMore    bool                          `json:"has_more"`
+	}{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf(
+			"/api/v1/projects/%s/updates?limit=2&before=%s",
+			projectID,
+			url.QueryEscape(firstPage.NextCursor),
+		),
+		nil,
+		http.StatusOK,
+		&secondPage,
+	)
+	if len(secondPage.Threads) != 1 || secondPage.Threads[0].ID != threadCID {
+		t.Fatalf("second page threads = %+v, want only threadC", secondPage.Threads)
+	}
+	if secondPage.HasMore || secondPage.NextCursor != "" {
+		t.Fatalf("second page pagination = %+v", secondPage)
+	}
+
+	badLimit := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/updates?limit=0", projectID),
+		"",
+	)
+	assertAPIErrorResponse(
+		t,
+		badLimit,
+		http.StatusBadRequest,
+		"INVALID_UPDATES_PAGE",
+		"limit must be an integer between 1 and 100",
+	)
+
+	badCursor := performJSONRequest(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/projects/%s/updates?before=bad", projectID),
+		"",
+	)
+	assertAPIErrorResponse(
+		t,
+		badCursor,
+		http.StatusBadRequest,
+		"INVALID_UPDATES_PAGE",
+		"before cursor must be in timestamp|id format",
+	)
 }
 
 func TestProjectUpdateCreateEmitsActivityStreamEvent(t *testing.T) {
@@ -347,6 +504,17 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 		t.Fatalf("parseUpdateProjectUpdateCommentRequest() = %+v", updateInput)
 	}
 
+	pageInput, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Limit:  " 5 ",
+		Before: " 2026-04-01T10:00:00Z|" + threadID.String() + " ",
+	})
+	if err != nil {
+		t.Fatalf("parseListProjectUpdatesPageRequest() error = %v", err)
+	}
+	if pageInput.ProjectID != projectID || pageInput.Limit != 5 || pageInput.Before == nil {
+		t.Fatalf("parseListProjectUpdatesPageRequest() = %+v", pageInput)
+	}
+
 	if _, err := parseCreateProjectUpdateThreadRequest(projectID, "", rawCreateProjectUpdateThreadRequest{
 		Status: "bad",
 		Body:   "y",
@@ -357,6 +525,16 @@ func TestProjectUpdateRequestParsersAndErrors(t *testing.T) {
 		Body: " ",
 	}); err == nil {
 		t.Fatal("expected empty comment body error")
+	}
+	if _, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Limit: "500",
+	}); err == nil {
+		t.Fatal("expected invalid limit error")
+	}
+	if _, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Before: "bad",
+	}); err == nil {
+		t.Fatal("expected invalid cursor error")
 	}
 
 	for _, testCase := range []struct {

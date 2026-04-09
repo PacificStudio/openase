@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	"github.com/google/uuid"
 )
@@ -28,6 +29,13 @@ type rawCreateProjectUpdateCommentRequest struct {
 type rawUpdateProjectUpdateCommentRequest struct {
 	Body       string  `json:"body"`
 	EditReason *string `json:"edit_reason"`
+}
+
+func parseListProjectUpdatesPageRequest(
+	projectID uuid.UUID,
+	raw projectupdatedomain.ListThreadsPageRequest,
+) (projectupdatedomain.ListThreadsPage, error) {
+	return projectupdatedomain.ParseListThreadsPage(projectID, raw)
 }
 
 func parseCreateProjectUpdateThreadRequest(

@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ProjectUpdatePayload } from '$lib/api/contracts'
-import { parseProjectUpdateThreads } from './model'
+import {
+  mergeProjectUpdateThreads,
+  parseProjectUpdatePage,
+  parseProjectUpdateThreads,
+} from './model'
 
 describe('project update model', () => {
   it('sorts threads by last activity descending while preserving deleted placeholders', () => {
     const payload: ProjectUpdatePayload = {
+      has_more: false,
+      next_cursor: '',
       threads: [
         {
           id: 'thread-older',
@@ -68,5 +74,63 @@ describe('project update model', () => {
     expect(threads.map((thread) => thread.id)).toEqual(['thread-newer', 'thread-older'])
     expect(threads[0]?.comments[0]?.bodyMarkdown).toBe('LGTM')
     expect(threads[1]?.isDeleted).toBe(true)
+  })
+
+  it('parses pagination metadata and deduplicates merged threads with the preferred copy', () => {
+    const firstPage = parseProjectUpdatePage({
+      threads: [
+        {
+          id: 'thread-b',
+          project_id: 'project-1',
+          status: 'on_track',
+          title: 'Thread B',
+          body_markdown: 'B',
+          created_by: 'user:bob',
+          created_at: '2026-04-01T10:00:00Z',
+          updated_at: '2026-04-01T10:00:00Z',
+          edited_at: null,
+          edit_count: 0,
+          last_edited_by: null,
+          is_deleted: false,
+          deleted_at: null,
+          deleted_by: null,
+          last_activity_at: '2026-04-01T10:00:00Z',
+          comment_count: 0,
+          comments: [],
+        },
+      ],
+      has_more: true,
+      next_cursor: 'cursor-1',
+    })
+
+    const merged = mergeProjectUpdateThreads(
+      [
+        {
+          ...firstPage.threads[0],
+          lastActivityAt: '2026-04-01T10:02:00Z',
+          bodyMarkdown: 'fresh',
+        },
+      ],
+      [
+        {
+          ...firstPage.threads[0],
+          lastActivityAt: '2026-04-01T09:58:00Z',
+          bodyMarkdown: 'stale',
+        },
+        {
+          ...firstPage.threads[0],
+          id: 'thread-a',
+          title: 'Thread A',
+          bodyMarkdown: 'older',
+          lastActivityAt: '2026-04-01T09:57:00Z',
+        },
+      ],
+    )
+
+    expect(firstPage.hasMore).toBe(true)
+    expect(firstPage.nextCursor).toBe('cursor-1')
+    expect(merged).toHaveLength(2)
+    expect(merged[0]?.bodyMarkdown).toBe('fresh')
+    expect(merged.map((thread) => thread.id)).toEqual(['thread-b', 'thread-a'])
   })
 })

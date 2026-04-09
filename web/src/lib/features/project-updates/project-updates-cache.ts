@@ -3,6 +3,9 @@ import type { ProjectUpdateThread } from './types'
 
 type ProjectUpdatesSnapshot = {
   threads: ProjectUpdateThread[]
+  nextCursor: string
+  hasMoreThreads: boolean
+  loadedMorePages: boolean
   cachedAt: number
 }
 
@@ -27,10 +30,13 @@ export function readProjectUpdatesCache(projectId: string) {
   }
 }
 
-export function writeProjectUpdatesCache(projectId: string, threads: ProjectUpdateThread[]) {
+export function writeProjectUpdatesCache(
+  projectId: string,
+  snapshot: Omit<ProjectUpdatesSnapshot, 'cachedAt'>,
+) {
   const runtime = getRuntime(projectId)
   runtime.snapshot = {
-    threads,
+    ...snapshot,
     cachedAt: Date.now(),
   }
   runtime.dirty = false

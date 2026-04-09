@@ -7,6 +7,7 @@
     ProviderRateLimitDisplay,
   } from '$lib/features/providers'
   import { Badge } from '$ui/badge'
+  import { Button } from '$ui/button'
 
   let {
     providers = [],
@@ -19,11 +20,21 @@
   } = $props()
 </script>
 
-<section class="space-y-4">
-  <h2 class="text-foreground text-lg font-semibold">Providers</h2>
+<div class="space-y-3">
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">Providers</h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        Agent execution backends for this organization.
+      </p>
+    </div>
+    {#if onAddProvider}
+      <Button variant="outline" size="sm" onclick={onAddProvider}>Add provider</Button>
+    {/if}
+  </div>
 
   {#if providers.length > 0}
-    <div class="border-border divide-border divide-y rounded-lg border">
+    <div class="border-border divide-border divide-y rounded-md border">
       {#each providers as provider (provider.id)}
         {@const rateLimit = summarizeAgentProviderRateLimit(provider)}
         <div class="flex items-center justify-between gap-4 px-4 py-3">
@@ -50,7 +61,7 @@
   {:else}
     <button
       type="button"
-      class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-8 text-center transition-colors"
+      class="border-border hover:border-border/80 hover:bg-muted/30 w-full rounded-md border border-dashed px-4 py-8 text-center transition-colors"
       onclick={onAddProvider}
     >
       <p class="text-muted-foreground text-sm">No providers configured.</p>
@@ -59,4 +70,4 @@
       </p>
     </button>
   {/if}
-</section>
+</div>

@@ -10,6 +10,7 @@ import (
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	projectupdatedomain "github.com/BetterAndBetterII/openase/internal/domain/projectupdate"
 	projectupdateservice "github.com/BetterAndBetterII/openase/internal/projectupdate"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	"github.com/BetterAndBetterII/openase/internal/ticketstatus"
@@ -178,13 +179,23 @@ func (s *Server) handleAgentListProjectUpdates(c echo.Context) error {
 		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
-	items, err := s.projectUpdateService.ListThreads(c.Request().Context(), projectID)
+	pageInput, err := parseListProjectUpdatesPageRequest(projectID, projectupdatedomain.ListThreadsPageRequest{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_UPDATES_PAGE", err.Error())
+	}
+
+	page, err := s.projectUpdateService.ListThreadPage(c.Request().Context(), pageInput)
 	if err != nil {
 		return writeProjectUpdateError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"threads": mapProjectUpdateThreadResponses(items),
+		"threads":     mapProjectUpdateThreadResponses(page.Threads),
+		"next_cursor": page.NextCursor,
+		"has_more":    page.HasMore,
 	})
 }
 

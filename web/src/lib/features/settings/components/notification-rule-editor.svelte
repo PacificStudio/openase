@@ -1,10 +1,5 @@
 <script lang="ts">
-  import type {
-    NotificationChannel,
-    NotificationRule,
-    NotificationRuleEventType,
-  } from '$lib/api/contracts'
-  import { Button } from '$ui/button'
+  import type { NotificationChannel, NotificationRuleEventType } from '$lib/api/contracts'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
@@ -20,25 +15,13 @@
   let {
     channels,
     eventTypes,
-    selectedRule,
     draft,
-    canCreateRule,
-    saving = false,
-    deleting = false,
     onDraftChange,
-    onSave,
-    onDelete,
   }: {
     channels: NotificationChannel[]
     eventTypes: NotificationRuleEventType[]
-    selectedRule: NotificationRule | null
     draft: RuleDraft
-    canCreateRule: boolean
-    saving?: boolean
-    deleting?: boolean
     onDraftChange: (draft: RuleDraft) => void
-    onSave: () => void
-    onDelete: () => void
   } = $props()
 
   const currentSeverity: EventSeverity = $derived(getSeverity(draft.eventType, eventTypes))
@@ -70,13 +53,7 @@
   }
 </script>
 
-<div class="space-y-4 px-5 py-4">
-  {#if !canCreateRule}
-    <div class="border-border bg-muted/40 rounded-lg border px-4 py-3 text-sm">
-      Add at least one notification channel to enable rule management.
-    </div>
-  {/if}
-
+<div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
       <Label for="notification-rule-name">Rule name</Label>
@@ -84,7 +61,6 @@
         id="notification-rule-name"
         placeholder="e.g. Alert on failures"
         value={draft.name}
-        disabled={!canCreateRule}
         oninput={(event) => updateTextField('name', event)}
       />
     </div>
@@ -229,7 +205,7 @@
     <Textarea
       id="notification-rule-filter"
       value={draft.filterText}
-      rows={4}
+      rows={3}
       class="font-mono text-xs"
       placeholder={'e.g. {"priority":"high"}'}
       oninput={(event) => updateTextField('filterText', event)}
@@ -237,16 +213,5 @@
     <p class="text-muted-foreground text-xs">
       JSON object to narrow delivery. Only events matching all filter keys will trigger this rule.
     </p>
-  </div>
-
-  <div class="flex flex-wrap items-center gap-2 pt-1">
-    <Button size="sm" onclick={onSave} disabled={!canCreateRule || saving || deleting}>
-      {saving ? 'Saving...' : selectedRule ? 'Save changes' : 'Create rule'}
-    </Button>
-    {#if selectedRule}
-      <Button variant="destructive" size="sm" onclick={onDelete} disabled={saving || deleting}>
-        {deleting ? 'Deleting...' : 'Delete rule'}
-      </Button>
-    {/if}
   </div>
 </div>
