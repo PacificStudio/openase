@@ -182,6 +182,7 @@ func TestServiceCompleteWritesConfigThatLoadsWithoutLegacyAuthSection(t *testing
 	if err != nil {
 		t.Fatalf("config.Load() error = %v", err)
 	}
+	// #nosec G304 -- Test reads the config it just wrote under a temp home directory.
 	configBody, err := os.ReadFile(filepath.Join(homeDir, ".openase", "config.yaml"))
 	if err != nil {
 		t.Fatalf("read config body: %v", err)
