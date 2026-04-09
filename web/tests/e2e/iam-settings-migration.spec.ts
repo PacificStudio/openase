@@ -23,8 +23,8 @@ test('project settings route admins to /admin and org admin surfaces', async ({
   await page.getByRole('link', { name: 'Open /admin/auth' }).click()
   await expect(page).toHaveURL('/admin/auth')
   await expect(page.getByRole('heading', { name: 'Admin Auth' })).toBeVisible()
-  await expect(page.getByText('Instance-level authentication, OIDC rollout')).toBeVisible()
-  await expect(page.getByText('OIDC configuration')).toBeVisible()
+  await expect(page.getByText('Current browser auth method, OIDC draft state')).toBeVisible()
+  await expect(page.getByText('Draft, validation, and activation')).toBeVisible()
 
   await page.goto(projectPath('settings'))
   await page.getByRole('button', { name: 'Access', exact: true }).click()
