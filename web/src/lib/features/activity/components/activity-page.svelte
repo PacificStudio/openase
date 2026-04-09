@@ -24,6 +24,8 @@
   } from './activity-page-state'
   import ActivityTimeline from './activity-timeline.svelte'
 
+  const loadMoreAnimationDurationMs = 240
+
   let entries = $state<ActivityEntry[]>([])
   let loading = $state(false)
   let loadingMore = $state(false)
@@ -58,6 +60,12 @@
 
   function writeSnapshot(projectId: string, snapshot: ActivitySnapshotState) {
     writeProjectActivityCache(projectId, snapshot)
+  }
+
+  function wait(durationMs: number) {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, durationMs)
+    })
   }
 
   async function loadActivityEntries(projectId: string, showLoading: boolean) {
@@ -112,9 +120,12 @@
     const currentCursor = nextCursor
 
     try {
-      const [activityPayload, ticketPayload] = await Promise.all([
-        listActivity(projectId, { limit: activityPageSize, before: currentCursor }),
-        listTickets(projectId),
+      const [[activityPayload, ticketPayload]] = await Promise.all([
+        Promise.all([
+          listActivity(projectId, { limit: activityPageSize, before: currentCursor }),
+          listTickets(projectId),
+        ]),
+        wait(loadMoreAnimationDurationMs),
       ])
       if (activeProjectId !== projectId) {
         return
@@ -286,10 +297,47 @@
     {/if}
 
     {#if initialLoaded && hasMore}
-      <div class="flex justify-center pt-2">
-        <Button variant="outline" onclick={handleLoadMore} disabled={loadingMore}>
-          {loadingMore ? 'Loading…' : 'Load more'}
-        </Button>
+      <div class="space-y-3 pt-2">
+        {#if loadingMore}
+          <div
+            class="border-border/60 bg-muted/20 animate-fade-in-up rounded-xl border border-dashed px-3 py-3"
+            aria-live="polite"
+          >
+            <div
+              class="text-muted-foreground mb-3 flex items-center gap-2 text-[11px] font-medium tracking-[0.22em] uppercase"
+            >
+              <span class="bg-primary/70 animate-pulse-dot size-2 rounded-full"></span>
+              Loading older activity
+            </div>
+            <div class="space-y-1">
+              {#each { length: 3 } as _, i}
+                <div
+                  class="animate-stagger flex items-start gap-3 rounded-md px-1 py-2"
+                  style="--stagger-index: {i}"
+                >
+                  <Skeleton class="mt-0.5 size-6 shrink-0 rounded-full" />
+                  <div class="min-w-0 flex-1 space-y-1.5">
+                    <div class="flex items-center gap-2">
+                      <Skeleton class="h-4 w-20 rounded" />
+                      <Skeleton
+                        class="h-4 {i === 0 ? 'w-3/5' : i === 1 ? 'w-2/3' : 'w-1/2'} rounded"
+                      />
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <Skeleton class="h-3 w-16 rounded" />
+                      <Skeleton class="h-3 w-12 rounded" />
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+        <div class="flex justify-center">
+          <Button variant="outline" onclick={handleLoadMore} disabled={loadingMore}>
+            {loadingMore ? 'Loading…' : 'Load more'}
+          </Button>
+        </div>
       </div>
     {/if}
   </div>

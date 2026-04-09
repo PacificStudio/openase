@@ -137,6 +137,11 @@ describe('ActivityPage', () => {
     const loadMoreButton = view.getByRole('button', { name: 'Load more' })
     await fireEvent.click(loadMoreButton)
 
+    expect(view.getByText('Loading older activity')).toBeTruthy()
+    expect((view.getByRole('button', { name: 'Loading…' }) as HTMLButtonElement).disabled).toBe(
+      true,
+    )
+
     await waitFor(() => {
       expect(view.getByText('Older page item')).toBeTruthy()
     })
@@ -146,6 +151,7 @@ describe('ActivityPage', () => {
       limit: 40,
       before: 'cursor-page-1',
     })
+    expect(view.queryByText('Loading older activity')).toBeNull()
     expect(view.queryByRole('button', { name: 'Load more' })).toBeNull()
   })
 
