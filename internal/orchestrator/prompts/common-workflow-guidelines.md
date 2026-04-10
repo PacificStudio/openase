@@ -1,4 +1,4 @@
-## Workflow Execution Rules
+## Shared Workflow Execution Rules
 
 Apply these rules to every workflow execution in addition to the workflow-specific harness.
 
