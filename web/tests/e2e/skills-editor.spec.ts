@@ -31,8 +31,12 @@ test('skills page supports editing, disabling, and binding a skill', async ({
   const description = page.getByPlaceholder('Description...')
   await description.fill('Build and redeploy OpenASE with rollback checks.')
 
-  const editor = page.locator('[data-testid="skill-editor-page"] textarea').first()
-  await editor.fill(
+  const editor = page
+    .locator('[data-testid="skill-editor-textarea-container"] .cm-content[contenteditable="true"]')
+    .first()
+  await editor.click()
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type(
     [
       '# Deploy OpenASE',
       '',

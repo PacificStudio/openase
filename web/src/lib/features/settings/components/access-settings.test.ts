@@ -114,7 +114,7 @@ describe('Access settings', () => {
       createdAt: '2026-04-04T10:00:00Z',
     })
 
-    const { findByText, findByPlaceholderText, getByRole } = render(AccessSettings)
+    const { findByText, findByPlaceholderText } = render(AccessSettings)
 
     // RBAC section is visible immediately
     expect(await findByText('Project RBAC')).toBeTruthy()
