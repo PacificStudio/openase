@@ -32,6 +32,10 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations", s.handleListProjectConversations)
 	api.GET("/chat/conversations/:conversationId", s.handleGetProjectConversation)
 	api.GET("/chat/conversations/:conversationId/entries", s.handleListProjectConversationEntries)
+	api.GET("/chat/conversations/:conversationId/workspace", s.handleGetProjectConversationWorkspace)
+	api.GET("/chat/conversations/:conversationId/workspace/tree", s.handleListProjectConversationWorkspaceTree)
+	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
+	api.GET("/chat/conversations/:conversationId/workspace/file-patch", s.handleGetProjectConversationWorkspaceFilePatch)
 	api.GET("/chat/conversations/:conversationId/workspace-diff", s.handleGetProjectConversationWorkspaceDiff)
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
@@ -517,6 +521,112 @@ func (s *Server) handleListProjectConversationEntries(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]any{"entries": mapProjectConversationEntries(items)})
 }
 
+func (s *Server) handleGetProjectConversationWorkspace(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.GetWorkspaceMetadata(c.Request().Context(), userID, conversationID)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"workspace": mapProjectConversationWorkspaceMetadataResponse(item)})
+}
+
+func (s *Server) handleListProjectConversationWorkspaceTree(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	request, err := parseProjectConversationWorkspaceTreeRequest(c.QueryParam("repo_path"), c.QueryParam("path"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.ListWorkspaceTree(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.RepoPath,
+		request.Path,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"workspace_tree": mapProjectConversationWorkspaceTreeResponse(item)})
+}
+
+func (s *Server) handleGetProjectConversationWorkspaceFile(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	request, err := parseProjectConversationWorkspaceFileRequest(c.QueryParam("repo_path"), c.QueryParam("path"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.ReadWorkspaceFilePreview(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.RepoPath,
+		request.Path,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"file_preview": mapProjectConversationWorkspaceFilePreviewResponse(item)})
+}
+
+func (s *Server) handleGetProjectConversationWorkspaceFilePatch(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	request, err := parseProjectConversationWorkspaceFileRequest(c.QueryParam("repo_path"), c.QueryParam("path"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.ReadWorkspaceFilePatch(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.RepoPath,
+		request.Path,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"file_patch": mapProjectConversationWorkspaceFilePatchResponse(item)})
+}
+
 func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error {
 	if s.projectConversationService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
@@ -713,6 +823,12 @@ func writeProjectConversationError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusNotFound, "CHAT_CONVERSATION_NOT_FOUND", err.Error())
 	case errors.Is(err, chatservice.ErrConversationRuntimeAbsent):
 		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceUnavailable):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProjectConversationWorkspacePathInvalid):
+		return writeAPIError(c, http.StatusBadRequest, "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID", err.Error())
+	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceRepoNotFound), errors.Is(err, chatservice.ErrProjectConversationWorkspaceEntryNotFound):
+		return writeAPIError(c, http.StatusNotFound, "PROJECT_CONVERSATION_WORKSPACE_NOT_FOUND", err.Error())
 	case errors.Is(err, catalogservice.ErrNotFound), errors.Is(err, ticketservice.ErrTicketNotFound), errors.Is(err, workflowservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_CONTEXT_NOT_FOUND", err.Error())
 	default:
@@ -848,6 +964,80 @@ func mapProjectConversationWorkspaceDiffResponse(
 		"added":           item.Added,
 		"removed":         item.Removed,
 		"repos":           repos,
+	}
+}
+
+func mapProjectConversationWorkspaceMetadataResponse(
+	item chatservice.ProjectConversationWorkspaceMetadata,
+) map[string]any {
+	repos := make([]map[string]any, 0, len(item.Repos))
+	for _, repo := range item.Repos {
+		repos = append(repos, map[string]any{
+			"name":          repo.Name,
+			"path":          repo.Path,
+			"branch":        repo.Branch,
+			"head_commit":   repo.HeadCommit,
+			"head_summary":  repo.HeadSummary,
+			"dirty":         repo.Dirty,
+			"files_changed": repo.FilesChanged,
+			"added":         repo.Added,
+			"removed":       repo.Removed,
+		})
+	}
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"available":       item.Available,
+		"workspace_path":  item.WorkspacePath,
+		"repos":           repos,
+	}
+}
+
+func mapProjectConversationWorkspaceTreeResponse(
+	item chatservice.ProjectConversationWorkspaceTree,
+) map[string]any {
+	entries := make([]map[string]any, 0, len(item.Entries))
+	for _, entry := range item.Entries {
+		entries = append(entries, map[string]any{
+			"path":       entry.Path,
+			"name":       entry.Name,
+			"kind":       string(entry.Kind),
+			"size_bytes": entry.SizeBytes,
+		})
+	}
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+		"entries":         entries,
+	}
+}
+
+func mapProjectConversationWorkspaceFilePreviewResponse(
+	item chatservice.ProjectConversationWorkspaceFilePreview,
+) map[string]any {
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+		"size_bytes":      item.SizeBytes,
+		"media_type":      item.MediaType,
+		"preview_kind":    string(item.PreviewKind),
+		"truncated":       item.Truncated,
+		"content":         item.Content,
+	}
+}
+
+func mapProjectConversationWorkspaceFilePatchResponse(
+	item chatservice.ProjectConversationWorkspaceFilePatch,
+) map[string]any {
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"path":            item.Path,
+		"status":          string(item.Status),
+		"diff_kind":       string(item.DiffKind),
+		"truncated":       item.Truncated,
+		"diff":            item.Diff,
 	}
 }
 

@@ -37,6 +37,16 @@ type projectConversationTurnRequest struct {
 	Focus   *chatservice.ProjectConversationFocus
 }
 
+type projectConversationWorkspaceTreeRequest struct {
+	RepoPath string
+	Path     string
+}
+
+type projectConversationWorkspaceFileRequest struct {
+	RepoPath string
+	Path     string
+}
+
 func parseCreateProjectConversationRequest(raw rawCreateConversationRequest) (createProjectConversationRequest, error) {
 	source, err := chatdomain.ParseSource(raw.Source)
 	if err != nil {
@@ -78,6 +88,38 @@ func parseInterruptResponseRequest(raw rawInterruptResponseRequest) chatdomain.I
 		Decision: raw.Decision,
 		Answer:   raw.Answer,
 	}
+}
+
+func parseProjectConversationWorkspaceTreeRequest(
+	repoPath string,
+	path string,
+) (projectConversationWorkspaceTreeRequest, error) {
+	trimmedRepoPath := strings.TrimSpace(repoPath)
+	if trimmedRepoPath == "" {
+		return projectConversationWorkspaceTreeRequest{}, writeableError("repo_path must not be empty")
+	}
+	return projectConversationWorkspaceTreeRequest{
+		RepoPath: trimmedRepoPath,
+		Path:     strings.TrimSpace(path),
+	}, nil
+}
+
+func parseProjectConversationWorkspaceFileRequest(
+	repoPath string,
+	path string,
+) (projectConversationWorkspaceFileRequest, error) {
+	trimmedRepoPath := strings.TrimSpace(repoPath)
+	if trimmedRepoPath == "" {
+		return projectConversationWorkspaceFileRequest{}, writeableError("repo_path must not be empty")
+	}
+	trimmedPath := strings.TrimSpace(path)
+	if trimmedPath == "" {
+		return projectConversationWorkspaceFileRequest{}, writeableError("path must not be empty")
+	}
+	return projectConversationWorkspaceFileRequest{
+		RepoPath: trimmedRepoPath,
+		Path:     trimmedPath,
+	}, nil
 }
 
 type writeableError string

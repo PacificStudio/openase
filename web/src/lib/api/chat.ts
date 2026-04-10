@@ -166,6 +166,66 @@ export type ProjectConversationWorkspaceDiff = {
   repos: ProjectConversationWorkspaceDiffRepo[]
 }
 
+export type ProjectConversationWorkspaceRepoMetadata = {
+  name: string
+  path: string
+  branch: string
+  headCommit: string
+  headSummary: string
+  dirty: boolean
+  filesChanged: number
+  added: number
+  removed: number
+}
+
+export type ProjectConversationWorkspaceMetadata = {
+  conversationId: string
+  available: boolean
+  workspacePath: string
+  repos: ProjectConversationWorkspaceRepoMetadata[]
+}
+
+export type ProjectConversationWorkspaceTreeEntryKind = 'directory' | 'file'
+
+export type ProjectConversationWorkspaceTreeEntry = {
+  path: string
+  name: string
+  kind: ProjectConversationWorkspaceTreeEntryKind
+  sizeBytes: number
+}
+
+export type ProjectConversationWorkspaceTree = {
+  conversationId: string
+  repoPath: string
+  path: string
+  entries: ProjectConversationWorkspaceTreeEntry[]
+}
+
+export type ProjectConversationWorkspacePreviewKind = 'text' | 'binary'
+
+export type ProjectConversationWorkspaceFilePreview = {
+  conversationId: string
+  repoPath: string
+  path: string
+  sizeBytes: number
+  mediaType: string
+  previewKind: ProjectConversationWorkspacePreviewKind
+  truncated: boolean
+  content: string
+}
+
+export type ProjectConversationWorkspaceDiffKind = 'none' | 'text' | 'binary'
+
+export type ProjectConversationWorkspaceFilePatch = {
+  conversationId: string
+  repoPath: string
+  path: string
+  status: ProjectConversationWorkspaceFileStatus
+  diffKind: ProjectConversationWorkspaceDiffKind
+  truncated: boolean
+  diff: string
+}
+
 export type ProjectConversationInterruptOption = {
   id: string
   label: string
@@ -397,6 +457,73 @@ export async function getProjectConversationWorkspaceDiff(conversationId: string
     workspaceDiff: parseProjectConversationWorkspaceDiff(
       object.workspace_diff ?? object.workspaceDiff ?? object,
     ),
+  }
+}
+
+export async function getProjectConversationWorkspace(conversationId: string) {
+  const payload = await fetchJSON<{ workspace?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace`,
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspace: parseProjectConversationWorkspaceMetadata(object.workspace ?? object),
+  }
+}
+
+export async function listProjectConversationWorkspaceTree(
+  conversationId: string,
+  request: { repoPath: string; path?: string },
+) {
+  const payload = await fetchJSON<{ workspace_tree?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/tree`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspaceTree: parseProjectConversationWorkspaceTree(object.workspace_tree ?? object),
+  }
+}
+
+export async function getProjectConversationWorkspaceFilePreview(
+  conversationId: string,
+  request: { repoPath: string; path: string },
+) {
+  const payload = await fetchJSON<{ file_preview?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    filePreview: parseProjectConversationWorkspaceFilePreview(object.file_preview ?? object),
+  }
+}
+
+export async function getProjectConversationWorkspaceFilePatch(
+  conversationId: string,
+  request: { repoPath: string; path: string },
+) {
+  const payload = await fetchJSON<{ file_patch?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file-patch`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    filePatch: parseProjectConversationWorkspaceFilePatch(object.file_patch ?? object),
   }
 }
 
@@ -828,6 +955,104 @@ function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversat
     added: readRequiredNumber(object, 'added'),
     removed: readRequiredNumber(object, 'removed'),
     repos: readProjectConversationWorkspaceDiffRepos(object),
+  }
+}
+
+function parseProjectConversationWorkspaceMetadata(
+  value: unknown,
+): ProjectConversationWorkspaceMetadata {
+  const object = parseRequiredObject(value)
+  const repos = Array.isArray(object.repos)
+    ? object.repos.map((item) => {
+        const repo = parseRequiredObject(item)
+        return {
+          name: readRequiredString(repo, 'name'),
+          path: readRequiredString(repo, 'path'),
+          branch: readRequiredString(repo, 'branch'),
+          headCommit: readRequiredString(repo, 'head_commit'),
+          headSummary: readRequiredString(repo, 'head_summary'),
+          dirty: readRequiredBoolean(repo, 'dirty'),
+          filesChanged: readRequiredNumber(repo, 'files_changed'),
+          added: readRequiredNumber(repo, 'added'),
+          removed: readRequiredNumber(repo, 'removed'),
+        } satisfies ProjectConversationWorkspaceRepoMetadata
+      })
+    : []
+
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    available: readRequiredBoolean(object, 'available'),
+    workspacePath: readOptionalString(object, 'workspace_path') ?? '',
+    repos,
+  }
+}
+
+function parseProjectConversationWorkspaceTree(value: unknown): ProjectConversationWorkspaceTree {
+  const object = parseRequiredObject(value)
+  const entries = Array.isArray(object.entries)
+    ? object.entries.map((item) => {
+        const entry = parseRequiredObject(item)
+        const kind = readRequiredString(entry, 'kind')
+        if (kind !== 'directory' && kind !== 'file') {
+          throw new Error(`project conversation workspace tree kind ${kind} is unsupported`)
+        }
+        return {
+          path: readRequiredString(entry, 'path'),
+          name: readRequiredString(entry, 'name'),
+          kind,
+          sizeBytes: readRequiredNumber(entry, 'size_bytes'),
+        } satisfies ProjectConversationWorkspaceTreeEntry
+      })
+    : []
+
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: typeof object.path === 'string' ? object.path : '',
+    entries,
+  }
+}
+
+function parseProjectConversationWorkspaceFilePreview(
+  value: unknown,
+): ProjectConversationWorkspaceFilePreview {
+  const object = parseRequiredObject(value)
+  const previewKind = readRequiredString(object, 'preview_kind')
+  if (previewKind !== 'text' && previewKind !== 'binary') {
+    throw new Error(`project conversation workspace preview kind ${previewKind} is unsupported`)
+  }
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: readRequiredString(object, 'path'),
+    sizeBytes: readRequiredNumber(object, 'size_bytes'),
+    mediaType: readRequiredString(object, 'media_type'),
+    previewKind,
+    truncated: readRequiredBoolean(object, 'truncated'),
+    content: readOptionalString(object, 'content') ?? '',
+  }
+}
+
+function parseProjectConversationWorkspaceFilePatch(
+  value: unknown,
+): ProjectConversationWorkspaceFilePatch {
+  const object = parseRequiredObject(value)
+  const status = readRequiredString(object, 'status')
+  if (!isProjectConversationWorkspaceFileStatus(status)) {
+    throw new Error(`project conversation workspace file status ${status} is unsupported`)
+  }
+  const diffKind = readRequiredString(object, 'diff_kind')
+  if (diffKind !== 'none' && diffKind !== 'text' && diffKind !== 'binary') {
+    throw new Error(`project conversation workspace diff kind ${diffKind} is unsupported`)
+  }
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: readRequiredString(object, 'path'),
+    status,
+    diffKind,
+    truncated: readRequiredBoolean(object, 'truncated'),
+    diff: readOptionalString(object, 'diff') ?? '',
   }
 }
 
