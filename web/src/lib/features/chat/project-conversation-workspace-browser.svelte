@@ -12,10 +12,12 @@
     X,
   } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
-  import ProjectConversationTerminalPanel from './project-conversation-terminal-panel.svelte'
+  import WorkspaceTerminalPanel from './workspace-terminal-panel.svelte'
   import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
   import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
+  import { createTerminalManager } from './terminal-manager.svelte'
+  import { onDestroy } from 'svelte'
 
   let {
     conversationId = '',
@@ -36,6 +38,15 @@
 
   const browser = createProjectConversationWorkspaceBrowserState({
     getConversationId: () => conversationId,
+  })
+
+  const terminalManager = createTerminalManager({
+    getConversationId: () => conversationId,
+    getWorkspacePath: () => browser.metadata?.workspacePath ?? '',
+  })
+
+  onDestroy(() => {
+    terminalManager.disposeAll()
   })
 
   let pathCopied = $state(false)
@@ -77,10 +88,42 @@
     window.addEventListener('pointerup', onUp)
   }
 
+  // -- Terminal panel vertical resize --
+  const MIN_TERMINAL_HEIGHT = 120
+  const DEFAULT_TERMINAL_HEIGHT = 260
+  let terminalHeight = $state(DEFAULT_TERMINAL_HEIGHT)
+  let terminalResizing = $state(false)
+  let containerElement: HTMLDivElement | null = null
+
+  function handleTerminalResizeStart(event: PointerEvent) {
+    event.preventDefault()
+    terminalResizing = true
+    const startY = event.clientY
+    const startHeight = terminalHeight
+
+    function onMove(e: PointerEvent) {
+      const maxHeight = containerElement ? containerElement.clientHeight - 100 : 600
+      terminalHeight = Math.min(
+        maxHeight,
+        Math.max(MIN_TERMINAL_HEIGHT, startHeight - (e.clientY - startY)),
+      )
+    }
+
+    function onUp() {
+      terminalResizing = false
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      terminalManager.refitAll()
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   let refreshGeneration = $state(0)
   let lastRefreshKey = $state('')
   let lastWorkspaceDiffLoading = $state(false)
-  let activeView = $state<'files' | 'terminal'>('files')
+  let lastConversationId = $state('')
 
   const selectedRepo = $derived(
     browser.metadata?.repos.find((repo) => repo.path === browser.selectedRepoPath) ??
@@ -102,6 +145,13 @@
   })
 
   $effect(() => {
+    if (lastConversationId && lastConversationId !== conversationId) {
+      terminalManager.disposeAll()
+    }
+    lastConversationId = conversationId
+  })
+
+  $effect(() => {
     const nextLoading = workspaceDiffLoading
     if (lastWorkspaceDiffLoading && !nextLoading && conversationId) {
       refreshGeneration += 1
@@ -112,8 +162,8 @@
   $effect(() => {
     if (!conversationId) {
       lastRefreshKey = ''
-      activeView = 'files'
       browser.reset()
+      terminalManager.disposeAll()
       return
     }
 
@@ -132,6 +182,7 @@
 <div
   class="bg-background flex h-full min-h-0 w-full flex-col"
   data-testid="project-conversation-workspace-browser"
+  bind:this={containerElement}
 >
   <!-- Compact toolbar -->
   <div class="border-border flex h-9 items-center gap-1.5 border-b px-3">
@@ -153,10 +204,25 @@
       </button>
     {/if}
     <div class="flex-1"></div>
+    {#if browser.metadata?.available}
+      <Button
+        variant={terminalManager.panelOpen ? 'secondary' : 'ghost'}
+        size="icon-xs"
+        class={cn(
+          'text-muted-foreground size-6',
+          terminalManager.panelOpen && 'text-foreground',
+        )}
+        aria-label="Toggle terminal"
+        onclick={() => terminalManager.togglePanel()}
+        disabled={!conversationId}
+      >
+        <SquareTerminal class="size-3" />
+      </Button>
+    {/if}
     <Button
       variant="ghost"
-      size="sm"
-      class="text-muted-foreground size-6 p-0"
+      size="icon-xs"
+      class="text-muted-foreground size-6"
       aria-label="Refresh workspace browser"
       onclick={() => void browser.refreshWorkspace(true)}
       disabled={!conversationId || browser.metadataLoading}
@@ -166,8 +232,8 @@
     {#if onClose}
       <Button
         variant="ghost"
-        size="sm"
-        class="text-muted-foreground size-6 p-0"
+        size="icon-xs"
+        class="text-muted-foreground size-6"
         aria-label="Close workspace browser"
         onclick={onClose}
       >
@@ -186,7 +252,7 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      Loading workspace…
+      Loading workspace...
     </div>
   {:else if browser.metadataError}
     <div class="flex flex-1 items-center justify-center px-6">
@@ -207,33 +273,14 @@
       The workspace will appear after Project AI provisions the conversation workdir.
     </div>
   {:else}
-    <div class="border-border flex items-center gap-2 border-b px-3 py-2">
-      <Button
-        variant={activeView === 'files' ? 'secondary' : 'ghost'}
-        size="sm"
-        class="h-8"
-        onclick={() => {
-          activeView = 'files'
-        }}
-      >
-        <FolderTree class="mr-1.5 size-3.5" />
-        Files
-      </Button>
-      <Button
-        variant={activeView === 'terminal' ? 'secondary' : 'ghost'}
-        size="sm"
-        class="h-8"
-        onclick={() => {
-          activeView = 'terminal'
-        }}
-      >
-        <SquareTerminal class="mr-1.5 size-3.5" />
-        Terminal
-      </Button>
-    </div>
-
-    {#if activeView === 'files'}
-      <div class={cn('flex min-h-0 flex-1', sidebarResizing && 'select-none')}>
+    <div
+      class={cn(
+        'flex min-h-0 flex-1 flex-col',
+        (sidebarResizing || terminalResizing) && 'select-none',
+      )}
+    >
+      <!-- Files area -->
+      <div class="flex min-h-0 flex-1">
         <!-- Sidebar (resizable) -->
         <div
           class="relative min-h-0 shrink-0 overflow-hidden"
@@ -279,13 +326,26 @@
           />
         </div>
       </div>
-    {:else}
-      <ProjectConversationTerminalPanel
-        {conversationId}
-        workspacePath={browser.metadata?.workspacePath ?? ''}
-        selectedRepoPath={browser.selectedRepoPath}
-        selectedFilePath={browser.selectedFilePath}
-      />
-    {/if}
+
+      <!-- Terminal panel (bottom, like VSCode) -->
+      {#if terminalManager.panelOpen}
+        <!-- Resize handle -->
+        <div
+          class={cn(
+            'h-[3px] shrink-0 cursor-row-resize transition-colors',
+            terminalResizing ? 'bg-primary' : 'bg-border hover:bg-primary/50',
+          )}
+          role="separator"
+          aria-orientation="horizontal"
+          onpointerdown={handleTerminalResizeStart}
+        ></div>
+        <div
+          class="shrink-0 overflow-hidden"
+          style="height: {terminalHeight}px"
+        >
+          <WorkspaceTerminalPanel manager={terminalManager} />
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
