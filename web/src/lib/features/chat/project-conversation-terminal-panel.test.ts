@@ -130,7 +130,7 @@ describe('ProjectConversationTerminalPanel', () => {
         conversationId: 'conversation-1',
         workspacePath: '/tmp/conversation-1',
         selectedRepoPath: 'services/openase',
-        currentTreePath: 'src',
+        selectedFilePath: 'src/main.ts',
       },
     })
 

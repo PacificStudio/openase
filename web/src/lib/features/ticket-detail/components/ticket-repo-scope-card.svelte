@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
@@ -38,10 +39,14 @@
     onDelete?: (scopeId: string) => void
   } = $props()
 
-  let draft = $state<ScopeDraft>({
-    branchName: scope.branchName,
-    pullRequestUrl: scope.prUrl ?? '',
-  })
+  function createScopeDraft(): ScopeDraft {
+    return untrack(() => ({
+      branchName: scope.branchName,
+      pullRequestUrl: scope.prUrl ?? '',
+    }))
+  }
+
+  let draft = $state<ScopeDraft>(createScopeDraft())
   let editOpen = $state(false)
   let copiedBranch = $state(false)
 
@@ -53,10 +58,7 @@
   }
 
   function resetDraft() {
-    draft = {
-      branchName: scope.branchName,
-      pullRequestUrl: scope.prUrl ?? '',
-    }
+    draft = createScopeDraft()
   }
 
   function handleEdit() {

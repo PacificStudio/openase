@@ -13,6 +13,7 @@
     error = '',
     browserOpen = false,
     onBrowse,
+    onOpenFile,
   }: {
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
@@ -20,6 +21,7 @@
     error?: string
     browserOpen?: boolean
     onBrowse?: () => void
+    onOpenFile?: (filePath: string) => void
   } = $props()
 
   let expanded = $state(false)
@@ -52,13 +54,13 @@
     switch (status) {
       case 'added':
       case 'untracked':
-        return 'text-emerald-600'
+        return 'text-emerald-600 dark:text-emerald-400'
       case 'deleted':
-        return 'text-rose-600'
+        return 'text-rose-600 dark:text-rose-400'
       case 'renamed':
-        return 'text-amber-600'
+        return 'text-amber-600 dark:text-amber-400'
       default:
-        return 'text-sky-600'
+        return 'text-sky-600 dark:text-sky-400'
     }
   }
 
@@ -106,7 +108,12 @@
       {#if conversationId}
         <button
           type="button"
-          class="border-border bg-background hover:bg-muted/40 hidden rounded-md border px-2 py-1 text-[11px] font-medium transition-colors lg:inline-flex"
+          class={cn(
+            'hidden items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition-colors lg:inline-flex',
+            browserOpen
+              ? 'bg-primary/10 text-primary hover:bg-primary/15'
+              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground',
+          )}
           onclick={(event) => {
             event.stopPropagation()
             onBrowse?.()
@@ -141,7 +148,11 @@
               </div>
             {/if}
             {#each repo.files as file}
-              <div class="flex items-center gap-1.5 px-3 py-0.5">
+              <button
+                type="button"
+                class="hover:bg-muted/40 flex w-full items-center gap-1.5 px-3 py-0.5 text-left transition-colors"
+                onclick={() => onOpenFile?.(file.path)}
+              >
                 <span class={cn('w-3 shrink-0 font-mono font-bold', statusClass(file.status))}>
                   {statusLabel(file.status)}
                 </span>
@@ -151,7 +162,7 @@
                 <span class="text-muted-foreground/60 shrink-0 font-mono text-[10px]">
                   {formatTotals(file.added, file.removed)}
                 </span>
-              </div>
+              </button>
             {/each}
           {/each}
           <div class="h-1"></div>

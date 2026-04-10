@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { appStore } from '$lib/stores/app.svelte'
@@ -114,20 +114,34 @@ describe('Access settings', () => {
       createdAt: '2026-04-04T10:00:00Z',
     })
 
-    const { findByText, findByPlaceholderText } = render(AccessSettings)
+    const { findByText, findByPlaceholderText, getByRole } = render(AccessSettings)
+
+    // RBAC section is visible immediately
+    expect(await findByText('Project RBAC')).toBeTruthy()
+
+    // Expand the details collapsible to see effective access and principal info
+    const detailsTrigger = await findByText('Your effective access & identity')
+    await fireEvent.click(detailsTrigger)
 
     expect(await findByText('Project effective access')).toBeTruthy()
     expect(await findByText(oidcUser().displayName)).toBeTruthy()
     expect(await findByText('Platform Admins')).toBeTruthy()
 
-    const projectSection = (await findByText('Project RBAC')).closest(
-      '.border-border',
-    ) as HTMLElement
-    const subjectInput = await findByPlaceholderText('user@example.com')
-    expect(projectSection.contains(subjectInput)).toBe(true)
+    // Open the add-binding dialog
+    const addButtons = document.querySelectorAll('button')
+    const addTrigger = Array.from(addButtons).find((button) =>
+      button.textContent?.includes('Add binding'),
+    ) as HTMLButtonElement
+    await fireEvent.click(addTrigger)
 
+    // Fill the form inside the dialog
+    const subjectInput = await findByPlaceholderText('user@example.com')
     await fireEvent.input(subjectInput, { target: { value: 'bob@example.com' } })
-    await fireEvent.click(within(projectSection).getByRole('button', { name: 'Add binding' }))
+
+    // Submit via the dialog form's submit button
+    const form = subjectInput.closest('form') as HTMLFormElement
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement
+    await fireEvent.click(submitButton)
 
     await waitFor(() => {
       expect(createProjectRoleBinding).toHaveBeenCalledWith(currentProject().id, {

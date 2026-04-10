@@ -374,6 +374,30 @@ func TestParseAuthConfigOIDCNormalizesClaimsAndLists(t *testing.T) {
 	}
 }
 
+func TestParseAuthConfigOIDCDefaultsToNonExpiringSessions(t *testing.T) {
+	v := viper.New()
+	configureAuthDefaults(v)
+	v.Set("auth.mode", "oidc")
+	v.Set("auth.oidc.issuer_url", "https://idp.example.com")
+	v.Set("auth.oidc.client_id", "openase")
+	v.Set("auth.oidc.client_secret", "secret")
+	v.Set("auth.oidc.redirect_url", "http://127.0.0.1:19836/api/v1/auth/oidc/callback")
+
+	cfg, err := parseAuthConfig(v)
+	if err != nil {
+		t.Fatalf("parseAuthConfig() error = %v", err)
+	}
+	if err := validateAuthConfig(cfg); err != nil {
+		t.Fatalf("validateAuthConfig() error = %v", err)
+	}
+	if cfg.OIDC.SessionTTL != 0 {
+		t.Fatalf("SessionTTL = %s, want 0", cfg.OIDC.SessionTTL)
+	}
+	if cfg.OIDC.SessionIdleTTL != 0 {
+		t.Fatalf("SessionIdleTTL = %s, want 0", cfg.OIDC.SessionIdleTTL)
+	}
+}
+
 func TestValidateAuthConfigRejectsInvalidOIDCSettings(t *testing.T) {
 	base := AuthConfig{
 		Mode: AuthModeOIDC,
@@ -575,6 +599,12 @@ func TestConfigHelperParsers(t *testing.T) {
 	if _, err := parseDuration(0 * time.Second); err == nil || !strings.Contains(err.Error(), "must be positive") {
 		t.Fatalf("parseDuration(non-positive) error = %v", err)
 	}
+	if got, err := parseNonNegativeDuration("0s"); err != nil || got != 0 {
+		t.Fatalf("parseNonNegativeDuration(zero) = %s, %v", got, err)
+	}
+	if _, err := parseNonNegativeDuration(-1 * time.Second); err == nil || !strings.Contains(err.Error(), "must not be negative") {
+		t.Fatalf("parseNonNegativeDuration(negative) error = %v", err)
+	}
 
 	if got, err := parseUnitInterval("0.25"); err != nil || got != 0.25 {
 		t.Fatalf("parseUnitInterval(string) = %v, %v", got, err)
@@ -710,6 +740,15 @@ func TestConfigHelperParsersCoverAdditionalBranches(t *testing.T) {
 	}
 	if _, err := parseDuration(5); err == nil || !strings.Contains(err.Error(), "unsupported duration type") {
 		t.Fatalf("parseDuration(type) error = %v", err)
+	}
+	if got, err := parseNonNegativeDuration(4 * time.Second); err != nil || got != 4*time.Second {
+		t.Fatalf("parseNonNegativeDuration(duration) = %s, %v", got, err)
+	}
+	if _, err := parseNonNegativeDuration("bad"); err == nil || !strings.Contains(err.Error(), "invalid duration") {
+		t.Fatalf("parseNonNegativeDuration(invalid string) error = %v", err)
+	}
+	if _, err := parseNonNegativeDuration(5); err == nil || !strings.Contains(err.Error(), "unsupported duration type") {
+		t.Fatalf("parseNonNegativeDuration(type) error = %v", err)
 	}
 
 	if got, err := parseUnitInterval(int64(1)); err != nil || got != 1 {

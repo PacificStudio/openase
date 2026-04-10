@@ -213,6 +213,9 @@ export async function reconcileTabAfterReconnect(
     if (nextPhase === 'awaiting_reply' && !input.isActiveTab(tab)) {
       tab.phase = 'awaiting_reply'
       tab.needsHydration = true
+      tab.unread = true
+      input.touchTabs()
+      input.persistTabs()
       return
     }
 

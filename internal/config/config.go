@@ -449,6 +449,24 @@ func parseDuration(raw any) (time.Duration, error) {
 	}
 }
 
+func parseNonNegativeDuration(raw any) (time.Duration, error) {
+	switch value := raw.(type) {
+	case time.Duration:
+		if value < 0 {
+			return 0, fmt.Errorf("duration %s must not be negative", value)
+		}
+		return value, nil
+	case string:
+		parsed, err := time.ParseDuration(strings.TrimSpace(value))
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration %q", value)
+		}
+		return parseNonNegativeDuration(parsed)
+	default:
+		return 0, fmt.Errorf("unsupported duration type %T", raw)
+	}
+}
+
 func parseUnitInterval(raw any) (float64, error) {
 	switch value := raw.(type) {
 	case float64:

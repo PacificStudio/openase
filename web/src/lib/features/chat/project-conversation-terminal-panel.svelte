@@ -17,13 +17,11 @@
     conversationId = '',
     workspacePath = '',
     selectedRepoPath = '',
-    currentTreePath = '',
     selectedFilePath = '',
   }: {
     conversationId?: string
     workspacePath?: string
     selectedRepoPath?: string
-    currentTreePath?: string
     selectedFilePath?: string
   } = $props()
 
@@ -31,7 +29,6 @@
     getConversationId: () => conversationId,
     getWorkspacePath: () => workspacePath,
     getSelectedRepoPath: () => selectedRepoPath,
-    getCurrentTreePath: () => currentTreePath,
     getSelectedFilePath: () => selectedFilePath,
   })
 

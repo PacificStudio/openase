@@ -119,7 +119,6 @@ export function resolveTerminalLaunchTarget(input: {
   preset: TerminalLaunchPreset
   workspacePath: string
   selectedRepoPath: string
-  currentTreePath: string
   selectedFilePath: string
 }): TerminalLaunchTarget {
   if (input.preset === 'workspace-root' || !input.selectedRepoPath) {
@@ -128,7 +127,7 @@ export function resolveTerminalLaunchTarget(input: {
     }
   }
 
-  const cwdPath = resolveCurrentDirectory(input.currentTreePath, input.selectedFilePath)
+  const cwdPath = resolveCurrentDirectory(input.selectedFilePath)
   return {
     label: cwdPath ? `${input.selectedRepoPath}/${cwdPath}` : input.selectedRepoPath,
     repoPath: input.selectedRepoPath,
@@ -162,9 +161,9 @@ function readOptionalString(object: Record<string, unknown>, key: string) {
   return typeof value === 'string' && value.trim() !== '' ? value : undefined
 }
 
-function resolveCurrentDirectory(currentTreePath: string, selectedFilePath: string) {
+function resolveCurrentDirectory(selectedFilePath: string) {
   if (selectedFilePath.trim() === '') {
-    return currentTreePath.trim()
+    return ''
   }
   const lastSlashIndex = selectedFilePath.lastIndexOf('/')
   return lastSlashIndex <= 0 ? '' : selectedFilePath.slice(0, lastSlashIndex)

@@ -259,8 +259,8 @@ func DefaultDraftOIDCConfig() DraftOIDCConfig {
 
 const (
 	oidcCallbackPath      = "/api/v1/auth/oidc/callback"
-	defaultOIDCSessionTTL = 8 * time.Hour
-	defaultOIDCIdleTTL    = 30 * time.Minute
+	defaultOIDCSessionTTL = 0
+	defaultOIDCIdleTTL    = 0
 )
 
 func defaultOIDCScopes() []string {
@@ -286,7 +286,7 @@ func parseDraftOIDCConfig(input AccessControlStateInput) (DraftOIDCConfig, error
 	if err != nil {
 		return DraftOIDCConfig{}, err
 	}
-	if sessionIdleTTL > sessionTTL {
+	if sessionTTL > 0 && sessionIdleTTL > sessionTTL {
 		return DraftOIDCConfig{}, fmt.Errorf("session_idle_ttl must not exceed session_ttl")
 	}
 
@@ -353,8 +353,8 @@ func parseAccessControlDuration(fieldName string, raw string, fallback time.Dura
 	if err != nil {
 		return 0, fmt.Errorf("%s must be a valid duration: %w", fieldName, err)
 	}
-	if parsed <= 0 {
-		return 0, fmt.Errorf("%s must be greater than zero", fieldName)
+	if parsed < 0 {
+		return 0, fmt.Errorf("%s must not be negative", fieldName)
 	}
 	return parsed, nil
 }

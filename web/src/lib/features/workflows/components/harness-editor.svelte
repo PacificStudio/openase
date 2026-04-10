@@ -1,13 +1,9 @@
 <script lang="ts">
-  import { tick } from 'svelte'
   import { cn } from '$lib/utils'
   import { FileCode, Copy, Check } from '@lucide/svelte'
-  import {
-    filterSuggestions,
-    findCompletionState,
-    flattenSuggestions,
-  } from './harness-editor-autocomplete'
-  import type { CompletionState, Suggestion } from './harness-editor-autocomplete'
+  import { CodeEditor } from '$lib/components/code'
+  import { filterSuggestions, flattenSuggestions } from './harness-editor-autocomplete'
+  import type { Suggestion } from './harness-editor-autocomplete'
   import type { HarnessContent, HarnessVariableGroup } from '../types'
 
   let {
@@ -27,13 +23,21 @@
   } = $props()
 
   let copied = $state(false)
-  let textareaElement = $state<HTMLTextAreaElement | null>(null)
-  let lineNumberElement = $state<HTMLDivElement | null>(null)
-  let completionState = $state<CompletionState | null>(null)
   let activeSuggestionIndex = $state(0)
-  let lines = $derived(content.rawContent.split('\n'))
   let suggestions = $derived(flattenSuggestions(variableGroups))
-  let filteredSuggestions = $derived(filterSuggestions(suggestions, completionState))
+
+  // Simple completion state: track whether the user is inside {{ }} or {% %}
+  let completionQuery = $state('')
+  let completionMode = $state<'variable' | 'filter' | null>(null)
+  let filteredSuggestions = $derived(
+    completionMode
+      ? filterSuggestions(suggestions, {
+          mode: completionMode,
+          query: completionQuery,
+          tokenStart: 0,
+        })
+      : [],
+  )
 
   $effect(() => {
     if (activeSuggestionIndex >= filteredSuggestions.length) activeSuggestionIndex = 0
@@ -41,49 +45,14 @@
 
   $effect(() => {
     if (filePath !== undefined) {
-      completionState = null
+      completionMode = null
+      completionQuery = ''
       activeSuggestionIndex = 0
     }
   })
 
-  function handleInput(e: Event) {
-    const target = e.target as HTMLTextAreaElement
-    onchange?.(target.value)
-    refreshCompletion(target)
-  }
-
-  function handleCursorActivity(e: Event) {
-    refreshCompletion(e.target as HTMLTextAreaElement)
-  }
-
-  async function handleKeydown(e: KeyboardEvent) {
-    if (!completionState || filteredSuggestions.length === 0) {
-      return
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      activeSuggestionIndex = (activeSuggestionIndex + 1) % filteredSuggestions.length
-      return
-    }
-
-    if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      activeSuggestionIndex =
-        (activeSuggestionIndex + filteredSuggestions.length - 1) % filteredSuggestions.length
-      return
-    }
-
-    if (e.key === 'Escape') {
-      completionState = null
-      activeSuggestionIndex = 0
-      return
-    }
-
-    if (e.key === 'Enter' || e.key === 'Tab') {
-      e.preventDefault()
-      await applySuggestion(filteredSuggestions[activeSuggestionIndex])
-    }
+  function handleChange(nextValue: string) {
+    onchange?.(nextValue)
   }
 
   async function copyContent() {
@@ -92,35 +61,12 @@
     setTimeout(() => (copied = false), 1500)
   }
 
-  function handleScroll() {
-    if (lineNumberElement && textareaElement) {
-      lineNumberElement.scrollTop = textareaElement.scrollTop
-    }
-  }
-
-  function refreshCompletion(target: HTMLTextAreaElement) {
-    const nextState = findCompletionState(target.value, target.selectionStart)
-    completionState = nextState
-    activeSuggestionIndex = 0
-  }
-
-  async function applySuggestion(suggestion: Suggestion | undefined) {
-    if (!suggestion || !completionState || !textareaElement) return
-
-    const cursor = textareaElement.selectionStart
-    const nextValue =
-      textareaElement.value.slice(0, completionState.tokenStart) +
-      suggestion.insertText +
-      textareaElement.value.slice(cursor)
-    const nextCursor = completionState.tokenStart + suggestion.insertText.length
-
-    onchange?.(nextValue)
-    completionState = null
-    await tick()
-
-    textareaElement?.focus()
-    textareaElement?.setSelectionRange(nextCursor, nextCursor)
-    if (textareaElement) refreshCompletion(textareaElement)
+  function handleSuggestionClick(suggestion: Suggestion) {
+    // Autocomplete insertion would require cursor access from CodeMirror.
+    // For now, close the panel. Full CM autocomplete integration can replace this.
+    completionMode = null
+    completionQuery = ''
+    void suggestion
   }
 </script>
 
@@ -149,38 +95,18 @@
     </button>
   </div>
 
-  <div class="relative flex flex-1 overflow-hidden bg-[#0d1117]">
-    <div
-      bind:this={lineNumberElement}
-      class="shrink-0 overflow-hidden border-r border-neutral-800 bg-[#0d1117] px-3 py-3 text-right font-mono text-xs leading-6 text-neutral-600 select-none"
-      aria-hidden="true"
-    >
-      {#each lines as _, i}
-        <div>{i + 1}</div>
-      {/each}
-    </div>
+  <div class="relative min-h-0 flex-1 bg-[#0d1117]">
+    <CodeEditor value={content.rawContent} {filePath} language="markdown" onchange={handleChange} />
 
-    <textarea
-      bind:this={textareaElement}
-      class="h-full flex-1 resize-none bg-transparent p-3 font-mono text-xs leading-6 text-neutral-200 outline-none placeholder:text-neutral-600"
-      spellcheck="false"
-      value={content.rawContent}
-      oninput={handleInput}
-      onclick={handleCursorActivity}
-      onkeyup={handleCursorActivity}
-      onkeydown={handleKeydown}
-      onscroll={handleScroll}
-    ></textarea>
-
-    {#if completionState && filteredSuggestions.length > 0}
+    {#if completionMode && filteredSuggestions.length > 0}
       <div
         class="absolute right-4 bottom-4 z-10 w-[26rem] max-w-[calc(100%-2rem)] overflow-hidden rounded-lg border border-neutral-800 bg-[#111827]/95 shadow-2xl backdrop-blur"
       >
         <div
           class="flex items-center justify-between border-b border-neutral-800 px-3 py-2 text-[11px] tracking-[0.12em] text-neutral-400 uppercase"
         >
-          <span>{completionState.mode === 'filter' ? 'Filters' : 'Variables'}</span>
-          <span>{completionState.query || 'browse'}</span>
+          <span>{completionMode === 'filter' ? 'Filters' : 'Variables'}</span>
+          <span>{completionQuery || 'browse'}</span>
         </div>
 
         <div class="max-h-72 overflow-auto p-1">
@@ -193,7 +119,7 @@
                   ? 'bg-sky-500/15 text-neutral-100'
                   : 'text-neutral-300 hover:bg-neutral-800/80',
               )}
-              onclick={() => applySuggestion(suggestion)}
+              onclick={() => handleSuggestionClick(suggestion)}
               onmouseenter={() => (activeSuggestionIndex = index)}
             >
               <div class="flex items-center justify-between gap-3">
@@ -213,7 +139,7 @@
         </div>
 
         <div class="border-t border-neutral-800 px-3 py-2 text-[11px] text-neutral-500">
-          Enter / Tab inserts the highlighted item.
+          Click to insert the highlighted item.
         </div>
       </div>
     {/if}

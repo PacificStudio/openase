@@ -295,6 +295,7 @@ func (s *Service) HandleCallback(
 		return CallbackResult{}, fmt.Errorf("generate csrf token: %w", err)
 	}
 	device := parseRawSessionDevice(userAgent)
+	now := time.Now().UTC()
 	session, err := s.repo.CreateBrowserSession(ctx, repo.CreateBrowserSessionInput{
 		UserID:        user.ID,
 		SessionHash:   hashToken(sessionToken),
@@ -302,8 +303,8 @@ func (s *Service) HandleCallback(
 		DeviceOS:      device.OS,
 		DeviceBrowser: device.Browser,
 		DeviceLabel:   device.Label,
-		ExpiresAt:     time.Now().Add(oidcConfig.SessionPolicy.SessionTTL),
-		IdleExpiresAt: time.Now().Add(oidcConfig.SessionPolicy.SessionIdleTTL),
+		ExpiresAt:     sessionDeadline(now, oidcConfig.SessionPolicy.SessionTTL),
+		IdleExpiresAt: sessionDeadline(now, oidcConfig.SessionPolicy.SessionIdleTTL),
 		CSRFSecret:    csrfToken,
 		UserAgentHash: hashValue(userAgent),
 		IPPrefix:      ipPrefix(ip),
@@ -325,7 +326,7 @@ func (s *Service) HandleCallback(
 			"device":    sessionDeviceMetadata(userAgent),
 			"ip_prefix": ipPrefix(ip),
 		},
-		CreatedAt: time.Now().UTC(),
+		CreatedAt: now,
 	}); err != nil {
 		return CallbackResult{}, err
 	}
@@ -356,7 +357,7 @@ func (s *Service) AuthenticateSession(
 	if session.RevokedAt != nil {
 		return domain.AuthenticatedPrincipal{}, ErrInvalidSession
 	}
-	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+	if browserSessionExpired(now, session) {
 		_ = s.expireSession(ctx, session, now)
 		return domain.AuthenticatedPrincipal{}, ErrSessionExpired
 	}
@@ -383,9 +384,14 @@ func (s *Service) AuthenticateSession(
 		return domain.AuthenticatedPrincipal{}, ErrInvalidSession
 	}
 	if touch {
-		session, err = s.repo.TouchBrowserSession(ctx, session.ID, now.Add(oidcConfig.SessionPolicy.SessionIdleTTL))
+		session, err = s.repo.TouchBrowserSession(
+			ctx,
+			session.ID,
+			sessionRefreshAbsoluteDeadline(session.ExpiresAt, now, oidcConfig.SessionPolicy.SessionTTL),
+			sessionDeadline(now, oidcConfig.SessionPolicy.SessionIdleTTL),
+		)
 		if err != nil {
-			return domain.AuthenticatedPrincipal{}, fmt.Errorf("extend session idle ttl: %w", err)
+			return domain.AuthenticatedPrincipal{}, fmt.Errorf("refresh session deadlines: %w", err)
 		}
 	}
 	return s.buildPrincipal(ctx, session, user, identity, groups)

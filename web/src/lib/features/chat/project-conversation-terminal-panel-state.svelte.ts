@@ -18,7 +18,6 @@ export function createProjectConversationTerminalPanelState(input: {
   getConversationId: () => string
   getWorkspacePath: () => string
   getSelectedRepoPath: () => string
-  getCurrentTreePath: () => string
   getSelectedFilePath: () => string
 }) {
   let xterm: import('@xterm/xterm').Terminal | null = null
@@ -39,7 +38,6 @@ export function createProjectConversationTerminalPanelState(input: {
       preset: 'context',
       workspacePath: input.getWorkspacePath(),
       selectedRepoPath: input.getSelectedRepoPath(),
-      currentTreePath: input.getCurrentTreePath(),
       selectedFilePath: input.getSelectedFilePath(),
     }),
   )
@@ -48,7 +46,6 @@ export function createProjectConversationTerminalPanelState(input: {
       preset: 'workspace-root',
       workspacePath: input.getWorkspacePath(),
       selectedRepoPath: input.getSelectedRepoPath(),
-      currentTreePath: input.getCurrentTreePath(),
       selectedFilePath: input.getSelectedFilePath(),
     }),
   )

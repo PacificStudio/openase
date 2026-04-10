@@ -139,7 +139,7 @@
   }
 </script>
 
-<div class="max-w-2xl space-y-6">
+<div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">Archived Tickets</h2>
     <p class="text-muted-foreground mt-1 text-sm">

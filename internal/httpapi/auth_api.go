@@ -427,6 +427,7 @@ func (s *Server) setHumanSessionCookie(c echo.Context, sessionToken string) {
 		Name:     humanSessionCookieName,
 		Value:    sessionToken,
 		Path:     "/",
+		Expires:  time.Date(9999, 12, 31, 23, 59, 59, 0, time.UTC),
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Secure:   cookieSecure(c),

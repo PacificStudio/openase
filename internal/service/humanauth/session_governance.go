@@ -63,7 +63,7 @@ func (s *Service) ListSessionGovernance(
 		if session.RevokedAt != nil {
 			continue
 		}
-		if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+		if browserSessionExpired(now, session) {
 			_ = s.expireSession(ctx, session, now)
 			continue
 		}
@@ -97,7 +97,7 @@ func (s *Service) RevokeSession(
 	}
 
 	now := time.Now().UTC()
-	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+	if browserSessionExpired(now, session) {
 		_ = s.expireSession(ctx, session, now)
 		session.RevokedAt = &now
 		return session, isCurrent, nil
@@ -190,7 +190,7 @@ func (s *Service) ForceRevokeSession(
 	}
 
 	now := time.Now().UTC()
-	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+	if browserSessionExpired(now, session) {
 		_ = s.expireSession(ctx, session, now)
 		session.RevokedAt = &now
 		return session, isCurrent, nil
@@ -283,7 +283,7 @@ func auditActorForUser(userID uuid.UUID) string {
 }
 
 func expirationReason(session domain.BrowserSession, now time.Time) string {
-	if now.After(session.IdleExpiresAt) {
+	if sessionDeadlineExpired(now, session.IdleExpiresAt) {
 		return "idle_timeout"
 	}
 	return "absolute_timeout"

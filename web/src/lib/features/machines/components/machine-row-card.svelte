@@ -63,36 +63,29 @@
 <article
   data-testid={`machine-card-${machine.id}`}
   class={cn(
-    'border-border bg-card hover:bg-muted/20 hover-lift rounded-lg border p-4 transition-colors',
+    'border-border bg-card hover:bg-muted/20 hover-lift rounded-lg border p-3 transition-colors sm:p-4',
     selected && 'border-primary bg-primary/5 ring-primary/20 ring-1',
   )}
 >
-  <div class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] lg:items-start">
-    <div data-testid={`machine-open-${machine.id}`} class="min-w-0 space-y-3">
-      <div class="space-y-1">
-        <div class="flex flex-wrap items-center gap-2">
-          <h3 class="text-foreground min-w-0 truncate text-sm font-semibold sm:text-base">
-            {machine.name}
-          </h3>
-          {#if localMachine}
-            <Badge variant="secondary" class="text-[10px]">local</Badge>
-          {/if}
-        </div>
-        <p class="text-muted-foreground truncate font-mono text-xs">
+  <!-- Header: name + host + status dots + actions -->
+  <div class="flex items-start gap-3">
+    <div data-testid={`machine-open-${machine.id}`} class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+        <h3 class="text-foreground min-w-0 truncate text-sm font-semibold">{machine.name}</h3>
+        {#if localMachine}
+          <Badge variant="secondary" class="text-[10px]">local</Badge>
+        {/if}
+        <span class="text-muted-foreground hidden font-mono text-xs sm:inline">
           {machine.host}:{machine.port}
-        </p>
-        <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-1.5">
-          <Badge variant="outline" class="text-[10px]">{reachabilityLabel}</Badge>
-          <Badge variant="outline" class="text-[10px]">{setupGuide.runtimeLabel}</Badge>
-          <Badge variant="outline" class="text-[10px]">{setupGuide.stateLabel}</Badge>
-          <Badge variant="secondary" class="text-[10px]">{platformLabel}</Badge>
-          <Badge variant="outline" class={cn('text-[10px]', detectionBadgeClass)}>
-            {detectionLabel}
-          </Badge>
-        </div>
+        </span>
       </div>
+      <p class="text-muted-foreground mt-0.5 truncate font-mono text-xs sm:hidden">
+        {machine.host}:{machine.port}
+      </p>
+    </div>
 
-      <div class="flex items-center gap-1.5">
+    <div class="flex shrink-0 items-center gap-2">
+      <div class="hidden items-center gap-1 sm:flex">
         {#each statusDots as dot (dot.key)}
           <Tooltip.Root>
             <Tooltip.Trigger>
@@ -110,22 +103,42 @@
           </Tooltip.Root>
         {/each}
       </div>
-    </div>
 
-    <div data-testid={`machine-resources-${machine.id}`}>
+      <MachineRowCardActions
+        machineName={machine.name}
+        {localMachine}
+        {resetEnabled}
+        {testing}
+        {deleting}
+        {onOpen}
+        {onTest}
+        {onReset}
+        {onDelete}
+      />
+    </div>
+  </div>
+
+  <!-- Badges row -->
+  <div class="mt-2 flex flex-wrap items-center gap-1">
+    <Badge variant="outline" class="text-[10px]">{reachabilityLabel}</Badge>
+    <Badge variant="outline" class="text-[10px]">{setupGuide.runtimeLabel}</Badge>
+    <Badge variant="outline" class="text-[10px]">{setupGuide.stateLabel}</Badge>
+    <Badge variant="secondary" class="text-[10px]">{platformLabel}</Badge>
+    <Badge variant="outline" class={cn('text-[10px]', detectionBadgeClass)}>
+      {detectionLabel}
+    </Badge>
+    <!-- Mobile status dots -->
+    <div class="flex items-center gap-1 sm:hidden">
+      {#each statusDots as dot (dot.key)}
+        <span class={cn('size-1.5 rounded-full', dotColorClass[dot.color])}></span>
+      {/each}
+    </div>
+  </div>
+
+  <!-- Resource bars -->
+  {#if resourceBars.length > 0}
+    <div data-testid={`machine-resources-${machine.id}`} class="mt-3">
       <MachineResourceBars bars={resourceBars} />
     </div>
-
-    <MachineRowCardActions
-      machineName={machine.name}
-      {localMachine}
-      {resetEnabled}
-      {testing}
-      {deleting}
-      {onOpen}
-      {onTest}
-      {onReset}
-      {onDelete}
-    />
-  </div>
+  {/if}
 </article>

@@ -122,6 +122,9 @@ func TestLocalBootstrapRedeemCreatesLocalBrowserSession(t *testing.T) {
 	if len(cookies) != 1 || cookies[0].Name != humanSessionCookieName || cookies[0].Value == "" {
 		t.Fatalf("expected session cookie, got %#v", cookies)
 	}
+	if cookies[0].Expires.Year() != 9999 {
+		t.Fatalf("session cookie expiry = %s, want year 9999", cookies[0].Expires)
+	}
 
 	sessionRec := performJSONRequestWithHeaders(t, fixture.server, http.MethodGet, "/api/v1/auth/session", "", map[string]string{
 		"Cookie":     humanSessionCookieName + "=" + cookies[0].Value,

@@ -246,12 +246,6 @@ func buildSecuritySessionPolicyResponseFromAccessControl(
 		sessionTTL = stored.Draft.SessionPolicy.SessionTTL
 		sessionIdleTTL = stored.Draft.SessionPolicy.SessionIdleTTL
 	}
-	if sessionTTL == 0 {
-		sessionTTL = 8 * time.Hour
-	}
-	if sessionIdleTTL == 0 {
-		sessionIdleTTL = 30 * time.Minute
-	}
 	return securityAuthSessionPolicyResponse{
 		SessionTTL:     sessionTTL.String(),
 		SessionIdleTTL: sessionIdleTTL.String(),

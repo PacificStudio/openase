@@ -250,7 +250,7 @@ describe('ProjectConversationPanel session status', () => {
         },
       ],
     })
-    const { findByText } = render(ProjectConversationPanel, {
+    const { container, findByText } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -259,7 +259,9 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    await findByText('Existing prompt')
+    await waitFor(() => {
+      expect(container.textContent).toContain('Existing prompt')
+    })
     await waitFor(() => {
       expect(watchProjectConversationMuxStream).toHaveBeenCalled()
     })
@@ -272,6 +274,8 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect(await findByText('First streamed reply chunk.')).toBeTruthy()
+    await waitFor(() => {
+      expect(container.textContent).toContain('First streamed reply chunk.')
+    })
   })
 })
