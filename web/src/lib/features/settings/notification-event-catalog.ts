@@ -185,7 +185,10 @@ const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
   'machine.disconnected': [
     {
       label: 'Machine',
-      variables: [...MACHINE_VARS, { name: 'reason', description: 'Disconnect reason when present' }],
+      variables: [
+        ...MACHINE_VARS,
+        { name: 'reason', description: 'Disconnect reason when present' },
+      ],
     },
     { label: 'Common', variables: COMMON_VARS },
   ],
