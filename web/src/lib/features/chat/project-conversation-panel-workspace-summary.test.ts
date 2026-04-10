@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
   closeProjectConversationRuntime,
+  createProjectConversationTerminalSession,
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
@@ -18,6 +19,7 @@ const {
   watchProjectConversation,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
+  createProjectConversationTerminalSession: vi.fn(),
   createProjectConversation: vi.fn(),
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
@@ -35,6 +37,7 @@ const {
 
 vi.mock('$lib/api/chat', () => ({
   closeProjectConversationRuntime,
+  createProjectConversationTerminalSession,
   createProjectConversation,
   executeProjectConversationActionProposal,
   getProjectConversation,
@@ -50,6 +53,34 @@ vi.mock('$lib/api/chat', () => ({
   watchProjectConversation,
   watchProjectConversationMuxStream: vi.fn(),
 }))
+
+vi.mock('@xterm/xterm', () => ({
+  Terminal: class {
+    cols = 96
+    rows = 28
+    loadAddon() {}
+    open() {}
+    focus() {}
+    clear() {}
+    reset() {}
+    dispose() {}
+    write() {}
+    onData() {
+      return { dispose() {} }
+    }
+    onResize() {
+      return { dispose() {} }
+    }
+  },
+}))
+
+vi.mock('@xterm/addon-fit', () => ({
+  FitAddon: class {
+    fit() {}
+  },
+}))
+
+vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'

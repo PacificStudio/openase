@@ -2,8 +2,9 @@
   import { untrack } from 'svelte'
   import { Button } from '$ui/button'
   import { cn } from '$lib/utils'
-  import { AlertCircle, FolderTree, RefreshCcw, X } from '@lucide/svelte'
+  import { AlertCircle, FolderTree, RefreshCcw, SquareTerminal, X } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+  import ProjectConversationTerminalPanel from './project-conversation-terminal-panel.svelte'
   import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
   import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
@@ -27,6 +28,7 @@
   let refreshGeneration = $state(0)
   let lastRefreshKey = $state('')
   let lastWorkspaceDiffLoading = $state(false)
+  let activeView = $state<'files' | 'terminal'>('files')
 
   const selectedRepo = $derived(
     browser.metadata?.repos.find((repo) => repo.path === browser.selectedRepoPath) ??
@@ -48,6 +50,7 @@
   $effect(() => {
     if (!conversationId) {
       lastRefreshKey = ''
+      activeView = 'files'
       browser.reset()
       return
     }
@@ -132,31 +135,66 @@
       The workspace will appear after Project AI provisions the conversation workdir.
     </div>
   {:else}
-    <div class="grid min-h-0 flex-1 grid-cols-[18rem_minmax(0,1fr)]">
-      <ProjectConversationWorkspaceBrowserSidebar
-        repos={browser.metadata?.repos ?? []}
-        selectedRepoPath={browser.selectedRepoPath}
-        {selectedRepo}
-        {selectedRepoDiff}
-        tree={browser.tree}
-        treeLoading={browser.treeLoading}
-        treeError={browser.treeError}
-        selectedFilePath={browser.selectedFilePath}
-        currentTreePath={browser.currentTreePath}
-        onOpenRepo={browser.openRepo}
-        onOpenTreePath={browser.openTreePath}
-        onOpenEntry={browser.openEntry}
-        onOpenDirtyFile={browser.openDirtyFile}
-      />
-      <ProjectConversationWorkspaceBrowserDetail
-        {selectedRepo}
-        selectedFilePath={browser.selectedFilePath}
-        currentTreePath={browser.currentTreePath}
-        preview={browser.preview}
-        patch={browser.patch}
-        fileLoading={browser.fileLoading}
-        fileError={browser.fileError}
-      />
+    <div class="border-border flex items-center gap-2 border-b px-3 py-2">
+      <Button
+        variant={activeView === 'files' ? 'secondary' : 'ghost'}
+        size="sm"
+        class="h-8"
+        onclick={() => {
+          activeView = 'files'
+        }}
+      >
+        <FolderTree class="mr-1.5 size-3.5" />
+        Files
+      </Button>
+      <Button
+        variant={activeView === 'terminal' ? 'secondary' : 'ghost'}
+        size="sm"
+        class="h-8"
+        onclick={() => {
+          activeView = 'terminal'
+        }}
+      >
+        <SquareTerminal class="mr-1.5 size-3.5" />
+        Terminal
+      </Button>
     </div>
+
+    {#if activeView === 'files'}
+      <div class="grid min-h-0 flex-1 grid-cols-[18rem_minmax(0,1fr)]">
+        <ProjectConversationWorkspaceBrowserSidebar
+          repos={browser.metadata?.repos ?? []}
+          selectedRepoPath={browser.selectedRepoPath}
+          {selectedRepo}
+          {selectedRepoDiff}
+          tree={browser.tree}
+          treeLoading={browser.treeLoading}
+          treeError={browser.treeError}
+          selectedFilePath={browser.selectedFilePath}
+          currentTreePath={browser.currentTreePath}
+          onOpenRepo={browser.openRepo}
+          onOpenTreePath={browser.openTreePath}
+          onOpenEntry={browser.openEntry}
+          onOpenDirtyFile={browser.openDirtyFile}
+        />
+        <ProjectConversationWorkspaceBrowserDetail
+          {selectedRepo}
+          selectedFilePath={browser.selectedFilePath}
+          currentTreePath={browser.currentTreePath}
+          preview={browser.preview}
+          patch={browser.patch}
+          fileLoading={browser.fileLoading}
+          fileError={browser.fileError}
+        />
+      </div>
+    {:else}
+      <ProjectConversationTerminalPanel
+        {conversationId}
+        workspacePath={browser.metadata?.workspacePath ?? ''}
+        selectedRepoPath={browser.selectedRepoPath}
+        currentTreePath={browser.currentTreePath}
+        selectedFilePath={browser.selectedFilePath}
+      />
+    {/if}
   {/if}
 </div>

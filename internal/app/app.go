@@ -242,6 +242,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	projectConversationSvc.ConfigureSecretResolver(chatSecretResolver)
 	projectConversationSvc.ConfigureSecretManager(secretSvc)
+	conversationTerminalSvc := chatservice.NewConversationTerminalService(a.logger, projectConversationSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
@@ -288,6 +289,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
+		httpapi.WithConversationTerminalService(conversationTerminalSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),

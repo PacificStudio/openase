@@ -2,11 +2,13 @@ import { cleanup, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
+  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
 } = vi.hoisted(() => ({
+  createProjectConversationTerminalSession: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
@@ -14,11 +16,40 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
 }))
+
+vi.mock('@xterm/xterm', () => ({
+  Terminal: class {
+    cols = 96
+    rows = 28
+    loadAddon() {}
+    open() {}
+    focus() {}
+    clear() {}
+    reset() {}
+    dispose() {}
+    write() {}
+    onData() {
+      return { dispose() {} }
+    }
+    onResize() {
+      return { dispose() {} }
+    }
+  },
+}))
+
+vi.mock('@xterm/addon-fit', () => ({
+  FitAddon: class {
+    fit() {}
+  },
+}))
+
+vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
 
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
