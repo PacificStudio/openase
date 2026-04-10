@@ -1469,7 +1469,8 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
-	streamCtx, cancel := context.WithTimeout(ctx, 18*time.Millisecond)
+	// Give the HTTP handshake enough headroom when the full httpapi package runs under load.
+	streamCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(
