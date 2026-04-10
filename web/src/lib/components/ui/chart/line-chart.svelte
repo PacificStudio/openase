@@ -100,9 +100,7 @@
               color: mutedFg,
               font: { family: fontFamily, size: 11 },
               maxTicksLimit: 5,
-              callback: yTickFormat
-                ? (value) => yTickFormat(Number(value))
-                : undefined,
+              callback: yTickFormat ? (value) => yTickFormat(Number(value)) : undefined,
             },
             beginAtZero: true,
           },
