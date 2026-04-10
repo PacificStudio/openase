@@ -58,6 +58,10 @@ export type ProjectTokenUsageResponse = ResponseFor<
 export type ProjectTokenUsageDay = ItemOf<NonNullable<ProjectTokenUsageResponse['days']>>
 export type ProjectTokenUsageSummary = NonNullable<ProjectTokenUsageResponse['summary']>
 export type ProjectTokenUsagePeakDay = NonNullable<ProjectTokenUsageSummary['peak_day']>
+export type TokenUsageResponse = OrganizationTokenUsageResponse | ProjectTokenUsageResponse
+export type TokenUsageDay = OrganizationTokenUsageDay | ProjectTokenUsageDay
+export type TokenUsageSummary = OrganizationTokenUsageSummary | ProjectTokenUsageSummary
+export type TokenUsagePeakDay = OrganizationTokenUsagePeakDay | ProjectTokenUsagePeakDay
 
 export type ScopedSecretRecord = {
   id: string

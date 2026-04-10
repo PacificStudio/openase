@@ -6,21 +6,17 @@
     type ProjectMetrics,
   } from '$lib/features/dashboard/organization-summary'
   import {
-    emptyOrganizationTokenUsageAnalytics,
+    emptyTokenUsageAnalytics,
     loadOrganizationTokenUsage,
-  } from '$lib/features/dashboard/organization-token-usage'
+  } from '$lib/features/dashboard/token-usage'
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { formatCurrency } from '$lib/utils'
   import { Button } from '$ui/button'
   import { Bot, Coins, FolderOpen, Ticket as TicketIcon } from '@lucide/svelte'
   import StatCard from './stat-card.svelte'
-  import type {
-    DashboardStats,
-    OrganizationTokenUsageAnalytics,
-    OrganizationTokenUsageRange,
-  } from '../types'
-  import OrganizationTokenAnalyticsPanel from './organization-token-analytics-panel.svelte'
+  import type { DashboardStats, TokenUsageAnalytics, TokenUsageRange } from '../types'
+  import TokenUsageAnalyticsPanel from './token-usage-analytics-panel.svelte'
   import OrganizationProjectsSection from './organization-projects-section.svelte'
   import OrganizationProvidersSection from './organization-providers-section.svelte'
 
@@ -36,8 +32,8 @@
   let projectMetrics = $state<Record<string, ProjectMetrics>>({})
   let orgStats = $state<DashboardStats>(emptyOrganizationDashboardStats)
   let activeProjectCount = $state(0)
-  let selectedUsageRange = $state<OrganizationTokenUsageRange>(30)
-  let tokenUsage = $state<OrganizationTokenUsageAnalytics>(emptyOrganizationTokenUsageAnalytics(30))
+  let selectedUsageRange = $state<TokenUsageRange>(30)
+  let tokenUsage = $state<TokenUsageAnalytics>(emptyTokenUsageAnalytics(30))
 
   $effect(() => {
     const orgId = currentOrg?.id
@@ -89,7 +85,7 @@
     void refreshKey
 
     if (!orgId) {
-      tokenUsage = emptyOrganizationTokenUsageAnalytics(selectedUsageRange)
+      tokenUsage = emptyTokenUsageAnalytics(selectedUsageRange)
       return
     }
 
@@ -108,7 +104,7 @@
         tokenUsage = analytics
       } catch {
         if (cancelled || controller.signal.aborted) return
-        tokenUsage = emptyOrganizationTokenUsageAnalytics(selectedUsageRange)
+        tokenUsage = emptyTokenUsageAnalytics(selectedUsageRange)
       } finally {
         if (!cancelled) analyticsLoading = false
       }
@@ -176,7 +172,7 @@
         />
       </div>
 
-      <OrganizationTokenAnalyticsPanel
+      <TokenUsageAnalyticsPanel
         analytics={tokenUsage}
         selectedRange={selectedUsageRange}
         loading={analyticsLoading}

@@ -39,9 +39,9 @@ export type DashboardUsageLeader = {
   value: number
 }
 
-export type OrganizationTokenUsageRange = 7 | 30 | 90 | 365
+export type TokenUsageRange = 7 | 30 | 90 | 365
 
-export type OrganizationTokenUsageDayPoint = {
+export type TokenUsageDayPoint = {
   date: string
   dayLabel: string
   shortLabel: string
@@ -54,22 +54,31 @@ export type OrganizationTokenUsageDayPoint = {
   intensity: 0 | 1 | 2 | 3 | 4
 }
 
-export type OrganizationTokenUsagePeak = {
+export type TokenUsagePeak = {
   date: string
   dayLabel: string
   totalTokens: number
 }
 
-export type OrganizationTokenUsageAnalytics = {
-  rangeDays: OrganizationTokenUsageRange
-  days: OrganizationTokenUsageDayPoint[]
-  calendarCells: Array<OrganizationTokenUsageDayPoint | null>
+export type TokenUsageAnalytics = {
+  rangeDays: TokenUsageRange
+  days: TokenUsageDayPoint[]
+  calendarCells: Array<TokenUsageDayPoint | null>
   totalTokens: number
   avgDailyTokens: number
   totalRuns: number
-  peakDay: OrganizationTokenUsagePeak | null
+  peakDay: TokenUsagePeak | null
   maxDailyTokens: number
 }
+
+export type OrganizationTokenUsageRange = TokenUsageRange
+export type OrganizationTokenUsageDayPoint = TokenUsageDayPoint
+export type OrganizationTokenUsagePeak = TokenUsagePeak
+export type OrganizationTokenUsageAnalytics = TokenUsageAnalytics
+export type ProjectTokenUsageRange = TokenUsageRange
+export type ProjectTokenUsageDayPoint = TokenUsageDayPoint
+export type ProjectTokenUsagePeak = TokenUsagePeak
+export type ProjectTokenUsageAnalytics = TokenUsageAnalytics
 
 export type MemorySnapshot = SystemMemorySnapshot
 

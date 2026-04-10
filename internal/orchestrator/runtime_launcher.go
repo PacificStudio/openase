@@ -1512,15 +1512,7 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
 	}
 
-	rendered = strings.TrimSpace(rendered)
-	platformContract = strings.TrimSpace(platformContract)
-	if platformContract == "" {
-		return rendered, nil
-	}
-	if rendered == "" {
-		return platformContract, nil
-	}
-	return rendered + "\n\n" + platformContract, nil
+	return composeWorkflowDeveloperInstructions(rendered, platformContract), nil
 }
 
 type runtimeLaunchContext struct {
