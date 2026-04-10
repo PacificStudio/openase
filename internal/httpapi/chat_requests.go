@@ -47,6 +47,18 @@ type projectConversationWorkspaceFileRequest struct {
 	Path     string
 }
 
+type rawCreateProjectConversationTerminalSessionRequest struct {
+	Mode     string  `json:"mode"`
+	RepoPath *string `json:"repo_path"`
+	CWDPath  *string `json:"cwd_path"`
+	Cols     *int    `json:"cols"`
+	Rows     *int    `json:"rows"`
+}
+
+type createProjectConversationTerminalSessionRequest struct {
+	Terminal chatdomain.OpenTerminalSessionInput
+}
+
 func parseCreateProjectConversationRequest(raw rawCreateConversationRequest) (createProjectConversationRequest, error) {
 	source, err := chatdomain.ParseSource(raw.Source)
 	if err != nil {
@@ -120,6 +132,22 @@ func parseProjectConversationWorkspaceFileRequest(
 		RepoPath: trimmedRepoPath,
 		Path:     trimmedPath,
 	}, nil
+}
+
+func parseCreateProjectConversationTerminalSessionRequest(
+	raw rawCreateProjectConversationTerminalSessionRequest,
+) (createProjectConversationTerminalSessionRequest, error) {
+	parsed, err := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{
+		Mode:     raw.Mode,
+		RepoPath: raw.RepoPath,
+		CWDPath:  raw.CWDPath,
+		Cols:     raw.Cols,
+		Rows:     raw.Rows,
+	})
+	if err != nil {
+		return createProjectConversationTerminalSessionRequest{}, writeableError(err.Error())
+	}
+	return createProjectConversationTerminalSessionRequest{Terminal: parsed}, nil
 }
 
 type writeableError string

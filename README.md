@@ -276,7 +276,7 @@ You create a ticket  →  Orchestrator detects pickup status
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
 | **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, managed user service (`systemd --user` on Linux, `launchd` on macOS) |
 | **Machines (Remote)** | ✅ Stable | Remote Runtime v1 uses websocket-only execution for direct-connect listeners and reverse-connect daemons; SSH is helper-only for bootstrap and diagnostics |
-| **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
+| **OIDC Auth & RBAC** | ✅ Stable | Browser login, session management, org/project RBAC |
 
 ### Roadmap
 

@@ -226,6 +226,24 @@ export type ProjectConversationWorkspaceFilePatch = {
   diff: string
 }
 
+export type ProjectConversationTerminalMode = 'shell'
+
+export type ProjectConversationTerminalSession = {
+  id: string
+  mode: ProjectConversationTerminalMode
+  cwd: string
+  wsPath: string
+  attachToken: string
+}
+
+export type ProjectConversationTerminalSessionRequest = {
+  mode: ProjectConversationTerminalMode
+  repoPath?: string
+  cwdPath?: string
+  cols?: number
+  rows?: number
+}
+
 export type ProjectConversationInterruptOption = {
   id: string
   label: string
@@ -524,6 +542,29 @@ export async function getProjectConversationWorkspaceFilePatch(
   const object = parseRequiredObject(payload as Record<string, unknown>)
   return {
     filePatch: parseProjectConversationWorkspaceFilePatch(object.file_patch ?? object),
+  }
+}
+
+export async function createProjectConversationTerminalSession(
+  conversationId: string,
+  request: ProjectConversationTerminalSessionRequest,
+) {
+  const payload = await fetchJSON<{ terminal_session?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/terminal-sessions`,
+    {
+      method: 'POST',
+      body: {
+        mode: request.mode,
+        repo_path: request.repoPath,
+        cwd_path: request.cwdPath,
+        cols: request.cols,
+        rows: request.rows,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    terminalSession: parseProjectConversationTerminalSession(object.terminal_session ?? object),
   }
 }
 
@@ -1053,6 +1094,23 @@ function parseProjectConversationWorkspaceFilePatch(
     diffKind,
     truncated: readRequiredBoolean(object, 'truncated'),
     diff: readOptionalString(object, 'diff') ?? '',
+  }
+}
+
+function parseProjectConversationTerminalSession(
+  value: unknown,
+): ProjectConversationTerminalSession {
+  const object = parseRequiredObject(value)
+  const mode = readRequiredString(object, 'mode')
+  if (mode !== 'shell') {
+    throw new Error(`project conversation terminal mode ${mode} is unsupported`)
+  }
+  return {
+    id: readRequiredString(object, 'id'),
+    mode,
+    cwd: readRequiredString(object, 'cwd'),
+    wsPath: readRequiredString(object, 'ws_path'),
+    attachToken: readRequiredString(object, 'attach_token'),
   }
 }
 
