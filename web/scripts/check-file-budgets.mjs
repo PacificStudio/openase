@@ -27,6 +27,10 @@ const budgetRules = [
     allowlist: {
       'src/lib/features/app-shell/components/project-shell.svelte':
         'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
+      'src/lib/features/chat/project-conversation-panel.svelte':
+        'Project conversation panel still assembles transcript, composer, workspace summary, and stop/interruption surfaces while the panel split continues.',
+      'src/lib/features/settings/components/security-settings-secret-bindings.svelte':
+        'Secret binding settings still bundle scope filters, grant flows, and binding inventory while the security settings extraction continues.',
       'src/lib/features/workflows/components/workflow-creation-dialog.svelte':
         'Workflow creation still combines label, status binding, agent binding, and hook editing while the creation form controller is being extracted.',
       'src/lib/features/settings/components/general-settings.svelte':
@@ -45,14 +49,22 @@ const budgetRules = [
         'Board runtime stream and drawer regression coverage remain bundled while ticket board helpers are still being split out.',
       'src/lib/features/chat/project-conversation-controller.test.ts':
         'Project conversation controller regression coverage remains bundled while multi-tab conversation scenarios are still expanding.',
+      'src/lib/features/chat/project-conversation-controller-operations.ts':
+        'Project conversation controller operations still centralize send, stop, reset, and interrupt flows while the operation slices continue to split out.',
       'src/lib/features/chat/project-conversation-controller-restore.test.ts':
         'Project conversation restore regression coverage remains bundled while session restore and workspace diff helpers are still being extracted.',
+      'src/lib/features/chat/project-conversation-event-bus.test.ts':
+        'Project conversation event-bus regression coverage remains consolidated while stream fan-out and restore scenarios still share the same harness.',
       'src/lib/features/chat/project-conversation-controller.svelte.ts':
         'Project conversation controller still coordinates tab selection, provider sync, and delegated operations while the remaining controller slices continue to move out.',
       'src/lib/features/chat/project-conversation-panel.test.ts':
         'Project conversation panel regression coverage remains bundled while transcript, restore, and action-surface scenarios continue to share setup.',
       'src/lib/features/chat/project-conversation-panel-tabs.test.ts':
         'Project conversation tab behavior coverage remains bundled while queued-turn and interrupt scenarios still share the same panel harness.',
+      'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts':
+        'Project conversation workspace browser state still centralizes tree expansion, selection, and preview state while browser helpers continue to split out.',
+      'src/lib/features/chat/project-conversation-workspace-browser.test.ts':
+        'Project conversation workspace browser coverage remains bundled while preview, tree, and restore scenarios still share the same browser harness.',
       'src/lib/features/dashboard/components/org-dashboard-controller.svelte.ts':
         'Organization dashboard controller still owns event-driven refresh orchestration while dashboard loading helpers continue to move out.',
       'src/lib/features/providers/rate-limit.ts':
