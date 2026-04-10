@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import { Send } from '@lucide/svelte'
+  import { Send, Square } from '@lucide/svelte'
   import ProjectConversationFocusCard from './project-conversation-focus-card.svelte'
 
   type FocusCard = {
@@ -29,7 +29,10 @@
     inputDisabled = false,
     sendDisabled = false,
     canQueueTurn = false,
+    showStop = false,
+    stopDisabled = false,
     onFocusAction = undefined,
+    onStop = undefined,
     onDismissFocus,
     onCancelQueuedTurn,
     onDraftChange,
@@ -49,7 +52,10 @@
     inputDisabled?: boolean
     sendDisabled?: boolean
     canQueueTurn?: boolean
+    showStop?: boolean
+    stopDisabled?: boolean
     onFocusAction?: () => void
+    onStop?: () => void
     onDismissFocus: () => void
     onCancelQueuedTurn?: (queuedTurnId: string) => void
     onDraftChange?: (value: string) => void
@@ -142,6 +148,19 @@
         }
       }}
     ></textarea>
+    {#if showStop}
+      <Button
+        variant="ghost"
+        size="sm"
+        class="text-muted-foreground h-6 shrink-0 gap-1 px-1.5 text-[11px]"
+        aria-label="Stop reply"
+        onclick={() => onStop?.()}
+        disabled={stopDisabled}
+      >
+        <Square class="size-3" />
+        <span>Stop</span>
+      </Button>
+    {/if}
     <Button
       variant="ghost"
       size="sm"

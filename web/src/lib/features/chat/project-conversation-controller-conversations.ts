@@ -68,10 +68,7 @@ export function createProjectConversationControllerConversations(
       providerTurnId: payload.providerTurnId ?? existing?.providerTurnId,
       providerTurnSupported: payload.providerTurnSupported ?? existing?.providerTurnSupported,
       providerStatus: payload.providerStatus ?? existing?.providerStatus,
-      providerActiveFlags:
-        payload.providerActiveFlags.length > 0
-          ? [...payload.providerActiveFlags]
-          : [...(existing?.providerActiveFlags ?? [])],
+      providerActiveFlags: [...payload.providerActiveFlags],
       status: existing?.status ?? '',
       rollingSummary: payload.rollingSummary ?? existing?.rollingSummary ?? '',
       lastActivityAt: now,

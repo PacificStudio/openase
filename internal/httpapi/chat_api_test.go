@@ -240,6 +240,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			body:   `{"message":"continue"}`,
 		},
 		{
+			name:   "interrupt turn",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/interrupt-turn",
+		},
+		{
 			name:   "close runtime",
 			method: http.MethodDelete,
 			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",

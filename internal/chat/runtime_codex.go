@@ -20,13 +20,14 @@ type CodexRuntime struct {
 }
 
 type codexRuntimeSession struct {
-	session           *codexadapter.Session
-	costUSD           *float64
-	turnsUsed         int
-	running           bool
-	lastTurnID        string
-	threadStatus      string
-	threadActiveFlags []string
+	session            *codexadapter.Session
+	costUSD            *float64
+	turnsUsed          int
+	running            bool
+	interruptRequested bool
+	lastTurnID         string
+	threadStatus       string
+	threadActiveFlags  []string
 }
 
 type codexAssistantItemState struct {
@@ -84,6 +85,18 @@ type runtimeReasoningUpdatedPayload struct {
 	Delta        string `json:"delta,omitempty"`
 	SummaryIndex *int   `json:"summary_index,omitempty"`
 	ContentIndex *int   `json:"content_index,omitempty"`
+}
+
+func normalizeCodexStopContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
+	if ctx == nil {
+		return nil, nil, fmt.Errorf("context must not be nil")
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}, nil
+	}
+	// Keep stop requests bounded even when the caller uses a long-lived request context.
+	stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	return stopCtx, cancel, nil
 }
 
 func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
@@ -163,6 +176,41 @@ func (r *CodexRuntime) CloseSession(sessionID SessionID) bool {
 	defer closeCancel()
 	_ = state.session.Stop(closeCtx)
 	return true
+}
+
+func (r *CodexRuntime) InterruptTurn(
+	ctx context.Context,
+	sessionID SessionID,
+) (RuntimeSessionAnchor, error) {
+	r.mu.Lock()
+	state := r.sessions[sessionID]
+	if state == nil || state.session == nil || !state.running {
+		r.mu.Unlock()
+		return RuntimeSessionAnchor{}, fmt.Errorf("codex chat session %s is not running", sessionID)
+	}
+	anchor := RuntimeSessionAnchor{
+		ProviderThreadID:          strings.TrimSpace(state.session.ThreadID()),
+		LastTurnID:                strings.TrimSpace(state.lastTurnID),
+		ProviderThreadStatus:      strings.TrimSpace(state.threadStatus),
+		ProviderThreadActiveFlags: append([]string(nil), state.threadActiveFlags...),
+		ProviderAnchorID:          strings.TrimSpace(state.session.ThreadID()),
+		ProviderAnchorKind:        "thread",
+		ProviderTurnSupported:     true,
+	}
+	state.interruptRequested = true
+	delete(r.sessions, sessionID)
+	session := state.session
+	r.mu.Unlock()
+
+	stopCtx, cancel, err := normalizeCodexStopContext(ctx)
+	if err != nil {
+		return RuntimeSessionAnchor{}, err
+	}
+	defer cancel()
+	if err := session.Stop(stopCtx); err != nil {
+		return RuntimeSessionAnchor{}, err
+	}
+	return anchor, nil
 }
 
 func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput) (*codexRuntimeSession, error) {
@@ -266,6 +314,7 @@ func (r *CodexRuntime) bridgeTurn(
 	defer func() {
 		r.mu.Lock()
 		state.running = false
+		state.interruptRequested = false
 		r.mu.Unlock()
 	}()
 
@@ -419,6 +468,12 @@ func (r *CodexRuntime) bridgeTurn(
 			if event.Turn == nil || event.Turn.TurnID != turnID {
 				continue
 			}
+			r.mu.Lock()
+			interruptedByUser := state.interruptRequested
+			r.mu.Unlock()
+			if interruptedByUser {
+				return
+			}
 			message := "codex chat turn interrupted"
 			if event.Turn.Error != nil && event.Turn.Error.Message != "" {
 				message = event.Turn.Error.Message
@@ -519,6 +574,12 @@ func (r *CodexRuntime) bridgeTurn(
 		}
 	}
 
+	r.mu.Lock()
+	interruptedByUser := state.interruptRequested
+	r.mu.Unlock()
+	if interruptedByUser {
+		return
+	}
 	events <- StreamEvent{
 		Event:   "error",
 		Payload: errorPayload{Message: "codex chat session ended unexpectedly"},

@@ -624,7 +624,7 @@ func TestChatConversationCommandExposesLifecycleSubcommands(t *testing.T) {
 		}
 		names = append(names, child.Name())
 	}
-	if strings.Join(names, ",") != "close-runtime,create,entries,get,list,respond-interrupt,turn,watch,workspace-diff" {
+	if strings.Join(names, ",") != "close-runtime,create,entries,get,interrupt-turn,list,respond-interrupt,turn,watch,workspace-diff" {
 		t.Fatalf("chat conversation subcommands = %v", names)
 	}
 }

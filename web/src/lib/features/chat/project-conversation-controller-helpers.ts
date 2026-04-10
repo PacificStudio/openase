@@ -22,6 +22,7 @@ export type ProjectConversationPhase =
   | 'submitting_turn'
   | 'awaiting_reply'
   | 'awaiting_interrupt'
+  | 'stopping_turn'
   | 'resetting'
 
 export type ProjectConversationControllerState = {

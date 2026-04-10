@@ -135,6 +135,13 @@ export function mapProjectConversationTaskEntry(params: {
         detail: buildReasoningDetail(raw),
         raw: raw ?? undefined,
       })
+    case 'turn_interrupted':
+      return createProjectConversationInterruptedEntry({
+        id: params.id,
+        turnId: params.turnId,
+        message: readString(raw, 'message') || 'Turn interrupted',
+        reason: readString(raw, 'reason') || undefined,
+      })
     default:
       return null
   }
@@ -168,5 +175,21 @@ export function createProjectConversationErrorEntry(params: {
     statusType: 'error',
     title: 'Turn failed',
     detail: params.message.trim() || undefined,
+  })
+}
+
+export function createProjectConversationInterruptedEntry(params: {
+  id: string
+  turnId?: string
+  message: string
+  reason?: string
+}) {
+  return createProjectConversationTaskStatusEntry({
+    id: params.id,
+    turnId: params.turnId,
+    statusType: 'interrupted',
+    title: params.reason === 'stopped_by_user' ? 'Turn stopped' : 'Turn interrupted',
+    detail: params.message.trim() || undefined,
+    raw: params.reason ? { reason: params.reason } : undefined,
   })
 }

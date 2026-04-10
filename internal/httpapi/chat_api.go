@@ -38,6 +38,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations/:conversationId/workspace/file-patch", s.handleGetProjectConversationWorkspaceFilePatch)
 	api.GET("/chat/conversations/:conversationId/workspace-diff", s.handleGetProjectConversationWorkspaceDiff)
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
+	api.POST("/chat/conversations/:conversationId/interrupt-turn", s.handleInterruptProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
 	api.POST("/chat/conversations/:conversationId/interrupts/:interruptId/respond", s.handleRespondProjectConversationInterrupt)
 	api.DELETE("/chat/conversations/:conversationId/runtime", s.handleDeleteProjectConversationRuntime)
@@ -697,6 +698,24 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	return c.JSON(http.StatusAccepted, response)
 }
 
+func (s *Server) handleInterruptProjectConversationTurn(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	if err := s.projectConversationService.InterruptTurn(c.Request().Context(), userID, conversationID); err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.NoContent(http.StatusAccepted)
+}
+
 func (s *Server) handleProjectConversationStream(c echo.Context) error {
 	if s.projectConversationService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
@@ -815,6 +834,8 @@ func writeProjectConversationError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, chatservice.ErrConversationTurnActive):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTurnNotActive):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_NOT_ACTIVE", err.Error())
 	case errors.Is(err, chatservice.ErrConversationInterruptPending):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_INTERRUPT_PENDING", err.Error())
 	case errors.Is(err, chatservice.ErrConversationConflict):
