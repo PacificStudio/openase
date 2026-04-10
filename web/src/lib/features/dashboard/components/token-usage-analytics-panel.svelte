@@ -4,16 +4,12 @@
   import { Skeleton } from '$ui/skeleton'
   import { CalendarRange, Flame, TrendingUp, Workflow } from '@lucide/svelte'
   import {
-    buildOrganizationTokenUsageTrendPoints,
-    formatOrganizationTokenUsageTooltip,
-    organizationTokenUsageIntensityClassName,
-    organizationTokenUsageRangeOptions,
-  } from '../organization-token-usage'
-  import type {
-    OrganizationTokenUsageAnalytics,
-    OrganizationTokenUsageDayPoint,
-    OrganizationTokenUsageRange,
-  } from '../types'
+    buildTokenUsageTrendPoints,
+    formatTokenUsageTooltip,
+    tokenUsageIntensityClassName,
+    tokenUsageRangeOptions,
+  } from '../token-usage'
+  import type { TokenUsageAnalytics, TokenUsageDayPoint, TokenUsageRange } from '../types'
 
   let {
     analytics,
@@ -22,15 +18,15 @@
     onSelectRange,
     class: className = '',
   }: {
-    analytics: OrganizationTokenUsageAnalytics
-    selectedRange: OrganizationTokenUsageRange
+    analytics: TokenUsageAnalytics
+    selectedRange: TokenUsageRange
     loading?: boolean
-    onSelectRange?: (range: OrganizationTokenUsageRange) => void
+    onSelectRange?: (range: TokenUsageRange) => void
     class?: string
   } = $props()
 
   const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-  const trendPoints = $derived(buildOrganizationTokenUsageTrendPoints(analytics.days))
+  const trendPoints = $derived(buildTokenUsageTrendPoints(analytics.days))
   const trendPolyline = $derived(trendPoints.map((point) => `${point.x},${point.y}`).join(' '))
   const trendArea = $derived(
     trendPoints.length > 0
@@ -54,7 +50,7 @@
     </div>
 
     <div class="flex flex-wrap gap-2">
-      {#each organizationTokenUsageRangeOptions as range}
+      {#each tokenUsageRangeOptions as range}
         <Button
           size="sm"
           variant={range === selectedRange ? 'default' : 'outline'}
@@ -190,7 +186,7 @@
                   class="fill-card stroke-emerald-600 dark:stroke-emerald-400"
                   stroke-width="1.4"
                 >
-                  <title>{formatOrganizationTokenUsageTooltip(point.day)}</title>
+                  <title>{formatTokenUsageTooltip(point.day)}</title>
                 </circle>
               {/each}
             </svg>
@@ -235,9 +231,9 @@
                   <div
                     class={cn(
                       'border-border/80 aspect-square rounded-sm border',
-                      organizationTokenUsageIntensityClassName(day.intensity),
+                      tokenUsageIntensityClassName(day.intensity),
                     )}
-                    title={formatOrganizationTokenUsageTooltip(day)}
+                    title={formatTokenUsageTooltip(day)}
                   ></div>
                 {:else}
                   <div
@@ -253,9 +249,7 @@
                   <div
                     class={cn(
                       'border-border/80 size-2.5 rounded-[4px] border',
-                      organizationTokenUsageIntensityClassName(
-                        intensity as OrganizationTokenUsageDayPoint['intensity'],
-                      ),
+                      tokenUsageIntensityClassName(intensity as TokenUsageDayPoint['intensity']),
                     )}
                   ></div>
                 {/each}

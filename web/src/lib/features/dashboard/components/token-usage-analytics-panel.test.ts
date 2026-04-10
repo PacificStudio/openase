@@ -1,16 +1,16 @@
 import { cleanup, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { OrganizationTokenUsageAnalytics } from '../types'
-import OrganizationTokenAnalyticsPanel from './organization-token-analytics-panel.svelte'
+import type { TokenUsageAnalytics } from '../types'
+import TokenUsageAnalyticsPanel from './token-usage-analytics-panel.svelte'
 
-describe('OrganizationTokenAnalyticsPanel', () => {
+describe('TokenUsageAnalyticsPanel', () => {
   afterEach(() => {
     cleanup()
   })
 
-  it('renders trend and calendar summaries for organization token snapshots', () => {
-    const analytics: OrganizationTokenUsageAnalytics = {
+  it('renders trend and calendar summaries for shared token snapshots', () => {
+    const analytics: TokenUsageAnalytics = {
       rangeDays: 30,
       days: [
         {
@@ -76,7 +76,7 @@ describe('OrganizationTokenAnalyticsPanel', () => {
       maxDailyTokens: 200,
     }
 
-    const { getByText, container } = render(OrganizationTokenAnalyticsPanel, {
+    const { getByText, container } = render(TokenUsageAnalyticsPanel, {
       props: {
         analytics,
         selectedRange: 30,
