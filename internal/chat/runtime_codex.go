@@ -87,18 +87,6 @@ type runtimeReasoningUpdatedPayload struct {
 	ContentIndex *int   `json:"content_index,omitempty"`
 }
 
-func normalizeCodexStopContext(ctx context.Context) (context.Context, context.CancelFunc, error) {
-	if ctx == nil {
-		return nil, nil, fmt.Errorf("context must not be nil")
-	}
-	if _, ok := ctx.Deadline(); ok {
-		return ctx, func() {}, nil
-	}
-	// Keep stop requests bounded even when the caller uses a long-lived request context.
-	stopCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	return stopCtx, cancel, nil
-}
-
 func NewCodexRuntime(adapter *codexadapter.Adapter) *CodexRuntime {
 	if adapter == nil {
 		return nil
@@ -202,9 +190,14 @@ func (r *CodexRuntime) InterruptTurn(
 	session := state.session
 	r.mu.Unlock()
 
-	stopCtx, cancel, err := normalizeCodexStopContext(ctx)
-	if err != nil {
-		return RuntimeSessionAnchor{}, err
+	if ctx == nil {
+		return RuntimeSessionAnchor{}, fmt.Errorf("context must not be nil")
+	}
+	stopCtx := ctx
+	cancel := func() {}
+	if _, ok := ctx.Deadline(); !ok {
+		// Keep stop requests bounded even when the caller uses a long-lived request context.
+		stopCtx, cancel = context.WithTimeout(ctx, 2*time.Second)
 	}
 	defer cancel()
 	if err := session.Stop(stopCtx); err != nil {
