@@ -62,6 +62,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/google/uuid"
 )
@@ -1740,4 +1741,24 @@ func init() {
 	workflowversionDescID := workflowversionFields[0].Descriptor()
 	// workflowversion.DefaultID holds the default value on creation for the id field.
 	workflowversion.DefaultID = workflowversionDescID.Default.(func() uuid.UUID)
+	workspaceinitleaseFields := schema.WorkspaceInitLease{}.Fields()
+	_ = workspaceinitleaseFields
+	// workspaceinitleaseDescLeaseKey is the schema descriptor for lease_key field.
+	workspaceinitleaseDescLeaseKey := workspaceinitleaseFields[1].Descriptor()
+	// workspaceinitlease.LeaseKeyValidator is a validator for the "lease_key" field. It is called by the builders before save.
+	workspaceinitlease.LeaseKeyValidator = workspaceinitleaseDescLeaseKey.Validators[0].(func(string) error)
+	// workspaceinitleaseDescCreatedAt is the schema descriptor for created_at field.
+	workspaceinitleaseDescCreatedAt := workspaceinitleaseFields[6].Descriptor()
+	// workspaceinitlease.DefaultCreatedAt holds the default value on creation for the created_at field.
+	workspaceinitlease.DefaultCreatedAt = workspaceinitleaseDescCreatedAt.Default.(func() time.Time)
+	// workspaceinitleaseDescUpdatedAt is the schema descriptor for updated_at field.
+	workspaceinitleaseDescUpdatedAt := workspaceinitleaseFields[7].Descriptor()
+	// workspaceinitlease.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	workspaceinitlease.DefaultUpdatedAt = workspaceinitleaseDescUpdatedAt.Default.(func() time.Time)
+	// workspaceinitlease.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	workspaceinitlease.UpdateDefaultUpdatedAt = workspaceinitleaseDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// workspaceinitleaseDescID is the schema descriptor for id field.
+	workspaceinitleaseDescID := workspaceinitleaseFields[0].Descriptor()
+	// workspaceinitlease.DefaultID holds the default value on creation for the id field.
+	workspaceinitlease.DefaultID = workspaceinitleaseDescID.Default.(func() uuid.UUID)
 }

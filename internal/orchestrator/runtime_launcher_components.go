@@ -55,6 +55,11 @@ func (l *RuntimeLauncher) ensureWorkspaceProvisioner() *runtimeWorkspaceProvisio
 	l.workspaces.sshPool = l.sshPool
 	l.workspaces.transports = l.transports
 	l.workspaces.githubAuth = l.githubAuth
+	if l.workspaces.leaseMgr == nil {
+		l.workspaces.leaseMgr = newWorkspaceInitLeaseManager(l.client, l.logger, now)
+	}
+	l.workspaces.leaseMgr.syncDependencies(l.client, l.logger, now)
+	l.workspaces.prepareTimeout = l.workspacePrepareTimeout
 	l.workspaces.now = now
 	return l.workspaces
 }

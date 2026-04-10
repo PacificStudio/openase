@@ -44,7 +44,6 @@ import (
 )
 
 const (
-	defaultLaunchTimeout            = 30 * time.Second
 	defaultLaunchCleanupTimeout     = 5 * time.Second
 	defaultLifecyclePublishTimeout  = 2 * time.Second
 	defaultCompletionSummaryTimeout = 45 * time.Second
@@ -53,22 +52,23 @@ const (
 var errExplicitRepoScopeRequired = errors.New("explicit repo scope required for multi-repo project")
 
 type RuntimeLauncher struct {
-	client         *ent.Client
-	logger         *slog.Logger
-	events         provider.EventProvider
-	processManager provider.AgentCLIProcessManager
-	sshPool        *sshinfra.Pool
-	transports     *machinetransport.Resolver
-	workflow       *workflowservice.Service
-	agentPlatform  runtimeAgentPlatform
-	platformAPIURL string
-	githubAuth     githubauthservice.TokenResolver
-	secretResolver runtimesecretenv.Resolver
-	secretManager  runtimeSecretManager
-	metrics        provider.MetricsProvider
-	now            func() time.Time
-	launchTimeout  time.Duration
-	eventTimeout   time.Duration
+	client                   *ent.Client
+	logger                   *slog.Logger
+	events                   provider.EventProvider
+	processManager           provider.AgentCLIProcessManager
+	sshPool                  *sshinfra.Pool
+	transports               *machinetransport.Resolver
+	workflow                 *workflowservice.Service
+	agentPlatform            runtimeAgentPlatform
+	platformAPIURL           string
+	githubAuth               githubauthservice.TokenResolver
+	secretResolver           runtimesecretenv.Resolver
+	secretManager            runtimeSecretManager
+	metrics                  provider.MetricsProvider
+	now                      func() time.Time
+	workspacePrepareTimeout  time.Duration
+	agentSessionStartTimeout time.Duration
+	eventTimeout             time.Duration
 
 	sessions            *runtimeSessionRegistry
 	launches            *runtimeRunTracker
@@ -113,23 +113,24 @@ func NewRuntimeLauncher(
 	}
 
 	launcher := &RuntimeLauncher{
-		client:         client,
-		logger:         logger.With("component", "runtime-launcher"),
-		events:         events,
-		processManager: processManager,
-		sshPool:        sshPool,
-		transports:     machinetransport.NewResolver(processManager, sshPool),
-		workflow:       workflow,
-		metrics:        provider.NewNoopMetricsProvider(),
-		now:            time.Now,
-		launchTimeout:  defaultLaunchTimeout,
-		eventTimeout:   defaultLifecyclePublishTimeout,
-		sessions:       newRuntimeSessionRegistry(),
-		launches:       newRuntimeRunTracker(),
-		executions:     newRuntimeRunTracker(),
-		adapters:       newDefaultAgentAdapterRegistry(),
-		runtime:        NewRuntimeStateStore(),
-		tickets:        ticketservice.NewService(ticketrepo.NewEntRepository(client)),
+		client:                   client,
+		logger:                   logger.With("component", "runtime-launcher"),
+		events:                   events,
+		processManager:           processManager,
+		sshPool:                  sshPool,
+		transports:               machinetransport.NewResolver(processManager, sshPool),
+		workflow:                 workflow,
+		metrics:                  provider.NewNoopMetricsProvider(),
+		now:                      time.Now,
+		workspacePrepareTimeout:  defaultWorkspacePrepareTimeout,
+		agentSessionStartTimeout: defaultAgentSessionStartTimeout,
+		eventTimeout:             defaultLifecyclePublishTimeout,
+		sessions:                 newRuntimeSessionRegistry(),
+		launches:                 newRuntimeRunTracker(),
+		executions:               newRuntimeRunTracker(),
+		adapters:                 newDefaultAgentAdapterRegistry(),
+		runtime:                  NewRuntimeStateStore(),
+		tickets:                  ticketservice.NewService(ticketrepo.NewEntRepository(client)),
 	}
 	launcher.tickets.ConfigureSSHPool(sshPool)
 	launcher.tickets.ConfigureTransportResolver(launcher.transports)
@@ -197,6 +198,18 @@ func (l *RuntimeLauncher) ConfigureMetrics(metrics provider.MetricsProvider) {
 		return
 	}
 	l.metrics = metrics
+}
+
+func (l *RuntimeLauncher) ConfigureLaunchTimeouts(workspacePrepareTimeout time.Duration, agentSessionStartTimeout time.Duration) {
+	if l == nil {
+		return
+	}
+	if workspacePrepareTimeout > 0 {
+		l.workspacePrepareTimeout = workspacePrepareTimeout
+	}
+	if agentSessionStartTimeout > 0 {
+		l.agentSessionStartTimeout = agentSessionStartTimeout
+	}
 }
 
 func (l *RuntimeLauncher) ConfigureReverseRuntimeRelay(relay *machinetransport.ReverseRuntimeRelayRegistry) {
@@ -523,26 +536,33 @@ func (l *RuntimeLauncher) launchAgent(ctx context.Context, assignment runtimeAss
 }
 
 func (l *RuntimeLauncher) startRuntimeSessionWithTimeout(ctx context.Context, assignment runtimeAssignment) (agentSession, error) {
-	timeout := l.launchTimeout
+	return l.startRuntimeSession(ctx, assignment)
+}
+
+func (l *RuntimeLauncher) startAgentSessionWithTimeout(
+	ctx context.Context,
+	start func(context.Context) (agentSession, error),
+) (agentSession, error) {
+	timeout := l.agentSessionStartTimeout
 	if timeout <= 0 {
-		return l.startRuntimeSession(ctx, assignment)
+		return start(ctx)
 	}
 
-	launchCtx, cancel := context.WithCancel(ctx)
+	startCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	type launchResult struct {
+	type startResult struct {
 		session agentSession
 		err     error
 	}
 
-	resultCh := make(chan launchResult)
-	//nolint:gosec // launch timeout cleanup needs a detached stop context to reclaim late sessions safely.
+	resultCh := make(chan startResult)
+	//nolint:gosec // session start timeout cleanup needs a detached stop context to reclaim late sessions safely.
 	go func() {
-		session, err := l.startRuntimeSession(launchCtx, assignment)
+		session, err := start(startCtx)
 		select {
-		case resultCh <- launchResult{session: session, err: err}:
-		case <-launchCtx.Done():
+		case resultCh <- startResult{session: session, err: err}:
+		case <-startCtx.Done():
 			stopCtx, stopCancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 			defer stopCancel()
 			stopSession(stopCtx, session)
@@ -557,7 +577,7 @@ func (l *RuntimeLauncher) startRuntimeSessionWithTimeout(ctx context.Context, as
 		return result.session, result.err
 	case <-timer.C:
 		cancel()
-		return nil, fmt.Errorf("start runtime session timed out after %s", timeout)
+		return nil, fmt.Errorf("start runtime agent session timed out after %s", timeout)
 	case <-ctx.Done():
 		cancel()
 		return nil, ctx.Err()
@@ -1070,21 +1090,21 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 	if err != nil {
 		return nil, wrapRuntimeLaunchFailure(machine, workspaceRoot, classifyRuntimeLaunchWorkspaceStage(err), err)
 	}
-	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
-		TicketID: assignment.ticket.ID,
-		RunID:    assignment.run.ID,
-		HookName: infrahook.TicketHookOnClaim,
-		Blocking: true,
-	}); err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageHookOnClaim, fmt.Errorf("run ticket on_claim hooks: %w", err))
-	}
+	return l.startAgentSessionWithTimeout(ctx, func(sessionCtx context.Context) (agentSession, error) {
+		if err := l.tickets.RunLifecycleHook(sessionCtx, ticketservice.RunLifecycleHookInput{
+			TicketID: assignment.ticket.ID,
+			RunID:    assignment.run.ID,
+			HookName: infrahook.TicketHookOnClaim,
+			Blocking: true,
+		}); err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageHookOnClaim, fmt.Errorf("run ticket on_claim hooks: %w", err))
+		}
 
-	workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
-	var runtimeSnapshot workflowservice.RuntimeSnapshot
-	if l.workflow != nil {
-		if launchContext.ticket.WorkflowID != nil {
+		workingDirectoryValue := resolveAgentWorkingDirectory(launchContext, workspaceItem)
+		var runtimeSnapshot workflowservice.RuntimeSnapshot
+		if l.workflow != nil && launchContext.ticket.WorkflowID != nil {
 			runtimeSnapshot, err = l.materializeRuntimeSnapshot(
-				ctx,
+				sessionCtx,
 				assignment.run.ID,
 				*launchContext.ticket.WorkflowID,
 				machine,
@@ -1096,71 +1116,71 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 				return nil, wrapRuntimeLaunchFailure(machine, workspaceItem.Path, runtimeLaunchStageRuntimeSnapshot, fmt.Errorf("materialize runtime snapshot: %w", err))
 			}
 		}
-	}
-	if err := l.runRemoteRuntimePreflight(ctx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
-	}
-	workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, runtimeLaunchStageWorkspaceRoot, fmt.Errorf("parse agent workspace path: %w", err))
-	}
-	developerInstructions, err := l.buildDeveloperInstructions(
-		ctx,
-		launchContext,
-		machine,
-		workingDirectory.String(),
-		runtimeSnapshot,
-		platformAccess.contract,
-	)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageBuildInstructions, err)
-	}
-	if err := l.tickets.RunLifecycleHook(ctx, ticketservice.RunLifecycleHookInput{
-		TicketID: assignment.ticket.ID,
-		RunID:    assignment.run.ID,
-		HookName: infrahook.TicketHookOnStart,
-		Blocking: true,
-	}); err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageHookOnStart, fmt.Errorf("run ticket on_start hooks: %w", err))
-	}
-
-	processManager := l.processManager
-	if l.transports != nil {
-		transport, transportErr := l.transports.Resolve(machine)
-		if transportErr != nil {
-			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageTransportResolve, transportErr)
+		if err := l.runRemoteRuntimePreflight(sessionCtx, machine, remote, workingDirectoryValue, command.String(), environment); err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, classifyRuntimeLaunchPreflightStage(err), err)
 		}
-		processManager = machinetransport.NewProcessManager(transport, machine)
-	}
+		workingDirectory, err := provider.ParseAbsolutePath(workingDirectoryValue)
+		if err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectoryValue, runtimeLaunchStageWorkspaceRoot, fmt.Errorf("parse agent workspace path: %w", err))
+		}
+		developerInstructions, err := l.buildDeveloperInstructions(
+			sessionCtx,
+			launchContext,
+			machine,
+			workingDirectory.String(),
+			runtimeSnapshot,
+			platformAccess.contract,
+		)
+		if err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageBuildInstructions, err)
+		}
+		if err := l.tickets.RunLifecycleHook(sessionCtx, ticketservice.RunLifecycleHookInput{
+			TicketID: assignment.ticket.ID,
+			RunID:    assignment.run.ID,
+			HookName: infrahook.TicketHookOnStart,
+			Blocking: true,
+		}); err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageHookOnStart, fmt.Errorf("run ticket on_start hooks: %w", err))
+		}
 
-	processSpec, err := provider.NewAgentCLIProcessSpec(
-		command,
-		launchContext.agent.Edges.Provider.CliArgs,
-		&workingDirectory,
-		environment,
-	)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, fmt.Errorf("build agent process spec: %w", err))
-	}
+		processManager := l.processManager
+		if l.transports != nil {
+			transport, transportErr := l.transports.Resolve(machine)
+			if transportErr != nil {
+				return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageTransportResolve, transportErr)
+			}
+			processManager = machinetransport.NewProcessManager(transport, machine)
+		}
 
-	adapter, err := l.adapters.adapterFor(launchContext.agent.Edges.Provider.AdapterType)
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
-	}
+		processSpec, err := provider.NewAgentCLIProcessSpec(
+			command,
+			launchContext.agent.Edges.Provider.CliArgs,
+			&workingDirectory,
+			environment,
+		)
+		if err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, fmt.Errorf("build agent process spec: %w", err))
+		}
 
-	session, err := adapter.Start(ctx, agentSessionStartSpec{
-		Process:               processSpec,
-		ProcessManager:        processManager,
-		WorkingDirectory:      workingDirectory.String(),
-		Model:                 launchContext.agent.Edges.Provider.ModelName,
-		PermissionProfile:     catalogdomain.AgentProviderPermissionProfile(launchContext.agent.Edges.Provider.PermissionProfile),
-		DeveloperInstructions: developerInstructions,
-		TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
+		adapter, err := l.adapters.adapterFor(launchContext.agent.Edges.Provider.AdapterType)
+		if err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
+		}
+
+		session, err := adapter.Start(sessionCtx, agentSessionStartSpec{
+			Process:               processSpec,
+			ProcessManager:        processManager,
+			WorkingDirectory:      workingDirectory.String(),
+			Model:                 launchContext.agent.Edges.Provider.ModelName,
+			PermissionProfile:     catalogdomain.AgentProviderPermissionProfile(launchContext.agent.Edges.Provider.PermissionProfile),
+			DeveloperInstructions: developerInstructions,
+			TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),
+		})
+		if err != nil {
+			return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
+		}
+		return session, nil
 	})
-	if err != nil {
-		return nil, wrapRuntimeLaunchFailure(machine, workingDirectory.String(), runtimeLaunchStageProcessStart, err)
-	}
-	return session, nil
 }
 
 func (l *RuntimeLauncher) buildAgentPlatformAccess(ctx context.Context, launchContext runtimeLaunchContext) (runtimePlatformAccess, error) {

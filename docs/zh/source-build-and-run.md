@@ -156,10 +156,13 @@ cp config.example.yaml ./config.yaml
 
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+export OPENASE_SECURITY_CIPHER_SEED=shared-cluster-seed
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 export OPENASE_LOG_FORMAT=json
 ```
+
+如果你把已有的 OpenASE 数据库迁移到另一个 PostgreSQL DSN 不同的环境里，请在这些环境里统一设置同一个 `OPENASE_SECURITY_CIPHER_SEED`。否则 OpenASE 会继续沿用旧的基于 `database.dsn` 推导的 GitHub 凭据加密种子，导致历史加密凭据无法跨环境解密。
 
 ### Docker PostgreSQL 示例（非默认端口）
 

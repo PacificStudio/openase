@@ -115,7 +115,7 @@ func New(repository repo.Repository, httpClient *http.Client, cipherSeed string)
 		httpClient = http.DefaultClient
 	}
 
-	keyMaterial, err := base64.StdEncoding.DecodeString(domain.DefaultCipherSeed(cipherSeed))
+	keyMaterial, err := base64.StdEncoding.DecodeString(domain.DeriveCipherSeed(cipherSeed))
 	if err != nil {
 		return nil, fmt.Errorf("derive github auth cipher key: %w", err)
 	}

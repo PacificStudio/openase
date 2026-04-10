@@ -574,6 +574,7 @@ If you prefer env vars over config files:
 
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+export OPENASE_SECURITY_CIPHER_SEED=shared-cluster-seed
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 
@@ -597,9 +598,12 @@ set -a && source ~/.openase/.env && set +a
 |----------|---------|-------------|
 | `OPENASE_SERVER_PORT` | `19836` | HTTP server port |
 | `OPENASE_DATABASE_DSN` | — | PostgreSQL connection string (**required**) |
+| `OPENASE_SECURITY_CIPHER_SEED` | empty | Optional shared encryption seed for GitHub credential storage; set this explicitly when different environments must read the same encrypted records |
 | `OPENASE_ORCHESTRATOR_TICK_INTERVAL` | `5s` | Orchestrator polling interval |
 | `OPENASE_LOG_FORMAT` | `text` | Log format (`text` or `json`) |
 | `OPENASE_LOG_LEVEL` | `info` | Log level |
+
+`OPENASE_SECURITY_CIPHER_SEED` maps to `security.cipher_seed` in config files. If it is unset, OpenASE keeps the legacy behavior and derives the GitHub credential cipher seed from `database.dsn`.
 
 ### Config File Lookup Order
 
