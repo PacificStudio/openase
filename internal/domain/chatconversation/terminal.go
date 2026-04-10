@@ -8,6 +8,7 @@ import (
 const (
 	DefaultTerminalCols = 120
 	DefaultTerminalRows = 30
+	MaxTerminalSize     = 65535
 )
 
 type TerminalMode string
@@ -69,6 +70,9 @@ func parseTerminalSize(raw *int, name string, fallback int) (int, error) {
 	}
 	if *raw <= 0 {
 		return 0, fmt.Errorf("%s must be greater than zero", name)
+	}
+	if *raw > MaxTerminalSize {
+		return 0, fmt.Errorf("%s must be less than or equal to %d", name, MaxTerminalSize)
 	}
 	return *raw, nil
 }

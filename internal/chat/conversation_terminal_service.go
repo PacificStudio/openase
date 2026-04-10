@@ -457,6 +457,16 @@ type localConversationTerminalProcess struct {
 	cmd  *exec.Cmd
 }
 
+func conversationTerminalPTYSize(cols int, rows int) (*pty.Winsize, error) {
+	if cols <= 0 || cols > chatdomain.MaxTerminalSize {
+		return nil, fmt.Errorf("cols must be between 1 and %d", chatdomain.MaxTerminalSize)
+	}
+	if rows <= 0 || rows > chatdomain.MaxTerminalSize {
+		return nil, fmt.Errorf("rows must be between 1 and %d", chatdomain.MaxTerminalSize)
+	}
+	return &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)}, nil
+}
+
 func startLocalConversationTerminalProcess(
 	ctx context.Context,
 	spec conversationTerminalLaunchSpec,
@@ -465,10 +475,15 @@ func startLocalConversationTerminalProcess(
 	if err != nil {
 		return nil, err
 	}
+	size, err := conversationTerminalPTYSize(spec.Cols, spec.Rows)
+	if err != nil {
+		return nil, err
+	}
+	// #nosec G204 -- the shell executable is selected from a fixed local allowlist or the resolved SHELL path.
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = spec.CWD
 	cmd.Env = spec.Environment
-	ptmx, err := pty.StartWithSize(cmd, &pty.Winsize{Cols: uint16(spec.Cols), Rows: uint16(spec.Rows)})
+	ptmx, err := pty.StartWithSize(cmd, size)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +503,11 @@ func (p *localConversationTerminalProcess) Close() error {
 }
 
 func (p *localConversationTerminalProcess) Resize(cols int, rows int) error {
-	return pty.Setsize(p.file, &pty.Winsize{Cols: uint16(cols), Rows: uint16(rows)})
+	size, err := conversationTerminalPTYSize(cols, rows)
+	if err != nil {
+		return err
+	}
+	return pty.Setsize(p.file, size)
 }
 
 func (p *localConversationTerminalProcess) Wait() error {
@@ -522,6 +541,7 @@ func resolveLocalConversationTerminalShellArgs() ([]string, error) {
 
 func resolveLocalConversationTerminalShell(candidate string) (string, error) {
 	if filepath.IsAbs(candidate) {
+		// #nosec G703 -- the shell path comes from the local runtime environment, not browser input.
 		info, err := os.Stat(candidate)
 		if err != nil {
 			return "", err

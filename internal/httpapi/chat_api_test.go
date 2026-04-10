@@ -1316,9 +1316,13 @@ func TestProjectConversationTerminalAttachWebsocketFlow(t *testing.T) {
 		body := ""
 		if response != nil && response.Body != nil {
 			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
 			body = string(raw)
 		}
 		t.Fatalf("dial websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -1393,6 +1397,9 @@ func TestProjectConversationTerminalAttachRejectsInvalidToken(t *testing.T) {
 	_, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err == nil {
 		t.Fatal("expected invalid attach token dial to fail")
+	}
+	if response != nil && response.Body != nil {
+		defer func() { _ = response.Body.Close() }()
 	}
 	if response == nil || response.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected 403 for invalid token, got response=%v err=%v", response, err)

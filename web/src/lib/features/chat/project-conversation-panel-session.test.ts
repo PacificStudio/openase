@@ -250,7 +250,7 @@ describe('ProjectConversationPanel session status', () => {
         },
       ],
     })
-    const { container, findByText } = render(ProjectConversationPanel, {
+    const { container } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
