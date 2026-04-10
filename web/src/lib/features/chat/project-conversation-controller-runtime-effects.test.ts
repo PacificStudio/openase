@@ -106,6 +106,7 @@ describe('project conversation runtime effects', () => {
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
+      removeConversation: vi.fn(),
     }
 
     handleTabStreamEvent(
@@ -143,6 +144,7 @@ describe('project conversation runtime effects', () => {
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
+      removeConversation: vi.fn(),
     }
 
     getProjectConversation.mockResolvedValue({
@@ -187,6 +189,7 @@ describe('project conversation runtime effects', () => {
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
+      removeConversation: vi.fn(),
     }
 
     getProjectConversation.mockResolvedValue({

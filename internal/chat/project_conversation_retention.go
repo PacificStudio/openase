@@ -241,7 +241,8 @@ func (s *ProjectConversationService) deleteConversation(
 	target, err := s.resolveConversationWorkspaceTarget(ctx, conversation)
 	workspaceResolvable := err == nil
 	if err != nil {
-		if !(errors.Is(err, errProjectConversationWorkspaceLocationUnavailable) && projectConversationWorkspaceMayNotExistYet(conversation)) {
+		if !errors.Is(err, errProjectConversationWorkspaceLocationUnavailable) ||
+			!projectConversationWorkspaceMayNotExistYet(conversation) {
 			return result, err
 		}
 	}

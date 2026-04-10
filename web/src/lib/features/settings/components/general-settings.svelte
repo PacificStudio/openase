@@ -11,8 +11,9 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import ProjectArchivePanel from '$lib/features/settings/components/project-archive-panel.svelte'
+  import ProjectAIRetentionSettings from '$lib/features/settings/components/project-ai-retention-settings.svelte'
   import { Button } from '$ui/button'
-  import { Checkbox } from '$ui/checkbox'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Separator } from '$ui/separator'
@@ -135,11 +136,7 @@
         toastStore.error(parsedKeepRecentDays.error)
         return
       }
-      if (
-        retentionEnabled &&
-        parsedKeepLatestN.value === 0 &&
-        parsedKeepRecentDays.value === 0
-      ) {
+      if (retentionEnabled && parsedKeepLatestN.value === 0 && parsedKeepRecentDays.value === 0) {
         toastStore.error(
           'Enable Project AI retention with at least one keep rule: latest conversations or recent days.',
         )
@@ -280,66 +277,11 @@
       </p>
     </div>
 
-    <div class="space-y-3 rounded-lg border p-4">
-      <div class="space-y-1">
-        <h3 class="text-sm font-medium">Project AI retention</h3>
-        <p class="text-muted-foreground text-xs">
-          Retain a conversation if it is within the latest N conversations or active within the
-          last M days.
-        </p>
-        <p class="text-muted-foreground text-xs">
-          Auto-prune skips dirty workspaces by default and preserves live runtimes plus pending
-          user interrupts.
-        </p>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <Checkbox id="project-ai-retention-enabled" bind:checked={retentionEnabled} />
-        <Label for="project-ai-retention-enabled" class="text-sm font-medium">
-          Enable Project AI retention
-        </Label>
-      </div>
-
-      <div class="grid gap-4 md:grid-cols-2">
-        <div class="space-y-2">
-          <Label for="keep-latest-conversations">Keep latest conversations</Label>
-          <Input
-            id="keep-latest-conversations"
-            type="number"
-            min="0"
-            step="1"
-            value={keepLatestN}
-            oninput={(event) => {
-              keepLatestN = (event.currentTarget as HTMLInputElement).value
-            }}
-            class="w-32"
-            placeholder="0"
-          />
-          <p class="text-muted-foreground text-xs">
-            Keep the latest N conversations per user in this project.
-          </p>
-        </div>
-
-        <div class="space-y-2">
-          <Label for="keep-recent-days">Keep recent days</Label>
-          <Input
-            id="keep-recent-days"
-            type="number"
-            min="0"
-            step="1"
-            value={keepRecentDays}
-            oninput={(event) => {
-              keepRecentDays = (event.currentTarget as HTMLInputElement).value
-            }}
-            class="w-32"
-            placeholder="0"
-          />
-          <p class="text-muted-foreground text-xs">
-            Keep conversations with activity in the last M days.
-          </p>
-        </div>
-      </div>
-    </div>
+    <ProjectAIRetentionSettings
+      bind:enabled={retentionEnabled}
+      bind:keepLatestN
+      bind:keepRecentDays
+    />
   </div>
 
   <div class="flex justify-start pt-2">
@@ -349,19 +291,5 @@
   </div>
 
   <Separator />
-
-  <div class="border-destructive/30 bg-destructive/5 rounded-lg border p-4">
-    <div class="space-y-2">
-      <h3 class="text-foreground text-sm font-medium">Archive project</h3>
-      <p class="text-muted-foreground text-sm">
-        Move this project out of the active workspace surface after a confirmation step.
-      </p>
-    </div>
-
-    <div class="mt-4 flex justify-start">
-      <Button variant="destructive" onclick={handleArchive} disabled={archiving}>
-        {archiving ? 'Archiving…' : 'Archive project'}
-      </Button>
-    </div>
-  </div>
+  <ProjectArchivePanel {archiving} onArchive={handleArchive} />
 </div>

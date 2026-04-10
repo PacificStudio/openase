@@ -101,10 +101,7 @@ type ProjectConversationControllerActionsInput = {
       decision?: string
       answer?: Record<string, unknown>
     }) => Promise<void>
-    deleteConversation: (
-      conversationId: string,
-      options?: { force?: boolean },
-    ) => Promise<boolean>
+    deleteConversation: (conversationId: string, options?: { force?: boolean }) => Promise<boolean>
     dispose: () => void
   }
 }

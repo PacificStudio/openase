@@ -197,18 +197,19 @@ describe('ProjectConversationPanel actions', () => {
     })
     expect(queryByRole('tab', { name: /^Current conversation Restored$/ })).toBeNull()
     expect(toastStore.success).toHaveBeenCalledWith('Project AI conversation deleted.')
-    expect(JSON.parse(window.localStorage.getItem('openase.project-conversation.global') ?? '{}'))
-      .toMatchObject({
-        activeTabIndex: 0,
-        tabs: [
-          {
-            projectId: 'project-1',
-            conversationId: '',
-            providerId: 'provider-1',
-            draft: '',
-          },
-        ],
-      })
+    expect(
+      JSON.parse(window.localStorage.getItem('openase.project-conversation.global') ?? '{}'),
+    ).toMatchObject({
+      activeTabIndex: 0,
+      tabs: [
+        {
+          projectId: 'project-1',
+          conversationId: '',
+          providerId: 'provider-1',
+          draft: '',
+        },
+      ],
+    })
   })
 
   it('asks for a second confirmation before force deleting a dirty workspace conversation', async () => {

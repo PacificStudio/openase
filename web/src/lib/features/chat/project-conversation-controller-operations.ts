@@ -4,14 +4,7 @@ import {
   type ProjectConversation,
 } from '$lib/api/chat'
 import { invalidateProjectConversationStream } from './project-conversation-controller-helpers'
-import {
-  readProjectConversationTabs,
-  migrateLegacyProjectConversationTabs,
-} from './project-conversation-storage'
-import {
-  fetchCrossProjectConversations,
-  mapPersistedToRestoredTabs,
-} from './project-conversation-controller-restore-helpers'
+import { restoreProjectConversationController } from './project-conversation-controller-restore-helpers'
 import { createProjectConversationControllerRuntime } from './project-conversation-controller-runtime'
 import {
   disposeProjectConversationTabs,
@@ -49,140 +42,22 @@ export function createProjectConversationControllerOperations(
   let restoreOperationID = 0
   const runtime = createProjectConversationControllerRuntime(input)
 
-  function hasLocalTabActivity(tabs: ProjectConversationTabState[]) {
-    return tabs.some(
-      (tab) =>
-        tab.draft.trim().length > 0 ||
-        tab.entries.length > 0 ||
-        tab.queuedTurns.length > 0 ||
-        tab.phase !== 'idle' ||
-        tab.conversationId.trim().length > 0,
-    )
-  }
-
   async function restore() {
-    const { projectId } = input.controllerInput.getProjectContext()
-    if (!projectId) {
-      input.ensureTabExists()
-      return
-    }
-
     restoreOperationID += 1
-    const currentRestoreID = restoreOperationID
-    disposeProjectConversationTabs(input.getTabs())
-
-    try {
-      migrateLegacyProjectConversationTabs(projectId)
-      const persisted = readProjectConversationTabs()
-
-      const { allConversations, currentProjectConversationIds } =
-        await fetchCrossProjectConversations(projectId, persisted.tabs)
-      if (currentRestoreID !== restoreOperationID) return
-
-      input.setConversations(runtime.sortProjectConversations(allConversations))
-      if (hasLocalTabActivity(input.getTabs())) {
-        input.persistTabs()
-        return
-      }
-
-      const conversationsByID = new Map(
-        allConversations.map((conversation) => [conversation.id, conversation]),
-      )
-      const restoredTabs = mapPersistedToRestoredTabs(
-        persisted.tabs,
-        conversationsByID,
-        input.newTabState,
-        input.getPreferredProviderId(),
-      )
-
-      if (restoredTabs.length === 0) {
-        const currentProjectConversations = allConversations.filter((c) =>
-          currentProjectConversationIds.has(c.id),
-        )
-        const latestConversation =
-          runtime.sortProjectConversations(currentProjectConversations)[0] ?? null
-        if (latestConversation) {
-          const restoredTab = input.newTabState(
-            latestConversation.providerId,
-            true,
-            latestConversation.projectId,
-            '',
-          )
-          input.setTabs([restoredTab])
-          input.setActiveTabId(restoredTab.id)
-
-          const liveRestoredTab = findProjectConversationTab(input.getTabs(), restoredTab.id)
-          if (
-            liveRestoredTab &&
-            (await runtime.loadTabConversation(liveRestoredTab, latestConversation.id, true))
-          ) {
-            input.persistTabs()
-            return
-          }
-        }
-
-        const blankTab = input.newTabState(input.getPreferredProviderId(), false)
-        input.setTabs([blankTab])
-        input.setActiveTabId(blankTab.id)
-        input.persistTabs()
-        return
-      }
-
-      const nextTabs = restoredTabs.map((item) => item.tab)
-      input.setTabs(nextTabs)
-      const preferredTab =
-        nextTabs[Math.min(persisted.activeTabIndex, nextTabs.length - 1)] ?? nextTabs[0] ?? null
-      const preferredActiveTabId = preferredTab?.id ?? ''
-      input.setActiveTabId(preferredActiveTabId)
-
-      const loadedTabIDs = new Set(
-        restoredTabs.filter((item) => item.conversationId === '').map((item) => item.tab.id),
-      )
-      for (let index = 0; index < restoredTabs.length; index += 1) {
-        if (currentRestoreID !== restoreOperationID) return
-        const restored = restoredTabs[index]
-        if (restored == null || restored.conversationId === '') {
-          continue
-        }
-        const tab = findProjectConversationTab(input.getTabs(), restored.tab.id)
-        const conversationId = restored.conversationId
-        const conversation = input.getConversations().find((item) => item.id === conversationId)
-        if (!tab || !conversation) {
-          continue
-        }
-
-        if (tab.id === preferredActiveTabId) {
-          if (await runtime.loadTabConversation(tab, conversationId, restored.restored)) {
-            loadedTabIDs.add(tab.id)
-          }
-          continue
-        }
-
-        runtime.restoreTabConversationMetadata(tab, conversation, restored.restored)
-        loadedTabIDs.add(tab.id)
-      }
-
-      const filteredTabs = input.getTabs().filter((tab) => loadedTabIDs.has(tab.id))
-      input.setTabs(filteredTabs)
-      if (filteredTabs.length === 0) {
-        input.ensureTabExists()
-        input.persistTabs()
-        return
-      }
-      input.setActiveTabId(
-        preferredActiveTabId && filteredTabs.some((tab) => tab.id === preferredActiveTabId)
-          ? preferredActiveTabId
-          : (filteredTabs[0]?.id ?? ''),
-      )
-      input.persistTabs()
-    } catch (caughtError) {
-      input.ensureTabExists()
-      input.controllerInput.onError?.(
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Failed to restore project conversations.',
-      )
-    }
+    await restoreProjectConversationController({
+      controllerInput: input.controllerInput,
+      runtime,
+      getRestoreOperationID: () => restoreOperationID,
+      getPreferredProviderId: input.getPreferredProviderId,
+      getTabs: input.getTabs,
+      setTabs: input.setTabs,
+      setConversations: input.setConversations,
+      getConversations: input.getConversations,
+      setActiveTabId: input.setActiveTabId,
+      newTabState: input.newTabState,
+      ensureTabExists: input.ensureTabExists,
+      persistTabs: input.persistTabs,
+    })
   }
 
   async function selectProvider(nextProviderId: string) {
@@ -281,10 +156,7 @@ export function createProjectConversationControllerOperations(
     }
   }
 
-  async function deleteConversation(
-    conversationId: string,
-    options: { force?: boolean } = {},
-  ) {
+  async function deleteConversation(conversationId: string, options: { force?: boolean } = {}) {
     if (!conversationId) {
       return false
     }
