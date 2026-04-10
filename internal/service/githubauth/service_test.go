@@ -286,6 +286,33 @@ func TestDeleteCredentialFallsBackToOrganizationDefault(t *testing.T) {
 	}
 }
 
+func TestExplicitCipherSeedAllowsCrossDSNDecrypt(t *testing.T) {
+	t.Parallel()
+
+	repository := &stubRepository{}
+	sourceService, err := New(repository, nil, "shared-cluster-seed")
+	if err != nil {
+		t.Fatalf("New(source) error = %v", err)
+	}
+	targetService, err := New(repository, nil, "shared-cluster-seed")
+	if err != nil {
+		t.Fatalf("New(target) error = %v", err)
+	}
+
+	sealed, err := sourceService.SealToken("ghu_cross_env_token", domain.SourceManualPaste)
+	if err != nil {
+		t.Fatalf("SealToken() error = %v", err)
+	}
+
+	opened, err := targetService.decryptStoredCredential(sealed)
+	if err != nil {
+		t.Fatalf("decryptStoredCredential() error = %v", err)
+	}
+	if opened != "ghu_cross_env_token" {
+		t.Fatalf("decryptStoredCredential() = %q", opened)
+	}
+}
+
 func TestProbeResolvedCredentialPersistsValidProbe(t *testing.T) {
 	projectID := uuid.New()
 	orgID := uuid.New()

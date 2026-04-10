@@ -1,9 +1,12 @@
 package workspace
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -127,7 +130,7 @@ func TestPrepareWithCommandRunnerClassifiesRepositoryAuthFailures(t *testing.T) 
 	_, err := PrepareWithCommandRunner(remoteFailingRunner{
 		output: "fatal: Authentication failed for 'https://github.com/acme/backend.git/'",
 		err:    errors.New("exit status 128"),
-	}, request)
+	}, request, nil)
 	if err == nil {
 		t.Fatal("PrepareWithCommandRunner() error = nil, want repo auth failure")
 	}
@@ -151,7 +154,7 @@ func TestPrepareWithCommandRunnerClassifiesWorkspaceRootFailures(t *testing.T) {
 	_, err := PrepareWithCommandRunner(remoteFailingRunner{
 		output: "mkdir: cannot create directory '/srv/openase/workspaces/acme': Permission denied",
 		err:    errors.New("exit status 1"),
-	}, request)
+	}, request, nil)
 	if err == nil {
 		t.Fatal("PrepareWithCommandRunner() error = nil, want workspace root failure")
 	}
@@ -162,6 +165,90 @@ func TestPrepareWithCommandRunnerClassifiesWorkspaceRootFailures(t *testing.T) {
 	if prepareErr.Stage != PrepareFailureStageWorkspaceRoot {
 		t.Fatalf("PrepareWithCommandRunner() stage = %q, want %q", prepareErr.Stage, PrepareFailureStageWorkspaceRoot)
 	}
+}
+
+func TestPrepareWithCommandRunnerLogsRepoPreparePhases(t *testing.T) {
+	var logBuffer bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuffer, nil))
+	request := SetupRequest{
+		WorkspaceRoot:    "/srv/openase/workspaces",
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		TicketIdentifier: "ASE-146",
+		Observability: PrepareObservability{
+			MachineID: "machine-1",
+			RunID:     "run-1",
+			TicketID:  "ticket-1",
+		},
+		Repos: []RepoRequest{{
+			Name:             "backend",
+			RepositoryURL:    "git@github.com:acme/backend.git",
+			DefaultBranch:    "main",
+			WorkspaceDirname: "backend",
+			BranchName:       "agent/ASE-146",
+		}},
+	}
+	workspacePath, err := TicketWorkspacePath(
+		request.WorkspaceRoot,
+		request.OrganizationSlug,
+		request.ProjectSlug,
+		request.TicketIdentifier,
+	)
+	if err != nil {
+		t.Fatalf("TicketWorkspacePath() error = %v", err)
+	}
+	repoPath := RepoPath(workspacePath, request.Repos[0].WorkspaceDirname, request.Repos[0].Name)
+	output := strings.Join([]string{
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "repo_prepare_begin", 0, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "clone_or_open", 12, "clone"),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "fetch", 8, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "checkout_reset", 5, ""),
+		remotePreparePhaseLineForTest(request.Observability, repoPath, "repo_prepare_done", 25, ""),
+	}, "\n")
+
+	if _, err := PrepareWithCommandRunner(remoteFailingRunner{output: output}, request, logger); err != nil {
+		t.Fatalf("PrepareWithCommandRunner() error = %v", err)
+	}
+
+	logOutput := logBuffer.String()
+	for _, needle := range []string{
+		"machine_id=machine-1",
+		"run_id=run-1",
+		"ticket_id=ticket-1",
+		"repo_name=backend",
+		"repo_path=" + repoPath,
+		"phase=repo_prepare_begin",
+		"phase=clone_or_open",
+		"phase_result=clone",
+		"phase=fetch",
+		"phase=checkout_reset",
+		"phase=repo_prepare_done",
+	} {
+		if !strings.Contains(logOutput, needle) {
+			t.Fatalf("expected log output to contain %q, got %q", needle, logOutput)
+		}
+	}
+}
+
+func remotePreparePhaseLineForTest(
+	observability PrepareObservability,
+	repoPath string,
+	phase string,
+	durationMS int64,
+	phaseResult string,
+) string {
+	return fmt.Sprintf(
+		"%s%s|%s|%s|%s|%s|%s|%d|%s",
+		remotePreparePhasePrefix,
+		strings.TrimSpace(observability.MachineID),
+		strings.TrimSpace(observability.RunID),
+		strings.TrimSpace(observability.TicketID),
+		"backend",
+		strings.TrimSpace(repoPath),
+		strings.TrimSpace(phase),
+		durationMS,
+		strings.TrimSpace(phaseResult),
+	)
 }
 
 type remoteTestDialer struct {

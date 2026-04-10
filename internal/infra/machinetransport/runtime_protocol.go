@@ -508,7 +508,12 @@ func (s *runtimeProtocolServer) handleWorkspacePrepare(ctx context.Context, enve
 		ProjectSlug:      payload.ProjectSlug,
 		AgentName:        payload.AgentName,
 		TicketIdentifier: payload.TicketIdentifier,
-		Repos:            make([]workspaceinfra.RepoInput, 0, len(payload.Repos)),
+		Observability: workspaceinfra.PrepareObservability{
+			MachineID: payload.MachineID,
+			RunID:     payload.RunID,
+			TicketID:  payload.TicketID,
+		},
+		Repos: make([]workspaceinfra.RepoInput, 0, len(payload.Repos)),
 	}
 	for _, repo := range payload.Repos {
 		item := workspaceinfra.RepoInput{
@@ -1021,6 +1026,9 @@ func runtimeWorkspacePrepareRequest(request workspaceinfra.SetupRequest) runtime
 		OrganizationSlug: request.OrganizationSlug,
 		ProjectSlug:      request.ProjectSlug,
 		TicketIdentifier: request.TicketIdentifier,
+		MachineID:        request.Observability.MachineID,
+		RunID:            request.Observability.RunID,
+		TicketID:         request.Observability.TicketID,
 		Repos:            make([]runtimecontract.WorkspaceRepo, 0, len(request.Repos)),
 	}
 	for _, repo := range request.Repos {

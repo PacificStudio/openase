@@ -185,6 +185,21 @@ func TestDefaultCipherSeed(t *testing.T) {
 	}
 }
 
+func TestDeriveCipherSeed(t *testing.T) {
+	t.Parallel()
+
+	first := DeriveCipherSeed(" shared-seed ")
+	second := DeriveCipherSeed("shared-seed")
+	third := DeriveCipherSeed("other-seed")
+
+	if first == "" || first != second {
+		t.Fatalf("expected deterministic derived seed, got %q and %q", first, second)
+	}
+	if first == third {
+		t.Fatalf("expected distinct derived seeds for distinct inputs")
+	}
+}
+
 func TestResolveProjectCredential(t *testing.T) {
 	t.Parallel()
 

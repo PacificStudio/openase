@@ -1,11 +1,13 @@
 package workspace
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -271,6 +273,65 @@ func TestManagerPrepareTracksExistingRemoteWorkBranch(t *testing.T) {
 	backendClonePath := filepath.Join(workspace.Path, "backend")
 	assertHeadBranch(t, backendClonePath, "release/ASE-33")
 	assertHeadHash(t, backendClonePath, workBranchHash)
+}
+
+func TestManagerPrepareLogsRepoPreparePhases(t *testing.T) {
+	repositoryURL, _ := createRemoteRepo(t, "main", map[string]string{
+		"README.md": "backend",
+	})
+
+	var logBuffer bytes.Buffer
+	manager := NewManagerWithLogger(slog.New(slog.NewTextHandler(&logBuffer, nil)))
+	request, err := ParseSetupRequest(SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "payments",
+		AgentName:        "codex-01",
+		TicketIdentifier: "ASE-146",
+		Observability: PrepareObservability{
+			MachineID: "machine-1",
+			RunID:     "run-1",
+			TicketID:  "ticket-1",
+		},
+		Repos: []RepoInput{{
+			Name:          "backend",
+			RepositoryURL: repositoryURL,
+			DefaultBranch: "main",
+			HTTPBasicAuth: &HTTPBasicAuthInput{
+				Username: "x-access-token",
+				Password: "ghu_test",
+			},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("ParseSetupRequest() error = %v", err)
+	}
+
+	workspaceItem, err := manager.Prepare(context.Background(), request)
+	if err != nil {
+		t.Fatalf("Prepare() error = %v", err)
+	}
+
+	logOutput := logBuffer.String()
+	repoPath := filepath.Join(workspaceItem.Path, "backend")
+	for _, needle := range []string{
+		"machine_id=machine-1",
+		"run_id=run-1",
+		"ticket_id=ticket-1",
+		"repo_name=backend",
+		"repo_path=" + repoPath,
+		"phase=repo_prepare_begin",
+		"phase=clone_or_open",
+		"phase_result=clone",
+		"phase=auth_inject",
+		"phase=fetch",
+		"phase=checkout_reset",
+		"phase=repo_prepare_done",
+	} {
+		if !strings.Contains(logOutput, needle) {
+			t.Fatalf("expected log output to contain %q, got %q", needle, logOutput)
+		}
+	}
 }
 
 func TestBuildCloneOptionsUsesConfiguredSSHKeyForSSHURL(t *testing.T) {

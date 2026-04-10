@@ -17,9 +17,12 @@ func clearOpenASEEnv(t *testing.T) {
 		"OPENASE_SERVER_MODE",
 		"OPENASE_SERVER_HOST",
 		"OPENASE_SERVER_PORT",
+		"OPENASE_SECURITY_CIPHER_SEED",
 		"OPENASE_GITHUB_WEBHOOK_SECRET",
 		"OPENASE_DATABASE_DSN",
 		"OPENASE_ORCHESTRATOR_TICK_INTERVAL",
+		"OPENASE_ORCHESTRATOR_WORKSPACE_PREPARE_TIMEOUT",
+		"OPENASE_ORCHESTRATOR_AGENT_SESSION_START_TIMEOUT",
 		"OPENASE_EVENT_DRIVER",
 		"OPENASE_OBSERVABILITY_METRICS_ENABLED",
 		"OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS",
@@ -59,6 +62,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Orchestrator.TickInterval != 5*time.Second {
 		t.Fatalf("expected default tick interval, got %s", cfg.Orchestrator.TickInterval)
 	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 5*time.Minute {
+		t.Fatalf("expected default workspace prepare timeout, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 30*time.Second {
+		t.Fatalf("expected default agent session start timeout, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
+	}
 
 	if cfg.Logging.Level != slog.LevelInfo {
 		t.Fatalf("expected default log level info, got %s", cfg.Logging.Level)
@@ -94,9 +103,12 @@ func TestLoadFromEnvironment(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("OPENASE_SERVER_PORT", "41000")
 	t.Setenv("OPENASE_SERVER_MODE", "serve")
+	t.Setenv("OPENASE_SECURITY_CIPHER_SEED", "shared-cluster-seed")
 	t.Setenv("OPENASE_GITHUB_WEBHOOK_SECRET", "topsecret")
 	t.Setenv("OPENASE_DATABASE_DSN", "postgres://openase:secret@localhost:5432/openase?sslmode=disable")
 	t.Setenv("OPENASE_ORCHESTRATOR_TICK_INTERVAL", "2s")
+	t.Setenv("OPENASE_ORCHESTRATOR_WORKSPACE_PREPARE_TIMEOUT", "6m")
+	t.Setenv("OPENASE_ORCHESTRATOR_AGENT_SESSION_START_TIMEOUT", "45s")
 	t.Setenv("OPENASE_EVENT_DRIVER", "pgnotify")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_ENABLED", "false")
 	t.Setenv("OPENASE_OBSERVABILITY_METRICS_EXPORT_PROMETHEUS", "true")
@@ -121,6 +133,10 @@ func TestLoadFromEnvironment(t *testing.T) {
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
 	}
 
+	if cfg.Security.CipherSeed != "shared-cluster-seed" {
+		t.Fatalf("expected security cipher seed from env, got %q", cfg.Security.CipherSeed)
+	}
+
 	if cfg.GitHub.WebhookSecret != "topsecret" {
 		t.Fatalf("expected GitHub webhook secret from env, got %q", cfg.GitHub.WebhookSecret)
 	}
@@ -131,6 +147,12 @@ func TestLoadFromEnvironment(t *testing.T) {
 
 	if cfg.Orchestrator.TickInterval != 2*time.Second {
 		t.Fatalf("expected env tick interval, got %s", cfg.Orchestrator.TickInterval)
+	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 6*time.Minute {
+		t.Fatalf("expected env workspace prepare timeout, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 45*time.Second {
+		t.Fatalf("expected env agent session start timeout, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
 	}
 
 	if cfg.Event.Driver != EventDriverPGNotify {
@@ -188,10 +210,14 @@ server:
   shutdown_timeout: 12s
 github:
   webhook_secret: config-file-secret
+security:
+  cipher_seed: config-file-shared-seed
 database:
   dsn: postgres://openase:secret@localhost:5432/openase?sslmode=disable
 orchestrator:
   tick_interval: 3s
+  workspace_prepare_timeout: 7m
+  agent_session_start_timeout: 40s
 event:
   driver: pgnotify
 observability:
@@ -227,6 +253,10 @@ log:
 		t.Fatalf("expected serve mode, got %q", cfg.Server.Mode)
 	}
 
+	if cfg.Security.CipherSeed != "config-file-shared-seed" {
+		t.Fatalf("expected config file security cipher seed, got %q", cfg.Security.CipherSeed)
+	}
+
 	if cfg.GitHub.WebhookSecret != "config-file-secret" {
 		t.Fatalf("expected config file GitHub webhook secret, got %q", cfg.GitHub.WebhookSecret)
 	}
@@ -241,6 +271,12 @@ log:
 
 	if cfg.Orchestrator.TickInterval != 3*time.Second {
 		t.Fatalf("expected tick interval 3s, got %s", cfg.Orchestrator.TickInterval)
+	}
+	if cfg.Orchestrator.WorkspacePrepareTimeout != 7*time.Minute {
+		t.Fatalf("expected workspace prepare timeout 7m, got %s", cfg.Orchestrator.WorkspacePrepareTimeout)
+	}
+	if cfg.Orchestrator.AgentSessionStartTimeout != 40*time.Second {
+		t.Fatalf("expected agent session start timeout 40s, got %s", cfg.Orchestrator.AgentSessionStartTimeout)
 	}
 
 	if cfg.Event.Driver != EventDriverPGNotify {
@@ -637,6 +673,19 @@ func TestConfigValidationHelpers(t *testing.T) {
 	}
 	if err := validateConfig(Config{Server: ServerConfig{Mode: ServerModeServe}, Event: EventConfig{Driver: EventDriverAuto}}); err == nil {
 		t.Fatal("validateConfig(pgnotify without dsn) expected error")
+	}
+
+	cfg = Config{
+		Security: SecurityConfig{CipherSeed: " shared-seed "},
+		Database: DatabaseConfig{DSN: "postgres://ignored"},
+	}
+	if got := cfg.ResolvedSecurityCipherSeed(); got != "shared-seed" {
+		t.Fatalf("ResolvedSecurityCipherSeed(explicit) = %q", got)
+	}
+
+	cfg = Config{Database: DatabaseConfig{DSN: " postgres://fallback "}}
+	if got := cfg.ResolvedSecurityCipherSeed(); got != "postgres://fallback" {
+		t.Fatalf("ResolvedSecurityCipherSeed(fallback) = %q", got)
 	}
 }
 

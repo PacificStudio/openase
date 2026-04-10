@@ -1144,7 +1144,7 @@ Blocked launch should time out cleanly.
 		laterStartSeen:    make(chan struct{}, 1),
 	}
 	launcher := NewRuntimeLauncher(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil, manager, nil, workflowSvc)
-	launcher.launchTimeout = 50 * time.Millisecond
+	launcher.ConfigureLaunchTimeouts(5*time.Minute, 50*time.Millisecond)
 	t.Cleanup(func() {
 		manager.release()
 		if err := launcher.Close(context.Background()); err != nil {

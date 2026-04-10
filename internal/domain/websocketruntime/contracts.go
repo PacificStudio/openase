@@ -210,6 +210,9 @@ type WorkspacePrepareRequest struct {
 	ProjectSlug      string          `json:"project_slug"`
 	AgentName        string          `json:"agent_name,omitempty"`
 	TicketIdentifier string          `json:"ticket_identifier"`
+	MachineID        string          `json:"machine_id,omitempty"`
+	RunID            string          `json:"run_id,omitempty"`
+	TicketID         string          `json:"ticket_id,omitempty"`
 	Repos            []WorkspaceRepo `json:"repos,omitempty"`
 }
 

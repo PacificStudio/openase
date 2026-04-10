@@ -2531,6 +2531,45 @@ var (
 			},
 		},
 	}
+	// WorkspaceInitLeasesColumns holds the columns for the "workspace_init_leases" table.
+	WorkspaceInitLeasesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "lease_key", Type: field.TypeString},
+		{Name: "machine_id", Type: field.TypeUUID},
+		{Name: "owner_run_id", Type: field.TypeUUID},
+		{Name: "lease_expires_at", Type: field.TypeTime},
+		{Name: "heartbeat_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// WorkspaceInitLeasesTable holds the schema information for the "workspace_init_leases" table.
+	WorkspaceInitLeasesTable = &schema.Table{
+		Name:       "workspace_init_leases",
+		Columns:    WorkspaceInitLeasesColumns,
+		PrimaryKey: []*schema.Column{WorkspaceInitLeasesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workspaceinitlease_lease_key",
+				Unique:  true,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[1]},
+			},
+			{
+				Name:    "workspaceinitlease_machine_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[2]},
+			},
+			{
+				Name:    "workspaceinitlease_owner_run_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[3]},
+			},
+			{
+				Name:    "workspaceinitlease_lease_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[4]},
+			},
+		},
+	}
 	// WorkflowPickupStatusesColumns holds the columns for the "workflow_pickup_statuses" table.
 	WorkflowPickupStatusesColumns = []*schema.Column{
 		{Name: "workflow_id", Type: field.TypeUUID},
@@ -2639,6 +2678,7 @@ var (
 		WorkflowsTable,
 		WorkflowSkillBindingsTable,
 		WorkflowVersionsTable,
+		WorkspaceInitLeasesTable,
 		WorkflowPickupStatusesTable,
 		WorkflowFinishStatusesTable,
 	}
