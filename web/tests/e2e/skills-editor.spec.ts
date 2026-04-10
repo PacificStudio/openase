@@ -34,6 +34,7 @@ test('skills page supports editing, disabling, and binding a skill', async ({
   const editor = page
     .locator('[data-testid="skill-editor-textarea-container"] .cm-content[contenteditable="true"]')
     .first()
+  await expect(editor).toBeVisible()
   await editor.click()
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.type(

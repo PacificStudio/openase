@@ -20,6 +20,12 @@
     },
     {
       "method": "get",
+      "path": "/api/v1/chat/conversations/{conversationId}/terminal-sessions/{terminalSessionId}/attach",
+      "categories": ["backend_only"],
+      "reason": "Terminal attach is consumed as a browser WebSocket URL after session creation rather than through a generated fetch wrapper."
+    },
+    {
+      "method": "get",
       "path": "/api/v1/projects/{projectId}/hooks/stream",
       "categories": ["backend_only"],
       "reason": "Ticket detail currently renders hook history from the detail payload and does not maintain a dedicated live hook stream subscription."
