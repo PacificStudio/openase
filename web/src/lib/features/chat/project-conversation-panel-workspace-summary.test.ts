@@ -16,6 +16,7 @@ const {
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
+  watchProjectConversationMuxStream,
 } = vi.hoisted(() => ({
   closeProjectConversationRuntime: vi.fn(),
   createProjectConversation: vi.fn(),
@@ -31,6 +32,7 @@ const {
   respondProjectConversationInterrupt: vi.fn(),
   startProjectConversationTurn: vi.fn(),
   watchProjectConversation: vi.fn(),
+  watchProjectConversationMuxStream: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -48,12 +50,45 @@ vi.mock('$lib/api/chat', () => ({
   respondProjectConversationInterrupt,
   startProjectConversationTurn,
   watchProjectConversation,
-  watchProjectConversationMuxStream: vi.fn(),
+  watchProjectConversationMuxStream,
 }))
 
 import ProjectConversationPanel from './project-conversation-panel.svelte'
 import { providerFixtures } from './ephemeral-chat-session-controller.test-helpers'
 import { createWorkspaceDiff } from './project-conversation-panel.test-helpers'
+import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
+
+function mockLiveMuxStream() {
+  let handlers:
+    | {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: {
+          conversationId: string
+          sentAt: string
+          event: { kind: string; payload: Record<string, unknown> }
+        }) => void
+      }
+    | undefined
+
+  watchProjectConversationMuxStream.mockImplementation(async (_projectId, nextHandlers) => {
+    handlers = nextHandlers
+    nextHandlers.onOpen?.()
+    await new Promise<void>((resolve) => {
+      nextHandlers.signal?.addEventListener('abort', () => resolve(), { once: true })
+    })
+  })
+
+  return {
+    emit(conversationId: string, event: { kind: string; payload: Record<string, unknown> }) {
+      handlers?.onFrame({
+        conversationId,
+        sentAt: '2026-04-01T10:00:00Z',
+        event,
+      })
+    },
+  }
+}
 
 describe('ProjectConversationPanel workspace summary', () => {
   beforeAll(() => {
@@ -71,6 +106,10 @@ describe('ProjectConversationPanel workspace summary', () => {
     cleanup()
     vi.clearAllMocks()
     window.localStorage.clear()
+    workspaceBrowserPortal.close()
+    workspaceBrowserPortal.conversationId = ''
+    workspaceBrowserPortal.workspaceDiff = null
+    workspaceBrowserPortal.workspaceDiffLoading = false
   })
 
   it('renders compact workspace bar and expands to show repo details', async () => {
@@ -111,23 +150,18 @@ describe('ProjectConversationPanel workspace summary', () => {
       },
     })
 
-    // Compact bar shows summary
     await findByText('Workspace changes')
     await findByText('1 repo changed · +4 -1')
-
-    // Details are hidden by default
     expect(queryByText('web/src/app.ts')).toBeNull()
 
-    // Click to expand
     const bar = await findByText('Workspace changes')
     await fireEvent.click(bar.closest('button')!)
 
-    // Now file list is visible (single repo omits repo header)
     await findByText('web/src/app.ts')
     await findByText('M')
   })
 
-  it('opens the read-only workspace browser and loads file preview plus diff', async () => {
+  it('syncs workspace state into the shared browser portal when browse is toggled', async () => {
     listProjectConversations.mockResolvedValue({
       conversations: [
         {
@@ -154,63 +188,11 @@ describe('ProjectConversationPanel workspace summary', () => {
         },
       ],
     })
-    getProjectConversationWorkspace.mockResolvedValue({
-      workspace: {
-        conversationId: 'conversation-1',
-        available: true,
-        workspacePath: '/tmp/conversation-1',
-        repos: [
-          {
-            name: 'openase',
-            path: 'services/openase',
-            branch: 'agent/conv-123',
-            headCommit: '123456789abc',
-            headSummary: 'Add workspace browser scaffolding',
-            dirty: true,
-            filesChanged: 1,
-            added: 4,
-            removed: 1,
-          },
-        ],
-      },
-    })
-    listProjectConversationWorkspaceTree.mockResolvedValue({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [
-          { path: 'src', name: 'src', kind: 'directory', sizeBytes: 0 },
-          { path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 },
-        ],
-      },
-    })
-    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
-      filePreview: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        sizeBytes: 64,
-        mediaType: 'text/plain',
-        previewKind: 'text',
-        truncated: false,
-        content: 'line one\nline two\nline three\n',
-      },
-    })
-    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
-      filePatch: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        status: 'modified',
-        diffKind: 'text',
-        truncated: false,
-        diff: '@@ -1,2 +1,3 @@\n line one\n line two\n+line three\n',
-      },
-    })
     watchProjectConversation.mockResolvedValue(undefined)
 
-    const { container, findByText, getByText } = render(ProjectConversationPanel, {
+    const diff = createWorkspaceDiff('conversation-1', true)
+
+    const { findByText, getByText, queryByText } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -219,28 +201,66 @@ describe('ProjectConversationPanel workspace summary', () => {
     })
 
     await findByText('Browse')
+    await waitFor(() => expect(workspaceBrowserPortal.conversationId).toBe('conversation-1'))
+    expect(workspaceBrowserPortal.open).toBe(false)
+    expect(workspaceBrowserPortal.workspaceDiff).toEqual(diff.workspaceDiff)
+
     await fireEvent.click(getByText('Browse'))
-    await findByText('Workspace browser')
-    await findByText(/Add workspace browser scaffolding/)
-    await fireEvent.click(getByText('README.md'))
-    await waitFor(() => {
-      expect(container.textContent).toContain('README.md')
-      expect(container.textContent).toContain('line three')
-      expect(container.textContent).toContain('+line three')
+
+    await waitFor(() => expect(workspaceBrowserPortal.open).toBe(true))
+    expect(workspaceBrowserPortal.conversationId).toBe('conversation-1')
+    expect(workspaceBrowserPortal.workspaceDiff).toEqual(diff.workspaceDiff)
+    expect(queryByText('Browse')).toBeNull()
+    expect(getByText('Hide browser')).toBeTruthy()
+
+    await fireEvent.click(getByText('Hide browser'))
+    await waitFor(() => expect(workspaceBrowserPortal.open).toBe(false))
+    expect(getByText('Browse')).toBeTruthy()
+  })
+
+  it('updates the workspace summary in real time after a turn completes', async () => {
+    const mux = mockLiveMuxStream()
+
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(
+      createWorkspaceDiff('conversation-1', true),
+    )
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
     })
 
-    expect(getProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
-    expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
-      repoPath: 'services/openase',
-      path: '',
+    const { container, getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
     })
-    expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledWith('conversation-1', {
-      repoPath: 'services/openase',
-      path: 'README.md',
+
+    await fireEvent.input(getByPlaceholderText('Ask anything about this project…'), {
+      target: { value: 'Check the repo state' },
     })
-    expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledWith('conversation-1', {
-      repoPath: 'services/openase',
-      path: 'README.md',
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+
+    expect(container.textContent).not.toContain('1 repo changed · +4 -1')
+
+    mux.emit('conversation-1', {
+      kind: 'turn_done',
+      payload: {
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+      },
     })
+
+    await waitFor(() => expect(container.textContent).toContain('1 repo changed · +4 -1'))
+    expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
   })
 })

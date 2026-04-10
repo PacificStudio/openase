@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -21,7 +22,22 @@
 
   type UrlType = 'remote' | 'file'
 
-  let urlType = $state<UrlType>(draft.repositoryURL.startsWith('file://') ? 'file' : 'remote')
+  function detectUrlType(repositoryURL: string): UrlType {
+    return repositoryURL.startsWith('file://') ? 'file' : 'remote'
+  }
+
+  let urlType = $state<UrlType>(untrack(() => detectUrlType(draft.repositoryURL)))
+  let lastRepositoryURL = $state(untrack(() => draft.repositoryURL))
+
+  $effect(() => {
+    const nextRepositoryURL = draft.repositoryURL
+    if (nextRepositoryURL === lastRepositoryURL) {
+      return
+    }
+
+    lastRepositoryURL = nextRepositoryURL
+    urlType = detectUrlType(nextRepositoryURL)
+  })
 
   function update(field: keyof RepositoryDraft, event: Event) {
     const target = event.currentTarget as HTMLInputElement | HTMLTextAreaElement

@@ -1,14 +1,13 @@
 <script lang="ts">
   import { ScrollArea } from '$ui/scroll-area'
-  import { cn } from '$lib/utils'
   import ProjectConversationTabStrip from './project-conversation-tab-strip.svelte'
-  import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
   import ProjectConversationWorkspaceSummary from './project-conversation-workspace-summary.svelte'
   import ProjectConversationTranscript from './project-conversation-transcript.svelte'
   import type { ProjectConversation } from '$lib/api/chat'
   import type { ProjectConversationTabView } from './project-conversation-panel-labels'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+  import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
 
   let {
     tabs = [],
@@ -44,11 +43,23 @@
     }) => void
   } = $props()
 
-  let browserOpen = $state(false)
+  const browserOpen = $derived(workspaceBrowserPortal.open)
+
+  $effect(() => {
+    workspaceBrowserPortal.conversationId = conversationId
+    workspaceBrowserPortal.workspaceDiff = workspaceDiff ?? null
+    workspaceBrowserPortal.workspaceDiffLoading = workspaceDiffLoading
+  })
 
   $effect(() => {
     if (!conversationId) {
-      browserOpen = false
+      workspaceBrowserPortal.close()
+    }
+  })
+
+  $effect(() => {
+    return () => {
+      workspaceBrowserPortal.close()
     }
   })
 </script>
@@ -69,30 +80,20 @@
   error={workspaceDiffError}
   {browserOpen}
   onBrowse={() => {
-    if (conversationId) browserOpen = !browserOpen
+    if (conversationId) workspaceBrowserPortal.toggle()
+  }}
+  onOpenFile={(filePath) => {
+    if (conversationId) workspaceBrowserPortal.openToFile(filePath)
   }}
 />
 
 <div class="flex min-h-0 flex-1">
   <div class="min-w-0 flex-1">
     <ScrollArea
-      class={cn('h-full px-4 py-4', browserOpen && 'lg:pr-2')}
+      class="h-full px-4 py-4"
       scrollbarYClasses="data-vertical:w-[3px] data-vertical:pr-0"
     >
       <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
     </ScrollArea>
   </div>
-
-  {#if browserOpen}
-    <aside class="border-border hidden min-h-0 w-[min(54vw,62rem)] shrink-0 border-l lg:flex">
-      <ProjectConversationWorkspaceBrowser
-        {conversationId}
-        {workspaceDiff}
-        {workspaceDiffLoading}
-        onClose={() => {
-          browserOpen = false
-        }}
-      />
-    </aside>
-  {/if}
 </div>

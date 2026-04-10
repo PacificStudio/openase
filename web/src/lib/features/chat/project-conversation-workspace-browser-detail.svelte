@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { ScrollArea } from '$ui/scroll-area'
+  import { cn } from '$lib/utils'
+  import { FileCode2 } from '@lucide/svelte'
+  import { CodeViewer, DiffViewer } from '$lib/components/code'
   import type {
     ProjectConversationWorkspaceFilePatch,
     ProjectConversationWorkspaceFilePreview,
@@ -9,7 +11,6 @@
   let {
     selectedRepo = null,
     selectedFilePath = '',
-    currentTreePath = '',
     preview = null,
     patch = null,
     fileLoading = false,
@@ -17,102 +18,105 @@
   }: {
     selectedRepo?: ProjectConversationWorkspaceRepoMetadata | null
     selectedFilePath?: string
-    currentTreePath?: string
     preview?: ProjectConversationWorkspaceFilePreview | null
     patch?: ProjectConversationWorkspaceFilePatch | null
     fileLoading?: boolean
     fileError?: string
   } = $props()
+
+  const fileName = $derived(selectedFilePath.split('/').pop() ?? '')
+  const fileDirPath = $derived(() => {
+    const parts = selectedFilePath.split('/')
+    return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
+  })
+  const hasDiff = $derived(patch?.diffKind === 'text' && !!patch.diff)
 </script>
 
-<div class="min-h-0">
-  <ScrollArea class="h-full">
-    <div class="space-y-4 p-4">
-      {#if !selectedRepo}
-        <p class="text-muted-foreground text-sm">Select a repo to browse its files.</p>
-      {:else}
-        <div class="space-y-1">
-          <p class="text-xs font-medium tracking-wide uppercase">Selection</p>
-          <p class="font-mono text-sm">
-            {selectedFilePath || currentTreePath || selectedRepo.path}
-          </p>
-        </div>
-
-        {#if fileError}
-          <div class="border-destructive/20 bg-destructive/5 rounded-lg border p-3">
-            <p class="text-destructive text-sm">{fileError}</p>
-          </div>
-        {:else if selectedFilePath}
-          <section class="space-y-3">
-            <div class="border-border bg-muted/20 rounded-lg border">
-              <div class="border-border flex items-center justify-between border-b px-3 py-2">
-                <div>
-                  <p class="text-sm font-medium">Preview</p>
-                  {#if preview}
-                    <p class="text-muted-foreground text-[11px]">
-                      {preview.mediaType} · {preview.sizeBytes} B
-                    </p>
-                  {/if}
-                </div>
-                {#if fileLoading}
-                  <span class="text-muted-foreground text-[11px]">Loading…</span>
-                {/if}
-              </div>
-
-              {#if preview?.previewKind === 'binary'}
-                <p class="text-muted-foreground px-3 py-4 text-sm">
-                  Binary files are not rendered inline in the read-only browser.
-                </p>
-              {:else if preview}
-                <pre
-                  class="overflow-x-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">{preview.content}</pre>
-              {:else if fileLoading}
-                <p class="text-muted-foreground px-3 py-4 text-sm">Loading preview…</p>
-              {:else}
-                <p class="text-muted-foreground px-3 py-4 text-sm">
-                  Choose a file to load its preview.
-                </p>
-              {/if}
-            </div>
-
-            <div class="border-border bg-muted/20 rounded-lg border">
-              <div class="border-border flex items-center justify-between border-b px-3 py-2">
-                <div>
-                  <p class="text-sm font-medium">Diff</p>
-                  {#if patch}
-                    <p class="text-muted-foreground text-[11px]">
-                      {patch.status} · {patch.diffKind}
-                    </p>
-                  {/if}
-                </div>
-              </div>
-
-              {#if patch?.diffKind === 'text'}
-                <pre
-                  class="overflow-x-auto p-3 font-mono text-[12px] leading-5 whitespace-pre-wrap">{patch.diff}</pre>
-              {:else if patch?.diffKind === 'binary'}
-                <p class="text-muted-foreground px-3 py-4 text-sm">
-                  Binary changes are detected, but the diff body is not rendered inline.
-                </p>
-              {:else if patch?.diffKind === 'none'}
-                <p class="text-muted-foreground px-3 py-4 text-sm">
-                  No diff against `HEAD` for this file.
-                </p>
-              {:else}
-                <p class="text-muted-foreground px-3 py-4 text-sm">
-                  Choose a file to load its git diff.
-                </p>
-              {/if}
-            </div>
-          </section>
-        {:else}
-          <div
-            class="text-muted-foreground rounded-lg border border-dashed px-4 py-8 text-center text-sm"
-          >
-            Select a file from the tree or git status list to inspect it.
-          </div>
-        {/if}
+<div class="flex h-full min-h-0 flex-col overflow-hidden">
+  {#if !selectedRepo}
+    <div
+      class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+    >
+      Select a repo to browse its files.
+    </div>
+  {:else if !selectedFilePath}
+    <div
+      class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
+    >
+      <div class="space-y-2">
+        <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
+        <p>Select a file to view its contents</p>
+      </div>
+    </div>
+  {:else if fileError}
+    <div class="border-destructive/20 bg-destructive/5 m-4 rounded-lg border p-3">
+      <p class="text-destructive text-sm">{fileError}</p>
+    </div>
+  {:else}
+    <!-- File tab bar -->
+    <div class="border-border bg-muted/30 flex items-center gap-2 border-b px-3 py-1.5">
+      <FileCode2 class="text-muted-foreground size-3.5 shrink-0" />
+      <span class="min-w-0 truncate text-[13px] font-medium">{fileName}</span>
+      {#if fileDirPath()}
+        <span class="text-muted-foreground/40 min-w-0 truncate text-[11px]">{fileDirPath()}</span>
+      {/if}
+      {#if patch?.status && patch.status !== 'modified'}
+        <span
+          class={cn(
+            'rounded px-1 text-[10px] font-bold uppercase',
+            patch.status === 'added'
+              ? 'bg-emerald-500/15 text-emerald-600'
+              : patch.status === 'deleted'
+                ? 'bg-rose-500/15 text-rose-600'
+                : 'bg-sky-500/15 text-sky-600',
+          )}
+        >
+          {patch.status}
+        </span>
+      {/if}
+      {#if preview}
+        <span class="text-muted-foreground/50 ml-auto text-[10px]">
+          {preview.mediaType} · {preview.sizeBytes} B
+        </span>
+      {/if}
+      {#if fileLoading}
+        <span class="text-muted-foreground/50 text-[10px]">Loading…</span>
       {/if}
     </div>
-  </ScrollArea>
+
+    <!-- Unified content: diff or syntax-highlighted preview -->
+    <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
+      {#if hasDiff}
+        <div
+          class="h-full min-h-0 min-w-0 overflow-hidden"
+          data-testid="workspace-browser-detail-scroll-frame"
+        >
+          <DiffViewer
+            diff={patch?.diff ?? ''}
+            sourceContent={preview?.content ?? ''}
+            class="h-full"
+          />
+        </div>
+      {:else if preview?.previewKind === 'binary'}
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+          <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
+        </div>
+      {:else if preview}
+        <div
+          class="h-full min-h-0 min-w-0 overflow-hidden"
+          data-testid="workspace-browser-detail-scroll-frame"
+        >
+          <CodeViewer code={preview.content ?? ''} filePath={selectedFilePath} class="h-full" />
+        </div>
+      {:else if fileLoading}
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+          Loading…
+        </div>
+      {:else}
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+          Select a file to view its contents.
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>

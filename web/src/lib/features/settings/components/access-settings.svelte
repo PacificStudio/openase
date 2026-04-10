@@ -10,7 +10,9 @@
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Badge } from '$ui/badge'
-  import { Users } from '@lucide/svelte'
+  import * as Collapsible from '$ui/collapsible'
+  import { Separator } from '$ui/separator'
+  import { ChevronRight, Users } from '@lucide/svelte'
   import AccessSettingsDisabledCard from './access-settings-disabled-card.svelte'
   import SecuritySettingsHumanAuthAccessCard from './security-settings-human-auth-access-card.svelte'
   import SecuritySettingsHumanAuthBindingSection from './security-settings-human-auth-binding-section.svelte'
@@ -30,6 +32,7 @@
   let projectPermissions = $state<EffectivePermissionsResponse | null>(null)
   let projectBindings = $state<RoleBinding[]>([])
   let projectDraft = $state<BindingDraft>(defaultBindingDraftForScope('project'))
+  let detailsOpen = $state(false)
 
   const currentOrgId = $derived(appStore.currentOrg?.id ?? '')
   const currentProjectId = $derived(appStore.currentProject?.id ?? '')
@@ -143,69 +146,21 @@
   <div>
     <h2 class="text-foreground text-base font-semibold">Access</h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Project-scoped bindings stay here while instance and organization IAM move to their dedicated
+      Manage project-scoped role bindings. Instance and organization IAM belong in their dedicated
       control planes.
     </p>
   </div>
+
   {#if authStore.usesLocalBootstrap}
     <AccessSettingsDisabledCard />
   {:else if !authStore.authenticated}
     <SecuritySettingsHumanAuthSignInHint />
   {:else if accessLoading}
     <div class="space-y-4">
-      <div class="bg-muted h-24 animate-pulse rounded-lg"></div>
-      <div class="bg-muted h-72 animate-pulse rounded-lg"></div>
+      <div class="bg-muted h-10 w-48 animate-pulse rounded-lg"></div>
+      <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
     </div>
   {:else}
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-      <SecuritySettingsHumanAuthAccessCard
-        title="Project effective access"
-        subtitle={currentProjectName}
-        roles={projectPermissions?.roles ?? []}
-        permissions={projectPermissions?.permissions ?? []}
-        emptyRoles="No project roles"
-        emptyPermissions="No project permissions"
-      />
-
-      <div class="border-border bg-card space-y-3 rounded-lg border p-4">
-        <div class="flex items-center gap-2">
-          <Users class="text-muted-foreground size-4" />
-          <div class="text-sm font-semibold">Current principal and groups</div>
-        </div>
-        <div class="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Principal</div>
-            <div class="mt-2 font-medium">
-              {authStore.user?.displayName || authStore.user?.primaryEmail || 'Authenticated user'}
-            </div>
-            <div class="text-muted-foreground mt-1 text-xs">
-              {authStore.user?.primaryEmail || authStore.user?.id || 'OIDC browser session'}
-            </div>
-          </div>
-          <div>
-            <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">
-              Synced groups
-            </div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              {#if currentGroups.length > 0}
-                {#each currentGroups as group (group.issuer + ':' + group.group_key)}
-                  <Badge variant="outline">{group.group_name || group.group_key}</Badge>
-                {/each}
-              {:else}
-                <span class="text-muted-foreground text-xs">No synchronized groups</span>
-              {/if}
-            </div>
-          </div>
-        </div>
-        <div
-          class="text-muted-foreground rounded-2xl border border-dashed px-3 py-3 text-xs leading-6"
-        >
-          Use this section for project-local grants only. Org membership lifecycle stays in org
-          admin, and any installation-wide auth change still belongs under <code>/admin</code>.
-        </div>
-      </div>
-    </div>
-
     {#if accessError}
       <div class="text-destructive text-sm">{accessError}</div>
     {/if}
@@ -224,9 +179,70 @@
       onDelete={(_, bindingId) => void handleDeleteBinding(bindingId)}
     />
 
-    <div class="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-xs">
+    <Separator />
+
+    <Collapsible.Root bind:open={detailsOpen}>
+      <Collapsible.Trigger>
+        {#snippet child({ props })}
+          <button
+            {...props}
+            type="button"
+            class="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 text-sm transition-colors"
+          >
+            <ChevronRight class="size-4 transition-transform {detailsOpen ? 'rotate-90' : ''}" />
+            Your effective access &amp; identity
+          </button>
+        {/snippet}
+      </Collapsible.Trigger>
+      <Collapsible.Content>
+        <div class="mt-4 space-y-4">
+          <SecuritySettingsHumanAuthAccessCard
+            title="Project effective access"
+            subtitle={currentProjectName}
+            roles={projectPermissions?.roles ?? []}
+            permissions={projectPermissions?.permissions ?? []}
+            emptyRoles="No project roles"
+            emptyPermissions="No project permissions"
+          />
+
+          <div class="border-border bg-card space-y-3 rounded-lg border p-4">
+            <div class="flex items-center gap-2">
+              <Users class="text-muted-foreground size-4" />
+              <div class="text-sm font-semibold">Current principal and groups</div>
+            </div>
+            <div class="grid gap-4 text-sm sm:grid-cols-2">
+              <div>
+                <div class="text-muted-foreground text-xs font-medium">Principal</div>
+                <div class="mt-1.5 font-medium">
+                  {authStore.user?.displayName ||
+                    authStore.user?.primaryEmail ||
+                    'Authenticated user'}
+                </div>
+                <div class="text-muted-foreground mt-0.5 text-xs">
+                  {authStore.user?.primaryEmail || authStore.user?.id || 'OIDC browser session'}
+                </div>
+              </div>
+              <div>
+                <div class="text-muted-foreground text-xs font-medium">Synced groups</div>
+                <div class="mt-1.5 flex flex-wrap gap-1.5">
+                  {#if currentGroups.length > 0}
+                    {#each currentGroups as group (group.issuer + ':' + group.group_key)}
+                      <Badge variant="outline">{group.group_name || group.group_key}</Badge>
+                    {/each}
+                  {:else}
+                    <span class="text-muted-foreground text-xs">No synchronized groups</span>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
+
+    <p class="text-muted-foreground text-xs">
       Project bindings layer on top of inherited organization access. If someone cannot reach the
-      org at all, fix org membership or org roles in org admin before debugging project access.
-    </div>
+      org at all, fix org membership in org admin first.
+    </p>
   {/if}
 </div>

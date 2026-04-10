@@ -272,4 +272,129 @@ describe('watchProjectConversationMux', () => {
     consoleError.mockRestore()
     vi.useRealTimers()
   })
+
+  it('notifies retrying and reconnect callbacks for each subsequent mux flap', async () => {
+    vi.useFakeTimers()
+
+    const calls: Array<{
+      handlers: {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: { conversationId: string; sentAt: string; event: unknown }) => void
+      }
+      resolve: () => void
+      reject: (error: unknown) => void
+    }> = []
+    watchProjectConversationMuxStream.mockImplementation((_projectId, handlers) => {
+      return new Promise<void>((resolve, reject) => {
+        calls.push({ handlers, resolve, reject })
+        handlers.signal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true },
+        )
+      })
+    })
+
+    const controller = new AbortController()
+    const onRetrying = vi.fn()
+    const onReconnect = vi.fn()
+    const watch = watchProjectConversationMux({
+      projectId: 'project-1',
+      conversationId: 'conversation-1',
+      signal: controller.signal,
+      onEvent: vi.fn(),
+      onRetrying,
+      onReconnect,
+    })
+
+    calls[0]?.handlers.onOpen?.()
+    await watch.connected
+
+    calls[0]?.resolve()
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(onRetrying).toHaveBeenCalledTimes(1)
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(2)
+
+    calls[1]?.handlers.onOpen?.()
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+
+    calls[1]?.resolve()
+    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(onRetrying).toHaveBeenCalledTimes(2)
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(3)
+
+    calls[2]?.handlers.onOpen?.()
+    expect(onReconnect).toHaveBeenCalledTimes(2)
+
+    controller.abort()
+    await watch.stream
+
+    vi.useRealTimers()
+  })
+
+  it('clears cached session state after the last subscriber disconnects', async () => {
+    const calls: Array<{
+      handlers: {
+        signal?: AbortSignal
+        onOpen?: () => void
+        onFrame: (frame: { conversationId: string; sentAt: string; event: unknown }) => void
+      }
+    }> = []
+    watchProjectConversationMuxStream.mockImplementation((_projectId, handlers) => {
+      calls.push({ handlers })
+      return new Promise<void>((_resolve, reject) => {
+        handlers.signal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('Aborted', 'AbortError')),
+          { once: true },
+        )
+      })
+    })
+
+    const firstController = new AbortController()
+    const firstEvents: unknown[] = []
+    const firstWatch = watchProjectConversationMux({
+      projectId: 'project-1',
+      conversationId: 'conversation-1',
+      signal: firstController.signal,
+      onEvent: (event) => firstEvents.push(event),
+    })
+
+    calls[0]?.handlers.onOpen?.()
+    calls[0]?.handlers.onFrame({
+      conversationId: 'conversation-1',
+      sentAt: '2026-04-04T12:00:00Z',
+      event: {
+        kind: 'session',
+        payload: {
+          conversationId: 'conversation-1',
+          runtimeState: 'ready',
+          providerActiveFlags: [],
+        },
+      },
+    })
+    expect(firstEvents).toHaveLength(1)
+
+    firstController.abort()
+    await firstWatch.stream
+
+    const secondController = new AbortController()
+    const secondEvents: unknown[] = []
+    const secondWatch = watchProjectConversationMux({
+      projectId: 'project-1',
+      conversationId: 'conversation-1',
+      signal: secondController.signal,
+      onEvent: (event) => secondEvents.push(event),
+    })
+
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledTimes(2)
+    expect(secondEvents).toEqual([])
+
+    calls[1]?.handlers.onOpen?.()
+    secondController.abort()
+    await secondWatch.stream
+  })
 })

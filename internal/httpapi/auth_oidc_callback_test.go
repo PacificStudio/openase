@@ -88,6 +88,9 @@ func TestOIDCCallbackCreatesBrowserSessionFromVerifiedIDToken(t *testing.T) {
 	if sessionCookie == nil {
 		t.Fatalf("expected human session cookie in %#v", callbackRec.Result().Cookies())
 	}
+	if sessionCookie.Expires.Year() != 9999 {
+		t.Fatalf("session cookie expiry = %s, want year 9999", sessionCookie.Expires)
+	}
 
 	sessionRec := fixture.request(t, http.MethodGet, "/api/v1/auth/session", map[string]string{
 		"Cookie":          humanSessionCookieName + "=" + sessionCookie.Value,

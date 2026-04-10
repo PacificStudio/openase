@@ -255,8 +255,14 @@ func (r *Repository) ListBrowserSessionsByUser(ctx context.Context, userID uuid.
 	return result, nil
 }
 
-func (r *Repository) TouchBrowserSession(ctx context.Context, id uuid.UUID, idleExpiresAt time.Time) (domain.BrowserSession, error) {
+func (r *Repository) TouchBrowserSession(
+	ctx context.Context,
+	id uuid.UUID,
+	expiresAt time.Time,
+	idleExpiresAt time.Time,
+) (domain.BrowserSession, error) {
 	item, err := r.client.BrowserSession.UpdateOneID(id).
+		SetExpiresAt(expiresAt.UTC()).
 		SetIdleExpiresAt(idleExpiresAt.UTC()).
 		Save(ctx)
 	if err != nil {

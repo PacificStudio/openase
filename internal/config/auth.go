@@ -58,8 +58,8 @@ func configureAuthDefaults(v *viper.Viper) {
 	v.SetDefault("auth.oidc.groups_claim", "groups")
 	v.SetDefault("auth.oidc.allowed_email_domains", []string{})
 	v.SetDefault("auth.oidc.bootstrap_admin_emails", []string{})
-	v.SetDefault("auth.oidc.session_ttl", 8*time.Hour)
-	v.SetDefault("auth.oidc.session_idle_ttl", 30*time.Minute)
+	v.SetDefault("auth.oidc.session_ttl", time.Duration(0))
+	v.SetDefault("auth.oidc.session_idle_ttl", time.Duration(0))
 }
 
 func parseAuthConfig(v *viper.Viper) (AuthConfig, error) {
@@ -85,11 +85,11 @@ func parseAuthConfig(v *viper.Viper) (AuthConfig, error) {
 		return AuthConfig{}, fmt.Errorf("parse auth.oidc.bootstrap_admin_emails: %w", err)
 	}
 
-	sessionTTL, err := parseDuration(v.Get("auth.oidc.session_ttl"))
+	sessionTTL, err := parseNonNegativeDuration(v.Get("auth.oidc.session_ttl"))
 	if err != nil {
 		return AuthConfig{}, fmt.Errorf("parse auth.oidc.session_ttl: %w", err)
 	}
-	sessionIdleTTL, err := parseDuration(v.Get("auth.oidc.session_idle_ttl"))
+	sessionIdleTTL, err := parseNonNegativeDuration(v.Get("auth.oidc.session_idle_ttl"))
 	if err != nil {
 		return AuthConfig{}, fmt.Errorf("parse auth.oidc.session_idle_ttl: %w", err)
 	}
@@ -176,7 +176,7 @@ func validateAuthConfig(cfg AuthConfig) error {
 		if len(cfg.OIDC.Scopes) == 0 {
 			return errors.New("auth.oidc.scopes must not be empty when auth.mode=oidc")
 		}
-		if cfg.OIDC.SessionIdleTTL > cfg.OIDC.SessionTTL {
+		if cfg.OIDC.SessionTTL > 0 && cfg.OIDC.SessionIdleTTL > cfg.OIDC.SessionTTL {
 			return errors.New("auth.oidc.session_idle_ttl must not exceed auth.oidc.session_ttl")
 		}
 		return nil

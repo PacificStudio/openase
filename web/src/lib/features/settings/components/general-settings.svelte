@@ -136,7 +136,7 @@
   }
 </script>
 
-<div class="max-w-lg space-y-6">
+<div class="space-y-6">
   <div>
     <h2 class="text-foreground text-base font-semibold">General</h2>
     <p class="text-muted-foreground mt-1 text-sm">

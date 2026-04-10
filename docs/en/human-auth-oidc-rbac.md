@@ -53,8 +53,8 @@ auth:
     groups_claim: groups
     allowed_email_domains: []
     bootstrap_admin_emails: []
-    session_ttl: 8h
-    session_idle_ttl: 30m
+    session_ttl: 0s
+    session_idle_ttl: 0s
 ```
 
 Field notes:
@@ -65,8 +65,8 @@ Field notes:
 - `scopes`: defaults to `openid`, `profile`, `email`, `groups`.
 - `allowed_email_domains`: optional allowlist applied after ID token verification.
 - `bootstrap_admin_emails`: optional email allowlist that receives the first-login `instance_admin` binding automatically.
-- `session_ttl`: absolute browser session lifetime.
-- `session_idle_ttl`: sliding idle timeout. It must not exceed `session_ttl`.
+- `session_ttl`: absolute browser session lifetime. Set `0s` to disable absolute expiry.
+- `session_idle_ttl`: sliding idle timeout. Set `0s` to disable idle expiry. When `session_ttl` is positive, `session_idle_ttl` must not exceed it.
 
 OpenASE also supports equivalent `OPENASE_AUTH_*` environment variables through the normal config loader.
 

@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { RoleBinding } from '$lib/api/auth'
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
+  import { Label } from '$ui/label'
+  import * as Select from '$ui/select'
+  import { Plus, Trash2, UserPlus } from '@lucide/svelte'
   import {
     bindingPlaceholder,
     formatTimestamp,
@@ -38,10 +42,20 @@
     onCreate?: (scope: ScopeKind) => void
     onDelete?: (scope: ScopeKind, bindingId: string) => void
   } = $props()
+
+  let dialogOpen = $state(false)
+
+  const roleOptions = $derived(roleOptionsForScope(scope))
+  const isCreating = $derived(mutationKey === `${scope}:create`)
+
+  function handleCreate() {
+    onCreate?.(scope)
+    dialogOpen = false
+  }
 </script>
 
-<div class="border-border bg-card space-y-4 rounded-lg border p-4">
-  <div class="flex items-start justify-between gap-3">
+<div class="space-y-4">
+  <div class="flex items-center justify-between gap-3">
     <div>
       <h4 class="text-sm font-semibold">{scopeTitle(scope)}</h4>
       <p class="text-muted-foreground text-xs">
@@ -52,93 +66,150 @@
             : 'Project-scoped roles stack with direct and group bindings.'}
       </p>
     </div>
-    <div class="text-muted-foreground text-xs">{canManage ? 'Editable' : 'Read only'}</div>
+    {#if canManage}
+      <Dialog.Root bind:open={dialogOpen}>
+        <Dialog.Trigger>
+          {#snippet child({ props })}
+            <Button size="sm" {...props}>
+              <Plus class="size-4" />
+              <span class="hidden sm:inline">Add binding</span>
+            </Button>
+          {/snippet}
+        </Dialog.Trigger>
+        <Dialog.Content class="sm:max-w-md">
+          <Dialog.Header>
+            <Dialog.Title>Add role binding</Dialog.Title>
+            <Dialog.Description>
+              Grant a user or group access to this {scope}.
+            </Dialog.Description>
+          </Dialog.Header>
+
+          <form
+            class="flex min-h-0 flex-1 flex-col gap-6"
+            onsubmit={(event) => {
+              event.preventDefault()
+              handleCreate()
+            }}
+          >
+            <Dialog.Body class="space-y-4">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div class="space-y-2">
+                  <Label>Subject type</Label>
+                  <Select.Root
+                    type="single"
+                    value={draft.subjectKind}
+                    onValueChange={(value) =>
+                      onSubjectKind?.(scope, (value || 'user') as SubjectKind)}
+                  >
+                    <Select.Trigger class="w-full">
+                      {draft.subjectKind === 'group' ? 'Group' : 'User'}
+                    </Select.Trigger>
+                    <Select.Content>
+                      <Select.Item value="user">User</Select.Item>
+                      <Select.Item value="group">Group</Select.Item>
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+
+                <div class="space-y-2">
+                  <Label>Role</Label>
+                  <Select.Root
+                    type="single"
+                    value={draft.roleKey}
+                    onValueChange={(value) =>
+                      onRoleKey?.(scope, value || roleOptions[0]?.key || '')}
+                  >
+                    <Select.Trigger class="w-full">
+                      {resolveRoleOption(draft.roleKey)?.label ?? draft.roleKey}
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each roleOptions as roleOption (roleOption.key)}
+                        <Select.Item value={roleOption.key}>
+                          <span class="flex flex-col">
+                            <span>{roleOption.label}</span>
+                          </span>
+                        </Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+              </div>
+
+              {#if resolveRoleOption(draft.roleKey)?.summary}
+                <p class="text-muted-foreground -mt-2 text-xs">
+                  {resolveRoleOption(draft.roleKey)?.summary}
+                </p>
+              {/if}
+
+              <div class="space-y-2">
+                <Label for="binding-subject-key">
+                  {draft.subjectKind === 'group' ? 'Group key' : 'Email or user ID'}
+                </Label>
+                <Input
+                  id="binding-subject-key"
+                  value={draft.subjectKey}
+                  oninput={(event) =>
+                    onSubjectKey?.(scope, (event.currentTarget as HTMLInputElement).value)}
+                  placeholder={bindingPlaceholder(draft.subjectKind)}
+                />
+                <p class="text-muted-foreground text-xs">
+                  {draft.subjectKind === 'group'
+                    ? 'Must match the synchronized OIDC group key.'
+                    : 'Use a stable email or user ID for direct grants.'}
+                </p>
+              </div>
+
+              <div class="space-y-2">
+                <Label for="binding-expires">Expires at (optional)</Label>
+                <Input
+                  id="binding-expires"
+                  type="datetime-local"
+                  value={draft.expiresAtLocal}
+                  oninput={(event) =>
+                    onExpiresAt?.(scope, (event.currentTarget as HTMLInputElement).value)}
+                />
+              </div>
+            </Dialog.Body>
+
+            <Dialog.Footer>
+              <Dialog.Close>
+                {#snippet child({ props })}
+                  <Button variant="outline" {...props}>Cancel</Button>
+                {/snippet}
+              </Dialog.Close>
+              <Button type="submit" disabled={isCreating}>
+                <UserPlus class="size-4" />
+                {isCreating ? 'Adding...' : 'Add binding'}
+              </Button>
+            </Dialog.Footer>
+          </form>
+        </Dialog.Content>
+      </Dialog.Root>
+    {:else}
+      <span class="text-muted-foreground text-xs">Read only</span>
+    {/if}
   </div>
 
-  {#if canManage}
-    <div class="grid gap-2 lg:grid-cols-[9rem_minmax(0,1fr)_13rem_13rem_auto]">
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Subject kind</span>
-        <select
-          class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-          value={draft.subjectKind}
-          onchange={(event) =>
-            onSubjectKind?.(scope, (event.currentTarget as HTMLSelectElement).value as SubjectKind)}
-        >
-          <option value="user">User</option>
-          <option value="group">Group</option>
-        </select>
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Subject key</span>
-        <Input
-          value={draft.subjectKey}
-          oninput={(event) =>
-            onSubjectKey?.(scope, (event.currentTarget as HTMLInputElement).value)}
-          placeholder={bindingPlaceholder(draft.subjectKind)}
-        />
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Role</span>
-        <select
-          class="border-input bg-background h-9 rounded-md border px-3 text-sm"
-          value={draft.roleKey}
-          onchange={(event) => onRoleKey?.(scope, (event.currentTarget as HTMLSelectElement).value)}
-        >
-          {#each roleOptionsForScope(scope) as roleOption (roleOption.key)}
-            <option value={roleOption.key}>{roleOption.label}</option>
-          {/each}
-        </select>
-      </label>
-
-      <label class="space-y-1 text-xs">
-        <span class="text-muted-foreground">Expires at</span>
-        <Input
-          type="datetime-local"
-          value={draft.expiresAtLocal}
-          oninput={(event) => onExpiresAt?.(scope, (event.currentTarget as HTMLInputElement).value)}
-        />
-      </label>
-
-      <div class="flex items-end">
-        <Button disabled={mutationKey === `${scope}:create`} onclick={() => onCreate?.(scope)}>
-          {mutationKey === `${scope}:create` ? 'Adding…' : 'Add binding'}
-        </Button>
-      </div>
-    </div>
-
-    <p class="text-muted-foreground text-xs">
-      Use a user email or stable user id for direct grants. Group subject keys should match the
-      synchronized OIDC group key.
-    </p>
-  {:else}
-    <p class="text-muted-foreground text-xs">
-      <code>rbac.manage</code> is required on this scope before bindings can be edited.
-    </p>
-  {/if}
-
-  <div class="space-y-2">
-    {#if bindings.length > 0}
-      {#each bindings as binding (binding.id)}
+  {#if bindings.length > 0}
+    <div class="divide-border border-border overflow-hidden rounded-lg border">
+      {#each bindings as binding, index (binding.id)}
         <div
-          class="border-border bg-muted/20 flex flex-col gap-3 rounded-lg border px-4 py-3 text-xs lg:flex-row lg:items-start lg:justify-between"
+          class="flex flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between {index >
+          0
+            ? 'border-border border-t'
+            : ''}"
         >
-          <div class="space-y-1">
+          <div class="min-w-0 space-y-0.5">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="font-medium"
-                >{resolveRoleOption(binding.roleKey)?.label ?? binding.roleKey}</span
-              >
-              <code class="bg-background rounded px-1.5 py-0.5">
+              <span class="font-medium">
+                {resolveRoleOption(binding.roleKey)?.label ?? binding.roleKey}
+              </span>
+              <code class="bg-muted truncate rounded px-1.5 py-0.5 text-xs">
                 {binding.subjectKind}:{binding.subjectKey}
               </code>
             </div>
-            <div class="text-muted-foreground">
-              {resolveRoleOption(binding.roleKey)?.summary ?? 'Static builtin role'}
-            </div>
-            <div class="text-muted-foreground">
-              Granted by {binding.grantedBy} · created {formatTimestamp(binding.createdAt)}
+            <div class="text-muted-foreground text-xs">
+              Granted by {binding.grantedBy} · {formatTimestamp(binding.createdAt)}
               {#if binding.expiresAt}
                 · expires {formatTimestamp(binding.expiresAt)}
               {/if}
@@ -147,20 +218,28 @@
 
           {#if canManage}
             <Button
-              variant="outline"
-              size="sm"
+              variant="ghost"
+              size="icon-sm"
+              class="text-muted-foreground hover:text-destructive shrink-0 self-end sm:self-auto"
               disabled={mutationKey === `${scope}:delete:${binding.id}`}
               onclick={() => onDelete?.(scope, binding.id)}
             >
-              {mutationKey === `${scope}:delete:${binding.id}` ? 'Deleting…' : 'Delete'}
+              <Trash2 class="size-4" />
+              <span class="sr-only">Delete binding</span>
             </Button>
           {/if}
         </div>
       {/each}
-    {:else}
-      <div class="text-muted-foreground rounded-lg border border-dashed px-4 py-3 text-sm">
-        No bindings yet on this scope.
-      </div>
-    {/if}
-  </div>
+    </div>
+  {:else}
+    <div
+      class="text-muted-foreground flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center text-sm"
+    >
+      <UserPlus class="text-muted-foreground/50 size-8" />
+      <p>No bindings on this scope yet.</p>
+      {#if canManage}
+        <p class="text-xs">Click "Add binding" to grant access.</p>
+      {/if}
+    </div>
+  {/if}
 </div>
