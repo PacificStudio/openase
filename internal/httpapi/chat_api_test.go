@@ -1354,6 +1354,139 @@ func TestProjectConversationTerminalAttachWebsocketFlow(t *testing.T) {
 	awaitConversationTerminalHTTPCleanup(t, terminalService, fixture.conversation.ID, sessionID)
 }
 
+func TestProjectConversationTerminalAttachWebsocketReconnectsExistingSession(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	createReq, err := http.NewRequest(
+		http.MethodPost,
+		testServer.URL+"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/terminal-sessions",
+		strings.NewReader(`{"mode":"shell","repo_path":"backend","cwd_path":"src"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create request: %v", err)
+	}
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create terminal session request: %v", err)
+	}
+	defer func() { _ = createResp.Body.Close() }()
+	if createResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected 201, got %d: %s", createResp.StatusCode, string(body))
+	}
+	var createPayload struct {
+		TerminalSession struct {
+			ID          string `json:"id"`
+			WSPath      string `json:"ws_path"`
+			AttachToken string `json:"attach_token"`
+		} `json:"terminal_session"`
+	}
+	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+
+	wsURL := projectConversationWebsocketURL(
+		testServer.URL + createPayload.TerminalSession.WSPath + "?attach_token=" + url.QueryEscape(createPayload.TerminalSession.AttachToken),
+	)
+	firstConn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		body := ""
+		if response != nil && response.Body != nil {
+			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			body = string(raw)
+		}
+		t.Fatalf("dial first websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+
+	if frame := readConversationTerminalWebsocketFrame(t, firstConn); frame["type"] != "ready" {
+		t.Fatalf("first ready frame = %+v", frame)
+	}
+	if err := firstConn.WriteJSON(map[string]any{
+		"type": "input",
+		"data": base64.StdEncoding.EncodeToString([]byte("export ASE_REATTACH_MARKER=reattached\n")),
+	}); err != nil {
+		t.Fatalf("write first input frame: %v", err)
+	}
+	if err := firstConn.Close(); err != nil {
+		t.Fatalf("close first websocket: %v", err)
+	}
+
+	time.Sleep(150 * time.Millisecond)
+
+	secondConn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		body := ""
+		if response != nil && response.Body != nil {
+			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			body = string(raw)
+		}
+		t.Fatalf("dial second websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+	defer func() { _ = secondConn.Close() }()
+
+	if frame := readConversationTerminalWebsocketFrame(t, secondConn); frame["type"] != "ready" {
+		t.Fatalf("second ready frame = %+v", frame)
+	}
+	if err := secondConn.WriteJSON(map[string]any{
+		"type": "input",
+		"data": base64.StdEncoding.EncodeToString([]byte("printf '%s\\n' \"$ASE_REATTACH_MARKER\"\n")),
+	}); err != nil {
+		t.Fatalf("write second input frame: %v", err)
+	}
+	output := collectConversationTerminalOutput(t, secondConn, func(text string) bool {
+		return strings.Contains(text, "reattached")
+	})
+	if !strings.Contains(output, "reattached") {
+		t.Fatalf("unexpected reconnect output %q", output)
+	}
+
+	if err := secondConn.WriteJSON(map[string]any{"type": "close"}); err != nil {
+		t.Fatalf("write close frame: %v", err)
+	}
+	exit := awaitConversationTerminalExitFrame(t, secondConn)
+	if exit["type"] != "exit" {
+		t.Fatalf("exit frame = %+v", exit)
+	}
+	sessionID := uuid.MustParse(createPayload.TerminalSession.ID)
+	awaitConversationTerminalHTTPCleanup(t, terminalService, fixture.conversation.ID, sessionID)
+}
+
 func TestProjectConversationTerminalAttachRejectsInvalidToken(t *testing.T) {
 	client := openTestEntClient(t)
 	fixture := setupProjectConversationTerminalRouteFixture(t, client)

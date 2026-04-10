@@ -27,6 +27,7 @@ type TerminalInstanceRuntime = {
   reconnectAttempts: number
   reconnectEnabled: boolean
   reconnectTimer: ReturnType<typeof setTimeout> | null
+  session: ProjectConversationTerminalSession | null
 }
 
 let nextId = 1
@@ -79,6 +80,7 @@ export function createTerminalManager(input: {
         reconnectAttempts: 0,
         reconnectEnabled: false,
         reconnectTimer: null,
+        session: null,
       }
       runtimeMap.set(id, runtime)
     }
@@ -158,7 +160,7 @@ export function createTerminalManager(input: {
   function unmountTerminal(id: string, forget: boolean) {
     resizeObserverMap.get(id)?.disconnect()
     resizeObserverMap.delete(id)
-    closeSocket(id, { updateStatus: false, reconnect: false })
+    closeSocket(id, { updateStatus: false, reconnect: false, terminate: true })
     xtermMap.get(id)?.dispose()
     xtermMap.delete(id)
     elementMap.delete(id)
@@ -172,6 +174,7 @@ export function createTerminalManager(input: {
     options: {
       updateStatus: boolean
       reconnect: boolean
+      terminate: boolean
     },
   ) {
     const runtime = ensureRuntime(id)
@@ -181,10 +184,15 @@ export function createTerminalManager(input: {
     const socket = socketMap.get(id)
     socketMap.delete(id)
     if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'close' }))
+      if (options.terminate) {
+        socket.send(JSON.stringify({ type: 'close' }))
+      }
       socket.close()
     } else if (socket?.readyState === WebSocket.CONNECTING) {
       socket.close()
+    }
+    if (options.terminate) {
+      runtime.session = null
     }
     if (options.updateStatus) {
       updateInstance(id, { status: 'closed', statusMessage: 'Terminal closed.', sessionID: '' })
@@ -193,7 +201,13 @@ export function createTerminalManager(input: {
 
   function scheduleReconnect(id: string, label: string) {
     const runtime = runtimeMap.get(id)
-    if (!runtime || !runtime.reconnectEnabled || !hasInstance(id) || !xtermMap.has(id)) {
+    if (
+      !runtime ||
+      !runtime.reconnectEnabled ||
+      !runtime.session ||
+      !hasInstance(id) ||
+      !xtermMap.has(id)
+    ) {
       return
     }
 
@@ -230,12 +244,11 @@ export function createTerminalManager(input: {
     const entry = xtermMap.get(id)
     if (!conversationId || !entry || !hasInstance(id)) return
 
-    closeSocket(id, { updateStatus: false, reconnect: false })
+    closeSocket(id, { updateStatus: false, reconnect: false, terminate: false })
     runtime.connectRevision += 1
     const connectRevision = runtime.connectRevision
     runtime.reconnectEnabled = true
     clearReconnectTimer(id)
-    entry.terminal.reset()
     entry.fitAddon.fit()
 
     const label = workspacePath || 'workspace root'
@@ -247,28 +260,32 @@ export function createTerminalManager(input: {
       label,
     })
 
-    let session: ProjectConversationTerminalSession
-    try {
-      const payload = await createProjectConversationTerminalSession(conversationId, {
-        mode: 'shell',
-        cols: entry.terminal.cols > 0 ? entry.terminal.cols : 120,
-        rows: entry.terminal.rows > 0 ? entry.terminal.rows : 32,
-      })
-      session = payload.terminalSession
-    } catch (error) {
-      if (
-        !hasInstance(id) ||
-        input.getConversationId() !== conversationId ||
-        runtimeMap.get(id)?.connectRevision !== connectRevision
-      ) {
+    let session = runtime.session
+    if (!session) {
+      entry.terminal.reset()
+      try {
+        const payload = await createProjectConversationTerminalSession(conversationId, {
+          mode: 'shell',
+          cols: entry.terminal.cols > 0 ? entry.terminal.cols : 120,
+          rows: entry.terminal.rows > 0 ? entry.terminal.rows : 32,
+        })
+        session = payload.terminalSession
+        runtime.session = session
+      } catch (error) {
+        if (
+          !hasInstance(id) ||
+          input.getConversationId() !== conversationId ||
+          runtimeMap.get(id)?.connectRevision !== connectRevision
+        ) {
+          return
+        }
+        updateInstance(id, {
+          status: 'error',
+          statusMessage:
+            error instanceof Error ? error.message : 'Failed to create terminal session.',
+        })
         return
       }
-      updateInstance(id, {
-        status: 'error',
-        statusMessage:
-          error instanceof Error ? error.message : 'Failed to create terminal session.',
-      })
-      return
     }
 
     const currentEntry = xtermMap.get(id)
@@ -281,6 +298,7 @@ export function createTerminalManager(input: {
       return
     }
 
+    runtime.session = session
     updateInstance(id, { sessionID: session.id })
     const socket = new WebSocket(buildTerminalWebSocketURL(session))
     socketMap.set(id, socket)
@@ -302,6 +320,7 @@ export function createTerminalManager(input: {
           statusMessage:
             error instanceof Error ? error.message : 'Failed to parse terminal output.',
         })
+        runtime.session = null
         socket.close()
       }
     }
@@ -366,6 +385,7 @@ export function createTerminalManager(input: {
         return
       case 'exit':
         runtime.reconnectEnabled = false
+        runtime.session = null
         updateInstance(id, {
           status: 'closed',
           statusMessage: buildExitMessage(frame.exitCode, frame.signal),
@@ -375,6 +395,7 @@ export function createTerminalManager(input: {
         return
       case 'error':
         runtime.reconnectEnabled = false
+        runtime.session = null
         updateInstance(id, { status: 'error', statusMessage: frame.message, sessionID: '' })
         socket.close()
         return
