@@ -59,3 +59,19 @@ func newRootProjectCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [projectId]", Short: "Archive a project.", Method: http.MethodDelete, Path: "/api/v1/projects/{projectId}", PositionalParams: []string{"projectId"}}))
 	return command
 }
+
+func newRootStatusCommand() *cobra.Command {
+	command := newAgentPlatformStatusCommandWithDeps(apiCommandDeps{httpClient: http.DefaultClient})
+	command.Short = "Operate on ticket statuses through OpenASE."
+	command.Long = strings.TrimSpace(command.Long +
+		"\n\nAll status subcommands use the agent-platform wrapper semantics so Project AI runtimes can rely on OPENASE_API_URL, OPENASE_AGENT_TOKEN, and OPENASE_PROJECT_ID consistently.")
+	return command
+}
+
+func newRootWorkflowCommand() *cobra.Command {
+	command := newAgentPlatformWorkflowCommandWithDeps(apiCommandDeps{httpClient: http.DefaultClient})
+	command.Short = "Operate on workflows through OpenASE."
+	command.Long = strings.TrimSpace(command.Long +
+		"\n\nAll workflow and workflow harness subcommands use the agent-platform wrapper semantics so Project AI runtimes keep platform-aware routing, authentication, and project defaults aligned with `openase ticket` and `openase project`.")
+	return command
+}
