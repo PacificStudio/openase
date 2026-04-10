@@ -389,6 +389,30 @@ func TestNotificationRuleRoutesCRUDAndEventCatalog(t *testing.T) {
 	if eventTypesResp.EventTypes[0].Group == "" || eventTypesResp.EventTypes[0].Level == "" {
 		t.Fatalf("expected grouped event catalog metadata, got %+v", eventTypesResp.EventTypes[0])
 	}
+	gotEventTypes := make(map[string]notificationRuleEventTypeResponse, len(eventTypesResp.EventTypes))
+	for _, item := range eventTypesResp.EventTypes {
+		gotEventTypes[item.EventType] = item
+	}
+	for _, want := range []string{
+		"ticket.completed",
+		"ticket.cancelled",
+		"ticket.retry_scheduled",
+		"ticket.retry_resumed",
+		"ticket.budget_exhausted",
+		"machine.connected",
+		"machine.reconnected",
+		"machine.disconnected",
+		"machine.daemon_auth_failed",
+	} {
+		if _, ok := gotEventTypes[want]; !ok {
+			t.Fatalf("expected notification event catalog to include %s, got %+v", want, eventTypesResp.EventTypes)
+		}
+	}
+	for _, excluded := range domain.ExplicitlyUnsupportedRuleEvents() {
+		if _, ok := gotEventTypes[excluded.EventType]; ok {
+			t.Fatalf("excluded notification event %s leaked into API catalog", excluded.EventType)
+		}
+	}
 
 	var createResp struct {
 		Rule notificationRuleResponse `json:"rule"`
@@ -722,5 +746,375 @@ func TestNotificationEngineDispatchesMatchingRulesBestEffort(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("timed out waiting for hook notification")
+	}
+}
+
+func TestNotificationEngineSupportsEveryConfiguredEventContract(t *testing.T) {
+	client := openTestEntClient(t)
+
+	bus := eventinfra.NewChannelBus()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	webhookRequests := make(chan map[string]any, 32)
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			_ = r.Body.Close()
+		}()
+
+		var payload map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Errorf("decode webhook payload: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		webhookRequests <- payload
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer webhookServer.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	service := notificationservice.NewService(notificationrepo.NewEntRepository(client), logger, webhookServer.Client())
+	engine := notificationservice.NewEngine(service, bus, logger)
+	if err := engine.Start(ctx); err != nil {
+		t.Fatalf("start notification engine: %v", err)
+	}
+
+	org, err := client.Organization.Create().
+		SetName("OpenASE").
+		SetSlug("openase-notification-contract").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("Platform").
+		SetSlug("platform-notification-contract").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+
+	channelInput, err := domain.ParseCreateChannel(org.ID, domain.ChannelInput{
+		Name: "Primary Webhook",
+		Type: "webhook",
+		Config: map[string]any{
+			"url": webhookServer.URL,
+		},
+	})
+	if err != nil {
+		t.Fatalf("parse channel: %v", err)
+	}
+	channel, err := service.Create(ctx, channelInput)
+	if err != nil {
+		t.Fatalf("create channel: %v", err)
+	}
+
+	for _, item := range domain.SupportedRuleEventContracts() {
+		ruleInput, err := domain.ParseCreateRule(project.ID, domain.RuleInput{
+			Name:      item.Label,
+			EventType: item.EventType.String(),
+			ChannelID: channel.ID.String(),
+		})
+		if err != nil {
+			t.Fatalf("parse rule for %s: %v", item.EventType, err)
+		}
+		if _, err := service.CreateRule(ctx, ruleInput); err != nil {
+			t.Fatalf("create rule for %s: %v", item.EventType, err)
+		}
+	}
+
+	type notificationContractCase struct {
+		topic            string
+		payload          map[string]any
+		wantTitle        string
+		wantBodyContains []string
+	}
+
+	projectID := project.ID.String()
+	ticketPayload := func(identifier string, statusName string, extra map[string]any) map[string]any {
+		ticket := map[string]any{
+			"id":                 uuid.NewString(),
+			"identifier":         identifier,
+			"title":              "Notification contract coverage",
+			"status_name":        statusName,
+			"priority":           "high",
+			"type":               "bugfix",
+			"retry_paused":       false,
+			"pause_reason":       "",
+			"budget_usd":         25.0,
+			"cost_amount":        12.5,
+			"consecutive_errors": 0,
+		}
+		for key, value := range extra {
+			ticket[key] = value
+		}
+		return map[string]any{
+			"project_id": projectID,
+			"ticket":     ticket,
+		}
+	}
+	activityPayload := func(eventType string, message string, metadata map[string]any) map[string]any {
+		return map[string]any{
+			"event": map[string]any{
+				"id":         uuid.NewString(),
+				"project_id": projectID,
+				"ticket_id":  uuid.NewString(),
+				"event_type": eventType,
+				"message":    message,
+				"metadata":   metadata,
+				"created_at": time.Now().UTC().Format(time.RFC3339),
+			},
+		}
+	}
+
+	cases := map[domain.RuleEventType]notificationContractCase{
+		domain.RuleEventTypeTicketCreated: {
+			topic:     "ticket.events",
+			payload:   ticketPayload("ASE-501", "Todo", nil),
+			wantTitle: "Ticket created: ASE-501",
+			wantBodyContains: []string{
+				"Status: Todo",
+				"Priority: high",
+			},
+		},
+		domain.RuleEventTypeTicketUpdated: {
+			topic:            "ticket.events",
+			payload:          ticketPayload("ASE-501", "In Progress", nil),
+			wantTitle:        "Ticket updated: ASE-501",
+			wantBodyContains: []string{"Status: In Progress"},
+		},
+		domain.RuleEventTypeTicketStatusChanged: {
+			topic:            "ticket.events",
+			payload:          ticketPayload("ASE-501", "In Review", nil),
+			wantTitle:        "Ticket status changed: ASE-501",
+			wantBodyContains: []string{"New status: In Review"},
+		},
+		domain.RuleEventTypeTicketCompleted: {
+			topic:            "ticket.events",
+			payload:          ticketPayload("ASE-501", "Done", nil),
+			wantTitle:        "Ticket completed: ASE-501",
+			wantBodyContains: []string{"Status: Done"},
+		},
+		domain.RuleEventTypeTicketCancelled: {
+			topic:            "ticket.events",
+			payload:          ticketPayload("ASE-501", "Cancelled", nil),
+			wantTitle:        "Ticket cancelled: ASE-501",
+			wantBodyContains: []string{"Status: Cancelled"},
+		},
+		domain.RuleEventTypeTicketRetryScheduled: {
+			topic: "activity.events",
+			payload: activityPayload("ticket.retry_scheduled", "Scheduled retry for ASE-501.", map[string]any{
+				"ticket": map[string]any{
+					"identifier":  "ASE-501",
+					"title":       "Notification contract coverage",
+					"status_name": "Todo",
+					"priority":    "high",
+				},
+				"next_retry_at":      "2026-04-10T16:30:00Z",
+				"consecutive_errors": 2,
+			}),
+			wantTitle:        "ASE-501 retry scheduled",
+			wantBodyContains: []string{"Next retry: 2026-04-10T16:30:00Z"},
+		},
+		domain.RuleEventTypeTicketRetryResumed: {
+			topic: "ticket.events",
+			payload: ticketPayload("ASE-501", "Todo", map[string]any{
+				"retry_paused": false,
+				"pause_reason": "repeated_stalls",
+			}),
+			wantTitle:        "ASE-501 retry resumed",
+			wantBodyContains: []string{"Pause reason: repeated_stalls"},
+		},
+		domain.RuleEventTypeTicketRetryPaused: {
+			topic: "activity.events",
+			payload: activityPayload("ticket.retry_paused", "Paused ticket retries after repeated stalls.", map[string]any{
+				"ticket_identifier": "ASE-501",
+				"pause_reason":      "repeated_stalls",
+			}),
+			wantTitle:        "Paused ticket retries after repeated stalls.",
+			wantBodyContains: []string{"Pause reason: repeated_stalls"},
+		},
+		domain.RuleEventTypeTicketBudgetExhausted: {
+			topic: "activity.events",
+			payload: activityPayload("ticket.budget_exhausted", "Paused retries for ASE-501 because the ticket budget is exhausted.", map[string]any{
+				"ticket": map[string]any{
+					"identifier":  "ASE-501",
+					"title":       "Notification contract coverage",
+					"status_name": "Todo",
+					"priority":    "high",
+				},
+				"budget_usd":   25.0,
+				"cost_amount":  25.0,
+				"pause_reason": "budget_exhausted",
+			}),
+			wantTitle:        "ASE-501 budget exhausted",
+			wantBodyContains: []string{"Budget: 25", "Cost: 25"},
+		},
+		domain.RuleEventTypeAgentClaimed: {
+			topic: "agent.events",
+			payload: map[string]any{
+				"agent": map[string]any{
+					"id":                uuid.NewString(),
+					"project_id":        projectID,
+					"name":              "worker-1",
+					"status":            "ready",
+					"current_ticket_id": uuid.NewString(),
+				},
+			},
+			wantTitle: "Agent worker-1 claimed ticket",
+		},
+		domain.RuleEventTypeAgentFailed: {
+			topic: "agent.events",
+			payload: map[string]any{
+				"agent": map[string]any{
+					"id":                uuid.NewString(),
+					"project_id":        projectID,
+					"name":              "worker-1",
+					"status":            "errored",
+					"current_ticket_id": uuid.NewString(),
+				},
+			},
+			wantTitle:        "Agent worker-1 failed ticket",
+			wantBodyContains: []string{"Status: errored"},
+		},
+		domain.RuleEventTypeHookFailed: {
+			topic: "activity.events",
+			payload: activityPayload("hook.failed", "ASE-501 hook on_done failed", map[string]any{
+				"ticket_identifier": "ASE-501",
+				"hook_name":         "on_done",
+				"error":             "exit status 1",
+			}),
+			wantTitle:        "ASE-501 hook on_done failed",
+			wantBodyContains: []string{"exit status 1"},
+		},
+		domain.RuleEventTypeHookPassed: {
+			topic: "activity.events",
+			payload: activityPayload("hook.passed", "ASE-501 hook on_done passed", map[string]any{
+				"ticket_identifier": "ASE-501",
+				"hook_name":         "on_done",
+			}),
+			wantTitle: "ASE-501 hook on_done passed",
+		},
+		domain.RuleEventTypePROpened: {
+			topic: "activity.events",
+			payload: activityPayload("pr.opened", "ASE-501 PR opened", map[string]any{
+				"ticket_identifier": "ASE-501",
+				"pull_request_url":  "https://github.com/acme/openase/pull/501",
+			}),
+			wantTitle:        "ASE-501 PR opened",
+			wantBodyContains: []string{"https://github.com/acme/openase/pull/501"},
+		},
+		domain.RuleEventTypePRClosed: {
+			topic: "activity.events",
+			payload: activityPayload("pr.closed", "ASE-501 PR closed", map[string]any{
+				"ticket_identifier": "ASE-501",
+				"pull_request_url":  "https://github.com/acme/openase/pull/501",
+			}),
+			wantTitle:        "ASE-501 PR closed",
+			wantBodyContains: []string{"https://github.com/acme/openase/pull/501"},
+		},
+		domain.RuleEventTypeMachineConnected: {
+			topic: "activity.events",
+			payload: activityPayload("machine.connected", "Machine connected over reverse websocket.", map[string]any{
+				"machine_id":      uuid.NewString(),
+				"session_id":      "sess-1",
+				"transport_mode":  "ws_reverse",
+				"connection_mode": "reverse_websocket",
+			}),
+			wantTitle:        "Machine connected",
+			wantBodyContains: []string{"Transport: ws_reverse"},
+		},
+		domain.RuleEventTypeMachineReconnected: {
+			topic: "activity.events",
+			payload: activityPayload("machine.reconnected", "Machine reconnected over reverse websocket.", map[string]any{
+				"machine_id":      uuid.NewString(),
+				"session_id":      "sess-2",
+				"transport_mode":  "ws_reverse",
+				"connection_mode": "reverse_websocket",
+			}),
+			wantTitle:        "Machine reconnected",
+			wantBodyContains: []string{"Transport: ws_reverse"},
+		},
+		domain.RuleEventTypeMachineDisconnected: {
+			topic: "activity.events",
+			payload: activityPayload("machine.disconnected", "Machine disconnected from reverse websocket.", map[string]any{
+				"machine_id":      uuid.NewString(),
+				"session_id":      "sess-3",
+				"transport_mode":  "ws_reverse",
+				"connection_mode": "reverse_websocket",
+				"reason":          "socket closed",
+			}),
+			wantTitle:        "Machine disconnected",
+			wantBodyContains: []string{"Reason: socket closed"},
+		},
+		domain.RuleEventTypeMachineDaemonAuthFail: {
+			topic: "activity.events",
+			payload: activityPayload("machine.daemon_auth_failed", "Machine failed reverse websocket authentication.", map[string]any{
+				"machine_id":      uuid.NewString(),
+				"session_id":      "sess-4",
+				"transport_mode":  "ws_reverse",
+				"connection_mode": "reverse_websocket",
+				"failure_code":    "token_expired",
+				"error":           "token expired",
+			}),
+			wantTitle:        "Machine daemon auth failed",
+			wantBodyContains: []string{"Failure code: token_expired"},
+		},
+	}
+
+	contracts := domain.SupportedRuleEventContracts()
+	if len(cases) != len(contracts) {
+		t.Fatalf("notification contract case count = %d, want %d", len(cases), len(contracts))
+	}
+	for _, item := range contracts {
+		if _, ok := cases[item.EventType]; !ok {
+			t.Fatalf("missing contract test coverage for %s", item.EventType)
+		}
+	}
+	for eventType := range cases {
+		found := false
+		for _, item := range contracts {
+			if item.EventType == eventType {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("contract test includes unsupported event %s", eventType)
+		}
+	}
+
+	for _, item := range contracts {
+		tc := cases[item.EventType]
+		event, err := provider.NewJSONEvent(
+			provider.MustParseTopic(tc.topic),
+			provider.MustParseEventType(item.EventType.String()),
+			tc.payload,
+			time.Now(),
+		)
+		if err != nil {
+			t.Fatalf("build event for %s: %v", item.EventType, err)
+		}
+		if err := bus.Publish(ctx, event); err != nil {
+			t.Fatalf("publish event for %s: %v", item.EventType, err)
+		}
+
+		select {
+		case payload := <-webhookRequests:
+			title, _ := payload["title"].(string)
+			body, _ := payload["body"].(string)
+			if !strings.Contains(title, tc.wantTitle) {
+				t.Fatalf("notification title for %s = %q, want containing %q (payload=%+v)", item.EventType, title, tc.wantTitle, payload)
+			}
+			for _, want := range tc.wantBodyContains {
+				if !strings.Contains(body, want) {
+					t.Fatalf("notification body for %s = %q, want containing %q", item.EventType, body, want)
+				}
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("timed out waiting for notification for %s", item.EventType)
+		}
 	}
 }

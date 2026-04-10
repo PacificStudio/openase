@@ -18,10 +18,12 @@ type RuleEventType string
 type RuleEventGroup string
 
 const (
-	RuleEventGroupTicketLifecycle RuleEventGroup = "Ticket lifecycle"
-	RuleEventGroupAgentExecution  RuleEventGroup = "Agent / execution"
-	RuleEventGroupHookIntegration RuleEventGroup = "Hook / integration"
-	RuleEventGroupPRReview        RuleEventGroup = "PR / review"
+	RuleEventGroupTicketLifecycle   RuleEventGroup = "Ticket lifecycle"
+	RuleEventGroupTicketReliability RuleEventGroup = "Ticket reliability"
+	RuleEventGroupAgentExecution    RuleEventGroup = "Agent / execution"
+	RuleEventGroupHookIntegration   RuleEventGroup = "Hook / integration"
+	RuleEventGroupPRReview          RuleEventGroup = "PR / review"
+	RuleEventGroupInfrastructure    RuleEventGroup = "Infrastructure"
 )
 
 type RuleEventLevel string
@@ -43,6 +45,7 @@ const (
 	RuleEventTypeTicketCompleted       RuleEventType = RuleEventType(activityevent.TypeTicketCompleted)
 	RuleEventTypeTicketCancelled       RuleEventType = RuleEventType(activityevent.TypeTicketCancelled)
 	RuleEventTypeTicketRetryScheduled  RuleEventType = RuleEventType(activityevent.TypeTicketRetryScheduled)
+	RuleEventTypeTicketRetryResumed    RuleEventType = RuleEventType(activityevent.TypeTicketRetryResumed)
 	RuleEventTypeTicketRetryPaused     RuleEventType = RuleEventType(activityevent.TypeTicketRetryPaused)
 	RuleEventTypeTicketBudgetExhausted RuleEventType = RuleEventType(activityevent.TypeTicketBudgetExhausted)
 	RuleEventTypeAgentClaimed          RuleEventType = RuleEventType(activityevent.TypeAgentClaimed)
@@ -50,15 +53,11 @@ const (
 	RuleEventTypeHookFailed            RuleEventType = RuleEventType(activityevent.TypeHookFailed)
 	RuleEventTypeHookPassed            RuleEventType = RuleEventType(activityevent.TypeHookPassed)
 	RuleEventTypePROpened              RuleEventType = RuleEventType(activityevent.TypePROpened)
-	RuleEventTypePRMerged              RuleEventType = RuleEventType(activityevent.TypePRMerged)
 	RuleEventTypePRClosed              RuleEventType = RuleEventType(activityevent.TypePRClosed)
-	RuleEventTypeTicketStalled         RuleEventType = "ticket.stalled"
-	RuleEventTypeTicketErrorRateHigh   RuleEventType = "ticket.error_rate_high"
-	RuleEventTypeMachineOffline        RuleEventType = "machine.offline"
-	RuleEventTypeMachineOnline         RuleEventType = "machine.online"
-	RuleEventTypeMachineDegraded       RuleEventType = "machine.degraded"
-	RuleEventTypeConnectorSyncError    RuleEventType = "connector.sync_error"
-	RuleEventTypeBudgetThreshold       RuleEventType = "budget.threshold"
+	RuleEventTypeMachineConnected      RuleEventType = RuleEventType(activityevent.TypeMachineConnected)
+	RuleEventTypeMachineDisconnected   RuleEventType = RuleEventType(activityevent.TypeMachineDisconnected)
+	RuleEventTypeMachineReconnected    RuleEventType = RuleEventType(activityevent.TypeMachineReconnected)
+	RuleEventTypeMachineDaemonAuthFail RuleEventType = RuleEventType(activityevent.TypeMachineDaemonAuthFailed)
 )
 
 // RuleEventCatalogEntry describes a selectable event type for UI/API consumers.
@@ -70,13 +69,29 @@ type RuleEventCatalogEntry struct {
 	DefaultTemplate string
 }
 
-var supportedRuleEvents = []RuleEventCatalogEntry{
+// RuleEventContract is the shared notification contract used by the API, engine, and tests.
+type RuleEventContract struct {
+	EventType       RuleEventType
+	Label           string
+	Group           RuleEventGroup
+	Level           RuleEventLevel
+	DefaultTemplate string
+	Topic           string
+}
+
+type UnsupportedRuleEvent struct {
+	EventType string
+	Reason    string
+}
+
+var supportedRuleEventContracts = []RuleEventContract{
 	{
 		EventType:       RuleEventTypeTicketCreated,
 		Label:           "Ticket Created",
 		Group:           RuleEventGroupTicketLifecycle,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket created: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}\nPriority: {{ ticket.priority }}",
+		Topic:           "ticket.events",
 	},
 	{
 		EventType:       RuleEventTypeTicketUpdated,
@@ -84,6 +99,7 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupTicketLifecycle,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket updated: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}",
+		Topic:           "ticket.events",
 	},
 	{
 		EventType:       RuleEventTypeTicketStatusChanged,
@@ -91,13 +107,55 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupTicketLifecycle,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Ticket status changed: {{ ticket.identifier }}\n{{ ticket.title }}\nNew status: {{ new_status }}",
+		Topic:           "ticket.events",
+	},
+	{
+		EventType:       RuleEventTypeTicketCompleted,
+		Label:           "Ticket Completed",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "Ticket completed: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}",
+		Topic:           "ticket.events",
+	},
+	{
+		EventType:       RuleEventTypeTicketCancelled,
+		Label:           "Ticket Cancelled",
+		Group:           RuleEventGroupTicketLifecycle,
+		Level:           RuleEventLevelWarning,
+		DefaultTemplate: "Ticket cancelled: {{ ticket.identifier }}\n{{ ticket.title }}\nStatus: {{ ticket.status_name }}",
+		Topic:           "ticket.events",
+	},
+	{
+		EventType:       RuleEventTypeTicketRetryScheduled,
+		Label:           "Ticket Retry Scheduled",
+		Group:           RuleEventGroupTicketReliability,
+		Level:           RuleEventLevelWarning,
+		DefaultTemplate: "{{ ticket.identifier }} retry scheduled\nNext retry: {{ next_retry_at }}\nConsecutive errors: {{ consecutive_errors }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeTicketRetryResumed,
+		Label:           "Ticket Retry Resumed",
+		Group:           RuleEventGroupTicketReliability,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "{{ ticket.identifier }} retry resumed\n{{ ticket.title }}\nPause reason: {{ pause_reason }}",
+		Topic:           "ticket.events",
 	},
 	{
 		EventType:       RuleEventTypeTicketRetryPaused,
 		Label:           "Ticket Retry Paused",
-		Group:           RuleEventGroupTicketLifecycle,
+		Group:           RuleEventGroupTicketReliability,
 		Level:           RuleEventLevelWarning,
 		DefaultTemplate: "{{ message }}\nPause reason: {{ pause_reason }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeTicketBudgetExhausted,
+		Label:           "Ticket Budget Exhausted",
+		Group:           RuleEventGroupTicketReliability,
+		Level:           RuleEventLevelCritical,
+		DefaultTemplate: "{{ ticket.identifier }} budget exhausted\n{{ ticket.title }}\nBudget: {{ budget_usd }}\nCost: {{ cost_amount }}",
+		Topic:           "activity.events",
 	},
 	{
 		EventType:       RuleEventTypeAgentClaimed,
@@ -105,6 +163,7 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupAgentExecution,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "Agent {{ agent.name }} claimed ticket {{ current_ticket_id }}",
+		Topic:           "agent.events",
 	},
 	{
 		EventType:       RuleEventTypeAgentFailed,
@@ -112,6 +171,7 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupAgentExecution,
 		Level:           RuleEventLevelCritical,
 		DefaultTemplate: "Agent {{ agent.name }} failed ticket {{ current_ticket_id }}\nStatus: {{ status }}",
+		Topic:           "agent.events",
 	},
 	{
 		EventType:       RuleEventTypeHookFailed,
@@ -119,13 +179,15 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupHookIntegration,
 		Level:           RuleEventLevelCritical,
 		DefaultTemplate: "{{ ticket_identifier }} hook {{ hook_name }} failed\n{{ error }}",
+		Topic:           "activity.events",
 	},
 	{
 		EventType:       RuleEventTypeHookPassed,
 		Label:           "Hook Passed",
 		Group:           RuleEventGroupHookIntegration,
-		Level:           RuleEventLevelWarning,
+		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "{{ ticket_identifier }} hook {{ hook_name }} passed",
+		Topic:           "activity.events",
 	},
 	{
 		EventType:       RuleEventTypePROpened,
@@ -133,6 +195,7 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupPRReview,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "{{ ticket_identifier }} PR opened\n{{ pull_request_url }}",
+		Topic:           "activity.events",
 	},
 	{
 		EventType:       RuleEventTypePRClosed,
@@ -140,12 +203,56 @@ var supportedRuleEvents = []RuleEventCatalogEntry{
 		Group:           RuleEventGroupPRReview,
 		Level:           RuleEventLevelInfo,
 		DefaultTemplate: "{{ ticket_identifier }} PR closed\n{{ pull_request_url }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeMachineConnected,
+		Label:           "Machine Connected",
+		Group:           RuleEventGroupInfrastructure,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "Machine connected\n{{ machine_id }}\nTransport: {{ transport_mode }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeMachineReconnected,
+		Label:           "Machine Reconnected",
+		Group:           RuleEventGroupInfrastructure,
+		Level:           RuleEventLevelInfo,
+		DefaultTemplate: "Machine reconnected\n{{ machine_id }}\nTransport: {{ transport_mode }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeMachineDisconnected,
+		Label:           "Machine Disconnected",
+		Group:           RuleEventGroupInfrastructure,
+		Level:           RuleEventLevelWarning,
+		DefaultTemplate: "Machine disconnected\n{{ machine_id }}\nReason: {{ reason }}",
+		Topic:           "activity.events",
+	},
+	{
+		EventType:       RuleEventTypeMachineDaemonAuthFail,
+		Label:           "Machine Daemon Auth Failed",
+		Group:           RuleEventGroupInfrastructure,
+		Level:           RuleEventLevelCritical,
+		DefaultTemplate: "Machine daemon auth failed\n{{ machine_id }}\nFailure code: {{ failure_code }}",
+		Topic:           "activity.events",
 	},
 }
 
-var supportedRuleEventIndex = func() map[RuleEventType]RuleEventCatalogEntry {
-	index := make(map[RuleEventType]RuleEventCatalogEntry, len(supportedRuleEvents))
-	for _, item := range supportedRuleEvents {
+var unsupportedRuleEvents = []UnsupportedRuleEvent{
+	{EventType: activityevent.TypePRMerged.String(), Reason: "pr.merged has no stable product emitter yet; keep it out of notification rules until a reliable merge source exists"},
+	{EventType: "ticket.stalled", Reason: "legacy draft notification event; no canonical emitter or template contract is shipped"},
+	{EventType: "ticket.error_rate_high", Reason: "legacy draft notification event; no canonical emitter or template contract is shipped"},
+	{EventType: "machine.offline", Reason: "legacy machine monitor provider event; reverse websocket notifications use canonical machine.connected/disconnected/reconnected/auth_failed activities instead"},
+	{EventType: "machine.online", Reason: "legacy machine monitor provider event; reverse websocket notifications use canonical machine.connected/disconnected/reconnected/auth_failed activities instead"},
+	{EventType: "machine.degraded", Reason: "legacy machine monitor provider event; no notification contract is shipped"},
+	{EventType: "connector.sync_error", Reason: "legacy draft notification event; no canonical emitter or template contract is shipped"},
+	{EventType: "budget.threshold", Reason: "legacy draft notification event; no canonical emitter or template contract is shipped"},
+}
+
+var supportedRuleEventIndex = func() map[RuleEventType]RuleEventContract {
+	index := make(map[RuleEventType]RuleEventContract, len(supportedRuleEventContracts))
+	for _, item := range supportedRuleEventContracts {
 		index[item.EventType] = item
 	}
 	return index
@@ -209,9 +316,40 @@ type UpdateRuleInput struct {
 
 // SupportedRuleEvents returns the event catalog that UI/API clients can use.
 func SupportedRuleEvents() []RuleEventCatalogEntry {
-	items := make([]RuleEventCatalogEntry, 0, len(supportedRuleEvents))
-	items = append(items, supportedRuleEvents...)
+	items := make([]RuleEventCatalogEntry, 0, len(supportedRuleEventContracts))
+	for _, item := range supportedRuleEventContracts {
+		items = append(items, RuleEventCatalogEntry{
+			EventType:       item.EventType,
+			Label:           item.Label,
+			Group:           item.Group,
+			Level:           item.Level,
+			DefaultTemplate: item.DefaultTemplate,
+		})
+	}
 	return items
+}
+
+// SupportedRuleEventContracts returns the shared runtime contract for supported notification events.
+func SupportedRuleEventContracts() []RuleEventContract {
+	items := make([]RuleEventContract, 0, len(supportedRuleEventContracts))
+	items = append(items, supportedRuleEventContracts...)
+	return items
+}
+
+// ExplicitlyUnsupportedRuleEvents returns product-level exclusions that must stay out of notification rules.
+func ExplicitlyUnsupportedRuleEvents() []UnsupportedRuleEvent {
+	items := make([]UnsupportedRuleEvent, 0, len(unsupportedRuleEvents))
+	items = append(items, unsupportedRuleEvents...)
+	return items
+}
+
+// RuleEventTopic returns the only supported runtime topic for the event type.
+func RuleEventTopic(eventType RuleEventType) (string, bool) {
+	item, ok := supportedRuleEventIndex[eventType]
+	if !ok {
+		return "", false
+	}
+	return item.Topic, true
 }
 
 // ParseRuleEventType validates a raw event type string against the supported catalog.

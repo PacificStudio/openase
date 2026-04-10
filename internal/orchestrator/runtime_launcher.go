@@ -614,7 +614,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		HookName: infrahook.TicketHookOnError,
 	})
 
-	retrySvc := NewRetryService(l.client, l.logger)
+	retrySvc := NewRetryService(l.client, l.logger, l.events)
 	retrySvc.now = l.now
 	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
 		return fmt.Errorf("release failed launch claim for ticket %s: %w", ticketID, err)

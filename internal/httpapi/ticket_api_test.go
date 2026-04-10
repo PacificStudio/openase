@@ -27,6 +27,7 @@ import (
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
 	"github.com/BetterAndBetterII/openase/internal/orchestrator"
+	providerapi "github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	ticketstatusrepo "github.com/BetterAndBetterII/openase/internal/repo/ticketstatus"
@@ -2125,11 +2126,12 @@ func TestTicketCommentRoutesCreateUpdateDelete(t *testing.T) {
 
 func TestTicketRouteStatusChangeRetainsPickupAssignmentAndReleasesOnFinish(t *testing.T) {
 	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
 	server := NewServer(
 		config.ServerConfig{Port: 40024},
 		config.GitHubConfig{},
 		slog.New(slog.NewTextHandler(io.Discard, nil)),
-		eventinfra.NewChannelBus(),
+		bus,
 		newTicketService(client),
 		newTicketStatusService(client),
 		nil,
@@ -2327,6 +2329,9 @@ func TestTicketRouteStatusChangeRetainsPickupAssignmentAndReleasesOnFinish(t *te
 		t.Fatalf("expected pickup status update to preserve run state, got %+v", runAfterPickupStatusChange)
 	}
 
+	ticketStream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+	activityStream := subscribeTopicEvents(t, bus, activityStreamTopic)
+
 	statusResp := struct {
 		Ticket ticketResponse `json:"ticket"`
 	}{}
@@ -2370,6 +2375,16 @@ func TestTicketRouteStatusChangeRetainsPickupAssignmentAndReleasesOnFinish(t *te
 	if agentAfterStatusChange.RuntimeControlState != entagent.RuntimeControlStateActive {
 		t.Fatalf("expected status update to reset agent control state, got %+v", agentAfterStatusChange)
 	}
+	ticketEvents := readEvents(t, ticketStream, 2)
+	if ticketEvents[0].Type != providerapi.MustParseEventType(activityevent.TypeTicketStatusChanged.String()) ||
+		ticketEvents[1].Type != providerapi.MustParseEventType(activityevent.TypeTicketCompleted.String()) {
+		t.Fatalf("expected status_changed then completed ticket events, got %+v", ticketEvents)
+	}
+	activityEvents := readEvents(t, activityStream, 2)
+	if activityEvents[0].Type != providerapi.MustParseEventType(activityevent.TypeTicketStatusChanged.String()) ||
+		activityEvents[1].Type != providerapi.MustParseEventType(activityevent.TypeTicketCompleted.String()) {
+		t.Fatalf("expected status_changed then completed activity events, got %+v", activityEvents)
+	}
 
 	statusesAfterResp := ticketstatus.ListResult{}
 	executeJSON(
@@ -2396,6 +2411,79 @@ func TestTicketRouteStatusChangeRetainsPickupAssignmentAndReleasesOnFinish(t *te
 	}
 	if backlogStatusAfter.ID == uuid.Nil || backlogStatusAfter.ActiveRuns != 0 {
 		t.Fatalf("expected Backlog status active_runs=0 after finish transition, got %+v", backlogStatusAfter)
+	}
+}
+
+func TestTicketRouteStatusChangePublishesCancelledLifecycleEvent(t *testing.T) {
+	client := openTestEntClient(t)
+	bus := eventinfra.NewChannelBus()
+	server := NewServer(
+		config.ServerConfig{Port: 40024},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		bus,
+		newTicketService(client),
+		newTicketStatusService(client),
+		nil,
+		nil,
+		nil,
+	)
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-cancelled").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase-cancelled").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset ticket statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	cancelledID := findStatusIDByName(t, statuses, "Cancelled")
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-2").
+		SetTitle("Cancel ticket lifecycle").
+		SetStatusID(todoID).
+		SetCreatedBy("user:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+
+	ticketStream := subscribeTopicEvents(t, bus, ticketEventsTopic)
+	activityStream := subscribeTopicEvents(t, bus, activityStreamTopic)
+
+	executeJSON(
+		t,
+		server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/tickets/%s", ticketItem.ID),
+		map[string]any{"status_id": cancelledID.String()},
+		http.StatusOK,
+		nil,
+	)
+
+	ticketEvents := readEvents(t, ticketStream, 2)
+	if ticketEvents[0].Type != providerapi.MustParseEventType(activityevent.TypeTicketStatusChanged.String()) ||
+		ticketEvents[1].Type != providerapi.MustParseEventType(activityevent.TypeTicketCancelled.String()) {
+		t.Fatalf("expected status_changed then cancelled ticket events, got %+v", ticketEvents)
+	}
+	activityEvents := readEvents(t, activityStream, 2)
+	if activityEvents[0].Type != providerapi.MustParseEventType(activityevent.TypeTicketStatusChanged.String()) ||
+		activityEvents[1].Type != providerapi.MustParseEventType(activityevent.TypeTicketCancelled.String()) {
+		t.Fatalf("expected status_changed then cancelled activity events, got %+v", activityEvents)
 	}
 }
 
