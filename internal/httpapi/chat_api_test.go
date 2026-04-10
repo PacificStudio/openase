@@ -1602,7 +1602,7 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
-	streamCtx, cancel := context.WithTimeout(ctx, 18*time.Millisecond)
+	streamCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(
@@ -1628,12 +1628,43 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+	reader := bufio.NewReader(resp.Body)
+	bodyCh := make(chan []byte, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		var body bytes.Buffer
+		keepalives := 0
+		for keepalives < 2 {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				errCh <- err
+				return
+			}
+			body.WriteString(line)
+			if line == ": keepalive\n" {
+				separator, err := reader.ReadString('\n')
+				if err != nil {
+					errCh <- err
+					return
+				}
+				body.WriteString(separator)
+				if separator == "\n" {
+					keepalives++
+				}
+			}
+		}
+		bodyCh <- body.Bytes()
+	}()
+
+	select {
+	case body := <-bodyCh:
+		if got := strings.Count(string(body), ": keepalive\n\n"); got < 2 {
+			t.Fatalf("expected at least two keepalive comments, got %d in %q", got, string(body))
+		}
+	case err := <-errCh:
 		t.Fatalf("read mux stream body: %v", err)
-	}
-	if got := strings.Count(string(body), ": keepalive\n\n"); got < 2 {
-		t.Fatalf("expected at least two keepalive comments, got %d in %q", got, string(body))
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("timed out waiting for mux stream keepalives")
 	}
 }
 
