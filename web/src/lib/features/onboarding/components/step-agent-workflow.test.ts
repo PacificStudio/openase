@@ -93,7 +93,7 @@ describe('StepAgentWorkflow', () => {
     await fireEvent.click(getByText('Plan the project'))
 
     // Preview is now shown with a Change link and the status flow
-    expect(getByText('Pickup: Backlog → Finish: Done')).toBeTruthy()
+    expect(getByText('Pickup: Todo → Finish: Done')).toBeTruthy()
     expect(getByText('Change')).toBeTruthy()
 
     await fireEvent.click(getByText('Create agent and workflow'))
@@ -108,7 +108,7 @@ describe('StepAgentWorkflow', () => {
         role_description: 'Product Manager',
         platform_access_allowed: [],
         skill_names: [],
-        pickup_status_ids: ['status-backlog'],
+        pickup_status_ids: ['status-todo'],
         finish_status_ids: ['status-done'],
         harness_content: '# Product Manager',
         is_active: true,
@@ -185,7 +185,7 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
       confidence: 1,
       reasons: ['fixture'],
     },
-    pickup_status_ids: ['status-backlog'],
+    pickup_status_ids: ['status-todo'],
     finish_status_ids: ['status-done'],
     max_concurrent: 0,
     max_retry_attempts: 1,
