@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { watchProjectConversationMuxStream } = vi.hoisted(() => ({

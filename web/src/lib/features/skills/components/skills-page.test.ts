@@ -73,7 +73,13 @@ describe('SkillsPage', () => {
           id: 'skill-2',
           name: 'commit',
           is_builtin: true,
-          bound_workflows: [{ id: 'workflow-1', name: 'Coding Workflow' }],
+          bound_workflows: [
+            {
+              id: 'workflow-1',
+              name: 'Coding Workflow',
+              harness_path: '.openase/harnesses/coding.md',
+            },
+          ],
         }),
       ],
     })

@@ -102,6 +102,7 @@ describe('project conversation runtime effects', () => {
     tab.conversationId = 'conversation-1'
 
     const conversations = {
+      sortProjectConversations: vi.fn((items) => items),
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
@@ -138,6 +139,7 @@ describe('project conversation runtime effects', () => {
     tab.phase = 'connecting_stream'
 
     const conversations = {
+      sortProjectConversations: vi.fn((items) => items),
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
@@ -181,6 +183,7 @@ describe('project conversation runtime effects', () => {
     tab.phase = 'connecting_stream'
 
     const conversations = {
+      sortProjectConversations: vi.fn((items) => items),
       touchConversation: vi.fn(),
       applySessionPayload: vi.fn(),
       upsertConversation: vi.fn(),
