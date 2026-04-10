@@ -25,6 +25,8 @@ const budgetRules = [
     softLimit: 200,
     hardLimit: 300,
     allowlist: {
+      'src/lib/features/chat/project-conversation-workspace-browser.svelte':
+        'Workspace browser still coordinates explorer, detail, pending-file navigation, and the new terminal panel while those slices continue to move into dedicated helpers.',
       'src/lib/features/app-shell/components/project-shell.svelte':
         'Project shell still coordinates top bar, sidebar, app-context refresh, and overlays while shell controller extraction continues.',
       'src/lib/features/workflows/components/workflow-creation-dialog.svelte':
@@ -59,6 +61,8 @@ const budgetRules = [
         'Project conversation event bus regression coverage remains consolidated while terminal, workspace, and transcript event scenarios still share the same fixture setup.',
       'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts':
         'Workspace browser state still centralizes repo metadata, tree expansion, and file detail loading while the new terminal-aware browser flow stabilizes.',
+      'src/lib/features/chat/terminal-manager.svelte.ts':
+        'Terminal manager still centralizes session lifecycle, websocket attach, reconnect, and xterm wiring while the new Project AI shell flow settles.',
       'src/lib/features/chat/project-conversation-workspace-browser.test.ts':
         'Workspace browser regression coverage remains bundled while the resizable explorer, pending-file navigation, and terminal toggle scenarios continue to share a single harness.',
       'src/lib/features/dashboard/components/org-dashboard-controller.svelte.ts':

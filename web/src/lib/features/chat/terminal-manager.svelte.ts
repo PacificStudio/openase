@@ -241,7 +241,9 @@ export function createTerminalManager(input: {
     const label = workspacePath || 'workspace root'
     updateInstance(id, {
       status: 'connecting',
-      statusMessage: isReconnect ? `Reconnecting shell in ${label}...` : `Starting shell in ${label}...`,
+      statusMessage: isReconnect
+        ? `Reconnecting shell in ${label}...`
+        : `Starting shell in ${label}...`,
       label,
     })
 
@@ -263,7 +265,8 @@ export function createTerminalManager(input: {
       }
       updateInstance(id, {
         status: 'error',
-        statusMessage: error instanceof Error ? error.message : 'Failed to create terminal session.',
+        statusMessage:
+          error instanceof Error ? error.message : 'Failed to create terminal session.',
       })
       return
     }
@@ -296,7 +299,8 @@ export function createTerminalManager(input: {
         runtime.reconnectEnabled = false
         updateInstance(id, {
           status: 'error',
-          statusMessage: error instanceof Error ? error.message : 'Failed to parse terminal output.',
+          statusMessage:
+            error instanceof Error ? error.message : 'Failed to parse terminal output.',
         })
         socket.close()
       }
@@ -310,7 +314,10 @@ export function createTerminalManager(input: {
       ) {
         return
       }
-      updateInstance(id, { status: 'connecting', statusMessage: `Reconnecting shell in ${label}...` })
+      updateInstance(id, {
+        status: 'connecting',
+        statusMessage: `Reconnecting shell in ${label}...`,
+      })
     }
 
     socket.onclose = () => {

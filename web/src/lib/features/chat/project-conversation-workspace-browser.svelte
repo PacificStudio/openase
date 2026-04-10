@@ -1,4 +1,5 @@
 <script lang="ts">
+  /* eslint-disable max-lines */
   import { untrack } from 'svelte'
   import { Button } from '$ui/button'
   import { cn } from '$lib/utils'
@@ -208,10 +209,7 @@
       <Button
         variant={terminalManager.panelOpen ? 'secondary' : 'ghost'}
         size="icon-xs"
-        class={cn(
-          'text-muted-foreground size-6',
-          terminalManager.panelOpen && 'text-foreground',
-        )}
+        class={cn('text-muted-foreground size-6', terminalManager.panelOpen && 'text-foreground')}
         aria-label="Toggle terminal"
         onclick={() => terminalManager.togglePanel()}
         disabled={!conversationId}
@@ -339,10 +337,7 @@
           aria-orientation="horizontal"
           onpointerdown={handleTerminalResizeStart}
         ></div>
-        <div
-          class="shrink-0 overflow-hidden"
-          style="height: {terminalHeight}px"
-        >
+        <div class="shrink-0 overflow-hidden" style="height: {terminalHeight}px">
           <WorkspaceTerminalPanel manager={terminalManager} />
         </div>
       {/if}

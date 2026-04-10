@@ -1,13 +1,7 @@
 <script lang="ts">
   import '@xterm/xterm/css/xterm.css'
   import { cn } from '$lib/utils'
-  import {
-    AlertCircle,
-    LoaderCircle,
-    Plus,
-    SquareTerminal,
-    X,
-  } from '@lucide/svelte'
+  import { AlertCircle, LoaderCircle, Plus, SquareTerminal, X } from '@lucide/svelte'
   import type { TerminalManager } from './terminal-manager.svelte'
 
   let {
@@ -54,13 +48,15 @@
           'group relative flex h-full cursor-pointer items-center gap-1 border-b-2 px-2.5 text-[11px] transition-colors',
           inst.id === manager.activeId
             ? 'border-primary text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground',
+            : 'text-muted-foreground hover:text-foreground border-transparent',
         )}
         aria-selected={inst.id === manager.activeId}
         onclick={() => {
           manager.activeId = inst.id
         }}
-        onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') manager.activeId = inst.id }}
+        onkeydown={(e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') manager.activeId = inst.id
+        }}
       >
         {#if inst.status === 'connecting'}
           <LoaderCircle class="size-2.5 animate-spin" />
@@ -70,8 +66,11 @@
         <span class="max-w-[80px] truncate">{inst.label}</span>
         <button
           type="button"
-          class="ml-0.5 flex size-3.5 items-center justify-center rounded-sm opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100"
-          onclick={(e: MouseEvent) => { e.stopPropagation(); manager.removeInstance(inst.id) }}
+          class="hover:bg-muted ml-0.5 flex size-3.5 items-center justify-center rounded-sm opacity-0 transition-opacity group-hover:opacity-100"
+          onclick={(e: MouseEvent) => {
+            e.stopPropagation()
+            manager.removeInstance(inst.id)
+          }}
           aria-label="Close terminal"
         >
           <X class="size-2" />
@@ -80,7 +79,7 @@
     {/each}
     <button
       type="button"
-      class="text-muted-foreground hover:text-foreground ml-0.5 flex size-6 items-center justify-center rounded-sm transition-colors hover:bg-muted"
+      class="text-muted-foreground hover:text-foreground hover:bg-muted ml-0.5 flex size-6 items-center justify-center rounded-sm transition-colors"
       aria-label="New terminal"
       onclick={handleNewTerminal}
     >
