@@ -143,6 +143,48 @@ func (_c *ProjectCreate) SetNillableAgentRunSummaryPrompt(v *string) *ProjectCre
 	return _c
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (_c *ProjectCreate) SetProjectAiRetentionEnabled(v bool) *ProjectCreate {
+	_c.mutation.SetProjectAiRetentionEnabled(v)
+	return _c
+}
+
+// SetNillableProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableProjectAiRetentionEnabled(v *bool) *ProjectCreate {
+	if v != nil {
+		_c.SetProjectAiRetentionEnabled(*v)
+	}
+	return _c
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (_c *ProjectCreate) SetProjectAiRetentionKeepLatestN(v int) *ProjectCreate {
+	_c.mutation.SetProjectAiRetentionKeepLatestN(v)
+	return _c
+}
+
+// SetNillableProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableProjectAiRetentionKeepLatestN(v *int) *ProjectCreate {
+	if v != nil {
+		_c.SetProjectAiRetentionKeepLatestN(*v)
+	}
+	return _c
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (_c *ProjectCreate) SetProjectAiRetentionKeepRecentDays(v int) *ProjectCreate {
+	_c.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	return _c
+}
+
+// SetNillableProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field if the given value is not nil.
+func (_c *ProjectCreate) SetNillableProjectAiRetentionKeepRecentDays(v *int) *ProjectCreate {
+	if v != nil {
+		_c.SetProjectAiRetentionKeepRecentDays(*v)
+	}
+	return _c
+}
+
 // SetID sets the "id" field.
 func (_c *ProjectCreate) SetID(v uuid.UUID) *ProjectCreate {
 	_c.mutation.SetID(v)
@@ -424,6 +466,18 @@ func (_c *ProjectCreate) defaults() {
 		v := project.DefaultMaxConcurrentAgents
 		_c.mutation.SetMaxConcurrentAgents(v)
 	}
+	if _, ok := _c.mutation.ProjectAiRetentionEnabled(); !ok {
+		v := project.DefaultProjectAiRetentionEnabled
+		_c.mutation.SetProjectAiRetentionEnabled(v)
+	}
+	if _, ok := _c.mutation.ProjectAiRetentionKeepLatestN(); !ok {
+		v := project.DefaultProjectAiRetentionKeepLatestN
+		_c.mutation.SetProjectAiRetentionKeepLatestN(v)
+	}
+	if _, ok := _c.mutation.ProjectAiRetentionKeepRecentDays(); !ok {
+		v := project.DefaultProjectAiRetentionKeepRecentDays
+		_c.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	}
 	if _, ok := _c.mutation.ID(); !ok {
 		v := project.DefaultID()
 		_c.mutation.SetID(v)
@@ -459,6 +513,15 @@ func (_c *ProjectCreate) check() error {
 	}
 	if _, ok := _c.mutation.MaxConcurrentAgents(); !ok {
 		return &ValidationError{Name: "max_concurrent_agents", err: errors.New(`ent: missing required field "Project.max_concurrent_agents"`)}
+	}
+	if _, ok := _c.mutation.ProjectAiRetentionEnabled(); !ok {
+		return &ValidationError{Name: "project_ai_retention_enabled", err: errors.New(`ent: missing required field "Project.project_ai_retention_enabled"`)}
+	}
+	if _, ok := _c.mutation.ProjectAiRetentionKeepLatestN(); !ok {
+		return &ValidationError{Name: "project_ai_retention_keep_latest_n", err: errors.New(`ent: missing required field "Project.project_ai_retention_keep_latest_n"`)}
+	}
+	if _, ok := _c.mutation.ProjectAiRetentionKeepRecentDays(); !ok {
+		return &ValidationError{Name: "project_ai_retention_keep_recent_days", err: errors.New(`ent: missing required field "Project.project_ai_retention_keep_recent_days"`)}
 	}
 	if len(_c.mutation.OrganizationIDs()) == 0 {
 		return &ValidationError{Name: "organization", err: errors.New(`ent: missing required edge "Project.organization"`)}
@@ -533,6 +596,18 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.AgentRunSummaryPrompt(); ok {
 		_spec.SetField(project.FieldAgentRunSummaryPrompt, field.TypeString, value)
 		_node.AgentRunSummaryPrompt = value
+	}
+	if value, ok := _c.mutation.ProjectAiRetentionEnabled(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionEnabled, field.TypeBool, value)
+		_node.ProjectAiRetentionEnabled = value
+	}
+	if value, ok := _c.mutation.ProjectAiRetentionKeepLatestN(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+		_node.ProjectAiRetentionKeepLatestN = value
+	}
+	if value, ok := _c.mutation.ProjectAiRetentionKeepRecentDays(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
+		_node.ProjectAiRetentionKeepRecentDays = value
 	}
 	if nodes := _c.mutation.OrganizationIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

@@ -101,6 +101,10 @@ type ProjectConversationControllerActionsInput = {
       decision?: string
       answer?: Record<string, unknown>
     }) => Promise<void>
+    deleteConversation: (
+      conversationId: string,
+      options?: { force?: boolean },
+    ) => Promise<boolean>
     dispose: () => void
   }
 }
@@ -189,6 +193,9 @@ export function createProjectConversationControllerActions(
       answer?: Record<string, unknown>
     }) {
       await input.operations.respondInterrupt(inputValue)
+    },
+    async deleteConversation(conversationId: string, options?: { force?: boolean }) {
+      return input.operations.deleteConversation(conversationId, options)
     },
     dispose() {
       input.operations.dispose()

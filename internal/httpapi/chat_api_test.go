@@ -261,6 +261,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			body:   `{"message":"continue"}`,
 		},
 		{
+			name:   "delete conversation",
+			method: http.MethodDelete,
+			target: "/api/v1/chat/conversations/" + conversationID,
+		},
+		{
 			name:   "close runtime",
 			method: http.MethodDelete,
 			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",
@@ -732,6 +737,9 @@ func TestWriteProjectConversationErrorMappings(t *testing.T) {
 		wantCode   string
 	}{
 		{name: "turn active", err: chatservice.ErrConversationTurnActive, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE"},
+		{name: "workspace dirty", err: chatdomain.ErrWorkspaceDirty, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_DIRTY"},
+		{name: "workspace delete failed", err: chatdomain.ErrWorkspaceDeleteFailed, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_DELETE_FAILED"},
+		{name: "workspace path conflict", err: chatdomain.ErrWorkspacePathConflict, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_PATH_CONFLICT"},
 		{name: "generic conflict", err: chatservice.ErrConversationConflict, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_CONFLICT"},
 		{name: "missing conversation", err: chatservice.ErrConversationNotFound, wantStatus: http.StatusNotFound, wantCode: "CHAT_CONVERSATION_NOT_FOUND"},
 		{name: "runtime missing", err: chatservice.ErrConversationRuntimeAbsent, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE"},
@@ -1501,6 +1509,100 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 	}
 	if got := strings.Count(string(body), ": keepalive\n\n"); got < 2 {
 		t.Fatalf("expected at least two keepalive comments, got %d in %q", got, string(body))
+	}
+}
+
+func TestProjectConversationDeleteRouteDeletesConversationWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-delete-route").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName(catalogdomain.LocalMachineName).
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(22).
+		SetWorkspaceRoot(workspaceRoot).
+		SetDescription("Local delete host.").
+		SetStatus("online").
+		SetResources(map[string]any{"transport": "local"}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	projectItem, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Delete Route").
+		SetSlug("openase-delete-route").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machineItem.ID).
+		SetName("Gemini").
+		SetAdapterType("gemini-cli").
+		SetCliCommand("gemini").
+		SetModelName("gemini-2.5-pro").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  projectItem.ID,
+		UserID:     chatservice.LocalProjectConversationUserID.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerItem.ID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/chat/conversations/"+conversation.ID.String(),
+		"",
+	)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := repoStore.GetConversation(ctx, conversation.ID); !errors.Is(err, chatrepo.ErrNotFound) {
+		t.Fatalf("expected deleted conversation, got %v", err)
 	}
 }
 

@@ -813,6 +813,31 @@ export async function closeProjectConversationRuntime(conversationId: string) {
   }
 }
 
+export async function deleteProjectConversation(
+  conversationId: string,
+  request: { force?: boolean } = {},
+) {
+  const headers = buildRequestHeaders('DELETE')
+  const params = new URLSearchParams()
+  if (request.force) {
+    params.set('force', 'true')
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : ''
+  const response = await fetch(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}${query}`,
+    {
+      method: 'DELETE',
+      headers,
+      credentials: 'same-origin',
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+}
+
 function parseChatStreamEvent(frame: SSEFrame): ChatStreamEvent | null {
   const payload = parseJSONObject(frame.data)
   if (payload == null) {

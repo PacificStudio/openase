@@ -49,14 +49,15 @@ type rawAgentTicketCommentRequest struct {
 }
 
 type rawAgentProjectPatchRequest struct {
-	Name                   *string   `json:"name"`
-	Slug                   *string   `json:"slug"`
-	Description            *string   `json:"description"`
-	Status                 *string   `json:"status"`
-	DefaultAgentProviderID *string   `json:"default_agent_provider_id"`
-	AccessibleMachineIDs   *[]string `json:"accessible_machine_ids"`
-	MaxConcurrentAgents    *int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string   `json:"agent_run_summary_prompt"`
+	Name                   *string                         `json:"name"`
+	Slug                   *string                         `json:"slug"`
+	Description            *string                         `json:"description"`
+	Status                 *string                         `json:"status"`
+	DefaultAgentProviderID *string                         `json:"default_agent_provider_id"`
+	AccessibleMachineIDs   *[]string                       `json:"accessible_machine_ids"`
+	MaxConcurrentAgents    *int                            `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string                         `json:"agent_run_summary_prompt"`
+	ProjectAIRetention     *projectAIRetentionPatchRequest `json:"project_ai_retention"`
 }
 
 type rawAgentCreateProjectUpdateThreadRequest struct {
@@ -216,7 +217,8 @@ func parseAgentProjectPatchRequest(
 		raw.DefaultAgentProviderID == nil &&
 		raw.AccessibleMachineIDs == nil &&
 		raw.MaxConcurrentAgents == nil &&
-		raw.AgentRunSummaryPrompt == nil {
+		raw.AgentRunSummaryPrompt == nil &&
+		raw.ProjectAIRetention == nil {
 		return domain.UpdateProject{}, writeableError("at least one project field must be provided")
 	}
 
@@ -229,6 +231,7 @@ func parseAgentProjectPatchRequest(
 		AccessibleMachineIDs:   uuidSliceToStrings(current.AccessibleMachineIDs),
 		MaxConcurrentAgents:    intPointer(current.MaxConcurrentAgents),
 		AgentRunSummaryPrompt:  stringPointerOrNil(current.AgentRunSummaryPrompt),
+		ProjectAIRetention:     mergeProjectAIRetentionPatch(current.ProjectAIRetention, raw.ProjectAIRetention),
 	}
 	if raw.Name != nil {
 		request.Name = strings.TrimSpace(*raw.Name)

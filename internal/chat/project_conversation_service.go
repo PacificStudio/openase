@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
@@ -40,6 +41,8 @@ var (
 )
 
 type projectConversationCatalog interface {
+	ListOrganizations(ctx context.Context) ([]catalogdomain.Organization, error)
+	ListProjects(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.Project, error)
 	GetProject(ctx context.Context, id uuid.UUID) (catalogdomain.Project, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (catalogdomain.Machine, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (catalogdomain.AgentProvider, error)
@@ -59,6 +62,10 @@ type projectConversationAgentPlatform interface {
 
 type projectConversationSecretManager interface {
 	ResolveBoundForRuntime(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
+}
+
+type projectConversationActivityEmitter interface {
+	Emit(context.Context, activitysvc.RecordInput) (*catalogdomain.ActivityEvent, error)
 }
 
 type liveProjectConversation struct {
@@ -121,6 +128,7 @@ type ProjectConversationService struct {
 	githubAuth          githubauthservice.TokenResolver
 	secretResolver      RuntimeEnvironmentResolver
 	secretManager       projectConversationSecretManager
+	activityEmitter     projectConversationActivityEmitter
 
 	streamBroker    *projectConversationStreamBroker
 	muxBroker       *projectConversationMuxBroker
@@ -222,6 +230,13 @@ func (s *ProjectConversationService) ConfigureSecretManager(manager projectConve
 		return
 	}
 	s.secretManager = manager
+}
+
+func (s *ProjectConversationService) ConfigureActivityEmitter(emitter projectConversationActivityEmitter) {
+	if s == nil {
+		return
+	}
+	s.activityEmitter = emitter
 }
 
 func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
@@ -824,42 +839,7 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 	if err != nil {
 		return err
 	}
-
-	live, _ := s.runtimeManager.Close(conversationID)
-	if live != nil && live.principal.ID != uuid.Nil {
-		if live.principal.CurrentRunID != nil && *live.principal.CurrentRunID != uuid.Nil {
-			now := time.Now().UTC()
-			terminatedStatus := domain.RunStatusTerminated
-			_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
-				RunID:                *live.principal.CurrentRunID,
-				Status:               &terminatedStatus,
-				TerminalAt:           &now,
-				LastHeartbeatAt:      &now,
-				CurrentStepStatus:    optionalString("runtime_closed"),
-				CurrentStepSummary:   optionalString("Project conversation runtime closed."),
-				CurrentStepChangedAt: &now,
-			})
-		}
-		if principal, principalErr := s.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
-			live.principal = principal
-		}
-	}
-	updatedConversation, err := s.conversations.CloseConversationRuntime(ctx, conversationID)
-	if err == nil {
-		var providerItem *catalogdomain.AgentProvider
-		if live != nil {
-			providerItem = &live.provider
-		} else if s.catalog != nil {
-			if resolved, resolveErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); resolveErr == nil {
-				providerItem = &resolved
-			}
-		}
-		s.broadcastConversationEvent(updatedConversation, StreamEvent{
-			Event:   "session",
-			Payload: conversationSessionPayload(conversationID, "inactive", updatedConversation, providerItem),
-		})
-	}
-	return err
+	return s.closeConversationRuntime(ctx, conversation)
 }
 
 func (s *ProjectConversationService) recoverStaleActiveTurnBeforeStart(

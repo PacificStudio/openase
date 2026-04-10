@@ -58,6 +58,11 @@ describe('General settings', () => {
         description: '',
         max_concurrent_agents: 4,
         agent_run_summary_prompt: '',
+        project_ai_retention: {
+          enabled: false,
+          keep_latest_n: 0,
+          keep_recent_days: 0,
+        },
       }),
     )
   })
@@ -93,6 +98,11 @@ describe('General settings', () => {
         description: '',
         max_concurrent_agents: 4,
         agent_run_summary_prompt: expectedPrompt,
+        project_ai_retention: {
+          enabled: false,
+          keep_latest_n: 0,
+          keep_recent_days: 0,
+        },
       }),
     )
   })
@@ -128,6 +138,55 @@ describe('General settings', () => {
         description: '',
         max_concurrent_agents: 4,
         agent_run_summary_prompt: '',
+        project_ai_retention: {
+          enabled: false,
+          keep_latest_n: 0,
+          keep_recent_days: 0,
+        },
+      }),
+    )
+  })
+
+  it('saves Project AI retention settings with explicit keep rules', async () => {
+    appStore.currentProject = currentProject({
+      project_ai_retention: {
+        enabled: false,
+        keep_latest_n: 0,
+        keep_recent_days: 0,
+      },
+    })
+    updateProject.mockResolvedValue({
+      project: currentProject({
+        project_ai_retention: {
+          enabled: true,
+          keep_latest_n: 5,
+          keep_recent_days: 14,
+        },
+      }),
+    })
+
+    const { getByLabelText, getByRole } = render(GeneralSettings)
+
+    await fireEvent.click(getByRole('checkbox', { name: /Enable Project AI retention/i }))
+    await fireEvent.input(getByLabelText('Keep latest conversations'), {
+      target: { value: '5' },
+    })
+    await fireEvent.input(getByLabelText('Keep recent days'), {
+      target: { value: '14' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(updateProject).toHaveBeenCalledWith(currentProject().id, {
+        name: 'OpenASE',
+        description: '',
+        max_concurrent_agents: 4,
+        agent_run_summary_prompt: '',
+        project_ai_retention: {
+          enabled: true,
+          keep_latest_n: 5,
+          keep_recent_days: 14,
+        },
       }),
     )
   })
@@ -154,5 +213,10 @@ function currentProjectBase(): Project {
     agent_run_summary_prompt: '',
     effective_agent_run_summary_prompt: 'Built-in run summary prompt currently in effect.',
     agent_run_summary_prompt_source: 'builtin' as const,
+    project_ai_retention: {
+      enabled: false,
+      keep_latest_n: 0,
+      keep_recent_days: 0,
+    },
   }
 }

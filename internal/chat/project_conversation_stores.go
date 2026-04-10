@@ -14,6 +14,7 @@ type projectConversationConversationStore interface {
 	UpdateConversationUser(ctx context.Context, conversationID uuid.UUID, userID string) (domain.Conversation, error)
 	UpdateConversationAnchors(ctx context.Context, conversationID uuid.UUID, status domain.ConversationStatus, anchors domain.ConversationAnchors) (domain.Conversation, error)
 	CloseConversationRuntime(ctx context.Context, conversationID uuid.UUID) (domain.Conversation, error)
+	DeleteConversation(ctx context.Context, conversationID uuid.UUID) (domain.DeleteConversationResult, error)
 }
 
 type projectConversationEntryStore interface {

@@ -1,4 +1,8 @@
-import { respondProjectConversationInterrupt, type ProjectConversation } from '$lib/api/chat'
+import {
+  deleteProjectConversation,
+  respondProjectConversationInterrupt,
+  type ProjectConversation,
+} from '$lib/api/chat'
 import { invalidateProjectConversationStream } from './project-conversation-controller-helpers'
 import {
   readProjectConversationTabs,
@@ -277,6 +281,35 @@ export function createProjectConversationControllerOperations(
     }
   }
 
+  async function deleteConversation(
+    conversationId: string,
+    options: { force?: boolean } = {},
+  ) {
+    if (!conversationId) {
+      return false
+    }
+
+    await deleteProjectConversation(conversationId, options)
+
+    for (const tab of input.getTabs()) {
+      if (tab.conversationId === conversationId) {
+        invalidateProjectConversationStream(tab)
+      }
+    }
+
+    const remainingTabs = input.getTabs().filter((tab) => tab.conversationId !== conversationId)
+    input.setTabs(remainingTabs)
+    input.setConversations(
+      input.getConversations().filter((conversation) => conversation.id !== conversationId),
+    )
+    if (!remainingTabs.some((tab) => tab.id === input.getActiveTabId())) {
+      input.setActiveTabId(remainingTabs[0]?.id ?? '')
+    }
+    input.ensureTabExists()
+    input.persistTabs()
+    return true
+  }
+
   function dispose() {
     disposeProjectConversationTabs(input.getTabs())
   }
@@ -291,6 +324,7 @@ export function createProjectConversationControllerOperations(
     closeTab,
     resetConversation,
     respondInterrupt,
+    deleteConversation,
     dispose,
   }
 }

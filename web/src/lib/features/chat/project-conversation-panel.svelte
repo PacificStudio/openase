@@ -237,6 +237,44 @@
       )
     }
   }
+
+  async function handleDeleteConversation(conversationId: string, force = false) {
+    if (!conversationId) {
+      return
+    }
+    if (!force) {
+      const confirmed = window.confirm(
+        'Delete this Project AI conversation and its workspace? Dirty workspaces may require one more confirmation.',
+      )
+      if (!confirmed) {
+        return
+      }
+    }
+
+    try {
+      const deleted = await controller.deleteConversation(conversationId, { force })
+      if (deleted) {
+        toastStore.success('Project AI conversation deleted.')
+      }
+    } catch (error) {
+      if (
+        !force &&
+        error instanceof ApiError &&
+        error.detail.toLowerCase().includes('workspace has uncommitted changes')
+      ) {
+        const confirmed = window.confirm(
+          `${error.detail}\n\nDelete it anyway and discard those workspace changes?`,
+        )
+        if (confirmed) {
+          await handleDeleteConversation(conversationId, true)
+        }
+        return
+      }
+      toastStore.error(
+        error instanceof ApiError ? error.detail : 'Failed to delete the Project AI conversation.',
+      )
+    }
+  }
 </script>
 
 <div class="bg-background flex h-full min-h-0 flex-col">
@@ -251,6 +289,7 @@
     onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
     onCreateTab={() => controller.createTab()}
     onOpenConversation={(conversationId) => void controller.openConversation(conversationId)}
+    onDeleteConversation={(conversationId) => void handleDeleteConversation(conversationId)}
     {onClose}
   />
   <ProjectConversationContent
