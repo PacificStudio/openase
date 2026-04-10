@@ -96,6 +96,27 @@ const workspaceDiff = {
   ],
 } satisfies ProjectConversationWorkspaceDiff
 
+class MockWebSocket {
+  static CONNECTING = 0
+  static OPEN = 1
+  static CLOSING = 2
+  static CLOSED = 3
+
+  readyState = MockWebSocket.OPEN
+  onmessage: ((event: { data: string }) => void) | null = null
+  onerror: (() => void) | null = null
+  onclose: (() => void) | null = null
+
+  constructor(public readonly url: string) {}
+
+  send() {}
+
+  close() {
+    this.readyState = MockWebSocket.CLOSED
+    this.onclose?.()
+  }
+}
+
 function mockWorkspaceMetadata() {
   getProjectConversationWorkspace.mockResolvedValue({
     workspace: structuredClone(workspaceMetadata),
@@ -119,6 +140,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       unobserve() {}
       disconnect() {}
     }
+    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
   })
 
   afterEach(() => {
@@ -1015,5 +1037,49 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     expect(view.container.textContent).toContain('guide.md')
     expect(view.queryByRole('button', { name: /README\.md/ })).toBeNull()
+  })
+
+  it('keeps the bottom terminal panel stretched to the configured height', async () => {
+    mockWorkspaceMetadata()
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
+      },
+    })
+    createProjectConversationTerminalSession.mockResolvedValue({
+      terminalSession: {
+        id: 'terminal-1',
+        mode: 'shell',
+        cwd: '/tmp/conversation-1',
+        wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
+        attachToken: 'attach-token-1',
+      },
+    })
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff,
+        workspaceDiffLoading: false,
+      },
+    })
+
+    await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(1))
+    await fireEvent.click(view.getByRole('button', { name: 'Toggle terminal' }))
+
+    const viewport = await view.findByTestId('workspace-terminal-instance')
+    const panelContent = viewport.parentElement as HTMLElement
+    const panelRoot = panelContent.parentElement as HTMLElement
+    const panelWrapper = panelRoot.parentElement as HTMLElement
+
+    expect(panelRoot.className).toContain('h-full')
+    expect(panelWrapper.className).toContain('flex')
+    expect(panelWrapper.className).toContain('min-h-0')
+    expect(panelWrapper.className).toContain('shrink-0')
+    expect(panelWrapper.className).toContain('overflow-hidden')
+    expect(panelWrapper.getAttribute('style')).toContain('height: 260px')
   })
 })
