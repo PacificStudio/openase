@@ -14026,6 +14026,24 @@
                     "description": "Human-readable project name.",
                     "type": "string"
                   },
+                  "project_ai_retention": {
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "type": "string"
@@ -16848,6 +16866,24 @@
                     "description": "Human-readable project name.",
                     "nullable": true,
                     "type": "string"
+                  },
+                  "project_ai_retention": {
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
                   },
                   "slug": {
                     "description": "Stable URL-safe project slug.",

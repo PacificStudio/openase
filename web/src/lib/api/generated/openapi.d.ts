@@ -10346,6 +10346,11 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string
+          project_ai_retention?: {
+            enabled?: boolean | null
+            keep_latest_n?: number | null
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string
           /** @description Current project lifecycle status name. */
@@ -11773,6 +11778,11 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string | null
+          project_ai_retention?: {
+            enabled?: boolean | null
+            keep_latest_n?: number | null
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string | null
           /** @description Current project lifecycle status name. */
