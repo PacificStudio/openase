@@ -921,18 +921,22 @@ func (s *ProjectConversationService) InterruptTurn(
 	statusMessage := "Turn stopped by user."
 	reason := "stopped_by_user"
 
-	anchorThreadID := firstNonEmptyTrimmed(
-		anchor.ProviderThreadID,
-		stringPointerValue(conversation.ProviderThreadID),
-	)
-	anchorTurnID := firstNonEmptyTrimmed(
-		anchor.LastTurnID,
-		stringPointerValue(conversation.LastTurnID),
-	)
+	anchorThreadID := ""
+	anchorTurnID := ""
+	if live.provider.AdapterType != catalogdomain.AgentProviderAdapterTypeCodexAppServer {
+		anchorThreadID = firstNonEmptyTrimmed(
+			anchor.ProviderThreadID,
+			stringPointerValue(conversation.ProviderThreadID),
+		)
+		anchorTurnID = firstNonEmptyTrimmed(
+			anchor.LastTurnID,
+			stringPointerValue(conversation.LastTurnID),
+		)
+	}
 	if _, err := s.entries.CompleteTurn(ctx, activeTurn.ID, domain.TurnStatusInterrupted, optionalNonEmptyString(anchorTurnID)); err != nil {
 		return err
 	}
-	if _, err := s.entries.AppendEntry(ctx, conversationID, &activeTurn.ID, domain.EntryKindSystem, map[string]any{
+	if _, err := s.appendConversationEntryWithConflictRetry(ctx, conversationID, &activeTurn.ID, domain.EntryKindSystem, map[string]any{
 		"type":    "turn_interrupted",
 		"reason":  reason,
 		"message": statusMessage,
@@ -1027,6 +1031,37 @@ func (s *ProjectConversationService) InterruptTurn(
 		Payload: conversationSessionPayload(conversationID, string(domain.RuntimeStateReady), updatedConversation, &live.provider),
 	})
 	return nil
+}
+
+func (s *ProjectConversationService) appendConversationEntryWithConflictRetry(
+	ctx context.Context,
+	conversationID uuid.UUID,
+	turnID *uuid.UUID,
+	kind domain.EntryKind,
+	payload map[string]any,
+) (domain.Entry, error) {
+	const maxAttempts = 3
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, kind, payload)
+		if err == nil {
+			return entry, nil
+		}
+		if !errors.Is(err, ErrConversationConflict) {
+			return domain.Entry{}, err
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return domain.Entry{}, ctx.Err()
+		}
+		if attempt == maxAttempts-1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return domain.Entry{}, lastErr
 }
 
 func (s *ProjectConversationService) recoverStaleActiveTurnBeforeStart(

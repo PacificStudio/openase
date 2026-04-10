@@ -100,6 +100,45 @@ func TestCreateTurnWithUserEntryPersistsStableTitleOnlyOnce(t *testing.T) {
 	}
 }
 
+func TestCreateTurnWithUserEntryAllowsNewTurnAfterCompletedInterruptedTurn(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := NewEntRepository(client)
+	projectID := createConversationTestProject(ctx, t, client)
+
+	conversation, err := repo.CreateConversation(ctx, domain.CreateConversation{
+		ProjectID:  projectID,
+		UserID:     "user:conversation",
+		Source:     domain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	})
+	if err != nil {
+		t.Fatalf("CreateConversation() error = %v", err)
+	}
+
+	firstTurn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "Stop after partial output")
+	if err != nil {
+		t.Fatalf("CreateTurnWithUserEntry(first) error = %v", err)
+	}
+	if _, err := repo.CompleteTurn(ctx, firstTurn.ID, domain.TurnStatusInterrupted, nil); err != nil {
+		t.Fatalf("CompleteTurn(interrupted) error = %v", err)
+	}
+
+	if _, err := repo.GetActiveTurn(ctx, conversation.ID); err == nil {
+		t.Fatal("GetActiveTurn() unexpectedly found a completed interrupted turn")
+	}
+
+	secondTurn, _, err := repo.CreateTurnWithUserEntry(ctx, conversation.ID, "Continue after stop")
+	if err != nil {
+		t.Fatalf("CreateTurnWithUserEntry(second) error = %v", err)
+	}
+	if secondTurn.TurnIndex != 2 {
+		t.Fatalf("second turn index = %d, want 2", secondTurn.TurnIndex)
+	}
+}
+
 func TestGetConversationBackfillsLegacyTitleFromEarliestUserEntry(t *testing.T) {
 	t.Parallel()
 

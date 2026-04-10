@@ -138,6 +138,7 @@ describe('ProjectConversationPanel stop action', () => {
 
     const stopButton = await findByRole('button', { name: 'Stop reply' })
     expect(stopButton).toBeTruthy()
+    expect(queryByRole('button', { name: 'Send message' })).toBeNull()
 
     mux.emit('conversation-stop-1', {
       kind: 'message',
@@ -186,5 +187,6 @@ describe('ProjectConversationPanel stop action', () => {
     await waitFor(() => {
       expect(queryByRole('button', { name: 'Stop reply' })).toBeNull()
     })
+    expect(getByRole('button', { name: 'Send message' })).toBeTruthy()
   })
 })

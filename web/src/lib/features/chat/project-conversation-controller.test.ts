@@ -257,6 +257,12 @@ describe('createProjectConversationController', () => {
       },
     })
     expect(controller.phase).toBe('idle')
+
+    await controller.sendTurn('Continue after stop')
+    expect(startProjectConversationTurn).toHaveBeenLastCalledWith('conversation-1', {
+      message: 'Continue after stop',
+      focus: undefined,
+    })
   })
 
   it('passes per-turn focus metadata through to the project conversation turn request', async () => {

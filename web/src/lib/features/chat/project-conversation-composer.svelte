@@ -152,24 +152,24 @@
       <Button
         variant="ghost"
         size="sm"
-        class="text-muted-foreground h-6 shrink-0 gap-1 px-1.5 text-[11px]"
+        class="text-muted-foreground size-6 shrink-0 p-0"
         aria-label="Stop reply"
         onclick={() => onStop?.()}
         disabled={stopDisabled}
       >
         <Square class="size-3" />
-        <span>Stop</span>
+      </Button>
+    {:else}
+      <Button
+        variant="ghost"
+        size="sm"
+        class="text-muted-foreground size-6 shrink-0 p-0"
+        aria-label="Send message"
+        onclick={() => onSend?.()}
+        disabled={!draft.trim() || (sendDisabled && !canQueueTurn)}
+      >
+        <Send class="size-3.5" />
       </Button>
     {/if}
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-muted-foreground size-6 shrink-0 p-0"
-      aria-label="Send message"
-      onclick={() => onSend?.()}
-      disabled={!draft.trim() || (sendDisabled && !canQueueTurn)}
-    >
-      <Send class="size-3.5" />
-    </Button>
   </div>
 </div>
