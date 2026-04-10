@@ -67,7 +67,7 @@ describe('StepFirstTicket', () => {
     expect(queryByText('Workflow')).toBeNull()
     expect(
       getByText(
-        'The ticket will enter "Backlog", and the orchestrator will automatically pick it up and assign it to an agent based on the status pickup rules.',
+        'The ticket will enter "Todo", and the orchestrator will automatically pick it up and assign it to an agent based on the status pickup rules.',
       ),
     ).toBeTruthy()
 
@@ -78,7 +78,7 @@ describe('StepFirstTicket', () => {
         'project-1',
         expect.objectContaining({
           title: 'Draft the initial product requirements',
-          status_id: 'status-backlog',
+          status_id: 'status-todo',
         }),
       )
       expect(createTicket.mock.calls[0]?.[1]).not.toHaveProperty('workflow_id')
