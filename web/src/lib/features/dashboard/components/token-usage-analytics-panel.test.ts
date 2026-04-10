@@ -1,8 +1,13 @@
 import { cleanup, render } from '@testing-library/svelte'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { TokenUsageAnalytics } from '../types'
 import TokenUsageAnalyticsPanel from './token-usage-analytics-panel.svelte'
+
+vi.mock('$ui/chart', async () => {
+  const { default: LineChart } = await import('./test-line-chart.stub.svelte')
+  return { LineChart }
+})
 
 describe('TokenUsageAnalyticsPanel', () => {
   afterEach(() => {
@@ -88,6 +93,7 @@ describe('TokenUsageAnalyticsPanel', () => {
     expect(getByText('Calendar')).toBeTruthy()
     expect(getByText('320')).toBeTruthy()
     expect(getByText('Tue, Mar 31')).toBeTruthy()
-    expect(container.querySelector('svg')).toBeTruthy()
+    expect(container.querySelector('[data-testid="mock-line-chart"]')).toBeTruthy()
+    expect(container.querySelectorAll('[data-testid="token-usage-calendar-cell"]')).toHaveLength(2)
   })
 })

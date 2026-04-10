@@ -1,15 +1,12 @@
 <script lang="ts">
   import { cn, formatCount } from '$lib/utils'
   import { Button } from '$ui/button'
+  import { LineChart } from '$ui/chart'
   import { Skeleton } from '$ui/skeleton'
   import { CalendarRange, Flame, TrendingUp, Workflow } from '@lucide/svelte'
-  import {
-    buildTokenUsageTrendPoints,
-    formatTokenUsageTooltip,
-    tokenUsageIntensityClassName,
-    tokenUsageRangeOptions,
-  } from '../token-usage'
-  import type { TokenUsageAnalytics, TokenUsageDayPoint, TokenUsageRange } from '../types'
+  import { formatTokenUsageTooltip, tokenUsageRangeOptions } from '../token-usage'
+  import type { TokenUsageAnalytics, TokenUsageRange } from '../types'
+  import TokenUsageCalendar from './token-usage-calendar.svelte'
 
   let {
     analytics,
@@ -25,14 +22,26 @@
     class?: string
   } = $props()
 
-  const weekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
-  const trendPoints = $derived(buildTokenUsageTrendPoints(analytics.days))
-  const trendPolyline = $derived(trendPoints.map((point) => `${point.x},${point.y}`).join(' '))
-  const trendArea = $derived(
-    trendPoints.length > 0
-      ? `2,44 ${trendPoints.map((point) => `${point.x},${point.y}`).join(' ')} 98,44`
-      : '',
-  )
+  const chartLabels = $derived(analytics.days.map((d) => d.shortLabel))
+  const chartDatasets = $derived([
+    {
+      data: analytics.days.map((d) => d.totalTokens),
+      borderColor: 'oklch(0.56 0.155 152)',
+      backgroundColor: 'oklch(0.56 0.155 152 / 0.10)',
+      fill: true,
+      tension: 0.35,
+      borderWidth: 2,
+      pointRadius: analytics.days.length > 60 ? 0 : 2.5,
+      pointHoverRadius: 4,
+      pointBackgroundColor: 'oklch(0.56 0.155 152)',
+      pointBorderColor: 'oklch(0.56 0.155 152)',
+      pointBorderWidth: 0,
+    },
+  ])
+  const chartTooltip = $derived((index: number) => {
+    const day = analytics.days[index]
+    return day ? formatTokenUsageTooltip(day) : ''
+  })
 </script>
 
 <section class={cn('border-border bg-card rounded-xl border', className)}>
@@ -154,115 +163,23 @@
           </div>
         {:else}
           <div class="mt-4">
-            <svg
-              viewBox="0 0 100 48"
-              class="h-48 w-full overflow-visible"
-              preserveAspectRatio="none"
-            >
-              <defs>
-                <linearGradient id="token-usage-area" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="currentColor" stop-opacity="0.22" />
-                  <stop offset="100%" stop-color="currentColor" stop-opacity="0.02" />
-                </linearGradient>
-              </defs>
-              {#each [10, 22, 34, 44] as y}
-                <line x1="2" y1={y} x2="98" y2={y} class="stroke-border/80" stroke-width="0.45" />
-              {/each}
-              <polygon points={trendArea} class="fill-current text-emerald-500/90" />
-              <polyline
-                points={trendPolyline}
-                class="text-emerald-600 dark:text-emerald-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.7"
-              />
-              {#each trendPoints as point (point.day.date)}
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r="1.8"
-                  class="fill-card stroke-emerald-600 dark:stroke-emerald-400"
-                  stroke-width="1.4"
-                >
-                  <title>{formatTokenUsageTooltip(point.day)}</title>
-                </circle>
-              {/each}
-            </svg>
-
-            <div class="text-muted-foreground mt-3 flex items-center justify-between text-xs">
-              <span>{analytics.days[0]?.shortLabel ?? '—'}</span>
-              <span>{analytics.days[analytics.days.length - 1]?.shortLabel ?? '—'}</span>
-            </div>
+            <LineChart
+              labels={chartLabels}
+              datasets={chartDatasets}
+              tooltipCallback={chartTooltip}
+              yTickFormat={(v) => formatCount(v)}
+              class="h-48 w-full"
+            />
           </div>
         {/if}
       </div>
 
-      <div class="border-border rounded-lg border p-4">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h3 class="text-foreground text-sm font-medium">Calendar</h3>
-            <p class="text-muted-foreground mt-1 text-xs">
-              Heatmap intensity tracks each UTC day&apos;s finalized token total.
-            </p>
-          </div>
-          <div class="text-muted-foreground text-xs">Low to high</div>
-        </div>
-
-        {#if loading}
-          <div class="mt-4 grid grid-cols-7 gap-1.5">
-            {#each { length: 35 } as _}
-              <Skeleton class="aspect-square h-auto w-full rounded-sm" />
-            {/each}
-          </div>
-        {:else}
-          <div class="mt-4">
-            <div class="mb-2 grid grid-cols-7 gap-1.5">
-              {#each weekdayLabels as label}
-                <div class="text-muted-foreground text-center text-[10px] font-medium uppercase">
-                  {label}
-                </div>
-              {/each}
-            </div>
-            <div class="grid grid-cols-7 gap-1.5">
-              {#each analytics.calendarCells as day, index (`${day?.date ?? 'empty'}-${index}`)}
-                {#if day}
-                  <div
-                    class={cn(
-                      'border-border/80 aspect-square rounded-sm border',
-                      tokenUsageIntensityClassName(day.intensity),
-                    )}
-                    title={formatTokenUsageTooltip(day)}
-                  ></div>
-                {:else}
-                  <div
-                    class="border-border/40 bg-muted/15 aspect-square rounded-sm border border-dashed"
-                  ></div>
-                {/if}
-              {/each}
-            </div>
-            <div class="mt-3 flex items-center justify-between text-xs">
-              <span class="text-muted-foreground">0</span>
-              <div class="flex items-center gap-1">
-                {#each [0, 1, 2, 3, 4] as intensity}
-                  <div
-                    class={cn(
-                      'border-border/80 size-2.5 rounded-[4px] border',
-                      tokenUsageIntensityClassName(intensity as TokenUsageDayPoint['intensity']),
-                    )}
-                  ></div>
-                {/each}
-              </div>
-              <span class="text-muted-foreground">{formatCount(analytics.maxDailyTokens)}</span>
-            </div>
-          </div>
-        {/if}
-      </div>
+      <TokenUsageCalendar
+        days={analytics.days}
+        calendarCells={analytics.calendarCells}
+        maxDailyTokens={analytics.maxDailyTokens}
+        {loading}
+      />
     </div>
-
-    <p class="text-muted-foreground text-xs">
-      Missing days are lazily backfilled from finalized runs when this view is queried.
-    </p>
   </div>
 </section>
