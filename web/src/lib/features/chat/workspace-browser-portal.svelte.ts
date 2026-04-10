@@ -13,6 +13,8 @@ class WorkspaceBrowserPortal {
   conversationId = $state('')
   workspaceDiff: ProjectConversationWorkspaceDiff | null = $state(null)
   workspaceDiffLoading = $state(false)
+  /** File path to navigate to when the browser opens (consumed once). */
+  pendingFilePath = $state('')
 
   toggle() {
     this.open = !this.open
@@ -20,6 +22,19 @@ class WorkspaceBrowserPortal {
 
   close() {
     this.open = false
+  }
+
+  /** Open the browser and navigate to a specific file. */
+  openToFile(filePath: string) {
+    this.pendingFilePath = filePath
+    this.open = true
+  }
+
+  /** Consume and clear the pending file path. */
+  consumePendingFile(): string {
+    const path = this.pendingFilePath
+    this.pendingFilePath = ''
+    return path
   }
 }
 

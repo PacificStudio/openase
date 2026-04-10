@@ -85,6 +85,9 @@
   onBrowse={() => {
     if (conversationId) workspaceBrowserPortal.toggle()
   }}
+  onOpenFile={(filePath) => {
+    if (conversationId) workspaceBrowserPortal.openToFile(filePath)
+  }}
 />
 
 <div class="flex min-h-0 flex-1">

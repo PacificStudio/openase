@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import * as Tooltip from '$ui/tooltip'
   import { ChevronRight, GitBranch } from '@lucide/svelte'
   import type {
     ProjectConversationWorkspaceDiff,
@@ -13,6 +14,7 @@
     error = '',
     browserOpen = false,
     onBrowse,
+    onOpenFile,
   }: {
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
@@ -20,6 +22,7 @@
     error?: string
     browserOpen?: boolean
     onBrowse?: () => void
+    onOpenFile?: (filePath: string) => void
   } = $props()
 
   let expanded = $state(false)
@@ -52,13 +55,13 @@
     switch (status) {
       case 'added':
       case 'untracked':
-        return 'text-emerald-600'
+        return 'text-emerald-600 dark:text-emerald-400'
       case 'deleted':
-        return 'text-rose-600'
+        return 'text-rose-600 dark:text-rose-400'
       case 'renamed':
-        return 'text-amber-600'
+        return 'text-amber-600 dark:text-amber-400'
       default:
-        return 'text-sky-600'
+        return 'text-sky-600 dark:text-sky-400'
     }
   }
 
@@ -96,7 +99,24 @@
           <span class="text-destructive truncate">{error}</span>
         {:else if workspaceDiff}
           {#if isDirty}
-            <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                {#snippet child({ props })}
+                  <span
+                    {...props}
+                    class="bg-primary/15 text-primary rounded-full px-1.5 text-[9px] font-bold"
+                  >
+                    {workspaceDiff.reposChanged}
+                  </span>
+                {/snippet}
+              </Tooltip.Trigger>
+              <Tooltip.Content side="top" sideOffset={4}>
+                {workspaceDiff.reposChanged === 1 ? '1 repo changed' : `${workspaceDiff.reposChanged} repos changed`}
+              </Tooltip.Content>
+            </Tooltip.Root>
+            <span class="font-mono text-[10px] font-medium">
+              {formatTotals(workspaceDiff.added, workspaceDiff.removed)}
+            </span>
           {:else}
             <span class="text-muted-foreground/60">Clean workspace</span>
           {/if}
@@ -146,7 +166,11 @@
               </div>
             {/if}
             {#each repo.files as file}
-              <div class="flex items-center gap-1.5 px-3 py-0.5">
+              <button
+                type="button"
+                class="hover:bg-muted/40 flex w-full items-center gap-1.5 px-3 py-0.5 text-left transition-colors"
+                onclick={() => onOpenFile?.(file.path)}
+              >
                 <span class={cn('w-3 shrink-0 font-mono font-bold', statusClass(file.status))}>
                   {statusLabel(file.status)}
                 </span>
@@ -156,7 +180,7 @@
                 <span class="text-muted-foreground/60 shrink-0 font-mono text-[10px]">
                   {formatTotals(file.added, file.removed)}
                 </span>
-              </div>
+              </button>
             {/each}
           {/each}
           <div class="h-1"></div>

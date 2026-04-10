@@ -25,10 +25,14 @@
   } = $props()
 
   const fileName = $derived(selectedFilePath.split('/').pop() ?? '')
+  const fileDirPath = $derived(() => {
+    const parts = selectedFilePath.split('/')
+    return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
+  })
   const hasDiff = $derived(patch?.diffKind === 'text' && !!patch.diff)
 </script>
 
-<div class="flex min-h-0 flex-col">
+<div class="flex h-full min-h-0 flex-col overflow-hidden">
   {#if !selectedRepo}
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
@@ -53,6 +57,9 @@
     <div class="border-border bg-muted/30 flex items-center gap-2 border-b px-3 py-1.5">
       <FileCode2 class="text-muted-foreground size-3.5 shrink-0" />
       <span class="min-w-0 truncate text-[13px] font-medium">{fileName}</span>
+      {#if fileDirPath()}
+        <span class="text-muted-foreground/40 min-w-0 truncate text-[11px]">{fileDirPath()}</span>
+      {/if}
       {#if patch?.status && patch.status !== 'modified'}
         <span
           class={cn(
@@ -78,23 +85,42 @@
     </div>
 
     <!-- Unified content: diff or syntax-highlighted preview -->
-    <div class="min-h-0 flex-1 overflow-auto">
+    <div
+      class="min-h-0 flex-1 overflow-hidden"
+      data-testid="workspace-browser-detail-content"
+    >
       {#if hasDiff}
-        <DiffViewer diff={patch?.diff ?? ''} class="h-full" />
+        <div
+          class="h-full min-h-0 min-w-0 overflow-hidden"
+          data-testid="workspace-browser-detail-scroll-frame"
+        >
+          <DiffViewer
+            diff={patch?.diff ?? ''}
+            sourceContent={preview?.content ?? ''}
+            class="h-full"
+          />
+        </div>
       {:else if preview?.previewKind === 'binary'}
-        <div class="text-muted-foreground px-4 py-8 text-center text-sm">
-          Binary file — not rendered inline.
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+          <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
         </div>
       {:else if preview}
-        <CodeViewer
-          code={preview.content ?? ''}
-          filePath={selectedFilePath}
-          class="h-full"
-        />
+        <div
+          class="h-full min-h-0 min-w-0 overflow-hidden"
+          data-testid="workspace-browser-detail-scroll-frame"
+        >
+          <CodeViewer
+            code={preview.content ?? ''}
+            filePath={selectedFilePath}
+            class="h-full"
+          />
+        </div>
       {:else if fileLoading}
-        <div class="text-muted-foreground px-4 py-8 text-center text-sm">Loading…</div>
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
+          Loading…
+        </div>
       {:else}
-        <div class="text-muted-foreground px-4 py-8 text-center text-sm">
+        <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
           Select a file to view its contents.
         </div>
       {/if}

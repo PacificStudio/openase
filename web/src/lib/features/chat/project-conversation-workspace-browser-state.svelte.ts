@@ -9,6 +9,91 @@ import {
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
 
+function areTreeEntriesEqual(
+  left: ProjectConversationWorkspaceTreeEntry[] | undefined,
+  right: ProjectConversationWorkspaceTreeEntry[],
+) {
+  if (!left) {
+    return false
+  }
+  if (left.length !== right.length) {
+    return false
+  }
+
+  return left.every((entry, index) => {
+    const next = right[index]
+    return (
+      next != null &&
+      entry.path === next.path &&
+      entry.name === next.name &&
+      entry.kind === next.kind &&
+      entry.sizeBytes === next.sizeBytes
+    )
+  })
+}
+
+function areWorkspaceMetadataEqual(
+  left: ProjectConversationWorkspaceMetadata | null,
+  right: ProjectConversationWorkspaceMetadata,
+) {
+  if (!left) {
+    return false
+  }
+  if (
+    left.conversationId !== right.conversationId ||
+    left.available !== right.available ||
+    left.workspacePath !== right.workspacePath ||
+    left.repos.length !== right.repos.length
+  ) {
+    return false
+  }
+
+  return left.repos.every((repo, index) => {
+    const next = right.repos[index]
+    return (
+      next != null &&
+      repo.name === next.name &&
+      repo.path === next.path &&
+      repo.branch === next.branch &&
+      repo.headCommit === next.headCommit &&
+      repo.headSummary === next.headSummary &&
+      repo.dirty === next.dirty &&
+      repo.filesChanged === next.filesChanged &&
+      repo.added === next.added &&
+      repo.removed === next.removed
+    )
+  })
+}
+
+function areFilePreviewEqual(
+  left: ProjectConversationWorkspaceFilePreview | null,
+  right: ProjectConversationWorkspaceFilePreview,
+) {
+  return !!left &&
+    left.conversationId === right.conversationId &&
+    left.repoPath === right.repoPath &&
+    left.path === right.path &&
+    left.sizeBytes === right.sizeBytes &&
+    left.mediaType === right.mediaType &&
+    left.previewKind === right.previewKind &&
+    left.truncated === right.truncated &&
+    left.content === right.content
+}
+
+function areFilePatchEqual(
+  left: ProjectConversationWorkspaceFilePatch | null,
+  right: ProjectConversationWorkspaceFilePatch,
+) {
+  return !!left &&
+    left.conversationId === right.conversationId &&
+    left.repoPath === right.repoPath &&
+    left.path === right.path &&
+    left.status === right.status &&
+    left.diffKind === right.diffKind &&
+    left.truncated === right.truncated &&
+    left.diff === right.diff
+}
+
 export function createProjectConversationWorkspaceBrowserState(input: {
   getConversationId: () => string
 }) {
@@ -29,13 +114,28 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   let selectedFilePath = $state('')
   let loadRequestID = 0
 
+  function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
+    if (!areWorkspaceMetadataEqual(metadata, nextMetadata)) {
+      metadata = nextMetadata
+    }
+  }
+
   function setTreeEntries(dirPath: string, entries: ProjectConversationWorkspaceTreeEntry[]) {
+    const currentEntries = treeNodes.get(dirPath)
+    if (areTreeEntriesEqual(currentEntries, entries)) {
+      return
+    }
+
     const nextTreeNodes = new Map(treeNodes)
     nextTreeNodes.set(dirPath, entries)
     treeNodes = nextTreeNodes
   }
 
   function setDirLoading(dirPath: string, loading: boolean) {
+    if (loadingDirs.has(dirPath) === loading) {
+      return
+    }
+
     const nextLoadingDirs = new Set(loadingDirs)
     if (loading) {
       nextLoadingDirs.add(dirPath)
@@ -46,6 +146,10 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   }
 
   function setDirExpanded(dirPath: string, expanded: boolean) {
+    if (expandedDirs.has(dirPath) === expanded) {
+      return
+    }
+
     const nextExpandedDirs = new Set(expandedDirs)
     if (expanded) {
       nextExpandedDirs.add(dirPath)
@@ -53,6 +157,32 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       nextExpandedDirs.delete(dirPath)
     }
     expandedDirs = nextExpandedDirs
+  }
+
+  function setPreview(nextPreview: ProjectConversationWorkspaceFilePreview | null) {
+    if (nextPreview == null) {
+      if (preview !== null) {
+        preview = null
+      }
+      return
+    }
+
+    if (!areFilePreviewEqual(preview, nextPreview)) {
+      preview = nextPreview
+    }
+  }
+
+  function setPatch(nextPatch: ProjectConversationWorkspaceFilePatch | null) {
+    if (nextPatch == null) {
+      if (patch !== null) {
+        patch = null
+      }
+      return
+    }
+
+    if (!areFilePatchEqual(patch, nextPatch)) {
+      patch = nextPatch
+    }
   }
 
   function reset() {
@@ -80,15 +210,15 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       const payload = await getProjectConversationWorkspace(conversationId)
       if (requestID !== loadRequestID || conversationId !== input.getConversationId()) return
 
-      metadata = payload.workspace
+      setMetadata(payload.workspace)
       if (!payload.workspace.available || payload.workspace.repos.length === 0) {
         selectedRepoPath = ''
         selectedFilePath = ''
         treeNodes = new Map()
         expandedDirs = new Set()
         loadingDirs = new Set()
-        preview = null
-        patch = null
+        setPreview(null)
+        setPatch(null)
         fileError = ''
         return
       }
@@ -107,31 +237,34 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       if (repoChanged) {
         selectedFilePath = ''
         expandedDirs = new Set()
-        preview = null
-        patch = null
+        setPreview(null)
+        setPatch(null)
+        treeNodes = new Map()
       }
 
-      // Clear cache and reload
-      treeNodes = new Map()
-
-      await loadDirEntries('', requestID)
+      await loadDirEntries('', requestID, { silent: treeNodes.has('') })
       if (requestID !== loadRequestID) return
 
       // Re-expand previously expanded directories
       if (prevExpanded.length > 0) {
-        await Promise.all(prevExpanded.map((dir) => loadDirEntries(dir, requestID)))
+        await Promise.all(
+          prevExpanded.map((dir) => loadDirEntries(dir, requestID, { silent: treeNodes.has(dir) })),
+        )
       }
 
       // Reload selected file if preserved
       if (preserveSelection && selectedFilePath && !repoChanged) {
-        await loadFile(selectedFilePath, { requestID })
+        await loadFile(selectedFilePath, {
+          requestID,
+          silent: preview != null || patch != null,
+        })
       }
     } catch (error) {
       if (requestID !== loadRequestID || conversationId !== input.getConversationId()) return
       metadata = null
       treeNodes = new Map()
-      preview = null
-      patch = null
+      setPreview(null)
+      setPatch(null)
       metadataError =
         error instanceof Error ? error.message : 'Failed to load the Project AI workspace.'
     } finally {
@@ -141,14 +274,21 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     }
   }
 
-  async function loadDirEntries(dirPath: string, externalRequestID?: number) {
+  async function loadDirEntries(
+    dirPath: string,
+    externalRequestID?: number,
+    options: { silent?: boolean } = {},
+  ) {
     const conversationId = input.getConversationId()
     const repoPath = selectedRepoPath
     if (!repoPath || !conversationId) return
 
     const requestID = externalRequestID ?? loadRequestID
+    const silent = options.silent ?? false
 
-    setDirLoading(dirPath, true)
+    if (!silent) {
+      setDirLoading(dirPath, true)
+    }
 
     try {
       const payload = await listProjectConversationWorkspaceTree(conversationId, {
@@ -159,9 +299,12 @@ export function createProjectConversationWorkspaceBrowserState(input: {
 
       setTreeEntries(dirPath, payload.workspaceTree.entries)
     } catch {
-      // Individual directory load failures are silent — the directory shows as empty
+      // Individual directory load failures are silent — the directory shows as empty.
+      setTreeEntries(dirPath, [])
     } finally {
-      setDirLoading(dirPath, false)
+      if (!silent) {
+        setDirLoading(dirPath, false)
+      }
     }
   }
 
@@ -178,17 +321,57 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     }
   }
 
-  async function loadFile(path: string, options: { requestID?: number } = {}) {
+  async function revealFileInTree(
+    path: string,
+    options: { requestID?: number; silent?: boolean } = {},
+  ) {
+    if (!path) return
+
+    const requestID = options.requestID ?? loadRequestID
+    const silent = options.silent ?? false
+    const ancestorDirs = path
+      .split('/')
+      .slice(0, -1)
+      .reduce<string[]>((dirs, segment) => {
+        const nextPath = dirs.length > 0 ? `${dirs[dirs.length - 1]}/${segment}` : segment
+        dirs.push(nextPath)
+        return dirs
+      }, [])
+
+    if (ancestorDirs.length === 0) {
+      return
+    }
+
+    if (!treeNodes.has('')) {
+      await loadDirEntries('', requestID, { silent })
+    }
+
+    for (const dirPath of ancestorDirs) {
+      if (requestID !== loadRequestID || path !== selectedFilePath) {
+        return
+      }
+
+      setDirExpanded(dirPath, true)
+      if (!treeNodes.has(dirPath)) {
+        await loadDirEntries(dirPath, requestID, { silent })
+      }
+    }
+  }
+
+  async function loadFile(path: string, options: { requestID?: number; silent?: boolean } = {}) {
     const conversationId = input.getConversationId()
     if (!selectedRepoPath || !conversationId) {
-      preview = null
-      patch = null
+      setPreview(null)
+      setPatch(null)
       return
     }
 
     const requestID = options.requestID ?? ++loadRequestID
-    fileLoading = true
-    fileError = ''
+    const silent = options.silent ?? false
+    if (!silent) {
+      fileLoading = true
+      fileError = ''
+    }
     selectedFilePath = path
 
     try {
@@ -203,16 +386,16 @@ export function createProjectConversationWorkspaceBrowserState(input: {
         }),
       ])
       if (requestID !== loadRequestID || path !== selectedFilePath) return
-      preview = previewPayload.filePreview
-      patch = patchPayload.filePatch
+      setPreview(previewPayload.filePreview)
+      setPatch(patchPayload.filePatch)
     } catch (error) {
       if (requestID !== loadRequestID || path !== selectedFilePath) return
-      preview = null
-      patch = null
+      setPreview(null)
+      setPatch(null)
       fileError =
         error instanceof Error ? error.message : 'Failed to load the workspace file details.'
     } finally {
-      if (requestID === loadRequestID && path === selectedFilePath) {
+      if (!silent && requestID === loadRequestID && path === selectedFilePath) {
         fileLoading = false
       }
     }
@@ -224,14 +407,17 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     selectedFilePath = ''
     expandedDirs = new Set()
     treeNodes = new Map()
-    preview = null
-    patch = null
+    setPreview(null)
+    setPatch(null)
     void loadDirEntries('')
   }
 
   function selectFile(path: string) {
     if (!path) return
-    void loadFile(path)
+    const requestID = ++loadRequestID
+    selectedFilePath = path
+    void revealFileInTree(path, { requestID, silent: true })
+    void loadFile(path, { requestID })
   }
 
   return {

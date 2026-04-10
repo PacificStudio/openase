@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { appStore } from '$lib/stores/app.svelte'
   import { cn } from '$lib/utils'
   import { detectLanguage } from './lang'
 
@@ -18,33 +19,37 @@
   } = $props()
 
   const lang = $derived(language || detectLanguage(filePath))
+  const shikiTheme = $derived(
+    appStore.theme === 'light' ? 'github-light-default' : 'github-dark-default',
+  )
 
   // Lazy-load shiki and cache the highlighter instance
   let html = $state('')
   let lastKey = ''
 
   $effect(() => {
-    const key = `${lang}::${code}`
+    const key = `${lang}::${shikiTheme}::${code}`
     if (key === lastKey) return
     lastKey = key
 
     const currentCode = code
     const currentLang = lang
+    const currentTheme = shikiTheme
 
     if (!currentCode) {
       html = ''
       return
     }
 
-    void highlight(currentCode, currentLang, key)
+    void highlight(currentCode, currentLang, currentTheme, key)
   })
 
-  async function highlight(source: string, langId: string, key: string) {
+  async function highlight(source: string, langId: string, theme: string, key: string) {
     try {
       const { codeToHtml } = await import('shiki')
       const result = await codeToHtml(source, {
         lang: langId,
-        theme: 'github-dark-default',
+        theme,
       })
       // Only apply if this is still the current request
       if (lastKey === key) {
@@ -59,12 +64,17 @@
   }
 </script>
 
-<div class={cn('code-viewer min-h-0 overflow-auto font-mono text-[13px] leading-6', className)}>
+<div
+  class={cn('code-viewer min-h-0 min-w-0 overflow-auto font-mono text-[13px] leading-6', className)}
+  data-testid="code-viewer-scrollport"
+>
   {#if html}
-    <!-- eslint-disable-next-line svelte/no-at-html-tags -->
-    {@html html}
+    <div class="min-w-full w-max" data-testid="code-viewer-content">
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
+      {@html html}
+    </div>
   {:else}
-    <pre class="whitespace-pre-wrap p-4">{code}</pre>
+    <pre class="min-w-full w-max whitespace-pre p-4" data-testid="code-viewer-content">{code}</pre>
   {/if}
 </div>
 
@@ -72,19 +82,25 @@
   .code-viewer :global(pre) {
     margin: 0;
     padding: 1rem;
-    overflow-x: auto;
+    min-width: 100%;
+    width: max-content;
+    overflow: visible;
     background: transparent !important;
   }
   .code-viewer :global(code) {
+    display: block;
+    min-width: 100%;
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;
+    white-space: normal;
     counter-reset: line;
   }
   .code-viewer :global(code .line) {
-    display: inline-block;
-    width: 100%;
+    display: block;
+    min-width: max-content;
     min-height: 1.5rem;
+    white-space: pre;
   }
   .code-viewer :global(code .line::before) {
     counter-increment: line;
