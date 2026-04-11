@@ -7,7 +7,7 @@
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
   import { appStore } from '$lib/stores/app.svelte'
   import StructuredDiffPreview from './structured-diff-preview.svelte'
-  import { FileCode2, Wand2, WrapText, X } from '@lucide/svelte'
+  import { FileCode2, WrapText, X } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
   import {
     workspaceTabKey,
