@@ -14916,6 +14916,42 @@
                                   }
                                 },
                                 "type": "object"
+                              },
+                              "reasoning": {
+                                "properties": {
+                                  "default_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "effective_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "reason": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "selected_effort": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string"
+                                  },
+                                  "supported_efforts": {
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "supports_model_override": {
+                                    "type": "boolean"
+                                  },
+                                  "supports_provider_preset": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "type": "object"
                               }
                             },
                             "type": "object"
@@ -15425,6 +15461,11 @@
                     "description": "Structured pricing configuration, including official defaults, cache-aware rates, and tiered pricing metadata.",
                     "type": "object"
                   },
+                  "reasoning_effort": {
+                    "description": "Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "secret_bindings": {
                     "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
                     "items": {
@@ -15489,6 +15530,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"
@@ -34725,6 +34802,35 @@
                                   },
                                   "type": "object"
                                 },
+                                "reasoning": {
+                                  "nullable": true,
+                                  "properties": {
+                                    "default_effort": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "reason": {
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string"
+                                    },
+                                    "supported_efforts": {
+                                      "items": {
+                                        "type": "string"
+                                      },
+                                      "type": "array"
+                                    },
+                                    "supports_model_override": {
+                                      "type": "boolean"
+                                    },
+                                    "supports_provider_preset": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "type": "object"
+                                },
                                 "recommended": {
                                   "type": "boolean"
                                 }
@@ -34824,6 +34930,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"
@@ -35343,6 +35485,11 @@
                     "nullable": true,
                     "type": "object"
                   },
+                  "reasoning_effort": {
+                    "description": "Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default.",
+                    "nullable": true,
+                    "type": "string"
+                  },
                   "secret_bindings": {
                     "description": "Provider runtime secret aliases keyed by environment variable name, without exposing raw secret values.",
                     "items": {
@@ -35408,6 +35555,42 @@
                                 },
                                 "state": {
                                   "type": "string"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "reasoning": {
+                              "properties": {
+                                "default_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "effective_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "reason": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "selected_effort": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "state": {
+                                  "type": "string"
+                                },
+                                "supported_efforts": {
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "type": "array"
+                                },
+                                "supports_model_override": {
+                                  "type": "boolean"
+                                },
+                                "supports_provider_preset": {
+                                  "type": "boolean"
                                 }
                               },
                               "type": "object"

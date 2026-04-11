@@ -37,6 +37,8 @@ const (
 	FieldCliRateLimitUpdatedAt = "cli_rate_limit_updated_at"
 	// FieldModelName holds the string denoting the model_name field in the database.
 	FieldModelName = "model_name"
+	// FieldReasoningEffort holds the string denoting the reasoning_effort field in the database.
+	FieldReasoningEffort = "reasoning_effort"
 	// FieldModelTemperature holds the string denoting the model_temperature field in the database.
 	FieldModelTemperature = "model_temperature"
 	// FieldModelMaxTokens holds the string denoting the model_max_tokens field in the database.
@@ -103,6 +105,7 @@ var Columns = []string{
 	FieldCliRateLimit,
 	FieldCliRateLimitUpdatedAt,
 	FieldModelName,
+	FieldReasoningEffort,
 	FieldModelTemperature,
 	FieldModelMaxTokens,
 	FieldMaxParallelRuns,
@@ -250,6 +253,11 @@ func ByCliRateLimitUpdatedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByModelName orders the results by the model_name field.
 func ByModelName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldModelName, opts...).ToFunc()
+}
+
+// ByReasoningEffort orders the results by the reasoning_effort field.
+func ByReasoningEffort(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldReasoningEffort, opts...).ToFunc()
 }
 
 // ByModelTemperature orders the results by the model_temperature field.

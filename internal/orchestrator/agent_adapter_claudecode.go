@@ -25,6 +25,9 @@ func (claudeCodeAgentAdapter) Start(ctx context.Context, spec agentSessionStartS
 	if trimmed := strings.TrimSpace(spec.Model); trimmed != "" && !hasClaudeModelArg(baseArgs) {
 		baseArgs = append(baseArgs, "--model", trimmed)
 	}
+	if trimmed := reasoningEffortValue(spec.ReasoningEffort); trimmed != "" && !hasClaudeEffortArg(baseArgs) {
+		baseArgs = append(baseArgs, "--effort", trimmed)
+	}
 
 	sessionSpec, err := provider.NewClaudeCodeSessionSpec(
 		spec.Process.Command,
@@ -64,6 +67,9 @@ func (claudeCodeAgentAdapter) Resume(ctx context.Context, spec agentSessionResum
 	}
 	if trimmed := strings.TrimSpace(spec.StartSpec.Model); trimmed != "" && !hasClaudeModelArg(baseArgs) {
 		baseArgs = append(baseArgs, "--model", trimmed)
+	}
+	if trimmed := reasoningEffortValue(spec.StartSpec.ReasoningEffort); trimmed != "" && !hasClaudeEffortArg(baseArgs) {
+		baseArgs = append(baseArgs, "--effort", trimmed)
 	}
 
 	sessionSpec, err := provider.NewClaudeCodeSessionSpec(
@@ -110,6 +116,18 @@ func hasClaudePermissionBypassArg(args []string) bool {
 			return true
 		}
 		if strings.EqualFold(strings.TrimSpace(args[index]), "--permission-mode=bypassPermissions") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasClaudeEffortArg(args []string) bool {
+	for index := 0; index < len(args); index++ {
+		if args[index] == "--effort" {
+			return true
+		}
+		if strings.HasPrefix(args[index], "--effort=") {
 			return true
 		}
 	}

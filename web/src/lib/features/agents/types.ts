@@ -68,6 +68,8 @@ export type ProviderConfig = {
   cliRateLimit?: ProviderCLIRateLimit | null
   cliRateLimitUpdatedAt?: string | null
   modelName: string
+  reasoningEffort?: ProviderReasoningEffort | null
+  reasoningCapability?: ProviderReasoningCapability | null
   modelTemperature: number
   modelMaxTokens: number
   maxParallelRuns: number
@@ -161,6 +163,19 @@ export type ProviderCLIRateLimit = {
 
 export type ProviderAdapterType = 'claude-code-cli' | 'codex-app-server' | 'gemini-cli' | 'custom'
 export type ProviderPermissionProfile = 'standard' | 'unrestricted'
+export type ProviderReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+export type ProviderCapabilityState = 'available' | 'unavailable' | 'unsupported'
+
+export type ProviderReasoningCapability = {
+  state: ProviderCapabilityState
+  reason?: string | null
+  supportedEfforts?: ProviderReasoningEffort[]
+  defaultEffort?: ProviderReasoningEffort | null
+  selectedEffort?: ProviderReasoningEffort | null
+  effectiveEffort?: ProviderReasoningEffort | null
+  supportsProviderPreset?: boolean
+  supportsModelOverride?: boolean
+}
 
 export type ProviderDraft = {
   machineId: string
@@ -172,6 +187,7 @@ export type ProviderDraft = {
   authConfig: string
   secretBindings: string
   modelName: string
+  reasoningEffort: string
   modelTemperature: string
   modelMaxTokens: string
   maxParallelRuns: string
@@ -195,6 +211,7 @@ export type ProviderMutation = {
     binding_key: string
   }>
   model_name: string
+  reasoning_effort?: string | null
   model_temperature: number
   model_max_tokens: number
   max_parallel_runs: number

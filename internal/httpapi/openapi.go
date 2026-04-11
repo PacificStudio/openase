@@ -195,12 +195,24 @@ type OpenAPIAgentProvider struct {
 }
 
 type OpenAPIAgentProviderCapabilities struct {
-	EphemeralChat OpenAPIAgentProviderCapability `json:"ephemeral_chat"`
+	EphemeralChat OpenAPIAgentProviderCapability          `json:"ephemeral_chat"`
+	Reasoning     OpenAPIAgentProviderReasoningCapability `json:"reasoning,omitempty"`
 }
 
 type OpenAPIAgentProviderCapability struct {
 	State  string  `json:"state"`
 	Reason *string `json:"reason,omitempty"`
+}
+
+type OpenAPIAgentProviderReasoningCapability struct {
+	State                  string   `json:"state"`
+	Reason                 *string  `json:"reason,omitempty"`
+	SupportedEfforts       []string `json:"supported_efforts,omitempty"`
+	DefaultEffort          *string  `json:"default_effort,omitempty"`
+	SelectedEffort         *string  `json:"selected_effort,omitempty"`
+	EffectiveEffort        *string  `json:"effective_effort,omitempty"`
+	SupportsProviderPreset bool     `json:"supports_provider_preset,omitempty"`
+	SupportsModelOverride  bool     `json:"supports_model_override,omitempty"`
 }
 
 type OpenAPIAgentProviderCLIRateLimit struct {
@@ -253,12 +265,22 @@ type OpenAPIAgentProviderGeminiRateLimitBucket struct {
 }
 
 type OpenAPIAgentProviderModelOption struct {
-	ID            string                              `json:"id"`
-	Label         string                              `json:"label"`
-	Description   string                              `json:"description"`
-	Recommended   bool                                `json:"recommended"`
-	Preview       bool                                `json:"preview"`
-	PricingConfig *pricing.ProviderModelPricingConfig `json:"pricing_config,omitempty"`
+	ID            string                                        `json:"id"`
+	Label         string                                        `json:"label"`
+	Description   string                                        `json:"description"`
+	Recommended   bool                                          `json:"recommended"`
+	Preview       bool                                          `json:"preview"`
+	PricingConfig *pricing.ProviderModelPricingConfig           `json:"pricing_config,omitempty"`
+	Reasoning     *OpenAPIAgentProviderModelReasoningCapability `json:"reasoning,omitempty"`
+}
+
+type OpenAPIAgentProviderModelReasoningCapability struct {
+	State                  string   `json:"state"`
+	Reason                 *string  `json:"reason,omitempty"`
+	SupportedEfforts       []string `json:"supported_efforts,omitempty"`
+	DefaultEffort          *string  `json:"default_effort,omitempty"`
+	SupportsProviderPreset bool     `json:"supports_provider_preset,omitempty"`
+	SupportsModelOverride  bool     `json:"supports_model_override,omitempty"`
 }
 
 type OpenAPIAgentProviderModelCatalogEntry struct {
@@ -2394,6 +2416,7 @@ var (
 		"rollout_checklist[].status":             "Checklist status, such as done or pending.",
 		"rollout_checklist[].summary":            "Short operator-facing rollout guidance for this checklist item.",
 		"model_name":                             "Model name configured for the provider.",
+		"reasoning_effort":                       "Optional provider-level reasoning or thinking preset. Leave empty to use the selected model default.",
 		"model_temperature":                      "Sampling temperature configured for the provider model.",
 		"model_max_tokens":                       "Maximum number of output tokens allowed for the provider model.",
 		"max_parallel_runs":                      "Maximum number of concurrent runs allowed for the provider.",

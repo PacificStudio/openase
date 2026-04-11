@@ -45,6 +45,7 @@ func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	options := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	options[0].ID = "changed"
 	options[0].PricingConfig.Rates.InputPerToken = 123
+	options[0].Reasoning.SupportedEfforts[0] = AgentProviderReasoningEffortMinimal
 
 	fresh := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	if fresh[0].ID != "gpt-5.4" {
@@ -52,6 +53,9 @@ func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	}
 	if fresh[0].PricingConfig == nil || fresh[0].PricingConfig.Rates.InputPerToken == 123 {
 		t.Fatalf("BuiltinAgentProviderModelOptions() did not clone pricing config: %+v", fresh[0])
+	}
+	if fresh[0].Reasoning == nil || fresh[0].Reasoning.SupportedEfforts[0] != AgentProviderReasoningEffortLow {
+		t.Fatalf("BuiltinAgentProviderModelOptions() did not clone reasoning config: %+v", fresh[0])
 	}
 }
 

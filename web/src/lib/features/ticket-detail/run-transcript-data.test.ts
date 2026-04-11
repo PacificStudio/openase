@@ -90,10 +90,12 @@ describe('mapTicketRunDetail', () => {
               source_trace_event_id: null,
               created_at: '2026-04-03T12:00:11Z',
             },
+            trace_entry: undefined,
           },
           {
             kind: 'trace',
             cursor: '2026-04-03T12:00:12Z|trace|2|trace-2',
+            step_entry: undefined,
             trace_entry: {
               id: 'trace-2',
               agent_run_id: 'run-1',

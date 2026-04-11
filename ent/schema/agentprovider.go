@@ -28,6 +28,7 @@ func (AgentProvider) Fields() []ent.Field {
 		field.JSON("cli_rate_limit", map[string]any{}).Default(emptyMap),
 		field.Time("cli_rate_limit_updated_at").Optional().Nillable(),
 		field.String("model_name").NotEmpty(),
+		field.String("reasoning_effort").Optional().Nillable(),
 		field.Float("model_temperature").Default(0),
 		field.Int("model_max_tokens").Default(16384),
 		field.Int("max_parallel_runs").Default(0),

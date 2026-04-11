@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import type { AgentProviderModelCatalogEntry } from '$lib/api/contracts'
-import { recommendedProviderModelId, splitProviderModelSelection } from './provider-model-options'
+import {
+  providerModelReasoningCapability,
+  recommendedProviderModelId,
+  splitProviderModelSelection,
+} from './provider-model-options'
 
 const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
   {
@@ -14,6 +18,14 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         recommended: true,
         preview: false,
         pricing_config: null,
+        reasoning: {
+          state: 'available',
+          reason: null,
+          supported_efforts: ['low', 'medium', 'high', 'xhigh'],
+          default_effort: 'medium',
+          supports_provider_preset: true,
+          supports_model_override: false,
+        },
       },
       {
         id: 'gpt-5.4-mini',
@@ -22,6 +34,14 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         recommended: false,
         preview: false,
         pricing_config: null,
+        reasoning: {
+          state: 'available',
+          reason: null,
+          supported_efforts: ['low', 'medium', 'high', 'xhigh'],
+          default_effort: 'medium',
+          supports_provider_preset: true,
+          supports_model_override: false,
+        },
       },
     ],
   },
@@ -35,6 +55,14 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         recommended: true,
         preview: false,
         pricing_config: null,
+        reasoning: {
+          state: 'unsupported',
+          reason: 'reasoning_unsupported',
+          supported_efforts: [],
+          default_effort: null,
+          supports_provider_preset: false,
+          supports_model_override: false,
+        },
       },
       {
         id: 'gemini-3-flash-preview',
@@ -43,6 +71,14 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         recommended: false,
         preview: true,
         pricing_config: null,
+        reasoning: {
+          state: 'unsupported',
+          reason: 'reasoning_unsupported',
+          supported_efforts: [],
+          default_effort: null,
+          supports_provider_preset: false,
+          supports_model_override: false,
+        },
       },
     ],
   },
@@ -90,5 +126,30 @@ describe('provider model options', () => {
       baseModelId: 'auto-gemini-2.5',
       customModelId: '',
     })
+  })
+
+  it('derives reasoning capability for known and unknown models', () => {
+    expect(
+      providerModelReasoningCapability(providerModelCatalogFixture, 'codex-app-server', 'gpt-5.4'),
+    ).toEqual(
+      expect.objectContaining({
+        state: 'available',
+        defaultEffort: 'medium',
+        supportedEfforts: ['low', 'medium', 'high', 'xhigh'],
+      }),
+    )
+
+    expect(
+      providerModelReasoningCapability(
+        providerModelCatalogFixture,
+        'codex-app-server',
+        'custom-model',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        state: 'unsupported',
+        reason: 'unknown_model',
+      }),
+    )
   })
 })

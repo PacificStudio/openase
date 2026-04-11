@@ -56,12 +56,24 @@ type agentProviderSecretBindingResponse struct {
 }
 
 type agentProviderCapabilitiesResponse struct {
-	EphemeralChat agentProviderCapabilityResponse `json:"ephemeral_chat"`
+	EphemeralChat agentProviderCapabilityResponse          `json:"ephemeral_chat"`
+	Reasoning     agentProviderReasoningCapabilityResponse `json:"reasoning,omitempty"`
 }
 
 type agentProviderCapabilityResponse struct {
 	State  string  `json:"state"`
 	Reason *string `json:"reason,omitempty"`
+}
+
+type agentProviderReasoningCapabilityResponse struct {
+	State                  string   `json:"state"`
+	Reason                 *string  `json:"reason,omitempty"`
+	SupportedEfforts       []string `json:"supported_efforts,omitempty"`
+	DefaultEffort          *string  `json:"default_effort,omitempty"`
+	SelectedEffort         *string  `json:"selected_effort,omitempty"`
+	EffectiveEffort        *string  `json:"effective_effort,omitempty"`
+	SupportsProviderPreset bool     `json:"supports_provider_preset,omitempty"`
+	SupportsModelOverride  bool     `json:"supports_model_override,omitempty"`
 }
 
 type agentProviderCLIRateLimitResponse struct {
@@ -114,12 +126,22 @@ type agentProviderGeminiRateLimitBucketResponse struct {
 }
 
 type agentProviderModelOptionResponse struct {
-	ID            string                              `json:"id"`
-	Label         string                              `json:"label"`
-	Description   string                              `json:"description"`
-	Recommended   bool                                `json:"recommended"`
-	Preview       bool                                `json:"preview"`
-	PricingConfig *pricing.ProviderModelPricingConfig `json:"pricing_config,omitempty"`
+	ID            string                                         `json:"id"`
+	Label         string                                         `json:"label"`
+	Description   string                                         `json:"description"`
+	Recommended   bool                                           `json:"recommended"`
+	Preview       bool                                           `json:"preview"`
+	PricingConfig *pricing.ProviderModelPricingConfig            `json:"pricing_config,omitempty"`
+	Reasoning     *agentProviderModelReasoningCapabilityResponse `json:"reasoning,omitempty"`
+}
+
+type agentProviderModelReasoningCapabilityResponse struct {
+	State                  string   `json:"state"`
+	Reason                 *string  `json:"reason,omitempty"`
+	SupportedEfforts       []string `json:"supported_efforts,omitempty"`
+	DefaultEffort          *string  `json:"default_effort,omitempty"`
+	SupportsProviderPreset bool     `json:"supports_provider_preset,omitempty"`
+	SupportsModelOverride  bool     `json:"supports_model_override,omitempty"`
 }
 
 type agentProviderModelCatalogEntryResponse struct {
@@ -682,7 +704,10 @@ func providerChangedFields(current domain.AgentProvider, item domain.AgentProvid
 	if !mapsEqual(current.AuthConfig, item.AuthConfig) {
 		fields = append(fields, "auth_config")
 	}
-	if current.ModelName != item.ModelName || current.ModelTemperature != item.ModelTemperature || current.ModelMaxTokens != item.ModelMaxTokens {
+	if current.ModelName != item.ModelName ||
+		reasoningEffortValue(current.ReasoningEffort) != reasoningEffortValue(item.ReasoningEffort) ||
+		current.ModelTemperature != item.ModelTemperature ||
+		current.ModelMaxTokens != item.ModelMaxTokens {
 		fields = append(fields, "model")
 	}
 	if current.MaxParallelRuns != item.MaxParallelRuns {
@@ -750,6 +775,7 @@ func mapAgentProviderResponse(item domain.AgentProvider) agentProviderResponse {
 				State:  ephemeralChatState.String(),
 				Reason: stringPointerValue(capabilities.EphemeralChat.Reason),
 			},
+			Reasoning: mapAgentProviderReasoningCapabilityResponse(capabilities.Reasoning),
 		},
 		CliCommand:            item.CliCommand,
 		CliArgs:               cloneStringSlice(item.CliArgs),
@@ -832,6 +858,7 @@ func mapAgentProviderModelOptionResponses(
 			Recommended:   item.Recommended,
 			Preview:       item.Preview,
 			PricingConfig: clonePricingConfigPointer(item.PricingConfig),
+			Reasoning:     mapAgentProviderModelReasoningCapabilityResponse(item.Reasoning),
 		})
 	}
 
@@ -844,6 +871,75 @@ func stringPointerValue(value *string) *string {
 	}
 	copied := *value
 	return &copied
+}
+
+func reasoningEffortPointerValue(
+	value *domain.AgentProviderReasoningEffort,
+) *string {
+	if value == nil {
+		return nil
+	}
+	copied := value.String()
+	return &copied
+}
+
+func reasoningEffortValue(
+	value *domain.AgentProviderReasoningEffort,
+) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
+}
+
+func mapAgentProviderReasoningCapabilityResponse(
+	value domain.AgentProviderReasoningCapability,
+) agentProviderReasoningCapabilityResponse {
+	state := value.State
+	if !state.IsValid() {
+		state = domain.AgentProviderCapabilityStateUnsupported
+	}
+	return agentProviderReasoningCapabilityResponse{
+		State:                  state.String(),
+		Reason:                 stringPointerValue(value.Reason),
+		SupportedEfforts:       reasoningEffortStrings(value.SupportedEfforts),
+		DefaultEffort:          reasoningEffortPointerValue(value.DefaultEffort),
+		SelectedEffort:         reasoningEffortPointerValue(value.SelectedEffort),
+		EffectiveEffort:        reasoningEffortPointerValue(value.EffectiveEffort),
+		SupportsProviderPreset: value.SupportsProviderPreset,
+		SupportsModelOverride:  value.SupportsModelOverride,
+	}
+}
+
+func mapAgentProviderModelReasoningCapabilityResponse(
+	value *domain.AgentProviderModelReasoningCapability,
+) *agentProviderModelReasoningCapabilityResponse {
+	if value == nil {
+		return nil
+	}
+	state := value.State
+	if !state.IsValid() {
+		state = domain.AgentProviderCapabilityStateUnsupported
+	}
+	return &agentProviderModelReasoningCapabilityResponse{
+		State:                  state.String(),
+		Reason:                 stringPointerValue(value.Reason),
+		SupportedEfforts:       reasoningEffortStrings(value.SupportedEfforts),
+		DefaultEffort:          reasoningEffortPointerValue(value.DefaultEffort),
+		SupportsProviderPreset: value.SupportsProviderPreset,
+		SupportsModelOverride:  value.SupportsModelOverride,
+	}
+}
+
+func reasoningEffortStrings(values []domain.AgentProviderReasoningEffort) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, value.String())
+	}
+	return result
 }
 
 func timePointerString(value *time.Time) *string {

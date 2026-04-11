@@ -463,6 +463,7 @@ func (c *runtimeCompletionSummaryCoordinator) generateRunCompletionSummary(ctx c
 		ProcessManager:        processManager,
 		WorkingDirectory:      workingDirectory.String(),
 		Model:                 summaryCtx.provider.ModelName,
+		ReasoningEffort:       catalogdomain.ParseStoredAgentProviderReasoningEffort(summaryCtx.provider.ReasoningEffort),
 		PermissionProfile:     catalogdomain.AgentProviderPermissionProfileStandard,
 		DeveloperInstructions: developerInstructions,
 		TurnTitle:             fmt.Sprintf("%s run summary", summaryCtx.ticket.Identifier),

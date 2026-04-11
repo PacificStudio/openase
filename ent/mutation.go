@@ -2293,6 +2293,7 @@ type AgentProviderMutation struct {
 	cli_rate_limit            *map[string]interface{}
 	cli_rate_limit_updated_at *time.Time
 	model_name                *string
+	reasoning_effort          *string
 	model_temperature         *float64
 	addmodel_temperature      *float64
 	model_max_tokens          *int
@@ -2846,6 +2847,55 @@ func (m *AgentProviderMutation) ResetModelName() {
 	m.model_name = nil
 }
 
+// SetReasoningEffort sets the "reasoning_effort" field.
+func (m *AgentProviderMutation) SetReasoningEffort(s string) {
+	m.reasoning_effort = &s
+}
+
+// ReasoningEffort returns the value of the "reasoning_effort" field in the mutation.
+func (m *AgentProviderMutation) ReasoningEffort() (r string, exists bool) {
+	v := m.reasoning_effort
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningEffort returns the old "reasoning_effort" field's value of the AgentProvider entity.
+// If the AgentProvider object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentProviderMutation) OldReasoningEffort(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningEffort is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningEffort requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningEffort: %w", err)
+	}
+	return oldValue.ReasoningEffort, nil
+}
+
+// ClearReasoningEffort clears the value of the "reasoning_effort" field.
+func (m *AgentProviderMutation) ClearReasoningEffort() {
+	m.reasoning_effort = nil
+	m.clearedFields[agentprovider.FieldReasoningEffort] = struct{}{}
+}
+
+// ReasoningEffortCleared returns if the "reasoning_effort" field was cleared in this mutation.
+func (m *AgentProviderMutation) ReasoningEffortCleared() bool {
+	_, ok := m.clearedFields[agentprovider.FieldReasoningEffort]
+	return ok
+}
+
+// ResetReasoningEffort resets all changes to the "reasoning_effort" field.
+func (m *AgentProviderMutation) ResetReasoningEffort() {
+	m.reasoning_effort = nil
+	delete(m.clearedFields, agentprovider.FieldReasoningEffort)
+}
+
 // SetModelTemperature sets the "model_temperature" field.
 func (m *AgentProviderMutation) SetModelTemperature(f float64) {
 	m.model_temperature = &f
@@ -3358,7 +3408,7 @@ func (m *AgentProviderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AgentProviderMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.organization != nil {
 		fields = append(fields, agentprovider.FieldOrganizationID)
 	}
@@ -3391,6 +3441,9 @@ func (m *AgentProviderMutation) Fields() []string {
 	}
 	if m.model_name != nil {
 		fields = append(fields, agentprovider.FieldModelName)
+	}
+	if m.reasoning_effort != nil {
+		fields = append(fields, agentprovider.FieldReasoningEffort)
 	}
 	if m.model_temperature != nil {
 		fields = append(fields, agentprovider.FieldModelTemperature)
@@ -3440,6 +3493,8 @@ func (m *AgentProviderMutation) Field(name string) (ent.Value, bool) {
 		return m.CliRateLimitUpdatedAt()
 	case agentprovider.FieldModelName:
 		return m.ModelName()
+	case agentprovider.FieldReasoningEffort:
+		return m.ReasoningEffort()
 	case agentprovider.FieldModelTemperature:
 		return m.ModelTemperature()
 	case agentprovider.FieldModelMaxTokens:
@@ -3483,6 +3538,8 @@ func (m *AgentProviderMutation) OldField(ctx context.Context, name string) (ent.
 		return m.OldCliRateLimitUpdatedAt(ctx)
 	case agentprovider.FieldModelName:
 		return m.OldModelName(ctx)
+	case agentprovider.FieldReasoningEffort:
+		return m.OldReasoningEffort(ctx)
 	case agentprovider.FieldModelTemperature:
 		return m.OldModelTemperature(ctx)
 	case agentprovider.FieldModelMaxTokens:
@@ -3580,6 +3637,13 @@ func (m *AgentProviderMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetModelName(v)
+		return nil
+	case agentprovider.FieldReasoningEffort:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningEffort(v)
 		return nil
 	case agentprovider.FieldModelTemperature:
 		v, ok := value.(float64)
@@ -3722,6 +3786,9 @@ func (m *AgentProviderMutation) ClearedFields() []string {
 	if m.FieldCleared(agentprovider.FieldCliRateLimitUpdatedAt) {
 		fields = append(fields, agentprovider.FieldCliRateLimitUpdatedAt)
 	}
+	if m.FieldCleared(agentprovider.FieldReasoningEffort) {
+		fields = append(fields, agentprovider.FieldReasoningEffort)
+	}
 	return fields
 }
 
@@ -3741,6 +3808,9 @@ func (m *AgentProviderMutation) ClearField(name string) error {
 		return nil
 	case agentprovider.FieldCliRateLimitUpdatedAt:
 		m.ClearCliRateLimitUpdatedAt()
+		return nil
+	case agentprovider.FieldReasoningEffort:
+		m.ClearReasoningEffort()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentProvider nullable field %s", name)
@@ -3782,6 +3852,9 @@ func (m *AgentProviderMutation) ResetField(name string) error {
 		return nil
 	case agentprovider.FieldModelName:
 		m.ResetModelName()
+		return nil
+	case agentprovider.FieldReasoningEffort:
+		m.ResetReasoningEffort()
 		return nil
 	case agentprovider.FieldModelTemperature:
 		m.ResetModelTemperature()

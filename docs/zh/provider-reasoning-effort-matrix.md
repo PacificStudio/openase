@@ -1,0 +1,160 @@
+# Codex / Claude Code 思考强度能力矩阵与 OpenASE 落地说明
+
+本文沉淀 ASE-171 的调研结论、实现方案和验证结果，覆盖：
+
+- Codex / Claude Code 的 reasoning or thinking 强度能力
+- OpenASE 中 Provider 配置、持久化、运行时透传和前端展示的落点
+- 当前已验证内容与剩余风险
+
+## 调研基线
+
+- Codex CLI 官方文档：<https://developers.openai.com/codex/cli>
+- Claude Code 官方文档：<https://code.claude.com/docs/en/getting-started>
+- 本地 CLI 帮助与版本：
+  - `codex --version` -> `codex-cli 0.120.0`
+  - `claude --version` -> `2.1.97 (Claude Code)`
+  - `claude --help` 明确暴露 `--effort <level>`，可选值为 `low / medium / high / max`
+
+## 能力矩阵
+
+### Codex
+
+OpenASE 当前内建模型目录显式建模了以下 reasoning effort 能力：
+
+| Model | Supported efforts | Default |
+| --- | --- | --- |
+| `gpt-5.4` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.4-mini` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.3-codex` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.3-codex-spark` | `low`, `medium`, `high`, `xhigh` | `high` |
+| `gpt-5.2-codex` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.2` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.1-codex-max` | `low`, `medium`, `high`, `xhigh` | `medium` |
+| `gpt-5.1-codex-mini` | `medium`, `high` | `medium` |
+
+运行时透传方式：
+
+- OpenASE 持久化字段：`reasoning_effort`
+- OpenASE Runtime / Adapter：通过 Codex app-server `thread/start` 请求体字段 `reasoningEffort`
+- 未知自定义模型：在 OpenASE 中显式呈现为 `unknown_model`，不猜测支持能力
+
+### Claude Code
+
+OpenASE 当前内建模型目录显式建模了以下 effort 能力：
+
+| Model | Supported efforts | Default |
+| --- | --- | --- |
+| `claude-opus-4-6` | `low`, `medium`, `high`, `max` | `medium` |
+| `claude-sonnet-4-6` | `low`, `medium`, `high`, `max` | `medium` |
+| `claude-haiku-4-5` | `low`, `medium`, `high`, `max` | `medium` |
+
+运行时透传方式：
+
+- OpenASE 持久化字段：`reasoning_effort`
+- OpenASE Runtime / Adapter：通过 Claude CLI 参数 `--effort <value>`
+- Provider 自定义 `cli_args` 中手工写入的 `--effort` 会在 Service 层被归一化移除，避免与 Provider 配置冲突
+
+## OpenASE 设计结论
+
+本次实现采用“Provider 预选 preset + 显式能力模型”的方案，而不是让业务路径散落字符串判断。
+
+### 领域模型
+
+- 新增领域枚举：`AgentProviderReasoningEffort`
+- 新增能力结构：
+  - `AgentProviderReasoningCapability`
+  - `AgentProviderModelReasoningCapability`
+- 边界解析在 domain 层完成：
+  - API / DB / 配置原始值统一进入 `parseAgentProviderReasoningEffort`
+  - 非法值、模型不支持、未知模型都在边界层失败
+
+### 持久化与 API
+
+- `ent/schema/agentprovider.go` 新增可空字段 `reasoning_effort`
+- Provider create / patch API 支持 `reasoning_effort`
+- Provider 响应暴露：
+  - `capabilities.reasoning`
+  - `capabilities.reasoning.selected_effort`
+  - `capabilities.reasoning.effective_effort`
+- Provider model catalog 暴露：
+  - `reasoning.state`
+  - `reasoning.supported_efforts`
+  - `reasoning.default_effort`
+  - `reasoning.supports_provider_preset`
+  - `reasoning.supports_model_override`
+
+### 运行时链路
+
+- Claude Code：
+  - `internal/chat/runtime_claude.go`
+  - `internal/orchestrator/agent_adapter_claudecode.go`
+- Codex：
+  - `internal/chat/runtime_codex.go`
+  - `internal/orchestrator/agent_adapter_codex.go`
+  - `internal/infra/adapter/codex/protocol.go`
+
+### 前端
+
+前端 Provider 设置页现在会：
+
+- 根据 adapter + model 显示 reasoning preset 能力
+- 提供 “Use model default” 与可选 preset 下拉项
+- 对未知模型或不支持模型给出显式反馈，而不是静默吞掉
+- 当用户切换到不支持该 preset 的模型时自动清理陈旧值
+
+## 自动化测试覆盖
+
+已补充或更新以下关键覆盖：
+
+- Domain
+  - `internal/domain/catalog/provider_reasoning_test.go`
+  - `internal/domain/catalog/provider_models_test.go`
+  - `internal/domain/catalog/agent_provider_capabilities_test.go`
+  - `internal/domain/catalog/agent_catalog_test.go`
+- Service / Repo / HTTP
+  - `internal/service/catalog/agent_catalog_test.go`
+  - `internal/httpapi/agent_catalog_test.go`
+- Runtime / Adapter
+  - `internal/infra/adapter/codex/adapter_test.go`
+  - `internal/orchestrator/agent_adapter_test.go`
+  - `internal/chat/runtime_codex_permission_test.go`
+  - `internal/chat/service_test.go`
+- Frontend
+  - `web/src/lib/features/agents/provider-draft.test.ts`
+  - `web/src/lib/features/agents/provider-model-options.test.ts`
+  - `web/src/lib/features/agents/provider-pricing.test.ts`
+
+## 真实 CLI 验证
+
+### Codex
+
+已完成两类真实验证：
+
+1. 真实 `codex exec` 调用成功
+   - 命令：`codex exec --skip-git-repo-check --model gpt-5.4 -c reasoning_effort='"high"' --json "Reply with the single word OK."`
+   - 结果：成功返回 `OK`
+
+2. 真实 `codex app-server` JSON-RPC 验证成功
+   - `thread/start` 发送 `reasoningEffort: "high"`
+   - `turn/start` 成功完成，`completion_status = completed`
+   - 证明 OpenASE 当前使用的 app-server 透传字段名称与真实 CLI 对齐
+
+### Claude Code
+
+当前环境下只完成了 CLI 参数与帮助面验证，尚未拿到成功的真实 prompt 执行：
+
+- `claude --help` 明确支持 `--effort <level>`
+- 真实 prompt 执行命令：
+  - `claude -p --model claude-sonnet-4-6 --effort high "Reply with the single word OK."`
+- 当前环境结果：
+  - `claude auth status` 显示已登录
+  - 但真实执行返回 `401 Invalid authentication credentials`
+  - `claude --debug-file ...` 显示 OAuth refresh 请求对 `https://platform.claude.com/v1/oauth/token` 返回 `400`
+
+这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证。
+
+## 风险与后续建议
+
+- Provider 能力矩阵依赖上游 CLI / 模型目录；如果 Codex 或 Claude Code 调整了支持模型与 effort 档位，需要同步更新内建模型目录
+- 对未知模型，OpenASE 当前选择“显式 unsupported”，这是为了避免错误猜测；如果未来需要支持自定义模型声明能力，应新增显式配置面，而不是恢复隐式推断
+- Claude Code 的本机认证状态目前不可靠，CI 或交付前应补一条真正成功的在线调用验证，再推进最终交付

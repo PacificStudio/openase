@@ -91,6 +91,9 @@ func TestCodexRuntimeStartTurnUsesProviderPermissionProfileForPersistentConversa
 			if capturedThread.ApprovalPolicy != tc.wantThreadApproval {
 				t.Fatalf("thread approval policy = %#v, want %q", capturedThread.ApprovalPolicy, tc.wantThreadApproval)
 			}
+			if capturedThread.ReasoningEffort == nil || *capturedThread.ReasoningEffort != "high" {
+				t.Fatalf("thread reasoning effort = %+v, want high", capturedThread.ReasoningEffort)
+			}
 			if capturedThread.Sandbox != tc.wantThreadSandbox {
 				t.Fatalf("thread sandbox = %q, want %q", capturedThread.Sandbox, tc.wantThreadSandbox)
 			}
@@ -125,6 +128,7 @@ type codexRuntimePermissionThreadStartParams struct {
 	CWD              *string `json:"cwd,omitempty"`
 	ApprovalPolicy   any     `json:"approvalPolicy,omitempty"`
 	Sandbox          string  `json:"sandbox,omitempty"`
+	ReasoningEffort  *string `json:"reasoningEffort,omitempty"`
 	PersistedHistory bool    `json:"persistExtendedHistory,omitempty"`
 }
 
@@ -293,6 +297,7 @@ func runCodexRuntimePermissionServer(
 func codexRuntimePermissionProvider(
 	profile catalogdomain.AgentProviderPermissionProfile,
 ) catalogdomain.AgentProvider {
+	reasoning := catalogdomain.AgentProviderReasoningEffortHigh
 	return catalogdomain.AgentProvider{
 		Name:              "OpenAI Codex",
 		AdapterType:       catalogdomain.AgentProviderAdapterTypeCodexAppServer,
@@ -300,6 +305,7 @@ func codexRuntimePermissionProvider(
 		CliCommand:        "codex",
 		CliArgs:           []string{"app-server", "--listen", "stdio://", "--trace"},
 		ModelName:         "gpt-5.4",
+		ReasoningEffort:   &reasoning,
 	}
 }
 

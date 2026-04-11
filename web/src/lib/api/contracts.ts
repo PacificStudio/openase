@@ -321,7 +321,7 @@ export type TicketRunTranscriptPageRecord = {
   oldest_cursor?: string
   newest_cursor?: string
 }
-export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run'> & {
+export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run' | 'transcript_page'> & {
   run: TicketRunRecord
   transcript_page?: TicketRunTranscriptPageRecord
 }
