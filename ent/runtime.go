@@ -817,6 +817,18 @@ func init() {
 	projectDescMaxConcurrentAgents := projectFields[10].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
+	// projectDescProjectAiRetentionEnabled is the schema descriptor for project_ai_retention_enabled field.
+	projectDescProjectAiRetentionEnabled := projectFields[12].Descriptor()
+	// project.DefaultProjectAiRetentionEnabled holds the default value on creation for the project_ai_retention_enabled field.
+	project.DefaultProjectAiRetentionEnabled = projectDescProjectAiRetentionEnabled.Default.(bool)
+	// projectDescProjectAiRetentionKeepLatestN is the schema descriptor for project_ai_retention_keep_latest_n field.
+	projectDescProjectAiRetentionKeepLatestN := projectFields[13].Descriptor()
+	// project.DefaultProjectAiRetentionKeepLatestN holds the default value on creation for the project_ai_retention_keep_latest_n field.
+	project.DefaultProjectAiRetentionKeepLatestN = projectDescProjectAiRetentionKeepLatestN.Default.(int)
+	// projectDescProjectAiRetentionKeepRecentDays is the schema descriptor for project_ai_retention_keep_recent_days field.
+	projectDescProjectAiRetentionKeepRecentDays := projectFields[14].Descriptor()
+	// project.DefaultProjectAiRetentionKeepRecentDays holds the default value on creation for the project_ai_retention_keep_recent_days field.
+	project.DefaultProjectAiRetentionKeepRecentDays = projectDescProjectAiRetentionKeepRecentDays.Default.(int)
 	// projectDescID is the schema descriptor for id field.
 	projectDescID := projectFields[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.

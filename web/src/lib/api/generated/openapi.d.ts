@@ -10444,6 +10444,15 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string
+          /** @description Optional Project AI conversation retention policy for the project. */
+          project_ai_retention?: {
+            /** @description Whether Project AI conversation retention is enabled for the project. */
+            enabled?: boolean | null
+            /** @description Number of latest conversations per user to retain when Project AI retention is enabled. */
+            keep_latest_n?: number | null
+            /** @description Number of recent activity days to retain conversations when Project AI retention is enabled. */
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string
           /** @description Current project lifecycle status name. */
@@ -11871,6 +11880,15 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string | null
+          /** @description Optional Project AI conversation retention policy for the project. */
+          project_ai_retention?: {
+            /** @description Whether Project AI conversation retention is enabled for the project. */
+            enabled?: boolean | null
+            /** @description Number of latest conversations per user to retain when Project AI retention is enabled. */
+            keep_latest_n?: number | null
+            /** @description Number of recent activity days to retain conversations when Project AI retention is enabled. */
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string | null
           /** @description Current project lifecycle status name. */

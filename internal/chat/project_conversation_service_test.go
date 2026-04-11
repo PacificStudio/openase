@@ -4961,6 +4961,216 @@ func TestProjectConversationWorkspaceDiffStillFailsForStartedConversationWithout
 	}
 }
 
+func TestProjectConversationDeleteConversationRequiresForceForDirtyWorkspace(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name:  "backend",
+			files: map[string]string{"README.md": "line one\n"},
+		},
+	})
+	writeConversationWorkspaceFile(t, filepath.Join(fixture.repoPaths["backend"], "README.md"), "line one\nline two\n")
+
+	if _, err := fixture.service.DeleteConversation(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.DeleteConversationInput{},
+	); !errors.Is(err, chatdomain.ErrWorkspaceDirty) {
+		t.Fatalf("DeleteConversation() error = %v, want workspace dirty", err)
+	}
+	assertConversationFileExists(t, filepath.Join(fixture.repoPaths["backend"], "README.md"))
+
+	result, err := fixture.service.DeleteConversation(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		chatdomain.DeleteConversationInput{Force: true},
+	)
+	if err != nil {
+		t.Fatalf("DeleteConversation(force) error = %v", err)
+	}
+	if !result.WorkspaceDirty || !result.WorkspaceDeleted {
+		t.Fatalf("DeleteConversation(force) workspace result = %+v", result)
+	}
+	if _, err := os.Stat(fixture.workspacePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("workspace path still exists after delete: %v", err)
+	}
+	if _, err := fixture.service.GetConversation(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID); !errors.Is(err, ErrConversationNotFound) {
+		t.Fatalf("GetConversation() error = %v, want not found", err)
+	}
+}
+
+func TestProjectConversationRetentionCleanupSkipsDirtyPendingAndActiveRuntime(t *testing.T) {
+	t.Parallel()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	org, project := createProjectConversationTestProject(ctx, t, client)
+	repoStore := chatrepo.NewEntRepository(client)
+	providerID := uuid.New()
+	machineID := uuid.New()
+
+	remoteRepoPath, _ := createConversationRemoteRepo(t, "main", map[string]string{"README.md": "base\n"})
+	projectItem := catalogdomain.Project{
+		ID:             project.ID,
+		OrganizationID: org.ID,
+		Name:           "OpenASE",
+		Slug:           "openase",
+		Description:    "Issue-driven automation",
+		ProjectAIRetention: catalogdomain.ProjectAIRetentionPolicy{
+			Enabled:        true,
+			KeepRecentDays: 1,
+		},
+	}
+	providerItem := catalogdomain.AgentProvider{
+		ID:             providerID,
+		OrganizationID: org.ID,
+		MachineID:      machineID,
+		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
+		CliCommand:     "gemini",
+	}
+	workspaceRoot := t.TempDir()
+	projectRepos := []catalogdomain.ProjectRepo{{
+		ID:            uuid.New(),
+		ProjectID:     project.ID,
+		Name:          "backend",
+		RepositoryURL: remoteRepoPath,
+		DefaultBranch: "main",
+	}}
+	catalog := fakeProjectConversationCatalog{
+		fakeCatalogReader: fakeCatalogReader{
+			project:      projectItem,
+			projectRepos: projectRepos,
+			providerByID: map[uuid.UUID]catalogdomain.AgentProvider{providerID: providerItem},
+		},
+		organizations: []catalogdomain.Organization{{ID: org.ID}},
+		projects:      []catalogdomain.Project{projectItem},
+		machine: catalogdomain.Machine{
+			ID:            machineID,
+			Name:          catalogdomain.LocalMachineName,
+			Host:          catalogdomain.LocalMachineHost,
+			WorkspaceRoot: stringPointer(workspaceRoot),
+		},
+	}
+	service := NewProjectConversationService(nil, repoStore, catalog, fakeTicketReader{}, harnessWorkflowReader{}, nil, nil)
+
+	makeOldConversation := func() chatdomain.Conversation {
+		conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+			ProjectID:  project.ID,
+			UserID:     "user:conversation",
+			Source:     chatdomain.SourceProjectSidebar,
+			ProviderID: providerID,
+		})
+		if err != nil {
+			t.Fatalf("CreateConversation() error = %v", err)
+		}
+		old := time.Now().UTC().AddDate(0, 0, -3)
+		if _, err := client.ChatConversation.UpdateOneID(conversation.ID).SetLastActivityAt(old).Save(ctx); err != nil {
+			t.Fatalf("update conversation last activity: %v", err)
+		}
+		updated, err := repoStore.GetConversation(ctx, conversation.ID)
+		if err != nil {
+			t.Fatalf("GetConversation() error = %v", err)
+		}
+		return updated
+	}
+
+	cleanConversation := makeOldConversation()
+	dirtyConversation := makeOldConversation()
+	pendingConversation := makeOldConversation()
+	activeConversation := makeOldConversation()
+
+	cleanWorkspace, err := service.ensureConversationWorkspace(ctx, catalog.machine, projectItem, providerItem, cleanConversation.ID)
+	if err != nil {
+		t.Fatalf("ensureConversationWorkspace(clean) error = %v", err)
+	}
+	dirtyWorkspace, err := service.ensureConversationWorkspace(ctx, catalog.machine, projectItem, providerItem, dirtyConversation.ID)
+	if err != nil {
+		t.Fatalf("ensureConversationWorkspace(dirty) error = %v", err)
+	}
+	writeConversationWorkspaceFile(
+		t,
+		filepath.Join(workspaceinfra.RepoPath(dirtyWorkspace.String(), "", "backend"), "README.md"),
+		"base\ndirty\n",
+	)
+
+	pendingTurn, _, err := repoStore.CreateTurnWithUserEntry(ctx, pendingConversation.ID, "needs approval")
+	if err != nil {
+		t.Fatalf("CreateTurnWithUserEntry(pending) error = %v", err)
+	}
+	if _, _, err := repoStore.CreatePendingInterrupt(
+		ctx,
+		pendingConversation.ID,
+		pendingTurn.ID,
+		"req-retention",
+		chatdomain.InterruptKindCommandExecutionApproval,
+		map[string]any{"reason": "approval"},
+	); err != nil {
+		t.Fatalf("CreatePendingInterrupt() error = %v", err)
+	}
+	old := time.Now().UTC().AddDate(0, 0, -3)
+	if _, err := client.ChatConversation.UpdateOneID(pendingConversation.ID).SetLastActivityAt(old).Save(ctx); err != nil {
+		t.Fatalf("reset pending conversation last activity: %v", err)
+	}
+
+	service.runtimeManager.live[activeConversation.ID] = &liveProjectConversation{
+		principal: chatdomain.ProjectConversationPrincipal{
+			ID:             uuid.New(),
+			ConversationID: activeConversation.ID,
+			ProjectID:      project.ID,
+			ProviderID:     providerID,
+			Status:         chatdomain.PrincipalStatusActive,
+			RuntimeState:   chatdomain.RuntimeStateExecuting,
+		},
+		provider: providerItem,
+		machine:  catalog.machine,
+	}
+
+	results, err := service.RunRetentionCleanup(ctx)
+	if err != nil {
+		t.Fatalf("RunRetentionCleanup() error = %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("RunRetentionCleanup() results = %+v, want 1 project", results)
+	}
+	result := results[0]
+	if len(result.Deleted) != 1 || result.Deleted[0].ConversationID != cleanConversation.ID {
+		t.Fatalf("RunRetentionCleanup() deleted = %+v", result.Deleted)
+	}
+
+	skippedByID := map[uuid.UUID]chatdomain.RetentionCleanupSkipReason{}
+	for _, item := range result.Skipped {
+		skippedByID[item.ConversationID] = item.Reason
+	}
+	if skippedByID[dirtyConversation.ID] != chatdomain.RetentionCleanupSkipDirtyWorkspace {
+		t.Fatalf("dirty conversation skip = %q", skippedByID[dirtyConversation.ID])
+	}
+	if skippedByID[pendingConversation.ID] != chatdomain.RetentionCleanupSkipPendingInput {
+		t.Fatalf("pending conversation skip = %q", skippedByID[pendingConversation.ID])
+	}
+	if skippedByID[activeConversation.ID] != chatdomain.RetentionCleanupSkipRuntimeActive {
+		t.Fatalf("active conversation skip = %q", skippedByID[activeConversation.ID])
+	}
+
+	if _, err := repoStore.GetConversation(ctx, cleanConversation.ID); !errors.Is(err, chatrepo.ErrNotFound) {
+		t.Fatalf("clean conversation should be deleted, got %v", err)
+	}
+	if _, err := os.Stat(cleanWorkspace.String()); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("clean workspace still exists: %v", err)
+	}
+	if _, err := repoStore.GetConversation(ctx, dirtyConversation.ID); err != nil {
+		t.Fatalf("dirty conversation should remain: %v", err)
+	}
+	if _, err := repoStore.GetConversation(ctx, pendingConversation.ID); err != nil {
+		t.Fatalf("pending conversation should remain: %v", err)
+	}
+	if _, err := repoStore.GetConversation(ctx, activeConversation.ID); err != nil {
+		t.Fatalf("active conversation should remain: %v", err)
+	}
+}
+
 func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 	t.Parallel()
 
@@ -5139,8 +5349,36 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 
 type fakeProjectConversationCatalog struct {
 	fakeCatalogReader
-	machine    catalogdomain.Machine
-	machineErr error
+	machine       catalogdomain.Machine
+	machineErr    error
+	organizations []catalogdomain.Organization
+	projects      []catalogdomain.Project
+}
+
+func (c fakeProjectConversationCatalog) ListOrganizations(context.Context) ([]catalogdomain.Organization, error) {
+	if len(c.organizations) > 0 {
+		return append([]catalogdomain.Organization(nil), c.organizations...), nil
+	}
+	if c.project.OrganizationID == uuid.Nil {
+		return nil, nil
+	}
+	return []catalogdomain.Organization{{ID: c.project.OrganizationID}}, nil
+}
+
+func (c fakeProjectConversationCatalog) ListProjects(_ context.Context, organizationID uuid.UUID) ([]catalogdomain.Project, error) {
+	if len(c.projects) > 0 {
+		items := make([]catalogdomain.Project, 0, len(c.projects))
+		for _, item := range c.projects {
+			if item.OrganizationID == organizationID {
+				items = append(items, item)
+			}
+		}
+		return items, nil
+	}
+	if c.project.ID == uuid.Nil || c.project.OrganizationID != organizationID {
+		return nil, nil
+	}
+	return []catalogdomain.Project{c.project}, nil
 }
 
 func (c fakeProjectConversationCatalog) GetMachine(context.Context, uuid.UUID) (catalogdomain.Machine, error) {

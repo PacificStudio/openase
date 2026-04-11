@@ -23,6 +23,7 @@ const (
 	TypeProjectStatusChanged             Type = "project.status_changed"
 	TypeProjectProviderChanged           Type = "project.default_provider_changed"
 	TypeProjectConcurrencyChanged        Type = "project.concurrency_changed"
+	TypeProjectAIRetentionUpdated        Type = "project.project_ai_retention_updated"
 	TypeProjectRepoCreated               Type = "project_repo.created"
 	TypeProjectRepoUpdated               Type = "project_repo.updated"
 	TypeProjectRepoDeleted               Type = "project_repo.deleted"
@@ -87,6 +88,9 @@ const (
 	TypeTicketRetryPaused                Type = "ticket.retry_paused"
 	TypeTicketRetryResumed               Type = "ticket.retry_resumed"
 	TypeTicketBudgetExhausted            Type = "ticket.budget_exhausted"
+	TypeProjectConversationDeleted       Type = "project_conversation.deleted"
+	TypeProjectConversationCleanupRun    Type = "project_conversation.cleanup_run"
+	TypeProjectConversationCleanupSkip   Type = "project_conversation.cleanup_skipped"
 	TypeAgentClaimed                     Type = "agent.claimed"
 	TypeAgentLaunching                   Type = "agent.launching"
 	TypeAgentReady                       Type = "agent.ready"
@@ -117,6 +121,7 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeProjectStatusChanged, Label: "Project Status Changed"},
 	{EventType: TypeProjectProviderChanged, Label: "Project Default Provider Changed"},
 	{EventType: TypeProjectConcurrencyChanged, Label: "Project Concurrency Changed"},
+	{EventType: TypeProjectAIRetentionUpdated, Label: "Project AI Retention Updated"},
 	{EventType: TypeProjectRepoCreated, Label: "Project Repo Created"},
 	{EventType: TypeProjectRepoUpdated, Label: "Project Repo Updated"},
 	{EventType: TypeProjectRepoDeleted, Label: "Project Repo Deleted"},
@@ -181,6 +186,9 @@ var canonicalCatalog = []CatalogEntry{
 	{EventType: TypeTicketRetryPaused, Label: "Ticket Retry Paused"},
 	{EventType: TypeTicketRetryResumed, Label: "Ticket Retry Resumed"},
 	{EventType: TypeTicketBudgetExhausted, Label: "Ticket Budget Exhausted"},
+	{EventType: TypeProjectConversationDeleted, Label: "Project Conversation Deleted"},
+	{EventType: TypeProjectConversationCleanupRun, Label: "Project Conversation Cleanup Run"},
+	{EventType: TypeProjectConversationCleanupSkip, Label: "Project Conversation Cleanup Skipped"},
 	{EventType: TypeAgentClaimed, Label: "Agent Claimed"},
 	{EventType: TypeAgentLaunching, Label: "Agent Launching"},
 	{EventType: TypeAgentReady, Label: "Agent Ready"},

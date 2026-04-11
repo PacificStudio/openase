@@ -1,6 +1,6 @@
 <script lang="ts">
   import { formatRelativeTime } from '$lib/utils'
-  import { MessageSquare } from '@lucide/svelte'
+  import { MessageSquare, Trash2 } from '@lucide/svelte'
   import type { ProjectConversation } from '$lib/api/chat'
   import {
     getProjectConversationDisplayTitle,
@@ -11,10 +11,12 @@
     conversations = [],
     openConversationIds = [],
     onSelect,
+    onDelete,
   }: {
     conversations?: ProjectConversation[]
     openConversationIds?: string[]
     onSelect?: (conversationId: string) => void
+    onDelete?: (conversationId: string) => void
   } = $props()
 
   const openSet = $derived(new Set(openConversationIds))
@@ -63,33 +65,48 @@
     <div class="flex flex-col py-0.5">
       {#each conversations as conversation (conversation.id)}
         {@const isOpen = openSet.has(conversation.id)}
-        <button
-          type="button"
-          class="hover:bg-muted/60 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left transition-colors"
-          onclick={() => onSelect?.(conversation.id)}
-        >
-          <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
-          <span class="min-w-0 flex-1">
-            <span class="text-foreground block truncate text-[11px] leading-tight">
-              {titleText(conversation)}
+        <div class="hover:bg-muted/60 flex items-center gap-1 rounded px-1 py-1 transition-colors">
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left"
+            aria-label={`Open conversation ${titleText(conversation)}`}
+            onclick={() => onSelect?.(conversation.id)}
+          >
+            <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
+            <span class="min-w-0 flex-1">
+              <span class="text-foreground block truncate text-[11px] leading-tight">
+                {titleText(conversation)}
+              </span>
+              {#if secondarySummaryText(conversation)}
+                <span class="text-muted-foreground block truncate text-[10px] leading-tight">
+                  {secondarySummaryText(conversation)}
+                </span>
+              {/if}
             </span>
-            {#if secondarySummaryText(conversation)}
-              <span class="text-muted-foreground block truncate text-[10px] leading-tight">
-                {secondarySummaryText(conversation)}
+            {#if isOpen}
+              <span
+                class="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[9px] leading-none"
+              >
+                open
               </span>
             {/if}
-          </span>
-          {#if isOpen}
-            <span
-              class="bg-muted text-muted-foreground shrink-0 rounded px-1 py-0.5 text-[9px] leading-none"
-            >
-              open
+            <span class="text-muted-foreground shrink-0 text-[10px]">
+              {formatRelativeTime(conversation.lastActivityAt || conversation.createdAt)}
             </span>
-          {/if}
-          <span class="text-muted-foreground shrink-0 text-[10px]">
-            {formatRelativeTime(conversation.lastActivityAt || conversation.createdAt)}
-          </span>
-        </button>
+          </button>
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-destructive inline-flex size-6 shrink-0 items-center justify-center rounded transition-colors"
+            aria-label={`Delete ${titleText(conversation)}`}
+            title="Delete conversation"
+            onclick={(event) => {
+              event.stopPropagation()
+              onDelete?.(conversation.id)
+            }}
+          >
+            <Trash2 class="size-3.5" />
+          </button>
+        </div>
       {/each}
     </div>
   </div>

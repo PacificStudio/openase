@@ -12,6 +12,11 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   { eventType: 'project.archived', label: 'Project archived', tone: 'warning' },
   { eventType: 'project.status_changed', label: 'Project status changed', tone: 'info' },
   {
+    eventType: 'project.project_ai_retention_updated',
+    label: 'Project AI retention updated',
+    tone: 'info',
+  },
+  {
     eventType: 'project.default_provider_changed',
     label: 'Project default provider changed',
     tone: 'info',
@@ -145,6 +150,21 @@ export const activityEventCatalog: ActivityEventCatalogEntry[] = [
   { eventType: 'agent.failed', label: 'Agent failed', tone: 'danger' },
   { eventType: 'agent.completed', label: 'Agent completed', tone: 'success' },
   { eventType: 'agent.terminated', label: 'Agent terminated', tone: 'neutral' },
+  {
+    eventType: 'project_conversation.deleted',
+    label: 'Project AI conversation deleted',
+    tone: 'warning',
+  },
+  {
+    eventType: 'project_conversation.cleanup_run',
+    label: 'Project AI retention cleanup run',
+    tone: 'info',
+  },
+  {
+    eventType: 'project_conversation.cleanup_skipped',
+    label: 'Project AI retention cleanup skipped',
+    tone: 'warning',
+  },
   { eventType: 'hook.started', label: 'Hook started', tone: 'info' },
   { eventType: 'hook.passed', label: 'Hook passed', tone: 'success' },
   { eventType: 'hook.failed', label: 'Hook failed', tone: 'danger' },

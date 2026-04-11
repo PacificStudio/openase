@@ -48,6 +48,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat/conversations/:conversationId/interrupt-turn", s.handleInterruptProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
 	api.POST("/chat/conversations/:conversationId/interrupts/:interruptId/respond", s.handleRespondProjectConversationInterrupt)
+	api.DELETE("/chat/conversations/:conversationId", s.handleDeleteProjectConversation)
 	api.DELETE("/chat/conversations/:conversationId/runtime", s.handleDeleteProjectConversationRuntime)
 }
 
@@ -940,6 +941,48 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (s *Server) handleDeleteProjectConversation(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	force, err := parseOptionalBoolQueryParam("force", c.QueryParam("force"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_FORCE", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	if _, err := s.projectConversationService.DeleteConversation(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatdomain.DeleteConversationInput{Force: force},
+	); err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func parseOptionalBoolQueryParam(fieldName string, raw string) (bool, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return false, nil
+	}
+	switch strings.ToLower(trimmed) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true, nil
+	case "0", "false", "f", "no", "n", "off":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%s must be a boolean", fieldName)
+	}
+}
+
 type conversationTerminalClientFrame struct {
 	Type string `json:"type"`
 	Data string `json:"data,omitempty"`
@@ -1010,6 +1053,12 @@ func writeProjectConversationError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_NOT_ACTIVE", err.Error())
 	case errors.Is(err, chatservice.ErrConversationInterruptPending):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_INTERRUPT_PENDING", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspaceDirty):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_DIRTY", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspaceDeleteFailed):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_DELETE_FAILED", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspacePathConflict):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_PATH_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationConflict):
 		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationNotFound), errors.Is(err, chatservice.ErrPendingInterruptNotFound):
