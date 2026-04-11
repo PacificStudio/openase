@@ -1,3 +1,5 @@
+/* eslint-disable max-lines */
+
 import { ApiError } from '$lib/api/client'
 import {
   getProjectConversationWorkspace,

@@ -42,12 +42,13 @@
   } = $props()
 
   const projectAIFocusOwner = 'project-conversation-workspace-browser'
-  let liveWorkspaceDiff = $state<ProjectConversationWorkspaceDiff | null>(null)
+  let refreshedWorkspaceDiff = $state<ProjectConversationWorkspaceDiff | null>(null)
+  const liveWorkspaceDiff = $derived(refreshedWorkspaceDiff ?? workspaceDiff ?? null)
 
   const browser = createProjectConversationWorkspaceBrowserState({
     getConversationId: () => conversationId,
     onWorkspaceDiffUpdated: (nextWorkspaceDiff) => {
-      liveWorkspaceDiff = nextWorkspaceDiff
+      refreshedWorkspaceDiff = nextWorkspaceDiff
     },
   })
 
@@ -144,10 +145,6 @@
   const selectedRepoDiff = $derived(
     liveWorkspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
-
-  $effect(() => {
-    liveWorkspaceDiff = workspaceDiff ?? null
-  })
 
   // Navigate to a pending file when set
   $effect(() => {
