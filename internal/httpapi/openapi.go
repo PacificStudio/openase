@@ -511,15 +511,26 @@ type OpenAPIProjectConversationWorkspaceDiffRepo struct {
 	Files        []OpenAPIProjectConversationWorkspaceDiffFile `json:"files"`
 }
 
+type OpenAPIProjectConversationWorkspaceMissingRepo struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+}
+
+type OpenAPIProjectConversationWorkspaceSyncPrompt struct {
+	Reason       string                                           `json:"reason"`
+	MissingRepos []OpenAPIProjectConversationWorkspaceMissingRepo `json:"missing_repos"`
+}
+
 type OpenAPIProjectConversationWorkspaceDiff struct {
-	ConversationID string                                        `json:"conversation_id"`
-	WorkspacePath  string                                        `json:"workspace_path"`
-	Dirty          bool                                          `json:"dirty"`
-	ReposChanged   int                                           `json:"repos_changed"`
-	FilesChanged   int                                           `json:"files_changed"`
-	Added          int                                           `json:"added"`
-	Removed        int                                           `json:"removed"`
-	Repos          []OpenAPIProjectConversationWorkspaceDiffRepo `json:"repos"`
+	ConversationID string                                         `json:"conversation_id"`
+	WorkspacePath  string                                         `json:"workspace_path"`
+	Dirty          bool                                           `json:"dirty"`
+	ReposChanged   int                                            `json:"repos_changed"`
+	FilesChanged   int                                            `json:"files_changed"`
+	Added          int                                            `json:"added"`
+	Removed        int                                            `json:"removed"`
+	Repos          []OpenAPIProjectConversationWorkspaceDiffRepo  `json:"repos"`
+	SyncPrompt     *OpenAPIProjectConversationWorkspaceSyncPrompt `json:"sync_prompt,omitempty"`
 }
 
 type OpenAPIProjectConversationWorkspaceDiffResponse struct {
@@ -543,6 +554,7 @@ type OpenAPIProjectConversationWorkspaceMetadata struct {
 	Available      bool                                              `json:"available"`
 	WorkspacePath  string                                            `json:"workspace_path"`
 	Repos          []OpenAPIProjectConversationWorkspaceRepoMetadata `json:"repos"`
+	SyncPrompt     *OpenAPIProjectConversationWorkspaceSyncPrompt    `json:"sync_prompt,omitempty"`
 }
 
 type OpenAPIProjectConversationWorkspaceMetadataResponse struct {
@@ -6407,6 +6419,25 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationWorkspace.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace", http.MethodGet, projectConversationWorkspace)
+
+	projectConversationWorkspaceSync, err := b.jsonOperation(
+		"syncProjectConversationWorkspace",
+		"Sync newly bound project repos into the current conversation workspace",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceMetadataResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceSync.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/sync", http.MethodPost, projectConversationWorkspaceSync)
 
 	projectConversationWorkspaceTree, err := b.jsonOperation(
 		"listProjectConversationWorkspaceTree",

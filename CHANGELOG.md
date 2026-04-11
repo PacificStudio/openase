@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.4.0](https://github.com/PacificStudio/openase/compare/v0.3.0...v0.4.0) (2026-04-11)
+
+
+### Features
+
+* add a read-only Project AI workspace browser ([16dfbd9](https://github.com/PacificStudio/openase/commit/16dfbd99846d9f8bd42e39b7b88b0b97cef3f86a))
+* add turn-level stop for Project AI conversations ([#651](https://github.com/PacificStudio/openase/issues/651)) ([f4d312e](https://github.com/PacificStudio/openase/commit/f4d312eb0bfbd0c676b0fa61f0418c674fef232b))
+* **chat:** add local shell terminal foundation ([78bc163](https://github.com/PacificStudio/openase/commit/78bc163e1f8dbf0ec4f51cbff2cb33e17edeaeea))
+* **chat:** add read-only workspace browser ([0a3b954](https://github.com/PacificStudio/openase/commit/0a3b954868494bf853b2fb1e3039875c0e63c72f))
+* **chat:** support terminal detach and reattach ([f18b67d](https://github.com/PacificStudio/openase/commit/f18b67d94d7f2e71e814b50c406da5b0f02d26eb))
+* enhance workspace browser with file comparison and navigation features ([70b4f29](https://github.com/PacificStudio/openase/commit/70b4f297722ea2c303b8e7cdfad3343bac1cb25a))
+* **platform:** add bootstrap CLI auth and project AI scope controls ([c8bb830](https://github.com/PacificStudio/openase/commit/c8bb8305c44f1a6bab672670dab92294c63c349d))
+* replace Textarea with CodeEditor in skill-file-editor for improved editing experience ([16ceef8](https://github.com/PacificStudio/openase/commit/16ceef8a07faf8686189d5dcf07c17605744549d))
+* support Project AI conversation deletion and retention ([#659](https://github.com/PacificStudio/openase/issues/659)) ([584ba16](https://github.com/PacificStudio/openase/commit/584ba16748e87a721dd4eee76cba3d935703cebb))
+
+
+### Bug Fixes
+
+* auto-recover Project AI mux streams after transient disconnects ([de36057](https://github.com/PacificStudio/openase/commit/de360578b5a91ce75da1a43149e97fc16c76ab89))
+* **chat:** prompt to sync newly bound repos before browse/diff ([dd0df8c](https://github.com/PacificStudio/openase/commit/dd0df8ceb930ea8e793a2919dc122683ab4b9bda))
+* lock notification event coverage and wiring ([#657](https://github.com/PacificStudio/openase/issues/657)) ([6752cd3](https://github.com/PacificStudio/openase/commit/6752cd3a1837f894267cdfffa1350b04bf5b390f))
+* make status/workflow CLI use platform-aware wrappers ([f3387c8](https://github.com/PacificStudio/openase/commit/f3387c8cd236ebc44b266c174d940f478d73543d))
+* optimize scope draft creation in ticket-repo-scope-card for better state management ([16ceef8](https://github.com/PacificStudio/openase/commit/16ceef8a07faf8686189d5dcf07c17605744549d))
+* serialize workspace init per machine ([#650](https://github.com/PacificStudio/openase/issues/650)) ([feb3734](https://github.com/PacificStudio/openase/commit/feb3734b4e2a9b4d48969a51c8a8d667b4866745))
+* **web:** remove obsolete streamdown plugin shim ([5e3e998](https://github.com/PacificStudio/openase/commit/5e3e9985da91e584ebb1dd6d648582a9814c6c97))
+* **web:** unblock workspace browser validation ([fb8e0cc](https://github.com/PacificStudio/openase/commit/fb8e0cc22cb9bbdf9e67715a7c3565423591528f))
+
 ## [0.3.0](https://github.com/PacificStudio/openase/compare/v0.2.0...v0.3.0) (2026-04-09)
 
 

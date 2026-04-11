@@ -35,6 +35,8 @@ import (
 	humanauthservice "github.com/BetterAndBetterII/openase/internal/service/humanauth"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
@@ -222,6 +224,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			name:   "workspace metadata",
 			method: http.MethodGet,
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace",
+		},
+		{
+			name:   "workspace sync",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/sync",
 		},
 		{
 			name:   "workspace tree",
@@ -2023,6 +2030,29 @@ func setupProjectConversationTerminalRouteFixture(t *testing.T, client *ent.Clie
 	repoPath := workspaceinfra.RepoPath(workspacePath, "", "backend")
 	if err := os.MkdirAll(filepath.Join(repoPath, "src"), 0o750); err != nil {
 		t.Fatalf("mkdir repo path: %v", err)
+	}
+	repository, err := git.PlainInit(repoPath, false)
+	if err != nil {
+		t.Fatalf("git init repo: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "src", "main.go"), []byte("package main\n"), 0o600); err != nil {
+		t.Fatalf("write repo seed file: %v", err)
+	}
+	worktree, err := repository.Worktree()
+	if err != nil {
+		t.Fatalf("load repo worktree: %v", err)
+	}
+	if _, err := worktree.Add("src/main.go"); err != nil {
+		t.Fatalf("git add repo seed file: %v", err)
+	}
+	if _, err := worktree.Commit("initial commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Codex",
+			Email: "codex@openai.com",
+			When:  time.Date(2026, 4, 11, 9, 0, 0, 0, time.UTC),
+		},
+	}); err != nil {
+		t.Fatalf("git commit repo seed file: %v", err)
 	}
 
 	return projectConversationTerminalRouteFixture{

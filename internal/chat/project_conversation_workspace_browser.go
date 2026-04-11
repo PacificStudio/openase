@@ -31,6 +31,7 @@ type ProjectConversationWorkspaceMetadata struct {
 	Available      bool
 	WorkspacePath  string
 	Repos          []ProjectConversationWorkspaceRepoMetadata
+	SyncPrompt     *ProjectConversationWorkspaceSyncPrompt
 }
 
 type ProjectConversationWorkspaceRepoMetadata struct {
@@ -138,6 +139,7 @@ func (s *ProjectConversationService) GetWorkspaceMetadata(
 		Available:      true,
 		WorkspacePath:  location.workspacePath,
 		Repos:          make([]ProjectConversationWorkspaceRepoMetadata, 0, len(location.repos)),
+		SyncPrompt:     location.syncPrompt,
 	}
 	for _, repo := range location.repos {
 		item, err := s.readConversationWorkspaceRepoMetadata(ctx, location.machine, repo)
@@ -237,7 +239,7 @@ func (s *ProjectConversationService) resolveConversationWorkspace(
 	if err != nil {
 		return chatdomain.Conversation{}, projectConversationWorkspaceLocation{}, fmt.Errorf("get provider for workspace browser: %w", err)
 	}
-	location, err := s.resolveConversationWorkspaceLocation(ctx, project, providerItem, conversationID)
+	location, err := s.resolveConversationWorkspaceLocation(ctx, conversation, project, providerItem)
 	if err != nil {
 		return conversation, projectConversationWorkspaceLocation{}, err
 	}
@@ -276,6 +278,14 @@ func (s *ProjectConversationService) resolveConversationWorkspaceRepoPath(
 			workspacePath:  location.workspacePath,
 			repo:           repo,
 		}, relativePath, nil
+	}
+	if location.syncPrompt != nil {
+		if _, ok := location.missingRepos[relativeRepoPath]; ok {
+			return projectConversationWorkspaceResolvedRepo{}, "", &ProjectConversationWorkspaceSyncRequiredError{
+				Prompt:   *location.syncPrompt,
+				RepoPath: relativeRepoPath,
+			}
+		}
 	}
 	return projectConversationWorkspaceResolvedRepo{}, "", ErrProjectConversationWorkspaceRepoNotFound
 }

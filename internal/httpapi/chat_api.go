@@ -38,6 +38,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations/:conversationId", s.handleGetProjectConversation)
 	api.GET("/chat/conversations/:conversationId/entries", s.handleListProjectConversationEntries)
 	api.GET("/chat/conversations/:conversationId/workspace", s.handleGetProjectConversationWorkspace)
+	api.POST("/chat/conversations/:conversationId/workspace/sync", s.handleSyncProjectConversationWorkspace)
 	api.GET("/chat/conversations/:conversationId/workspace/tree", s.handleListProjectConversationWorkspaceTree)
 	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
 	api.GET("/chat/conversations/:conversationId/workspace/file-patch", s.handleGetProjectConversationWorkspaceFilePatch)
@@ -543,6 +544,25 @@ func (s *Server) handleGetProjectConversationWorkspace(c echo.Context) error {
 		return writeChatUserError(c, err)
 	}
 	item, err := s.projectConversationService.GetWorkspaceMetadata(c.Request().Context(), userID, conversationID)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"workspace": mapProjectConversationWorkspaceMetadataResponse(item)})
+}
+
+func (s *Server) handleSyncProjectConversationWorkspace(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.SyncWorkspace(c.Request().Context(), userID, conversationID)
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
@@ -1067,6 +1087,18 @@ func writeProjectConversationError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceUnavailable):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_UNAVAILABLE", err.Error())
+	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceSyncRequired):
+		var syncErr *chatservice.ProjectConversationWorkspaceSyncRequiredError
+		if errors.As(err, &syncErr) {
+			return writeAPIErrorWithDetails(
+				c,
+				http.StatusConflict,
+				"PROJECT_CONVERSATION_WORKSPACE_SYNC_REQUIRED",
+				err.Error(),
+				mapProjectConversationWorkspaceSyncPromptResponse(&syncErr.Prompt),
+			)
+		}
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_SYNC_REQUIRED", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspacePathInvalid):
 		return writeAPIError(c, http.StatusBadRequest, "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceRepoNotFound), errors.Is(err, chatservice.ErrProjectConversationWorkspaceEntryNotFound):
@@ -1205,7 +1237,7 @@ func mapProjectConversationWorkspaceDiffResponse(
 		})
 	}
 
-	return map[string]any{
+	response := map[string]any{
 		"conversation_id": item.ConversationID.String(),
 		"workspace_path":  item.WorkspacePath,
 		"dirty":           item.Dirty,
@@ -1215,6 +1247,10 @@ func mapProjectConversationWorkspaceDiffResponse(
 		"removed":         item.Removed,
 		"repos":           repos,
 	}
+	if item.SyncPrompt != nil {
+		response["sync_prompt"] = mapProjectConversationWorkspaceSyncPromptResponse(item.SyncPrompt)
+	}
+	return response
 }
 
 func mapProjectConversationTerminalSessionResponse(
@@ -1251,11 +1287,34 @@ func mapProjectConversationWorkspaceMetadataResponse(
 			"removed":       repo.Removed,
 		})
 	}
-	return map[string]any{
+	response := map[string]any{
 		"conversation_id": item.ConversationID.String(),
 		"available":       item.Available,
 		"workspace_path":  item.WorkspacePath,
 		"repos":           repos,
+	}
+	if item.SyncPrompt != nil {
+		response["sync_prompt"] = mapProjectConversationWorkspaceSyncPromptResponse(item.SyncPrompt)
+	}
+	return response
+}
+
+func mapProjectConversationWorkspaceSyncPromptResponse(
+	item *chatservice.ProjectConversationWorkspaceSyncPrompt,
+) map[string]any {
+	if item == nil {
+		return nil
+	}
+	missingRepos := make([]map[string]any, 0, len(item.MissingRepos))
+	for _, repo := range item.MissingRepos {
+		missingRepos = append(missingRepos, map[string]any{
+			"name": repo.Name,
+			"path": repo.Path,
+		})
+	}
+	return map[string]any{
+		"reason":        string(item.Reason),
+		"missing_repos": missingRepos,
 	}
 }
 

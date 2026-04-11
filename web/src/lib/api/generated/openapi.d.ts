@@ -620,6 +620,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace/sync': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Sync newly bound project repos into the current conversation workspace */
+    post: operations['syncProjectConversationWorkspace']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/workspace/tree': {
     parameters: {
       query?: never
@@ -6170,6 +6187,13 @@ export interface operations {
                 path?: string
                 removed?: number
               }[]
+              sync_prompt?: {
+                missing_repos?: {
+                  name?: string
+                  path?: string
+                }[]
+                reason?: string
+              } | null
               workspace_path?: string
             }
           }
@@ -6278,6 +6302,13 @@ export interface operations {
                 removed?: number
               }[]
               repos_changed?: number
+              sync_prompt?: {
+                missing_repos?: {
+                  name?: string
+                  path?: string
+                }[]
+                reason?: string
+              } | null
               workspace_path?: string
             }
           }
@@ -6465,6 +6496,113 @@ export interface operations {
               repo_path?: string
               status?: string
               truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  syncProjectConversationWorkspace: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Sync newly bound project repos into the current conversation workspace response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace?: {
+              available?: boolean
+              conversation_id?: string
+              repos?: {
+                added?: number
+                branch?: string
+                dirty?: boolean
+                files_changed?: number
+                head_commit?: string
+                head_summary?: string
+                name?: string
+                path?: string
+                removed?: number
+              }[]
+              sync_prompt?: {
+                missing_repos?: {
+                  name?: string
+                  path?: string
+                }[]
+                reason?: string
+              } | null
+              workspace_path?: string
             }
           }
         }

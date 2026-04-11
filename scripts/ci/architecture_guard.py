@@ -5,19 +5,27 @@ This script enforces dependency direction using package-prefix checks and an
 explicit temporary-debt allowlist. The allowlist is intentionally narrow:
 each exception is tied to one file and one forbidden import prefix so CI
 blocks new drift while existing debt is paid down incrementally.
+
+It also runs a route-suffix parity guard for the shared human vs platform HTTP
+surface. That guard preserves canonical resource suffixes without requiring the
+two entrypoints to merge authentication models or expose identical route sets.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
 import sys
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 IMPORT_RE = re.compile(r'"([^"]+)"')
 GO_IMPORT_ROOT = "github.com/BetterAndBetterII/openase/"
+ROUTE_ALIGNMENT_TEST = "TestPlatformRoutesShareCanonicalResourceSuffixes"
 
 
 def go_import_prefix(path_prefix: str) -> str:
@@ -185,6 +193,51 @@ def parse_imports(path: Path) -> list[str]:
     return IMPORT_RE.findall(path.read_text())
 
 
+def resolve_go_binary() -> str:
+    tooling_go = REPO_ROOT / ".tooling/go/bin/go"
+    if tooling_go.exists():
+        return str(tooling_go)
+
+    path_go = shutil.which("go")
+    if path_go:
+        return path_go
+
+    fallback_go = Path.home() / ".local/go1.26.1/bin/go"
+    if fallback_go.exists():
+        return str(fallback_go)
+
+    return "go"
+
+
+def run_route_alignment_guard() -> int:
+    command = [
+        resolve_go_binary(),
+        "test",
+        "./internal/httpapi",
+        "-run",
+        f"^{ROUTE_ALIGNMENT_TEST}$",
+        "-count=1",
+    ]
+    env = os.environ.copy()
+    completed = subprocess.run(
+        command,
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode == 0:
+        print("Route suffix alignment guard passed.")
+        return 0
+
+    print("Route suffix alignment guard failed:", file=sys.stderr)
+    if completed.stdout.strip():
+        print(completed.stdout.rstrip(), file=sys.stderr)
+    if completed.stderr.strip():
+        print(completed.stderr.rstrip(), file=sys.stderr)
+    return completed.returncode
+
+
 def main() -> int:
     violations: list[str] = []
     used_exceptions: set[tuple[str, str]] = set()
@@ -258,7 +311,7 @@ def main() -> int:
         for key in sorted(used_exceptions):
             entry = all_exceptions[key]
             print(f"  - {entry.path} -> {entry.import_prefix} ({entry.rationale})")
-    return 0
+    return run_route_alignment_guard()
 
 
 if __name__ == "__main__":

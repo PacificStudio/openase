@@ -20,6 +20,7 @@
     workspaceDiffError = '',
     entries = [],
     pending = false,
+    onSyncWorkspace,
     onSelectTab,
     onCloseTab,
     onRespondInterrupt,
@@ -34,6 +35,7 @@
     workspaceDiffError?: string
     entries?: ProjectConversationTranscriptEntry[]
     pending?: boolean
+    onSyncWorkspace?: () => Promise<void> | void
     onSelectTab: (tabId: string) => void
     onCloseTab: (tabId: string) => void
     onRespondInterrupt: (input: {
@@ -49,17 +51,24 @@
     workspaceBrowserPortal.conversationId = conversationId
     workspaceBrowserPortal.workspaceDiff = workspaceDiff ?? null
     workspaceBrowserPortal.workspaceDiffLoading = workspaceDiffLoading
+    workspaceBrowserPortal.onSyncWorkspace = conversationId
+      ? async () => {
+          await (onSyncWorkspace?.() ?? Promise.resolve())
+        }
+      : null
   })
 
   $effect(() => {
     if (!conversationId) {
       workspaceBrowserPortal.close()
+      workspaceBrowserPortal.onSyncWorkspace = null
     }
   })
 
   $effect(() => {
     return () => {
       workspaceBrowserPortal.close()
+      workspaceBrowserPortal.onSyncWorkspace = null
     }
   })
 </script>

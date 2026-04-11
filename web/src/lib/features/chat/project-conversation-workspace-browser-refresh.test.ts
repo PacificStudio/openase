@@ -7,11 +7,13 @@ const {
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  syncProjectConversationWorkspace,
 } = vi.hoisted(() => ({
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  syncProjectConversationWorkspace: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -19,6 +21,7 @@ vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  syncProjectConversationWorkspace,
 }))
 
 vi.mock('@xterm/xterm', () => ({
@@ -65,6 +68,46 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('shows a sync prompt when repo bindings changed and refreshes the browser after syncing', async () => {
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [],
+      },
+    })
+    syncProjectConversationWorkspace.mockResolvedValue({
+      workspace: structuredClone(workspaceMetadata),
+    })
+
+    const syncedMetadata = structuredClone(workspaceMetadata)
+    getProjectConversationWorkspace
+      .mockResolvedValueOnce({ workspace: structuredClone(workspaceMetadata) })
+      .mockResolvedValueOnce({ workspace: syncedMetadata })
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff: {
+          ...workspaceDiff,
+          syncPrompt: {
+            reason: 'repo_binding_changed',
+            missingRepos: [{ name: 'docs', path: 'docs' }],
+          },
+        },
+        workspaceDiffLoading: false,
+      },
+    })
+    await view.findByText('Workspace sync required')
+    await fireEvent.click(view.getByRole('button', { name: 'Sync repos' }))
+    await waitFor(() => {
+      expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
+      expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('preserves the expanded directory and selected file when the toolbar refresh is clicked', async () => {
@@ -114,14 +157,11 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     await fireEvent.click(await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(1)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(1)
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
@@ -135,7 +175,6 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.container.textContent).toContain('main.ts')
     expect(view.container.textContent).toContain('export const refreshed = true;')
   })
@@ -188,19 +227,15 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     const mainFileButton = await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 })
     await fireEvent.click(mainFileButton)
-
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading files…')
@@ -318,20 +353,16 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     const mainFileButton = await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 })
     await fireEvent.click(mainFileButton)
-
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() =>
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
         repoPath: 'services/openase',
         path: 'src',
       }),
     )
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading files…')
@@ -351,7 +382,6 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading…')
