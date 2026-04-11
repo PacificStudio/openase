@@ -167,6 +167,18 @@ func (_u *ProjectUpdate) ClearDefaultAgentProviderID() *ProjectUpdate {
 	return _u
 }
 
+// SetProjectAiPlatformAccessAllowed sets the "project_ai_platform_access_allowed" field.
+func (_u *ProjectUpdate) SetProjectAiPlatformAccessAllowed(v []string) *ProjectUpdate {
+	_u.mutation.SetProjectAiPlatformAccessAllowed(v)
+	return _u
+}
+
+// AppendProjectAiPlatformAccessAllowed appends value to the "project_ai_platform_access_allowed" field.
+func (_u *ProjectUpdate) AppendProjectAiPlatformAccessAllowed(v []string) *ProjectUpdate {
+	_u.mutation.AppendProjectAiPlatformAccessAllowed(v)
+	return _u
+}
+
 // SetAccessibleMachineIds sets the "accessible_machine_ids" field.
 func (_u *ProjectUpdate) SetAccessibleMachineIds(v []uuid.UUID) *ProjectUpdate {
 	_u.mutation.SetAccessibleMachineIds(v)
@@ -926,6 +938,14 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.GithubTokenProbeCleared() {
 		_spec.ClearField(project.FieldGithubTokenProbe, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ProjectAiPlatformAccessAllowed(); ok {
+		_spec.SetField(project.FieldProjectAiPlatformAccessAllowed, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedProjectAiPlatformAccessAllowed(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldProjectAiPlatformAccessAllowed, value)
+		})
 	}
 	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)
@@ -1835,6 +1855,18 @@ func (_u *ProjectUpdateOne) ClearDefaultAgentProviderID() *ProjectUpdateOne {
 	return _u
 }
 
+// SetProjectAiPlatformAccessAllowed sets the "project_ai_platform_access_allowed" field.
+func (_u *ProjectUpdateOne) SetProjectAiPlatformAccessAllowed(v []string) *ProjectUpdateOne {
+	_u.mutation.SetProjectAiPlatformAccessAllowed(v)
+	return _u
+}
+
+// AppendProjectAiPlatformAccessAllowed appends value to the "project_ai_platform_access_allowed" field.
+func (_u *ProjectUpdateOne) AppendProjectAiPlatformAccessAllowed(v []string) *ProjectUpdateOne {
+	_u.mutation.AppendProjectAiPlatformAccessAllowed(v)
+	return _u
+}
+
 // SetAccessibleMachineIds sets the "accessible_machine_ids" field.
 func (_u *ProjectUpdateOne) SetAccessibleMachineIds(v []uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.SetAccessibleMachineIds(v)
@@ -2624,6 +2656,14 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.GithubTokenProbeCleared() {
 		_spec.ClearField(project.FieldGithubTokenProbe, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.ProjectAiPlatformAccessAllowed(); ok {
+		_spec.SetField(project.FieldProjectAiPlatformAccessAllowed, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedProjectAiPlatformAccessAllowed(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, project.FieldProjectAiPlatformAccessAllowed, value)
+		})
 	}
 	if value, ok := _u.mutation.AccessibleMachineIds(); ok {
 		_spec.SetField(project.FieldAccessibleMachineIds, field.TypeJSON, value)

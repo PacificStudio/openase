@@ -13,6 +13,7 @@
   import { Separator } from '$ui/separator'
 
   import GitHubOutboundCredentialsPanel from './security-settings-github-outbound-credentials.svelte'
+  import ProjectAIPlatformAccessPanel from './project-ai-platform-access-panel.svelte'
   import ProjectScopedSecretsPanel from './project-scoped-secrets-panel.svelte'
   import SecurityPlatformDetails from './security-settings-platform-details.svelte'
   import SecuritySettingsSecretBindingsSection from './security-settings-secret-bindings-section.svelte'
@@ -161,6 +162,10 @@
     <Separator />
 
     <SecuritySettingsSecretBindingsSection />
+
+    <Separator />
+
+    <ProjectAIPlatformAccessPanel {security} />
 
     <Separator />
 

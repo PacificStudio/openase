@@ -125,23 +125,25 @@ type ticketCommentUpdateInput struct {
 }
 
 type projectUpdateInput struct {
-	projectID                string
-	name                     string
-	slug                     string
-	description              string
-	status                   string
-	defaultAgentProviderID   string
-	accessibleMachineIDs     []string
-	maxConcurrentAgents      *int
-	agentRunSummaryPrompt    string
-	nameSet                  bool
-	slugSet                  bool
-	descriptionSet           bool
-	statusSet                bool
-	defaultAgentProviderSet  bool
-	accessibleMachineIDsSet  bool
-	maxConcurrentAgentsSet   bool
-	agentRunSummaryPromptSet bool
+	projectID                  string
+	name                       string
+	slug                       string
+	description                string
+	status                     string
+	defaultAgentProviderID     string
+	projectAIPlatformAccess    []string
+	accessibleMachineIDs       []string
+	maxConcurrentAgents        *int
+	agentRunSummaryPrompt      string
+	nameSet                    bool
+	slugSet                    bool
+	descriptionSet             bool
+	statusSet                  bool
+	defaultAgentProviderSet    bool
+	projectAIPlatformAccessSet bool
+	accessibleMachineIDsSet    bool
+	maxConcurrentAgentsSet     bool
+	agentRunSummaryPromptSet   bool
 }
 
 type projectAddRepoInput struct {
@@ -720,6 +722,7 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	var description string
 	var status string
 	var defaultAgentProviderID string
+	var projectAIPlatformAccess []string
 	var accessibleMachineIDs []string
 	var maxConcurrentAgents int
 	var agentRunSummaryPrompt string
@@ -751,23 +754,25 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 			}
 
 			input, err := platform.parseProjectUpdateInput(projectUpdateInput{
-				projectID:                options.projectID,
-				name:                     name,
-				slug:                     slug,
-				description:              description,
-				status:                   status,
-				defaultAgentProviderID:   defaultAgentProviderID,
-				accessibleMachineIDs:     accessibleMachineIDs,
-				maxConcurrentAgents:      intPointerWhen(cmd.Flags().Changed("max-concurrent-agents"), maxConcurrentAgents),
-				agentRunSummaryPrompt:    agentRunSummaryPrompt,
-				nameSet:                  cmd.Flags().Changed("name"),
-				slugSet:                  cmd.Flags().Changed("slug"),
-				descriptionSet:           cmd.Flags().Changed("description"),
-				statusSet:                cmd.Flags().Changed("status"),
-				defaultAgentProviderSet:  cmd.Flags().Changed("default-agent-provider-id"),
-				accessibleMachineIDsSet:  cmd.Flags().Changed("accessible-machine-ids"),
-				maxConcurrentAgentsSet:   cmd.Flags().Changed("max-concurrent-agents"),
-				agentRunSummaryPromptSet: cmd.Flags().Changed("agent-run-summary-prompt"),
+				projectID:                  options.projectID,
+				name:                       name,
+				slug:                       slug,
+				description:                description,
+				status:                     status,
+				defaultAgentProviderID:     defaultAgentProviderID,
+				projectAIPlatformAccess:    projectAIPlatformAccess,
+				accessibleMachineIDs:       accessibleMachineIDs,
+				maxConcurrentAgents:        intPointerWhen(cmd.Flags().Changed("max-concurrent-agents"), maxConcurrentAgents),
+				agentRunSummaryPrompt:      agentRunSummaryPrompt,
+				nameSet:                    cmd.Flags().Changed("name"),
+				slugSet:                    cmd.Flags().Changed("slug"),
+				descriptionSet:             cmd.Flags().Changed("description"),
+				statusSet:                  cmd.Flags().Changed("status"),
+				defaultAgentProviderSet:    cmd.Flags().Changed("default-agent-provider-id"),
+				projectAIPlatformAccessSet: cmd.Flags().Changed("project-ai-platform-access-allowed"),
+				accessibleMachineIDsSet:    cmd.Flags().Changed("accessible-machine-ids"),
+				maxConcurrentAgentsSet:     cmd.Flags().Changed("max-concurrent-agents"),
+				agentRunSummaryPromptSet:   cmd.Flags().Changed("agent-run-summary-prompt"),
 			})
 			if err != nil {
 				return err
@@ -786,6 +791,7 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	command.Flags().StringVar(&description, "description", "", "Updated project description.")
 	command.Flags().StringVar(&status, "status", "", "Updated project status.")
 	command.Flags().StringVar(&defaultAgentProviderID, "default-agent-provider-id", "", "Updated default agent provider ID. Set to an empty string to clear it.")
+	command.Flags().StringSliceVar(&projectAIPlatformAccess, "project-ai-platform-access-allowed", nil, "Updated allowed Project AI platform scopes. Repeat or comma-separate values; pass an empty value to clear.")
 	command.Flags().StringSliceVar(&accessibleMachineIDs, "accessible-machine-ids", nil, "Updated accessible machine IDs. Repeat or comma-separate values; pass an empty value to clear.")
 	command.Flags().IntVar(&maxConcurrentAgents, "max-concurrent-agents", 0, "Updated maximum concurrent agents.")
 	command.Flags().StringVar(&agentRunSummaryPrompt, "agent-run-summary-prompt", "", "Updated agent run summary prompt. Set to an empty string to clear it.")
@@ -794,6 +800,7 @@ func newProjectUpdateCommand(options *projectCommandOptions, client platformClie
 	annotateCLICommandBodyFlag(command, "description", "description")
 	annotateCLICommandBodyFlag(command, "status", "status")
 	annotateCLICommandBodyFlag(command, "default-agent-provider-id", "default_agent_provider_id")
+	annotateCLICommandBodyFlag(command, "project-ai-platform-access-allowed", "project_ai_platform_access_allowed")
 	annotateCLICommandBodyFlag(command, "accessible-machine-ids", "accessible_machine_ids")
 	annotateCLICommandBodyFlag(command, "max-concurrent-agents", "max_concurrent_agents")
 	annotateCLICommandBodyFlag(command, "agent-run-summary-prompt", "agent_run_summary_prompt")
@@ -1159,22 +1166,24 @@ func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) 
 		!raw.descriptionSet &&
 		!raw.statusSet &&
 		!raw.defaultAgentProviderSet &&
+		!raw.projectAIPlatformAccessSet &&
 		!raw.accessibleMachineIDsSet &&
 		!raw.maxConcurrentAgentsSet &&
 		!raw.agentRunSummaryPromptSet {
-		return projectUpdateInput{}, fmt.Errorf("at least one of --name, --slug, --description, --status, --default-agent-provider-id, --accessible-machine-ids, --max-concurrent-agents, or --agent-run-summary-prompt must be set")
+		return projectUpdateInput{}, fmt.Errorf("at least one of --name, --slug, --description, --status, --default-agent-provider-id, --project-ai-platform-access-allowed, --accessible-machine-ids, --max-concurrent-agents, or --agent-run-summary-prompt must be set")
 	}
 
 	input := projectUpdateInput{
-		projectID:                projectID,
-		nameSet:                  raw.nameSet,
-		slugSet:                  raw.slugSet,
-		descriptionSet:           raw.descriptionSet,
-		statusSet:                raw.statusSet,
-		defaultAgentProviderSet:  raw.defaultAgentProviderSet,
-		accessibleMachineIDsSet:  raw.accessibleMachineIDsSet,
-		maxConcurrentAgentsSet:   raw.maxConcurrentAgentsSet,
-		agentRunSummaryPromptSet: raw.agentRunSummaryPromptSet,
+		projectID:                  projectID,
+		nameSet:                    raw.nameSet,
+		slugSet:                    raw.slugSet,
+		descriptionSet:             raw.descriptionSet,
+		statusSet:                  raw.statusSet,
+		defaultAgentProviderSet:    raw.defaultAgentProviderSet,
+		projectAIPlatformAccessSet: raw.projectAIPlatformAccessSet,
+		accessibleMachineIDsSet:    raw.accessibleMachineIDsSet,
+		maxConcurrentAgentsSet:     raw.maxConcurrentAgentsSet,
+		agentRunSummaryPromptSet:   raw.agentRunSummaryPromptSet,
 	}
 	if raw.nameSet {
 		input.name = strings.TrimSpace(raw.name)
@@ -1190,6 +1199,15 @@ func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) 
 	}
 	if raw.defaultAgentProviderSet {
 		input.defaultAgentProviderID = strings.TrimSpace(raw.defaultAgentProviderID)
+	}
+	if raw.projectAIPlatformAccessSet {
+		input.projectAIPlatformAccess = make([]string, 0, len(raw.projectAIPlatformAccess))
+		for _, item := range raw.projectAIPlatformAccess {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				input.projectAIPlatformAccess = append(input.projectAIPlatformAccess, trimmed)
+			}
+		}
 	}
 	if raw.accessibleMachineIDsSet {
 		input.accessibleMachineIDs = make([]string, 0, len(raw.accessibleMachineIDs))
@@ -1208,23 +1226,25 @@ func (platform platformContext) parseProjectUpdateInput(raw projectUpdateInput) 
 	}
 
 	return projectUpdateInput{
-		projectID:                input.projectID,
-		name:                     input.name,
-		slug:                     input.slug,
-		description:              input.description,
-		status:                   input.status,
-		defaultAgentProviderID:   input.defaultAgentProviderID,
-		accessibleMachineIDs:     input.accessibleMachineIDs,
-		maxConcurrentAgents:      input.maxConcurrentAgents,
-		agentRunSummaryPrompt:    input.agentRunSummaryPrompt,
-		nameSet:                  input.nameSet,
-		slugSet:                  input.slugSet,
-		descriptionSet:           input.descriptionSet,
-		statusSet:                input.statusSet,
-		defaultAgentProviderSet:  input.defaultAgentProviderSet,
-		accessibleMachineIDsSet:  input.accessibleMachineIDsSet,
-		maxConcurrentAgentsSet:   input.maxConcurrentAgentsSet,
-		agentRunSummaryPromptSet: input.agentRunSummaryPromptSet,
+		projectID:                  input.projectID,
+		name:                       input.name,
+		slug:                       input.slug,
+		description:                input.description,
+		status:                     input.status,
+		defaultAgentProviderID:     input.defaultAgentProviderID,
+		projectAIPlatformAccess:    input.projectAIPlatformAccess,
+		accessibleMachineIDs:       input.accessibleMachineIDs,
+		maxConcurrentAgents:        input.maxConcurrentAgents,
+		agentRunSummaryPrompt:      input.agentRunSummaryPrompt,
+		nameSet:                    input.nameSet,
+		slugSet:                    input.slugSet,
+		descriptionSet:             input.descriptionSet,
+		statusSet:                  input.statusSet,
+		defaultAgentProviderSet:    input.defaultAgentProviderSet,
+		projectAIPlatformAccessSet: input.projectAIPlatformAccessSet,
+		accessibleMachineIDsSet:    input.accessibleMachineIDsSet,
+		maxConcurrentAgentsSet:     input.maxConcurrentAgentsSet,
+		agentRunSummaryPromptSet:   input.agentRunSummaryPromptSet,
 	}, nil
 }
 
@@ -1414,6 +1434,9 @@ func (client platformClient) updateProject(ctx context.Context, platform platfor
 	}
 	if input.defaultAgentProviderSet {
 		payload["default_agent_provider_id"] = input.defaultAgentProviderID
+	}
+	if input.projectAIPlatformAccessSet {
+		payload["project_ai_platform_access_allowed"] = input.projectAIPlatformAccess
 	}
 	if input.accessibleMachineIDsSet {
 		payload["accessible_machine_ids"] = input.accessibleMachineIDs
