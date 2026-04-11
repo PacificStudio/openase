@@ -149,6 +149,20 @@ func (_c *ProjectConversationRunCreate) SetNillableTerminalAt(v *time.Time) *Pro
 	return _c
 }
 
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_c *ProjectConversationRunCreate) SetSnapshotMaterializedAt(v time.Time) *ProjectConversationRunCreate {
+	_c.mutation.SetSnapshotMaterializedAt(v)
+	return _c
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_c *ProjectConversationRunCreate) SetNillableSnapshotMaterializedAt(v *time.Time) *ProjectConversationRunCreate {
+	if v != nil {
+		_c.SetSnapshotMaterializedAt(*v)
+	}
+	return _c
+}
+
 // SetLastError sets the "last_error" field.
 func (_c *ProjectConversationRunCreate) SetLastError(v string) *ProjectConversationRunCreate {
 	_c.mutation.SetLastError(v)
@@ -609,6 +623,10 @@ func (_c *ProjectConversationRunCreate) createSpec() (*ProjectConversationRun, *
 	if value, ok := _c.mutation.TerminalAt(); ok {
 		_spec.SetField(projectconversationrun.FieldTerminalAt, field.TypeTime, value)
 		_node.TerminalAt = &value
+	}
+	if value, ok := _c.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(projectconversationrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+		_node.SnapshotMaterializedAt = &value
 	}
 	if value, ok := _c.mutation.LastError(); ok {
 		_spec.SetField(projectconversationrun.FieldLastError, field.TypeString, value)

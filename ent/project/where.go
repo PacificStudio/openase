@@ -779,6 +779,29 @@ func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.Project
 	})
 }
 
+// HasDailyTokenUsage applies the HasEdge predicate on the "daily_token_usage" edge.
+func HasDailyTokenUsage() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDailyTokenUsageWith applies the HasEdge predicate on the "daily_token_usage" edge with a given conditions (other predicates).
+func HasDailyTokenUsageWith(preds ...predicate.ProjectDailyTokenUsage) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newDailyTokenUsageStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasScheduledJobs applies the HasEdge predicate on the "scheduled_jobs" edge.
 func HasScheduledJobs() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {

@@ -22,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -359,6 +360,21 @@ func (_u *ProjectUpdate) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpdate
 	return _u.AddAgentStepEventIDs(ids...)
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
+func (_u *ProjectUpdate) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdate) AddDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
 func (_u *ProjectUpdate) AddScheduledJobIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddScheduledJobIDs(ids...)
@@ -637,6 +653,27 @@ func (_u *ProjectUpdate) RemoveAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentStepEventIDs(ids...)
+}
+
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdate) ClearDailyTokenUsage() *ProjectUpdate {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to ProjectDailyTokenUsage entities by IDs.
+func (_u *ProjectUpdate) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to ProjectDailyTokenUsage entities.
+func (_u *ProjectUpdate) RemoveDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
 }
 
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
@@ -1288,6 +1325,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ScheduledJobsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1875,6 +1957,21 @@ func (_u *ProjectUpdateOne) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 	return _u.AddAgentStepEventIDs(ids...)
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
+func (_u *ProjectUpdateOne) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdateOne) AddDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
 func (_u *ProjectUpdateOne) AddScheduledJobIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddScheduledJobIDs(ids...)
@@ -2153,6 +2250,27 @@ func (_u *ProjectUpdateOne) RemoveAgentStepEvents(v ...*AgentStepEvent) *Project
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentStepEventIDs(ids...)
+}
+
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdateOne) ClearDailyTokenUsage() *ProjectUpdateOne {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to ProjectDailyTokenUsage entities by IDs.
+func (_u *ProjectUpdateOne) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to ProjectDailyTokenUsage entities.
+func (_u *ProjectUpdateOne) RemoveDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
 }
 
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
@@ -2827,6 +2945,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -239,6 +239,26 @@ func (_u *ProjectConversationRunUpdate) ClearTerminalAt() *ProjectConversationRu
 	return _u
 }
 
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_u *ProjectConversationRunUpdate) SetSnapshotMaterializedAt(v time.Time) *ProjectConversationRunUpdate {
+	_u.mutation.SetSnapshotMaterializedAt(v)
+	return _u
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_u *ProjectConversationRunUpdate) SetNillableSnapshotMaterializedAt(v *time.Time) *ProjectConversationRunUpdate {
+	if v != nil {
+		_u.SetSnapshotMaterializedAt(*v)
+	}
+	return _u
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (_u *ProjectConversationRunUpdate) ClearSnapshotMaterializedAt() *ProjectConversationRunUpdate {
+	_u.mutation.ClearSnapshotMaterializedAt()
+	return _u
+}
+
 // SetLastError sets the "last_error" field.
 func (_u *ProjectConversationRunUpdate) SetLastError(v string) *ProjectConversationRunUpdate {
 	_u.mutation.SetLastError(v)
@@ -660,6 +680,12 @@ func (_u *ProjectConversationRunUpdate) sqlSave(ctx context.Context) (_node int,
 	if _u.mutation.TerminalAtCleared() {
 		_spec.ClearField(projectconversationrun.FieldTerminalAt, field.TypeTime)
 	}
+	if value, ok := _u.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(projectconversationrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+	}
+	if _u.mutation.SnapshotMaterializedAtCleared() {
+		_spec.ClearField(projectconversationrun.FieldSnapshotMaterializedAt, field.TypeTime)
+	}
 	if value, ok := _u.mutation.LastError(); ok {
 		_spec.SetField(projectconversationrun.FieldLastError, field.TypeString, value)
 	}
@@ -977,6 +1003,26 @@ func (_u *ProjectConversationRunUpdateOne) SetNillableTerminalAt(v *time.Time) *
 // ClearTerminalAt clears the value of the "terminal_at" field.
 func (_u *ProjectConversationRunUpdateOne) ClearTerminalAt() *ProjectConversationRunUpdateOne {
 	_u.mutation.ClearTerminalAt()
+	return _u
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (_u *ProjectConversationRunUpdateOne) SetSnapshotMaterializedAt(v time.Time) *ProjectConversationRunUpdateOne {
+	_u.mutation.SetSnapshotMaterializedAt(v)
+	return _u
+}
+
+// SetNillableSnapshotMaterializedAt sets the "snapshot_materialized_at" field if the given value is not nil.
+func (_u *ProjectConversationRunUpdateOne) SetNillableSnapshotMaterializedAt(v *time.Time) *ProjectConversationRunUpdateOne {
+	if v != nil {
+		_u.SetSnapshotMaterializedAt(*v)
+	}
+	return _u
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (_u *ProjectConversationRunUpdateOne) ClearSnapshotMaterializedAt() *ProjectConversationRunUpdateOne {
+	_u.mutation.ClearSnapshotMaterializedAt()
 	return _u
 }
 
@@ -1430,6 +1476,12 @@ func (_u *ProjectConversationRunUpdateOne) sqlSave(ctx context.Context) (_node *
 	}
 	if _u.mutation.TerminalAtCleared() {
 		_spec.ClearField(projectconversationrun.FieldTerminalAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.SnapshotMaterializedAt(); ok {
+		_spec.SetField(projectconversationrun.FieldSnapshotMaterializedAt, field.TypeTime, value)
+	}
+	if _u.mutation.SnapshotMaterializedAtCleared() {
+		_spec.ClearField(projectconversationrun.FieldSnapshotMaterializedAt, field.TypeTime)
 	}
 	if value, ok := _u.mutation.LastError(); ok {
 		_spec.SetField(projectconversationrun.FieldLastError, field.TypeString, value)

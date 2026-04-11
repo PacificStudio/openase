@@ -1266,6 +1266,7 @@ var (
 		{Name: "provider_turn_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "terminal_at", Type: field.TypeTime, Nullable: true},
+		{Name: "snapshot_materialized_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
 		{Name: "cost_amount", Type: field.TypeFloat64, Default: 0},
@@ -1292,17 +1293,17 @@ var (
 			{
 				Name:    "projectconversationrun_principal_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[1], ProjectConversationRunsColumns[28]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[1], ProjectConversationRunsColumns[29]},
 			},
 			{
 				Name:    "projectconversationrun_conversation_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[2], ProjectConversationRunsColumns[28]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[2], ProjectConversationRunsColumns[29]},
 			},
 			{
 				Name:    "projectconversationrun_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[6], ProjectConversationRunsColumns[14]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[6], ProjectConversationRunsColumns[15]},
 			},
 			{
 				Name:    "projectconversationrun_turn_id",
@@ -1381,6 +1382,46 @@ var (
 				Name:    "projectconversationtraceevent_principal_id_created_at",
 				Unique:  false,
 				Columns: []*schema.Column{ProjectConversationTraceEventsColumns[1], ProjectConversationTraceEventsColumns[11]},
+			},
+		},
+	}
+	// ProjectDailyTokenUsagesColumns holds the columns for the "project_daily_token_usages" table.
+	ProjectDailyTokenUsagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "usage_date", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "date"}},
+		{Name: "input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cached_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "reasoning_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "finalized_run_count", Type: field.TypeInt, Default: 0},
+		{Name: "recomputed_at", Type: field.TypeTime},
+		{Name: "source_mode", Type: field.TypeEnum, Enums: []string{"materialized", "lazy_backfill"}, Default: "materialized"},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// ProjectDailyTokenUsagesTable holds the schema information for the "project_daily_token_usages" table.
+	ProjectDailyTokenUsagesTable = &schema.Table{
+		Name:       "project_daily_token_usages",
+		Columns:    ProjectDailyTokenUsagesColumns,
+		PrimaryKey: []*schema.Column{ProjectDailyTokenUsagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_daily_token_usages_projects_daily_token_usage",
+				Columns:    []*schema.Column{ProjectDailyTokenUsagesColumns[10]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectdailytokenusage_project_id_usage_date",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectDailyTokenUsagesColumns[10], ProjectDailyTokenUsagesColumns[1]},
+			},
+			{
+				Name:    "projectdailytokenusage_usage_date",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectDailyTokenUsagesColumns[1]},
 			},
 		},
 	}
@@ -2651,6 +2692,7 @@ var (
 		ProjectConversationRunsTable,
 		ProjectConversationStepEventsTable,
 		ProjectConversationTraceEventsTable,
+		ProjectDailyTokenUsagesTable,
 		ProjectReposTable,
 		ProjectUpdateCommentsTable,
 		ProjectUpdateCommentRevisionsTable,
@@ -2730,6 +2772,7 @@ func init() {
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
+	ProjectDailyTokenUsagesTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectUpdateCommentsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
 	ProjectUpdateCommentRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateCommentsTable

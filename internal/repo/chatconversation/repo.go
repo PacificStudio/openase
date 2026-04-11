@@ -20,6 +20,7 @@ import (
 	entprojectconversationtraceevent "github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
+	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	"github.com/google/uuid"
 )
 
@@ -287,6 +288,11 @@ func (r *Repository) UpdateRun(ctx context.Context, input domain.UpdateRunInput)
 	item, err := builder.Save(ctx)
 	if err != nil {
 		return domain.ProjectConversationRun{}, mapWriteError("update project conversation run", err)
+	}
+	if item.TerminalAt != nil && isTerminalProjectConversationRunStatus(item.Status) {
+		if err := catalogrepo.MaterializeProjectConversationRunDailyUsage(ctx, r.client, item.ID, time.Now().UTC()); err != nil {
+			return domain.ProjectConversationRun{}, fmt.Errorf("materialize project conversation run daily usage: %w", err)
+		}
 	}
 	return mapRun(item), nil
 }
@@ -1213,6 +1219,15 @@ func cloneMap(value map[string]any) map[string]any {
 		copied[key] = item
 	}
 	return copied
+}
+
+func isTerminalProjectConversationRunStatus(status entprojectconversationrun.Status) bool {
+	switch status {
+	case entprojectconversationrun.StatusCompleted, entprojectconversationrun.StatusFailed, entprojectconversationrun.StatusTerminated:
+		return true
+	default:
+		return false
+	}
 }
 
 func hasRunUsageDelta(value domain.RunUsageSnapshot) bool {

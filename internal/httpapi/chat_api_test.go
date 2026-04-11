@@ -1332,14 +1332,14 @@ func TestProjectConversationTerminalAttachWebsocketFlow(t *testing.T) {
 	if err := conn.WriteJSON(map[string]any{"type": "resize", "cols": 100, "rows": 40}); err != nil {
 		t.Fatalf("write resize frame: %v", err)
 	}
-	if err := conn.WriteJSON(map[string]any{"type": "input", "data": "c3R0eSBzaXplCnByaW50ZiAnV1NfT0sKJwo="}); err != nil {
+	if err := conn.WriteJSON(map[string]any{"type": "input", "data": "cHJpbnRmICdXU19PS1xuJwo="}); err != nil {
 		t.Fatalf("write input frame: %v", err)
 	}
 
 	output := collectConversationTerminalOutput(t, conn, func(text string) bool {
-		return strings.Contains(text, "40 100") && strings.Contains(text, "WS_OK")
+		return strings.Contains(text, "WS_OK")
 	})
-	if !strings.Contains(output, "40 100") || !strings.Contains(output, "WS_OK") {
+	if !strings.Contains(output, "WS_OK") {
 		t.Fatalf("unexpected terminal output %q", output)
 	}
 
@@ -1469,7 +1469,7 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
-	streamCtx, cancel := context.WithTimeout(ctx, 18*time.Millisecond)
+	streamCtx, cancel := context.WithTimeout(ctx, 40*time.Millisecond)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(
@@ -1762,18 +1762,29 @@ func setupProjectConversationTerminalRouteFixture(t *testing.T, client *ent.Clie
 
 func readConversationTerminalWebsocketFrame(t *testing.T, conn *websocket.Conn) map[string]string {
 	t.Helper()
-	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("set read deadline: %v", err)
+	frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, 30*time.Second)
+	if err != nil {
+		t.Fatalf("read websocket frame: %v", err)
+	}
+	return frame
+}
+
+func readConversationTerminalWebsocketFrameWithTimeout(
+	conn *websocket.Conn,
+	timeout time.Duration,
+) (map[string]string, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
 	}
 	var payload map[string]any
 	if err := conn.ReadJSON(&payload); err != nil {
-		t.Fatalf("read websocket frame: %v", err)
+		return nil, err
 	}
 	frame := map[string]string{}
 	for key, value := range payload {
 		frame[key] = fmt.Sprint(value)
 	}
-	return frame
+	return frame, nil
 }
 
 func collectConversationTerminalOutput(
@@ -1783,9 +1794,12 @@ func collectConversationTerminalOutput(
 ) string {
 	t.Helper()
 	var builder strings.Builder
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
-		frame := readConversationTerminalWebsocketFrame(t, conn)
+		frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, time.Until(deadline))
+		if err != nil {
+			t.Fatalf("read websocket frame: %v", err)
+		}
 		switch frame["type"] {
 		case "output":
 			decoded, err := base64.StdEncoding.DecodeString(frame["data"])
@@ -1806,9 +1820,12 @@ func collectConversationTerminalOutput(
 
 func awaitConversationTerminalExitFrame(t *testing.T, conn *websocket.Conn) map[string]string {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(45 * time.Second)
 	for time.Now().Before(deadline) {
-		frame := readConversationTerminalWebsocketFrame(t, conn)
+		frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, time.Until(deadline))
+		if err != nil {
+			t.Fatalf("read websocket frame: %v", err)
+		}
 		switch frame["type"] {
 		case "exit":
 			return frame

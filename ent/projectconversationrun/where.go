@@ -110,6 +110,11 @@ func TerminalAt(v time.Time) predicate.ProjectConversationRun {
 	return predicate.ProjectConversationRun(sql.FieldEQ(FieldTerminalAt, v))
 }
 
+// SnapshotMaterializedAt applies equality check predicate on the "snapshot_materialized_at" field. It's identical to SnapshotMaterializedAtEQ.
+func SnapshotMaterializedAt(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldEQ(FieldSnapshotMaterializedAt, v))
+}
+
 // LastError applies equality check predicate on the "last_error" field. It's identical to LastErrorEQ.
 func LastError(v string) predicate.ProjectConversationRun {
 	return predicate.ProjectConversationRun(sql.FieldEQ(FieldLastError, v))
@@ -818,6 +823,56 @@ func TerminalAtIsNil() predicate.ProjectConversationRun {
 // TerminalAtNotNil applies the NotNil predicate on the "terminal_at" field.
 func TerminalAtNotNil() predicate.ProjectConversationRun {
 	return predicate.ProjectConversationRun(sql.FieldNotNull(FieldTerminalAt))
+}
+
+// SnapshotMaterializedAtEQ applies the EQ predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtEQ(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldEQ(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtNEQ applies the NEQ predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtNEQ(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldNEQ(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtIn applies the In predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtIn(vs ...time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldIn(FieldSnapshotMaterializedAt, vs...))
+}
+
+// SnapshotMaterializedAtNotIn applies the NotIn predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtNotIn(vs ...time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldNotIn(FieldSnapshotMaterializedAt, vs...))
+}
+
+// SnapshotMaterializedAtGT applies the GT predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtGT(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldGT(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtGTE applies the GTE predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtGTE(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldGTE(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtLT applies the LT predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtLT(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldLT(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtLTE applies the LTE predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtLTE(v time.Time) predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldLTE(FieldSnapshotMaterializedAt, v))
+}
+
+// SnapshotMaterializedAtIsNil applies the IsNil predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtIsNil() predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldIsNull(FieldSnapshotMaterializedAt))
+}
+
+// SnapshotMaterializedAtNotNil applies the NotNil predicate on the "snapshot_materialized_at" field.
+func SnapshotMaterializedAtNotNil() predicate.ProjectConversationRun {
+	return predicate.ProjectConversationRun(sql.FieldNotNull(FieldSnapshotMaterializedAt))
 }
 
 // LastErrorEQ applies the EQ predicate on the "last_error" field.

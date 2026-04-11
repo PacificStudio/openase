@@ -54,6 +54,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("agent_tokens", AgentToken.Type),
 		edge.To("agent_trace_events", AgentTraceEvent.Type),
 		edge.To("agent_step_events", AgentStepEvent.Type),
+		edge.To("daily_token_usage", ProjectDailyTokenUsage.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("update_threads", ProjectUpdateThread.Type),
