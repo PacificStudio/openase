@@ -509,29 +509,19 @@ func privilegedScopesForPrincipalKind(kind PrincipalKind) []string {
 }
 
 func defaultScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
-	switch kind {
-	case PrincipalKindProjectConversation:
-		scopes := supportedScopesForPrincipalKind(kind)
-		return append(ScopeSet(nil), scopes...)
-	default:
-		return append(ScopeSet(nil), defaultAgentScopes...)
-	}
+	return append(ScopeSet(nil), parseScopeStrings(domain.DefaultScopesForPrincipalKind(kind))...)
 }
 
 func supportedScopesForPrincipalKind(kind PrincipalKind) ScopeSet {
-	switch kind {
-	case PrincipalKindProjectConversation:
-		scopes := make(ScopeSet, 0, len(supportedAgentScopes))
-		for _, scope := range supportedAgentScopes {
-			if scope == ScopeTicketsUpdateSelf {
-				continue
-			}
-			scopes = append(scopes, scope)
-		}
-		return scopes
-	default:
-		return append(ScopeSet(nil), supportedAgentScopes...)
+	return append(ScopeSet(nil), parseScopeStrings(domain.SupportedScopesForPrincipalKind(kind))...)
+}
+
+func parseScopeStrings(raw []string) ScopeSet {
+	scopes := make(ScopeSet, 0, len(raw))
+	for _, item := range raw {
+		scopes = append(scopes, Scope(item))
 	}
+	return scopes
 }
 
 func (s *Service) resolvePrincipalIssueInput(ctx context.Context, input IssueInput) (IssueInput, error) {

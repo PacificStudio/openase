@@ -29110,6 +29110,8 @@ type ProjectMutation struct {
 	status                                   *string
 	github_outbound_credential               **githubauth.StoredCredential
 	github_token_probe                       **githubauth.TokenProbe
+	project_ai_platform_access_allowed       *[]string
+	appendproject_ai_platform_access_allowed []string
 	accessible_machine_ids                   *[]uuid.UUID
 	appendaccessible_machine_ids             []uuid.UUID
 	max_concurrent_agents                    *int
@@ -29617,6 +29619,57 @@ func (m *ProjectMutation) DefaultAgentProviderIDCleared() bool {
 func (m *ProjectMutation) ResetDefaultAgentProviderID() {
 	m.default_agent_provider = nil
 	delete(m.clearedFields, project.FieldDefaultAgentProviderID)
+}
+
+// SetProjectAiPlatformAccessAllowed sets the "project_ai_platform_access_allowed" field.
+func (m *ProjectMutation) SetProjectAiPlatformAccessAllowed(s []string) {
+	m.project_ai_platform_access_allowed = &s
+	m.appendproject_ai_platform_access_allowed = nil
+}
+
+// ProjectAiPlatformAccessAllowed returns the value of the "project_ai_platform_access_allowed" field in the mutation.
+func (m *ProjectMutation) ProjectAiPlatformAccessAllowed() (r []string, exists bool) {
+	v := m.project_ai_platform_access_allowed
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiPlatformAccessAllowed returns the old "project_ai_platform_access_allowed" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiPlatformAccessAllowed(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiPlatformAccessAllowed is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiPlatformAccessAllowed requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiPlatformAccessAllowed: %w", err)
+	}
+	return oldValue.ProjectAiPlatformAccessAllowed, nil
+}
+
+// AppendProjectAiPlatformAccessAllowed adds s to the "project_ai_platform_access_allowed" field.
+func (m *ProjectMutation) AppendProjectAiPlatformAccessAllowed(s []string) {
+	m.appendproject_ai_platform_access_allowed = append(m.appendproject_ai_platform_access_allowed, s...)
+}
+
+// AppendedProjectAiPlatformAccessAllowed returns the list of values that were appended to the "project_ai_platform_access_allowed" field in this mutation.
+func (m *ProjectMutation) AppendedProjectAiPlatformAccessAllowed() ([]string, bool) {
+	if len(m.appendproject_ai_platform_access_allowed) == 0 {
+		return nil, false
+	}
+	return m.appendproject_ai_platform_access_allowed, true
+}
+
+// ResetProjectAiPlatformAccessAllowed resets all changes to the "project_ai_platform_access_allowed" field.
+func (m *ProjectMutation) ResetProjectAiPlatformAccessAllowed() {
+	m.project_ai_platform_access_allowed = nil
+	m.appendproject_ai_platform_access_allowed = nil
 }
 
 // SetAccessibleMachineIds sets the "accessible_machine_ids" field.
@@ -30821,7 +30874,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 14)
+	fields := make([]string, 0, 15)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -30845,6 +30898,9 @@ func (m *ProjectMutation) Fields() []string {
 	}
 	if m.default_agent_provider != nil {
 		fields = append(fields, project.FieldDefaultAgentProviderID)
+	}
+	if m.project_ai_platform_access_allowed != nil {
+		fields = append(fields, project.FieldProjectAiPlatformAccessAllowed)
 	}
 	if m.accessible_machine_ids != nil {
 		fields = append(fields, project.FieldAccessibleMachineIds)
@@ -30888,6 +30944,8 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.GithubTokenProbe()
 	case project.FieldDefaultAgentProviderID:
 		return m.DefaultAgentProviderID()
+	case project.FieldProjectAiPlatformAccessAllowed:
+		return m.ProjectAiPlatformAccessAllowed()
 	case project.FieldAccessibleMachineIds:
 		return m.AccessibleMachineIds()
 	case project.FieldMaxConcurrentAgents:
@@ -30925,6 +30983,8 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldGithubTokenProbe(ctx)
 	case project.FieldDefaultAgentProviderID:
 		return m.OldDefaultAgentProviderID(ctx)
+	case project.FieldProjectAiPlatformAccessAllowed:
+		return m.OldProjectAiPlatformAccessAllowed(ctx)
 	case project.FieldAccessibleMachineIds:
 		return m.OldAccessibleMachineIds(ctx)
 	case project.FieldMaxConcurrentAgents:
@@ -31001,6 +31061,13 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDefaultAgentProviderID(v)
+		return nil
+	case project.FieldProjectAiPlatformAccessAllowed:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiPlatformAccessAllowed(v)
 		return nil
 	case project.FieldAccessibleMachineIds:
 		v, ok := value.([]uuid.UUID)
@@ -31188,6 +31255,9 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldDefaultAgentProviderID:
 		m.ResetDefaultAgentProviderID()
+		return nil
+	case project.FieldProjectAiPlatformAccessAllowed:
+		m.ResetProjectAiPlatformAccessAllowed()
 		return nil
 	case project.FieldAccessibleMachineIds:
 		m.ResetAccessibleMachineIds()

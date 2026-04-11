@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
@@ -2140,7 +2139,13 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	var builder strings.Builder
 	builder.WriteString(basePrompt)
 	platformContract := agentplatform.BuildCapabilityContract(
-		s.projectConversationPlatformContractInput(conversation, project, focus, "<runtime-injected>", projectConversationPromptScopes()),
+		s.projectConversationPlatformContractInput(
+			conversation,
+			project,
+			focus,
+			"<runtime-injected>",
+			projectConversationPlatformAccessAllowed(project),
+		),
 	)
 	if strings.TrimSpace(platformContract) != "" {
 		builder.WriteString("\n\n")
@@ -2204,12 +2209,11 @@ func (s *ProjectConversationService) projectConversationPlatformContractInput(
 	return input
 }
 
-func projectConversationPromptScopes() []string {
-	scopes := append(
-		agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation),
-		agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...,
-	)
-	return slices.Compact(scopes)
+func projectConversationPlatformAccessAllowed(project catalogdomain.Project) []string {
+	if len(project.ProjectAIPlatformAccessAllowed) > 0 {
+		return append([]string(nil), project.ProjectAIPlatformAccessAllowed...)
+	}
+	return agentplatform.SupportedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)
 }
 
 func (s *ProjectConversationService) broadcastConversationEvent(
@@ -2409,8 +2413,7 @@ func (s *ProjectConversationService) buildConversationRuntimeEnvironment(
 		if err != nil {
 			s.logger.Warn("ensure project conversation principal failed", "conversation_id", conversation.ID, "error", err)
 		} else {
-			scopes := append(agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation), agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...)
-			scopes = slices.Compact(scopes)
+			scopes := projectConversationPlatformAccessAllowed(project)
 			issued, issueErr := s.agentPlatform.IssueToken(ctx, agentplatform.IssueInput{
 				PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
 				PrincipalID:    principal.ID,

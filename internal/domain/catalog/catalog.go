@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	githubauthdomain "github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/google/uuid"
 )
@@ -21,17 +23,18 @@ type Organization struct {
 }
 
 type Project struct {
-	ID                     uuid.UUID
-	OrganizationID         uuid.UUID
-	Name                   string
-	Slug                   string
-	Description            string
-	Status                 ProjectStatus
-	DefaultAgentProviderID *uuid.UUID
-	AccessibleMachineIDs   []uuid.UUID
-	MaxConcurrentAgents    int
-	AgentRunSummaryPrompt  string
-	ProjectAIRetention     ProjectAIRetentionPolicy
+	ID                             uuid.UUID
+	OrganizationID                 uuid.UUID
+	Name                           string
+	Slug                           string
+	Description                    string
+	Status                         ProjectStatus
+	DefaultAgentProviderID         *uuid.UUID
+	ProjectAIPlatformAccessAllowed []string
+	AccessibleMachineIDs           []uuid.UUID
+	MaxConcurrentAgents            int
+	AgentRunSummaryPrompt          string
+	ProjectAIRetention             ProjectAIRetentionPolicy
 }
 
 type ProjectAIRetentionPolicy struct {
@@ -65,15 +68,16 @@ type OrganizationInput struct {
 }
 
 type ProjectInput struct {
-	Name                   string                         `json:"name"`
-	Slug                   string                         `json:"slug"`
-	Description            string                         `json:"description"`
-	Status                 string                         `json:"status"`
-	DefaultAgentProviderID *string                        `json:"default_agent_provider_id"`
-	AccessibleMachineIDs   []string                       `json:"accessible_machine_ids"`
-	MaxConcurrentAgents    *int                           `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string                        `json:"agent_run_summary_prompt"`
-	ProjectAIRetention     *ProjectAIRetentionPolicyInput `json:"project_ai_retention"`
+	Name                           string                         `json:"name"`
+	Slug                           string                         `json:"slug"`
+	Description                    string                         `json:"description"`
+	Status                         string                         `json:"status"`
+	DefaultAgentProviderID         *string                        `json:"default_agent_provider_id"`
+	ProjectAIPlatformAccessAllowed []string                       `json:"project_ai_platform_access_allowed"`
+	AccessibleMachineIDs           []string                       `json:"accessible_machine_ids"`
+	MaxConcurrentAgents            *int                           `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string                        `json:"agent_run_summary_prompt"`
+	ProjectAIRetention             *ProjectAIRetentionPolicyInput `json:"project_ai_retention"`
 }
 
 type ProjectAIRetentionPolicyInput struct {
@@ -112,30 +116,32 @@ type UpdateOrganization struct {
 }
 
 type CreateProject struct {
-	OrganizationID         uuid.UUID
-	Name                   string
-	Slug                   string
-	Description            string
-	Status                 ProjectStatus
-	DefaultAgentProviderID *uuid.UUID
-	AccessibleMachineIDs   []uuid.UUID
-	MaxConcurrentAgents    int
-	AgentRunSummaryPrompt  string
-	ProjectAIRetention     ProjectAIRetentionPolicy
+	OrganizationID                 uuid.UUID
+	Name                           string
+	Slug                           string
+	Description                    string
+	Status                         ProjectStatus
+	DefaultAgentProviderID         *uuid.UUID
+	ProjectAIPlatformAccessAllowed []string
+	AccessibleMachineIDs           []uuid.UUID
+	MaxConcurrentAgents            int
+	AgentRunSummaryPrompt          string
+	ProjectAIRetention             ProjectAIRetentionPolicy
 }
 
 type UpdateProject struct {
-	ID                     uuid.UUID
-	OrganizationID         uuid.UUID
-	Name                   string
-	Slug                   string
-	Description            string
-	Status                 ProjectStatus
-	DefaultAgentProviderID *uuid.UUID
-	AccessibleMachineIDs   []uuid.UUID
-	MaxConcurrentAgents    int
-	AgentRunSummaryPrompt  string
-	ProjectAIRetention     ProjectAIRetentionPolicy
+	ID                             uuid.UUID
+	OrganizationID                 uuid.UUID
+	Name                           string
+	Slug                           string
+	Description                    string
+	Status                         ProjectStatus
+	DefaultAgentProviderID         *uuid.UUID
+	ProjectAIPlatformAccessAllowed []string
+	AccessibleMachineIDs           []uuid.UUID
+	MaxConcurrentAgents            int
+	AgentRunSummaryPrompt          string
+	ProjectAIRetention             ProjectAIRetentionPolicy
 }
 
 type CreateProjectRepo struct {
@@ -228,6 +234,10 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 	if err != nil {
 		return CreateProject{}, err
 	}
+	projectAIPlatformAccessAllowed, err := parseProjectAIPlatformAccessAllowed(raw.ProjectAIPlatformAccessAllowed, true)
+	if err != nil {
+		return CreateProject{}, err
+	}
 	accessibleMachineIDs, err := parseUUIDList("accessible_machine_ids", raw.AccessibleMachineIDs)
 	if err != nil {
 		return CreateProject{}, err
@@ -248,38 +258,102 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 	}
 
 	return CreateProject{
-		OrganizationID:         organizationID,
-		Name:                   name,
-		Slug:                   slug,
-		Description:            strings.TrimSpace(raw.Description),
-		Status:                 status,
-		DefaultAgentProviderID: defaultAgentProviderID,
-		AccessibleMachineIDs:   accessibleMachineIDs,
-		MaxConcurrentAgents:    maxConcurrentAgents,
-		AgentRunSummaryPrompt:  strings.TrimSpace(derefString(raw.AgentRunSummaryPrompt)),
-		ProjectAIRetention:     projectAIRetention,
+		OrganizationID:                 organizationID,
+		Name:                           name,
+		Slug:                           slug,
+		Description:                    strings.TrimSpace(raw.Description),
+		Status:                         status,
+		DefaultAgentProviderID:         defaultAgentProviderID,
+		ProjectAIPlatformAccessAllowed: projectAIPlatformAccessAllowed,
+		AccessibleMachineIDs:           accessibleMachineIDs,
+		MaxConcurrentAgents:            maxConcurrentAgents,
+		AgentRunSummaryPrompt:          strings.TrimSpace(derefString(raw.AgentRunSummaryPrompt)),
+		ProjectAIRetention:             projectAIRetention,
 	}, nil
 }
 
 func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput) (UpdateProject, error) {
-	input, err := ParseCreateProject(organizationID, raw)
+	name, err := parseName("name", raw.Name)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+
+	slug, err := parseSlug(raw.Slug)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+
+	defaultAgentProviderID, err := parseOptionalUUID("default_agent_provider_id", raw.DefaultAgentProviderID)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+	projectAIPlatformAccessAllowed, err := parseProjectAIPlatformAccessAllowed(raw.ProjectAIPlatformAccessAllowed, false)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+	accessibleMachineIDs, err := parseUUIDList("accessible_machine_ids", raw.AccessibleMachineIDs)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+	status, err := parseProjectStatus(raw.Status)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+	maxConcurrentAgents, err := parseMaxConcurrentAgents(raw.MaxConcurrentAgents)
+	if err != nil {
+		return UpdateProject{}, err
+	}
+	projectAIRetention, err := ParseProjectAIRetentionPolicy(raw.ProjectAIRetention)
 	if err != nil {
 		return UpdateProject{}, err
 	}
 
 	return UpdateProject{
-		ID:                     id,
-		OrganizationID:         input.OrganizationID,
-		Name:                   input.Name,
-		Slug:                   input.Slug,
-		Description:            input.Description,
-		Status:                 input.Status,
-		DefaultAgentProviderID: input.DefaultAgentProviderID,
-		AccessibleMachineIDs:   input.AccessibleMachineIDs,
-		MaxConcurrentAgents:    input.MaxConcurrentAgents,
-		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
-		ProjectAIRetention:     input.ProjectAIRetention,
+		ID:                             id,
+		OrganizationID:                 organizationID,
+		Name:                           name,
+		Slug:                           slug,
+		Description:                    strings.TrimSpace(raw.Description),
+		Status:                         status,
+		DefaultAgentProviderID:         defaultAgentProviderID,
+		ProjectAIPlatformAccessAllowed: projectAIPlatformAccessAllowed,
+		AccessibleMachineIDs:           accessibleMachineIDs,
+		MaxConcurrentAgents:            maxConcurrentAgents,
+		AgentRunSummaryPrompt:          strings.TrimSpace(derefString(raw.AgentRunSummaryPrompt)),
+		ProjectAIRetention:             projectAIRetention,
 	}, nil
+}
+
+func parseProjectAIPlatformAccessAllowed(raw []string, defaultToAll bool) ([]string, error) {
+	supported := agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation)
+	if len(raw) == 0 {
+		if defaultToAll {
+			return append([]string(nil), supported...), nil
+		}
+		return nil, nil
+	}
+
+	normalized := make([]string, 0, len(raw))
+	for _, item := range raw {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if !slices.Contains(supported, trimmed) {
+			return nil, fmt.Errorf("project_ai_platform_access_allowed contains unsupported scope %q", trimmed)
+		}
+		if !slices.Contains(normalized, trimmed) {
+			normalized = append(normalized, trimmed)
+		}
+	}
+
+	if len(normalized) == 0 {
+		if defaultToAll {
+			return append([]string(nil), supported...), nil
+		}
+		return []string{}, nil
+	}
+	return normalized, nil
 }
 
 func ParseProjectAIRetentionPolicy(raw *ProjectAIRetentionPolicyInput) (ProjectAIRetentionPolicy, error) {

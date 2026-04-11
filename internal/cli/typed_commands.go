@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -238,6 +239,17 @@ func newAuthCommand(options *rootOptions) *cobra.Command {
 		Use:   "auth",
 		Short: "Inspect and govern browser-auth sessions through the OpenASE API.",
 	}
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:    "session",
+		Short:  "Get the current browser human-auth session.",
+		Method: http.MethodGet,
+		Path:   "/api/v1/auth/session",
+		HelpNotes: []string{
+			"When a stored CLI human session is present, this reflects the current authenticated principal and CSRF token that protected OpenASE commands will reuse.",
+		},
+		Example: "openase auth session",
+	}))
+	command.AddCommand(newAuthLogoutCommand())
 
 	sessions := &cobra.Command{
 		Use:   "sessions",
@@ -293,6 +305,66 @@ func newAuthCommand(options *rootOptions) *cobra.Command {
 	command.AddCommand(newAuthBreakGlassCommand(options))
 
 	return command
+}
+
+func newAuthLogoutCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
+	var output apiOutputOptions
+	command := &cobra.Command{
+		Use:   "logout",
+		Short: "Revoke the current browser human-auth session and clear stored CLI auth state.",
+		Long: strings.TrimSpace(`
+Revoke the current browser human-auth session and clear stored CLI auth state.
+
+When the server already considers the session invalid or expired, this command
+still clears the local CLI session file so future commands do not keep sending
+stale cookie credentials.
+`),
+		Example: "openase auth logout",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			apiContext, err := apiOptionsFromFlags(cmd.Flags()).resolveResource()
+			if err != nil {
+				return err
+			}
+			response, requestErr := apiContext.do(cmd.Context(), deps, apiRequest{
+				Method: http.MethodPost,
+				Path:   "auth/logout",
+			})
+			if requestErr != nil {
+				var httpErr *apiHTTPError
+				if errors.As(requestErr, &httpErr) && httpErr.StatusCode == http.StatusUnauthorized {
+					if apiContext.humanSessionStatePath != "" {
+						if err := removeHumanSessionState(apiContext.humanSessionStatePath); err != nil {
+							return err
+						}
+					}
+					_, err := fmt.Fprintln(cmd.OutOrStdout(), "Cleared stored CLI human session state; the server session was already invalid.")
+					return err
+				}
+				return requestErr
+			}
+			if apiContext.humanSessionStatePath != "" {
+				if err := removeHumanSessionState(apiContext.humanSessionStatePath); err != nil {
+					return err
+				}
+			}
+			if len(response.Body) == 0 {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "Logged out and cleared stored CLI human session state.")
+				return err
+			}
+			return writeAPIOutput(cmd.OutOrStdout(), response.Body, output)
+		},
+	}
+	command.SetFlagErrorFunc(flagErrorWithNormalize)
+	applyCLICommandFlagNormalization(command)
+	bindAPICommandFlags(command.Flags(), &apiCommandOptions{})
+	bindAPIOutputFlags(command.Flags(), &output)
+	return markCLICommandAPICoverageSpec(command, openAPICommandSpec{
+		Use:    "logout",
+		Short:  "Revoke the current browser human-auth session.",
+		Method: http.MethodPost,
+		Path:   "/api/v1/auth/logout",
+	})
 }
 
 func newStatusCommand() *cobra.Command {
@@ -2219,6 +2291,8 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "get [projectId] [ticketId] [runId]", Short: "Get a ticket run.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", PositionalParams: []string{"projectId", "ticketId", "runId"}},
 		{Use: "list [projectId]", Short: "List ticket statuses.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
 		{Use: "list [projectId]", Short: "List project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity", PositionalParams: []string{"projectId"}},
+		{Use: "session", Short: "Get the current browser human-auth session.", Method: http.MethodGet, Path: "/api/v1/auth/session"},
+		{Use: "logout", Short: "Revoke the current browser human-auth session.", Method: http.MethodPost, Path: "/api/v1/auth/logout"},
 		{Use: "list", Short: "List active browser sessions and recent auth audit events.", Method: http.MethodGet, Path: "/api/v1/auth/sessions"},
 		{Use: "revoke [id]", Short: "Revoke one browser session owned by the current human principal.", Method: http.MethodDelete, Path: "/api/v1/auth/sessions/{id}", PositionalParams: []string{"id"}},
 		{Use: "revoke-all", Short: "Revoke all other browser sessions while keeping the current one.", Method: http.MethodPost, Path: "/api/v1/auth/sessions/revoke-all"},
@@ -2394,9 +2468,15 @@ func applyCLICommandFlagNormalization(command *cobra.Command) {
 func apiOptionsFromFlags(flags *pflag.FlagSet) apiCommandOptions {
 	apiURL, _ := flags.GetString("api_url")
 	token, _ := flags.GetString("token")
+	humanSessionFile, _ := flags.GetString("session_file")
+	humanSessionToken, _ := flags.GetString("session_token")
+	humanCSRFToken, _ := flags.GetString("csrf_token")
 	return apiCommandOptions{
-		apiURL: apiURL,
-		token:  token,
+		apiURL:            apiURL,
+		token:             token,
+		humanSessionFile:  humanSessionFile,
+		humanSessionToken: humanSessionToken,
+		humanCSRFToken:    humanCSRFToken,
 	}
 }
 

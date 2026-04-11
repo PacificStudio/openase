@@ -670,6 +670,7 @@ export function updateProject(
     description?: string | null
     max_concurrent_agents?: number | null
     name?: string | null
+    project_ai_platform_access_allowed?: string[] | null
     project_ai_retention?: ProjectAIRetentionPolicyMutationBody
     slug?: string | null
     status?: string | null
