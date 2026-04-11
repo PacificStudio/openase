@@ -41,6 +41,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -158,6 +159,7 @@ func checkColumn(t, c string) error {
 			projectconversationrun.Table:        projectconversationrun.ValidColumn,
 			projectconversationstepevent.Table:  projectconversationstepevent.ValidColumn,
 			projectconversationtraceevent.Table: projectconversationtraceevent.ValidColumn,
+			projectdailytokenusage.Table:        projectdailytokenusage.ValidColumn,
 			projectrepo.Table:                   projectrepo.ValidColumn,
 			projectupdatecomment.Table:          projectupdatecomment.ValidColumn,
 			projectupdatecommentrevision.Table:  projectupdatecommentrevision.ValidColumn,

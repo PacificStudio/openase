@@ -196,6 +196,101 @@ func TestGetConversationBackfillsLegacyTitleFromEarliestUserEntry(t *testing.T) 
 	}
 }
 
+func TestUpdateRunTerminalStateMaterializesScopedDailyUsage(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	client := openTestEntClient(t)
+	repo := NewEntRepository(client)
+	projectID := createConversationTestProject(ctx, t, client)
+
+	projectItem, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("get project: %v", err)
+	}
+
+	run, err := repo.CreateRun(ctx, domain.CreateRunInput{
+		RunID:          uuid.New(),
+		PrincipalID:    uuid.New(),
+		ConversationID: uuid.New(),
+		ProjectID:      projectID,
+		ProviderID:     uuid.New(),
+		Status:         domain.RunStatusExecuting,
+	})
+	if err != nil {
+		t.Fatalf("CreateRun() error = %v", err)
+	}
+
+	if _, err := repo.RecordRunUsage(ctx, domain.RecordRunUsageInput{
+		RunID:      run.ID,
+		ProjectID:  projectID,
+		ProviderID: run.ProviderID,
+		RecordedAt: time.Date(2026, 4, 10, 11, 58, 0, 0, time.UTC),
+		Totals: domain.RunUsageSnapshot{
+			InputTokens:       11,
+			OutputTokens:      7,
+			CachedInputTokens: 3,
+			ReasoningTokens:   2,
+			TotalTokens:       18,
+		},
+		Delta: domain.RunUsageSnapshot{
+			InputTokens:       11,
+			OutputTokens:      7,
+			CachedInputTokens: 3,
+			ReasoningTokens:   2,
+			TotalTokens:       18,
+		},
+	}); err != nil {
+		t.Fatalf("RecordRunUsage() error = %v", err)
+	}
+
+	completedStatus := domain.RunStatusCompleted
+	terminalAt := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
+	updatedRun, err := repo.UpdateRun(ctx, domain.UpdateRunInput{
+		RunID:      run.ID,
+		Status:     &completedStatus,
+		TerminalAt: &terminalAt,
+	})
+	if err != nil {
+		t.Fatalf("UpdateRun() error = %v", err)
+	}
+	if updatedRun.TerminalAt == nil || !updatedRun.TerminalAt.UTC().Equal(terminalAt) {
+		t.Fatalf("updated run terminal_at = %+v, want %s", updatedRun.TerminalAt, terminalAt.Format(time.RFC3339))
+	}
+
+	reloadedRun, err := client.ProjectConversationRun.Get(ctx, run.ID)
+	if err != nil {
+		t.Fatalf("reload run: %v", err)
+	}
+	if reloadedRun.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected snapshot_materialized_at to be set, got %+v", reloadedRun)
+	}
+
+	orgRows, err := client.OrganizationDailyTokenUsage.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query organization daily usage: %v", err)
+	}
+	if len(orgRows) != 1 {
+		t.Fatalf("expected 1 organization usage row, got %+v", orgRows)
+	}
+	orgRow := orgRows[0]
+	if orgRow.OrganizationID != projectItem.OrganizationID || orgRow.TotalTokens != 18 || orgRow.FinalizedRunCount != 1 || orgRow.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected organization usage row: %+v", orgRow)
+	}
+
+	projectRows, err := client.ProjectDailyTokenUsage.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query project daily usage: %v", err)
+	}
+	if len(projectRows) != 1 {
+		t.Fatalf("expected 1 project usage row, got %+v", projectRows)
+	}
+	projectRow := projectRows[0]
+	if projectRow.ProjectID != projectID || projectRow.TotalTokens != 18 || projectRow.FinalizedRunCount != 1 || projectRow.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected project usage row: %+v", projectRow)
+	}
+}
+
 func TestDeleteConversationCascadesConversationScopedRecords(t *testing.T) {
 	t.Parallel()
 

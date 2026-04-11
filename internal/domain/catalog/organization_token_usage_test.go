@@ -140,3 +140,15 @@ func TestParseProjectTokenUsageRejectsInvalidRanges(t *testing.T) {
 		t.Fatal("expected descending date range to fail")
 	}
 }
+
+func TestTokenUsageScopeAccessorsMirrorTypedIDs(t *testing.T) {
+	orgID := uuid.New()
+	projectID := uuid.New()
+
+	if got := (GetOrganizationTokenUsage{OrganizationID: orgID}).Scope(); got.Kind != TokenUsageScopeKindOrganization || got.ID != orgID {
+		t.Fatalf("organization scope = %+v, want kind=%q id=%s", got, TokenUsageScopeKindOrganization, orgID)
+	}
+	if got := (GetProjectTokenUsage{ProjectID: projectID}).Scope(); got.Kind != TokenUsageScopeKindProject || got.ID != projectID {
+		t.Fatalf("project scope = %+v, want kind=%q id=%s", got, TokenUsageScopeKindProject, projectID)
+	}
+}
