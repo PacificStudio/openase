@@ -289,3 +289,42 @@ func TestSupportedAgentScopes(t *testing.T) {
 		t.Fatalf("SupportedAgentScopes() = %#v, want %#v", got, want)
 	}
 }
+
+func TestPrincipalKindScopeHelpers(t *testing.T) {
+	t.Run("project conversation defaults to supported project conversation scopes", func(t *testing.T) {
+		got := DefaultScopesForPrincipalKind(PrincipalKindProjectConversation)
+		want := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
+		if !slices.Equal(got, want) {
+			t.Fatalf("DefaultScopesForPrincipalKind(project conversation) = %#v, want %#v", got, want)
+		}
+		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
+			t.Fatalf("project conversation defaults unexpectedly included %q", ScopeTicketsUpdateSelf)
+		}
+	})
+
+	t.Run("non project conversation defaults to agent defaults", func(t *testing.T) {
+		got := DefaultScopesForPrincipalKind(PrincipalKindTicketAgent)
+		want := DefaultAgentScopes()
+		if !slices.Equal(got, want) {
+			t.Fatalf("DefaultScopesForPrincipalKind(ticket agent) = %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("project conversation supported scopes exclude ticket self update", func(t *testing.T) {
+		got := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
+		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
+			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) unexpectedly included %q", ScopeTicketsUpdateSelf)
+		}
+		if !slices.Contains(got, string(ScopeProjectsUpdate)) {
+			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) missing %q", ScopeProjectsUpdate)
+		}
+	})
+
+	t.Run("non project conversation supported scopes fall back to agent scopes", func(t *testing.T) {
+		got := SupportedScopesForPrincipalKind(PrincipalKindTicketAgent)
+		want := SupportedAgentScopes()
+		if !slices.Equal(got, want) {
+			t.Fatalf("SupportedScopesForPrincipalKind(ticket agent) = %#v, want %#v", got, want)
+		}
+	})
+}

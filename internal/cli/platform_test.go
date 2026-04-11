@@ -781,6 +781,7 @@ func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 		"--description", "Coverage raised",
 		"--status", "In Progress",
 		"--default-agent-provider-id", "provider-123",
+		"--project-ai-platform-access-allowed", "tickets.list,tickets.update",
 		"--accessible-machine-ids", "machine-a,machine-b",
 		"--max-concurrent-agents", "4",
 		"--agent-run-summary-prompt", "Summarize blockers first.",
@@ -804,6 +805,10 @@ func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 		payload["max_concurrent_agents"] != float64(4) ||
 		payload["agent_run_summary_prompt"] != "Summarize blockers first." {
 		t.Fatalf("unexpected project update payload: %+v", payload)
+	}
+	projectAIScopes, ok := payload["project_ai_platform_access_allowed"].([]any)
+	if !ok || len(projectAIScopes) != 2 || projectAIScopes[0] != "tickets.list" || projectAIScopes[1] != "tickets.update" {
+		t.Fatalf("unexpected project_ai_platform_access_allowed payload: %+v", payload["project_ai_platform_access_allowed"])
 	}
 	accessibleMachineIDs, ok := payload["accessible_machine_ids"].([]any)
 	if !ok || len(accessibleMachineIDs) != 2 || accessibleMachineIDs[0] != "machine-a" || accessibleMachineIDs[1] != "machine-b" {

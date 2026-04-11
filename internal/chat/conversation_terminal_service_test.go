@@ -50,7 +50,7 @@ func (p *fakeConversationTerminalProcess) Close() error {
 	p.mu.Lock()
 	p.closeCount++
 	p.mu.Unlock()
-	p.complete(nil)
+	p.complete()
 	_ = p.writer.Close()
 	return p.reader.Close()
 }
@@ -73,9 +73,9 @@ func (p *fakeConversationTerminalProcess) emitOutput(t *testing.T, value string)
 	}
 }
 
-func (p *fakeConversationTerminalProcess) complete(err error) {
+func (p *fakeConversationTerminalProcess) complete() {
 	p.completeOnce.Do(func() {
-		p.waitCh <- err
+		p.waitCh <- nil
 		close(p.waitCh)
 	})
 }
@@ -140,7 +140,7 @@ func TestConversationTerminalServiceCreateSessionResolvesRepoCWD(t *testing.T) {
 	if session.Mode != chatdomain.TerminalModeShell || session.CWD != wantCWD || session.ID == uuid.Nil || session.AttachToken == "" {
 		t.Fatalf("unexpected session = %+v", session)
 	}
-	process.complete(nil)
+	process.complete()
 }
 
 func TestConversationTerminalServiceCreateSessionRejectsPathEscape(t *testing.T) {
@@ -225,7 +225,7 @@ func TestConversationTerminalServiceAttachStreamsAndCleansUp(t *testing.T) {
 		t.Fatalf("input = %q, want %q", got, "pwd\\n")
 	}
 
-	process.complete(nil)
+	process.complete()
 	exit := requireConversationTerminalEvent(t, attachment.Events)
 	if exit.Type != "exit" || exit.ExitCode != 0 {
 		t.Fatalf("exit event = %+v", exit)
@@ -304,7 +304,7 @@ func TestConversationTerminalServiceDetachAllowsReattachAndReplaysBufferedOutput
 		t.Fatalf("input after reattach = %q, want %q", got, "pwd\\n")
 	}
 
-	process.complete(nil)
+	process.complete()
 	exit := requireConversationTerminalEvent(t, secondAttachment.Events)
 	if exit.Type != "exit" || exit.ExitCode != 0 {
 		t.Fatalf("exit event = %+v", exit)

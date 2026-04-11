@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -116,5 +119,94 @@ auth:
 	err = command.ExecuteContext(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "local bootstrap authorization is disabled") {
 		t.Fatalf("expected oidc-active rejection, got %v", err)
+	}
+}
+
+func TestAuthBootstrapLoginStoresCLIHumanSessionState(t *testing.T) {
+	client, dsn := openCLIEntClient(t)
+	_ = client
+
+	t.Setenv("OPENASE_DATABASE_DSN", dsn)
+
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/auth/local-bootstrap/redeem" {
+			t.Fatalf("path = %s, want /api/v1/auth/local-bootstrap/redeem", r.URL.Path)
+		}
+		if r.Header.Get("Origin") != server.URL {
+			t.Fatalf("origin = %q, want %q", r.Header.Get("Origin"), server.URL)
+		}
+		if r.Header.Get("User-Agent") != openASECLIUserAgent {
+			t.Fatalf("user-agent = %q, want %q", r.Header.Get("User-Agent"), openASECLIUserAgent)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("ReadAll(body) error = %v", err)
+		}
+		var payload localBootstrapRedeemRequest
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatalf("Unmarshal(body) error = %v", err)
+		}
+		if payload.RequestID == "" || payload.Code == "" || payload.Nonce == "" {
+			t.Fatalf("expected redeem materials, got %+v", payload)
+		}
+		http.SetCookie(w, &http.Cookie{Name: humanSessionCookieHeaderName, Value: "session-token", Path: "/", HttpOnly: true})
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+  "auth_mode":"disabled",
+  "authenticated":true,
+  "current_auth_method":"local_bootstrap_link",
+  "available_auth_methods":["local_bootstrap_link"],
+  "csrf_token":"csrf-token",
+  "roles":["instance_admin"],
+  "permissions":["security_read","security_update"]
+}`))
+	}))
+	defer server.Close()
+
+	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
+	command := newAuthBootstrapLoginCommand(&rootOptions{}, authBootstrapLoginDeps{httpClient: server.Client()})
+	var stdout bytes.Buffer
+	command.SetOut(&stdout)
+	command.SetErr(&stdout)
+	command.SetArgs([]string{
+		"--control-plane-url", server.URL,
+		"--session-file", sessionPath,
+		"--format", "json",
+	})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext() error = %v", err)
+	}
+
+	var output localBootstrapLoginOutput
+	if err := json.Unmarshal(stdout.Bytes(), &output); err != nil {
+		t.Fatalf("Unmarshal(stdout) error = %v", err)
+	}
+	if !output.Authenticated {
+		t.Fatal("expected authenticated login output")
+	}
+	if output.APIURL != server.URL+"/api/v1" {
+		t.Fatalf("api_url = %q, want %q", output.APIURL, server.URL+"/api/v1")
+	}
+	if output.SessionFile != sessionPath {
+		t.Fatalf("session_file = %q, want %q", output.SessionFile, sessionPath)
+	}
+
+	state, err := loadHumanSessionState(sessionPath)
+	if err != nil {
+		t.Fatalf("loadHumanSessionState(%q) error = %v", sessionPath, err)
+	}
+	if state.SessionToken != "session-token" {
+		t.Fatalf("session token = %q, want session-token", state.SessionToken)
+	}
+	if state.CSRFToken != "csrf-token" {
+		t.Fatalf("csrf token = %q, want csrf-token", state.CSRFToken)
+	}
+	if state.CurrentAuthMethod != "local_bootstrap_link" {
+		t.Fatalf("current auth method = %q, want local_bootstrap_link", state.CurrentAuthMethod)
 	}
 }
