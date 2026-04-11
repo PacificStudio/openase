@@ -33,4 +33,37 @@ else
   args+=("./...")
 fi
 
-go run "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${LINT_VERSION}" "${args[@]}"
+lint_cmd=(go run "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${LINT_VERSION}" "${args[@]}")
+retryable_patterns=(
+  "proxy.golang.org"
+  "Client.Timeout exceeded"
+  "TLS handshake timeout"
+  "connection reset by peer"
+  "EOF"
+)
+
+attempt=1
+max_attempts=3
+while (( attempt <= max_attempts )); do
+  output="$("${lint_cmd[@]}" 2>&1)" && {
+    printf '%s\n' "${output}"
+    exit 0
+  }
+
+  should_retry=0
+  for pattern in "${retryable_patterns[@]}"; do
+    if [[ "${output}" == *"${pattern}"* ]]; then
+      should_retry=1
+      break
+    fi
+  done
+
+  printf '%s\n' "${output}" >&2
+  if (( should_retry == 0 || attempt == max_attempts )); then
+    exit 1
+  fi
+
+  printf 'lint bootstrap failed with a transient network error; retrying (%d/%d)\n' "${attempt}" "${max_attempts}" >&2
+  sleep $(( attempt * 2 ))
+  ((attempt++))
+done
