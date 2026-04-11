@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import type { TicketRunDetailPayload } from '$lib/api/contracts'
 import { mapTicketRun, mapTicketRunDetail } from './run-transcript-data'
 
 describe('mapTicketRun', () => {
@@ -46,7 +47,7 @@ describe('mapTicketRun', () => {
 
 describe('mapTicketRunDetail', () => {
   it('falls back to transcript item cursors when page cursors are malformed', () => {
-    const detail = mapTicketRunDetail({
+    const payload: TicketRunDetailPayload = {
       run: {
         id: 'run-1',
         attempt_number: 1,
@@ -82,6 +83,17 @@ describe('mapTicketRunDetail', () => {
           {
             kind: 'step',
             cursor: ' 2026-04-03T12:00:11Z|step|0|step-1 ',
+            trace_entry: {
+              id: 'trace-unused',
+              agent_run_id: 'run-1',
+              sequence: 0,
+              provider: 'codex',
+              kind: 'assistant_delta',
+              stream: 'assistant',
+              output: '',
+              payload: {},
+              created_at: '2026-04-03T12:00:11Z',
+            },
             step_entry: {
               id: 'step-1',
               agent_run_id: 'run-1',
@@ -94,6 +106,14 @@ describe('mapTicketRunDetail', () => {
           {
             kind: 'trace',
             cursor: '2026-04-03T12:00:12Z|trace|2|trace-2',
+            step_entry: {
+              id: 'step-unused',
+              agent_run_id: 'run-1',
+              step_status: 'completed',
+              summary: 'Unused step payload.',
+              source_trace_event_id: null,
+              created_at: '2026-04-03T12:00:12Z',
+            },
             trace_entry: {
               id: 'trace-2',
               agent_run_id: 'run-1',
@@ -116,7 +136,9 @@ describe('mapTicketRunDetail', () => {
       },
       trace_entries: [],
       step_entries: [],
-    })
+    }
+
+    const detail = mapTicketRunDetail(payload)
 
     expect(detail.transcriptPage.oldestCursor).toBe('2026-04-03T12:00:11Z|step|0|step-1')
     expect(detail.transcriptPage.newestCursor).toBe('2026-04-03T12:00:12Z|trace|2|trace-2')
