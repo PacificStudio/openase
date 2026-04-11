@@ -1416,6 +1416,183 @@ func (f *fakeCatalogService) ListAgentRunStepEntries(_ context.Context, input do
 	return items, nil
 }
 
+func (f *fakeCatalogService) ListAgentRunRawEvents(
+	_ context.Context,
+	input domain.ListAgentRunRawEvents,
+) (domain.AgentRunRawEventPage, error) {
+	run, ok := f.agentRuns[input.AgentRunID]
+	if !ok {
+		return domain.AgentRunRawEventPage{}, catalogservice.ErrNotFound
+	}
+	ticket, ok := f.tickets[run.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return domain.AgentRunRawEventPage{}, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentRawEventEntry, 0)
+	for _, item := range f.rawEvents {
+		if item.ProjectID != input.ProjectID || item.AgentRunID != input.AgentRunID {
+			continue
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].OccurredAt.Equal(items[j].OccurredAt) {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+		return items[i].OccurredAt.Before(items[j].OccurredAt)
+	})
+
+	start, end := 0, len(items)
+	switch {
+	case input.After != nil:
+		start = len(items)
+		for index, item := range items {
+			cursor := domain.AgentRunEventCursorForRawEvent(item)
+			if domain.CompareAgentRunEventCursor(cursor, *input.After) > 0 {
+				start = index
+				break
+			}
+		}
+		end = min(start+input.Limit, len(items))
+	case input.Before != nil:
+		end = 0
+		for index, item := range items {
+			cursor := domain.AgentRunEventCursorForRawEvent(item)
+			if domain.CompareAgentRunEventCursor(cursor, *input.Before) >= 0 {
+				end = index
+				break
+			}
+			end = index + 1
+		}
+		start = max(0, end-input.Limit)
+	default:
+		start = max(0, end-input.Limit)
+	}
+
+	pageItems := make([]domain.AgentRawEventEntry, 0, max(0, end-start))
+	for _, item := range items[start:end] {
+		pageItems = append(pageItems, item)
+	}
+
+	page := domain.AgentRunRawEventPage{
+		Entries:          pageItems,
+		HasOlder:         start > 0,
+		HiddenOlderCount: start,
+		HasNewer:         end < len(items),
+		HiddenNewerCount: len(items) - end,
+	}
+	if len(pageItems) > 0 {
+		page.OldestCursor = domain.AgentRunEventCursorForRawEvent(pageItems[0]).String()
+		page.NewestCursor = domain.AgentRunEventCursorForRawEvent(pageItems[len(pageItems)-1]).String()
+	}
+	return page, nil
+}
+
+func (f *fakeCatalogService) ListAgentRunActivities(
+	_ context.Context,
+	input domain.ListAgentRunActivities,
+) ([]domain.AgentActivityInstance, error) {
+	run, ok := f.agentRuns[input.AgentRunID]
+	if !ok {
+		return nil, catalogservice.ErrNotFound
+	}
+	ticket, ok := f.tickets[run.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return nil, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentActivityInstance, 0)
+	for _, item := range f.activityInstances {
+		if item.ProjectID != input.ProjectID || item.AgentRunID != input.AgentRunID {
+			continue
+		}
+		if strings.TrimSpace(input.Status) != "" && item.Status != strings.TrimSpace(input.Status) {
+			continue
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].UpdatedAt.Equal(items[j].UpdatedAt) {
+			return items[i].ID.String() > items[j].ID.String()
+		}
+		return items[i].UpdatedAt.After(items[j].UpdatedAt)
+	})
+	return items, nil
+}
+
+func (f *fakeCatalogService) ListAgentRunTranscriptEntries(
+	_ context.Context,
+	input domain.ListAgentRunTranscriptEntries,
+) (domain.AgentRunTranscriptEntryPage, error) {
+	run, ok := f.agentRuns[input.AgentRunID]
+	if !ok {
+		return domain.AgentRunTranscriptEntryPage{}, catalogservice.ErrNotFound
+	}
+	ticket, ok := f.tickets[run.TicketID]
+	if !ok || ticket.ProjectID != input.ProjectID {
+		return domain.AgentRunTranscriptEntryPage{}, catalogservice.ErrNotFound
+	}
+
+	items := make([]domain.AgentTranscriptEntry, 0)
+	for _, item := range f.transcriptEntries {
+		if item.ProjectID != input.ProjectID || item.AgentRunID != input.AgentRunID {
+			continue
+		}
+		items = append(items, item)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].CreatedAt.Equal(items[j].CreatedAt) {
+			return items[i].ID.String() < items[j].ID.String()
+		}
+		return items[i].CreatedAt.Before(items[j].CreatedAt)
+	})
+
+	start, end := 0, len(items)
+	switch {
+	case input.After != nil:
+		start = len(items)
+		for index, item := range items {
+			cursor := domain.AgentRunEventCursorForTranscriptEntry(item)
+			if domain.CompareAgentRunEventCursor(cursor, *input.After) > 0 {
+				start = index
+				break
+			}
+		}
+		end = min(start+input.Limit, len(items))
+	case input.Before != nil:
+		end = 0
+		for index, item := range items {
+			cursor := domain.AgentRunEventCursorForTranscriptEntry(item)
+			if domain.CompareAgentRunEventCursor(cursor, *input.Before) >= 0 {
+				end = index
+				break
+			}
+			end = index + 1
+		}
+		start = max(0, end-input.Limit)
+	default:
+		start = max(0, end-input.Limit)
+	}
+
+	pageItems := make([]domain.AgentTranscriptEntry, 0, max(0, end-start))
+	for _, item := range items[start:end] {
+		pageItems = append(pageItems, item)
+	}
+	page := domain.AgentRunTranscriptEntryPage{
+		Entries:          pageItems,
+		HasOlder:         start > 0,
+		HiddenOlderCount: start,
+		HasNewer:         end < len(items),
+		HiddenNewerCount: len(items) - end,
+	}
+	if len(pageItems) > 0 {
+		page.OldestCursor = domain.AgentRunEventCursorForTranscriptEntry(pageItems[0]).String()
+		page.NewestCursor = domain.AgentRunEventCursorForTranscriptEntry(pageItems[len(pageItems)-1]).String()
+	}
+	return page, nil
+}
+
 func (f *fakeCatalogService) GetAgentRunTranscriptPage(
 	_ context.Context,
 	input domain.ListAgentRunTranscriptPage,

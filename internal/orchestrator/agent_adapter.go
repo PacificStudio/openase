@@ -58,6 +58,7 @@ const (
 	agentEventTypeToolCallRequested  agentEventType = "tool_call_requested"
 	agentEventTypeApprovalRequested  agentEventType = "approval_requested"
 	agentEventTypeUserInputRequested agentEventType = "user_input_requested"
+	agentEventTypeItemStarted        agentEventType = "item_started"
 	// #nosec G101 -- runtime event identifier, not a credential.
 	agentEventTypeTokenUsageUpdated agentEventType = "token_usage_updated"
 	agentEventTypeRateLimitUpdated  agentEventType = "rate_limit_updated"
@@ -76,6 +77,7 @@ type agentEvent struct {
 	ToolCall   *agentToolCallRequest
 	Approval   *agentApprovalRequest
 	UserInput  *agentUserInputRequest
+	Item       *agentItemStartedEvent
 	TokenUsage *agentTokenUsageEvent
 	RateLimit  *provider.CLIRateLimit
 	ObservedAt *time.Time
@@ -85,6 +87,29 @@ type agentEvent struct {
 	Diff       *agentTurnDiffEvent
 	Reasoning  *agentReasoningEvent
 	Turn       *agentTurnEvent
+	Raw        *agentRawProviderEvent
+}
+
+type agentItemStartedEvent struct {
+	ThreadID string
+	TurnID   string
+	ItemID   string
+	ItemType string
+	Phase    string
+	Command  string
+	Text     string
+}
+
+type agentRawProviderEvent struct {
+	DedupKey            string
+	ProviderEventKind   string
+	ProviderEventSubtype string
+	ProviderEventID     string
+	ThreadID            string
+	TurnID              string
+	ActivityHintID      string
+	Payload             map[string]any
+	TextExcerpt         string
 }
 
 type agentTaskStatusEvent struct {

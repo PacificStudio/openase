@@ -318,9 +318,81 @@ export type TicketRunTranscriptPageRecord = {
   oldest_cursor?: string
   newest_cursor?: string
 }
+export type TicketRunRawEventRecord = {
+  id: string
+  provider: string
+  provider_event_kind: string
+  provider_event_subtype: string
+  provider_event_id?: string
+  thread_id?: string
+  turn_id?: string
+  activity_hint_id?: string
+  occurred_at: string
+  payload: Record<string, unknown>
+  text_excerpt: string
+}
+export type TicketRunRawEventPageRecord = {
+  entries: TicketRunRawEventRecord[]
+  has_older: boolean
+  hidden_older_count: number
+  has_newer: boolean
+  hidden_newer_count: number
+  oldest_cursor?: string
+  newest_cursor?: string
+}
+export type TicketRunActivityRecord = {
+  id: string
+  provider: string
+  activity_kind: string
+  activity_id: string
+  id_source: string
+  identity_confidence: string
+  parent_activity_id?: string
+  thread_id?: string
+  turn_id?: string
+  command?: string
+  tool_name?: string
+  title?: string
+  status: string
+  live_text?: string
+  final_text?: string
+  live_text_bytes: number
+  final_text_bytes: number
+  metadata: Record<string, unknown>
+  started_at?: string
+  updated_at: string
+  completed_at?: string
+}
+export type TicketRunTranscriptEntryRecord = {
+  id: string
+  provider: string
+  entry_key: string
+  entry_kind: string
+  activity_kind?: string
+  activity_id?: string
+  title?: string
+  summary?: string
+  body_text?: string
+  command?: string
+  tool_name?: string
+  metadata: Record<string, unknown>
+  created_at: string
+}
+export type TicketRunTranscriptEntryPageRecord = {
+  entries: TicketRunTranscriptEntryRecord[]
+  has_older: boolean
+  hidden_older_count: number
+  has_newer: boolean
+  hidden_newer_count: number
+  oldest_cursor?: string
+  newest_cursor?: string
+}
 export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run'> & {
   run: TicketRunRecord
   transcript_page?: TicketRunTranscriptPageRecord
+  raw_events_page?: TicketRunRawEventPageRecord
+  activities?: TicketRunActivityRecord[]
+  transcript_entries_page?: TicketRunTranscriptEntryPageRecord
 }
 export type TicketRunTraceRecord = ItemOf<TicketRunDetailPayload['trace_entries']>
 export type TicketRunStepRecord = ItemOf<TicketRunDetailPayload['step_entries']>

@@ -13,10 +13,13 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentactivityinstance"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrawevent"
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttranscriptentry"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -416,6 +419,51 @@ func (_u *ProjectUpdate) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpdate
 	return _u.AddAgentStepEventIDs(ids...)
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (_u *ProjectUpdate) AddAgentRawEventIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddAgentRawEventIDs(ids...)
+	return _u
+}
+
+// AddAgentRawEvents adds the "agent_raw_events" edges to the AgentRawEvent entity.
+func (_u *ProjectUpdate) AddAgentRawEvents(v ...*AgentRawEvent) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentRawEventIDs(ids...)
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (_u *ProjectUpdate) AddAgentActivityInstanceIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddAgentActivityInstanceIDs(ids...)
+	return _u
+}
+
+// AddAgentActivityInstances adds the "agent_activity_instances" edges to the AgentActivityInstance entity.
+func (_u *ProjectUpdate) AddAgentActivityInstances(v ...*AgentActivityInstance) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentActivityInstanceIDs(ids...)
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (_u *ProjectUpdate) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddAgentTranscriptEntryIDs(ids...)
+	return _u
+}
+
+// AddAgentTranscriptEntries adds the "agent_transcript_entries" edges to the AgentTranscriptEntry entity.
+func (_u *ProjectUpdate) AddAgentTranscriptEntries(v ...*AgentTranscriptEntry) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTranscriptEntryIDs(ids...)
+}
+
 // AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
 func (_u *ProjectUpdate) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdate {
 	_u.mutation.AddDailyTokenUsageIDs(ids...)
@@ -709,6 +757,69 @@ func (_u *ProjectUpdate) RemoveAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentStepEventIDs(ids...)
+}
+
+// ClearAgentRawEvents clears all "agent_raw_events" edges to the AgentRawEvent entity.
+func (_u *ProjectUpdate) ClearAgentRawEvents() *ProjectUpdate {
+	_u.mutation.ClearAgentRawEvents()
+	return _u
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to AgentRawEvent entities by IDs.
+func (_u *ProjectUpdate) RemoveAgentRawEventIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveAgentRawEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentRawEvents removes "agent_raw_events" edges to AgentRawEvent entities.
+func (_u *ProjectUpdate) RemoveAgentRawEvents(v ...*AgentRawEvent) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentRawEventIDs(ids...)
+}
+
+// ClearAgentActivityInstances clears all "agent_activity_instances" edges to the AgentActivityInstance entity.
+func (_u *ProjectUpdate) ClearAgentActivityInstances() *ProjectUpdate {
+	_u.mutation.ClearAgentActivityInstances()
+	return _u
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to AgentActivityInstance entities by IDs.
+func (_u *ProjectUpdate) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveAgentActivityInstanceIDs(ids...)
+	return _u
+}
+
+// RemoveAgentActivityInstances removes "agent_activity_instances" edges to AgentActivityInstance entities.
+func (_u *ProjectUpdate) RemoveAgentActivityInstances(v ...*AgentActivityInstance) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentActivityInstanceIDs(ids...)
+}
+
+// ClearAgentTranscriptEntries clears all "agent_transcript_entries" edges to the AgentTranscriptEntry entity.
+func (_u *ProjectUpdate) ClearAgentTranscriptEntries() *ProjectUpdate {
+	_u.mutation.ClearAgentTranscriptEntries()
+	return _u
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to AgentTranscriptEntry entities by IDs.
+func (_u *ProjectUpdate) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveAgentTranscriptEntryIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTranscriptEntries removes "agent_transcript_entries" edges to AgentTranscriptEntry entities.
+func (_u *ProjectUpdate) RemoveAgentTranscriptEntries(v ...*AgentTranscriptEntry) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTranscriptEntryIDs(ids...)
 }
 
 // ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
@@ -1389,6 +1500,141 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentRawEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentRawEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentRawEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentRawEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentActivityInstancesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentActivityInstancesIDs(); len(nodes) > 0 && !_u.mutation.AgentActivityInstancesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentActivityInstancesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTranscriptEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTranscriptEntriesIDs(); len(nodes) > 0 && !_u.mutation.AgentTranscriptEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTranscriptEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -2084,6 +2330,51 @@ func (_u *ProjectUpdateOne) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 	return _u.AddAgentStepEventIDs(ids...)
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (_u *ProjectUpdateOne) AddAgentRawEventIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddAgentRawEventIDs(ids...)
+	return _u
+}
+
+// AddAgentRawEvents adds the "agent_raw_events" edges to the AgentRawEvent entity.
+func (_u *ProjectUpdateOne) AddAgentRawEvents(v ...*AgentRawEvent) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentRawEventIDs(ids...)
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (_u *ProjectUpdateOne) AddAgentActivityInstanceIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddAgentActivityInstanceIDs(ids...)
+	return _u
+}
+
+// AddAgentActivityInstances adds the "agent_activity_instances" edges to the AgentActivityInstance entity.
+func (_u *ProjectUpdateOne) AddAgentActivityInstances(v ...*AgentActivityInstance) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentActivityInstanceIDs(ids...)
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (_u *ProjectUpdateOne) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddAgentTranscriptEntryIDs(ids...)
+	return _u
+}
+
+// AddAgentTranscriptEntries adds the "agent_transcript_entries" edges to the AgentTranscriptEntry entity.
+func (_u *ProjectUpdateOne) AddAgentTranscriptEntries(v ...*AgentTranscriptEntry) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAgentTranscriptEntryIDs(ids...)
+}
+
 // AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
 func (_u *ProjectUpdateOne) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
 	_u.mutation.AddDailyTokenUsageIDs(ids...)
@@ -2377,6 +2668,69 @@ func (_u *ProjectUpdateOne) RemoveAgentStepEvents(v ...*AgentStepEvent) *Project
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAgentStepEventIDs(ids...)
+}
+
+// ClearAgentRawEvents clears all "agent_raw_events" edges to the AgentRawEvent entity.
+func (_u *ProjectUpdateOne) ClearAgentRawEvents() *ProjectUpdateOne {
+	_u.mutation.ClearAgentRawEvents()
+	return _u
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to AgentRawEvent entities by IDs.
+func (_u *ProjectUpdateOne) RemoveAgentRawEventIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveAgentRawEventIDs(ids...)
+	return _u
+}
+
+// RemoveAgentRawEvents removes "agent_raw_events" edges to AgentRawEvent entities.
+func (_u *ProjectUpdateOne) RemoveAgentRawEvents(v ...*AgentRawEvent) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentRawEventIDs(ids...)
+}
+
+// ClearAgentActivityInstances clears all "agent_activity_instances" edges to the AgentActivityInstance entity.
+func (_u *ProjectUpdateOne) ClearAgentActivityInstances() *ProjectUpdateOne {
+	_u.mutation.ClearAgentActivityInstances()
+	return _u
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to AgentActivityInstance entities by IDs.
+func (_u *ProjectUpdateOne) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveAgentActivityInstanceIDs(ids...)
+	return _u
+}
+
+// RemoveAgentActivityInstances removes "agent_activity_instances" edges to AgentActivityInstance entities.
+func (_u *ProjectUpdateOne) RemoveAgentActivityInstances(v ...*AgentActivityInstance) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentActivityInstanceIDs(ids...)
+}
+
+// ClearAgentTranscriptEntries clears all "agent_transcript_entries" edges to the AgentTranscriptEntry entity.
+func (_u *ProjectUpdateOne) ClearAgentTranscriptEntries() *ProjectUpdateOne {
+	_u.mutation.ClearAgentTranscriptEntries()
+	return _u
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to AgentTranscriptEntry entities by IDs.
+func (_u *ProjectUpdateOne) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveAgentTranscriptEntryIDs(ids...)
+	return _u
+}
+
+// RemoveAgentTranscriptEntries removes "agent_transcript_entries" edges to AgentTranscriptEntry entities.
+func (_u *ProjectUpdateOne) RemoveAgentTranscriptEntries(v ...*AgentTranscriptEntry) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAgentTranscriptEntryIDs(ids...)
 }
 
 // ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
@@ -3087,6 +3441,141 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentRawEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentRawEventsIDs(); len(nodes) > 0 && !_u.mutation.AgentRawEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentRawEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentActivityInstancesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentActivityInstancesIDs(); len(nodes) > 0 && !_u.mutation.AgentActivityInstancesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentActivityInstancesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AgentTranscriptEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAgentTranscriptEntriesIDs(); len(nodes) > 0 && !_u.mutation.AgentTranscriptEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AgentTranscriptEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -88,6 +88,9 @@ func (AgentRun) Edges() []ent.Edge {
 		edge.To("ticket_repo_workspaces", TicketRepoWorkspace.Type),
 		edge.To("agent_trace_events", AgentTraceEvent.Type),
 		edge.To("agent_step_events", AgentStepEvent.Type),
+		edge.To("agent_raw_events", AgentRawEvent.Type),
+		edge.To("agent_activity_instances", AgentActivityInstance.Type),
+		edge.To("agent_transcript_entries", AgentTranscriptEntry.Type),
 	}
 }
 

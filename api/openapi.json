@@ -31291,6 +31291,88 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "activities": {
+                      "items": {
+                        "properties": {
+                          "activity_id": {
+                            "type": "string"
+                          },
+                          "activity_kind": {
+                            "type": "string"
+                          },
+                          "command": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "final_text": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "final_text_bytes": {
+                            "type": "integer"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "id_source": {
+                            "type": "string"
+                          },
+                          "identity_confidence": {
+                            "type": "string"
+                          },
+                          "live_text": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "live_text_bytes": {
+                            "type": "integer"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "parent_activity_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "thread_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "title": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "tool_name": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "turn_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "run": {
                       "properties": {
                         "adapter_type": {
@@ -31481,6 +31563,84 @@
                       },
                       "type": "array"
                     },
+                    "transcript_entries_page": {
+                      "properties": {
+                        "entries": {
+                          "items": {
+                            "properties": {
+                              "activity_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "activity_kind": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "body_text": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "command": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "entry_key": {
+                                "type": "string"
+                              },
+                              "entry_kind": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "metadata": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "title": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "tool_name": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "has_newer": {
+                          "type": "boolean"
+                        },
+                        "has_older": {
+                          "type": "boolean"
+                        },
+                        "hidden_newer_count": {
+                          "type": "integer"
+                        },
+                        "hidden_older_count": {
+                          "type": "integer"
+                        },
+                        "newest_cursor": {
+                          "type": "string"
+                        },
+                        "oldest_cursor": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    },
                     "transcript_page": {
                       "properties": {
                         "has_newer": {
@@ -31641,6 +31801,618 @@
           }
         },
         "summary": "Get ticket run transcript data",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities": {
+      "get": {
+        "operationId": "listTicketRunActivities",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Run ID.",
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Filter activities by exact status.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "activities": {
+                      "items": {
+                        "properties": {
+                          "activity_id": {
+                            "type": "string"
+                          },
+                          "activity_kind": {
+                            "type": "string"
+                          },
+                          "command": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "completed_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "final_text": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "final_text_bytes": {
+                            "type": "integer"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "id_source": {
+                            "type": "string"
+                          },
+                          "identity_confidence": {
+                            "type": "string"
+                          },
+                          "live_text": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "live_text_bytes": {
+                            "type": "integer"
+                          },
+                          "metadata": {
+                            "additionalProperties": {},
+                            "type": "object"
+                          },
+                          "parent_activity_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "provider": {
+                            "type": "string"
+                          },
+                          "started_at": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "thread_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "title": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "tool_name": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "turn_id": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "updated_at": {
+                            "type": "string"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket run activity state response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket run activity state",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events": {
+      "get": {
+        "operationId": "listTicketRunRawEvents",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Run ID.",
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Raw event page size. Defaults to 100.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Load raw events older than this cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Load raw events newer than this cursor.",
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "raw_events_page": {
+                      "properties": {
+                        "entries": {
+                          "items": {
+                            "properties": {
+                              "activity_hint_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "occurred_at": {
+                                "type": "string"
+                              },
+                              "payload": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "provider_event_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "provider_event_kind": {
+                                "type": "string"
+                              },
+                              "provider_event_subtype": {
+                                "type": "string"
+                              },
+                              "text_excerpt": {
+                                "type": "string"
+                              },
+                              "thread_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "turn_id": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "has_newer": {
+                          "type": "boolean"
+                        },
+                        "has_older": {
+                          "type": "boolean"
+                        },
+                        "hidden_newer_count": {
+                          "type": "integer"
+                        },
+                        "hidden_older_count": {
+                          "type": "integer"
+                        },
+                        "newest_cursor": {
+                          "type": "string"
+                        },
+                        "oldest_cursor": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket run raw provider events response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket run raw provider events",
+        "tags": [
+          "tickets"
+        ]
+      }
+    },
+    "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript": {
+      "get": {
+        "operationId": "listTicketRunTranscriptEntries",
+        "parameters": [
+          {
+            "description": "Project ID.",
+            "in": "path",
+            "name": "projectId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ticket ID.",
+            "in": "path",
+            "name": "ticketId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Run ID.",
+            "in": "path",
+            "name": "runId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Transcript entry page size. Defaults to 100.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Load transcript entries older than this cursor.",
+            "in": "query",
+            "name": "before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Load transcript entries newer than this cursor.",
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "transcript_entries_page": {
+                      "properties": {
+                        "entries": {
+                          "items": {
+                            "properties": {
+                              "activity_id": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "activity_kind": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "body_text": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "command": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "created_at": {
+                                "type": "string"
+                              },
+                              "entry_key": {
+                                "type": "string"
+                              },
+                              "entry_kind": {
+                                "type": "string"
+                              },
+                              "id": {
+                                "type": "string"
+                              },
+                              "metadata": {
+                                "additionalProperties": {},
+                                "type": "object"
+                              },
+                              "provider": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "title": {
+                                "nullable": true,
+                                "type": "string"
+                              },
+                              "tool_name": {
+                                "nullable": true,
+                                "type": "string"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "has_newer": {
+                          "type": "boolean"
+                        },
+                        "has_older": {
+                          "type": "boolean"
+                        },
+                        "hidden_newer_count": {
+                          "type": "integer"
+                        },
+                        "hidden_older_count": {
+                          "type": "integer"
+                        },
+                        "newest_cursor": {
+                          "type": "string"
+                        },
+                        "oldest_cursor": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List ticket run transcript entries response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          }
+        },
+        "summary": "List ticket run transcript entries",
         "tags": [
           "tickets"
         ]

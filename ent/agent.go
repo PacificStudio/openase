@@ -53,11 +53,17 @@ type AgentEdges struct {
 	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
 	// AgentStepEvents holds the value of the agent_step_events edge.
 	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
+	// AgentRawEvents holds the value of the agent_raw_events edge.
+	AgentRawEvents []*AgentRawEvent `json:"agent_raw_events,omitempty"`
+	// AgentActivityInstances holds the value of the agent_activity_instances edge.
+	AgentActivityInstances []*AgentActivityInstance `json:"agent_activity_instances,omitempty"`
+	// AgentTranscriptEntries holds the value of the agent_transcript_entries edge.
+	AgentTranscriptEntries []*AgentTranscriptEntry `json:"agent_transcript_entries,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
 	ActivityEvents []*ActivityEvent `json:"activity_events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [11]bool
 }
 
 // ProviderOrErr returns the Provider value or an error if the edge
@@ -127,10 +133,37 @@ func (e AgentEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
 	return nil, &NotLoadedError{edge: "agent_step_events"}
 }
 
+// AgentRawEventsOrErr returns the AgentRawEvents value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) AgentRawEventsOrErr() ([]*AgentRawEvent, error) {
+	if e.loadedTypes[7] {
+		return e.AgentRawEvents, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_raw_events"}
+}
+
+// AgentActivityInstancesOrErr returns the AgentActivityInstances value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) AgentActivityInstancesOrErr() ([]*AgentActivityInstance, error) {
+	if e.loadedTypes[8] {
+		return e.AgentActivityInstances, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_activity_instances"}
+}
+
+// AgentTranscriptEntriesOrErr returns the AgentTranscriptEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e AgentEdges) AgentTranscriptEntriesOrErr() ([]*AgentTranscriptEntry, error) {
+	if e.loadedTypes[9] {
+		return e.AgentTranscriptEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "agent_transcript_entries"}
+}
+
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e AgentEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[10] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -250,6 +283,21 @@ func (_m *Agent) QueryAgentTraceEvents() *AgentTraceEventQuery {
 // QueryAgentStepEvents queries the "agent_step_events" edge of the Agent entity.
 func (_m *Agent) QueryAgentStepEvents() *AgentStepEventQuery {
 	return NewAgentClient(_m.config).QueryAgentStepEvents(_m)
+}
+
+// QueryAgentRawEvents queries the "agent_raw_events" edge of the Agent entity.
+func (_m *Agent) QueryAgentRawEvents() *AgentRawEventQuery {
+	return NewAgentClient(_m.config).QueryAgentRawEvents(_m)
+}
+
+// QueryAgentActivityInstances queries the "agent_activity_instances" edge of the Agent entity.
+func (_m *Agent) QueryAgentActivityInstances() *AgentActivityInstanceQuery {
+	return NewAgentClient(_m.config).QueryAgentActivityInstances(_m)
+}
+
+// QueryAgentTranscriptEntries queries the "agent_transcript_entries" edge of the Agent entity.
+func (_m *Agent) QueryAgentTranscriptEntries() *AgentTranscriptEntryQuery {
+	return NewAgentClient(_m.config).QueryAgentTranscriptEntries(_m)
 }
 
 // QueryActivityEvents queries the "activity_events" edge of the Agent entity.

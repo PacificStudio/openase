@@ -13,11 +13,14 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentactivityinstance"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrawevent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttranscriptentry"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
 	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
@@ -87,11 +90,14 @@ const (
 	// Node types.
 	TypeActivityEvent                 = "ActivityEvent"
 	TypeAgent                         = "Agent"
+	TypeAgentActivityInstance         = "AgentActivityInstance"
 	TypeAgentProvider                 = "AgentProvider"
+	TypeAgentRawEvent                 = "AgentRawEvent"
 	TypeAgentRun                      = "AgentRun"
 	TypeAgentStepEvent                = "AgentStepEvent"
 	TypeAgentToken                    = "AgentToken"
 	TypeAgentTraceEvent               = "AgentTraceEvent"
+	TypeAgentTranscriptEntry          = "AgentTranscriptEntry"
 	TypeApprovalPolicyRule            = "ApprovalPolicyRule"
 	TypeAuthAuditEvent                = "AuthAuditEvent"
 	TypeBrowserSession                = "BrowserSession"
@@ -1010,41 +1016,50 @@ func (m *ActivityEventMutation) ResetEdge(name string) error {
 // AgentMutation represents an operation that mutates the Agent nodes in the graph.
 type AgentMutation struct {
 	config
-	op                         Op
-	typ                        string
-	id                         *uuid.UUID
-	name                       *string
-	runtime_control_state      *agent.RuntimeControlState
-	total_tokens_used          *int64
-	addtotal_tokens_used       *int64
-	total_tickets_completed    *int
-	addtotal_tickets_completed *int
-	clearedFields              map[string]struct{}
-	provider                   *uuid.UUID
-	clearedprovider            bool
-	project                    *uuid.UUID
-	clearedproject             bool
-	workflows                  map[uuid.UUID]struct{}
-	removedworkflows           map[uuid.UUID]struct{}
-	clearedworkflows           bool
-	runs                       map[uuid.UUID]struct{}
-	removedruns                map[uuid.UUID]struct{}
-	clearedruns                bool
-	tokens                     map[uuid.UUID]struct{}
-	removedtokens              map[uuid.UUID]struct{}
-	clearedtokens              bool
-	agent_trace_events         map[uuid.UUID]struct{}
-	removedagent_trace_events  map[uuid.UUID]struct{}
-	clearedagent_trace_events  bool
-	agent_step_events          map[uuid.UUID]struct{}
-	removedagent_step_events   map[uuid.UUID]struct{}
-	clearedagent_step_events   bool
-	activity_events            map[uuid.UUID]struct{}
-	removedactivity_events     map[uuid.UUID]struct{}
-	clearedactivity_events     bool
-	done                       bool
-	oldValue                   func(context.Context) (*Agent, error)
-	predicates                 []predicate.Agent
+	op                              Op
+	typ                             string
+	id                              *uuid.UUID
+	name                            *string
+	runtime_control_state           *agent.RuntimeControlState
+	total_tokens_used               *int64
+	addtotal_tokens_used            *int64
+	total_tickets_completed         *int
+	addtotal_tickets_completed      *int
+	clearedFields                   map[string]struct{}
+	provider                        *uuid.UUID
+	clearedprovider                 bool
+	project                         *uuid.UUID
+	clearedproject                  bool
+	workflows                       map[uuid.UUID]struct{}
+	removedworkflows                map[uuid.UUID]struct{}
+	clearedworkflows                bool
+	runs                            map[uuid.UUID]struct{}
+	removedruns                     map[uuid.UUID]struct{}
+	clearedruns                     bool
+	tokens                          map[uuid.UUID]struct{}
+	removedtokens                   map[uuid.UUID]struct{}
+	clearedtokens                   bool
+	agent_trace_events              map[uuid.UUID]struct{}
+	removedagent_trace_events       map[uuid.UUID]struct{}
+	clearedagent_trace_events       bool
+	agent_step_events               map[uuid.UUID]struct{}
+	removedagent_step_events        map[uuid.UUID]struct{}
+	clearedagent_step_events        bool
+	agent_raw_events                map[uuid.UUID]struct{}
+	removedagent_raw_events         map[uuid.UUID]struct{}
+	clearedagent_raw_events         bool
+	agent_activity_instances        map[uuid.UUID]struct{}
+	removedagent_activity_instances map[uuid.UUID]struct{}
+	clearedagent_activity_instances bool
+	agent_transcript_entries        map[uuid.UUID]struct{}
+	removedagent_transcript_entries map[uuid.UUID]struct{}
+	clearedagent_transcript_entries bool
+	activity_events                 map[uuid.UUID]struct{}
+	removedactivity_events          map[uuid.UUID]struct{}
+	clearedactivity_events          bool
+	done                            bool
+	oldValue                        func(context.Context) (*Agent, error)
+	predicates                      []predicate.Agent
 }
 
 var _ ent.Mutation = (*AgentMutation)(nil)
@@ -1731,6 +1746,168 @@ func (m *AgentMutation) ResetAgentStepEvents() {
 	m.removedagent_step_events = nil
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by ids.
+func (m *AgentMutation) AddAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.agent_raw_events == nil {
+		m.agent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentRawEvents clears the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *AgentMutation) ClearAgentRawEvents() {
+	m.clearedagent_raw_events = true
+}
+
+// AgentRawEventsCleared reports if the "agent_raw_events" edge to the AgentRawEvent entity was cleared.
+func (m *AgentMutation) AgentRawEventsCleared() bool {
+	return m.clearedagent_raw_events
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (m *AgentMutation) RemoveAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.removedagent_raw_events == nil {
+		m.removedagent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_raw_events, ids[i])
+		m.removedagent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentRawEvents returns the removed IDs of the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *AgentMutation) RemovedAgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentRawEventsIDs returns the "agent_raw_events" edge IDs in the mutation.
+func (m *AgentMutation) AgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.agent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentRawEvents resets all changes to the "agent_raw_events" edge.
+func (m *AgentMutation) ResetAgentRawEvents() {
+	m.agent_raw_events = nil
+	m.clearedagent_raw_events = false
+	m.removedagent_raw_events = nil
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by ids.
+func (m *AgentMutation) AddAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.agent_activity_instances == nil {
+		m.agent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentActivityInstances clears the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *AgentMutation) ClearAgentActivityInstances() {
+	m.clearedagent_activity_instances = true
+}
+
+// AgentActivityInstancesCleared reports if the "agent_activity_instances" edge to the AgentActivityInstance entity was cleared.
+func (m *AgentMutation) AgentActivityInstancesCleared() bool {
+	return m.clearedagent_activity_instances
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (m *AgentMutation) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.removedagent_activity_instances == nil {
+		m.removedagent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_activity_instances, ids[i])
+		m.removedagent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentActivityInstances returns the removed IDs of the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *AgentMutation) RemovedAgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentActivityInstancesIDs returns the "agent_activity_instances" edge IDs in the mutation.
+func (m *AgentMutation) AgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentActivityInstances resets all changes to the "agent_activity_instances" edge.
+func (m *AgentMutation) ResetAgentActivityInstances() {
+	m.agent_activity_instances = nil
+	m.clearedagent_activity_instances = false
+	m.removedagent_activity_instances = nil
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by ids.
+func (m *AgentMutation) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.agent_transcript_entries == nil {
+		m.agent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTranscriptEntries clears the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *AgentMutation) ClearAgentTranscriptEntries() {
+	m.clearedagent_transcript_entries = true
+}
+
+// AgentTranscriptEntriesCleared reports if the "agent_transcript_entries" edge to the AgentTranscriptEntry entity was cleared.
+func (m *AgentMutation) AgentTranscriptEntriesCleared() bool {
+	return m.clearedagent_transcript_entries
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (m *AgentMutation) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.removedagent_transcript_entries == nil {
+		m.removedagent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_transcript_entries, ids[i])
+		m.removedagent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTranscriptEntries returns the removed IDs of the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *AgentMutation) RemovedAgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTranscriptEntriesIDs returns the "agent_transcript_entries" edge IDs in the mutation.
+func (m *AgentMutation) AgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTranscriptEntries resets all changes to the "agent_transcript_entries" edge.
+func (m *AgentMutation) ResetAgentTranscriptEntries() {
+	m.agent_transcript_entries = nil
+	m.clearedagent_transcript_entries = false
+	m.removedagent_transcript_entries = nil
+}
+
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by ids.
 func (m *AgentMutation) AddActivityEventIDs(ids ...uuid.UUID) {
 	if m.activity_events == nil {
@@ -2030,7 +2207,7 @@ func (m *AgentMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentMutation) AddedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 11)
 	if m.provider != nil {
 		edges = append(edges, agent.EdgeProvider)
 	}
@@ -2051,6 +2228,15 @@ func (m *AgentMutation) AddedEdges() []string {
 	}
 	if m.agent_step_events != nil {
 		edges = append(edges, agent.EdgeAgentStepEvents)
+	}
+	if m.agent_raw_events != nil {
+		edges = append(edges, agent.EdgeAgentRawEvents)
+	}
+	if m.agent_activity_instances != nil {
+		edges = append(edges, agent.EdgeAgentActivityInstances)
+	}
+	if m.agent_transcript_entries != nil {
+		edges = append(edges, agent.EdgeAgentTranscriptEntries)
 	}
 	if m.activity_events != nil {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2100,6 +2286,24 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.agent_raw_events))
+		for id := range m.agent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.agent_activity_instances))
+		for id := range m.agent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.agent_transcript_entries))
+		for id := range m.agent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.activity_events))
 		for id := range m.activity_events {
@@ -2112,7 +2316,7 @@ func (m *AgentMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 11)
 	if m.removedworkflows != nil {
 		edges = append(edges, agent.EdgeWorkflows)
 	}
@@ -2127,6 +2331,15 @@ func (m *AgentMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_step_events != nil {
 		edges = append(edges, agent.EdgeAgentStepEvents)
+	}
+	if m.removedagent_raw_events != nil {
+		edges = append(edges, agent.EdgeAgentRawEvents)
+	}
+	if m.removedagent_activity_instances != nil {
+		edges = append(edges, agent.EdgeAgentActivityInstances)
+	}
+	if m.removedagent_transcript_entries != nil {
+		edges = append(edges, agent.EdgeAgentTranscriptEntries)
 	}
 	if m.removedactivity_events != nil {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2168,6 +2381,24 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agent.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.removedagent_raw_events))
+		for id := range m.removedagent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.removedagent_activity_instances))
+		for id := range m.removedagent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case agent.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.removedagent_transcript_entries))
+		for id := range m.removedagent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case agent.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.removedactivity_events))
 		for id := range m.removedactivity_events {
@@ -2180,7 +2411,7 @@ func (m *AgentMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 8)
+	edges := make([]string, 0, 11)
 	if m.clearedprovider {
 		edges = append(edges, agent.EdgeProvider)
 	}
@@ -2201,6 +2432,15 @@ func (m *AgentMutation) ClearedEdges() []string {
 	}
 	if m.clearedagent_step_events {
 		edges = append(edges, agent.EdgeAgentStepEvents)
+	}
+	if m.clearedagent_raw_events {
+		edges = append(edges, agent.EdgeAgentRawEvents)
+	}
+	if m.clearedagent_activity_instances {
+		edges = append(edges, agent.EdgeAgentActivityInstances)
+	}
+	if m.clearedagent_transcript_entries {
+		edges = append(edges, agent.EdgeAgentTranscriptEntries)
 	}
 	if m.clearedactivity_events {
 		edges = append(edges, agent.EdgeActivityEvents)
@@ -2226,6 +2466,12 @@ func (m *AgentMutation) EdgeCleared(name string) bool {
 		return m.clearedagent_trace_events
 	case agent.EdgeAgentStepEvents:
 		return m.clearedagent_step_events
+	case agent.EdgeAgentRawEvents:
+		return m.clearedagent_raw_events
+	case agent.EdgeAgentActivityInstances:
+		return m.clearedagent_activity_instances
+	case agent.EdgeAgentTranscriptEntries:
+		return m.clearedagent_transcript_entries
 	case agent.EdgeActivityEvents:
 		return m.clearedactivity_events
 	}
@@ -2271,11 +2517,2121 @@ func (m *AgentMutation) ResetEdge(name string) error {
 	case agent.EdgeAgentStepEvents:
 		m.ResetAgentStepEvents()
 		return nil
+	case agent.EdgeAgentRawEvents:
+		m.ResetAgentRawEvents()
+		return nil
+	case agent.EdgeAgentActivityInstances:
+		m.ResetAgentActivityInstances()
+		return nil
+	case agent.EdgeAgentTranscriptEntries:
+		m.ResetAgentTranscriptEntries()
+		return nil
 	case agent.EdgeActivityEvents:
 		m.ResetActivityEvents()
 		return nil
 	}
 	return fmt.Errorf("unknown Agent edge %s", name)
+}
+
+// AgentActivityInstanceMutation represents an operation that mutates the AgentActivityInstance nodes in the graph.
+type AgentActivityInstanceMutation struct {
+	config
+	op                  Op
+	typ                 string
+	id                  *uuid.UUID
+	provider            *string
+	activity_kind       *string
+	activity_id         *string
+	id_source           *string
+	identity_confidence *string
+	parent_activity_id  *string
+	thread_id           *string
+	turn_id             *string
+	command             *string
+	tool_name           *string
+	title               *string
+	status              *string
+	live_text           *string
+	final_text          *string
+	live_text_bytes     *int
+	addlive_text_bytes  *int
+	final_text_bytes    *int
+	addfinal_text_bytes *int
+	metadata            *map[string]interface{}
+	started_at          *time.Time
+	updated_at          *time.Time
+	completed_at        *time.Time
+	created_at          *time.Time
+	clearedFields       map[string]struct{}
+	project             *uuid.UUID
+	clearedproject      bool
+	ticket              *uuid.UUID
+	clearedticket       bool
+	agent               *uuid.UUID
+	clearedagent        bool
+	agent_run           *uuid.UUID
+	clearedagent_run    bool
+	done                bool
+	oldValue            func(context.Context) (*AgentActivityInstance, error)
+	predicates          []predicate.AgentActivityInstance
+}
+
+var _ ent.Mutation = (*AgentActivityInstanceMutation)(nil)
+
+// agentactivityinstanceOption allows management of the mutation configuration using functional options.
+type agentactivityinstanceOption func(*AgentActivityInstanceMutation)
+
+// newAgentActivityInstanceMutation creates new mutation for the AgentActivityInstance entity.
+func newAgentActivityInstanceMutation(c config, op Op, opts ...agentactivityinstanceOption) *AgentActivityInstanceMutation {
+	m := &AgentActivityInstanceMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAgentActivityInstance,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAgentActivityInstanceID sets the ID field of the mutation.
+func withAgentActivityInstanceID(id uuid.UUID) agentactivityinstanceOption {
+	return func(m *AgentActivityInstanceMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AgentActivityInstance
+		)
+		m.oldValue = func(ctx context.Context) (*AgentActivityInstance, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AgentActivityInstance.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAgentActivityInstance sets the old AgentActivityInstance of the mutation.
+func withAgentActivityInstance(node *AgentActivityInstance) agentactivityinstanceOption {
+	return func(m *AgentActivityInstanceMutation) {
+		m.oldValue = func(context.Context) (*AgentActivityInstance, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AgentActivityInstanceMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AgentActivityInstanceMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of AgentActivityInstance entities.
+func (m *AgentActivityInstanceMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AgentActivityInstanceMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AgentActivityInstanceMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AgentActivityInstance.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *AgentActivityInstanceMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *AgentActivityInstanceMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *AgentActivityInstanceMutation) SetTicketID(u uuid.UUID) {
+	m.ticket = &u
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) TicketID() (r uuid.UUID, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldTicketID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (m *AgentActivityInstanceMutation) ClearTicketID() {
+	m.ticket = nil
+	m.clearedFields[agentactivityinstance.FieldTicketID] = struct{}{}
+}
+
+// TicketIDCleared returns if the "ticket_id" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) TicketIDCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldTicketID]
+	return ok
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *AgentActivityInstanceMutation) ResetTicketID() {
+	m.ticket = nil
+	delete(m.clearedFields, agentactivityinstance.FieldTicketID)
+}
+
+// SetAgentID sets the "agent_id" field.
+func (m *AgentActivityInstanceMutation) SetAgentID(u uuid.UUID) {
+	m.agent = &u
+}
+
+// AgentID returns the value of the "agent_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) AgentID() (r uuid.UUID, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentID returns the old "agent_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentID: %w", err)
+	}
+	return oldValue.AgentID, nil
+}
+
+// ResetAgentID resets all changes to the "agent_id" field.
+func (m *AgentActivityInstanceMutation) ResetAgentID() {
+	m.agent = nil
+}
+
+// SetAgentRunID sets the "agent_run_id" field.
+func (m *AgentActivityInstanceMutation) SetAgentRunID(u uuid.UUID) {
+	m.agent_run = &u
+}
+
+// AgentRunID returns the value of the "agent_run_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) AgentRunID() (r uuid.UUID, exists bool) {
+	v := m.agent_run
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentRunID returns the old "agent_run_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldAgentRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentRunID: %w", err)
+	}
+	return oldValue.AgentRunID, nil
+}
+
+// ResetAgentRunID resets all changes to the "agent_run_id" field.
+func (m *AgentActivityInstanceMutation) ResetAgentRunID() {
+	m.agent_run = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *AgentActivityInstanceMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *AgentActivityInstanceMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *AgentActivityInstanceMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetActivityKind sets the "activity_kind" field.
+func (m *AgentActivityInstanceMutation) SetActivityKind(s string) {
+	m.activity_kind = &s
+}
+
+// ActivityKind returns the value of the "activity_kind" field in the mutation.
+func (m *AgentActivityInstanceMutation) ActivityKind() (r string, exists bool) {
+	v := m.activity_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivityKind returns the old "activity_kind" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldActivityKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivityKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivityKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivityKind: %w", err)
+	}
+	return oldValue.ActivityKind, nil
+}
+
+// ResetActivityKind resets all changes to the "activity_kind" field.
+func (m *AgentActivityInstanceMutation) ResetActivityKind() {
+	m.activity_kind = nil
+}
+
+// SetActivityID sets the "activity_id" field.
+func (m *AgentActivityInstanceMutation) SetActivityID(s string) {
+	m.activity_id = &s
+}
+
+// ActivityID returns the value of the "activity_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) ActivityID() (r string, exists bool) {
+	v := m.activity_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivityID returns the old "activity_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldActivityID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivityID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivityID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivityID: %w", err)
+	}
+	return oldValue.ActivityID, nil
+}
+
+// ResetActivityID resets all changes to the "activity_id" field.
+func (m *AgentActivityInstanceMutation) ResetActivityID() {
+	m.activity_id = nil
+}
+
+// SetIDSource sets the "id_source" field.
+func (m *AgentActivityInstanceMutation) SetIDSource(s string) {
+	m.id_source = &s
+}
+
+// IDSource returns the value of the "id_source" field in the mutation.
+func (m *AgentActivityInstanceMutation) IDSource() (r string, exists bool) {
+	v := m.id_source
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIDSource returns the old "id_source" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldIDSource(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIDSource is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIDSource requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIDSource: %w", err)
+	}
+	return oldValue.IDSource, nil
+}
+
+// ResetIDSource resets all changes to the "id_source" field.
+func (m *AgentActivityInstanceMutation) ResetIDSource() {
+	m.id_source = nil
+}
+
+// SetIdentityConfidence sets the "identity_confidence" field.
+func (m *AgentActivityInstanceMutation) SetIdentityConfidence(s string) {
+	m.identity_confidence = &s
+}
+
+// IdentityConfidence returns the value of the "identity_confidence" field in the mutation.
+func (m *AgentActivityInstanceMutation) IdentityConfidence() (r string, exists bool) {
+	v := m.identity_confidence
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdentityConfidence returns the old "identity_confidence" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldIdentityConfidence(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdentityConfidence is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdentityConfidence requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdentityConfidence: %w", err)
+	}
+	return oldValue.IdentityConfidence, nil
+}
+
+// ResetIdentityConfidence resets all changes to the "identity_confidence" field.
+func (m *AgentActivityInstanceMutation) ResetIdentityConfidence() {
+	m.identity_confidence = nil
+}
+
+// SetParentActivityID sets the "parent_activity_id" field.
+func (m *AgentActivityInstanceMutation) SetParentActivityID(s string) {
+	m.parent_activity_id = &s
+}
+
+// ParentActivityID returns the value of the "parent_activity_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) ParentActivityID() (r string, exists bool) {
+	v := m.parent_activity_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParentActivityID returns the old "parent_activity_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldParentActivityID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParentActivityID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParentActivityID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParentActivityID: %w", err)
+	}
+	return oldValue.ParentActivityID, nil
+}
+
+// ClearParentActivityID clears the value of the "parent_activity_id" field.
+func (m *AgentActivityInstanceMutation) ClearParentActivityID() {
+	m.parent_activity_id = nil
+	m.clearedFields[agentactivityinstance.FieldParentActivityID] = struct{}{}
+}
+
+// ParentActivityIDCleared returns if the "parent_activity_id" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) ParentActivityIDCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldParentActivityID]
+	return ok
+}
+
+// ResetParentActivityID resets all changes to the "parent_activity_id" field.
+func (m *AgentActivityInstanceMutation) ResetParentActivityID() {
+	m.parent_activity_id = nil
+	delete(m.clearedFields, agentactivityinstance.FieldParentActivityID)
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *AgentActivityInstanceMutation) SetThreadID(s string) {
+	m.thread_id = &s
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) ThreadID() (r string, exists bool) {
+	v := m.thread_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldThreadID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ClearThreadID clears the value of the "thread_id" field.
+func (m *AgentActivityInstanceMutation) ClearThreadID() {
+	m.thread_id = nil
+	m.clearedFields[agentactivityinstance.FieldThreadID] = struct{}{}
+}
+
+// ThreadIDCleared returns if the "thread_id" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) ThreadIDCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldThreadID]
+	return ok
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *AgentActivityInstanceMutation) ResetThreadID() {
+	m.thread_id = nil
+	delete(m.clearedFields, agentactivityinstance.FieldThreadID)
+}
+
+// SetTurnID sets the "turn_id" field.
+func (m *AgentActivityInstanceMutation) SetTurnID(s string) {
+	m.turn_id = &s
+}
+
+// TurnID returns the value of the "turn_id" field in the mutation.
+func (m *AgentActivityInstanceMutation) TurnID() (r string, exists bool) {
+	v := m.turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTurnID returns the old "turn_id" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldTurnID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTurnID: %w", err)
+	}
+	return oldValue.TurnID, nil
+}
+
+// ClearTurnID clears the value of the "turn_id" field.
+func (m *AgentActivityInstanceMutation) ClearTurnID() {
+	m.turn_id = nil
+	m.clearedFields[agentactivityinstance.FieldTurnID] = struct{}{}
+}
+
+// TurnIDCleared returns if the "turn_id" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) TurnIDCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldTurnID]
+	return ok
+}
+
+// ResetTurnID resets all changes to the "turn_id" field.
+func (m *AgentActivityInstanceMutation) ResetTurnID() {
+	m.turn_id = nil
+	delete(m.clearedFields, agentactivityinstance.FieldTurnID)
+}
+
+// SetCommand sets the "command" field.
+func (m *AgentActivityInstanceMutation) SetCommand(s string) {
+	m.command = &s
+}
+
+// Command returns the value of the "command" field in the mutation.
+func (m *AgentActivityInstanceMutation) Command() (r string, exists bool) {
+	v := m.command
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommand returns the old "command" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldCommand(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommand is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommand requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommand: %w", err)
+	}
+	return oldValue.Command, nil
+}
+
+// ClearCommand clears the value of the "command" field.
+func (m *AgentActivityInstanceMutation) ClearCommand() {
+	m.command = nil
+	m.clearedFields[agentactivityinstance.FieldCommand] = struct{}{}
+}
+
+// CommandCleared returns if the "command" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) CommandCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldCommand]
+	return ok
+}
+
+// ResetCommand resets all changes to the "command" field.
+func (m *AgentActivityInstanceMutation) ResetCommand() {
+	m.command = nil
+	delete(m.clearedFields, agentactivityinstance.FieldCommand)
+}
+
+// SetToolName sets the "tool_name" field.
+func (m *AgentActivityInstanceMutation) SetToolName(s string) {
+	m.tool_name = &s
+}
+
+// ToolName returns the value of the "tool_name" field in the mutation.
+func (m *AgentActivityInstanceMutation) ToolName() (r string, exists bool) {
+	v := m.tool_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldToolName returns the old "tool_name" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldToolName(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldToolName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldToolName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldToolName: %w", err)
+	}
+	return oldValue.ToolName, nil
+}
+
+// ClearToolName clears the value of the "tool_name" field.
+func (m *AgentActivityInstanceMutation) ClearToolName() {
+	m.tool_name = nil
+	m.clearedFields[agentactivityinstance.FieldToolName] = struct{}{}
+}
+
+// ToolNameCleared returns if the "tool_name" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) ToolNameCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldToolName]
+	return ok
+}
+
+// ResetToolName resets all changes to the "tool_name" field.
+func (m *AgentActivityInstanceMutation) ResetToolName() {
+	m.tool_name = nil
+	delete(m.clearedFields, agentactivityinstance.FieldToolName)
+}
+
+// SetTitle sets the "title" field.
+func (m *AgentActivityInstanceMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *AgentActivityInstanceMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldTitle(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ClearTitle clears the value of the "title" field.
+func (m *AgentActivityInstanceMutation) ClearTitle() {
+	m.title = nil
+	m.clearedFields[agentactivityinstance.FieldTitle] = struct{}{}
+}
+
+// TitleCleared returns if the "title" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) TitleCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldTitle]
+	return ok
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *AgentActivityInstanceMutation) ResetTitle() {
+	m.title = nil
+	delete(m.clearedFields, agentactivityinstance.FieldTitle)
+}
+
+// SetStatus sets the "status" field.
+func (m *AgentActivityInstanceMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *AgentActivityInstanceMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *AgentActivityInstanceMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetLiveText sets the "live_text" field.
+func (m *AgentActivityInstanceMutation) SetLiveText(s string) {
+	m.live_text = &s
+}
+
+// LiveText returns the value of the "live_text" field in the mutation.
+func (m *AgentActivityInstanceMutation) LiveText() (r string, exists bool) {
+	v := m.live_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLiveText returns the old "live_text" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldLiveText(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLiveText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLiveText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLiveText: %w", err)
+	}
+	return oldValue.LiveText, nil
+}
+
+// ClearLiveText clears the value of the "live_text" field.
+func (m *AgentActivityInstanceMutation) ClearLiveText() {
+	m.live_text = nil
+	m.clearedFields[agentactivityinstance.FieldLiveText] = struct{}{}
+}
+
+// LiveTextCleared returns if the "live_text" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) LiveTextCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldLiveText]
+	return ok
+}
+
+// ResetLiveText resets all changes to the "live_text" field.
+func (m *AgentActivityInstanceMutation) ResetLiveText() {
+	m.live_text = nil
+	delete(m.clearedFields, agentactivityinstance.FieldLiveText)
+}
+
+// SetFinalText sets the "final_text" field.
+func (m *AgentActivityInstanceMutation) SetFinalText(s string) {
+	m.final_text = &s
+}
+
+// FinalText returns the value of the "final_text" field in the mutation.
+func (m *AgentActivityInstanceMutation) FinalText() (r string, exists bool) {
+	v := m.final_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinalText returns the old "final_text" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldFinalText(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinalText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinalText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinalText: %w", err)
+	}
+	return oldValue.FinalText, nil
+}
+
+// ClearFinalText clears the value of the "final_text" field.
+func (m *AgentActivityInstanceMutation) ClearFinalText() {
+	m.final_text = nil
+	m.clearedFields[agentactivityinstance.FieldFinalText] = struct{}{}
+}
+
+// FinalTextCleared returns if the "final_text" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) FinalTextCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldFinalText]
+	return ok
+}
+
+// ResetFinalText resets all changes to the "final_text" field.
+func (m *AgentActivityInstanceMutation) ResetFinalText() {
+	m.final_text = nil
+	delete(m.clearedFields, agentactivityinstance.FieldFinalText)
+}
+
+// SetLiveTextBytes sets the "live_text_bytes" field.
+func (m *AgentActivityInstanceMutation) SetLiveTextBytes(i int) {
+	m.live_text_bytes = &i
+	m.addlive_text_bytes = nil
+}
+
+// LiveTextBytes returns the value of the "live_text_bytes" field in the mutation.
+func (m *AgentActivityInstanceMutation) LiveTextBytes() (r int, exists bool) {
+	v := m.live_text_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLiveTextBytes returns the old "live_text_bytes" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldLiveTextBytes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLiveTextBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLiveTextBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLiveTextBytes: %w", err)
+	}
+	return oldValue.LiveTextBytes, nil
+}
+
+// AddLiveTextBytes adds i to the "live_text_bytes" field.
+func (m *AgentActivityInstanceMutation) AddLiveTextBytes(i int) {
+	if m.addlive_text_bytes != nil {
+		*m.addlive_text_bytes += i
+	} else {
+		m.addlive_text_bytes = &i
+	}
+}
+
+// AddedLiveTextBytes returns the value that was added to the "live_text_bytes" field in this mutation.
+func (m *AgentActivityInstanceMutation) AddedLiveTextBytes() (r int, exists bool) {
+	v := m.addlive_text_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetLiveTextBytes resets all changes to the "live_text_bytes" field.
+func (m *AgentActivityInstanceMutation) ResetLiveTextBytes() {
+	m.live_text_bytes = nil
+	m.addlive_text_bytes = nil
+}
+
+// SetFinalTextBytes sets the "final_text_bytes" field.
+func (m *AgentActivityInstanceMutation) SetFinalTextBytes(i int) {
+	m.final_text_bytes = &i
+	m.addfinal_text_bytes = nil
+}
+
+// FinalTextBytes returns the value of the "final_text_bytes" field in the mutation.
+func (m *AgentActivityInstanceMutation) FinalTextBytes() (r int, exists bool) {
+	v := m.final_text_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinalTextBytes returns the old "final_text_bytes" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldFinalTextBytes(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinalTextBytes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinalTextBytes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinalTextBytes: %w", err)
+	}
+	return oldValue.FinalTextBytes, nil
+}
+
+// AddFinalTextBytes adds i to the "final_text_bytes" field.
+func (m *AgentActivityInstanceMutation) AddFinalTextBytes(i int) {
+	if m.addfinal_text_bytes != nil {
+		*m.addfinal_text_bytes += i
+	} else {
+		m.addfinal_text_bytes = &i
+	}
+}
+
+// AddedFinalTextBytes returns the value that was added to the "final_text_bytes" field in this mutation.
+func (m *AgentActivityInstanceMutation) AddedFinalTextBytes() (r int, exists bool) {
+	v := m.addfinal_text_bytes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFinalTextBytes resets all changes to the "final_text_bytes" field.
+func (m *AgentActivityInstanceMutation) ResetFinalTextBytes() {
+	m.final_text_bytes = nil
+	m.addfinal_text_bytes = nil
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *AgentActivityInstanceMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *AgentActivityInstanceMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *AgentActivityInstanceMutation) ResetMetadata() {
+	m.metadata = nil
+}
+
+// SetStartedAt sets the "started_at" field.
+func (m *AgentActivityInstanceMutation) SetStartedAt(t time.Time) {
+	m.started_at = &t
+}
+
+// StartedAt returns the value of the "started_at" field in the mutation.
+func (m *AgentActivityInstanceMutation) StartedAt() (r time.Time, exists bool) {
+	v := m.started_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStartedAt returns the old "started_at" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldStartedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStartedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStartedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStartedAt: %w", err)
+	}
+	return oldValue.StartedAt, nil
+}
+
+// ClearStartedAt clears the value of the "started_at" field.
+func (m *AgentActivityInstanceMutation) ClearStartedAt() {
+	m.started_at = nil
+	m.clearedFields[agentactivityinstance.FieldStartedAt] = struct{}{}
+}
+
+// StartedAtCleared returns if the "started_at" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) StartedAtCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldStartedAt]
+	return ok
+}
+
+// ResetStartedAt resets all changes to the "started_at" field.
+func (m *AgentActivityInstanceMutation) ResetStartedAt() {
+	m.started_at = nil
+	delete(m.clearedFields, agentactivityinstance.FieldStartedAt)
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *AgentActivityInstanceMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *AgentActivityInstanceMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *AgentActivityInstanceMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (m *AgentActivityInstanceMutation) SetCompletedAt(t time.Time) {
+	m.completed_at = &t
+}
+
+// CompletedAt returns the value of the "completed_at" field in the mutation.
+func (m *AgentActivityInstanceMutation) CompletedAt() (r time.Time, exists bool) {
+	v := m.completed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompletedAt returns the old "completed_at" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldCompletedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompletedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompletedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompletedAt: %w", err)
+	}
+	return oldValue.CompletedAt, nil
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (m *AgentActivityInstanceMutation) ClearCompletedAt() {
+	m.completed_at = nil
+	m.clearedFields[agentactivityinstance.FieldCompletedAt] = struct{}{}
+}
+
+// CompletedAtCleared returns if the "completed_at" field was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) CompletedAtCleared() bool {
+	_, ok := m.clearedFields[agentactivityinstance.FieldCompletedAt]
+	return ok
+}
+
+// ResetCompletedAt resets all changes to the "completed_at" field.
+func (m *AgentActivityInstanceMutation) ResetCompletedAt() {
+	m.completed_at = nil
+	delete(m.clearedFields, agentactivityinstance.FieldCompletedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AgentActivityInstanceMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AgentActivityInstanceMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AgentActivityInstance entity.
+// If the AgentActivityInstance object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentActivityInstanceMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AgentActivityInstanceMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *AgentActivityInstanceMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[agentactivityinstance.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *AgentActivityInstanceMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *AgentActivityInstanceMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *AgentActivityInstanceMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// ClearTicket clears the "ticket" edge to the Ticket entity.
+func (m *AgentActivityInstanceMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[agentactivityinstance.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
+func (m *AgentActivityInstanceMutation) TicketCleared() bool {
+	return m.TicketIDCleared() || m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *AgentActivityInstanceMutation) TicketIDs() (ids []uuid.UUID) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *AgentActivityInstanceMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (m *AgentActivityInstanceMutation) ClearAgent() {
+	m.clearedagent = true
+	m.clearedFields[agentactivityinstance.FieldAgentID] = struct{}{}
+}
+
+// AgentCleared reports if the "agent" edge to the Agent entity was cleared.
+func (m *AgentActivityInstanceMutation) AgentCleared() bool {
+	return m.clearedagent
+}
+
+// AgentIDs returns the "agent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentID instead. It exists only for internal usage by the builders.
+func (m *AgentActivityInstanceMutation) AgentIDs() (ids []uuid.UUID) {
+	if id := m.agent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgent resets all changes to the "agent" edge.
+func (m *AgentActivityInstanceMutation) ResetAgent() {
+	m.agent = nil
+	m.clearedagent = false
+}
+
+// ClearAgentRun clears the "agent_run" edge to the AgentRun entity.
+func (m *AgentActivityInstanceMutation) ClearAgentRun() {
+	m.clearedagent_run = true
+	m.clearedFields[agentactivityinstance.FieldAgentRunID] = struct{}{}
+}
+
+// AgentRunCleared reports if the "agent_run" edge to the AgentRun entity was cleared.
+func (m *AgentActivityInstanceMutation) AgentRunCleared() bool {
+	return m.clearedagent_run
+}
+
+// AgentRunIDs returns the "agent_run" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentRunID instead. It exists only for internal usage by the builders.
+func (m *AgentActivityInstanceMutation) AgentRunIDs() (ids []uuid.UUID) {
+	if id := m.agent_run; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgentRun resets all changes to the "agent_run" edge.
+func (m *AgentActivityInstanceMutation) ResetAgentRun() {
+	m.agent_run = nil
+	m.clearedagent_run = false
+}
+
+// Where appends a list predicates to the AgentActivityInstanceMutation builder.
+func (m *AgentActivityInstanceMutation) Where(ps ...predicate.AgentActivityInstance) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AgentActivityInstanceMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AgentActivityInstanceMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AgentActivityInstance, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AgentActivityInstanceMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AgentActivityInstanceMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AgentActivityInstance).
+func (m *AgentActivityInstanceMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AgentActivityInstanceMutation) Fields() []string {
+	fields := make([]string, 0, 25)
+	if m.project != nil {
+		fields = append(fields, agentactivityinstance.FieldProjectID)
+	}
+	if m.ticket != nil {
+		fields = append(fields, agentactivityinstance.FieldTicketID)
+	}
+	if m.agent != nil {
+		fields = append(fields, agentactivityinstance.FieldAgentID)
+	}
+	if m.agent_run != nil {
+		fields = append(fields, agentactivityinstance.FieldAgentRunID)
+	}
+	if m.provider != nil {
+		fields = append(fields, agentactivityinstance.FieldProvider)
+	}
+	if m.activity_kind != nil {
+		fields = append(fields, agentactivityinstance.FieldActivityKind)
+	}
+	if m.activity_id != nil {
+		fields = append(fields, agentactivityinstance.FieldActivityID)
+	}
+	if m.id_source != nil {
+		fields = append(fields, agentactivityinstance.FieldIDSource)
+	}
+	if m.identity_confidence != nil {
+		fields = append(fields, agentactivityinstance.FieldIdentityConfidence)
+	}
+	if m.parent_activity_id != nil {
+		fields = append(fields, agentactivityinstance.FieldParentActivityID)
+	}
+	if m.thread_id != nil {
+		fields = append(fields, agentactivityinstance.FieldThreadID)
+	}
+	if m.turn_id != nil {
+		fields = append(fields, agentactivityinstance.FieldTurnID)
+	}
+	if m.command != nil {
+		fields = append(fields, agentactivityinstance.FieldCommand)
+	}
+	if m.tool_name != nil {
+		fields = append(fields, agentactivityinstance.FieldToolName)
+	}
+	if m.title != nil {
+		fields = append(fields, agentactivityinstance.FieldTitle)
+	}
+	if m.status != nil {
+		fields = append(fields, agentactivityinstance.FieldStatus)
+	}
+	if m.live_text != nil {
+		fields = append(fields, agentactivityinstance.FieldLiveText)
+	}
+	if m.final_text != nil {
+		fields = append(fields, agentactivityinstance.FieldFinalText)
+	}
+	if m.live_text_bytes != nil {
+		fields = append(fields, agentactivityinstance.FieldLiveTextBytes)
+	}
+	if m.final_text_bytes != nil {
+		fields = append(fields, agentactivityinstance.FieldFinalTextBytes)
+	}
+	if m.metadata != nil {
+		fields = append(fields, agentactivityinstance.FieldMetadata)
+	}
+	if m.started_at != nil {
+		fields = append(fields, agentactivityinstance.FieldStartedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, agentactivityinstance.FieldUpdatedAt)
+	}
+	if m.completed_at != nil {
+		fields = append(fields, agentactivityinstance.FieldCompletedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, agentactivityinstance.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AgentActivityInstanceMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case agentactivityinstance.FieldProjectID:
+		return m.ProjectID()
+	case agentactivityinstance.FieldTicketID:
+		return m.TicketID()
+	case agentactivityinstance.FieldAgentID:
+		return m.AgentID()
+	case agentactivityinstance.FieldAgentRunID:
+		return m.AgentRunID()
+	case agentactivityinstance.FieldProvider:
+		return m.Provider()
+	case agentactivityinstance.FieldActivityKind:
+		return m.ActivityKind()
+	case agentactivityinstance.FieldActivityID:
+		return m.ActivityID()
+	case agentactivityinstance.FieldIDSource:
+		return m.IDSource()
+	case agentactivityinstance.FieldIdentityConfidence:
+		return m.IdentityConfidence()
+	case agentactivityinstance.FieldParentActivityID:
+		return m.ParentActivityID()
+	case agentactivityinstance.FieldThreadID:
+		return m.ThreadID()
+	case agentactivityinstance.FieldTurnID:
+		return m.TurnID()
+	case agentactivityinstance.FieldCommand:
+		return m.Command()
+	case agentactivityinstance.FieldToolName:
+		return m.ToolName()
+	case agentactivityinstance.FieldTitle:
+		return m.Title()
+	case agentactivityinstance.FieldStatus:
+		return m.Status()
+	case agentactivityinstance.FieldLiveText:
+		return m.LiveText()
+	case agentactivityinstance.FieldFinalText:
+		return m.FinalText()
+	case agentactivityinstance.FieldLiveTextBytes:
+		return m.LiveTextBytes()
+	case agentactivityinstance.FieldFinalTextBytes:
+		return m.FinalTextBytes()
+	case agentactivityinstance.FieldMetadata:
+		return m.Metadata()
+	case agentactivityinstance.FieldStartedAt:
+		return m.StartedAt()
+	case agentactivityinstance.FieldUpdatedAt:
+		return m.UpdatedAt()
+	case agentactivityinstance.FieldCompletedAt:
+		return m.CompletedAt()
+	case agentactivityinstance.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AgentActivityInstanceMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case agentactivityinstance.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case agentactivityinstance.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case agentactivityinstance.FieldAgentID:
+		return m.OldAgentID(ctx)
+	case agentactivityinstance.FieldAgentRunID:
+		return m.OldAgentRunID(ctx)
+	case agentactivityinstance.FieldProvider:
+		return m.OldProvider(ctx)
+	case agentactivityinstance.FieldActivityKind:
+		return m.OldActivityKind(ctx)
+	case agentactivityinstance.FieldActivityID:
+		return m.OldActivityID(ctx)
+	case agentactivityinstance.FieldIDSource:
+		return m.OldIDSource(ctx)
+	case agentactivityinstance.FieldIdentityConfidence:
+		return m.OldIdentityConfidence(ctx)
+	case agentactivityinstance.FieldParentActivityID:
+		return m.OldParentActivityID(ctx)
+	case agentactivityinstance.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case agentactivityinstance.FieldTurnID:
+		return m.OldTurnID(ctx)
+	case agentactivityinstance.FieldCommand:
+		return m.OldCommand(ctx)
+	case agentactivityinstance.FieldToolName:
+		return m.OldToolName(ctx)
+	case agentactivityinstance.FieldTitle:
+		return m.OldTitle(ctx)
+	case agentactivityinstance.FieldStatus:
+		return m.OldStatus(ctx)
+	case agentactivityinstance.FieldLiveText:
+		return m.OldLiveText(ctx)
+	case agentactivityinstance.FieldFinalText:
+		return m.OldFinalText(ctx)
+	case agentactivityinstance.FieldLiveTextBytes:
+		return m.OldLiveTextBytes(ctx)
+	case agentactivityinstance.FieldFinalTextBytes:
+		return m.OldFinalTextBytes(ctx)
+	case agentactivityinstance.FieldMetadata:
+		return m.OldMetadata(ctx)
+	case agentactivityinstance.FieldStartedAt:
+		return m.OldStartedAt(ctx)
+	case agentactivityinstance.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	case agentactivityinstance.FieldCompletedAt:
+		return m.OldCompletedAt(ctx)
+	case agentactivityinstance.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AgentActivityInstance field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentActivityInstanceMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case agentactivityinstance.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case agentactivityinstance.FieldTicketID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case agentactivityinstance.FieldAgentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentID(v)
+		return nil
+	case agentactivityinstance.FieldAgentRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentRunID(v)
+		return nil
+	case agentactivityinstance.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case agentactivityinstance.FieldActivityKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivityKind(v)
+		return nil
+	case agentactivityinstance.FieldActivityID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivityID(v)
+		return nil
+	case agentactivityinstance.FieldIDSource:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIDSource(v)
+		return nil
+	case agentactivityinstance.FieldIdentityConfidence:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdentityConfidence(v)
+		return nil
+	case agentactivityinstance.FieldParentActivityID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParentActivityID(v)
+		return nil
+	case agentactivityinstance.FieldThreadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case agentactivityinstance.FieldTurnID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTurnID(v)
+		return nil
+	case agentactivityinstance.FieldCommand:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommand(v)
+		return nil
+	case agentactivityinstance.FieldToolName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetToolName(v)
+		return nil
+	case agentactivityinstance.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case agentactivityinstance.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case agentactivityinstance.FieldLiveText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLiveText(v)
+		return nil
+	case agentactivityinstance.FieldFinalText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinalText(v)
+		return nil
+	case agentactivityinstance.FieldLiveTextBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLiveTextBytes(v)
+		return nil
+	case agentactivityinstance.FieldFinalTextBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinalTextBytes(v)
+		return nil
+	case agentactivityinstance.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	case agentactivityinstance.FieldStartedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStartedAt(v)
+		return nil
+	case agentactivityinstance.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	case agentactivityinstance.FieldCompletedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompletedAt(v)
+		return nil
+	case agentactivityinstance.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AgentActivityInstanceMutation) AddedFields() []string {
+	var fields []string
+	if m.addlive_text_bytes != nil {
+		fields = append(fields, agentactivityinstance.FieldLiveTextBytes)
+	}
+	if m.addfinal_text_bytes != nil {
+		fields = append(fields, agentactivityinstance.FieldFinalTextBytes)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AgentActivityInstanceMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case agentactivityinstance.FieldLiveTextBytes:
+		return m.AddedLiveTextBytes()
+	case agentactivityinstance.FieldFinalTextBytes:
+		return m.AddedFinalTextBytes()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentActivityInstanceMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case agentactivityinstance.FieldLiveTextBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddLiveTextBytes(v)
+		return nil
+	case agentactivityinstance.FieldFinalTextBytes:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFinalTextBytes(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AgentActivityInstanceMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(agentactivityinstance.FieldTicketID) {
+		fields = append(fields, agentactivityinstance.FieldTicketID)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldParentActivityID) {
+		fields = append(fields, agentactivityinstance.FieldParentActivityID)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldThreadID) {
+		fields = append(fields, agentactivityinstance.FieldThreadID)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldTurnID) {
+		fields = append(fields, agentactivityinstance.FieldTurnID)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldCommand) {
+		fields = append(fields, agentactivityinstance.FieldCommand)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldToolName) {
+		fields = append(fields, agentactivityinstance.FieldToolName)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldTitle) {
+		fields = append(fields, agentactivityinstance.FieldTitle)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldLiveText) {
+		fields = append(fields, agentactivityinstance.FieldLiveText)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldFinalText) {
+		fields = append(fields, agentactivityinstance.FieldFinalText)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldStartedAt) {
+		fields = append(fields, agentactivityinstance.FieldStartedAt)
+	}
+	if m.FieldCleared(agentactivityinstance.FieldCompletedAt) {
+		fields = append(fields, agentactivityinstance.FieldCompletedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AgentActivityInstanceMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AgentActivityInstanceMutation) ClearField(name string) error {
+	switch name {
+	case agentactivityinstance.FieldTicketID:
+		m.ClearTicketID()
+		return nil
+	case agentactivityinstance.FieldParentActivityID:
+		m.ClearParentActivityID()
+		return nil
+	case agentactivityinstance.FieldThreadID:
+		m.ClearThreadID()
+		return nil
+	case agentactivityinstance.FieldTurnID:
+		m.ClearTurnID()
+		return nil
+	case agentactivityinstance.FieldCommand:
+		m.ClearCommand()
+		return nil
+	case agentactivityinstance.FieldToolName:
+		m.ClearToolName()
+		return nil
+	case agentactivityinstance.FieldTitle:
+		m.ClearTitle()
+		return nil
+	case agentactivityinstance.FieldLiveText:
+		m.ClearLiveText()
+		return nil
+	case agentactivityinstance.FieldFinalText:
+		m.ClearFinalText()
+		return nil
+	case agentactivityinstance.FieldStartedAt:
+		m.ClearStartedAt()
+		return nil
+	case agentactivityinstance.FieldCompletedAt:
+		m.ClearCompletedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AgentActivityInstanceMutation) ResetField(name string) error {
+	switch name {
+	case agentactivityinstance.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case agentactivityinstance.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case agentactivityinstance.FieldAgentID:
+		m.ResetAgentID()
+		return nil
+	case agentactivityinstance.FieldAgentRunID:
+		m.ResetAgentRunID()
+		return nil
+	case agentactivityinstance.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case agentactivityinstance.FieldActivityKind:
+		m.ResetActivityKind()
+		return nil
+	case agentactivityinstance.FieldActivityID:
+		m.ResetActivityID()
+		return nil
+	case agentactivityinstance.FieldIDSource:
+		m.ResetIDSource()
+		return nil
+	case agentactivityinstance.FieldIdentityConfidence:
+		m.ResetIdentityConfidence()
+		return nil
+	case agentactivityinstance.FieldParentActivityID:
+		m.ResetParentActivityID()
+		return nil
+	case agentactivityinstance.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case agentactivityinstance.FieldTurnID:
+		m.ResetTurnID()
+		return nil
+	case agentactivityinstance.FieldCommand:
+		m.ResetCommand()
+		return nil
+	case agentactivityinstance.FieldToolName:
+		m.ResetToolName()
+		return nil
+	case agentactivityinstance.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case agentactivityinstance.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case agentactivityinstance.FieldLiveText:
+		m.ResetLiveText()
+		return nil
+	case agentactivityinstance.FieldFinalText:
+		m.ResetFinalText()
+		return nil
+	case agentactivityinstance.FieldLiveTextBytes:
+		m.ResetLiveTextBytes()
+		return nil
+	case agentactivityinstance.FieldFinalTextBytes:
+		m.ResetFinalTextBytes()
+		return nil
+	case agentactivityinstance.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	case agentactivityinstance.FieldStartedAt:
+		m.ResetStartedAt()
+		return nil
+	case agentactivityinstance.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	case agentactivityinstance.FieldCompletedAt:
+		m.ResetCompletedAt()
+		return nil
+	case agentactivityinstance.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AgentActivityInstanceMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.project != nil {
+		edges = append(edges, agentactivityinstance.EdgeProject)
+	}
+	if m.ticket != nil {
+		edges = append(edges, agentactivityinstance.EdgeTicket)
+	}
+	if m.agent != nil {
+		edges = append(edges, agentactivityinstance.EdgeAgent)
+	}
+	if m.agent_run != nil {
+		edges = append(edges, agentactivityinstance.EdgeAgentRun)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AgentActivityInstanceMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case agentactivityinstance.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentactivityinstance.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentactivityinstance.EdgeAgent:
+		if id := m.agent; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentactivityinstance.EdgeAgentRun:
+		if id := m.agent_run; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AgentActivityInstanceMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AgentActivityInstanceMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AgentActivityInstanceMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedproject {
+		edges = append(edges, agentactivityinstance.EdgeProject)
+	}
+	if m.clearedticket {
+		edges = append(edges, agentactivityinstance.EdgeTicket)
+	}
+	if m.clearedagent {
+		edges = append(edges, agentactivityinstance.EdgeAgent)
+	}
+	if m.clearedagent_run {
+		edges = append(edges, agentactivityinstance.EdgeAgentRun)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AgentActivityInstanceMutation) EdgeCleared(name string) bool {
+	switch name {
+	case agentactivityinstance.EdgeProject:
+		return m.clearedproject
+	case agentactivityinstance.EdgeTicket:
+		return m.clearedticket
+	case agentactivityinstance.EdgeAgent:
+		return m.clearedagent
+	case agentactivityinstance.EdgeAgentRun:
+		return m.clearedagent_run
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AgentActivityInstanceMutation) ClearEdge(name string) error {
+	switch name {
+	case agentactivityinstance.EdgeProject:
+		m.ClearProject()
+		return nil
+	case agentactivityinstance.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	case agentactivityinstance.EdgeAgent:
+		m.ClearAgent()
+		return nil
+	case agentactivityinstance.EdgeAgentRun:
+		m.ClearAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AgentActivityInstanceMutation) ResetEdge(name string) error {
+	switch name {
+	case agentactivityinstance.EdgeProject:
+		m.ResetProject()
+		return nil
+	case agentactivityinstance.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	case agentactivityinstance.EdgeAgent:
+		m.ResetAgent()
+		return nil
+	case agentactivityinstance.EdgeAgentRun:
+		m.ResetAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentActivityInstance edge %s", name)
 }
 
 // AgentProviderMutation represents an operation that mutates the AgentProvider nodes in the graph.
@@ -3951,6 +6307,1476 @@ func (m *AgentProviderMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown AgentProvider edge %s", name)
 }
 
+// AgentRawEventMutation represents an operation that mutates the AgentRawEvent nodes in the graph.
+type AgentRawEventMutation struct {
+	config
+	op                     Op
+	typ                    string
+	id                     *uuid.UUID
+	dedup_key              *string
+	provider               *string
+	provider_event_kind    *string
+	provider_event_subtype *string
+	provider_event_id      *string
+	thread_id              *string
+	turn_id                *string
+	activity_hint_id       *string
+	occurred_at            *time.Time
+	payload                *map[string]interface{}
+	text_excerpt           *string
+	created_at             *time.Time
+	clearedFields          map[string]struct{}
+	project                *uuid.UUID
+	clearedproject         bool
+	ticket                 *uuid.UUID
+	clearedticket          bool
+	agent                  *uuid.UUID
+	clearedagent           bool
+	agent_run              *uuid.UUID
+	clearedagent_run       bool
+	done                   bool
+	oldValue               func(context.Context) (*AgentRawEvent, error)
+	predicates             []predicate.AgentRawEvent
+}
+
+var _ ent.Mutation = (*AgentRawEventMutation)(nil)
+
+// agentraweventOption allows management of the mutation configuration using functional options.
+type agentraweventOption func(*AgentRawEventMutation)
+
+// newAgentRawEventMutation creates new mutation for the AgentRawEvent entity.
+func newAgentRawEventMutation(c config, op Op, opts ...agentraweventOption) *AgentRawEventMutation {
+	m := &AgentRawEventMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAgentRawEvent,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAgentRawEventID sets the ID field of the mutation.
+func withAgentRawEventID(id uuid.UUID) agentraweventOption {
+	return func(m *AgentRawEventMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AgentRawEvent
+		)
+		m.oldValue = func(ctx context.Context) (*AgentRawEvent, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AgentRawEvent.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAgentRawEvent sets the old AgentRawEvent of the mutation.
+func withAgentRawEvent(node *AgentRawEvent) agentraweventOption {
+	return func(m *AgentRawEventMutation) {
+		m.oldValue = func(context.Context) (*AgentRawEvent, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AgentRawEventMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AgentRawEventMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of AgentRawEvent entities.
+func (m *AgentRawEventMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AgentRawEventMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AgentRawEventMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AgentRawEvent.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *AgentRawEventMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *AgentRawEventMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *AgentRawEventMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *AgentRawEventMutation) SetTicketID(u uuid.UUID) {
+	m.ticket = &u
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *AgentRawEventMutation) TicketID() (r uuid.UUID, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldTicketID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (m *AgentRawEventMutation) ClearTicketID() {
+	m.ticket = nil
+	m.clearedFields[agentrawevent.FieldTicketID] = struct{}{}
+}
+
+// TicketIDCleared returns if the "ticket_id" field was cleared in this mutation.
+func (m *AgentRawEventMutation) TicketIDCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldTicketID]
+	return ok
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *AgentRawEventMutation) ResetTicketID() {
+	m.ticket = nil
+	delete(m.clearedFields, agentrawevent.FieldTicketID)
+}
+
+// SetAgentID sets the "agent_id" field.
+func (m *AgentRawEventMutation) SetAgentID(u uuid.UUID) {
+	m.agent = &u
+}
+
+// AgentID returns the value of the "agent_id" field in the mutation.
+func (m *AgentRawEventMutation) AgentID() (r uuid.UUID, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentID returns the old "agent_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentID: %w", err)
+	}
+	return oldValue.AgentID, nil
+}
+
+// ResetAgentID resets all changes to the "agent_id" field.
+func (m *AgentRawEventMutation) ResetAgentID() {
+	m.agent = nil
+}
+
+// SetAgentRunID sets the "agent_run_id" field.
+func (m *AgentRawEventMutation) SetAgentRunID(u uuid.UUID) {
+	m.agent_run = &u
+}
+
+// AgentRunID returns the value of the "agent_run_id" field in the mutation.
+func (m *AgentRawEventMutation) AgentRunID() (r uuid.UUID, exists bool) {
+	v := m.agent_run
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentRunID returns the old "agent_run_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldAgentRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentRunID: %w", err)
+	}
+	return oldValue.AgentRunID, nil
+}
+
+// ResetAgentRunID resets all changes to the "agent_run_id" field.
+func (m *AgentRawEventMutation) ResetAgentRunID() {
+	m.agent_run = nil
+}
+
+// SetDedupKey sets the "dedup_key" field.
+func (m *AgentRawEventMutation) SetDedupKey(s string) {
+	m.dedup_key = &s
+}
+
+// DedupKey returns the value of the "dedup_key" field in the mutation.
+func (m *AgentRawEventMutation) DedupKey() (r string, exists bool) {
+	v := m.dedup_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDedupKey returns the old "dedup_key" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldDedupKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDedupKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDedupKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDedupKey: %w", err)
+	}
+	return oldValue.DedupKey, nil
+}
+
+// ResetDedupKey resets all changes to the "dedup_key" field.
+func (m *AgentRawEventMutation) ResetDedupKey() {
+	m.dedup_key = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *AgentRawEventMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *AgentRawEventMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *AgentRawEventMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetProviderEventKind sets the "provider_event_kind" field.
+func (m *AgentRawEventMutation) SetProviderEventKind(s string) {
+	m.provider_event_kind = &s
+}
+
+// ProviderEventKind returns the value of the "provider_event_kind" field in the mutation.
+func (m *AgentRawEventMutation) ProviderEventKind() (r string, exists bool) {
+	v := m.provider_event_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderEventKind returns the old "provider_event_kind" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldProviderEventKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderEventKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderEventKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderEventKind: %w", err)
+	}
+	return oldValue.ProviderEventKind, nil
+}
+
+// ResetProviderEventKind resets all changes to the "provider_event_kind" field.
+func (m *AgentRawEventMutation) ResetProviderEventKind() {
+	m.provider_event_kind = nil
+}
+
+// SetProviderEventSubtype sets the "provider_event_subtype" field.
+func (m *AgentRawEventMutation) SetProviderEventSubtype(s string) {
+	m.provider_event_subtype = &s
+}
+
+// ProviderEventSubtype returns the value of the "provider_event_subtype" field in the mutation.
+func (m *AgentRawEventMutation) ProviderEventSubtype() (r string, exists bool) {
+	v := m.provider_event_subtype
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderEventSubtype returns the old "provider_event_subtype" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldProviderEventSubtype(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderEventSubtype is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderEventSubtype requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderEventSubtype: %w", err)
+	}
+	return oldValue.ProviderEventSubtype, nil
+}
+
+// ClearProviderEventSubtype clears the value of the "provider_event_subtype" field.
+func (m *AgentRawEventMutation) ClearProviderEventSubtype() {
+	m.provider_event_subtype = nil
+	m.clearedFields[agentrawevent.FieldProviderEventSubtype] = struct{}{}
+}
+
+// ProviderEventSubtypeCleared returns if the "provider_event_subtype" field was cleared in this mutation.
+func (m *AgentRawEventMutation) ProviderEventSubtypeCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldProviderEventSubtype]
+	return ok
+}
+
+// ResetProviderEventSubtype resets all changes to the "provider_event_subtype" field.
+func (m *AgentRawEventMutation) ResetProviderEventSubtype() {
+	m.provider_event_subtype = nil
+	delete(m.clearedFields, agentrawevent.FieldProviderEventSubtype)
+}
+
+// SetProviderEventID sets the "provider_event_id" field.
+func (m *AgentRawEventMutation) SetProviderEventID(s string) {
+	m.provider_event_id = &s
+}
+
+// ProviderEventID returns the value of the "provider_event_id" field in the mutation.
+func (m *AgentRawEventMutation) ProviderEventID() (r string, exists bool) {
+	v := m.provider_event_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProviderEventID returns the old "provider_event_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldProviderEventID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProviderEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProviderEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProviderEventID: %w", err)
+	}
+	return oldValue.ProviderEventID, nil
+}
+
+// ClearProviderEventID clears the value of the "provider_event_id" field.
+func (m *AgentRawEventMutation) ClearProviderEventID() {
+	m.provider_event_id = nil
+	m.clearedFields[agentrawevent.FieldProviderEventID] = struct{}{}
+}
+
+// ProviderEventIDCleared returns if the "provider_event_id" field was cleared in this mutation.
+func (m *AgentRawEventMutation) ProviderEventIDCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldProviderEventID]
+	return ok
+}
+
+// ResetProviderEventID resets all changes to the "provider_event_id" field.
+func (m *AgentRawEventMutation) ResetProviderEventID() {
+	m.provider_event_id = nil
+	delete(m.clearedFields, agentrawevent.FieldProviderEventID)
+}
+
+// SetThreadID sets the "thread_id" field.
+func (m *AgentRawEventMutation) SetThreadID(s string) {
+	m.thread_id = &s
+}
+
+// ThreadID returns the value of the "thread_id" field in the mutation.
+func (m *AgentRawEventMutation) ThreadID() (r string, exists bool) {
+	v := m.thread_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldThreadID returns the old "thread_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldThreadID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldThreadID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldThreadID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldThreadID: %w", err)
+	}
+	return oldValue.ThreadID, nil
+}
+
+// ClearThreadID clears the value of the "thread_id" field.
+func (m *AgentRawEventMutation) ClearThreadID() {
+	m.thread_id = nil
+	m.clearedFields[agentrawevent.FieldThreadID] = struct{}{}
+}
+
+// ThreadIDCleared returns if the "thread_id" field was cleared in this mutation.
+func (m *AgentRawEventMutation) ThreadIDCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldThreadID]
+	return ok
+}
+
+// ResetThreadID resets all changes to the "thread_id" field.
+func (m *AgentRawEventMutation) ResetThreadID() {
+	m.thread_id = nil
+	delete(m.clearedFields, agentrawevent.FieldThreadID)
+}
+
+// SetTurnID sets the "turn_id" field.
+func (m *AgentRawEventMutation) SetTurnID(s string) {
+	m.turn_id = &s
+}
+
+// TurnID returns the value of the "turn_id" field in the mutation.
+func (m *AgentRawEventMutation) TurnID() (r string, exists bool) {
+	v := m.turn_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTurnID returns the old "turn_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldTurnID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTurnID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTurnID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTurnID: %w", err)
+	}
+	return oldValue.TurnID, nil
+}
+
+// ClearTurnID clears the value of the "turn_id" field.
+func (m *AgentRawEventMutation) ClearTurnID() {
+	m.turn_id = nil
+	m.clearedFields[agentrawevent.FieldTurnID] = struct{}{}
+}
+
+// TurnIDCleared returns if the "turn_id" field was cleared in this mutation.
+func (m *AgentRawEventMutation) TurnIDCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldTurnID]
+	return ok
+}
+
+// ResetTurnID resets all changes to the "turn_id" field.
+func (m *AgentRawEventMutation) ResetTurnID() {
+	m.turn_id = nil
+	delete(m.clearedFields, agentrawevent.FieldTurnID)
+}
+
+// SetActivityHintID sets the "activity_hint_id" field.
+func (m *AgentRawEventMutation) SetActivityHintID(s string) {
+	m.activity_hint_id = &s
+}
+
+// ActivityHintID returns the value of the "activity_hint_id" field in the mutation.
+func (m *AgentRawEventMutation) ActivityHintID() (r string, exists bool) {
+	v := m.activity_hint_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivityHintID returns the old "activity_hint_id" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldActivityHintID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivityHintID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivityHintID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivityHintID: %w", err)
+	}
+	return oldValue.ActivityHintID, nil
+}
+
+// ClearActivityHintID clears the value of the "activity_hint_id" field.
+func (m *AgentRawEventMutation) ClearActivityHintID() {
+	m.activity_hint_id = nil
+	m.clearedFields[agentrawevent.FieldActivityHintID] = struct{}{}
+}
+
+// ActivityHintIDCleared returns if the "activity_hint_id" field was cleared in this mutation.
+func (m *AgentRawEventMutation) ActivityHintIDCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldActivityHintID]
+	return ok
+}
+
+// ResetActivityHintID resets all changes to the "activity_hint_id" field.
+func (m *AgentRawEventMutation) ResetActivityHintID() {
+	m.activity_hint_id = nil
+	delete(m.clearedFields, agentrawevent.FieldActivityHintID)
+}
+
+// SetOccurredAt sets the "occurred_at" field.
+func (m *AgentRawEventMutation) SetOccurredAt(t time.Time) {
+	m.occurred_at = &t
+}
+
+// OccurredAt returns the value of the "occurred_at" field in the mutation.
+func (m *AgentRawEventMutation) OccurredAt() (r time.Time, exists bool) {
+	v := m.occurred_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOccurredAt returns the old "occurred_at" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldOccurredAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOccurredAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOccurredAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOccurredAt: %w", err)
+	}
+	return oldValue.OccurredAt, nil
+}
+
+// ResetOccurredAt resets all changes to the "occurred_at" field.
+func (m *AgentRawEventMutation) ResetOccurredAt() {
+	m.occurred_at = nil
+}
+
+// SetPayload sets the "payload" field.
+func (m *AgentRawEventMutation) SetPayload(value map[string]interface{}) {
+	m.payload = &value
+}
+
+// Payload returns the value of the "payload" field in the mutation.
+func (m *AgentRawEventMutation) Payload() (r map[string]interface{}, exists bool) {
+	v := m.payload
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPayload returns the old "payload" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldPayload(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPayload is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPayload requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPayload: %w", err)
+	}
+	return oldValue.Payload, nil
+}
+
+// ResetPayload resets all changes to the "payload" field.
+func (m *AgentRawEventMutation) ResetPayload() {
+	m.payload = nil
+}
+
+// SetTextExcerpt sets the "text_excerpt" field.
+func (m *AgentRawEventMutation) SetTextExcerpt(s string) {
+	m.text_excerpt = &s
+}
+
+// TextExcerpt returns the value of the "text_excerpt" field in the mutation.
+func (m *AgentRawEventMutation) TextExcerpt() (r string, exists bool) {
+	v := m.text_excerpt
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTextExcerpt returns the old "text_excerpt" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldTextExcerpt(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTextExcerpt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTextExcerpt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTextExcerpt: %w", err)
+	}
+	return oldValue.TextExcerpt, nil
+}
+
+// ClearTextExcerpt clears the value of the "text_excerpt" field.
+func (m *AgentRawEventMutation) ClearTextExcerpt() {
+	m.text_excerpt = nil
+	m.clearedFields[agentrawevent.FieldTextExcerpt] = struct{}{}
+}
+
+// TextExcerptCleared returns if the "text_excerpt" field was cleared in this mutation.
+func (m *AgentRawEventMutation) TextExcerptCleared() bool {
+	_, ok := m.clearedFields[agentrawevent.FieldTextExcerpt]
+	return ok
+}
+
+// ResetTextExcerpt resets all changes to the "text_excerpt" field.
+func (m *AgentRawEventMutation) ResetTextExcerpt() {
+	m.text_excerpt = nil
+	delete(m.clearedFields, agentrawevent.FieldTextExcerpt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AgentRawEventMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AgentRawEventMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AgentRawEvent entity.
+// If the AgentRawEvent object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentRawEventMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AgentRawEventMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *AgentRawEventMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[agentrawevent.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *AgentRawEventMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *AgentRawEventMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *AgentRawEventMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// ClearTicket clears the "ticket" edge to the Ticket entity.
+func (m *AgentRawEventMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[agentrawevent.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
+func (m *AgentRawEventMutation) TicketCleared() bool {
+	return m.TicketIDCleared() || m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *AgentRawEventMutation) TicketIDs() (ids []uuid.UUID) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *AgentRawEventMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (m *AgentRawEventMutation) ClearAgent() {
+	m.clearedagent = true
+	m.clearedFields[agentrawevent.FieldAgentID] = struct{}{}
+}
+
+// AgentCleared reports if the "agent" edge to the Agent entity was cleared.
+func (m *AgentRawEventMutation) AgentCleared() bool {
+	return m.clearedagent
+}
+
+// AgentIDs returns the "agent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentID instead. It exists only for internal usage by the builders.
+func (m *AgentRawEventMutation) AgentIDs() (ids []uuid.UUID) {
+	if id := m.agent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgent resets all changes to the "agent" edge.
+func (m *AgentRawEventMutation) ResetAgent() {
+	m.agent = nil
+	m.clearedagent = false
+}
+
+// ClearAgentRun clears the "agent_run" edge to the AgentRun entity.
+func (m *AgentRawEventMutation) ClearAgentRun() {
+	m.clearedagent_run = true
+	m.clearedFields[agentrawevent.FieldAgentRunID] = struct{}{}
+}
+
+// AgentRunCleared reports if the "agent_run" edge to the AgentRun entity was cleared.
+func (m *AgentRawEventMutation) AgentRunCleared() bool {
+	return m.clearedagent_run
+}
+
+// AgentRunIDs returns the "agent_run" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentRunID instead. It exists only for internal usage by the builders.
+func (m *AgentRawEventMutation) AgentRunIDs() (ids []uuid.UUID) {
+	if id := m.agent_run; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgentRun resets all changes to the "agent_run" edge.
+func (m *AgentRawEventMutation) ResetAgentRun() {
+	m.agent_run = nil
+	m.clearedagent_run = false
+}
+
+// Where appends a list predicates to the AgentRawEventMutation builder.
+func (m *AgentRawEventMutation) Where(ps ...predicate.AgentRawEvent) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AgentRawEventMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AgentRawEventMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AgentRawEvent, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AgentRawEventMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AgentRawEventMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AgentRawEvent).
+func (m *AgentRawEventMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AgentRawEventMutation) Fields() []string {
+	fields := make([]string, 0, 16)
+	if m.project != nil {
+		fields = append(fields, agentrawevent.FieldProjectID)
+	}
+	if m.ticket != nil {
+		fields = append(fields, agentrawevent.FieldTicketID)
+	}
+	if m.agent != nil {
+		fields = append(fields, agentrawevent.FieldAgentID)
+	}
+	if m.agent_run != nil {
+		fields = append(fields, agentrawevent.FieldAgentRunID)
+	}
+	if m.dedup_key != nil {
+		fields = append(fields, agentrawevent.FieldDedupKey)
+	}
+	if m.provider != nil {
+		fields = append(fields, agentrawevent.FieldProvider)
+	}
+	if m.provider_event_kind != nil {
+		fields = append(fields, agentrawevent.FieldProviderEventKind)
+	}
+	if m.provider_event_subtype != nil {
+		fields = append(fields, agentrawevent.FieldProviderEventSubtype)
+	}
+	if m.provider_event_id != nil {
+		fields = append(fields, agentrawevent.FieldProviderEventID)
+	}
+	if m.thread_id != nil {
+		fields = append(fields, agentrawevent.FieldThreadID)
+	}
+	if m.turn_id != nil {
+		fields = append(fields, agentrawevent.FieldTurnID)
+	}
+	if m.activity_hint_id != nil {
+		fields = append(fields, agentrawevent.FieldActivityHintID)
+	}
+	if m.occurred_at != nil {
+		fields = append(fields, agentrawevent.FieldOccurredAt)
+	}
+	if m.payload != nil {
+		fields = append(fields, agentrawevent.FieldPayload)
+	}
+	if m.text_excerpt != nil {
+		fields = append(fields, agentrawevent.FieldTextExcerpt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, agentrawevent.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AgentRawEventMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case agentrawevent.FieldProjectID:
+		return m.ProjectID()
+	case agentrawevent.FieldTicketID:
+		return m.TicketID()
+	case agentrawevent.FieldAgentID:
+		return m.AgentID()
+	case agentrawevent.FieldAgentRunID:
+		return m.AgentRunID()
+	case agentrawevent.FieldDedupKey:
+		return m.DedupKey()
+	case agentrawevent.FieldProvider:
+		return m.Provider()
+	case agentrawevent.FieldProviderEventKind:
+		return m.ProviderEventKind()
+	case agentrawevent.FieldProviderEventSubtype:
+		return m.ProviderEventSubtype()
+	case agentrawevent.FieldProviderEventID:
+		return m.ProviderEventID()
+	case agentrawevent.FieldThreadID:
+		return m.ThreadID()
+	case agentrawevent.FieldTurnID:
+		return m.TurnID()
+	case agentrawevent.FieldActivityHintID:
+		return m.ActivityHintID()
+	case agentrawevent.FieldOccurredAt:
+		return m.OccurredAt()
+	case agentrawevent.FieldPayload:
+		return m.Payload()
+	case agentrawevent.FieldTextExcerpt:
+		return m.TextExcerpt()
+	case agentrawevent.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AgentRawEventMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case agentrawevent.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case agentrawevent.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case agentrawevent.FieldAgentID:
+		return m.OldAgentID(ctx)
+	case agentrawevent.FieldAgentRunID:
+		return m.OldAgentRunID(ctx)
+	case agentrawevent.FieldDedupKey:
+		return m.OldDedupKey(ctx)
+	case agentrawevent.FieldProvider:
+		return m.OldProvider(ctx)
+	case agentrawevent.FieldProviderEventKind:
+		return m.OldProviderEventKind(ctx)
+	case agentrawevent.FieldProviderEventSubtype:
+		return m.OldProviderEventSubtype(ctx)
+	case agentrawevent.FieldProviderEventID:
+		return m.OldProviderEventID(ctx)
+	case agentrawevent.FieldThreadID:
+		return m.OldThreadID(ctx)
+	case agentrawevent.FieldTurnID:
+		return m.OldTurnID(ctx)
+	case agentrawevent.FieldActivityHintID:
+		return m.OldActivityHintID(ctx)
+	case agentrawevent.FieldOccurredAt:
+		return m.OldOccurredAt(ctx)
+	case agentrawevent.FieldPayload:
+		return m.OldPayload(ctx)
+	case agentrawevent.FieldTextExcerpt:
+		return m.OldTextExcerpt(ctx)
+	case agentrawevent.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AgentRawEvent field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentRawEventMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case agentrawevent.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case agentrawevent.FieldTicketID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case agentrawevent.FieldAgentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentID(v)
+		return nil
+	case agentrawevent.FieldAgentRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentRunID(v)
+		return nil
+	case agentrawevent.FieldDedupKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDedupKey(v)
+		return nil
+	case agentrawevent.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case agentrawevent.FieldProviderEventKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderEventKind(v)
+		return nil
+	case agentrawevent.FieldProviderEventSubtype:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderEventSubtype(v)
+		return nil
+	case agentrawevent.FieldProviderEventID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProviderEventID(v)
+		return nil
+	case agentrawevent.FieldThreadID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetThreadID(v)
+		return nil
+	case agentrawevent.FieldTurnID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTurnID(v)
+		return nil
+	case agentrawevent.FieldActivityHintID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivityHintID(v)
+		return nil
+	case agentrawevent.FieldOccurredAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOccurredAt(v)
+		return nil
+	case agentrawevent.FieldPayload:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPayload(v)
+		return nil
+	case agentrawevent.FieldTextExcerpt:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTextExcerpt(v)
+		return nil
+	case agentrawevent.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentRawEvent field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AgentRawEventMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AgentRawEventMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentRawEventMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AgentRawEvent numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AgentRawEventMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(agentrawevent.FieldTicketID) {
+		fields = append(fields, agentrawevent.FieldTicketID)
+	}
+	if m.FieldCleared(agentrawevent.FieldProviderEventSubtype) {
+		fields = append(fields, agentrawevent.FieldProviderEventSubtype)
+	}
+	if m.FieldCleared(agentrawevent.FieldProviderEventID) {
+		fields = append(fields, agentrawevent.FieldProviderEventID)
+	}
+	if m.FieldCleared(agentrawevent.FieldThreadID) {
+		fields = append(fields, agentrawevent.FieldThreadID)
+	}
+	if m.FieldCleared(agentrawevent.FieldTurnID) {
+		fields = append(fields, agentrawevent.FieldTurnID)
+	}
+	if m.FieldCleared(agentrawevent.FieldActivityHintID) {
+		fields = append(fields, agentrawevent.FieldActivityHintID)
+	}
+	if m.FieldCleared(agentrawevent.FieldTextExcerpt) {
+		fields = append(fields, agentrawevent.FieldTextExcerpt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AgentRawEventMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AgentRawEventMutation) ClearField(name string) error {
+	switch name {
+	case agentrawevent.FieldTicketID:
+		m.ClearTicketID()
+		return nil
+	case agentrawevent.FieldProviderEventSubtype:
+		m.ClearProviderEventSubtype()
+		return nil
+	case agentrawevent.FieldProviderEventID:
+		m.ClearProviderEventID()
+		return nil
+	case agentrawevent.FieldThreadID:
+		m.ClearThreadID()
+		return nil
+	case agentrawevent.FieldTurnID:
+		m.ClearTurnID()
+		return nil
+	case agentrawevent.FieldActivityHintID:
+		m.ClearActivityHintID()
+		return nil
+	case agentrawevent.FieldTextExcerpt:
+		m.ClearTextExcerpt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentRawEvent nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AgentRawEventMutation) ResetField(name string) error {
+	switch name {
+	case agentrawevent.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case agentrawevent.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case agentrawevent.FieldAgentID:
+		m.ResetAgentID()
+		return nil
+	case agentrawevent.FieldAgentRunID:
+		m.ResetAgentRunID()
+		return nil
+	case agentrawevent.FieldDedupKey:
+		m.ResetDedupKey()
+		return nil
+	case agentrawevent.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case agentrawevent.FieldProviderEventKind:
+		m.ResetProviderEventKind()
+		return nil
+	case agentrawevent.FieldProviderEventSubtype:
+		m.ResetProviderEventSubtype()
+		return nil
+	case agentrawevent.FieldProviderEventID:
+		m.ResetProviderEventID()
+		return nil
+	case agentrawevent.FieldThreadID:
+		m.ResetThreadID()
+		return nil
+	case agentrawevent.FieldTurnID:
+		m.ResetTurnID()
+		return nil
+	case agentrawevent.FieldActivityHintID:
+		m.ResetActivityHintID()
+		return nil
+	case agentrawevent.FieldOccurredAt:
+		m.ResetOccurredAt()
+		return nil
+	case agentrawevent.FieldPayload:
+		m.ResetPayload()
+		return nil
+	case agentrawevent.FieldTextExcerpt:
+		m.ResetTextExcerpt()
+		return nil
+	case agentrawevent.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentRawEvent field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AgentRawEventMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.project != nil {
+		edges = append(edges, agentrawevent.EdgeProject)
+	}
+	if m.ticket != nil {
+		edges = append(edges, agentrawevent.EdgeTicket)
+	}
+	if m.agent != nil {
+		edges = append(edges, agentrawevent.EdgeAgent)
+	}
+	if m.agent_run != nil {
+		edges = append(edges, agentrawevent.EdgeAgentRun)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AgentRawEventMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case agentrawevent.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentrawevent.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentrawevent.EdgeAgent:
+		if id := m.agent; id != nil {
+			return []ent.Value{*id}
+		}
+	case agentrawevent.EdgeAgentRun:
+		if id := m.agent_run; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AgentRawEventMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AgentRawEventMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AgentRawEventMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedproject {
+		edges = append(edges, agentrawevent.EdgeProject)
+	}
+	if m.clearedticket {
+		edges = append(edges, agentrawevent.EdgeTicket)
+	}
+	if m.clearedagent {
+		edges = append(edges, agentrawevent.EdgeAgent)
+	}
+	if m.clearedagent_run {
+		edges = append(edges, agentrawevent.EdgeAgentRun)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AgentRawEventMutation) EdgeCleared(name string) bool {
+	switch name {
+	case agentrawevent.EdgeProject:
+		return m.clearedproject
+	case agentrawevent.EdgeTicket:
+		return m.clearedticket
+	case agentrawevent.EdgeAgent:
+		return m.clearedagent
+	case agentrawevent.EdgeAgentRun:
+		return m.clearedagent_run
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AgentRawEventMutation) ClearEdge(name string) error {
+	switch name {
+	case agentrawevent.EdgeProject:
+		m.ClearProject()
+		return nil
+	case agentrawevent.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	case agentrawevent.EdgeAgent:
+		m.ClearAgent()
+		return nil
+	case agentrawevent.EdgeAgentRun:
+		m.ClearAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentRawEvent unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AgentRawEventMutation) ResetEdge(name string) error {
+	switch name {
+	case agentrawevent.EdgeProject:
+		m.ResetProject()
+		return nil
+	case agentrawevent.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	case agentrawevent.EdgeAgent:
+		m.ResetAgent()
+		return nil
+	case agentrawevent.EdgeAgentRun:
+		m.ResetAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentRawEvent edge %s", name)
+}
+
 // AgentRunMutation represents an operation that mutates the AgentRun nodes in the graph.
 type AgentRunMutation struct {
 	config
@@ -4016,6 +7842,15 @@ type AgentRunMutation struct {
 	agent_step_events               map[uuid.UUID]struct{}
 	removedagent_step_events        map[uuid.UUID]struct{}
 	clearedagent_step_events        bool
+	agent_raw_events                map[uuid.UUID]struct{}
+	removedagent_raw_events         map[uuid.UUID]struct{}
+	clearedagent_raw_events         bool
+	agent_activity_instances        map[uuid.UUID]struct{}
+	removedagent_activity_instances map[uuid.UUID]struct{}
+	clearedagent_activity_instances bool
+	agent_transcript_entries        map[uuid.UUID]struct{}
+	removedagent_transcript_entries map[uuid.UUID]struct{}
+	clearedagent_transcript_entries bool
 	done                            bool
 	oldValue                        func(context.Context) (*AgentRun, error)
 	predicates                      []predicate.AgentRun
@@ -6029,6 +9864,168 @@ func (m *AgentRunMutation) ResetAgentStepEvents() {
 	m.removedagent_step_events = nil
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by ids.
+func (m *AgentRunMutation) AddAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.agent_raw_events == nil {
+		m.agent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentRawEvents clears the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *AgentRunMutation) ClearAgentRawEvents() {
+	m.clearedagent_raw_events = true
+}
+
+// AgentRawEventsCleared reports if the "agent_raw_events" edge to the AgentRawEvent entity was cleared.
+func (m *AgentRunMutation) AgentRawEventsCleared() bool {
+	return m.clearedagent_raw_events
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (m *AgentRunMutation) RemoveAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.removedagent_raw_events == nil {
+		m.removedagent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_raw_events, ids[i])
+		m.removedagent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentRawEvents returns the removed IDs of the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *AgentRunMutation) RemovedAgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentRawEventsIDs returns the "agent_raw_events" edge IDs in the mutation.
+func (m *AgentRunMutation) AgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.agent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentRawEvents resets all changes to the "agent_raw_events" edge.
+func (m *AgentRunMutation) ResetAgentRawEvents() {
+	m.agent_raw_events = nil
+	m.clearedagent_raw_events = false
+	m.removedagent_raw_events = nil
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by ids.
+func (m *AgentRunMutation) AddAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.agent_activity_instances == nil {
+		m.agent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentActivityInstances clears the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *AgentRunMutation) ClearAgentActivityInstances() {
+	m.clearedagent_activity_instances = true
+}
+
+// AgentActivityInstancesCleared reports if the "agent_activity_instances" edge to the AgentActivityInstance entity was cleared.
+func (m *AgentRunMutation) AgentActivityInstancesCleared() bool {
+	return m.clearedagent_activity_instances
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (m *AgentRunMutation) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.removedagent_activity_instances == nil {
+		m.removedagent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_activity_instances, ids[i])
+		m.removedagent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentActivityInstances returns the removed IDs of the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *AgentRunMutation) RemovedAgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentActivityInstancesIDs returns the "agent_activity_instances" edge IDs in the mutation.
+func (m *AgentRunMutation) AgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentActivityInstances resets all changes to the "agent_activity_instances" edge.
+func (m *AgentRunMutation) ResetAgentActivityInstances() {
+	m.agent_activity_instances = nil
+	m.clearedagent_activity_instances = false
+	m.removedagent_activity_instances = nil
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by ids.
+func (m *AgentRunMutation) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.agent_transcript_entries == nil {
+		m.agent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTranscriptEntries clears the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *AgentRunMutation) ClearAgentTranscriptEntries() {
+	m.clearedagent_transcript_entries = true
+}
+
+// AgentTranscriptEntriesCleared reports if the "agent_transcript_entries" edge to the AgentTranscriptEntry entity was cleared.
+func (m *AgentRunMutation) AgentTranscriptEntriesCleared() bool {
+	return m.clearedagent_transcript_entries
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (m *AgentRunMutation) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.removedagent_transcript_entries == nil {
+		m.removedagent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_transcript_entries, ids[i])
+		m.removedagent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTranscriptEntries returns the removed IDs of the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *AgentRunMutation) RemovedAgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTranscriptEntriesIDs returns the "agent_transcript_entries" edge IDs in the mutation.
+func (m *AgentRunMutation) AgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTranscriptEntries resets all changes to the "agent_transcript_entries" edge.
+func (m *AgentRunMutation) ResetAgentTranscriptEntries() {
+	m.agent_transcript_entries = nil
+	m.clearedagent_transcript_entries = false
+	m.removedagent_transcript_entries = nil
+}
+
 // Where appends a list predicates to the AgentRunMutation builder.
 func (m *AgentRunMutation) Where(ps ...predicate.AgentRun) {
 	m.predicates = append(m.predicates, ps...)
@@ -6905,7 +10902,7 @@ func (m *AgentRunMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AgentRunMutation) AddedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 12)
 	if m.agent != nil {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
@@ -6932,6 +10929,15 @@ func (m *AgentRunMutation) AddedEdges() []string {
 	}
 	if m.agent_step_events != nil {
 		edges = append(edges, agentrun.EdgeAgentStepEvents)
+	}
+	if m.agent_raw_events != nil {
+		edges = append(edges, agentrun.EdgeAgentRawEvents)
+	}
+	if m.agent_activity_instances != nil {
+		edges = append(edges, agentrun.EdgeAgentActivityInstances)
+	}
+	if m.agent_transcript_entries != nil {
+		edges = append(edges, agentrun.EdgeAgentTranscriptEntries)
 	}
 	return edges
 }
@@ -6984,13 +10990,31 @@ func (m *AgentRunMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agentrun.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.agent_raw_events))
+		for id := range m.agent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case agentrun.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.agent_activity_instances))
+		for id := range m.agent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case agentrun.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.agent_transcript_entries))
+		for id := range m.agent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AgentRunMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 12)
 	if m.removedcurrent_for_ticket != nil {
 		edges = append(edges, agentrun.EdgeCurrentForTicket)
 	}
@@ -7002,6 +11026,15 @@ func (m *AgentRunMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_step_events != nil {
 		edges = append(edges, agentrun.EdgeAgentStepEvents)
+	}
+	if m.removedagent_raw_events != nil {
+		edges = append(edges, agentrun.EdgeAgentRawEvents)
+	}
+	if m.removedagent_activity_instances != nil {
+		edges = append(edges, agentrun.EdgeAgentActivityInstances)
+	}
+	if m.removedagent_transcript_entries != nil {
+		edges = append(edges, agentrun.EdgeAgentTranscriptEntries)
 	}
 	return edges
 }
@@ -7034,13 +11067,31 @@ func (m *AgentRunMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case agentrun.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.removedagent_raw_events))
+		for id := range m.removedagent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case agentrun.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.removedagent_activity_instances))
+		for id := range m.removedagent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case agentrun.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.removedagent_transcript_entries))
+		for id := range m.removedagent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AgentRunMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 9)
+	edges := make([]string, 0, 12)
 	if m.clearedagent {
 		edges = append(edges, agentrun.EdgeAgent)
 	}
@@ -7068,6 +11119,15 @@ func (m *AgentRunMutation) ClearedEdges() []string {
 	if m.clearedagent_step_events {
 		edges = append(edges, agentrun.EdgeAgentStepEvents)
 	}
+	if m.clearedagent_raw_events {
+		edges = append(edges, agentrun.EdgeAgentRawEvents)
+	}
+	if m.clearedagent_activity_instances {
+		edges = append(edges, agentrun.EdgeAgentActivityInstances)
+	}
+	if m.clearedagent_transcript_entries {
+		edges = append(edges, agentrun.EdgeAgentTranscriptEntries)
+	}
 	return edges
 }
 
@@ -7093,6 +11153,12 @@ func (m *AgentRunMutation) EdgeCleared(name string) bool {
 		return m.clearedagent_trace_events
 	case agentrun.EdgeAgentStepEvents:
 		return m.clearedagent_step_events
+	case agentrun.EdgeAgentRawEvents:
+		return m.clearedagent_raw_events
+	case agentrun.EdgeAgentActivityInstances:
+		return m.clearedagent_activity_instances
+	case agentrun.EdgeAgentTranscriptEntries:
+		return m.clearedagent_transcript_entries
 	}
 	return false
 }
@@ -7150,6 +11216,15 @@ func (m *AgentRunMutation) ResetEdge(name string) error {
 		return nil
 	case agentrun.EdgeAgentStepEvents:
 		m.ResetAgentStepEvents()
+		return nil
+	case agentrun.EdgeAgentRawEvents:
+		m.ResetAgentRawEvents()
+		return nil
+	case agentrun.EdgeAgentActivityInstances:
+		m.ResetAgentActivityInstances()
+		return nil
+	case agentrun.EdgeAgentTranscriptEntries:
+		m.ResetAgentTranscriptEntries()
 		return nil
 	}
 	return fmt.Errorf("unknown AgentRun edge %s", name)
@@ -10562,6 +14637,1495 @@ func (m *AgentTraceEventMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown AgentTraceEvent edge %s", name)
+}
+
+// AgentTranscriptEntryMutation represents an operation that mutates the AgentTranscriptEntry nodes in the graph.
+type AgentTranscriptEntryMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	provider         *string
+	entry_key        *string
+	entry_kind       *string
+	activity_kind    *string
+	activity_id      *string
+	title            *string
+	summary          *string
+	body_text        *string
+	command          *string
+	tool_name        *string
+	metadata         *map[string]interface{}
+	created_at       *time.Time
+	clearedFields    map[string]struct{}
+	project          *uuid.UUID
+	clearedproject   bool
+	ticket           *uuid.UUID
+	clearedticket    bool
+	agent            *uuid.UUID
+	clearedagent     bool
+	agent_run        *uuid.UUID
+	clearedagent_run bool
+	done             bool
+	oldValue         func(context.Context) (*AgentTranscriptEntry, error)
+	predicates       []predicate.AgentTranscriptEntry
+}
+
+var _ ent.Mutation = (*AgentTranscriptEntryMutation)(nil)
+
+// agenttranscriptentryOption allows management of the mutation configuration using functional options.
+type agenttranscriptentryOption func(*AgentTranscriptEntryMutation)
+
+// newAgentTranscriptEntryMutation creates new mutation for the AgentTranscriptEntry entity.
+func newAgentTranscriptEntryMutation(c config, op Op, opts ...agenttranscriptentryOption) *AgentTranscriptEntryMutation {
+	m := &AgentTranscriptEntryMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeAgentTranscriptEntry,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withAgentTranscriptEntryID sets the ID field of the mutation.
+func withAgentTranscriptEntryID(id uuid.UUID) agenttranscriptentryOption {
+	return func(m *AgentTranscriptEntryMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *AgentTranscriptEntry
+		)
+		m.oldValue = func(ctx context.Context) (*AgentTranscriptEntry, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().AgentTranscriptEntry.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withAgentTranscriptEntry sets the old AgentTranscriptEntry of the mutation.
+func withAgentTranscriptEntry(node *AgentTranscriptEntry) agenttranscriptentryOption {
+	return func(m *AgentTranscriptEntryMutation) {
+		m.oldValue = func(context.Context) (*AgentTranscriptEntry, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m AgentTranscriptEntryMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m AgentTranscriptEntryMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of AgentTranscriptEntry entities.
+func (m *AgentTranscriptEntryMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *AgentTranscriptEntryMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *AgentTranscriptEntryMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().AgentTranscriptEntry.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *AgentTranscriptEntryMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *AgentTranscriptEntryMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *AgentTranscriptEntryMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetTicketID sets the "ticket_id" field.
+func (m *AgentTranscriptEntryMutation) SetTicketID(u uuid.UUID) {
+	m.ticket = &u
+}
+
+// TicketID returns the value of the "ticket_id" field in the mutation.
+func (m *AgentTranscriptEntryMutation) TicketID() (r uuid.UUID, exists bool) {
+	v := m.ticket
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTicketID returns the old "ticket_id" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldTicketID(ctx context.Context) (v *uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTicketID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTicketID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTicketID: %w", err)
+	}
+	return oldValue.TicketID, nil
+}
+
+// ClearTicketID clears the value of the "ticket_id" field.
+func (m *AgentTranscriptEntryMutation) ClearTicketID() {
+	m.ticket = nil
+	m.clearedFields[agenttranscriptentry.FieldTicketID] = struct{}{}
+}
+
+// TicketIDCleared returns if the "ticket_id" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) TicketIDCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldTicketID]
+	return ok
+}
+
+// ResetTicketID resets all changes to the "ticket_id" field.
+func (m *AgentTranscriptEntryMutation) ResetTicketID() {
+	m.ticket = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldTicketID)
+}
+
+// SetAgentID sets the "agent_id" field.
+func (m *AgentTranscriptEntryMutation) SetAgentID(u uuid.UUID) {
+	m.agent = &u
+}
+
+// AgentID returns the value of the "agent_id" field in the mutation.
+func (m *AgentTranscriptEntryMutation) AgentID() (r uuid.UUID, exists bool) {
+	v := m.agent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentID returns the old "agent_id" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldAgentID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentID: %w", err)
+	}
+	return oldValue.AgentID, nil
+}
+
+// ResetAgentID resets all changes to the "agent_id" field.
+func (m *AgentTranscriptEntryMutation) ResetAgentID() {
+	m.agent = nil
+}
+
+// SetAgentRunID sets the "agent_run_id" field.
+func (m *AgentTranscriptEntryMutation) SetAgentRunID(u uuid.UUID) {
+	m.agent_run = &u
+}
+
+// AgentRunID returns the value of the "agent_run_id" field in the mutation.
+func (m *AgentTranscriptEntryMutation) AgentRunID() (r uuid.UUID, exists bool) {
+	v := m.agent_run
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAgentRunID returns the old "agent_run_id" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldAgentRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAgentRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAgentRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAgentRunID: %w", err)
+	}
+	return oldValue.AgentRunID, nil
+}
+
+// ResetAgentRunID resets all changes to the "agent_run_id" field.
+func (m *AgentTranscriptEntryMutation) ResetAgentRunID() {
+	m.agent_run = nil
+}
+
+// SetProvider sets the "provider" field.
+func (m *AgentTranscriptEntryMutation) SetProvider(s string) {
+	m.provider = &s
+}
+
+// Provider returns the value of the "provider" field in the mutation.
+func (m *AgentTranscriptEntryMutation) Provider() (r string, exists bool) {
+	v := m.provider
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProvider returns the old "provider" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldProvider(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProvider is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProvider requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProvider: %w", err)
+	}
+	return oldValue.Provider, nil
+}
+
+// ResetProvider resets all changes to the "provider" field.
+func (m *AgentTranscriptEntryMutation) ResetProvider() {
+	m.provider = nil
+}
+
+// SetEntryKey sets the "entry_key" field.
+func (m *AgentTranscriptEntryMutation) SetEntryKey(s string) {
+	m.entry_key = &s
+}
+
+// EntryKey returns the value of the "entry_key" field in the mutation.
+func (m *AgentTranscriptEntryMutation) EntryKey() (r string, exists bool) {
+	v := m.entry_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryKey returns the old "entry_key" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldEntryKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryKey: %w", err)
+	}
+	return oldValue.EntryKey, nil
+}
+
+// ResetEntryKey resets all changes to the "entry_key" field.
+func (m *AgentTranscriptEntryMutation) ResetEntryKey() {
+	m.entry_key = nil
+}
+
+// SetEntryKind sets the "entry_kind" field.
+func (m *AgentTranscriptEntryMutation) SetEntryKind(s string) {
+	m.entry_kind = &s
+}
+
+// EntryKind returns the value of the "entry_kind" field in the mutation.
+func (m *AgentTranscriptEntryMutation) EntryKind() (r string, exists bool) {
+	v := m.entry_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntryKind returns the old "entry_kind" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldEntryKind(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntryKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntryKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntryKind: %w", err)
+	}
+	return oldValue.EntryKind, nil
+}
+
+// ResetEntryKind resets all changes to the "entry_kind" field.
+func (m *AgentTranscriptEntryMutation) ResetEntryKind() {
+	m.entry_kind = nil
+}
+
+// SetActivityKind sets the "activity_kind" field.
+func (m *AgentTranscriptEntryMutation) SetActivityKind(s string) {
+	m.activity_kind = &s
+}
+
+// ActivityKind returns the value of the "activity_kind" field in the mutation.
+func (m *AgentTranscriptEntryMutation) ActivityKind() (r string, exists bool) {
+	v := m.activity_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivityKind returns the old "activity_kind" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldActivityKind(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivityKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivityKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivityKind: %w", err)
+	}
+	return oldValue.ActivityKind, nil
+}
+
+// ClearActivityKind clears the value of the "activity_kind" field.
+func (m *AgentTranscriptEntryMutation) ClearActivityKind() {
+	m.activity_kind = nil
+	m.clearedFields[agenttranscriptentry.FieldActivityKind] = struct{}{}
+}
+
+// ActivityKindCleared returns if the "activity_kind" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) ActivityKindCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldActivityKind]
+	return ok
+}
+
+// ResetActivityKind resets all changes to the "activity_kind" field.
+func (m *AgentTranscriptEntryMutation) ResetActivityKind() {
+	m.activity_kind = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldActivityKind)
+}
+
+// SetActivityID sets the "activity_id" field.
+func (m *AgentTranscriptEntryMutation) SetActivityID(s string) {
+	m.activity_id = &s
+}
+
+// ActivityID returns the value of the "activity_id" field in the mutation.
+func (m *AgentTranscriptEntryMutation) ActivityID() (r string, exists bool) {
+	v := m.activity_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActivityID returns the old "activity_id" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldActivityID(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActivityID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActivityID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActivityID: %w", err)
+	}
+	return oldValue.ActivityID, nil
+}
+
+// ClearActivityID clears the value of the "activity_id" field.
+func (m *AgentTranscriptEntryMutation) ClearActivityID() {
+	m.activity_id = nil
+	m.clearedFields[agenttranscriptentry.FieldActivityID] = struct{}{}
+}
+
+// ActivityIDCleared returns if the "activity_id" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) ActivityIDCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldActivityID]
+	return ok
+}
+
+// ResetActivityID resets all changes to the "activity_id" field.
+func (m *AgentTranscriptEntryMutation) ResetActivityID() {
+	m.activity_id = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldActivityID)
+}
+
+// SetTitle sets the "title" field.
+func (m *AgentTranscriptEntryMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *AgentTranscriptEntryMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldTitle(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ClearTitle clears the value of the "title" field.
+func (m *AgentTranscriptEntryMutation) ClearTitle() {
+	m.title = nil
+	m.clearedFields[agenttranscriptentry.FieldTitle] = struct{}{}
+}
+
+// TitleCleared returns if the "title" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) TitleCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldTitle]
+	return ok
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *AgentTranscriptEntryMutation) ResetTitle() {
+	m.title = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldTitle)
+}
+
+// SetSummary sets the "summary" field.
+func (m *AgentTranscriptEntryMutation) SetSummary(s string) {
+	m.summary = &s
+}
+
+// Summary returns the value of the "summary" field in the mutation.
+func (m *AgentTranscriptEntryMutation) Summary() (r string, exists bool) {
+	v := m.summary
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSummary returns the old "summary" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldSummary(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSummary is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSummary requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSummary: %w", err)
+	}
+	return oldValue.Summary, nil
+}
+
+// ClearSummary clears the value of the "summary" field.
+func (m *AgentTranscriptEntryMutation) ClearSummary() {
+	m.summary = nil
+	m.clearedFields[agenttranscriptentry.FieldSummary] = struct{}{}
+}
+
+// SummaryCleared returns if the "summary" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) SummaryCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldSummary]
+	return ok
+}
+
+// ResetSummary resets all changes to the "summary" field.
+func (m *AgentTranscriptEntryMutation) ResetSummary() {
+	m.summary = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldSummary)
+}
+
+// SetBodyText sets the "body_text" field.
+func (m *AgentTranscriptEntryMutation) SetBodyText(s string) {
+	m.body_text = &s
+}
+
+// BodyText returns the value of the "body_text" field in the mutation.
+func (m *AgentTranscriptEntryMutation) BodyText() (r string, exists bool) {
+	v := m.body_text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldBodyText returns the old "body_text" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldBodyText(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldBodyText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldBodyText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldBodyText: %w", err)
+	}
+	return oldValue.BodyText, nil
+}
+
+// ClearBodyText clears the value of the "body_text" field.
+func (m *AgentTranscriptEntryMutation) ClearBodyText() {
+	m.body_text = nil
+	m.clearedFields[agenttranscriptentry.FieldBodyText] = struct{}{}
+}
+
+// BodyTextCleared returns if the "body_text" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) BodyTextCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldBodyText]
+	return ok
+}
+
+// ResetBodyText resets all changes to the "body_text" field.
+func (m *AgentTranscriptEntryMutation) ResetBodyText() {
+	m.body_text = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldBodyText)
+}
+
+// SetCommand sets the "command" field.
+func (m *AgentTranscriptEntryMutation) SetCommand(s string) {
+	m.command = &s
+}
+
+// Command returns the value of the "command" field in the mutation.
+func (m *AgentTranscriptEntryMutation) Command() (r string, exists bool) {
+	v := m.command
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCommand returns the old "command" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldCommand(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCommand is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCommand requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCommand: %w", err)
+	}
+	return oldValue.Command, nil
+}
+
+// ClearCommand clears the value of the "command" field.
+func (m *AgentTranscriptEntryMutation) ClearCommand() {
+	m.command = nil
+	m.clearedFields[agenttranscriptentry.FieldCommand] = struct{}{}
+}
+
+// CommandCleared returns if the "command" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) CommandCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldCommand]
+	return ok
+}
+
+// ResetCommand resets all changes to the "command" field.
+func (m *AgentTranscriptEntryMutation) ResetCommand() {
+	m.command = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldCommand)
+}
+
+// SetToolName sets the "tool_name" field.
+func (m *AgentTranscriptEntryMutation) SetToolName(s string) {
+	m.tool_name = &s
+}
+
+// ToolName returns the value of the "tool_name" field in the mutation.
+func (m *AgentTranscriptEntryMutation) ToolName() (r string, exists bool) {
+	v := m.tool_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldToolName returns the old "tool_name" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldToolName(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldToolName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldToolName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldToolName: %w", err)
+	}
+	return oldValue.ToolName, nil
+}
+
+// ClearToolName clears the value of the "tool_name" field.
+func (m *AgentTranscriptEntryMutation) ClearToolName() {
+	m.tool_name = nil
+	m.clearedFields[agenttranscriptentry.FieldToolName] = struct{}{}
+}
+
+// ToolNameCleared returns if the "tool_name" field was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) ToolNameCleared() bool {
+	_, ok := m.clearedFields[agenttranscriptentry.FieldToolName]
+	return ok
+}
+
+// ResetToolName resets all changes to the "tool_name" field.
+func (m *AgentTranscriptEntryMutation) ResetToolName() {
+	m.tool_name = nil
+	delete(m.clearedFields, agenttranscriptentry.FieldToolName)
+}
+
+// SetMetadata sets the "metadata" field.
+func (m *AgentTranscriptEntryMutation) SetMetadata(value map[string]interface{}) {
+	m.metadata = &value
+}
+
+// Metadata returns the value of the "metadata" field in the mutation.
+func (m *AgentTranscriptEntryMutation) Metadata() (r map[string]interface{}, exists bool) {
+	v := m.metadata
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMetadata returns the old "metadata" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldMetadata(ctx context.Context) (v map[string]interface{}, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMetadata is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMetadata requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMetadata: %w", err)
+	}
+	return oldValue.Metadata, nil
+}
+
+// ResetMetadata resets all changes to the "metadata" field.
+func (m *AgentTranscriptEntryMutation) ResetMetadata() {
+	m.metadata = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *AgentTranscriptEntryMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *AgentTranscriptEntryMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the AgentTranscriptEntry entity.
+// If the AgentTranscriptEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AgentTranscriptEntryMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *AgentTranscriptEntryMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *AgentTranscriptEntryMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[agenttranscriptentry.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *AgentTranscriptEntryMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *AgentTranscriptEntryMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *AgentTranscriptEntryMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// ClearTicket clears the "ticket" edge to the Ticket entity.
+func (m *AgentTranscriptEntryMutation) ClearTicket() {
+	m.clearedticket = true
+	m.clearedFields[agenttranscriptentry.FieldTicketID] = struct{}{}
+}
+
+// TicketCleared reports if the "ticket" edge to the Ticket entity was cleared.
+func (m *AgentTranscriptEntryMutation) TicketCleared() bool {
+	return m.TicketIDCleared() || m.clearedticket
+}
+
+// TicketIDs returns the "ticket" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// TicketID instead. It exists only for internal usage by the builders.
+func (m *AgentTranscriptEntryMutation) TicketIDs() (ids []uuid.UUID) {
+	if id := m.ticket; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetTicket resets all changes to the "ticket" edge.
+func (m *AgentTranscriptEntryMutation) ResetTicket() {
+	m.ticket = nil
+	m.clearedticket = false
+}
+
+// ClearAgent clears the "agent" edge to the Agent entity.
+func (m *AgentTranscriptEntryMutation) ClearAgent() {
+	m.clearedagent = true
+	m.clearedFields[agenttranscriptentry.FieldAgentID] = struct{}{}
+}
+
+// AgentCleared reports if the "agent" edge to the Agent entity was cleared.
+func (m *AgentTranscriptEntryMutation) AgentCleared() bool {
+	return m.clearedagent
+}
+
+// AgentIDs returns the "agent" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentID instead. It exists only for internal usage by the builders.
+func (m *AgentTranscriptEntryMutation) AgentIDs() (ids []uuid.UUID) {
+	if id := m.agent; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgent resets all changes to the "agent" edge.
+func (m *AgentTranscriptEntryMutation) ResetAgent() {
+	m.agent = nil
+	m.clearedagent = false
+}
+
+// ClearAgentRun clears the "agent_run" edge to the AgentRun entity.
+func (m *AgentTranscriptEntryMutation) ClearAgentRun() {
+	m.clearedagent_run = true
+	m.clearedFields[agenttranscriptentry.FieldAgentRunID] = struct{}{}
+}
+
+// AgentRunCleared reports if the "agent_run" edge to the AgentRun entity was cleared.
+func (m *AgentTranscriptEntryMutation) AgentRunCleared() bool {
+	return m.clearedagent_run
+}
+
+// AgentRunIDs returns the "agent_run" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AgentRunID instead. It exists only for internal usage by the builders.
+func (m *AgentTranscriptEntryMutation) AgentRunIDs() (ids []uuid.UUID) {
+	if id := m.agent_run; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAgentRun resets all changes to the "agent_run" edge.
+func (m *AgentTranscriptEntryMutation) ResetAgentRun() {
+	m.agent_run = nil
+	m.clearedagent_run = false
+}
+
+// Where appends a list predicates to the AgentTranscriptEntryMutation builder.
+func (m *AgentTranscriptEntryMutation) Where(ps ...predicate.AgentTranscriptEntry) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the AgentTranscriptEntryMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *AgentTranscriptEntryMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.AgentTranscriptEntry, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *AgentTranscriptEntryMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *AgentTranscriptEntryMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (AgentTranscriptEntry).
+func (m *AgentTranscriptEntryMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *AgentTranscriptEntryMutation) Fields() []string {
+	fields := make([]string, 0, 16)
+	if m.project != nil {
+		fields = append(fields, agenttranscriptentry.FieldProjectID)
+	}
+	if m.ticket != nil {
+		fields = append(fields, agenttranscriptentry.FieldTicketID)
+	}
+	if m.agent != nil {
+		fields = append(fields, agenttranscriptentry.FieldAgentID)
+	}
+	if m.agent_run != nil {
+		fields = append(fields, agenttranscriptentry.FieldAgentRunID)
+	}
+	if m.provider != nil {
+		fields = append(fields, agenttranscriptentry.FieldProvider)
+	}
+	if m.entry_key != nil {
+		fields = append(fields, agenttranscriptentry.FieldEntryKey)
+	}
+	if m.entry_kind != nil {
+		fields = append(fields, agenttranscriptentry.FieldEntryKind)
+	}
+	if m.activity_kind != nil {
+		fields = append(fields, agenttranscriptentry.FieldActivityKind)
+	}
+	if m.activity_id != nil {
+		fields = append(fields, agenttranscriptentry.FieldActivityID)
+	}
+	if m.title != nil {
+		fields = append(fields, agenttranscriptentry.FieldTitle)
+	}
+	if m.summary != nil {
+		fields = append(fields, agenttranscriptentry.FieldSummary)
+	}
+	if m.body_text != nil {
+		fields = append(fields, agenttranscriptentry.FieldBodyText)
+	}
+	if m.command != nil {
+		fields = append(fields, agenttranscriptentry.FieldCommand)
+	}
+	if m.tool_name != nil {
+		fields = append(fields, agenttranscriptentry.FieldToolName)
+	}
+	if m.metadata != nil {
+		fields = append(fields, agenttranscriptentry.FieldMetadata)
+	}
+	if m.created_at != nil {
+		fields = append(fields, agenttranscriptentry.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *AgentTranscriptEntryMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case agenttranscriptentry.FieldProjectID:
+		return m.ProjectID()
+	case agenttranscriptentry.FieldTicketID:
+		return m.TicketID()
+	case agenttranscriptentry.FieldAgentID:
+		return m.AgentID()
+	case agenttranscriptentry.FieldAgentRunID:
+		return m.AgentRunID()
+	case agenttranscriptentry.FieldProvider:
+		return m.Provider()
+	case agenttranscriptentry.FieldEntryKey:
+		return m.EntryKey()
+	case agenttranscriptentry.FieldEntryKind:
+		return m.EntryKind()
+	case agenttranscriptentry.FieldActivityKind:
+		return m.ActivityKind()
+	case agenttranscriptentry.FieldActivityID:
+		return m.ActivityID()
+	case agenttranscriptentry.FieldTitle:
+		return m.Title()
+	case agenttranscriptentry.FieldSummary:
+		return m.Summary()
+	case agenttranscriptentry.FieldBodyText:
+		return m.BodyText()
+	case agenttranscriptentry.FieldCommand:
+		return m.Command()
+	case agenttranscriptentry.FieldToolName:
+		return m.ToolName()
+	case agenttranscriptentry.FieldMetadata:
+		return m.Metadata()
+	case agenttranscriptentry.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *AgentTranscriptEntryMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case agenttranscriptentry.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case agenttranscriptentry.FieldTicketID:
+		return m.OldTicketID(ctx)
+	case agenttranscriptentry.FieldAgentID:
+		return m.OldAgentID(ctx)
+	case agenttranscriptentry.FieldAgentRunID:
+		return m.OldAgentRunID(ctx)
+	case agenttranscriptentry.FieldProvider:
+		return m.OldProvider(ctx)
+	case agenttranscriptentry.FieldEntryKey:
+		return m.OldEntryKey(ctx)
+	case agenttranscriptentry.FieldEntryKind:
+		return m.OldEntryKind(ctx)
+	case agenttranscriptentry.FieldActivityKind:
+		return m.OldActivityKind(ctx)
+	case agenttranscriptentry.FieldActivityID:
+		return m.OldActivityID(ctx)
+	case agenttranscriptentry.FieldTitle:
+		return m.OldTitle(ctx)
+	case agenttranscriptentry.FieldSummary:
+		return m.OldSummary(ctx)
+	case agenttranscriptentry.FieldBodyText:
+		return m.OldBodyText(ctx)
+	case agenttranscriptentry.FieldCommand:
+		return m.OldCommand(ctx)
+	case agenttranscriptentry.FieldToolName:
+		return m.OldToolName(ctx)
+	case agenttranscriptentry.FieldMetadata:
+		return m.OldMetadata(ctx)
+	case agenttranscriptentry.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown AgentTranscriptEntry field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentTranscriptEntryMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case agenttranscriptentry.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case agenttranscriptentry.FieldTicketID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTicketID(v)
+		return nil
+	case agenttranscriptentry.FieldAgentID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentID(v)
+		return nil
+	case agenttranscriptentry.FieldAgentRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAgentRunID(v)
+		return nil
+	case agenttranscriptentry.FieldProvider:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProvider(v)
+		return nil
+	case agenttranscriptentry.FieldEntryKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryKey(v)
+		return nil
+	case agenttranscriptentry.FieldEntryKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryKind(v)
+		return nil
+	case agenttranscriptentry.FieldActivityKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivityKind(v)
+		return nil
+	case agenttranscriptentry.FieldActivityID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActivityID(v)
+		return nil
+	case agenttranscriptentry.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case agenttranscriptentry.FieldSummary:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSummary(v)
+		return nil
+	case agenttranscriptentry.FieldBodyText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetBodyText(v)
+		return nil
+	case agenttranscriptentry.FieldCommand:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCommand(v)
+		return nil
+	case agenttranscriptentry.FieldToolName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetToolName(v)
+		return nil
+	case agenttranscriptentry.FieldMetadata:
+		v, ok := value.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMetadata(v)
+		return nil
+	case agenttranscriptentry.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *AgentTranscriptEntryMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *AgentTranscriptEntryMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *AgentTranscriptEntryMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *AgentTranscriptEntryMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(agenttranscriptentry.FieldTicketID) {
+		fields = append(fields, agenttranscriptentry.FieldTicketID)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldActivityKind) {
+		fields = append(fields, agenttranscriptentry.FieldActivityKind)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldActivityID) {
+		fields = append(fields, agenttranscriptentry.FieldActivityID)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldTitle) {
+		fields = append(fields, agenttranscriptentry.FieldTitle)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldSummary) {
+		fields = append(fields, agenttranscriptentry.FieldSummary)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldBodyText) {
+		fields = append(fields, agenttranscriptentry.FieldBodyText)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldCommand) {
+		fields = append(fields, agenttranscriptentry.FieldCommand)
+	}
+	if m.FieldCleared(agenttranscriptentry.FieldToolName) {
+		fields = append(fields, agenttranscriptentry.FieldToolName)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *AgentTranscriptEntryMutation) ClearField(name string) error {
+	switch name {
+	case agenttranscriptentry.FieldTicketID:
+		m.ClearTicketID()
+		return nil
+	case agenttranscriptentry.FieldActivityKind:
+		m.ClearActivityKind()
+		return nil
+	case agenttranscriptentry.FieldActivityID:
+		m.ClearActivityID()
+		return nil
+	case agenttranscriptentry.FieldTitle:
+		m.ClearTitle()
+		return nil
+	case agenttranscriptentry.FieldSummary:
+		m.ClearSummary()
+		return nil
+	case agenttranscriptentry.FieldBodyText:
+		m.ClearBodyText()
+		return nil
+	case agenttranscriptentry.FieldCommand:
+		m.ClearCommand()
+		return nil
+	case agenttranscriptentry.FieldToolName:
+		m.ClearToolName()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *AgentTranscriptEntryMutation) ResetField(name string) error {
+	switch name {
+	case agenttranscriptentry.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case agenttranscriptentry.FieldTicketID:
+		m.ResetTicketID()
+		return nil
+	case agenttranscriptentry.FieldAgentID:
+		m.ResetAgentID()
+		return nil
+	case agenttranscriptentry.FieldAgentRunID:
+		m.ResetAgentRunID()
+		return nil
+	case agenttranscriptentry.FieldProvider:
+		m.ResetProvider()
+		return nil
+	case agenttranscriptentry.FieldEntryKey:
+		m.ResetEntryKey()
+		return nil
+	case agenttranscriptentry.FieldEntryKind:
+		m.ResetEntryKind()
+		return nil
+	case agenttranscriptentry.FieldActivityKind:
+		m.ResetActivityKind()
+		return nil
+	case agenttranscriptentry.FieldActivityID:
+		m.ResetActivityID()
+		return nil
+	case agenttranscriptentry.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case agenttranscriptentry.FieldSummary:
+		m.ResetSummary()
+		return nil
+	case agenttranscriptentry.FieldBodyText:
+		m.ResetBodyText()
+		return nil
+	case agenttranscriptentry.FieldCommand:
+		m.ResetCommand()
+		return nil
+	case agenttranscriptentry.FieldToolName:
+		m.ResetToolName()
+		return nil
+	case agenttranscriptentry.FieldMetadata:
+		m.ResetMetadata()
+		return nil
+	case agenttranscriptentry.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *AgentTranscriptEntryMutation) AddedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.project != nil {
+		edges = append(edges, agenttranscriptentry.EdgeProject)
+	}
+	if m.ticket != nil {
+		edges = append(edges, agenttranscriptentry.EdgeTicket)
+	}
+	if m.agent != nil {
+		edges = append(edges, agenttranscriptentry.EdgeAgent)
+	}
+	if m.agent_run != nil {
+		edges = append(edges, agenttranscriptentry.EdgeAgentRun)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *AgentTranscriptEntryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case agenttranscriptentry.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	case agenttranscriptentry.EdgeTicket:
+		if id := m.ticket; id != nil {
+			return []ent.Value{*id}
+		}
+	case agenttranscriptentry.EdgeAgent:
+		if id := m.agent; id != nil {
+			return []ent.Value{*id}
+		}
+	case agenttranscriptentry.EdgeAgentRun:
+		if id := m.agent_run; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *AgentTranscriptEntryMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 4)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *AgentTranscriptEntryMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 4)
+	if m.clearedproject {
+		edges = append(edges, agenttranscriptentry.EdgeProject)
+	}
+	if m.clearedticket {
+		edges = append(edges, agenttranscriptentry.EdgeTicket)
+	}
+	if m.clearedagent {
+		edges = append(edges, agenttranscriptentry.EdgeAgent)
+	}
+	if m.clearedagent_run {
+		edges = append(edges, agenttranscriptentry.EdgeAgentRun)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *AgentTranscriptEntryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case agenttranscriptentry.EdgeProject:
+		return m.clearedproject
+	case agenttranscriptentry.EdgeTicket:
+		return m.clearedticket
+	case agenttranscriptentry.EdgeAgent:
+		return m.clearedagent
+	case agenttranscriptentry.EdgeAgentRun:
+		return m.clearedagent_run
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *AgentTranscriptEntryMutation) ClearEdge(name string) error {
+	switch name {
+	case agenttranscriptentry.EdgeProject:
+		m.ClearProject()
+		return nil
+	case agenttranscriptentry.EdgeTicket:
+		m.ClearTicket()
+		return nil
+	case agenttranscriptentry.EdgeAgent:
+		m.ClearAgent()
+		return nil
+	case agenttranscriptentry.EdgeAgentRun:
+		m.ClearAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *AgentTranscriptEntryMutation) ResetEdge(name string) error {
+	switch name {
+	case agenttranscriptentry.EdgeProject:
+		m.ResetProject()
+		return nil
+	case agenttranscriptentry.EdgeTicket:
+		m.ResetTicket()
+		return nil
+	case agenttranscriptentry.EdgeAgent:
+		m.ResetAgent()
+		return nil
+	case agenttranscriptentry.EdgeAgentRun:
+		m.ResetAgentRun()
+		return nil
+	}
+	return fmt.Errorf("unknown AgentTranscriptEntry edge %s", name)
 }
 
 // ApprovalPolicyRuleMutation represents an operation that mutates the ApprovalPolicyRule nodes in the graph.
@@ -29150,6 +34714,15 @@ type ProjectMutation struct {
 	agent_step_events                        map[uuid.UUID]struct{}
 	removedagent_step_events                 map[uuid.UUID]struct{}
 	clearedagent_step_events                 bool
+	agent_raw_events                         map[uuid.UUID]struct{}
+	removedagent_raw_events                  map[uuid.UUID]struct{}
+	clearedagent_raw_events                  bool
+	agent_activity_instances                 map[uuid.UUID]struct{}
+	removedagent_activity_instances          map[uuid.UUID]struct{}
+	clearedagent_activity_instances          bool
+	agent_transcript_entries                 map[uuid.UUID]struct{}
+	removedagent_transcript_entries          map[uuid.UUID]struct{}
+	clearedagent_transcript_entries          bool
 	daily_token_usage                        map[uuid.UUID]struct{}
 	removeddaily_token_usage                 map[uuid.UUID]struct{}
 	cleareddaily_token_usage                 bool
@@ -30436,6 +36009,168 @@ func (m *ProjectMutation) ResetAgentStepEvents() {
 	m.removedagent_step_events = nil
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by ids.
+func (m *ProjectMutation) AddAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.agent_raw_events == nil {
+		m.agent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentRawEvents clears the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *ProjectMutation) ClearAgentRawEvents() {
+	m.clearedagent_raw_events = true
+}
+
+// AgentRawEventsCleared reports if the "agent_raw_events" edge to the AgentRawEvent entity was cleared.
+func (m *ProjectMutation) AgentRawEventsCleared() bool {
+	return m.clearedagent_raw_events
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (m *ProjectMutation) RemoveAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.removedagent_raw_events == nil {
+		m.removedagent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_raw_events, ids[i])
+		m.removedagent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentRawEvents returns the removed IDs of the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *ProjectMutation) RemovedAgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentRawEventsIDs returns the "agent_raw_events" edge IDs in the mutation.
+func (m *ProjectMutation) AgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.agent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentRawEvents resets all changes to the "agent_raw_events" edge.
+func (m *ProjectMutation) ResetAgentRawEvents() {
+	m.agent_raw_events = nil
+	m.clearedagent_raw_events = false
+	m.removedagent_raw_events = nil
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by ids.
+func (m *ProjectMutation) AddAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.agent_activity_instances == nil {
+		m.agent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentActivityInstances clears the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *ProjectMutation) ClearAgentActivityInstances() {
+	m.clearedagent_activity_instances = true
+}
+
+// AgentActivityInstancesCleared reports if the "agent_activity_instances" edge to the AgentActivityInstance entity was cleared.
+func (m *ProjectMutation) AgentActivityInstancesCleared() bool {
+	return m.clearedagent_activity_instances
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (m *ProjectMutation) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.removedagent_activity_instances == nil {
+		m.removedagent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_activity_instances, ids[i])
+		m.removedagent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentActivityInstances returns the removed IDs of the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *ProjectMutation) RemovedAgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentActivityInstancesIDs returns the "agent_activity_instances" edge IDs in the mutation.
+func (m *ProjectMutation) AgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentActivityInstances resets all changes to the "agent_activity_instances" edge.
+func (m *ProjectMutation) ResetAgentActivityInstances() {
+	m.agent_activity_instances = nil
+	m.clearedagent_activity_instances = false
+	m.removedagent_activity_instances = nil
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by ids.
+func (m *ProjectMutation) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.agent_transcript_entries == nil {
+		m.agent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTranscriptEntries clears the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *ProjectMutation) ClearAgentTranscriptEntries() {
+	m.clearedagent_transcript_entries = true
+}
+
+// AgentTranscriptEntriesCleared reports if the "agent_transcript_entries" edge to the AgentTranscriptEntry entity was cleared.
+func (m *ProjectMutation) AgentTranscriptEntriesCleared() bool {
+	return m.clearedagent_transcript_entries
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (m *ProjectMutation) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.removedagent_transcript_entries == nil {
+		m.removedagent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_transcript_entries, ids[i])
+		m.removedagent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTranscriptEntries returns the removed IDs of the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *ProjectMutation) RemovedAgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTranscriptEntriesIDs returns the "agent_transcript_entries" edge IDs in the mutation.
+func (m *ProjectMutation) AgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTranscriptEntries resets all changes to the "agent_transcript_entries" edge.
+func (m *ProjectMutation) ResetAgentTranscriptEntries() {
+	m.agent_transcript_entries = nil
+	m.clearedagent_transcript_entries = false
+	m.removedagent_transcript_entries = nil
+}
+
 // AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by ids.
 func (m *ProjectMutation) AddDailyTokenUsageIDs(ids ...uuid.UUID) {
 	if m.daily_token_usage == nil {
@@ -31213,7 +36948,7 @@ func (m *ProjectMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 20)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -31243,6 +36978,15 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.agent_step_events != nil {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.agent_raw_events != nil {
+		edges = append(edges, project.EdgeAgentRawEvents)
+	}
+	if m.agent_activity_instances != nil {
+		edges = append(edges, project.EdgeAgentActivityInstances)
+	}
+	if m.agent_transcript_entries != nil {
+		edges = append(edges, project.EdgeAgentTranscriptEntries)
 	}
 	if m.daily_token_usage != nil {
 		edges = append(edges, project.EdgeDailyTokenUsage)
@@ -31330,6 +37074,24 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.agent_raw_events))
+		for id := range m.agent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case project.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.agent_activity_instances))
+		for id := range m.agent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case project.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.agent_transcript_entries))
+		for id := range m.agent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeDailyTokenUsage:
 		ids := make([]ent.Value, 0, len(m.daily_token_usage))
 		for id := range m.daily_token_usage {
@@ -31376,7 +37138,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 20)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -31403,6 +37165,15 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_step_events != nil {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.removedagent_raw_events != nil {
+		edges = append(edges, project.EdgeAgentRawEvents)
+	}
+	if m.removedagent_activity_instances != nil {
+		edges = append(edges, project.EdgeAgentActivityInstances)
+	}
+	if m.removedagent_transcript_entries != nil {
+		edges = append(edges, project.EdgeAgentTranscriptEntries)
 	}
 	if m.removeddaily_token_usage != nil {
 		edges = append(edges, project.EdgeDailyTokenUsage)
@@ -31483,6 +37254,24 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.removedagent_raw_events))
+		for id := range m.removedagent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case project.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.removedagent_activity_instances))
+		for id := range m.removedagent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case project.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.removedagent_transcript_entries))
+		for id := range m.removedagent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeDailyTokenUsage:
 		ids := make([]ent.Value, 0, len(m.removeddaily_token_usage))
 		for id := range m.removeddaily_token_usage {
@@ -31525,7 +37314,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 20)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -31555,6 +37344,15 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedagent_step_events {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.clearedagent_raw_events {
+		edges = append(edges, project.EdgeAgentRawEvents)
+	}
+	if m.clearedagent_activity_instances {
+		edges = append(edges, project.EdgeAgentActivityInstances)
+	}
+	if m.clearedagent_transcript_entries {
+		edges = append(edges, project.EdgeAgentTranscriptEntries)
 	}
 	if m.cleareddaily_token_usage {
 		edges = append(edges, project.EdgeDailyTokenUsage)
@@ -31604,6 +37402,12 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedagent_trace_events
 	case project.EdgeAgentStepEvents:
 		return m.clearedagent_step_events
+	case project.EdgeAgentRawEvents:
+		return m.clearedagent_raw_events
+	case project.EdgeAgentActivityInstances:
+		return m.clearedagent_activity_instances
+	case project.EdgeAgentTranscriptEntries:
+		return m.clearedagent_transcript_entries
 	case project.EdgeDailyTokenUsage:
 		return m.cleareddaily_token_usage
 	case project.EdgeScheduledJobs:
@@ -31669,6 +37473,15 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeAgentStepEvents:
 		m.ResetAgentStepEvents()
+		return nil
+	case project.EdgeAgentRawEvents:
+		m.ResetAgentRawEvents()
+		return nil
+	case project.EdgeAgentActivityInstances:
+		m.ResetAgentActivityInstances()
+		return nil
+	case project.EdgeAgentTranscriptEntries:
+		m.ResetAgentTranscriptEntries()
 		return nil
 	case project.EdgeDailyTokenUsage:
 		m.ResetDailyTokenUsage()
@@ -50741,93 +56554,102 @@ func (m *SkillVersionFileMutation) ResetEdge(name string) error {
 // TicketMutation represents an operation that mutates the Ticket nodes in the graph.
 type TicketMutation struct {
 	config
-	op                           Op
-	typ                          string
-	id                           *uuid.UUID
-	identifier                   *string
-	title                        *string
-	description                  *string
-	archived                     *bool
-	priority                     *ticket.Priority
-	_type                        *ticket.Type
-	created_by                   *string
-	external_ref                 *string
-	attempt_count                *int
-	addattempt_count             *int
-	consecutive_errors           *int
-	addconsecutive_errors        *int
-	next_retry_at                *time.Time
-	retry_paused                 *bool
-	pause_reason                 *string
-	stall_count                  *int
-	addstall_count               *int
-	retry_token                  *string
-	harness_version              *int
-	addharness_version           *int
-	budget_usd                   *float64
-	addbudget_usd                *float64
-	cost_tokens_input            *int64
-	addcost_tokens_input         *int64
-	cost_tokens_output           *int64
-	addcost_tokens_output        *int64
-	cost_amount                  *float64
-	addcost_amount               *float64
-	metadata                     *map[string]interface{}
-	started_at                   *time.Time
-	completed_at                 *time.Time
-	created_at                   *time.Time
-	clearedFields                map[string]struct{}
-	project                      *uuid.UUID
-	clearedproject               bool
-	status                       *uuid.UUID
-	clearedstatus                bool
-	workflow                     *uuid.UUID
-	clearedworkflow              bool
-	current_run                  *uuid.UUID
-	clearedcurrent_run           bool
-	target_machine               *uuid.UUID
-	clearedtarget_machine        bool
-	parent                       *uuid.UUID
-	clearedparent                bool
-	children                     map[uuid.UUID]struct{}
-	removedchildren              map[uuid.UUID]struct{}
-	clearedchildren              bool
-	repo_scopes                  map[uuid.UUID]struct{}
-	removedrepo_scopes           map[uuid.UUID]struct{}
-	clearedrepo_scopes           bool
-	comments                     map[uuid.UUID]struct{}
-	removedcomments              map[uuid.UUID]struct{}
-	clearedcomments              bool
-	external_links               map[uuid.UUID]struct{}
-	removedexternal_links        map[uuid.UUID]struct{}
-	clearedexternal_links        bool
-	agent_tokens                 map[uuid.UUID]struct{}
-	removedagent_tokens          map[uuid.UUID]struct{}
-	clearedagent_tokens          bool
-	agent_trace_events           map[uuid.UUID]struct{}
-	removedagent_trace_events    map[uuid.UUID]struct{}
-	clearedagent_trace_events    bool
-	agent_step_events            map[uuid.UUID]struct{}
-	removedagent_step_events     map[uuid.UUID]struct{}
-	clearedagent_step_events     bool
-	activity_events              map[uuid.UUID]struct{}
-	removedactivity_events       map[uuid.UUID]struct{}
-	clearedactivity_events       bool
-	agent_runs                   map[uuid.UUID]struct{}
-	removedagent_runs            map[uuid.UUID]struct{}
-	clearedagent_runs            bool
-	repo_workspaces              map[uuid.UUID]struct{}
-	removedrepo_workspaces       map[uuid.UUID]struct{}
-	clearedrepo_workspaces       bool
-	outgoing_dependencies        map[uuid.UUID]struct{}
-	removedoutgoing_dependencies map[uuid.UUID]struct{}
-	clearedoutgoing_dependencies bool
-	incoming_dependencies        map[uuid.UUID]struct{}
-	removedincoming_dependencies map[uuid.UUID]struct{}
-	clearedincoming_dependencies bool
-	done                         bool
-	oldValue                     func(context.Context) (*Ticket, error)
-	predicates                   []predicate.Ticket
+	op                              Op
+	typ                             string
+	id                              *uuid.UUID
+	identifier                      *string
+	title                           *string
+	description                     *string
+	archived                        *bool
+	priority                        *ticket.Priority
+	_type                           *ticket.Type
+	created_by                      *string
+	external_ref                    *string
+	attempt_count                   *int
+	addattempt_count                *int
+	consecutive_errors              *int
+	addconsecutive_errors           *int
+	next_retry_at                   *time.Time
+	retry_paused                    *bool
+	pause_reason                    *string
+	stall_count                     *int
+	addstall_count                  *int
+	retry_token                     *string
+	harness_version                 *int
+	addharness_version              *int
+	budget_usd                      *float64
+	addbudget_usd                   *float64
+	cost_tokens_input               *int64
+	addcost_tokens_input            *int64
+	cost_tokens_output              *int64
+	addcost_tokens_output           *int64
+	cost_amount                     *float64
+	addcost_amount                  *float64
+	metadata                        *map[string]interface{}
+	started_at                      *time.Time
+	completed_at                    *time.Time
+	created_at                      *time.Time
+	clearedFields                   map[string]struct{}
+	project                         *uuid.UUID
+	clearedproject                  bool
+	status                          *uuid.UUID
+	clearedstatus                   bool
+	workflow                        *uuid.UUID
+	clearedworkflow                 bool
+	current_run                     *uuid.UUID
+	clearedcurrent_run              bool
+	target_machine                  *uuid.UUID
+	clearedtarget_machine           bool
+	parent                          *uuid.UUID
+	clearedparent                   bool
+	children                        map[uuid.UUID]struct{}
+	removedchildren                 map[uuid.UUID]struct{}
+	clearedchildren                 bool
+	repo_scopes                     map[uuid.UUID]struct{}
+	removedrepo_scopes              map[uuid.UUID]struct{}
+	clearedrepo_scopes              bool
+	comments                        map[uuid.UUID]struct{}
+	removedcomments                 map[uuid.UUID]struct{}
+	clearedcomments                 bool
+	external_links                  map[uuid.UUID]struct{}
+	removedexternal_links           map[uuid.UUID]struct{}
+	clearedexternal_links           bool
+	agent_tokens                    map[uuid.UUID]struct{}
+	removedagent_tokens             map[uuid.UUID]struct{}
+	clearedagent_tokens             bool
+	agent_trace_events              map[uuid.UUID]struct{}
+	removedagent_trace_events       map[uuid.UUID]struct{}
+	clearedagent_trace_events       bool
+	agent_step_events               map[uuid.UUID]struct{}
+	removedagent_step_events        map[uuid.UUID]struct{}
+	clearedagent_step_events        bool
+	agent_raw_events                map[uuid.UUID]struct{}
+	removedagent_raw_events         map[uuid.UUID]struct{}
+	clearedagent_raw_events         bool
+	agent_activity_instances        map[uuid.UUID]struct{}
+	removedagent_activity_instances map[uuid.UUID]struct{}
+	clearedagent_activity_instances bool
+	agent_transcript_entries        map[uuid.UUID]struct{}
+	removedagent_transcript_entries map[uuid.UUID]struct{}
+	clearedagent_transcript_entries bool
+	activity_events                 map[uuid.UUID]struct{}
+	removedactivity_events          map[uuid.UUID]struct{}
+	clearedactivity_events          bool
+	agent_runs                      map[uuid.UUID]struct{}
+	removedagent_runs               map[uuid.UUID]struct{}
+	clearedagent_runs               bool
+	repo_workspaces                 map[uuid.UUID]struct{}
+	removedrepo_workspaces          map[uuid.UUID]struct{}
+	clearedrepo_workspaces          bool
+	outgoing_dependencies           map[uuid.UUID]struct{}
+	removedoutgoing_dependencies    map[uuid.UUID]struct{}
+	clearedoutgoing_dependencies    bool
+	incoming_dependencies           map[uuid.UUID]struct{}
+	removedincoming_dependencies    map[uuid.UUID]struct{}
+	clearedincoming_dependencies    bool
+	done                            bool
+	oldValue                        func(context.Context) (*Ticket, error)
+	predicates                      []predicate.Ticket
 }
 
 var _ ent.Mutation = (*TicketMutation)(nil)
@@ -52883,6 +58705,168 @@ func (m *TicketMutation) ResetAgentStepEvents() {
 	m.removedagent_step_events = nil
 }
 
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by ids.
+func (m *TicketMutation) AddAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.agent_raw_events == nil {
+		m.agent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentRawEvents clears the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *TicketMutation) ClearAgentRawEvents() {
+	m.clearedagent_raw_events = true
+}
+
+// AgentRawEventsCleared reports if the "agent_raw_events" edge to the AgentRawEvent entity was cleared.
+func (m *TicketMutation) AgentRawEventsCleared() bool {
+	return m.clearedagent_raw_events
+}
+
+// RemoveAgentRawEventIDs removes the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (m *TicketMutation) RemoveAgentRawEventIDs(ids ...uuid.UUID) {
+	if m.removedagent_raw_events == nil {
+		m.removedagent_raw_events = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_raw_events, ids[i])
+		m.removedagent_raw_events[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentRawEvents returns the removed IDs of the "agent_raw_events" edge to the AgentRawEvent entity.
+func (m *TicketMutation) RemovedAgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentRawEventsIDs returns the "agent_raw_events" edge IDs in the mutation.
+func (m *TicketMutation) AgentRawEventsIDs() (ids []uuid.UUID) {
+	for id := range m.agent_raw_events {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentRawEvents resets all changes to the "agent_raw_events" edge.
+func (m *TicketMutation) ResetAgentRawEvents() {
+	m.agent_raw_events = nil
+	m.clearedagent_raw_events = false
+	m.removedagent_raw_events = nil
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by ids.
+func (m *TicketMutation) AddAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.agent_activity_instances == nil {
+		m.agent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentActivityInstances clears the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *TicketMutation) ClearAgentActivityInstances() {
+	m.clearedagent_activity_instances = true
+}
+
+// AgentActivityInstancesCleared reports if the "agent_activity_instances" edge to the AgentActivityInstance entity was cleared.
+func (m *TicketMutation) AgentActivityInstancesCleared() bool {
+	return m.clearedagent_activity_instances
+}
+
+// RemoveAgentActivityInstanceIDs removes the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (m *TicketMutation) RemoveAgentActivityInstanceIDs(ids ...uuid.UUID) {
+	if m.removedagent_activity_instances == nil {
+		m.removedagent_activity_instances = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_activity_instances, ids[i])
+		m.removedagent_activity_instances[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentActivityInstances returns the removed IDs of the "agent_activity_instances" edge to the AgentActivityInstance entity.
+func (m *TicketMutation) RemovedAgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentActivityInstancesIDs returns the "agent_activity_instances" edge IDs in the mutation.
+func (m *TicketMutation) AgentActivityInstancesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_activity_instances {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentActivityInstances resets all changes to the "agent_activity_instances" edge.
+func (m *TicketMutation) ResetAgentActivityInstances() {
+	m.agent_activity_instances = nil
+	m.clearedagent_activity_instances = false
+	m.removedagent_activity_instances = nil
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by ids.
+func (m *TicketMutation) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.agent_transcript_entries == nil {
+		m.agent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.agent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAgentTranscriptEntries clears the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *TicketMutation) ClearAgentTranscriptEntries() {
+	m.clearedagent_transcript_entries = true
+}
+
+// AgentTranscriptEntriesCleared reports if the "agent_transcript_entries" edge to the AgentTranscriptEntry entity was cleared.
+func (m *TicketMutation) AgentTranscriptEntriesCleared() bool {
+	return m.clearedagent_transcript_entries
+}
+
+// RemoveAgentTranscriptEntryIDs removes the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (m *TicketMutation) RemoveAgentTranscriptEntryIDs(ids ...uuid.UUID) {
+	if m.removedagent_transcript_entries == nil {
+		m.removedagent_transcript_entries = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.agent_transcript_entries, ids[i])
+		m.removedagent_transcript_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAgentTranscriptEntries returns the removed IDs of the "agent_transcript_entries" edge to the AgentTranscriptEntry entity.
+func (m *TicketMutation) RemovedAgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.removedagent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AgentTranscriptEntriesIDs returns the "agent_transcript_entries" edge IDs in the mutation.
+func (m *TicketMutation) AgentTranscriptEntriesIDs() (ids []uuid.UUID) {
+	for id := range m.agent_transcript_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAgentTranscriptEntries resets all changes to the "agent_transcript_entries" edge.
+func (m *TicketMutation) ResetAgentTranscriptEntries() {
+	m.agent_transcript_entries = nil
+	m.clearedagent_transcript_entries = false
+	m.removedagent_transcript_entries = nil
+}
+
 // AddActivityEventIDs adds the "activity_events" edge to the ActivityEvent entity by ids.
 func (m *TicketMutation) AddActivityEventIDs(ids ...uuid.UUID) {
 	if m.activity_events == nil {
@@ -53953,7 +59937,7 @@ func (m *TicketMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *TicketMutation) AddedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 21)
 	if m.project != nil {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -53992,6 +59976,15 @@ func (m *TicketMutation) AddedEdges() []string {
 	}
 	if m.agent_step_events != nil {
 		edges = append(edges, ticket.EdgeAgentStepEvents)
+	}
+	if m.agent_raw_events != nil {
+		edges = append(edges, ticket.EdgeAgentRawEvents)
+	}
+	if m.agent_activity_instances != nil {
+		edges = append(edges, ticket.EdgeAgentActivityInstances)
+	}
+	if m.agent_transcript_entries != nil {
+		edges = append(edges, ticket.EdgeAgentTranscriptEntries)
 	}
 	if m.activity_events != nil {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -54081,6 +60074,24 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.agent_raw_events))
+		for id := range m.agent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case ticket.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.agent_activity_instances))
+		for id := range m.agent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case ticket.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.agent_transcript_entries))
+		for id := range m.agent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.activity_events))
 		for id := range m.activity_events {
@@ -54117,7 +60128,7 @@ func (m *TicketMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *TicketMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 21)
 	if m.removedchildren != nil {
 		edges = append(edges, ticket.EdgeChildren)
 	}
@@ -54138,6 +60149,15 @@ func (m *TicketMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_step_events != nil {
 		edges = append(edges, ticket.EdgeAgentStepEvents)
+	}
+	if m.removedagent_raw_events != nil {
+		edges = append(edges, ticket.EdgeAgentRawEvents)
+	}
+	if m.removedagent_activity_instances != nil {
+		edges = append(edges, ticket.EdgeAgentActivityInstances)
+	}
+	if m.removedagent_transcript_entries != nil {
+		edges = append(edges, ticket.EdgeAgentTranscriptEntries)
 	}
 	if m.removedactivity_events != nil {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -54203,6 +60223,24 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case ticket.EdgeAgentRawEvents:
+		ids := make([]ent.Value, 0, len(m.removedagent_raw_events))
+		for id := range m.removedagent_raw_events {
+			ids = append(ids, id)
+		}
+		return ids
+	case ticket.EdgeAgentActivityInstances:
+		ids := make([]ent.Value, 0, len(m.removedagent_activity_instances))
+		for id := range m.removedagent_activity_instances {
+			ids = append(ids, id)
+		}
+		return ids
+	case ticket.EdgeAgentTranscriptEntries:
+		ids := make([]ent.Value, 0, len(m.removedagent_transcript_entries))
+		for id := range m.removedagent_transcript_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	case ticket.EdgeActivityEvents:
 		ids := make([]ent.Value, 0, len(m.removedactivity_events))
 		for id := range m.removedactivity_events {
@@ -54239,7 +60277,7 @@ func (m *TicketMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *TicketMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 18)
+	edges := make([]string, 0, 21)
 	if m.clearedproject {
 		edges = append(edges, ticket.EdgeProject)
 	}
@@ -54278,6 +60316,15 @@ func (m *TicketMutation) ClearedEdges() []string {
 	}
 	if m.clearedagent_step_events {
 		edges = append(edges, ticket.EdgeAgentStepEvents)
+	}
+	if m.clearedagent_raw_events {
+		edges = append(edges, ticket.EdgeAgentRawEvents)
+	}
+	if m.clearedagent_activity_instances {
+		edges = append(edges, ticket.EdgeAgentActivityInstances)
+	}
+	if m.clearedagent_transcript_entries {
+		edges = append(edges, ticket.EdgeAgentTranscriptEntries)
 	}
 	if m.clearedactivity_events {
 		edges = append(edges, ticket.EdgeActivityEvents)
@@ -54327,6 +60374,12 @@ func (m *TicketMutation) EdgeCleared(name string) bool {
 		return m.clearedagent_trace_events
 	case ticket.EdgeAgentStepEvents:
 		return m.clearedagent_step_events
+	case ticket.EdgeAgentRawEvents:
+		return m.clearedagent_raw_events
+	case ticket.EdgeAgentActivityInstances:
+		return m.clearedagent_activity_instances
+	case ticket.EdgeAgentTranscriptEntries:
+		return m.clearedagent_transcript_entries
 	case ticket.EdgeActivityEvents:
 		return m.clearedactivity_events
 	case ticket.EdgeAgentRuns:
@@ -54409,6 +60462,15 @@ func (m *TicketMutation) ResetEdge(name string) error {
 		return nil
 	case ticket.EdgeAgentStepEvents:
 		m.ResetAgentStepEvents()
+		return nil
+	case ticket.EdgeAgentRawEvents:
+		m.ResetAgentRawEvents()
+		return nil
+	case ticket.EdgeAgentActivityInstances:
+		m.ResetAgentActivityInstances()
+		return nil
+	case ticket.EdgeAgentTranscriptEntries:
+		m.ResetAgentTranscriptEntries()
 		return nil
 	case ticket.EdgeActivityEvents:
 		m.ResetActivityEvents()

@@ -61,6 +61,12 @@ const (
 	EdgeAgentTraceEvents = "agent_trace_events"
 	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
 	EdgeAgentStepEvents = "agent_step_events"
+	// EdgeAgentRawEvents holds the string denoting the agent_raw_events edge name in mutations.
+	EdgeAgentRawEvents = "agent_raw_events"
+	// EdgeAgentActivityInstances holds the string denoting the agent_activity_instances edge name in mutations.
+	EdgeAgentActivityInstances = "agent_activity_instances"
+	// EdgeAgentTranscriptEntries holds the string denoting the agent_transcript_entries edge name in mutations.
+	EdgeAgentTranscriptEntries = "agent_transcript_entries"
 	// EdgeDailyTokenUsage holds the string denoting the daily_token_usage edge name in mutations.
 	EdgeDailyTokenUsage = "daily_token_usage"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
@@ -147,6 +153,27 @@ const (
 	AgentStepEventsInverseTable = "agent_step_events"
 	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
 	AgentStepEventsColumn = "project_id"
+	// AgentRawEventsTable is the table that holds the agent_raw_events relation/edge.
+	AgentRawEventsTable = "agent_raw_events"
+	// AgentRawEventsInverseTable is the table name for the AgentRawEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "agentrawevent" package.
+	AgentRawEventsInverseTable = "agent_raw_events"
+	// AgentRawEventsColumn is the table column denoting the agent_raw_events relation/edge.
+	AgentRawEventsColumn = "project_id"
+	// AgentActivityInstancesTable is the table that holds the agent_activity_instances relation/edge.
+	AgentActivityInstancesTable = "agent_activity_instances"
+	// AgentActivityInstancesInverseTable is the table name for the AgentActivityInstance entity.
+	// It exists in this package in order to avoid circular dependency with the "agentactivityinstance" package.
+	AgentActivityInstancesInverseTable = "agent_activity_instances"
+	// AgentActivityInstancesColumn is the table column denoting the agent_activity_instances relation/edge.
+	AgentActivityInstancesColumn = "project_id"
+	// AgentTranscriptEntriesTable is the table that holds the agent_transcript_entries relation/edge.
+	AgentTranscriptEntriesTable = "agent_transcript_entries"
+	// AgentTranscriptEntriesInverseTable is the table name for the AgentTranscriptEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "agenttranscriptentry" package.
+	AgentTranscriptEntriesInverseTable = "agent_transcript_entries"
+	// AgentTranscriptEntriesColumn is the table column denoting the agent_transcript_entries relation/edge.
+	AgentTranscriptEntriesColumn = "project_id"
 	// DailyTokenUsageTable is the table that holds the daily_token_usage relation/edge.
 	DailyTokenUsageTable = "project_daily_token_usages"
 	// DailyTokenUsageInverseTable is the table name for the ProjectDailyTokenUsage entity.
@@ -444,6 +471,48 @@ func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByAgentRawEventsCount orders the results by agent_raw_events count.
+func ByAgentRawEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentRawEventsStep(), opts...)
+	}
+}
+
+// ByAgentRawEvents orders the results by agent_raw_events terms.
+func ByAgentRawEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentRawEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAgentActivityInstancesCount orders the results by agent_activity_instances count.
+func ByAgentActivityInstancesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentActivityInstancesStep(), opts...)
+	}
+}
+
+// ByAgentActivityInstances orders the results by agent_activity_instances terms.
+func ByAgentActivityInstances(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentActivityInstancesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByAgentTranscriptEntriesCount orders the results by agent_transcript_entries count.
+func ByAgentTranscriptEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAgentTranscriptEntriesStep(), opts...)
+	}
+}
+
+// ByAgentTranscriptEntries orders the results by agent_transcript_entries terms.
+func ByAgentTranscriptEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAgentTranscriptEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDailyTokenUsageCount orders the results by daily_token_usage count.
 func ByDailyTokenUsageCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -602,6 +671,27 @@ func newAgentStepEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
+	)
+}
+func newAgentRawEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentRawEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentRawEventsTable, AgentRawEventsColumn),
+	)
+}
+func newAgentActivityInstancesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentActivityInstancesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentActivityInstancesTable, AgentActivityInstancesColumn),
+	)
+}
+func newAgentTranscriptEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AgentTranscriptEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AgentTranscriptEntriesTable, AgentTranscriptEntriesColumn),
 	)
 }
 func newDailyTokenUsageStep() *sqlgraph.Step {

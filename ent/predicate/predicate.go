@@ -12,8 +12,14 @@ type ActivityEvent func(*sql.Selector)
 // Agent is the predicate function for agent builders.
 type Agent func(*sql.Selector)
 
+// AgentActivityInstance is the predicate function for agentactivityinstance builders.
+type AgentActivityInstance func(*sql.Selector)
+
 // AgentProvider is the predicate function for agentprovider builders.
 type AgentProvider func(*sql.Selector)
+
+// AgentRawEvent is the predicate function for agentrawevent builders.
+type AgentRawEvent func(*sql.Selector)
 
 // AgentRun is the predicate function for agentrun builders.
 type AgentRun func(*sql.Selector)
@@ -26,6 +32,9 @@ type AgentToken func(*sql.Selector)
 
 // AgentTraceEvent is the predicate function for agenttraceevent builders.
 type AgentTraceEvent func(*sql.Selector)
+
+// AgentTranscriptEntry is the predicate function for agenttranscriptentry builders.
+type AgentTranscriptEntry func(*sql.Selector)
 
 // ApprovalPolicyRule is the predicate function for approvalpolicyrule builders.
 type ApprovalPolicyRule func(*sql.Selector)
