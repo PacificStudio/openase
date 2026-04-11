@@ -312,11 +312,56 @@ func TestPrincipalKindScopeHelpers(t *testing.T) {
 
 	t.Run("project conversation supported scopes exclude ticket self update", func(t *testing.T) {
 		got := SupportedScopesForPrincipalKind(PrincipalKindProjectConversation)
-		if slices.Contains(got, string(ScopeTicketsUpdateSelf)) {
-			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) unexpectedly included %q", ScopeTicketsUpdateSelf)
+		want := []string{
+			string(ScopeAgentsInterrupt),
+			string(ScopeActivityRead),
+			string(ScopeProjectsAddRepo),
+			string(ScopeProjectsUpdate),
+			string(ScopeReposCreate),
+			string(ScopeReposDelete),
+			string(ScopeReposRead),
+			string(ScopeReposUpdate),
+			string(ScopeScheduledJobsCreate),
+			string(ScopeScheduledJobsDelete),
+			string(ScopeScheduledJobsList),
+			string(ScopeScheduledJobsTrigger),
+			string(ScopeScheduledJobsUpdate),
+			string(ScopeSkillsBind),
+			string(ScopeSkillsCreate),
+			string(ScopeSkillsDelete),
+			string(ScopeSkillsDisable),
+			string(ScopeSkillsEnable),
+			string(ScopeSkillsImport),
+			string(ScopeSkillsList),
+			string(ScopeSkillsRead),
+			string(ScopeSkillsRefresh),
+			string(ScopeSkillsUpdate),
+			string(ScopeStatusesCreate),
+			string(ScopeStatusesDelete),
+			string(ScopeStatusesList),
+			string(ScopeStatusesReset),
+			string(ScopeStatusesUpdate),
+			string(ScopeTicketRepoScopesCreate),
+			string(ScopeTicketRepoScopesDelete),
+			string(ScopeTicketRepoScopesList),
+			string(ScopeTicketRepoScopesUpdate),
+			string(ScopeTicketsCreate),
+			string(ScopeTicketsList),
+			string(ScopeTicketsUpdate),
+			string(ScopeTicketsReportUsage),
+			string(ScopeWorkflowsCreate),
+			string(ScopeWorkflowsDelete),
+			string(ScopeWorkflowsHarnessHistoryRead),
+			string(ScopeWorkflowsHarnessRead),
+			string(ScopeWorkflowsHarnessUpdate),
+			string(ScopeWorkflowsHarnessValidate),
+			string(ScopeWorkflowsHarnessVariablesRead),
+			string(ScopeWorkflowsList),
+			string(ScopeWorkflowsRead),
+			string(ScopeWorkflowsUpdate),
 		}
-		if !slices.Contains(got, string(ScopeProjectsUpdate)) {
-			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) missing %q", ScopeProjectsUpdate)
+		if !slices.Equal(got, want) {
+			t.Fatalf("SupportedScopesForPrincipalKind(project conversation) = %#v, want %#v", got, want)
 		}
 	})
 

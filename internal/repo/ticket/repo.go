@@ -26,6 +26,7 @@ import (
 	entticketstatus "github.com/BetterAndBetterII/openase/ent/ticketstatus"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	"github.com/BetterAndBetterII/openase/internal/domain/pricing"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/ticket"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	workflowdomain "github.com/BetterAndBetterII/openase/internal/domain/workflow"
@@ -1956,30 +1957,76 @@ func (r *EntRepository) RecordUsage(
 		return PersistedUsageResult{}, mapTicketReadError("get ticket for usage", err)
 	}
 
-	agentItem, err := tx.Agent.Query().
-		Where(entagent.IDEQ(input.AgentID)).
-		WithProvider().
-		Only(ctx)
-	if err != nil {
-		if ent.IsNotFound(err) {
-			return PersistedUsageResult{}, fmt.Errorf("agent %s not found", input.AgentID)
-		}
-		return PersistedUsageResult{}, fmt.Errorf("get agent for usage: %w", err)
-	}
-	if agentItem.ProjectID != ticketItem.ProjectID {
-		return PersistedUsageResult{}, fmt.Errorf("agent %s does not belong to ticket project %s", agentItem.ID, ticketItem.ProjectID)
-	}
-	if agentItem.Edges.Provider == nil {
-		return PersistedUsageResult{}, fmt.Errorf("agent provider must be loaded for usage accounting")
-	}
-
-	pricingConfig := catalogdomain.ResolveAgentProviderPricingConfig(
-		catalogdomain.AgentProviderAdapterType(agentItem.Edges.Provider.AdapterType),
-		agentItem.Edges.Provider.ModelName,
-		agentItem.Edges.Provider.CostPerInputToken,
-		agentItem.Edges.Provider.CostPerOutputToken,
-		agentItem.Edges.Provider.PricingConfig,
+	var (
+		usageActorID    *uuid.UUID
+		metricsAgent    UsageMetricsAgent
+		pricingConfig   pricing.ProviderModelPricingConfig
+		belongsToTicket bool
 	)
+
+	if input.AgentID != uuid.Nil {
+		agentItem, err := tx.Agent.Query().
+			Where(entagent.IDEQ(input.AgentID)).
+			WithProvider().
+			Only(ctx)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return PersistedUsageResult{}, fmt.Errorf("agent %s not found", input.AgentID)
+			}
+			return PersistedUsageResult{}, fmt.Errorf("get agent for usage: %w", err)
+		}
+		if agentItem.ProjectID != ticketItem.ProjectID {
+			return PersistedUsageResult{}, fmt.Errorf("agent %s does not belong to ticket project %s", agentItem.ID, ticketItem.ProjectID)
+		}
+		if agentItem.Edges.Provider == nil {
+			return PersistedUsageResult{}, fmt.Errorf("agent provider must be loaded for usage accounting")
+		}
+
+		pricingConfig = catalogdomain.ResolveAgentProviderPricingConfig(
+			catalogdomain.AgentProviderAdapterType(agentItem.Edges.Provider.AdapterType),
+			agentItem.Edges.Provider.ModelName,
+			agentItem.Edges.Provider.CostPerInputToken,
+			agentItem.Edges.Provider.CostPerOutputToken,
+			agentItem.Edges.Provider.PricingConfig,
+		)
+		usageActorID = &agentItem.ID
+		metricsAgent = UsageMetricsAgent{
+			ProviderName: agentItem.Edges.Provider.Name,
+			ModelName:    agentItem.Edges.Provider.ModelName,
+		}
+		belongsToTicket = true
+	} else {
+		principalItem, err := tx.ProjectConversationPrincipal.Get(ctx, input.ConversationID)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return PersistedUsageResult{}, fmt.Errorf("project conversation principal %s not found", input.ConversationID)
+			}
+			return PersistedUsageResult{}, fmt.Errorf("get project conversation principal for usage: %w", err)
+		}
+		if principalItem.ProjectID != ticketItem.ProjectID {
+			return PersistedUsageResult{}, fmt.Errorf("project conversation principal %s does not belong to ticket project %s", principalItem.ID, ticketItem.ProjectID)
+		}
+
+		providerItem, err := tx.AgentProvider.Get(ctx, principalItem.ProviderID)
+		if err != nil {
+			if ent.IsNotFound(err) {
+				return PersistedUsageResult{}, fmt.Errorf("provider %s not found", principalItem.ProviderID)
+			}
+			return PersistedUsageResult{}, fmt.Errorf("get provider for project conversation usage: %w", err)
+		}
+
+		pricingConfig = catalogdomain.ResolveAgentProviderPricingConfig(
+			catalogdomain.AgentProviderAdapterType(providerItem.AdapterType),
+			providerItem.ModelName,
+			providerItem.CostPerInputToken,
+			providerItem.CostPerOutputToken,
+			providerItem.PricingConfig,
+		)
+		metricsAgent = UsageMetricsAgent{
+			ProviderName: providerItem.Name,
+			ModelName:    providerItem.ModelName,
+		}
+	}
 	resolvedCost, err := usageDelta.ResolveCost(pricingConfig)
 	if err != nil {
 		return PersistedUsageResult{}, err
@@ -2001,8 +2048,8 @@ func (r *EntRepository) RecordUsage(
 		return PersistedUsageResult{}, mapTicketWriteError("update ticket usage", err)
 	}
 
-	if usageDelta.TotalTokens() > 0 {
-		if _, err := tx.Agent.UpdateOneID(agentItem.ID).
+	if belongsToTicket && usageDelta.TotalTokens() > 0 {
+		if _, err := tx.Agent.UpdateOneID(*usageActorID).
 			AddTotalTokensUsed(usageDelta.TotalTokens()).
 			Save(ctx); err != nil {
 			return PersistedUsageResult{}, fmt.Errorf("update agent usage counters: %w", err)
@@ -2019,8 +2066,8 @@ func (r *EntRepository) RecordUsage(
 			}
 			return PersistedUsageResult{}, fmt.Errorf("get agent run for usage: %w", err)
 		}
-		if runItem.AgentID != agentItem.ID {
-			return PersistedUsageResult{}, fmt.Errorf("agent run %s does not belong to agent %s", runItem.ID, agentItem.ID)
+		if usageActorID == nil || runItem.AgentID != *usageActorID {
+			return PersistedUsageResult{}, fmt.Errorf("agent run %s does not belong to agent %s", runItem.ID, input.AgentID)
 		}
 		if runItem.TicketID != ticketItem.ID {
 			return PersistedUsageResult{}, fmt.Errorf("agent run %s does not belong to ticket %s", runItem.ID, ticketItem.ID)
@@ -2041,22 +2088,29 @@ func (r *EntRepository) RecordUsage(
 		}
 	}
 
-	if _, err := tx.ActivityEvent.Create().
+	metadata := map[string]any{
+		"input_tokens":  usageDelta.InputTokens,
+		"output_tokens": usageDelta.OutputTokens,
+		"total_tokens":  usageDelta.TotalTokens(),
+		"cost_usd":      resolvedCost.AmountUSD,
+		"cost_source":   resolvedCost.Source.String(),
+		"agent_run_id":  agentRunID,
+	}
+	if input.ConversationID != uuid.Nil {
+		metadata["conversation_id"] = input.ConversationID.String()
+	}
+
+	activityEvent := tx.ActivityEvent.Create().
 		SetProjectID(ticketItem.ProjectID).
 		SetTicketID(ticketItem.ID).
-		SetAgentID(agentItem.ID).
 		SetEventType(ticketing.CostRecordedEventType).
 		SetMessage("").
-		SetMetadata(map[string]any{
-			"input_tokens":  usageDelta.InputTokens,
-			"output_tokens": usageDelta.OutputTokens,
-			"total_tokens":  usageDelta.TotalTokens(),
-			"cost_usd":      resolvedCost.AmountUSD,
-			"cost_source":   resolvedCost.Source.String(),
-			"agent_run_id":  agentRunID,
-		}).
-		SetCreatedAt(timeNowUTC()).
-		Save(ctx); err != nil {
+		SetMetadata(metadata).
+		SetCreatedAt(timeNowUTC())
+	if usageActorID != nil {
+		activityEvent.SetAgentID(*usageActorID)
+	}
+	if _, err := activityEvent.Save(ctx); err != nil {
 		return PersistedUsageResult{}, fmt.Errorf("create ticket cost event: %w", err)
 	}
 
@@ -2080,11 +2134,8 @@ func (r *EntRepository) RecordUsage(
 			},
 			BudgetExceeded: ticketing.ShouldPauseForBudget(ticketAfter.CostAmount, ticketAfter.BudgetUSD),
 		},
-		MetricsAgent: UsageMetricsAgent{
-			ProviderName: agentItem.Edges.Provider.Name,
-			ModelName:    agentItem.Edges.Provider.ModelName,
-		},
-		ProjectID: ticketItem.ProjectID,
+		MetricsAgent: metricsAgent,
+		ProjectID:    ticketItem.ProjectID,
 	}, nil
 }
 

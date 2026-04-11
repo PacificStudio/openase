@@ -13,6 +13,7 @@ import (
 
 func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/activity", s.handleAgentListActivityEvents)
+	api.POST("/agents/:agentId/interrupt", s.handleAgentInterruptAgent)
 	api.POST("/projects/:projectId/agents/:agentId/interrupt", s.handleAgentInterruptProjectAgent)
 	api.GET("/projects/:projectId/statuses", s.handleAgentListTicketStatuses)
 	api.POST("/projects/:projectId/statuses", s.handleAgentCreateTicketStatus)
@@ -35,6 +36,8 @@ func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.POST("/projects/:projectId/tickets/:ticketId/repo-scopes", s.handleAgentCreateTicketRepoScope)
 	api.PATCH("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.handleAgentPatchTicketRepoScope)
 	api.DELETE("/projects/:projectId/tickets/:ticketId/repo-scopes/:scopeId", s.handleAgentDeleteTicketRepoScope)
+	api.GET("/projects/:projectId/tickets/:ticketId/runs", s.handleAgentListTicketRuns)
+	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId", s.handleAgentGetTicketRun)
 	api.GET("/projects/:projectId/scheduled-jobs", s.handleAgentListScheduledJobs)
 	api.POST("/projects/:projectId/scheduled-jobs", s.handleAgentCreateScheduledJob)
 	api.PATCH("/scheduled-jobs/:jobId", s.handleAgentUpdateScheduledJob)
@@ -111,6 +114,41 @@ func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agen
 		return domain.Agent{}, false
 	}
 	return item, true
+}
+
+func (s *Server) requireAgentAnyProjectAgentScope(c echo.Context, scopes ...agentplatform.Scope) (domain.Agent, bool) {
+	if s.catalog.AgentService == nil {
+		_ = writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+		return domain.Agent{}, false
+	}
+
+	claims, ok := requireAgentAnyScope(c, scopes...)
+	if !ok {
+		return domain.Agent{}, false
+	}
+
+	agentID, err := parseUUIDPathParamValue(c, "agentId")
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_AGENT_ID", err.Error())
+		return domain.Agent{}, false
+	}
+	item, err := s.catalog.GetAgent(c.Request().Context(), agentID)
+	if err != nil {
+		_ = writeCatalogError(c, err)
+		return domain.Agent{}, false
+	}
+	if item.ProjectID != claims.ProjectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return domain.Agent{}, false
+	}
+	return item, true
+}
+
+func (s *Server) handleAgentInterruptAgent(c echo.Context) error {
+	if _, ok := s.requireAgentAnyProjectAgentScope(c, agentplatform.ScopeAgentsInterrupt); !ok {
+		return nil
+	}
+	return s.interruptAgent(c)
 }
 
 func (s *Server) handleAgentInterruptProjectAgent(c echo.Context) error {
@@ -437,6 +475,20 @@ func (s *Server) handleAgentDeleteTicketRepoScope(c echo.Context) error {
 		return nil
 	}
 	return s.deleteTicketRepoScope(c)
+}
+
+func (s *Server) handleAgentListTicketRuns(c echo.Context) error {
+	if _, _, ok := s.requireAgentProjectTicket(c, agentplatform.ScopeTicketsList); !ok {
+		return nil
+	}
+	return s.handleListTicketRuns(c)
+}
+
+func (s *Server) handleAgentGetTicketRun(c echo.Context) error {
+	if _, _, ok := s.requireAgentProjectTicket(c, agentplatform.ScopeTicketsList); !ok {
+		return nil
+	}
+	return s.handleGetTicketRun(c)
 }
 
 func (s *Server) handleAgentListScheduledJobs(c echo.Context) error {

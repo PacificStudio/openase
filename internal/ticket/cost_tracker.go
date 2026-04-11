@@ -17,14 +17,17 @@ func (s *Service) RecordUsage(
 	if s == nil || s.repo == nil {
 		return RecordUsageResult{}, ErrUnavailable
 	}
-	if input.AgentID == uuid.Nil {
-		return RecordUsageResult{}, fmt.Errorf("agent_id must be a valid UUID")
+	if input.AgentID == uuid.Nil && input.ConversationID == uuid.Nil {
+		return RecordUsageResult{}, fmt.Errorf("agent_id or conversation_id must be a valid UUID")
 	}
 	if input.TicketID == uuid.Nil {
 		return RecordUsageResult{}, fmt.Errorf("ticket_id must be a valid UUID")
 	}
 	if input.RunID != nil && *input.RunID == uuid.Nil {
 		return RecordUsageResult{}, fmt.Errorf("run_id must be a valid UUID")
+	}
+	if input.RunID != nil && input.AgentID == uuid.Nil {
+		return RecordUsageResult{}, fmt.Errorf("run_id requires agent_id")
 	}
 	if metrics == nil {
 		metrics = provider.NewNoopMetricsProvider()

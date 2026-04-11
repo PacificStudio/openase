@@ -164,3 +164,81 @@ func TestProjectUpdatesCRUDUsesRuntimeDefaults(t *testing.T) {
 		t.Fatalf("delete request = %+v", requests[3])
 	}
 }
+
+func TestTypedCommandsPreservePlatformBaseForProjectAIRoutes(t *testing.T) {
+	projectID := "550e8400-e29b-41d4-a716-446655440000"
+	ticketID := "8c44cdd8-02d2-4bc9-aefa-e8c5ca7dd87e"
+	agentID := "1eeb5f8b-6679-4694-b890-d79044f52ef1"
+
+	for _, tc := range []struct {
+		name     string
+		args     []string
+		wantPath string
+		body     string
+	}{
+		{
+			name:     "activity list",
+			args:     []string{"activity", "list"},
+			wantPath: "/api/v1/platform/projects/" + projectID + "/activity",
+			body:     `{"events":[]}`,
+		},
+		{
+			name:     "repo list",
+			args:     []string{"repo", "list"},
+			wantPath: "/api/v1/platform/projects/" + projectID + "/repos",
+			body:     `{"repos":[]}`,
+		},
+		{
+			name:     "scheduled-job list",
+			args:     []string{"scheduled-job", "list"},
+			wantPath: "/api/v1/platform/projects/" + projectID + "/scheduled-jobs",
+			body:     `{"jobs":[]}`,
+		},
+		{
+			name:     "skill list",
+			args:     []string{"skill", "list"},
+			wantPath: "/api/v1/platform/projects/" + projectID + "/skills",
+			body:     `{"skills":[]}`,
+		},
+		{
+			name:     "ticket run list",
+			args:     []string{"ticket", "run", "list", projectID, ticketID},
+			wantPath: "/api/v1/platform/projects/" + projectID + "/tickets/" + ticketID + "/runs",
+			body:     `{"runs":[]}`,
+		},
+		{
+			name:     "agent interrupt",
+			args:     []string{"agent", "interrupt", agentID},
+			wantPath: "/api/v1/platform/agents/" + agentID + "/interrupt",
+			body:     `{"agent":{"id":"` + agentID + `","runtime_control_state":"interrupt_requested"}}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requestPath string
+
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requestPath = r.URL.RequestURI()
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+
+			t.Setenv("OPENASE_API_URL", server.URL+"/api/v1/platform")
+			t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+			t.Setenv("OPENASE_PROJECT_ID", projectID)
+
+			root := NewRootCommand("dev")
+			var stdout bytes.Buffer
+			root.SetOut(&stdout)
+			root.SetErr(&stdout)
+			root.SetArgs(tc.args)
+
+			if err := root.ExecuteContext(context.Background()); err != nil {
+				t.Fatalf("ExecuteContext returned error: %v", err)
+			}
+			if requestPath != tc.wantPath {
+				t.Fatalf("request path = %q, want %q", requestPath, tc.wantPath)
+			}
+		})
+	}
+}
