@@ -4,10 +4,109 @@ import type {
   ProjectConversationWorkspaceMetadata,
   ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
-import type {
-  WorkspaceFileSavePhase,
-  WorkspaceFileViewMode,
-} from './project-conversation-workspace-file-drafts'
+import type { WorkspaceFileSavePhase } from './project-conversation-workspace-file-drafts'
+
+export type WorkspaceTab = {
+  repoPath: string
+  filePath: string
+}
+
+export type WorkspaceTabFileState = {
+  preview: ProjectConversationWorkspaceFilePreview | null
+  patch: ProjectConversationWorkspaceFilePatch | null
+  loading: boolean
+  error: string
+}
+
+export const EMPTY_TAB_FILE_STATE: WorkspaceTabFileState = {
+  preview: null,
+  patch: null,
+  loading: false,
+  error: '',
+}
+
+export function workspaceTabKey(tab: { repoPath: string; filePath: string }): string {
+  return `${tab.repoPath}::${tab.filePath}`
+}
+
+/**
+ * Pure transform: insert (or focus) a tab and return the next state slice.
+ * Caller is responsible for assigning the returned values to $state holders.
+ */
+export function applyOpenTab(
+  openTabs: WorkspaceTab[],
+  repoPath: string,
+  filePath: string,
+): { openTabs: WorkspaceTab[]; activeTabKey: string; treeRepoPath: string } {
+  const key = workspaceTabKey({ repoPath, filePath })
+  const exists = openTabs.some((t) => workspaceTabKey(t) === key)
+  return {
+    openTabs: exists ? openTabs : [...openTabs, { repoPath, filePath }],
+    activeTabKey: key,
+    treeRepoPath: repoPath,
+  }
+}
+
+/**
+ * Pure transform: close a tab and figure out the new active tab. Returns null
+ * if no such tab existed.
+ */
+export function applyCloseTab(
+  openTabs: WorkspaceTab[],
+  activeTabKey: string,
+  repoPath: string,
+  filePath: string,
+): {
+  openTabs: WorkspaceTab[]
+  activeTabKey: string
+  nextTreeRepo: string | null
+} | null {
+  const key = workspaceTabKey({ repoPath, filePath })
+  const idx = openTabs.findIndex((t) => workspaceTabKey(t) === key)
+  if (idx === -1) return null
+  const nextTabs = openTabs.slice(0, idx).concat(openTabs.slice(idx + 1))
+  let nextActive = activeTabKey
+  let nextTreeRepo: string | null = null
+  if (activeTabKey === key) {
+    const fallback = nextTabs[idx] ?? nextTabs[idx - 1] ?? null
+    nextActive = fallback ? workspaceTabKey(fallback) : ''
+    if (fallback) nextTreeRepo = fallback.repoPath
+  }
+  return { openTabs: nextTabs, activeTabKey: nextActive, nextTreeRepo }
+}
+
+/**
+ * Pure transform: merge a partial tab file-state patch into the map. Identity
+ * for `preview` / `patch` is preserved when their values are deep-equal so
+ * downstream identity-based effects don't refire on no-op refreshes.
+ */
+export function patchTabFileStateMap(
+  current: Map<string, WorkspaceTabFileState>,
+  key: string,
+  patch: Partial<WorkspaceTabFileState>,
+): Map<string, WorkspaceTabFileState> {
+  const next = new Map(current)
+  const existing = next.get(key) ?? EMPTY_TAB_FILE_STATE
+  const merged: WorkspaceTabFileState = { ...existing, ...patch }
+  if ('preview' in patch && patch.preview && areFilePreviewEqual(existing.preview, patch.preview)) {
+    merged.preview = existing.preview
+  }
+  if ('patch' in patch && patch.patch && areFilePatchEqual(existing.patch, patch.patch)) {
+    merged.patch = existing.patch
+  }
+  next.set(key, merged)
+  return next
+}
+
+export function deleteTabFileStateMap(
+  current: Map<string, WorkspaceTabFileState>,
+  key: string,
+): Map<string, WorkspaceTabFileState> {
+  if (!current.has(key)) return current
+  const next = new Map(current)
+  next.delete(key)
+  return next
+}
 
 export type WorkspaceFileEditorState = {
   baseSavedContent: string
@@ -16,7 +115,6 @@ export type WorkspaceFileEditorState = {
   latestSavedRevision: string
   draftContent: string
   dirty: boolean
-  viewMode: WorkspaceFileViewMode
   savePhase: WorkspaceFileSavePhase
   externalChange: boolean
   errorMessage: string
@@ -124,7 +222,6 @@ export function createInitialEditorState(
     latestSavedRevision: preview.revision,
     draftContent: preview.content,
     dirty: false,
-    viewMode: 'preview',
     savePhase: 'idle',
     externalChange: false,
     errorMessage: '',
@@ -134,20 +231,7 @@ export function createInitialEditorState(
   }
 }
 
-export function buildWholeFileDiff(filePath: string, savedContent: string, draftContent: string) {
-  if (savedContent === draftContent) {
-    return ''
-  }
-  const oldLines = savedContent.split('\n')
-  const newLines = draftContent.split('\n')
-  const oldCount = savedContent === '' ? 0 : oldLines.length
-  const newCount = draftContent === '' ? 0 : newLines.length
-
-  return [
-    `--- saved/${filePath}`,
-    `+++ draft/${filePath}`,
-    `@@ -1,${oldCount} +1,${newCount} @@`,
-    ...oldLines.map((line) => `-${line}`),
-    ...newLines.map((line) => `+${line}`),
-  ].join('\n')
-}
+export {
+  computeDraftLineDiff,
+  type WorkspaceFileLineDiffMarkers,
+} from './project-conversation-workspace-line-diff'

@@ -141,7 +141,6 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     state.selectFile('README.md')
     await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
 
-    state.setSelectedViewMode('edit')
     state.updateSelectedDraft('line one\nline two\n')
 
     const restored = createProjectConversationWorkspaceBrowserState({
@@ -154,7 +153,6 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
       expect(restored.selectedEditorState).toMatchObject({
         draftContent: 'line one\nline two\n',
         dirty: true,
-        viewMode: 'edit',
         baseSavedRevision: 'rev-1',
       }),
     )
@@ -169,7 +167,6 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     state.selectFile('README.md')
     await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
 
-    state.setSelectedViewMode('edit')
     state.updateSelectedDraft('my local draft\n')
 
     saveProjectConversationWorkspaceFile.mockRejectedValue(
@@ -195,7 +192,6 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
       dirty: true,
       savePhase: 'conflict',
       externalChange: true,
-      viewMode: 'diff',
     })
   })
 
@@ -221,7 +217,6 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     state.selectFile('README.md')
     await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
 
-    state.setSelectedViewMode('edit')
     state.updateSelectedDraft('line one\nline two\n')
     await state.saveSelectedFile()
 
@@ -247,5 +242,115 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     expect(window.localStorage.getItem('openase.project-conversation.workspace-file-drafts')).toBe(
       null,
     )
+  })
+
+  it('keeps drafts isolated across tabs and can save a non-active dirty tab', async () => {
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [
+          { path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 12 },
+          { path: 'package.json', name: 'package.json', kind: 'file', sizeBytes: 18 },
+        ],
+      },
+    })
+    getProjectConversationWorkspaceFilePatch.mockImplementation(async (_conversationId, input) => {
+      return {
+        filePatch: {
+          conversationId: 'conversation-1',
+          repoPath: 'services/openase',
+          path: input.path,
+          status: 'modified',
+          diffKind: 'text',
+          truncated: false,
+          diff: '',
+        },
+      }
+    })
+    saveProjectConversationWorkspaceFile.mockResolvedValue({
+      file: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+        revision: 'rev-2',
+        sizeBytes: 13,
+        encoding: 'utf-8',
+        lineEnding: 'lf',
+      },
+    })
+
+    let readmeLoads = 0
+    getProjectConversationWorkspaceFilePreview.mockImplementation(async (_conversationId, input) => {
+      if (input.path === 'README.md') {
+        readmeLoads += 1
+        return {
+          filePreview:
+            readmeLoads === 1
+              ? buildPreview()
+              : buildPreview({
+                  content: 'readme updated\n',
+                  revision: 'rev-2',
+                  sizeBytes: 15,
+                }),
+        }
+      }
+      return {
+        filePreview: buildPreview({
+          path: 'package.json',
+          sizeBytes: 18,
+          mediaType: 'application/json',
+          content: '{"name":"pkg"}\n',
+          revision: 'pkg-rev-1',
+        }),
+      }
+    })
+
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+    state.selectFile('README.md')
+    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
+
+    state.updateSelectedDraft('readme updated\n')
+
+    state.selectFile('package.json')
+    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('{"name":"pkg"}\n'))
+
+    expect(state.openTabs).toHaveLength(2)
+    expect(state.getEditorState('services/openase', 'README.md')).toMatchObject({
+      draftContent: 'readme updated\n',
+      dirty: true,
+    })
+    expect(state.getEditorState('services/openase', 'package.json')).toMatchObject({
+      draftContent: '{"name":"pkg"}\n',
+      dirty: false,
+    })
+
+    const saved = await state.saveFile('services/openase', 'README.md')
+    expect(saved).toBe(true)
+
+    expect(saveProjectConversationWorkspaceFile).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      path: 'README.md',
+      baseRevision: 'rev-1',
+      content: 'readme updated\n',
+      encoding: 'utf-8',
+      lineEnding: 'lf',
+    })
+    await waitFor(() =>
+      expect(state.getEditorState('services/openase', 'README.md')).toMatchObject({
+        draftContent: 'readme updated\n',
+        baseSavedRevision: 'rev-2',
+        dirty: false,
+      }),
+    )
+    expect(state.selectedEditorState).toMatchObject({
+      draftContent: '{"name":"pkg"}\n',
+      dirty: false,
+    })
   })
 })

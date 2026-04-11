@@ -1,12 +1,9 @@
-export type WorkspaceFileViewMode = 'preview' | 'edit' | 'diff'
-
 export type WorkspaceFileSavePhase = 'idle' | 'saving' | 'conflict' | 'error'
 
 export type PersistedWorkspaceFileDraft = {
   draftContent: string
   baseSavedContent: string
   baseSavedRevision: string
-  viewMode: WorkspaceFileViewMode
   encoding: 'utf-8'
   lineEnding: 'lf' | 'crlf'
   updatedAt: string

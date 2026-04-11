@@ -200,7 +200,7 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
       return {
         label: 'Workspace file',
         title: `${focus.repoPath} / ${focus.filePath}`,
-        detail: [focus.selectedArea ?? 'preview', focus.hasDirtyDraft ? 'unsaved draft' : 'saved']
+        detail: [focus.selectedArea ?? 'edit', focus.hasDirtyDraft ? 'unsaved draft' : 'saved']
           .filter(Boolean)
           .join(' · '),
       }

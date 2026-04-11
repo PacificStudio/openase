@@ -122,23 +122,7 @@
       class="min-h-0 min-w-0 flex-1 overflow-hidden"
       data-testid="workspace-browser-detail-panel"
     >
-      <ProjectConversationWorkspaceBrowserDetail
-        {selectedRepo}
-        selectedFilePath={browser.selectedFilePath}
-        preview={browser.preview}
-        patch={browser.patch}
-        editorState={browser.selectedEditorState}
-        draftDiff={browser.selectedDraftDiff}
-        fileLoading={browser.fileLoading}
-        fileError={browser.fileError}
-        {runtimeActive}
-        onViewModeChange={browser.setSelectedViewMode}
-        onDraftChange={browser.updateSelectedDraft}
-        onSave={() => void browser.saveSelectedFile()}
-        onRevert={browser.revertSelectedDraft}
-        onKeepDraft={browser.keepSelectedDraft}
-        onReloadSavedVersion={browser.reloadSelectedSavedVersion}
-      />
+      <ProjectConversationWorkspaceBrowserDetail {browser} {selectedRepo} {runtimeActive} />
     </div>
   </div>
 

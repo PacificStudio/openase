@@ -142,18 +142,31 @@
         }
         event.preventDefault()
         void browser.saveSelectedFile()
-        return
-      }
-
-      if (event.key === 'Escape' && editorState.viewMode === 'edit') {
-        event.preventDefault()
-        browser.setSelectedViewMode('preview')
       }
     }
 
     window.addEventListener('keydown', handleKeydown)
     return () => {
       window.removeEventListener('keydown', handleKeydown)
+    }
+  })
+
+  $effect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!browser.hasDirtyTabs) {
+        return
+      }
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   })
 
@@ -179,7 +192,7 @@
         conversationId,
         repoPath: browser.selectedRepoPath,
         filePath: browser.selectedFilePath,
-        selectedArea: editorState.viewMode,
+        selectedArea: 'edit',
         hasDirtyDraft: editorState.dirty,
         draftContent: editorState.dirty ? editorState.draftContent : undefined,
         encoding: editorState.encoding,

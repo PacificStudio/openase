@@ -8,21 +8,25 @@ import {
   loadPersistedWorkspaceFileDraft,
   savePersistedWorkspaceFileDraft,
   workspaceFileDraftStorageKey,
-  type WorkspaceFileViewMode,
 } from './project-conversation-workspace-file-drafts'
 import {
-  buildWholeFileDiff,
+  computeDraftLineDiff,
   createInitialEditorState,
   type WorkspaceFileEditorState,
+  type WorkspaceFileLineDiffMarkers,
 } from './project-conversation-workspace-browser-state-helpers'
 
 export function createWorkspaceFileEditorStore(input: {
   getConversationId: () => string
   getSelectedRepoPath: () => string
   getSelectedFilePath: () => string
-  getPreview: () => ProjectConversationWorkspaceFilePreview | null
-  setPreview: (preview: ProjectConversationWorkspaceFilePreview | null) => void
-  reloadSelectedFile: () => Promise<void>
+  getPreview: (repoPath: string, filePath: string) => ProjectConversationWorkspaceFilePreview | null
+  setPreview: (
+    repoPath: string,
+    filePath: string,
+    preview: ProjectConversationWorkspaceFilePreview | null,
+  ) => void
+  reloadSelectedFile: (repoPath: string, filePath: string) => Promise<void>
   refreshWorkspaceDiff?: () => Promise<void>
 }) {
   let editorStates = $state<Map<string, WorkspaceFileEditorState>>(new Map())
@@ -63,7 +67,6 @@ export function createWorkspaceFileEditorStore(input: {
           draftContent: nextState.draftContent,
           baseSavedContent: nextState.baseSavedContent,
           baseSavedRevision: nextState.baseSavedRevision,
-          viewMode: nextState.viewMode,
           encoding: nextState.encoding,
           lineEnding: nextState.lineEnding,
           updatedAt: new Date().toISOString(),
@@ -102,7 +105,6 @@ export function createWorkspaceFileEditorStore(input: {
         latestSavedRevision: nextPreview.revision,
         draftContent: persisted.draftContent,
         dirty,
-        viewMode: dirty ? 'edit' : persisted.viewMode,
         savePhase: 'idle',
         externalChange: dirty && persisted.baseSavedRevision !== nextPreview.revision,
         errorMessage: '',
@@ -147,16 +149,6 @@ export function createWorkspaceFileEditorStore(input: {
     editorStates = new Map()
   }
 
-  function setSelectedViewMode(viewMode: WorkspaceFileViewMode) {
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const editor = getEditorState(repoPath, filePath)
-    if (!editor || !repoPath || !filePath) {
-      return
-    }
-    setEditorState(repoPath, filePath, { ...editor, viewMode })
-  }
-
   function updateSelectedDraft(nextDraftContent: string) {
     const repoPath = input.getSelectedRepoPath()
     const filePath = input.getSelectedFilePath()
@@ -169,7 +161,6 @@ export function createWorkspaceFileEditorStore(input: {
       ...editor,
       draftContent: nextDraftContent,
       dirty: nextDraftContent !== editor.latestSavedContent,
-      viewMode: 'edit',
       savePhase: editor.savePhase === 'saving' ? editor.savePhase : 'idle',
       errorMessage: '',
     })
@@ -192,7 +183,6 @@ export function createWorkspaceFileEditorStore(input: {
       savePhase: 'idle',
       externalChange: false,
       errorMessage: '',
-      viewMode: 'preview',
     })
   }
 
@@ -212,26 +202,37 @@ export function createWorkspaceFileEditorStore(input: {
       savePhase: 'idle',
       externalChange: false,
       errorMessage: '',
-      viewMode: 'edit',
     })
+  }
+
+  function discardSelectedDraft() {
+    // Drop the in-memory + persisted draft entirely. Used when the user closes
+    // a tab and chooses "Don't save".
+    const repoPath = input.getSelectedRepoPath()
+    const filePath = input.getSelectedFilePath()
+    if (!repoPath || !filePath) return
+    setEditorState(repoPath, filePath, null)
+  }
+
+  function discardDraft(repoPath: string, filePath: string) {
+    if (!repoPath || !filePath) return
+    setEditorState(repoPath, filePath, null)
   }
 
   function reloadSelectedSavedVersion() {
     revertSelectedDraft()
   }
 
-  async function saveSelectedFile() {
+  async function saveFile(repoPath: string, filePath: string): Promise<boolean> {
     const conversationId = input.getConversationId()
-    const repoPath = input.getSelectedRepoPath()
-    const filePath = input.getSelectedFilePath()
-    const preview = input.getPreview()
+    const preview = input.getPreview(repoPath, filePath)
     const editor = getEditorState(repoPath, filePath)
 
     if (!conversationId || !repoPath || !filePath || !editor || !preview?.writable) {
-      return
+      return false
     }
     if (!editor.dirty || editor.savePhase === 'saving') {
-      return
+      return !editor.dirty
     }
 
     setEditorState(repoPath, filePath, {
@@ -251,7 +252,7 @@ export function createWorkspaceFileEditorStore(input: {
       })
       const nextEditor = getEditorState(repoPath, filePath)
       if (!nextEditor) {
-        return
+        return false
       }
 
       setEditorState(repoPath, filePath, {
@@ -267,7 +268,7 @@ export function createWorkspaceFileEditorStore(input: {
         lastSavedAt: new Date().toISOString(),
       })
 
-      await input.reloadSelectedFile()
+      await input.reloadSelectedFile(repoPath, filePath)
       try {
         await input.refreshWorkspaceDiff?.()
       } catch {
@@ -279,10 +280,11 @@ export function createWorkspaceFileEditorStore(input: {
           })
         }
       }
+      return true
     } catch (error) {
       const latestEditor = getEditorState(repoPath, filePath)
       if (!latestEditor) {
-        return
+        return false
       }
 
       if (
@@ -304,9 +306,8 @@ export function createWorkspaceFileEditorStore(input: {
             errorMessage: 'The workspace file changed before your save completed.',
             encoding: currentFile.encoding,
             lineEnding: currentFile.lineEnding,
-            viewMode: 'diff',
           })
-          input.setPreview(currentFile)
+          input.setPreview(repoPath, filePath, currentFile)
         } else {
           setEditorState(repoPath, filePath, {
             ...latestEditor,
@@ -315,7 +316,7 @@ export function createWorkspaceFileEditorStore(input: {
             errorMessage: error.message,
           })
         }
-        return
+        return false
       }
 
       setEditorState(repoPath, filePath, {
@@ -323,28 +324,35 @@ export function createWorkspaceFileEditorStore(input: {
         savePhase: 'error',
         errorMessage: error instanceof Error ? error.message : 'Failed to save the workspace file.',
       })
+      return false
     }
+  }
+
+  async function saveSelectedFile(): Promise<boolean> {
+    return saveFile(input.getSelectedRepoPath(), input.getSelectedFilePath())
   }
 
   return {
     get selectedEditorState() {
       return getEditorState()
     },
-    get selectedDraftDiff() {
+    get selectedDraftLineDiff(): WorkspaceFileLineDiffMarkers | null {
+      const repoPath = input.getSelectedRepoPath()
       const filePath = input.getSelectedFilePath()
-      const editor = getEditorState(input.getSelectedRepoPath(), filePath)
-      if (!editor || !filePath) {
-        return ''
-      }
-      return buildWholeFileDiff(filePath, editor.latestSavedContent, editor.draftContent)
+      const editor = getEditorState(repoPath, filePath)
+      if (!editor || !filePath) return null
+      return computeDraftLineDiff(editor.latestSavedContent, editor.draftContent)
     },
+    getEditorState,
     reset,
     syncFromPreview,
-    setSelectedViewMode,
     updateSelectedDraft,
     revertSelectedDraft,
     keepSelectedDraft,
     reloadSelectedSavedVersion,
     saveSelectedFile,
+    saveFile,
+    discardSelectedDraft,
+    discardDraft,
   }
 }
