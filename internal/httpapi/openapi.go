@@ -362,12 +362,14 @@ type OpenAPIProjectConversationCreateRequest struct {
 }
 
 type OpenAPIProjectConversationTurnRequest struct {
-	Message string                               `json:"message"`
-	Focus   *OpenAPIProjectConversationTurnFocus `json:"focus,omitempty"`
+	Message            string                                        `json:"message"`
+	Focus              *OpenAPIProjectConversationTurnFocus          `json:"focus,omitempty"`
+	WorkspaceFileDraft *OpenAPIProjectConversationWorkspaceFileDraft `json:"workspace_file_draft,omitempty"`
 }
 
 type OpenAPIProjectConversationTurnFocus struct {
 	Kind                 string                                         `json:"kind"`
+	ConversationID       *string                                        `json:"conversation_id,omitempty"`
 	WorkflowID           *string                                        `json:"workflow_id,omitempty"`
 	WorkflowName         *string                                        `json:"workflow_name,omitempty"`
 	WorkflowType         *string                                        `json:"workflow_type,omitempty"`
@@ -400,6 +402,8 @@ type OpenAPIProjectConversationTurnFocus struct {
 	MachineHost          *string                                        `json:"machine_host,omitempty"`
 	MachineStatus        *string                                        `json:"machine_status,omitempty"`
 	HealthSummary        *string                                        `json:"health_summary,omitempty"`
+	WorkspaceRepoPath    *string                                        `json:"workspace_repo_path,omitempty"`
+	WorkspaceFilePath    *string                                        `json:"workspace_file_path,omitempty"`
 }
 
 type OpenAPIProjectConversationTicketDependency struct {
@@ -588,10 +592,46 @@ type OpenAPIProjectConversationWorkspaceFilePreview struct {
 	PreviewKind    string `json:"preview_kind"`
 	Truncated      bool   `json:"truncated"`
 	Content        string `json:"content"`
+	Revision       string `json:"revision"`
+	Writable       bool   `json:"writable"`
+	ReadOnlyReason string `json:"read_only_reason"`
+	Encoding       string `json:"encoding"`
+	LineEnding     string `json:"line_ending"`
 }
 
 type OpenAPIProjectConversationWorkspaceFilePreviewResponse struct {
 	FilePreview OpenAPIProjectConversationWorkspaceFilePreview `json:"file_preview"`
+}
+
+type OpenAPIProjectConversationWorkspaceFileDraft struct {
+	RepoPath   string `json:"repo_path"`
+	Path       string `json:"path"`
+	Content    string `json:"content"`
+	Encoding   string `json:"encoding"`
+	LineEnding string `json:"line_ending"`
+}
+
+type OpenAPIProjectConversationWorkspaceFileSaveRequest struct {
+	RepoPath     string `json:"repo_path"`
+	Path         string `json:"path"`
+	BaseRevision string `json:"base_revision"`
+	Content      string `json:"content"`
+	Encoding     string `json:"encoding"`
+	LineEnding   string `json:"line_ending"`
+}
+
+type OpenAPIProjectConversationWorkspaceFileSaved struct {
+	ConversationID string `json:"conversation_id"`
+	RepoPath       string `json:"repo_path"`
+	Path           string `json:"path"`
+	Revision       string `json:"revision"`
+	SizeBytes      int64  `json:"size_bytes"`
+	Encoding       string `json:"encoding"`
+	LineEnding     string `json:"line_ending"`
+}
+
+type OpenAPIProjectConversationWorkspaceFileSavedResponse struct {
+	File OpenAPIProjectConversationWorkspaceFileSaved `json:"file"`
 }
 
 type OpenAPIProjectConversationWorkspaceFilePatch struct {
@@ -2556,7 +2596,8 @@ var (
 	openAPIProjectConversationTurnDescriptions = map[string]string{
 		"message":                                           "User message content appended as the next project conversation turn.",
 		"focus":                                             "Optional per-turn focus context describing the currently selected workflow, skill, ticket, or machine surface.",
-		"focus.kind":                                        "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+		"focus.kind":                                        "Focused surface kind. Supported values are workflow, skill, ticket, machine, and workspace_file.",
+		"focus.conversation_id":                             "Conversation ID for the focused workspace file surface.",
 		"focus.workflow_id":                                 "Workflow ID currently in focus.",
 		"focus.workflow_name":                               "Workflow name currently in focus.",
 		"focus.workflow_type":                               "Workflow type currently in focus.",
@@ -2618,6 +2659,14 @@ var (
 		"focus.machine_host":                                "Machine host currently in focus.",
 		"focus.machine_status":                              "Machine runtime status currently in focus.",
 		"focus.health_summary":                              "Compact health or resource summary for the focused machine.",
+		"focus.workspace_repo_path":                         "Workspace-relative repo path for the focused workspace file.",
+		"focus.workspace_file_path":                         "Repo-relative file path for the focused workspace file.",
+		"workspace_file_draft":                              "Optional request-scoped unsaved workspace file draft context for the active turn.",
+		"workspace_file_draft.repo_path":                    "Workspace-relative repo path for the unsaved draft.",
+		"workspace_file_draft.path":                         "Repo-relative file path for the unsaved draft.",
+		"workspace_file_draft.content":                      "Full unsaved draft content for the active workspace file.",
+		"workspace_file_draft.encoding":                     "Normalized draft encoding. V1 supports utf-8 only.",
+		"workspace_file_draft.line_ending":                  "Requested line ending style for the unsaved draft context.",
 	}
 	openAPIProjectConversationTerminalSessionDescriptions = map[string]string{
 		"mode":      "Terminal mode to create. Only shell is currently supported.",
@@ -2629,6 +2678,14 @@ var (
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
 		"answer":   "Structured answer payload for requestUserInput interrupts.",
+	}
+	openAPIProjectConversationWorkspaceFileSaveDescriptions = map[string]string{
+		"repo_path":     "Workspace-relative repo path chosen from the workspace metadata response.",
+		"path":          "Repo-relative existing file path to update inside the conversation workspace.",
+		"base_revision": "Opaque saved-file revision token the client last loaded. Saves reject stale revisions with 409 Conflict.",
+		"content":       "Complete replacement text content for the file save request.",
+		"encoding":      "Normalized text encoding for the save request. V1 supports utf-8 only.",
+		"line_ending":   "Requested line ending style to preserve when writing the file.",
 	}
 	openAPIRoleBindingRequestDescriptions = map[string]string{
 		"subject_kind": "Binding subject kind. Supported values are user and group.",
@@ -2740,6 +2797,7 @@ var (
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
 		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
 		"POST /api/v1/chat/conversations": openAPIProjectConversationCreateDescriptions,
+		"PUT /api/v1/chat/conversations/{conversationId}/workspace/file":                    openAPIProjectConversationWorkspaceFileSaveDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/terminal-sessions":                openAPIProjectConversationTerminalSessionDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/turns":                            openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
@@ -6492,6 +6550,25 @@ func (b openAPISpecBuilder) addChatOperations() error {
 		WithSchema(openapi3.NewStringSchema()),
 	)
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file", http.MethodGet, projectConversationWorkspaceFile)
+
+	projectConversationWorkspaceFileSave, err := b.jsonOperation(
+		"saveProjectConversationWorkspaceFile",
+		"Save one project conversation workspace file",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceFileSavedResponse{},
+		OpenAPIProjectConversationWorkspaceFileSaveRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceFileSave.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file", http.MethodPut, projectConversationWorkspaceFileSave)
 
 	projectConversationWorkspaceFilePatch, err := b.jsonOperation(
 		"getProjectConversationWorkspaceFilePatch",

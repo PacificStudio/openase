@@ -41,6 +41,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat/conversations/:conversationId/workspace/sync", s.handleSyncProjectConversationWorkspace)
 	api.GET("/chat/conversations/:conversationId/workspace/tree", s.handleListProjectConversationWorkspaceTree)
 	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
+	api.PUT("/chat/conversations/:conversationId/workspace/file", s.handlePutProjectConversationWorkspaceFile)
 	api.GET("/chat/conversations/:conversationId/workspace/file-patch", s.handleGetProjectConversationWorkspaceFilePatch)
 	api.GET("/chat/conversations/:conversationId/workspace-diff", s.handleGetProjectConversationWorkspaceDiff)
 	api.POST("/chat/conversations/:conversationId/terminal-sessions", s.handleCreateProjectConversationTerminalSession)
@@ -627,6 +628,53 @@ func (s *Server) handleGetProjectConversationWorkspaceFile(c echo.Context) error
 	return c.JSON(http.StatusOK, map[string]any{"file_preview": mapProjectConversationWorkspaceFilePreviewResponse(item)})
 }
 
+func (s *Server) handlePutProjectConversationWorkspaceFile(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+
+	var raw rawUpdateProjectConversationWorkspaceFileRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	request, err := parseUpdateProjectConversationWorkspaceFileRequest(raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+
+	item, err := s.projectConversationService.SaveWorkspaceFile(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.File,
+	)
+	if err != nil {
+		var conflictErr *chatservice.ProjectConversationWorkspaceFileConflictError
+		if errors.As(err, &conflictErr) {
+			details := map[string]any{
+				"current_file": mapProjectConversationWorkspaceFilePreviewResponse(conflictErr.CurrentFile),
+			}
+			return writeAPIErrorWithDetails(
+				c,
+				http.StatusConflict,
+				"PROJECT_CONVERSATION_WORKSPACE_FILE_CONFLICT",
+				conflictErr.Error(),
+				details,
+			)
+		}
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"file": mapProjectConversationWorkspaceFileSavedResponse(item)})
+}
+
 func (s *Server) handleGetProjectConversationWorkspaceFilePatch(c echo.Context) error {
 	if s.projectConversationService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
@@ -800,13 +848,25 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 	}
 
-	turn, err := s.projectConversationService.StartTurn(
-		c.Request().Context(),
-		userID,
-		conversationID,
-		request.Message,
-		request.Focus,
-	)
+	var turn chatdomain.Turn
+	if request.WorkspaceFileDraft != nil {
+		turn, err = s.projectConversationService.StartTurnWithWorkspaceFileDraft(
+			c.Request().Context(),
+			userID,
+			conversationID,
+			request.Message,
+			request.Focus,
+			request.WorkspaceFileDraft,
+		)
+	} else {
+		turn, err = s.projectConversationService.StartTurn(
+			c.Request().Context(),
+			userID,
+			conversationID,
+			request.Message,
+			request.Focus,
+		)
+	}
 	if err != nil {
 		return writeProjectConversationError(c, err)
 	}
@@ -1066,6 +1126,7 @@ func writeConversationTerminalFrame(conn *websocket.Conn, event chatservice.Conv
 }
 
 func writeProjectConversationError(c echo.Context, err error) error {
+	var readOnlyErr *chatservice.ProjectConversationWorkspaceFileReadOnlyError
 	switch {
 	case errors.Is(err, chatservice.ErrConversationTurnActive):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE", err.Error())
@@ -1099,6 +1160,8 @@ func writeProjectConversationError(c echo.Context, err error) error {
 			)
 		}
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_SYNC_REQUIRED", err.Error())
+	case errors.As(err, &readOnlyErr):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_FILE_READ_ONLY", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspacePathInvalid):
 		return writeAPIError(c, http.StatusBadRequest, "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceRepoNotFound), errors.Is(err, chatservice.ErrProjectConversationWorkspaceEntryNotFound):
@@ -1342,14 +1405,33 @@ func mapProjectConversationWorkspaceFilePreviewResponse(
 	item chatservice.ProjectConversationWorkspaceFilePreview,
 ) map[string]any {
 	return map[string]any{
+		"conversation_id":  item.ConversationID.String(),
+		"repo_path":        item.RepoPath,
+		"path":             item.Path,
+		"size_bytes":       item.SizeBytes,
+		"media_type":       item.MediaType,
+		"preview_kind":     string(item.PreviewKind),
+		"truncated":        item.Truncated,
+		"content":          item.Content,
+		"revision":         item.Revision,
+		"writable":         item.Writable,
+		"read_only_reason": item.ReadOnlyReason,
+		"encoding":         item.Encoding,
+		"line_ending":      item.LineEnding,
+	}
+}
+
+func mapProjectConversationWorkspaceFileSavedResponse(
+	item chatservice.ProjectConversationWorkspaceFileSaved,
+) map[string]any {
+	return map[string]any{
 		"conversation_id": item.ConversationID.String(),
 		"repo_path":       item.RepoPath,
 		"path":            item.Path,
+		"revision":        item.Revision,
 		"size_bytes":      item.SizeBytes,
-		"media_type":      item.MediaType,
-		"preview_kind":    string(item.PreviewKind),
-		"truncated":       item.Truncated,
-		"content":         item.Content,
+		"encoding":        item.Encoding,
+		"line_ending":     item.LineEnding,
 	}
 }
 

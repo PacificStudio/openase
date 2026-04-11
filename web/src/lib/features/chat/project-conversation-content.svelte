@@ -51,6 +51,7 @@
     workspaceBrowserPortal.conversationId = conversationId
     workspaceBrowserPortal.workspaceDiff = workspaceDiff ?? null
     workspaceBrowserPortal.workspaceDiffLoading = workspaceDiffLoading
+    workspaceBrowserPortal.runtimeActive = pending
     workspaceBrowserPortal.onSyncWorkspace = conversationId
       ? async () => {
           await (onSyncWorkspace?.() ?? Promise.resolve())

@@ -595,7 +595,8 @@ export interface paths {
     }
     /** Read a project conversation workspace file preview */
     get: operations['getProjectConversationWorkspaceFile']
-    put?: never
+    /** Save one project conversation workspace file */
+    put: operations['saveProjectConversationWorkspaceFile']
     post?: never
     delete?: never
     options?: never
@@ -5928,6 +5929,8 @@ export interface operations {
           focus?: {
             /** @description Workflow names currently bound to the focused skill. */
             bound_workflow_names?: string[]
+            /** @description Conversation ID for the focused workspace file surface. */
+            conversation_id?: string | null
             /** @description Harness path for the focused workflow. */
             harness_path?: string | null
             /** @description Whether the focused workflow or skill surface currently has unsaved draft edits. */
@@ -5936,7 +5939,7 @@ export interface operations {
             health_summary?: string | null
             /** @description Whether the focused workflow is currently active. */
             is_active?: boolean | null
-            /** @description Focused surface kind. Supported values are workflow, skill, ticket, and machine. */
+            /** @description Focused surface kind. Supported values are workflow, skill, ticket, machine, and workspace_file. */
             kind?: string
             /** @description Machine host currently in focus. */
             machine_host?: string | null
@@ -6057,9 +6060,26 @@ export interface operations {
             workflow_name?: string | null
             /** @description Workflow type currently in focus. */
             workflow_type?: string | null
+            /** @description Repo-relative file path for the focused workspace file. */
+            workspace_file_path?: string | null
+            /** @description Workspace-relative repo path for the focused workspace file. */
+            workspace_repo_path?: string | null
           } | null
           /** @description User message content appended as the next project conversation turn. */
           message?: string
+          /** @description Optional request-scoped unsaved workspace file draft context for the active turn. */
+          workspace_file_draft?: {
+            /** @description Full unsaved draft content for the active workspace file. */
+            content?: string
+            /** @description Normalized draft encoding. V1 supports utf-8 only. */
+            encoding?: string
+            /** @description Requested line ending style for the unsaved draft context. */
+            line_ending?: string
+            /** @description Repo-relative file path for the unsaved draft. */
+            path?: string
+            /** @description Workspace-relative repo path for the unsaved draft. */
+            repo_path?: string
+          } | null
         }
       }
     }
@@ -6391,13 +6411,130 @@ export interface operations {
             file_preview?: {
               content?: string
               conversation_id?: string
+              encoding?: string
+              line_ending?: string
               media_type?: string
               path?: string
               preview_kind?: string
+              read_only_reason?: string
               repo_path?: string
+              revision?: string
               /** Format: int64 */
               size_bytes?: number
               truncated?: boolean
+              writable?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  saveProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Save one project conversation workspace file request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Opaque saved-file revision token the client last loaded. Saves reject stale revisions with 409 Conflict. */
+          base_revision?: string
+          /** @description Complete replacement text content for the file save request. */
+          content?: string
+          /** @description Normalized text encoding for the save request. V1 supports utf-8 only. */
+          encoding?: string
+          /** @description Requested line ending style to preserve when writing the file. */
+          line_ending?: string
+          /** @description Repo-relative existing file path to update inside the conversation workspace. */
+          path?: string
+          /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+          repo_path?: string
+        }
+      }
+    }
+    responses: {
+      /** @description Save one project conversation workspace file response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file?: {
+              conversation_id?: string
+              encoding?: string
+              line_ending?: string
+              path?: string
+              repo_path?: string
+              revision?: string
+              /** Format: int64 */
+              size_bytes?: number
             }
           }
         }

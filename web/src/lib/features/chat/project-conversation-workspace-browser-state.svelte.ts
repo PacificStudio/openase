@@ -1,142 +1,51 @@
 import {
   getProjectConversationWorkspace,
-  getProjectConversationWorkspaceFilePatch,
-  getProjectConversationWorkspaceFilePreview,
+  getProjectConversationWorkspaceDiff,
   listProjectConversationWorkspaceTree,
-  type ProjectConversationWorkspaceFilePatch,
-  type ProjectConversationWorkspaceFilePreview,
+  type ProjectConversationWorkspaceDiff,
   type ProjectConversationWorkspaceMetadata,
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
-
-function areTreeEntriesEqual(
-  left: ProjectConversationWorkspaceTreeEntry[] | undefined,
-  right: ProjectConversationWorkspaceTreeEntry[],
-) {
-  if (!left) {
-    return false
-  }
-  if (left.length !== right.length) {
-    return false
-  }
-
-  return left.every((entry, index) => {
-    const next = right[index]
-    return (
-      next != null &&
-      entry.path === next.path &&
-      entry.name === next.name &&
-      entry.kind === next.kind &&
-      entry.sizeBytes === next.sizeBytes
-    )
-  })
-}
-
-function areWorkspaceMetadataEqual(
-  left: ProjectConversationWorkspaceMetadata | null,
-  right: ProjectConversationWorkspaceMetadata,
-) {
-  if (!left) {
-    return false
-  }
-  if (
-    left.conversationId !== right.conversationId ||
-    left.available !== right.available ||
-    left.workspacePath !== right.workspacePath ||
-    left.repos.length !== right.repos.length
-  ) {
-    return false
-  }
-
-  const leftSync = left.syncPrompt
-  const rightSync = right.syncPrompt
-  if (!!leftSync !== !!rightSync) {
-    return false
-  }
-  if (leftSync && rightSync) {
-    if (
-      leftSync.reason !== rightSync.reason ||
-      leftSync.missingRepos.length !== rightSync.missingRepos.length
-    ) {
-      return false
-    }
-    for (let index = 0; index < leftSync.missingRepos.length; index += 1) {
-      const leftRepo = leftSync.missingRepos[index]
-      const rightRepo = rightSync.missingRepos[index]
-      if (!rightRepo || leftRepo.name !== rightRepo.name || leftRepo.path !== rightRepo.path) {
-        return false
-      }
-    }
-  }
-
-  return left.repos.every((repo, index) => {
-    const next = right.repos[index]
-    return (
-      next != null &&
-      repo.name === next.name &&
-      repo.path === next.path &&
-      repo.branch === next.branch &&
-      repo.headCommit === next.headCommit &&
-      repo.headSummary === next.headSummary &&
-      repo.dirty === next.dirty &&
-      repo.filesChanged === next.filesChanged &&
-      repo.added === next.added &&
-      repo.removed === next.removed
-    )
-  })
-}
-
-function areFilePreviewEqual(
-  left: ProjectConversationWorkspaceFilePreview | null,
-  right: ProjectConversationWorkspaceFilePreview,
-) {
-  return (
-    !!left &&
-    left.conversationId === right.conversationId &&
-    left.repoPath === right.repoPath &&
-    left.path === right.path &&
-    left.sizeBytes === right.sizeBytes &&
-    left.mediaType === right.mediaType &&
-    left.previewKind === right.previewKind &&
-    left.truncated === right.truncated &&
-    left.content === right.content
-  )
-}
-
-function areFilePatchEqual(
-  left: ProjectConversationWorkspaceFilePatch | null,
-  right: ProjectConversationWorkspaceFilePatch,
-) {
-  return (
-    !!left &&
-    left.conversationId === right.conversationId &&
-    left.repoPath === right.repoPath &&
-    left.path === right.path &&
-    left.status === right.status &&
-    left.diffKind === right.diffKind &&
-    left.truncated === right.truncated &&
-    left.diff === right.diff
-  )
-}
+import { createWorkspaceFileEditorStore } from './project-conversation-workspace-file-editor-state.svelte'
+import { loadWorkspaceFile } from './project-conversation-workspace-data-loader'
+import {
+  EMPTY_TAB_FILE_STATE,
+  applyCloseTab,
+  applyOpenTab,
+  areTreeEntriesEqual,
+  areWorkspaceMetadataEqual,
+  deleteTabFileStateMap,
+  patchTabFileStateMap,
+  workspaceTabKey,
+  type WorkspaceTab,
+  type WorkspaceTabFileState,
+} from './project-conversation-workspace-browser-state-helpers'
+export type {
+  WorkspaceFileEditorState,
+  WorkspaceTab,
+  WorkspaceTabFileState,
+} from './project-conversation-workspace-browser-state-helpers'
+export { workspaceTabKey } from './project-conversation-workspace-browser-state-helpers'
 
 export function createProjectConversationWorkspaceBrowserState(input: {
   getConversationId: () => string
+  onWorkspaceDiffUpdated?: (workspaceDiff: ProjectConversationWorkspaceDiff | null) => void
 }) {
   let metadata = $state<ProjectConversationWorkspaceMetadata | null>(null)
   let metadataLoading = $state(false)
   let metadataError = $state('')
 
-  // Recursive tree: directory path → child entries
   let treeNodes = $state<Map<string, ProjectConversationWorkspaceTreeEntry[]>>(new Map())
   let expandedDirs = $state<Set<string>>(new Set())
   let loadingDirs = $state<Set<string>>(new Set())
 
-  let preview = $state<ProjectConversationWorkspaceFilePreview | null>(null)
-  let patch = $state<ProjectConversationWorkspaceFilePatch | null>(null)
-  let fileLoading = $state(false)
-  let fileError = $state('')
-  let selectedRepoPath = $state('')
-  let selectedFilePath = $state('')
+  // Tab state. `treeRepoPath` is the repo whose tree the sidebar is currently
+  // showing — it is independent from the active tab so the user can browse one
+  // repo while a tab from another repo is focused.
+  let openTabs = $state<WorkspaceTab[]>([])
+  let activeTabKey = $state('')
+  let tabFileStates = $state<Map<string, WorkspaceTabFileState>>(new Map())
+  let treeRepoPath = $state('')
   let loadRequestID = 0
 
   function setMetadata(nextMetadata: ProjectConversationWorkspaceMetadata) {
@@ -146,8 +55,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
   }
 
   function setTreeEntries(dirPath: string, entries: ProjectConversationWorkspaceTreeEntry[]) {
-    const currentEntries = treeNodes.get(dirPath)
-    if (areTreeEntriesEqual(currentEntries, entries)) {
+    if (areTreeEntriesEqual(treeNodes.get(dirPath), entries)) {
       return
     }
 
@@ -184,31 +92,94 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     expandedDirs = nextExpandedDirs
   }
 
-  function setPreview(nextPreview: ProjectConversationWorkspaceFilePreview | null) {
-    if (nextPreview == null) {
-      if (preview !== null) {
-        preview = null
-      }
-      return
-    }
+  // ─────────────────────────── tab helpers ──────────────────────────────────
 
-    if (!areFilePreviewEqual(preview, nextPreview)) {
-      preview = nextPreview
+  function getActiveTab(): WorkspaceTab | null {
+    if (!activeTabKey) return null
+    return openTabs.find((t) => workspaceTabKey(t) === activeTabKey) ?? null
+  }
+
+  function getActiveTabFileState(): WorkspaceTabFileState {
+    return tabFileStates.get(activeTabKey) ?? EMPTY_TAB_FILE_STATE
+  }
+
+  function patchTabFileState(key: string, patch: Partial<WorkspaceTabFileState>) {
+    tabFileStates = patchTabFileStateMap(tabFileStates, key, patch)
+  }
+
+  function activateTabKey(key: string) {
+    if (activeTabKey === key) return
+    activeTabKey = key
+    const tab = getActiveTab()
+    if (tab) treeRepoPath = tab.repoPath
+  }
+
+  function openTab(repoPath: string, filePath: string) {
+    if (!repoPath || !filePath) return
+    const next = applyOpenTab(openTabs, repoPath, filePath)
+    openTabs = next.openTabs
+    activeTabKey = next.activeTabKey
+    treeRepoPath = next.treeRepoPath
+    // Load file content lazily — only fetch if the tab doesn't already have a
+    // preview cached. (Reloads after save go through reloadFile directly.)
+    const cached = tabFileStates.get(next.activeTabKey)
+    if (!cached || !cached.preview) {
+      void loadFile(repoPath, filePath, { silent: cached?.preview != null })
     }
   }
 
-  function setPatch(nextPatch: ProjectConversationWorkspaceFilePatch | null) {
-    if (nextPatch == null) {
-      if (patch !== null) {
-        patch = null
-      }
+  function closeTab(repoPath: string, filePath: string) {
+    const next = applyCloseTab(openTabs, activeTabKey, repoPath, filePath)
+    if (!next) return
+    const key = workspaceTabKey({ repoPath, filePath })
+    openTabs = next.openTabs
+    tabFileStates = deleteTabFileStateMap(tabFileStates, key)
+    activeTabKey = next.activeTabKey
+    if (next.nextTreeRepo) treeRepoPath = next.nextTreeRepo
+  }
+
+  function closeAllTabs() {
+    openTabs = []
+    activeTabKey = ''
+    tabFileStates = new Map()
+  }
+
+  function activateTab(repoPath: string, filePath: string) {
+    const key = workspaceTabKey({ repoPath, filePath })
+    if (!openTabs.some((t) => workspaceTabKey(t) === key)) return
+    activateTabKey(key)
+  }
+
+  // ──────────────────────────── data loading ────────────────────────────────
+
+  async function refreshWorkspaceDiff() {
+    const conversationId = input.getConversationId()
+    if (!conversationId || !input.onWorkspaceDiffUpdated) {
       return
     }
-
-    if (!areFilePatchEqual(patch, nextPatch)) {
-      patch = nextPatch
-    }
+    const payload = await getProjectConversationWorkspaceDiff(conversationId)
+    input.onWorkspaceDiffUpdated(payload.workspaceDiff)
   }
+
+  const editorStore = createWorkspaceFileEditorStore({
+    getConversationId: input.getConversationId,
+    getSelectedRepoPath: () => getActiveTab()?.repoPath ?? '',
+    getSelectedFilePath: () => getActiveTab()?.filePath ?? '',
+    getPreview: (repoPath, filePath) => {
+      const key = workspaceTabKey({ repoPath, filePath })
+      return tabFileStates.get(key)?.preview ?? null
+    },
+    setPreview: (repoPath, filePath, preview) => {
+      const key = workspaceTabKey({ repoPath, filePath })
+      patchTabFileState(key, { preview })
+    },
+    reloadSelectedFile: async (repoPath, filePath) => {
+      if (repoPath && filePath) {
+        await loadFile(repoPath, filePath, { silent: true })
+      }
+    },
+    refreshWorkspaceDiff,
+  })
 
   function reset() {
     metadata = null
@@ -217,12 +188,9 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     treeNodes = new Map()
     expandedDirs = new Set()
     loadingDirs = new Set()
-    preview = null
-    patch = null
-    fileLoading = false
-    fileError = ''
-    selectedRepoPath = ''
-    selectedFilePath = ''
+    treeRepoPath = ''
+    closeAllTabs()
+    editorStore.reset()
   }
 
   async function refreshWorkspace(preserveSelection: boolean) {
@@ -233,63 +201,65 @@ export function createProjectConversationWorkspaceBrowserState(input: {
 
     try {
       const payload = await getProjectConversationWorkspace(conversationId)
-      if (requestID !== loadRequestID || conversationId !== input.getConversationId()) return
+      if (requestID !== loadRequestID || conversationId !== input.getConversationId()) {
+        return
+      }
 
       setMetadata(payload.workspace)
       if (!payload.workspace.available || payload.workspace.repos.length === 0) {
-        selectedRepoPath = ''
-        selectedFilePath = ''
+        treeRepoPath = ''
         treeNodes = new Map()
         expandedDirs = new Set()
         loadingDirs = new Set()
-        setPreview(null)
-        setPatch(null)
-        fileError = ''
+        closeAllTabs()
         return
       }
 
       const nextRepoPath =
         preserveSelection &&
-        payload.workspace.repos.some((repo) => repo.path === selectedRepoPath) &&
-        selectedRepoPath
-          ? selectedRepoPath
+        payload.workspace.repos.some((repo) => repo.path === treeRepoPath) &&
+        treeRepoPath
+          ? treeRepoPath
           : (payload.workspace.repos[0]?.path ?? '')
 
-      const repoChanged = nextRepoPath !== selectedRepoPath
+      const repoChanged = nextRepoPath !== treeRepoPath
       const prevExpanded = repoChanged ? [] : [...expandedDirs]
-      selectedRepoPath = nextRepoPath
+      treeRepoPath = nextRepoPath
 
       if (repoChanged) {
-        selectedFilePath = ''
-        expandedDirs = new Set()
-        setPreview(null)
-        setPatch(null)
         treeNodes = new Map()
+        expandedDirs = new Set()
+        loadingDirs = new Set()
       }
 
       await loadDirEntries('', requestID, { silent: treeNodes.has('') })
-      if (requestID !== loadRequestID) return
+      if (requestID !== loadRequestID) {
+        return
+      }
 
-      // Re-expand previously expanded directories
       if (prevExpanded.length > 0) {
         await Promise.all(
-          prevExpanded.map((dir) => loadDirEntries(dir, requestID, { silent: treeNodes.has(dir) })),
+          prevExpanded.map((dirPath) =>
+            loadDirEntries(dirPath, requestID, { silent: treeNodes.has(dirPath) }),
+          ),
         )
       }
 
-      // Reload selected file if preserved
-      if (preserveSelection && selectedFilePath && !repoChanged) {
-        await loadFile(selectedFilePath, {
-          requestID,
-          silent: preview != null || patch != null,
-        })
+      // Refresh open tabs' file content silently after a workspace refresh.
+      if (preserveSelection && openTabs.length > 0) {
+        await Promise.all(
+          openTabs.map((tab) => loadFile(tab.repoPath, tab.filePath, { silent: true })),
+        )
       }
     } catch (error) {
-      if (requestID !== loadRequestID || conversationId !== input.getConversationId()) return
+      if (requestID !== loadRequestID || conversationId !== input.getConversationId()) {
+        return
+      }
       metadata = null
       treeNodes = new Map()
-      setPreview(null)
-      setPatch(null)
+      expandedDirs = new Set()
+      loadingDirs = new Set()
+      closeAllTabs()
       metadataError =
         error instanceof Error ? error.message : 'Failed to load the Project AI workspace.'
     } finally {
@@ -305,12 +275,13 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     options: { silent?: boolean } = {},
   ) {
     const conversationId = input.getConversationId()
-    const repoPath = selectedRepoPath
-    if (!repoPath || !conversationId) return
+    const repoPath = treeRepoPath
+    if (!repoPath || !conversationId) {
+      return
+    }
 
     const requestID = externalRequestID ?? loadRequestID
     const silent = options.silent ?? false
-
     if (!silent) {
       setDirLoading(dirPath, true)
     }
@@ -320,11 +291,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
         repoPath,
         path: dirPath,
       })
-      if (requestID !== loadRequestID || repoPath !== selectedRepoPath) return
-
+      if (requestID !== loadRequestID || repoPath !== treeRepoPath) {
+        return
+      }
       setTreeEntries(dirPath, payload.workspaceTree.entries)
     } catch {
-      // Individual directory load failures are silent — the directory shows as empty.
       setTreeEntries(dirPath, [])
     } finally {
       if (!silent) {
@@ -340,7 +311,6 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     }
 
     setDirExpanded(dirPath, true)
-
     if (!treeNodes.has(dirPath)) {
       await loadDirEntries(dirPath)
     }
@@ -350,10 +320,11 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     path: string,
     options: { requestID?: number; silent?: boolean } = {},
   ) {
-    if (!path) return
+    if (!path) {
+      return
+    }
 
     const requestID = options.requestID ?? loadRequestID
-    const silent = options.silent ?? false
     const ancestorDirs = path
       .split('/')
       .slice(0, -1)
@@ -366,83 +337,68 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     if (ancestorDirs.length === 0) {
       return
     }
-
     if (!treeNodes.has('')) {
-      await loadDirEntries('', requestID, { silent })
+      await loadDirEntries('', requestID, options)
     }
 
     for (const dirPath of ancestorDirs) {
-      if (requestID !== loadRequestID || path !== selectedFilePath) {
+      if (requestID !== loadRequestID) {
         return
       }
-
       setDirExpanded(dirPath, true)
       if (!treeNodes.has(dirPath)) {
-        await loadDirEntries(dirPath, requestID, { silent })
+        await loadDirEntries(dirPath, requestID, options)
       }
     }
   }
 
-  async function loadFile(path: string, options: { requestID?: number; silent?: boolean } = {}) {
-    const conversationId = input.getConversationId()
-    if (!selectedRepoPath || !conversationId) {
-      setPreview(null)
-      setPatch(null)
-      return
-    }
-
-    const requestID = options.requestID ?? ++loadRequestID
-    const silent = options.silent ?? false
-    if (!silent) {
-      fileLoading = true
-      fileError = ''
-    }
-    selectedFilePath = path
-
-    try {
-      const [previewPayload, patchPayload] = await Promise.all([
-        getProjectConversationWorkspaceFilePreview(conversationId, {
-          repoPath: selectedRepoPath,
-          path,
-        }),
-        getProjectConversationWorkspaceFilePatch(conversationId, {
-          repoPath: selectedRepoPath,
-          path,
-        }),
-      ])
-      if (requestID !== loadRequestID || path !== selectedFilePath) return
-      setPreview(previewPayload.filePreview)
-      setPatch(patchPayload.filePatch)
-    } catch (error) {
-      if (requestID !== loadRequestID || path !== selectedFilePath) return
-      setPreview(null)
-      setPatch(null)
-      fileError =
-        error instanceof Error ? error.message : 'Failed to load the workspace file details.'
-    } finally {
-      if (!silent && requestID === loadRequestID && path === selectedFilePath) {
-        fileLoading = false
-      }
-    }
+  function loadFile(repoPath: string, filePath: string, options: { silent?: boolean } = {}) {
+    return loadWorkspaceFile(
+      {
+        getConversationId: input.getConversationId,
+        hasOpenTab: (key) => openTabs.some((t) => workspaceTabKey(t) === key),
+        getCurrentLoading: (key) => tabFileStates.get(key)?.loading ?? false,
+        patchTabFileState,
+        syncEditorFromPreview: editorStore.syncFromPreview,
+      },
+      repoPath,
+      filePath,
+      options,
+    )
   }
 
   function openRepo(repoPath: string) {
-    if (!repoPath || repoPath === selectedRepoPath) return
-    selectedRepoPath = repoPath
-    selectedFilePath = ''
-    expandedDirs = new Set()
+    if (!repoPath || repoPath === treeRepoPath) {
+      return
+    }
+    treeRepoPath = repoPath
     treeNodes = new Map()
-    setPreview(null)
-    setPatch(null)
+    expandedDirs = new Set()
+    loadingDirs = new Set()
     void loadDirEntries('')
   }
 
   function selectFile(path: string) {
-    if (!path) return
+    if (!path) {
+      return
+    }
+    const repoPath = treeRepoPath
+    if (!repoPath) {
+      return
+    }
     const requestID = ++loadRequestID
-    selectedFilePath = path
     void revealFileInTree(path, { requestID, silent: true })
-    void loadFile(path, { requestID })
+    openTab(repoPath, path)
+  }
+
+  // Active-file projections kept for backwards compatibility with the rest of
+  // the workspace browser plumbing. Sidebar highlights the active file only
+  // when it lives in the currently browsed repo, matching VS Code's "explorer
+  // follows current tab" feel.
+  function activeFilePath(): string {
+    const tab = getActiveTab()
+    if (!tab || tab.repoPath !== treeRepoPath) return ''
+    return tab.filePath
   }
 
   return {
@@ -464,28 +420,64 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     get loadingDirs() {
       return loadingDirs
     },
+    get openTabs() {
+      return openTabs
+    },
+    get activeTabKey() {
+      return activeTabKey
+    },
+    get tabFileStates() {
+      return tabFileStates
+    },
+    get hasDirtyTabs() {
+      return openTabs.some(
+        (tab) => editorStore.getEditorState(tab.repoPath, tab.filePath)?.dirty === true,
+      )
+    },
     get preview() {
-      return preview
+      return getActiveTabFileState().preview
     },
     get patch() {
-      return patch
+      return getActiveTabFileState().patch
     },
     get fileLoading() {
-      return fileLoading
+      return getActiveTabFileState().loading
     },
     get fileError() {
-      return fileError
+      return getActiveTabFileState().error
     },
     get selectedRepoPath() {
-      return selectedRepoPath
+      return treeRepoPath
     },
     get selectedFilePath() {
-      return selectedFilePath
+      return activeFilePath()
     },
+    get selectedEditorState() {
+      return editorStore.selectedEditorState
+    },
+    get selectedDraftLineDiff() {
+      return editorStore.selectedDraftLineDiff
+    },
+    getEditorState: editorStore.getEditorState,
     reset,
     refreshWorkspace,
     toggleDir,
     openRepo,
     selectFile,
+    openTab,
+    closeTab,
+    closeAllTabs,
+    activateTab,
+    updateSelectedDraft: editorStore.updateSelectedDraft,
+    revertSelectedDraft: editorStore.revertSelectedDraft,
+    keepSelectedDraft: editorStore.keepSelectedDraft,
+    reloadSelectedSavedVersion: editorStore.reloadSelectedSavedVersion,
+    saveSelectedFile: editorStore.saveSelectedFile,
+    saveFile: editorStore.saveFile,
+    discardDraft: editorStore.discardDraft,
   }
 }
+
+export type ProjectConversationWorkspaceBrowserState = ReturnType<
+  typeof createProjectConversationWorkspaceBrowserState
+>

@@ -195,6 +195,7 @@
             workspaceDiff={workspaceBrowserPortal.workspaceDiff}
             workspaceDiffLoading={workspaceBrowserPortal.workspaceDiffLoading}
             syncGeneration={workspaceBrowserPortal.syncGeneration}
+            runtimeActive={workspaceBrowserPortal.runtimeActive}
             pendingFilePath={workspaceBrowserPortal.pendingFilePath}
             onClose={() => workspaceBrowserPortal.close()}
             onPendingFileConsumed={() => workspaceBrowserPortal.consumePendingFile()}

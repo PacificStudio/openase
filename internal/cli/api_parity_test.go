@@ -24,6 +24,7 @@ var intentionalCLIOpenAPIGaps = map[string]string{
 	contractKey("GET", "/api/v1/chat/conversations/{conversationId}/workspace"):                                    "project conversation workspace inspection has no first-class CLI yet",
 	contractKey("GET", "/api/v1/chat/conversations/{conversationId}/workspace/file"):                               "project conversation workspace file preview has no first-class CLI yet",
 	contractKey("GET", "/api/v1/chat/conversations/{conversationId}/workspace/file-patch"):                         "project conversation workspace file diff has no first-class CLI yet",
+	contractKey("PUT", "/api/v1/chat/conversations/{conversationId}/workspace/file"):                               "project conversation workspace file save has no first-class CLI yet",
 	contractKey("GET", "/api/v1/chat/conversations/{conversationId}/workspace/tree"):                               "project conversation workspace tree browsing has no first-class CLI yet",
 	contractKey("POST", "/api/v1/chat/conversations/{conversationId}/workspace/sync"):                              "project conversation workspace sync has no first-class CLI yet",
 	contractKey("POST", "/api/v1/chat/conversations/{conversationId}/terminal-sessions"):                           "project conversation terminal session creation has no first-class CLI yet",
