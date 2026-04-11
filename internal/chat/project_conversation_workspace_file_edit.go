@@ -320,6 +320,7 @@ func readLocalWorkspaceFileContent(path string) ([]byte, os.FileInfo, error) {
 		}
 		return nil, nil, fmt.Errorf("stat workspace file %s: %w", path, err)
 	}
+	// #nosec G304 -- path is resolved through resolveLocalProjectConversationWorkspaceFile and remains within the repo root.
 	content, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -387,6 +388,7 @@ func writeFileAtomically(path string, content []byte, mode os.FileMode) error {
 		return fmt.Errorf("rename temp workspace file %s into %s: %w", tempPath, path, err)
 	}
 
+	// #nosec G304 -- dirPath is derived from the validated resolved workspace file path above.
 	dir, err := os.Open(dirPath)
 	if err == nil {
 		defer func() { _ = dir.Close() }()
