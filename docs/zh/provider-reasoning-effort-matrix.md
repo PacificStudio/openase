@@ -12,7 +12,7 @@
 - Claude Code 官方文档：<https://code.claude.com/docs/en/getting-started>
 - 本地 CLI 帮助与版本：
   - `codex --version` -> `codex-cli 0.120.0`
-  - `claude --version` -> `2.1.97 (Claude Code)`
+  - `claude --version` -> `2.1.101 (Claude Code)`
   - `claude --help` 明确暴露 `--effort <level>`，可选值为 `low / medium / high / max`
 
 ## 能力矩阵
@@ -146,12 +146,14 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
 - `claude --help` 明确支持 `--effort <level>`
 - 真实 prompt 执行命令：
   - `claude -p --model claude-sonnet-4-6 --effort high "Reply with the single word OK."`
-- 当前环境结果：
-  - `claude auth status` 显示已登录
-  - 但真实执行返回 `401 Invalid authentication credentials`
+- 当前环境结果（2026-04-11 再次复核）：
+  - `claude auth status --json` 仍显示 `loggedIn: true`
+  - 但真实执行仍返回 `401 Invalid authentication credentials`
+  - `~/.claude/.credentials.json` 中当前 OAuth access token 的 `expiresAt` 为 `2026-04-07T02:02:00.406Z`
   - `claude --debug-file ...` 显示 OAuth refresh 请求对 `https://platform.claude.com/v1/oauth/token` 返回 `400`
+  - `claude setup-token` / `claude auth login` 当前都需要交互式浏览器完成重新授权
 
-这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证。
+这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证；要完成最终验收，仍需要刷新 Claude 登录态或提供可用的 `ANTHROPIC_API_KEY`。
 
 ## 风险与后续建议
 
