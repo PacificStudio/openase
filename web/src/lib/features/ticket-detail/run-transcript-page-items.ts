@@ -42,8 +42,12 @@ export function mapProjectedTranscriptPage(
     hiddenNewerCount: payload.transcript_entries_page?.hidden_newer_count ?? 0,
     oldestCursor: transcriptCursorPage?.oldestCursor,
     newestCursor: transcriptCursorPage?.newestCursor,
-    oldestEventCursor: normalizeTicketRunEventCursor(payload.transcript_entries_page?.oldest_cursor),
-    newestEventCursor: normalizeTicketRunEventCursor(payload.transcript_entries_page?.newest_cursor),
+    oldestEventCursor: normalizeTicketRunEventCursor(
+      payload.transcript_entries_page?.oldest_cursor,
+    ),
+    newestEventCursor: normalizeTicketRunEventCursor(
+      payload.transcript_entries_page?.newest_cursor,
+    ),
   }
 }
 

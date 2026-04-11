@@ -56,7 +56,9 @@ export function mapTicketRunTranscriptPage(
   }
 }
 
-function hasProjectedTranscriptData(payload: TicketRunDetailPayload['transcript_entries_page']): boolean {
+function hasProjectedTranscriptData(
+  payload: TicketRunDetailPayload['transcript_entries_page'],
+): boolean {
   if (!payload) {
     return false
   }

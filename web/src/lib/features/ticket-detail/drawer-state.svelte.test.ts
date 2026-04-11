@@ -280,8 +280,7 @@ describe('createTicketDrawerState', () => {
           items: [
             {
               kind: 'step',
-              cursor:
-                ' 2026-04-03T12:00:11Z|step|0|11111111-1111-4111-8111-111111111111 ',
+              cursor: ' 2026-04-03T12:00:11Z|step|0|11111111-1111-4111-8111-111111111111 ',
               step_entry: {
                 id: '11111111-1111-4111-8111-111111111111',
                 agent_run_id: 'run-1',
