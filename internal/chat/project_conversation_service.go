@@ -453,6 +453,28 @@ func (s *ProjectConversationService) StartTurn(
 	message string,
 	focus *ProjectConversationFocus,
 ) (domain.Turn, error) {
+	return s.startTurn(ctx, userID, conversationID, message, focus, nil)
+}
+
+func (s *ProjectConversationService) StartTurnWithWorkspaceFileDraft(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	message string,
+	focus *ProjectConversationFocus,
+	workspaceFileDraft *ProjectConversationWorkspaceFileDraftContext,
+) (domain.Turn, error) {
+	return s.startTurn(ctx, userID, conversationID, message, focus, workspaceFileDraft)
+}
+
+func (s *ProjectConversationService) startTurn(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+	message string,
+	focus *ProjectConversationFocus,
+	workspaceFileDraft *ProjectConversationWorkspaceFileDraftContext,
+) (domain.Turn, error) {
 	conversation, err := s.GetConversation(ctx, userID, conversationID)
 	if err != nil {
 		return domain.Turn{}, err
@@ -491,7 +513,14 @@ func (s *ProjectConversationService) StartTurn(
 			if live.codex == nil {
 				break
 			}
-			resumePrompt, resumePromptErr := s.buildProjectConversationPrompt(ctx, conversation, project, promptFocus, false)
+			resumePrompt, resumePromptErr := s.buildProjectConversationPromptWithDraft(
+				ctx,
+				conversation,
+				project,
+				promptFocus,
+				workspaceFileDraft,
+				false,
+			)
 			if resumePromptErr != nil {
 				return domain.Turn{}, resumePromptErr
 			}
@@ -535,7 +564,14 @@ func (s *ProjectConversationService) StartTurn(
 		}
 	}
 
-	systemPrompt, err := s.buildProjectConversationPrompt(ctx, conversation, project, promptFocus, includeRecovery)
+	systemPrompt, err := s.buildProjectConversationPromptWithDraft(
+		ctx,
+		conversation,
+		project,
+		promptFocus,
+		workspaceFileDraft,
+		includeRecovery,
+	)
 	if err != nil {
 		return domain.Turn{}, err
 	}
@@ -2124,6 +2160,24 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	focus *ProjectConversationFocus,
 	includeRecovery bool,
 ) (string, error) {
+	return s.buildProjectConversationPromptWithDraft(
+		ctx,
+		conversation,
+		project,
+		focus,
+		nil,
+		includeRecovery,
+	)
+}
+
+func (s *ProjectConversationService) buildProjectConversationPromptWithDraft(
+	ctx context.Context,
+	conversation domain.Conversation,
+	project catalogdomain.Project,
+	focus *ProjectConversationFocus,
+	workspaceFileDraft *ProjectConversationWorkspaceFileDraftContext,
+	includeRecovery bool,
+) (string, error) {
 	basePrompt, err := s.promptBuilder.buildSystemPrompt(ctx, StartInput{
 		Message: "",
 		Source:  SourceProjectSidebar,
@@ -2161,6 +2215,10 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 			builder.WriteString(ticketCapsule)
 		}
 	}
+	if workspaceDraftPrompt := renderProjectConversationWorkspaceFileDraftContext(workspaceFileDraft); strings.TrimSpace(workspaceDraftPrompt) != "" {
+		builder.WriteString("\n\n")
+		builder.WriteString(workspaceDraftPrompt)
+	}
 	if !includeRecovery {
 		return builder.String(), nil
 	}
@@ -2186,6 +2244,29 @@ func (s *ProjectConversationService) buildProjectConversationPrompt(
 	}
 	builder.WriteString("\nContinue from this conversation state without restating the entire history.")
 	return builder.String(), nil
+}
+
+func renderProjectConversationWorkspaceFileDraftContext(
+	draft *ProjectConversationWorkspaceFileDraftContext,
+) string {
+	if draft == nil {
+		return ""
+	}
+
+	var builder strings.Builder
+	builder.WriteString("## Active workspace file draft\n")
+	builder.WriteString("This draft is request-scoped context only. It has not been saved to the workspace yet.\n")
+	_, _ = fmt.Fprintf(&builder, "- repo_path: %s\n", draft.RepoPath)
+	_, _ = fmt.Fprintf(&builder, "- path: %s\n", draft.Path)
+	_, _ = fmt.Fprintf(&builder, "- encoding: %s\n", draft.Encoding)
+	_, _ = fmt.Fprintf(&builder, "- line_ending: %s\n", draft.LineEnding)
+	builder.WriteString("\nDraft content:\n```text\n")
+	builder.WriteString(draft.Content.String())
+	if !strings.HasSuffix(draft.Content.String(), "\n") {
+		builder.WriteByte('\n')
+	}
+	builder.WriteString("```\n")
+	return builder.String()
 }
 
 func (s *ProjectConversationService) projectConversationPlatformContractInput(

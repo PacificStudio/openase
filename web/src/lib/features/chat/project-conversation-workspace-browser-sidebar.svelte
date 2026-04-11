@@ -91,7 +91,7 @@
       {@const isDirtyDir = dirtyParentDirs().has(entry.path)}
       <button
         type="button"
-        class="hover:bg-muted/50 flex w-full items-center gap-1 py-[3px] text-left text-[13px] transition-colors"
+        class="hover:bg-muted/50 flex w-full items-center gap-1 py-[3px] pr-3 text-left text-[13px] transition-colors"
         style="padding-left: {depth * 16 + 8}px"
         onclick={() => onToggleDir?.(entry.path)}
       >
@@ -142,7 +142,7 @@
       <button
         type="button"
         class={cn(
-          'hover:bg-muted/50 flex w-full items-center gap-1 py-[3px] text-left text-[13px] transition-colors',
+          'hover:bg-muted/50 flex w-full items-center gap-1 py-[3px] pr-3 text-left text-[13px] transition-colors',
           entry.path === selectedFilePath && 'bg-primary/10 text-primary',
         )}
         style="padding-left: {depth * 16 + 24}px"

@@ -246,6 +246,13 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	if len(platformSkill.BoundWorkflows) != 1 || platformSkill.BoundWorkflows[0].Name != "Coding Workflow" {
 		t.Fatalf("expected openase-platform to stay bound to Coding Workflow, got %+v", platformSkill)
 	}
+	autoHarnessSkill := findSkillResponse(t, listResp.Skills, "auto-harness")
+	if !autoHarnessSkill.IsBuiltin {
+		t.Fatalf("expected auto-harness to be marked as built-in, got %+v", autoHarnessSkill)
+	}
+	if autoHarnessSkill.Description == "" {
+		t.Fatalf("expected auto-harness to expose a description, got %+v", autoHarnessSkill)
+	}
 	if _, err := os.Stat(filepath.Join(repoRoot, ".openase", "skills", "openase-platform", "SKILL.md")); !os.IsNotExist(err) {
 		t.Fatalf("expected built-in platform skill to stay out of repo authority paths, stat err=%v", err)
 	}
@@ -278,6 +285,32 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 		t.Fatalf("expected skill history route to expose published versions, got %+v", historyResp)
 	}
 
+	autoHarnessDetail := skillDetailResponse{}
+	executeJSON(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/skills/%s", autoHarnessSkill.ID),
+		nil,
+		http.StatusOK,
+		&autoHarnessDetail,
+	)
+	for _, path := range []string{
+		"agents/openai.yaml",
+		"references/checklist.md",
+		"references/guide.md",
+		"references/guard-patterns.md",
+		"references/fix-plan.md",
+		"references/upstream.md",
+	} {
+		if !containsSkillFileResponse(autoHarnessDetail.Files, path) {
+			t.Fatalf("expected auto-harness detail to include %s, got %+v", path, autoHarnessDetail.Files)
+		}
+	}
+	if !strings.Contains(findSkillFileResponse(t, autoHarnessDetail.Files, "references/upstream.md").Content, "https://github.com/PacificStudio/auto-harness-skill") {
+		t.Fatalf("expected auto-harness upstream reference to preserve source repo, got %+v", autoHarnessDetail.Files)
+	}
+
 	workspaceRoot := t.TempDir()
 	refreshResp := skillSyncResponse{}
 	executeJSON(
@@ -298,6 +331,9 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	if !containsSkillName(refreshResp.InjectedSkills, "openase-platform") {
 		t.Fatalf("expected openase-platform to be injected, got %+v", refreshResp.InjectedSkills)
 	}
+	if !containsSkillName(refreshResp.InjectedSkills, "auto-harness") {
+		t.Fatalf("expected auto-harness to be injected, got %+v", refreshResp.InjectedSkills)
+	}
 	//nolint:gosec // test reads a file from a controlled temp workspace
 	refreshedSkill, err := os.ReadFile(filepath.Join(workspaceRoot, ".claude", "skills", "review-code", "SKILL.md"))
 	if err != nil {
@@ -313,6 +349,22 @@ func TestSkillRoutesRefreshBindAndUnbind(t *testing.T) {
 	}
 	if refreshedScriptInfo.Mode()&0o111 == 0 {
 		t.Fatalf("expected refreshed openase-platform script to be executable, mode=%v", refreshedScriptInfo.Mode())
+	}
+	//nolint:gosec // test reads files from a controlled temp workspace
+	autoHarnessAgent, err := os.ReadFile(filepath.Join(workspaceRoot, ".claude", "skills", "auto-harness", "agents", "openai.yaml"))
+	if err != nil {
+		t.Fatalf("expected refreshed auto-harness agent config: %v", err)
+	}
+	if !strings.Contains(string(autoHarnessAgent), "AutoHarness Skill") {
+		t.Fatalf("unexpected auto-harness agent config = %q", string(autoHarnessAgent))
+	}
+	//nolint:gosec // test reads files from a controlled temp workspace
+	autoHarnessUpstreamRef, err := os.ReadFile(filepath.Join(workspaceRoot, ".claude", "skills", "auto-harness", "references", "upstream.md"))
+	if err != nil {
+		t.Fatalf("expected refreshed auto-harness upstream reference: %v", err)
+	}
+	if !strings.Contains(string(autoHarnessUpstreamRef), "PacificStudio/auto-harness-skill") {
+		t.Fatalf("unexpected auto-harness upstream reference = %q", string(autoHarnessUpstreamRef))
 	}
 	if _, err := os.Stat(filepath.Join(workspaceRoot, ".openase", "bin", "openase")); err != nil {
 		t.Fatalf("expected openase wrapper in refreshed workspace: %v", err)

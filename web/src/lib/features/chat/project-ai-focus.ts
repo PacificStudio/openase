@@ -88,6 +88,18 @@ export type ProjectAIFocus =
       selectedArea?: string
       healthSummary?: string
     }
+  | {
+      kind: 'workspace_file'
+      projectId: string
+      conversationId: string
+      repoPath: string
+      filePath: string
+      selectedArea?: string
+      hasDirtyDraft?: boolean
+      draftContent?: string
+      encoding?: 'utf-8'
+      lineEnding?: 'lf' | 'crlf'
+    }
 
 export type ProjectAIFocusCard = {
   label: string
@@ -126,6 +138,16 @@ export function projectAIFocusKey(focus: ProjectAIFocus | null | undefined): str
       return [focus.kind, focus.projectId, focus.ticketId, focus.selectedArea ?? ''].join(':')
     case 'machine':
       return [focus.kind, focus.projectId, focus.machineId, focus.selectedArea ?? ''].join(':')
+    case 'workspace_file':
+      return [
+        focus.kind,
+        focus.projectId,
+        focus.conversationId,
+        focus.repoPath,
+        focus.filePath,
+        focus.selectedArea ?? '',
+        focus.hasDirtyDraft ? 'dirty' : 'clean',
+      ].join(':')
   }
 }
 
@@ -171,6 +193,14 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
         label: 'Machine',
         title: `${focus.machineName} / ${focus.selectedArea ?? 'health'}`,
         detail: [focus.machineHost, focus.machineStatus, focus.healthSummary]
+          .filter(Boolean)
+          .join(' · '),
+      }
+    case 'workspace_file':
+      return {
+        label: 'Workspace file',
+        title: `${focus.repoPath} / ${focus.filePath}`,
+        detail: [focus.selectedArea ?? 'edit', focus.hasDirtyDraft ? 'unsaved draft' : 'saved']
           .filter(Boolean)
           .join(' · '),
       }

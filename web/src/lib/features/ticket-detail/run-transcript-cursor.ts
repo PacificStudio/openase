@@ -37,6 +37,13 @@ export function buildTicketRunTranscriptItemCursor(item: TicketRunTranscriptItem
 export function compareTicketRunTranscriptCursors(left: string, right: string): number {
   const leftParts = parseCursor(left)
   const rightParts = parseCursor(right)
+  if (!leftParts || !rightParts) {
+    if (!leftParts && !rightParts) {
+      return left.localeCompare(right)
+    }
+    return leftParts ? 1 : -1
+  }
+
   const timeDiff = Date.parse(leftParts.createdAt) - Date.parse(rightParts.createdAt)
   if (timeDiff !== 0) {
     return timeDiff
@@ -63,16 +70,45 @@ export function maxTicketRunTranscriptCursor(
   return compareTicketRunTranscriptCursors(left, right) >= 0 ? left : right
 }
 
+export function normalizeTicketRunTranscriptCursor(
+  raw: string | null | undefined,
+): string | undefined {
+  const parsed = parseCursor(raw)
+  return parsed ? buildCursor(parsed) : undefined
+}
+
 function buildCursor(parts: TranscriptCursorParts): string {
   return `${parts.createdAt}|${parts.kind}|${parts.order}|${parts.id}`
 }
 
-function parseCursor(cursor: string): TranscriptCursorParts {
-  const [createdAt = '', kind = STEP_KIND, orderText = '0', id = ''] = cursor.split('|')
+function parseCursor(cursor: string | null | undefined): TranscriptCursorParts | null {
+  const trimmed = cursor?.trim() ?? ''
+  if (!trimmed) {
+    return null
+  }
+
+  const parts = trimmed.split('|')
+  if (parts.length !== 4) {
+    return null
+  }
+
+  const [createdAt = '', kind = STEP_KIND, orderText = '0', id = ''] = parts
+  if (!createdAt || Number.isNaN(Date.parse(createdAt))) {
+    return null
+  }
+  if (kind !== STEP_KIND && kind !== TRACE_KIND) {
+    return null
+  }
+
+  const order = Number.parseInt(orderText, 10)
+  if (!Number.isInteger(order) || id.trim() === '') {
+    return null
+  }
+
   return {
     createdAt,
-    kind: kind === TRACE_KIND ? TRACE_KIND : STEP_KIND,
-    order: Number.parseInt(orderText, 10) || 0,
+    kind,
+    order,
     id,
   }
 }

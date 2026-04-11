@@ -240,6 +240,12 @@ export function createProjectConversationControllerRuntime(
   return {
     sortProjectConversations: conversations.sortProjectConversations,
     loadTabConversation,
+    async refreshWorkspaceDiff(tab: ProjectConversationTabState | null, conversationId: string) {
+      if (!tab || !conversationId) {
+        return
+      }
+      await refreshTabWorkspaceDiff(tab, conversationId, touchTabs)
+    },
     restoreTabConversationMetadata: tabOps.restoreTabConversationMetadata,
     hydrateTabIfNeeded: tabOps.hydrateTabIfNeeded,
     openConversationInTab: tabOps.openConversationInTab,

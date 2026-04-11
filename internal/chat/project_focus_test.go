@@ -141,6 +141,31 @@ func TestParseProjectConversationFocusTicketPreservesExpandedPayload(t *testing.
 	}
 }
 
+func TestParseProjectConversationFocusWorkspace(t *testing.T) {
+	t.Parallel()
+
+	focus, err := ParseProjectConversationFocus(&RawProjectConversationFocus{
+		Kind:              "workspace_file",
+		ConversationID:    stringPointer("550e8400-e29b-41d4-a716-446655440000"),
+		WorkspaceRepoPath: stringPointer("openase"),
+		WorkspaceFilePath: stringPointer("web/src/lib/app.ts"),
+		SelectedArea:      stringPointer("edit"),
+		HasDirtyDraft:     testBoolPointer(true),
+	})
+	if err != nil {
+		t.Fatalf("ParseProjectConversationFocus() error = %v", err)
+	}
+	if focus == nil || focus.Workspace == nil {
+		t.Fatalf("expected workspace focus, got %#v", focus)
+	}
+	if focus.Workspace.RepoPath != "openase" ||
+		focus.Workspace.FilePath != "web/src/lib/app.ts" ||
+		focus.Workspace.SelectedArea != "edit" ||
+		!focus.Workspace.HasDirtyDraft {
+		t.Fatalf("unexpected workspace focus = %#v", focus.Workspace)
+	}
+}
+
 func testBoolPointer(value bool) *bool {
 	return &value
 }

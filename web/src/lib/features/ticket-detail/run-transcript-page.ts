@@ -13,7 +13,10 @@ export { mapTicketRunStepEntry, mapTicketRunTraceEntry } from './run-transcript-
 export function mapTicketRunTranscriptPage(
   payload: TicketRunDetailPayload,
 ): TicketRunTranscriptPage {
-  if (payload.transcript_entries_page || payload.activities?.length) {
+  if (
+    hasProjectedTranscriptData(payload.transcript_entries_page) ||
+    (payload.activities?.length ?? 0) > 0
+  ) {
     return mapProjectedTranscriptPage(payload)
   }
 
@@ -49,4 +52,20 @@ export function mapTicketRunTranscriptPage(
     oldestCursor: items[0]?.cursor,
     newestCursor: items.at(-1)?.cursor,
   }
+}
+
+function hasProjectedTranscriptData(payload: TicketRunDetailPayload['transcript_entries_page']): boolean {
+  if (!payload) {
+    return false
+  }
+
+  return (
+    (payload.entries?.length ?? 0) > 0 ||
+    payload.has_older ||
+    payload.has_newer ||
+    payload.hidden_older_count > 0 ||
+    payload.hidden_newer_count > 0 ||
+    Boolean(payload.oldest_cursor?.trim()) ||
+    Boolean(payload.newest_cursor?.trim())
+  )
 }

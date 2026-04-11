@@ -129,6 +129,18 @@ func rawProjectConversationFocusFromFocus(focus *ProjectConversationFocus) *RawP
 			SelectedArea:  optionalString(focus.Machine.SelectedArea),
 			HealthSummary: optionalString(focus.Machine.HealthSummary),
 		}
+	case ProjectConversationFocusWorkspace:
+		if focus.Workspace == nil {
+			return nil
+		}
+		return &RawProjectConversationFocus{
+			Kind:              string(ProjectConversationFocusWorkspace),
+			ConversationID:    optionalString(focus.Workspace.ConversationID.String()),
+			WorkspaceRepoPath: optionalString(focus.Workspace.RepoPath),
+			WorkspaceFilePath: optionalString(focus.Workspace.FilePath),
+			SelectedArea:      optionalString(focus.Workspace.SelectedArea),
+			HasDirtyDraft:     projectFocusBoolPointer(focus.Workspace.HasDirtyDraft),
+		}
 	default:
 		return nil
 	}

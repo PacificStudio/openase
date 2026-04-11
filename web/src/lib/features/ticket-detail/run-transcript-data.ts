@@ -128,7 +128,6 @@ export function mapTicketRunStreamLifecycleEvent(
     createdAt: item.created_at ?? item.createdAt ?? '',
   }
 }
-
 function normalizeRunStatus(status: string): TicketRun['status'] {
   if (
     status === 'launching' ||

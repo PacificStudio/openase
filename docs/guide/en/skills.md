@@ -55,6 +55,7 @@ Go to the Skills page to view all available skills. Supports filtering:
 | Scenario | Skill Example |
 |----------|---------------|
 | **Git Operations** | Standard process for creating branches, committing code, opening PRs |
+| **Harness Audits** | `auto-harness` diagnoses repo drift and plans stronger contract and CI guardrails |
 | **Code Quality Checks** | Lint/format scripts |
 | **Test Execution** | Standardized test running and report generation |
 | **Deployment** | Automated deployment steps |

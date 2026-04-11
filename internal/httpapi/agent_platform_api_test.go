@@ -332,6 +332,300 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	}
 }
 
+func TestAgentPlatformTicketDependencyRoutesRespectScopes(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, doneTicketID := seedAgentPlatformHTTPFixture(ctx, t, client)
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	updateSelfToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(update self) returned error: %v", err)
+	}
+	listOnlyToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes:    []string{string(agentplatform.ScopeTicketsList)},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(list only) returned error: %v", err)
+	}
+
+	forbiddenAddRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/dependencies", currentTicketID),
+		fmt.Sprintf(`{"type":"blocks","target_ticket_id":"%s"}`, doneTicketID),
+		map[string]string{
+			echo.HeaderAuthorization: "Bearer " + listOnlyToken.Token,
+			echo.HeaderContentType:   echo.MIMEApplicationJSON,
+		},
+	)
+	if forbiddenAddRec.Code != http.StatusForbidden {
+		t.Fatalf("expected add dependency without update scope to return 403, got %d: %s", forbiddenAddRec.Code, forbiddenAddRec.Body.String())
+	}
+
+	addResp := struct {
+		Dependency ticketDependencyResponse `json:"dependency"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/dependencies", currentTicketID),
+		map[string]any{
+			"type":             "blocks",
+			"target_ticket_id": doneTicketID.String(),
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + updateSelfToken.Token},
+		http.StatusCreated,
+		&addResp,
+	)
+	if addResp.Dependency.Type != "blocks" || addResp.Dependency.Target.ID != doneTicketID.String() {
+		t.Fatalf("unexpected add dependency payload: %+v", addResp.Dependency)
+	}
+
+	deleteResp := struct {
+		DeletedDependencyID string `json:"deleted_dependency_id"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/dependencies/%s", currentTicketID, addResp.Dependency.ID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + updateSelfToken.Token},
+		http.StatusOK,
+		&deleteResp,
+	)
+	if deleteResp.DeletedDependencyID != addResp.Dependency.ID {
+		t.Fatalf("unexpected delete dependency payload: %+v", deleteResp)
+	}
+}
+
+func TestAgentPlatformRootResourceRoutesSupportPlatformCLIParity(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+	projectID, agentID, currentTicketID, _ := seedAgentPlatformHTTPFixture(ctx, t, client)
+	projectItem, err := client.Project.Get(ctx, projectID)
+	if err != nil {
+		t.Fatalf("load project: %v", err)
+	}
+
+	platformService := agentplatform.NewService(agentplatformrepo.NewEntRepository(client))
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		newTicketService(client),
+		newTicketStatusService(client),
+		platformService,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+	)
+
+	defaultToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(default) returned error: %v", err)
+	}
+	projectAdminToken, err := platformService.IssueToken(ctx, agentplatform.IssueInput{
+		AgentID:   agentID,
+		ProjectID: projectID,
+		TicketID:  currentTicketID,
+		Scopes: []string{
+			string(agentplatform.ScopeProjectsUpdate),
+			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeTicketsUpdateSelf),
+		},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project admin) returned error: %v", err)
+	}
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/archived", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		nil,
+	)
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/detail", projectID, currentTicketID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		nil,
+	)
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/runs", projectID, currentTicketID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		nil,
+	)
+
+	invalidRunRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/runs/not-a-uuid", projectID, currentTicketID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+	)
+	if invalidRunRec.Code != http.StatusBadRequest || !strings.Contains(invalidRunRec.Body.String(), "INVALID_RUN_ID") {
+		t.Fatalf("expected invalid run id to return 400 INVALID_RUN_ID, got %d: %s", invalidRunRec.Code, invalidRunRec.Body.String())
+	}
+
+	invalidRetryRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/platform/tickets/not-a-uuid/retry/resume",
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+	)
+	if invalidRetryRec.Code != http.StatusBadRequest || !strings.Contains(invalidRetryRec.Body.String(), "INVALID_TICKET_ID") {
+		t.Fatalf("expected invalid retry ticket id to return 400 INVALID_TICKET_ID, got %d: %s", invalidRetryRec.Code, invalidRetryRec.Body.String())
+	}
+
+	externalLinkResp := struct {
+		ExternalLink ticketExternalLinkResponse `json:"external_link"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/external-links", currentTicketID),
+		map[string]any{
+			"url":         "https://example.com/issues/123",
+			"external_id": "123",
+			"title":       "Issue 123",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusCreated,
+		&externalLinkResp,
+	)
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/tickets/%s/external-links/%s", currentTicketID, externalLinkResp.ExternalLink.ID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		nil,
+	)
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+		http.StatusOK,
+		nil,
+	)
+
+	forbiddenListRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/orgs/%s/projects", projectItem.OrganizationID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+	)
+	if forbiddenListRec.Code != http.StatusForbidden {
+		t.Fatalf("expected project list without projects.update scope to return 403, got %d: %s", forbiddenListRec.Code, forbiddenListRec.Body.String())
+	}
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/orgs/%s/projects", projectItem.OrganizationID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + projectAdminToken.Token},
+		http.StatusOK,
+		nil,
+	)
+
+	createProjectResp := struct {
+		Project projectResponse `json:"project"`
+	}{}
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/orgs/%s/projects", projectItem.OrganizationID),
+		map[string]any{
+			"name": "Platform Root Resource Project",
+			"slug": "platform-root-resource-project",
+		},
+		map[string]string{echo.HeaderAuthorization: "Bearer " + projectAdminToken.Token},
+		http.StatusCreated,
+		&createProjectResp,
+	)
+	if createProjectResp.Project.Name != "Platform Root Resource Project" {
+		t.Fatalf("unexpected created project payload: %+v", createProjectResp.Project)
+	}
+
+	forbiddenDeleteRec := performJSONRequestWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/projects/%s", projectID),
+		"",
+		map[string]string{echo.HeaderAuthorization: "Bearer " + defaultToken.Token},
+	)
+	if forbiddenDeleteRec.Code != http.StatusForbidden {
+		t.Fatalf("expected project delete without projects.update scope to return 403, got %d: %s", forbiddenDeleteRec.Code, forbiddenDeleteRec.Body.String())
+	}
+
+	executeJSONWithHeaders(
+		t,
+		server,
+		http.MethodDelete,
+		fmt.Sprintf("/api/v1/platform/projects/%s", projectID),
+		nil,
+		map[string]string{echo.HeaderAuthorization: "Bearer " + projectAdminToken.Token},
+		http.StatusOK,
+		nil,
+	)
+}
+
 func TestAgentPlatformTicketMutationsPublishRefreshEvents(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()

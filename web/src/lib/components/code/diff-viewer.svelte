@@ -1,9 +1,11 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import type { EditorWrapMode } from './wrap-mode'
 
   let {
     diff = '',
     sourceContent = '',
+    wrapMode = 'wrap',
     class: className = '',
   }: {
     /** Raw unified diff string */
@@ -12,6 +14,8 @@
      *  the entire file with diff hunks highlighted inline instead of only the
      *  raw diff output. */
     sourceContent?: string
+    /** Visual line wrapping mode */
+    wrapMode?: EditorWrapMode
     class?: string
   } = $props()
 
@@ -176,11 +180,12 @@
 </script>
 
 <div class={cn('diff-viewer min-h-0 overflow-auto font-mono text-[13px] leading-6', className)}>
-  <div class="px-0 py-2">
+  <div class={cn('px-0 py-2', wrapMode === 'nowrap' && 'w-max min-w-full')}>
     {#each annotated as line}
       <div
         class={cn(
-          'min-h-6 px-4 whitespace-pre-wrap',
+          'min-h-6 px-4',
+          wrapMode === 'wrap' ? 'whitespace-pre-wrap' : 'whitespace-pre',
           line.kind === 'add' && 'bg-emerald-500/10 text-emerald-800 dark:text-emerald-300',
           line.kind === 'del' && 'bg-rose-500/10 text-rose-800 dark:text-rose-300',
           line.kind === 'hunk-sep' && 'bg-sky-500/8 text-[11px] text-sky-600 dark:text-sky-400',

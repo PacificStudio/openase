@@ -1,0 +1,4 @@
+interface:
+  display_name: "AutoHarness Skill"
+  short_description: "Design stronger repo harness guardrails."
+  default_prompt: "Use $auto-harness to diagnose harness drift and design stronger contract, test, and CI guardrails."
