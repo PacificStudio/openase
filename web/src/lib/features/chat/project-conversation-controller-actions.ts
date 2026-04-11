@@ -96,6 +96,7 @@ type ProjectConversationControllerActionsInput = {
       focus?: ProjectAIFocus | null,
     ) => Promise<boolean>
     resetConversation: () => Promise<void>
+    stopTurn: () => Promise<void>
     respondInterrupt: (inputValue: {
       interruptId: string
       decision?: string
@@ -182,6 +183,9 @@ export function createProjectConversationControllerActions(
     },
     async resetConversation() {
       await input.operations.resetConversation()
+    },
+    async stopTurn() {
+      await input.operations.stopTurn()
     },
     async respondInterrupt(inputValue: {
       interruptId: string

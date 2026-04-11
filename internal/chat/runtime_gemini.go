@@ -131,6 +131,38 @@ func (r *GeminiRuntime) CloseSession(sessionID SessionID) bool {
 	return true
 }
 
+func (r *GeminiRuntime) InterruptTurn(
+	_ context.Context,
+	sessionID SessionID,
+) (RuntimeSessionAnchor, error) {
+	r.mu.Lock()
+	state := r.sessions[sessionID]
+	cancel := context.CancelFunc(nil)
+	if state != nil {
+		cancel = state.cancel
+	}
+	r.mu.Unlock()
+
+	if cancel == nil {
+		return RuntimeSessionAnchor{}, fmt.Errorf("gemini chat session %s is not running", sessionID)
+	}
+	cancel()
+	return r.SessionAnchor(sessionID), nil
+}
+
+func (r *GeminiRuntime) SessionAnchor(sessionID SessionID) RuntimeSessionAnchor {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	state := r.sessions[sessionID]
+	if state == nil || len(state.history) == 0 {
+		return RuntimeSessionAnchor{}
+	}
+	return RuntimeSessionAnchor{
+		ProviderAnchorKind: "session",
+	}
+}
+
 func (r *GeminiRuntime) session(sessionID SessionID) *geminiRuntimeSession {
 	r.mu.Lock()
 	defer r.mu.Unlock()

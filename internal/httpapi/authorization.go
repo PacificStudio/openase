@@ -332,6 +332,7 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 		"/api/v1/chat/conversations/:conversationId/terminal-sessions",
 		"/api/v1/chat/conversations/:conversationId/terminal-sessions/:terminalSessionId/attach",
 		"/api/v1/chat/conversations/:conversationId/turns",
+		"/api/v1/chat/conversations/:conversationId/interrupt-turn",
 		"/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond",
 		"/api/v1/chat/conversations/:conversationId/runtime":
 		return humanRouteAuthorizationRule{
@@ -770,7 +771,7 @@ func chatPermissionForPath(path, method string) humanauthdomain.PermissionKey {
 	case http.MethodDelete:
 		return humanauthdomain.PermissionConversationDelete
 	case http.MethodPost:
-		if strings.HasSuffix(path, "/turns") || strings.Contains(path, "/interrupts/") {
+		if strings.HasSuffix(path, "/turns") || strings.HasSuffix(path, "/interrupt-turn") || strings.Contains(path, "/interrupts/") {
 			return humanauthdomain.PermissionConversationUpdate
 		}
 		return humanauthdomain.PermissionConversationCreate

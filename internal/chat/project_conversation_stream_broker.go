@@ -76,7 +76,7 @@ func (b *projectConversationStreamBroker) Broadcast(conversationID uuid.UUID, ev
 
 func isGuaranteedProjectConversationEvent(event string) bool {
 	switch event {
-	case "turn_done", "error", "interrupt_requested":
+	case "turn_done", "error", "interrupt_requested", "interrupted":
 		return true
 	default:
 		return false

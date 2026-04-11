@@ -173,6 +173,7 @@ export function handleTabStreamEvent(
     case 'interrupt_resolved':
       tab.phase = 'awaiting_reply'
       break
+    case 'interrupted':
     case 'turn_done':
     case 'error':
       tab.phase = 'idle'

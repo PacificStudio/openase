@@ -160,6 +160,7 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 	var runtime Runtime
 	var codexRuntime projectConversationCodexRuntime
 	var interruptRuntime projectConversationInterruptRuntime
+	var turnStopRuntime projectConversationTurnStopRuntime
 	switch providerItem.AdapterType {
 	case catalogdomain.AgentProviderAdapterTypeCodexAppServer:
 		if m.newCodexRuntime == nil {
@@ -171,15 +172,18 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 		}
 		runtime = codexRuntime
 		interruptRuntime = codexRuntime
+		turnStopRuntime = codexRuntime
 	case catalogdomain.AgentProviderAdapterTypeClaudeCodeCLI:
 		claudeRuntime := NewClaudeRuntime(claudecodeadapter.NewAdapter(manager))
 		claudeRuntime.ConfigureSecretResolver(m.secretResolver)
 		runtime = claudeRuntime
 		interruptRuntime = claudeRuntime
+		turnStopRuntime = claudeRuntime
 	case catalogdomain.AgentProviderAdapterTypeGeminiCLI:
 		geminiRuntime := NewGeminiRuntime(manager)
 		geminiRuntime.ConfigureSecretResolver(m.secretResolver)
 		runtime = geminiRuntime
+		turnStopRuntime = geminiRuntime
 	default:
 		return nil, false, fmt.Errorf("%w: provider=%s", ErrProviderUnsupported, providerItem.AdapterType)
 	}
@@ -191,6 +195,7 @@ func (m *projectConversationRuntimeManager) ensureLiveRuntime(
 		runtime:   runtime,
 		codex:     codexRuntime,
 		interrupt: interruptRuntime,
+		turnStop:  turnStopRuntime,
 		workspace: workspacePath,
 	}
 
