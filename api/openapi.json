@@ -14027,17 +14027,21 @@
                     "type": "string"
                   },
                   "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
                     "nullable": true,
                     "properties": {
                       "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
                         "nullable": true,
                         "type": "boolean"
                       },
                       "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
                         "nullable": true,
                         "type": "integer"
                       },
                       "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
                         "nullable": true,
                         "type": "integer"
                       }
@@ -16868,17 +16872,21 @@
                     "type": "string"
                   },
                   "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
                     "nullable": true,
                     "properties": {
                       "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
                         "nullable": true,
                         "type": "boolean"
                       },
                       "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
                         "nullable": true,
                         "type": "integer"
                       },
                       "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
                         "nullable": true,
                         "type": "integer"
                       }
