@@ -390,8 +390,8 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	if payload["description"] != "updated" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -425,8 +425,8 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	if payload["status_name"] != "Done" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -468,8 +468,8 @@ func TestTicketUpdateCommandSupportsExpandedPatchSurface(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	for key, want := range map[string]any{
 		"priority":         "high",
@@ -711,7 +711,7 @@ func TestTicketUpdateCommandUsesCurrentTicketRouteWithoutProjectScope(t *testing
 	}
 }
 
-func TestTicketUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(t *testing.T) {
+func TestTicketUpdateCommandUsesCanonicalRouteWhenTicketsUpdateScopePresent(t *testing.T) {
 	var method string
 	var path string
 	var payload map[string]any
@@ -742,8 +742,8 @@ func TestTicketUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(
 	if method != http.MethodPatch {
 		t.Fatalf("expected PATCH, got %s", method)
 	}
-	if path != "/projects/project-123/tickets/ticket-456" {
-		t.Fatalf("expected project-scoped update path, got %q", path)
+	if path != "/tickets/ticket-456" {
+		t.Fatalf("expected canonical update path, got %q", path)
 	}
 	if payload["status_name"] != "Done" {
 		t.Fatalf("unexpected ticket update payload: %+v", payload)
@@ -781,6 +781,7 @@ func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 		"--description", "Coverage raised",
 		"--status", "In Progress",
 		"--default-agent-provider-id", "provider-123",
+		"--project-ai-platform-access-allowed", "tickets.list,tickets.update",
 		"--accessible-machine-ids", "machine-a,machine-b",
 		"--max-concurrent-agents", "4",
 		"--agent-run-summary-prompt", "Summarize blockers first.",
@@ -804,6 +805,10 @@ func TestProjectUpdateCommandSupportsFullPatchSurface(t *testing.T) {
 		payload["max_concurrent_agents"] != float64(4) ||
 		payload["agent_run_summary_prompt"] != "Summarize blockers first." {
 		t.Fatalf("unexpected project update payload: %+v", payload)
+	}
+	projectAIScopes, ok := payload["project_ai_platform_access_allowed"].([]any)
+	if !ok || len(projectAIScopes) != 2 || projectAIScopes[0] != "tickets.list" || projectAIScopes[1] != "tickets.update" {
+		t.Fatalf("unexpected project_ai_platform_access_allowed payload: %+v", payload["project_ai_platform_access_allowed"])
 	}
 	accessibleMachineIDs, ok := payload["accessible_machine_ids"].([]any)
 	if !ok || len(accessibleMachineIDs) != 2 || accessibleMachineIDs[0] != "machine-a" || accessibleMachineIDs[1] != "machine-b" {

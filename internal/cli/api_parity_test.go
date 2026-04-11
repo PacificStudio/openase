@@ -13,11 +13,9 @@ import (
 
 var intentionalCLIOpenAPIGaps = map[string]string{
 	contractKey("POST", "/api/v1/agents/{agentId}/retire"):                                                         "agent retirement has no first-class CLI yet",
-	contractKey("POST", "/api/v1/auth/logout"):                                                                     "browser session flow is intentionally not exposed as a dedicated CLI command",
 	contractKey("GET", "/api/v1/auth/me/permissions"):                                                              "effective permission inspection has no first-class CLI yet",
 	contractKey("GET", "/api/v1/auth/oidc/callback"):                                                               "OIDC browser callback is intentionally not exposed as a CLI command",
 	contractKey("GET", "/api/v1/auth/oidc/start"):                                                                  "OIDC browser start flow is intentionally not exposed as a CLI command",
-	contractKey("GET", "/api/v1/auth/session"):                                                                     "browser session inspection has no first-class CLI yet",
 	contractKey("GET", "/api/v1/admin/auth"):                                                                       "instance auth console inspection has no first-class CLI yet",
 	contractKey("PUT", "/api/v1/admin/auth/oidc-draft"):                                                            "instance OIDC draft persistence has no first-class CLI yet",
 	contractKey("POST", "/api/v1/admin/auth/oidc-draft/test"):                                                      "instance OIDC connectivity testing has no first-class CLI yet",

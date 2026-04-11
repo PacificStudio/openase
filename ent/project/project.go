@@ -29,6 +29,8 @@ const (
 	FieldGithubTokenProbe = "github_token_probe"
 	// FieldDefaultAgentProviderID holds the string denoting the default_agent_provider_id field in the database.
 	FieldDefaultAgentProviderID = "default_agent_provider_id"
+	// FieldProjectAiPlatformAccessAllowed holds the string denoting the project_ai_platform_access_allowed field in the database.
+	FieldProjectAiPlatformAccessAllowed = "project_ai_platform_access_allowed"
 	// FieldAccessibleMachineIds holds the string denoting the accessible_machine_ids field in the database.
 	FieldAccessibleMachineIds = "accessible_machine_ids"
 	// FieldMaxConcurrentAgents holds the string denoting the max_concurrent_agents field in the database.
@@ -209,6 +211,7 @@ var Columns = []string{
 	FieldGithubOutboundCredential,
 	FieldGithubTokenProbe,
 	FieldDefaultAgentProviderID,
+	FieldProjectAiPlatformAccessAllowed,
 	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
 	FieldAgentRunSummaryPrompt,
@@ -234,6 +237,8 @@ var (
 	SlugValidator func(string) error
 	// DefaultStatus holds the default value on creation for the "status" field.
 	DefaultStatus string
+	// DefaultProjectAiPlatformAccessAllowed holds the default value on creation for the "project_ai_platform_access_allowed" field.
+	DefaultProjectAiPlatformAccessAllowed func() []string
 	// DefaultAccessibleMachineIds holds the default value on creation for the "accessible_machine_ids" field.
 	DefaultAccessibleMachineIds func() []uuid.UUID
 	// DefaultMaxConcurrentAgents holds the default value on creation for the "max_concurrent_agents" field.

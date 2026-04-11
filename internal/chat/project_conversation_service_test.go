@@ -387,11 +387,12 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 		ProviderID: providerID,
 	}
 	project := catalogdomain.Project{
-		ID:             projectID,
-		OrganizationID: uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
-		Name:           "OpenASE",
-		Slug:           "openase",
-		Description:    "Issue-driven automation",
+		ID:                             projectID,
+		OrganizationID:                 uuid.MustParse("990e8400-e29b-41d4-a716-446655440000"),
+		Name:                           "OpenASE",
+		Slug:                           "openase",
+		Description:                    "Issue-driven automation",
+		ProjectAIPlatformAccessAllowed: []string{"projects.update", "tickets.list"},
 	}
 	providerItem := catalogdomain.AgentProvider{
 		ID:             providerID,
@@ -440,7 +441,7 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
 		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
 	}
-	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix()) {
+	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix(project)) {
 		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
 	}
 	if platform.lastInput.PrincipalKind != agentplatform.PrincipalKindProjectConversation {
@@ -451,6 +452,9 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	}
 	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
 		t.Fatalf("project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+	if !slices.Equal(platform.lastInput.Scopes, project.ProjectAIPlatformAccessAllowed) {
+		t.Fatalf("project conversation token scopes = %v, want %v", platform.lastInput.Scopes, project.ProjectAIPlatformAccessAllowed)
 	}
 	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-ticket-conversation" {
 		t.Fatalf("expected ticket-bound OPENAI_API_KEY in environment, got %+v", environment)
@@ -475,6 +479,9 @@ func TestProjectConversationRuntimeEnvironmentInjectsTicketIDForTicketFocus(t *t
 	}
 	if platform.lastInput.AgentID != uuid.Nil || platform.lastInput.TicketID != uuid.Nil {
 		t.Fatalf("non-ticket project conversation token should not carry agent/ticket ids: %+v", platform.lastInput)
+	}
+	if !slices.Equal(platform.lastInput.Scopes, project.ProjectAIPlatformAccessAllowed) {
+		t.Fatalf("non-ticket project conversation token scopes = %v, want %v", platform.lastInput.Scopes, project.ProjectAIPlatformAccessAllowed)
 	}
 	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-project-conversation" {
 		t.Fatalf("expected project-bound OPENAI_API_KEY without ticket focus, got %+v", environment)
@@ -4547,7 +4554,7 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	if !containsEnvironmentPrefix(environment, "OPENASE_PRINCIPAL_KIND=project_conversation") {
 		t.Fatalf("expected OPENASE_PRINCIPAL_KIND in environment, got %+v", environment)
 	}
-	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix()) {
+	if !containsEnvironmentPrefix(environment, expectedProjectConversationScopesEnvPrefix(catalog.project)) {
 		t.Fatalf("expected OPENASE_AGENT_SCOPES in environment, got %+v", environment)
 	}
 	if value, ok := provider.LookupEnvironmentValue(environment, "OPENAI_API_KEY"); !ok || value != "sk-start-turn" {
@@ -4564,12 +4571,8 @@ func TestProjectConversationStartTurnPreparesWorkspaceSkillsAndPlatformEnvironme
 	}
 }
 
-func expectedProjectConversationScopesEnvPrefix() string {
-	scopes := append(
-		agentplatform.DefaultScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation),
-		agentplatform.PrivilegedScopesForPrincipalKind(agentplatform.PrincipalKindProjectConversation)...,
-	)
-	scopes = slices.Compact(scopes)
+func expectedProjectConversationScopesEnvPrefix(project catalogdomain.Project) string {
+	scopes := projectConversationPlatformAccessAllowed(project)
 	slices.Sort(scopes)
 	return "OPENASE_AGENT_SCOPES=" + strings.Join(scopes, ",")
 }

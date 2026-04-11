@@ -104,6 +104,15 @@ func DefaultAgentScopes() []string {
 	}
 }
 
+func DefaultScopesForPrincipalKind(kind PrincipalKind) []string {
+	switch kind {
+	case PrincipalKindProjectConversation:
+		return SupportedScopesForPrincipalKind(kind)
+	default:
+		return DefaultAgentScopes()
+	}
+}
+
 func SupportedAgentScopes() []string {
 	return []string{
 		string(ScopeAgentsInterrupt),
@@ -153,6 +162,23 @@ func SupportedAgentScopes() []string {
 		string(ScopeWorkflowsList),
 		string(ScopeWorkflowsRead),
 		string(ScopeWorkflowsUpdate),
+	}
+}
+
+func SupportedScopesForPrincipalKind(kind PrincipalKind) []string {
+	switch kind {
+	case PrincipalKindProjectConversation:
+		supported := SupportedAgentScopes()
+		scopes := make([]string, 0, len(supported))
+		for _, scope := range supported {
+			if scope == string(ScopeTicketsUpdateSelf) {
+				continue
+			}
+			scopes = append(scopes, scope)
+		}
+		return scopes
+	default:
+		return SupportedAgentScopes()
 	}
 }
 
