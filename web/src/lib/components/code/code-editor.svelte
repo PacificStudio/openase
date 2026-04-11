@@ -25,6 +25,7 @@
   import { tags as t } from '@lezer/highlight'
   import { appStore } from '$lib/stores/app.svelte'
   import { detectLanguage } from './lang'
+  import type { EditorWrapMode } from './wrap-mode'
 
   type EditorTheme = 'light' | 'dark'
 
@@ -48,6 +49,7 @@
     filePath = '',
     language = '',
     readonly = false,
+    wrapMode = 'wrap',
     placeholder = '',
     class: className = '',
     diffMarkers = null,
@@ -61,6 +63,8 @@
     language?: string
     /** Read-only mode */
     readonly?: boolean
+    /** Visual line wrapping mode */
+    wrapMode?: EditorWrapMode
     /** Placeholder text when empty */
     placeholder?: string
     class?: string
@@ -195,6 +199,7 @@
   ])
 
   const themeCompartment = new Compartment()
+  const wrapCompartment = new Compartment()
 
   function buildThemeExtensions(mode: EditorTheme): Extension[] {
     return [
@@ -203,6 +208,10 @@
         fallback: true,
       }),
     ]
+  }
+
+  function buildWrapModeExtension(mode: EditorWrapMode): Extension {
+    return mode === 'wrap' ? EditorView.lineWrapping : []
   }
 
   // ──────────────────────────── diff gutter ────────────────────────────
@@ -364,8 +373,8 @@
       highlightActiveLine(),
       highlightSelectionMatches(),
       themeCompartment.of(buildThemeExtensions(appStore.theme)),
+      wrapCompartment.of(buildWrapModeExtension(wrapMode)),
       keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
-      EditorView.lineWrapping,
     ]
 
     if (placeholder) {
@@ -401,6 +410,7 @@
       parent: container,
     })
     lastTheme = currentTheme
+    lastWrapMode = wrapMode
     // Seed the diff gutter with whatever the parent passed at mount time. We
     // dispatch instead of using StateField.init() so the same code path runs
     // for both initial creation and later prop changes.
@@ -409,6 +419,7 @@
   }
 
   let lastTheme: EditorTheme | '' = ''
+  let lastWrapMode: EditorWrapMode = 'wrap'
   let lastDiffMarkers: CodeEditorDiffMarkers | null = null
 
   onMount(() => {
@@ -439,6 +450,15 @@
     lastTheme = nextTheme
     view.dispatch({
       effects: themeCompartment.reconfigure(buildThemeExtensions(nextTheme)),
+    })
+  })
+
+  $effect(() => {
+    const nextWrapMode = wrapMode
+    if (!view || nextWrapMode === lastWrapMode) return
+    lastWrapMode = nextWrapMode
+    view.dispatch({
+      effects: wrapCompartment.reconfigure(buildWrapModeExtension(nextWrapMode)),
     })
   })
 

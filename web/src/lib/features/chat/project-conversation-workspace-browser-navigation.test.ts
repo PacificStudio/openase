@@ -247,6 +247,8 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       'overflow-hidden',
     )
     expect(view.container.querySelector('.code-editor')).not.toBeNull()
+    expect(view.container.querySelector('.cm-scroller')).not.toBeNull()
+    expect(view.container.querySelector('.cm-lineWrapping')).not.toBeNull()
   })
 
   it('renders git changes and opens a changed file from the status list', async () => {

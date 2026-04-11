@@ -27,6 +27,7 @@ type ProjectConversationWorkspaceDiff struct {
 	Added          int
 	Removed        int
 	Repos          []ProjectConversationWorkspaceRepoDiff
+	SyncPrompt     *ProjectConversationWorkspaceSyncPrompt
 }
 
 type ProjectConversationWorkspaceRepoDiff struct {
@@ -63,6 +64,8 @@ type projectConversationWorkspaceLocation struct {
 	machine       catalogdomain.Machine
 	workspacePath string
 	repos         []projectConversationWorkspaceRepoLocation
+	syncPrompt    *ProjectConversationWorkspaceSyncPrompt
+	missingRepos  map[string]ProjectConversationWorkspaceMissingRepo
 }
 
 type projectConversationWorkspaceRepoLocation struct {
@@ -102,7 +105,7 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 		return ProjectConversationWorkspaceDiff{}, fmt.Errorf("get provider for workspace diff: %w", err)
 	}
 
-	location, err := s.resolveConversationWorkspaceLocation(ctx, project, providerItem, conversationID)
+	location, err := s.resolveConversationWorkspaceLocation(ctx, conversation, project, providerItem)
 	if err != nil {
 		if errors.Is(err, errProjectConversationWorkspaceLocationUnavailable) &&
 			projectConversationWorkspaceMayNotExistYet(conversation) {
@@ -115,6 +118,7 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 		ConversationID: conversationID,
 		WorkspacePath:  location.workspacePath,
 		Repos:          make([]ProjectConversationWorkspaceRepoDiff, 0, len(location.repos)),
+		SyncPrompt:     location.syncPrompt,
 	}
 
 	for _, repo := range location.repos {
@@ -141,16 +145,16 @@ func (s *ProjectConversationService) GetWorkspaceDiff(
 
 func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 	ctx context.Context,
+	conversation chatdomain.Conversation,
 	project catalogdomain.Project,
 	providerItem catalogdomain.AgentProvider,
-	conversationID uuid.UUID,
 ) (projectConversationWorkspaceLocation, error) {
 	machine, err := s.catalog.GetMachine(ctx, providerItem.MachineID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("get chat provider machine for workspace diff: %w", err)
 	}
 
-	workspacePath, err := s.resolveConversationWorkspacePath(machine, project, conversationID)
+	workspacePath, err := s.resolveConversationWorkspacePath(machine, project, conversation.ID)
 	if err != nil {
 		return projectConversationWorkspaceLocation{}, err
 	}
@@ -160,24 +164,24 @@ func (s *ProjectConversationService) resolveConversationWorkspaceLocation(
 		return projectConversationWorkspaceLocation{}, fmt.Errorf("list project repos for workspace diff: %w", err)
 	}
 
-	repos := make([]projectConversationWorkspaceRepoLocation, 0, len(projectRepos))
-	for _, repo := range projectRepos {
-		repoPath := workspaceinfra.RepoPath(workspacePath, repo.WorkspaceDirname, repo.Name)
-		relativePath, err := filepath.Rel(workspacePath, repoPath)
-		if err != nil {
-			return projectConversationWorkspaceLocation{}, fmt.Errorf("derive relative repo path for %s: %w", repo.Name, err)
-		}
-		repos = append(repos, projectConversationWorkspaceRepoLocation{
-			name:         repo.Name,
-			repoPath:     repoPath,
-			relativePath: filepath.ToSlash(relativePath),
-		})
+	repos, syncPrompt, missingRepos, err := s.buildConversationWorkspaceRepoLocations(
+		ctx,
+		conversation,
+		project,
+		machine,
+		workspacePath,
+		projectRepos,
+	)
+	if err != nil {
+		return projectConversationWorkspaceLocation{}, err
 	}
 
 	return projectConversationWorkspaceLocation{
 		machine:       machine,
 		workspacePath: workspacePath,
 		repos:         repos,
+		syncPrompt:    syncPrompt,
+		missingRepos:  missingRepos,
 	}, nil
 }
 

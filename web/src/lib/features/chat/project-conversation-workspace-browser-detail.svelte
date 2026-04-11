@@ -1,14 +1,20 @@
 <script lang="ts">
-  import { cn } from '$lib/utils'
+  /* eslint-disable max-lines */
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
+  import { cn } from '$lib/utils'
   import { CodeEditor } from '$lib/components/code'
-  import { FileCode2, X } from '@lucide/svelte'
+  import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
+  import { FileCode2, WrapText, X } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
   import {
     workspaceTabKey,
     type ProjectConversationWorkspaceBrowserState,
   } from './project-conversation-workspace-browser-state.svelte'
+  import {
+    workspaceFileStateClass,
+    workspaceFileStateLabel,
+  } from './project-conversation-workspace-browser-detail-state'
   import { workspaceFileReadOnlyMessage } from './project-conversation-workspace-file-drafts'
 
   let {
@@ -21,14 +27,9 @@
     runtimeActive?: boolean
   } = $props()
 
-  // ─── close-confirm dialog state ─────────────────────────────────────
-  // When the user closes a dirty tab we stash it here and pop the dialog;
-  // pickling these on the parent's state would couple too much, so they live
-  // locally and the dialog drives all three outcomes (Save / Don't Save /
-  // Cancel) through this single in-flight handle.
-
   let pendingClose = $state<{ repoPath: string; filePath: string } | null>(null)
   let saving = $state(false)
+  let wrapMode = $state(readEditorWrapMode())
   const dialogOpen = $derived(pendingClose !== null)
 
   function isTabDirty(repoPath: string, filePath: string): boolean {
@@ -54,16 +55,12 @@
     const target = pendingClose
     saving = true
     try {
-      // Activate so the editor store thinks of this file as "selected" and
-      // also so any conflict UI surfaces on the tab the user is closing.
       browser.activateTab(target.repoPath, target.filePath)
       const ok = await browser.saveFile(target.repoPath, target.filePath)
       if (ok) {
         browser.closeTab(target.repoPath, target.filePath)
         pendingClose = null
       }
-      // On failure, leave the dialog open and the conflict banner will guide
-      // the user. They can hit Cancel to back out.
     } finally {
       saving = false
     }
@@ -77,13 +74,15 @@
     pendingClose = null
   }
 
-  function pendingCloseFilename(): string {
-    return pendingClose?.filePath.split('/').pop() ?? ''
+  const pendingCloseFilename = () => pendingClose?.filePath.split('/').pop() ?? ''
+
+  function toggleWrapMode() {
+    wrapMode = wrapMode === 'wrap' ? 'nowrap' : 'wrap'
+    storeEditorWrapMode(wrapMode)
   }
 
-  // ─── active tab projections ────────────────────────────────────────────────
   const activeFilePath = $derived(
-    browser.openTabs.find((t) => workspaceTabKey(t) === browser.activeTabKey)?.filePath ?? '',
+    browser.openTabs.find((tab) => workspaceTabKey(tab) === browser.activeTabKey)?.filePath ?? '',
   )
   const activeFileName = $derived(activeFilePath.split('/').pop() ?? '')
   const activeFileDirPath = $derived.by(() => {
@@ -96,12 +95,12 @@
   const activeFileError = $derived(browser.fileError)
   const activeEditorState = $derived(browser.selectedEditorState)
   const activeDiffMarkers = $derived(browser.selectedDraftLineDiff)
-
   const readOnlyMessage = $derived(
     activePreview?.writable === false
       ? workspaceFileReadOnlyMessage(activePreview.readOnlyReason)
       : '',
   )
+  const showWrapToggle = $derived(activePreview?.previewKind === 'text' && !!activeEditorState)
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -121,7 +120,6 @@
       </div>
     </div>
   {:else}
-    <!-- Tab bar -->
     <div
       class="border-border bg-muted/20 flex min-h-9 shrink-0 items-stretch overflow-x-auto border-b"
       data-testid="workspace-browser-detail-tab-bar"
@@ -180,7 +178,6 @@
         <p class="text-destructive text-sm">{activeFileError}</p>
       </div>
     {:else if browser.activeTabKey}
-      <!-- Header strip with file path + size -->
       <div class="border-border bg-muted/30 flex flex-wrap items-center gap-2 border-b px-3 py-1.5">
         <FileCode2 class="text-muted-foreground size-3 shrink-0" />
         <span class="min-w-0 truncate text-[12px] font-medium">{activeFileName}</span>
@@ -203,7 +200,49 @@
             {activePatch.status}
           </span>
         {/if}
+        {#if activeEditorState}
+          <span
+            class={cn(
+              'rounded px-2 py-0.5 text-[10px] font-medium',
+              workspaceFileStateClass(activeEditorState),
+            )}
+          >
+            {workspaceFileStateLabel(activeEditorState)}
+          </span>
+        {/if}
         <div class="ml-auto flex items-center gap-2">
+          {#if showWrapToggle}
+            <Button
+              variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
+              size="icon-xs"
+              aria-label={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+              aria-pressed={wrapMode === 'wrap'}
+              title={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+              data-testid="workspace-browser-wrap-toggle"
+              onclick={toggleWrapMode}
+            >
+              <WrapText />
+            </Button>
+          {/if}
+          {#if activeEditorState}
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!activeEditorState.dirty || activeEditorState.savePhase === 'saving'}
+              onclick={() => browser.revertSelectedDraft()}
+            >
+              Revert
+            </Button>
+            <Button
+              size="sm"
+              disabled={!activeEditorState.dirty ||
+                activeEditorState.savePhase === 'saving' ||
+                activePreview?.writable !== true}
+              onclick={() => void browser.saveSelectedFile()}
+            >
+              {activeEditorState.savePhase === 'saving' ? 'Saving...' : 'Save'}
+            </Button>
+          {/if}
           {#if activePreview}
             <span class="text-muted-foreground/50 text-[10px]">
               {activePreview.mediaType} · {activePreview.sizeBytes} B
@@ -263,6 +302,7 @@
               value={activeEditorState.draftContent}
               filePath={activeFilePath}
               readonly={!activePreview.writable}
+              {wrapMode}
               diffMarkers={activeDiffMarkers}
               class="h-full"
               onchange={(value) => browser.updateSelectedDraft(value)}

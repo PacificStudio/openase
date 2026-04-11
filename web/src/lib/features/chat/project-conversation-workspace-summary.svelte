@@ -1,10 +1,15 @@
 <script lang="ts">
+  import {
+    syncProjectConversationWorkspace,
+    type ProjectConversationWorkspaceSyncPrompt,
+  } from '$lib/api/chat'
   import { cn } from '$lib/utils'
   import { ChevronRight, GitBranch } from '@lucide/svelte'
   import type {
     ProjectConversationWorkspaceDiff,
     ProjectConversationWorkspaceFileStatus,
   } from '$lib/api/chat'
+  import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
 
   let {
     conversationId = '',
@@ -25,6 +30,8 @@
   } = $props()
 
   let expanded = $state(false)
+  let syncInFlight = $state(false)
+  let syncError = $state('')
 
   function formatTotals(added: number, removed: number) {
     return `+${added} -${removed}`
@@ -64,8 +71,46 @@
     }
   }
 
+  function syncPromptSummary(prompt: ProjectConversationWorkspaceSyncPrompt | undefined) {
+    if (!prompt) {
+      return ''
+    }
+    const repoCount = prompt.missingRepos.length
+    const label = repoCount === 1 ? 'repo needs sync' : 'repos need sync'
+    return `${repoCount} ${label}`
+  }
+
+  function syncPromptDescription(prompt: ProjectConversationWorkspaceSyncPrompt | undefined) {
+    if (!prompt) {
+      return ''
+    }
+    if (prompt.reason === 'repo_binding_changed') {
+      return 'Project repo bindings changed after this conversation workspace was prepared. Sync repos to clone the missing checkout(s) before browsing or diffing.'
+    }
+    return 'Some project repos are missing from the current conversation workspace. Sync repos to clone them before browsing or diffing.'
+  }
+
+  async function handleSyncWorkspace() {
+    if (!conversationId || syncInFlight) {
+      return
+    }
+    syncInFlight = true
+    syncError = ''
+    try {
+      await syncProjectConversationWorkspace(conversationId)
+      workspaceBrowserPortal.markWorkspaceSynced()
+      await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
+    } catch (error) {
+      syncError =
+        error instanceof Error ? error.message : 'Failed to sync the Project AI workspace.'
+    } finally {
+      syncInFlight = false
+    }
+  }
+
   const hasContent = $derived(!!conversationId && !loading && !error && !!workspaceDiff)
   const isDirty = $derived(workspaceDiff?.dirty ?? false)
+  const syncPrompt = $derived(workspaceDiff?.syncPrompt)
 </script>
 
 {#if !conversationId && !loading && !error}
@@ -96,6 +141,10 @@
           <span class="text-muted-foreground/60">Loading...</span>
         {:else if error}
           <span class="text-destructive truncate">{error}</span>
+        {:else if syncPrompt}
+          <span class="truncate font-medium text-amber-700 dark:text-amber-300">
+            {syncPromptSummary(syncPrompt)}
+          </span>
         {:else if workspaceDiff}
           {#if isDirty}
             <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
@@ -122,10 +171,38 @@
           {browserOpen ? 'Hide browser' : 'Browse'}
         </button>
       {/if}
+
+      {#if conversationId && syncPrompt}
+        <button
+          type="button"
+          class="rounded px-1.5 py-0.5 text-[11px] font-medium text-amber-700 transition-colors hover:bg-amber-500/10 hover:text-amber-800 dark:text-amber-300 dark:hover:bg-amber-500/10"
+          onclick={(event) => {
+            event.stopPropagation()
+            void handleSyncWorkspace()
+          }}
+          disabled={syncInFlight}
+        >
+          {syncInFlight ? 'Syncing...' : 'Sync repos'}
+        </button>
+      {/if}
     </div>
 
     {#if expanded && workspaceDiff}
       <div class="border-border border-t text-[11px]">
+        {#if syncPrompt}
+          <div class="px-3 py-2">
+            <p class="text-foreground text-[11px] font-medium">Workspace sync required</p>
+            <p class="text-muted-foreground mt-1 text-[11px]">
+              {syncPromptDescription(syncPrompt)}
+            </p>
+            <p class="text-muted-foreground mt-2 text-[11px]">
+              Missing repos: {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
+            </p>
+            {#if syncError}
+              <p class="text-destructive mt-2 text-[11px]">{syncError}</p>
+            {/if}
+          </div>
+        {/if}
         {#if workspaceDiff.repos.length === 0}
           <p class="text-muted-foreground px-3 py-1.5">No repo changes detected.</p>
         {:else}

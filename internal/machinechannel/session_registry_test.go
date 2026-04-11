@@ -95,3 +95,42 @@ func TestSessionRegistryCloseAllClosesRegisteredSessions(t *testing.T) {
 		t.Fatalf("expected second CloseAll call to be empty, got %+v", extra)
 	}
 }
+
+func TestSessionRegistryRemoveStaleSessionKeepsReplacementRegistered(t *testing.T) {
+	now := time.Date(2026, time.April, 4, 16, 0, 0, 0, time.UTC)
+	registry := NewSessionRegistry(30 * time.Second)
+	machineID := uuid.New()
+
+	firstCloser := &stubSessionCloser{}
+	registry.Register(machineID, "session-1", now, firstCloser)
+
+	secondCloser := &stubSessionCloser{}
+	current, replaced := registry.Register(machineID, "session-2", now.Add(5*time.Second), secondCloser)
+	if replaced == nil || replaced.SessionID != "session-1" {
+		t.Fatalf("expected session-2 registration to replace session-1, got %+v", replaced)
+	}
+	if current.SessionID != "session-2" {
+		t.Fatalf("expected session-2 to become current registration, got %+v", current)
+	}
+
+	if removed, ok := registry.Remove("session-1"); ok {
+		t.Fatalf("expected removing stale session-1 to be ignored, got %+v", removed)
+	}
+
+	heartbeatAt := now.Add(10 * time.Second)
+	snapshot, ok := registry.Heartbeat("session-2", heartbeatAt)
+	if !ok {
+		t.Fatal("expected session-2 heartbeat to succeed after removing stale session-1")
+	}
+	if snapshot.SessionID != "session-2" || !snapshot.LastHeartbeatAt.Equal(heartbeatAt.UTC()) {
+		t.Fatalf("expected session-2 heartbeat snapshot at %s, got %+v", heartbeatAt.UTC(), snapshot)
+	}
+
+	currentSnapshot, ok := registry.Snapshot(machineID)
+	if !ok || currentSnapshot.SessionID != "session-2" {
+		t.Fatalf("expected machine snapshot to keep session-2, got %+v ok=%t", currentSnapshot, ok)
+	}
+	if len(secondCloser.reasons) != 0 {
+		t.Fatalf("expected current session closer to stay untouched, got %+v", secondCloser.reasons)
+	}
+}
