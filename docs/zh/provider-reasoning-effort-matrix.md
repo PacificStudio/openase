@@ -153,6 +153,7 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
   - `claude --debug-file ...` 显示 OAuth refresh 请求对 `https://platform.claude.com/v1/oauth/token` 返回 `400`
   - `claude setup-token` / `claude auth login` 当前都需要交互式浏览器完成重新授权
   - 直接回退到本机仍保留的旧版 CLI（`2.1.97` / `2.1.96` / `2.1.94`）重试，同样返回 `401`，说明 blocker 不是单一版本回归
+  - 进一步复用 Firefox 已登录的 `claude.ai` / `claude.com` cookies 做浏览器自动化探测时，`claude auth login` 的 authorize URL 仍会卡在 Cloudflare `Performing security verification`，而 `claude setup-token` 路径会落到 `platform.claude.com` 登录页，说明当前环境也没有可稳定复用的非交互浏览器会话
 
 这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证；要完成最终验收，仍需要刷新 Claude 登录态或提供可用的 `ANTHROPIC_API_KEY`。
 
