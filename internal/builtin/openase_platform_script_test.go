@@ -145,7 +145,7 @@ func TestOpenASEPlatformWorkpadScriptFailsWithoutTicketContext(t *testing.T) {
 	// #nosec G204 -- test executes a repo-local script under a controlled temp workspace.
 	command := exec.Command("bash", scriptPath, "--body", "Progress")
 	command.Dir = workspace.root
-	command.Env = append(os.Environ(),
+	command.Env = append(builtinEnvWithout("OPENASE_TICKET_ID"),
 		"FAKE_OPENASE_LOG="+workspace.logPath,
 		"FAKE_OPENASE_LIST_FILE="+workspace.listPath,
 		"FAKE_OPENASE_CREATED_BODY_FILE="+workspace.createdBodyPath,
@@ -269,4 +269,26 @@ func builtinTestLogLines(t *testing.T, path string) []string {
 		return nil
 	}
 	return strings.Split(content, "\n")
+}
+
+func builtinEnvWithout(keys ...string) []string {
+	blocked := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		blocked[key] = struct{}{}
+	}
+
+	env := os.Environ()
+	filtered := make([]string, 0, len(env))
+	for _, entry := range env {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			filtered = append(filtered, entry)
+			continue
+		}
+		if _, skip := blocked[key]; skip {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	return filtered
 }

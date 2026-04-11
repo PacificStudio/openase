@@ -35,6 +35,52 @@ func TestEnvironmentProvisionerSkillsExist(t *testing.T) {
 	}
 }
 
+func TestAutoHarnessBuiltinSkillIncludesBundleFilesAndSourceMetadata(t *testing.T) {
+	skill, ok := SkillByName("auto-harness")
+	if !ok {
+		t.Fatal("expected auto-harness skill to exist")
+	}
+	if skill.Title != "Auto Harness" {
+		t.Fatalf("auto-harness title = %q, want %q", skill.Title, "Auto Harness")
+	}
+	for _, snippet := range []string{
+		"references/checklist.md",
+		"references/guide.md",
+		"references/guard-patterns.md",
+		"references/fix-plan.md",
+		"references/upstream.md",
+	} {
+		if !strings.Contains(skill.Content, snippet) {
+			t.Fatalf("expected auto-harness skill to contain %q, got:\n%s", snippet, skill.Content)
+		}
+	}
+
+	expectedFiles := map[string]string{
+		"agents/openai.yaml":           "AutoHarness Skill",
+		"references/checklist.md":      "# AutoHarness Checklist",
+		"references/fix-plan.md":       "# AutoHarness Fix Plan",
+		"references/guard-patterns.md": "# Guard Patterns",
+		"references/guide.md":          "# AutoHarness Guide",
+		"references/upstream.md":       "https://github.com/PacificStudio/auto-harness-skill",
+	}
+	for path, snippet := range expectedFiles {
+		found := false
+		for _, file := range skill.Files {
+			if file.Path != path {
+				continue
+			}
+			found = true
+			if !strings.Contains(string(file.Content), snippet) {
+				t.Fatalf("expected %s to contain %q, got:\n%s", path, snippet, string(file.Content))
+			}
+			break
+		}
+		if !found {
+			t.Fatalf("expected auto-harness bundle to include %s", path)
+		}
+	}
+}
+
 func TestSkillHelpers(t *testing.T) {
 	skills := Skills()
 	if len(skills) == 0 {
