@@ -637,6 +637,39 @@ func newTypedTicketRunCommand() *cobra.Command {
 		},
 		Example: "openase ticket run get $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
 	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "activities [projectId] [ticketId] [runId]",
+		Short:            "List ticket run activities.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"This returns the low-noise activity state projection for one run, including in-progress status and provider-resolved activity identities.",
+		},
+		Example: "openase ticket run activities $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "raw-events [projectId] [ticketId] [runId]",
+		Short:            "List ticket run raw events.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"Use this when you need provider-native facts for audit, replay, or protocol debugging without the activity/transcript projection layer.",
+		},
+		Example: "openase ticket run raw-events $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}))
+	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "transcript [projectId] [ticketId] [runId]",
+		Short:            "List ticket run transcript entries.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"This returns the user-facing transcript projection for one run, keeping high-frequency telemetry separate from the main product transcript.",
+		},
+		Example: "openase ticket run transcript $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}))
 	return command
 }
 
@@ -2289,6 +2322,9 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "delete [ticketId] [externalLinkId]", Short: "Delete a ticket external link.", Method: http.MethodDelete, Path: "/api/v1/tickets/{ticketId}/external-links/{externalLinkId}", PositionalParams: []string{"ticketId", "externalLinkId"}},
 		{Use: "list [projectId] [ticketId]", Short: "List ticket runs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs", PositionalParams: []string{"projectId", "ticketId"}},
 		{Use: "get [projectId] [ticketId] [runId]", Short: "Get a ticket run.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", PositionalParams: []string{"projectId", "ticketId", "runId"}},
+		{Use: "activities [projectId] [ticketId] [runId]", Short: "List ticket run activities.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities", PositionalParams: []string{"projectId", "ticketId", "runId"}},
+		{Use: "raw-events [projectId] [ticketId] [runId]", Short: "List ticket run raw events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events", PositionalParams: []string{"projectId", "ticketId", "runId"}},
+		{Use: "transcript [projectId] [ticketId] [runId]", Short: "List ticket run transcript entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript", PositionalParams: []string{"projectId", "ticketId", "runId"}},
 		{Use: "list [projectId]", Short: "List ticket statuses.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/statuses", PositionalParams: []string{"projectId"}},
 		{Use: "list [projectId]", Short: "List project activity events.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/activity", PositionalParams: []string{"projectId"}},
 		{Use: "session", Short: "Get the current browser human-auth session.", Method: http.MethodGet, Path: "/api/v1/auth/session"},
