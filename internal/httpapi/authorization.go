@@ -329,6 +329,8 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 		"/api/v1/chat/conversations/:conversationId/workspace/file",
 		"/api/v1/chat/conversations/:conversationId/workspace/file-patch",
 		"/api/v1/chat/conversations/:conversationId/workspace-diff",
+		"/api/v1/chat/conversations/:conversationId/terminal-sessions",
+		"/api/v1/chat/conversations/:conversationId/terminal-sessions/:terminalSessionId/attach",
 		"/api/v1/chat/conversations/:conversationId/turns",
 		"/api/v1/chat/conversations/:conversationId/interrupt-turn",
 		"/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond",
@@ -760,6 +762,9 @@ func ticketPermissionForPath(path, method string) humanauthdomain.PermissionKey 
 }
 
 func chatPermissionForPath(path, method string) humanauthdomain.PermissionKey {
+	if strings.Contains(path, "/terminal-sessions") {
+		return humanauthdomain.PermissionConversationUpdate
+	}
 	switch method {
 	case http.MethodGet:
 		return humanauthdomain.PermissionConversationRead

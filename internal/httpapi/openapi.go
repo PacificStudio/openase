@@ -588,6 +588,28 @@ type OpenAPIProjectConversationWorkspaceFilePatchResponse struct {
 	FilePatch OpenAPIProjectConversationWorkspaceFilePatch `json:"file_patch"`
 }
 
+type OpenAPIProjectConversationTerminalSessionRequest struct {
+	Mode     string  `json:"mode"`
+	RepoPath *string `json:"repo_path,omitempty"`
+	CWDPath  *string `json:"cwd_path,omitempty"`
+	Cols     *int    `json:"cols,omitempty"`
+	Rows     *int    `json:"rows,omitempty"`
+}
+
+type OpenAPIProjectConversationTerminalSession struct {
+	ID             string  `json:"id"`
+	Mode           string  `json:"mode"`
+	CWD            string  `json:"cwd"`
+	WSPath         string  `json:"ws_path"`
+	AttachToken    string  `json:"attach_token"`
+	CreatedAt      string  `json:"created_at"`
+	LastAttachedAt *string `json:"last_attached_at,omitempty"`
+}
+
+type OpenAPIProjectConversationTerminalSessionResponse struct {
+	TerminalSession OpenAPIProjectConversationTerminalSession `json:"terminal_session"`
+}
+
 type OpenAPIProjectConversationTurn struct {
 	ID        string `json:"id"`
 	TurnIndex int    `json:"turn_index"`
@@ -2570,6 +2592,13 @@ var (
 		"focus.machine_status":                              "Machine runtime status currently in focus.",
 		"focus.health_summary":                              "Compact health or resource summary for the focused machine.",
 	}
+	openAPIProjectConversationTerminalSessionDescriptions = map[string]string{
+		"mode":      "Terminal mode to create. Only shell is currently supported.",
+		"repo_path": "Optional repo selector inside the conversation workspace. Leave empty to start at the workspace root.",
+		"cwd_path":  "Optional relative directory path inside the selected repo or workspace root.",
+		"cols":      "Initial terminal column count used when starting the PTY session.",
+		"rows":      "Initial terminal row count used when starting the PTY session.",
+	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
 		"answer":   "Structured answer payload for requestUserInput interrupts.",
@@ -2682,9 +2711,10 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
-		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations": openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/terminal-sessions":                openAPIProjectConversationTerminalSessionDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns":                            openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
 		"POST /api/v1/instance/role-bindings":                                               openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/instance/users/{userId}/status":                                       openAPIUserStatusTransitionDescriptions,
@@ -6461,6 +6491,54 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationWorkspaceDiff.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace-diff", http.MethodGet, projectConversationWorkspaceDiff)
+
+	projectConversationTerminalSessionCreate, err := b.jsonOperation(
+		"createProjectConversationTerminalSession",
+		"Create a project conversation terminal session",
+		[]string{"chat"},
+		http.StatusCreated,
+		OpenAPIProjectConversationTerminalSessionResponse{},
+		OpenAPIProjectConversationTerminalSessionRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationTerminalSessionCreate.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/terminal-sessions", http.MethodPost, projectConversationTerminalSessionCreate)
+
+	projectConversationTerminalAttach := openapi3.NewOperation()
+	projectConversationTerminalAttach.OperationID = "attachProjectConversationTerminalSession"
+	projectConversationTerminalAttach.Summary = "Attach websocket terminal I/O for a project conversation terminal session"
+	projectConversationTerminalAttach.Tags = []string{"chat"}
+	projectConversationTerminalAttach.Responses = openapi3.NewResponses()
+	projectConversationTerminalAttach.AddResponse(http.StatusSwitchingProtocols, openapi3.NewResponse().WithDescription("Websocket upgraded for terminal streaming."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		response, responseErr := b.errorResponse(code)
+		if responseErr != nil {
+			return responseErr
+		}
+		projectConversationTerminalAttach.AddResponse(code, response)
+	}
+	projectConversationTerminalAttach.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationTerminalAttach.AddParameter(uuidPathParameter("terminalSessionId", "Stable project conversation terminal session ID."))
+	projectConversationTerminalAttach.AddParameter(openapi3.NewQueryParameter("attach_token").
+		WithDescription("Attach token returned by terminal session creation.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/terminal-sessions/{terminalSessionId}/attach", http.MethodGet, projectConversationTerminalAttach)
 
 	projectConversationTurn, err := b.jsonOperation(
 		"startProjectConversationTurn",

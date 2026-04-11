@@ -91,21 +91,15 @@ These budgets are enforced by `pnpm run lint:structure` and mirrored in ESLint w
 | ----------------------------------- | ---------- | -------------------- |
 | `routes/**/+page.svelte`            | 150        | 250                  |
 | `routes/**/+layout.svelte`          | 180        | 300                  |
-| `lib/features/**/*.svelte`          | 200        | 300                  |
-| `lib/features/**/*.{ts,js}`         | 200        | 300                  |
+| `lib/features/**/*.test.{ts,js}`    | 300        | 650                  |
+| `lib/features/**/*.svelte.{ts,js}`  | 250        | 500                  |
+| `lib/features/**/*.svelte`          | 200        | 350                  |
+| `lib/features/**/*.{ts,js}`         | 200        | 325                  |
 | `lib/components/layout/**/*.svelte` | 200        | 300                  |
 | `lib/components/ui/**/*.svelte`     | 150        | 250                  |
 | single function                     | 40 target  | 60 warning threshold |
 
-Current legacy waivers:
-
-- `src/routes/+page.svelte`
-- `src/routes/ticket/+page.svelte`
-- `src/lib/features/chat/ephemeral-chat-session-controller.svelte.ts`
-- `src/lib/features/chat/ephemeral-chat-session-controller.test.ts`
-- `src/lib/features/workflows/components/workflow-editor-panel.svelte`
-
-Those files are explicitly tracked as refactor debt. New oversized route files are blocked.
+There are no per-file budget waivers. If a recurring file shape needs a different limit, promote it into a named budget category instead of growing an allowlist.
 
 ## Quality Gates
 
@@ -122,7 +116,7 @@ pnpm run ci
 
 - `pnpm run lint`: ESLint with complexity, file-size, and cycle checks.
 - `pnpm run lint:mobile`: validates that every project route declares a mobile support policy and that responsive routes wire into the mobile regression templates.
-- `pnpm run lint:structure`: custom file budget enforcement with explicit waivers for current debt only.
+- `pnpm run lint:structure`: custom file budget enforcement with first-class categories for routes, feature tests, state modules, and UI layers.
 - `pnpm run lint:deps`: dependency boundary enforcement for `ui -> layout -> features -> routes`.
 - `pnpm run check`: `svelte-check` type validation.
 - `pnpm run ci`: unified local and CI entrypoint for the frontend gate.

@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -19,10 +21,12 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
 var chatSSEKeepaliveInterval = 5 * time.Second
+var conversationTerminalUpgrader = websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
 
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
@@ -37,6 +41,8 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
 	api.GET("/chat/conversations/:conversationId/workspace/file-patch", s.handleGetProjectConversationWorkspaceFilePatch)
 	api.GET("/chat/conversations/:conversationId/workspace-diff", s.handleGetProjectConversationWorkspaceDiff)
+	api.POST("/chat/conversations/:conversationId/terminal-sessions", s.handleCreateProjectConversationTerminalSession)
+	api.GET("/chat/conversations/:conversationId/terminal-sessions/:terminalSessionId/attach", s.handleAttachProjectConversationTerminalSession)
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
 	api.POST("/chat/conversations/:conversationId/interrupt-turn", s.handleInterruptProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
@@ -647,6 +653,108 @@ func (s *Server) handleGetProjectConversationWorkspaceDiff(c echo.Context) error
 	return c.JSON(http.StatusOK, map[string]any{"workspace_diff": mapProjectConversationWorkspaceDiffResponse(item)})
 }
 
+func (s *Server) handleCreateProjectConversationTerminalSession(c echo.Context) error {
+	if s.conversationTerminalService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "conversation terminal service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	var raw rawCreateProjectConversationTerminalSessionRequest
+	if err := decodeJSON(c, &raw); err != nil {
+		return err
+	}
+	request, err := parseCreateProjectConversationTerminalSessionRequest(raw)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	session, err := s.conversationTerminalService.CreateSession(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.Terminal,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusCreated, map[string]any{"terminal_session": mapProjectConversationTerminalSessionResponse(session)})
+}
+
+func (s *Server) handleAttachProjectConversationTerminalSession(c echo.Context) error {
+	if s.conversationTerminalService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "conversation terminal service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	terminalSessionID, err := parseUUIDString("terminal_session_id", c.Param("terminalSessionId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TERMINAL_SESSION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	attachment, err := s.conversationTerminalService.AttachSession(
+		userID,
+		conversationID,
+		terminalSessionID,
+		c.QueryParam("attach_token"),
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	conn, err := conversationTerminalUpgrader.Upgrade(c.Response(), c.Request(), nil)
+	if err != nil {
+		return fmt.Errorf("upgrade conversation terminal websocket: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	streamCtx, cancel := s.shutdownAwareContext(c.Request().Context())
+	defer cancel()
+	readErr := make(chan error, 1)
+	go func() {
+		readErr <- s.readConversationTerminalFrames(streamCtx, conn, attachment)
+	}()
+	readFrames := readErr
+
+	for {
+		select {
+		case <-streamCtx.Done():
+			_ = attachment.Close()
+			return nil
+		case err := <-readFrames:
+			_ = attachment.Close()
+			if err == nil {
+				readFrames = nil
+				continue
+			}
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				readFrames = nil
+				continue
+			}
+			if err != nil && !errors.Is(err, io.EOF) {
+				return nil
+			}
+			return nil
+		case event, ok := <-attachment.Events:
+			if !ok {
+				return nil
+			}
+			if err := writeConversationTerminalFrame(conn, event); err != nil {
+				_ = attachment.Close()
+				return nil
+			}
+		}
+	}
+}
+
 func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	if s.projectConversationService == nil {
 		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
@@ -830,6 +938,65 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+type conversationTerminalClientFrame struct {
+	Type string `json:"type"`
+	Data string `json:"data,omitempty"`
+	Cols int    `json:"cols,omitempty"`
+	Rows int    `json:"rows,omitempty"`
+}
+
+func (s *Server) readConversationTerminalFrames(
+	ctx context.Context,
+	conn *websocket.Conn,
+	attachment chatservice.AttachedConversationTerminal,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		var frame conversationTerminalClientFrame
+		if err := conn.ReadJSON(&frame); err != nil {
+			return err
+		}
+		switch strings.TrimSpace(frame.Type) {
+		case "input":
+			payload, err := base64.StdEncoding.DecodeString(strings.TrimSpace(frame.Data))
+			if err != nil {
+				return err
+			}
+			if err := attachment.WriteInput(payload); err != nil {
+				return err
+			}
+		case "resize":
+			if err := attachment.Resize(frame.Cols, frame.Rows); err != nil {
+				return err
+			}
+		case "close":
+			return attachment.Close()
+		default:
+			return fmt.Errorf("unsupported terminal frame type %q", frame.Type)
+		}
+	}
+}
+
+func writeConversationTerminalFrame(conn *websocket.Conn, event chatservice.ConversationTerminalEvent) error {
+	payload := map[string]any{"type": event.Type}
+	switch event.Type {
+	case "output":
+		payload["data"] = base64.StdEncoding.EncodeToString(event.Data)
+	case "exit":
+		payload["exit_code"] = event.ExitCode
+		if strings.TrimSpace(event.Signal) != "" {
+			payload["signal"] = event.Signal
+		}
+	case "error":
+		payload["message"] = event.Message
+	}
+	return conn.WriteJSON(payload)
+}
+
 func writeProjectConversationError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, chatservice.ErrConversationTurnActive):
@@ -850,6 +1017,14 @@ func writeProjectConversationError(c echo.Context, err error) error {
 		return writeAPIError(c, http.StatusBadRequest, "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID", err.Error())
 	case errors.Is(err, chatservice.ErrProjectConversationWorkspaceRepoNotFound), errors.Is(err, chatservice.ErrProjectConversationWorkspaceEntryNotFound):
 		return writeAPIError(c, http.StatusNotFound, "PROJECT_CONVERSATION_WORKSPACE_NOT_FOUND", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTerminalUnsupported):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TERMINAL_UNSUPPORTED", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTerminalSessionNotFound):
+		return writeAPIError(c, http.StatusNotFound, "PROJECT_CONVERSATION_TERMINAL_SESSION_NOT_FOUND", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTerminalAttachForbidden):
+		return writeAPIError(c, http.StatusForbidden, "PROJECT_CONVERSATION_TERMINAL_ATTACH_FORBIDDEN", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTerminalAlreadyAttached):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TERMINAL_ALREADY_ATTACHED", err.Error())
 	case errors.Is(err, catalogservice.ErrNotFound), errors.Is(err, ticketservice.ErrTicketNotFound), errors.Is(err, workflowservice.ErrWorkflowNotFound):
 		return writeAPIError(c, http.StatusNotFound, "CHAT_CONTEXT_NOT_FOUND", err.Error())
 	default:
@@ -986,6 +1161,23 @@ func mapProjectConversationWorkspaceDiffResponse(
 		"removed":         item.Removed,
 		"repos":           repos,
 	}
+}
+
+func mapProjectConversationTerminalSessionResponse(
+	item chatservice.ConversationTerminalSession,
+) map[string]any {
+	response := map[string]any{
+		"id":           item.ID.String(),
+		"mode":         string(item.Mode),
+		"cwd":          item.CWD,
+		"ws_path":      item.WSPath,
+		"attach_token": item.AttachToken,
+		"created_at":   item.CreatedAt.UTC().Format(time.RFC3339),
+	}
+	if item.LastAttachedAt != nil {
+		response["last_attached_at"] = item.LastAttachedAt.UTC().Format(time.RFC3339)
+	}
+	return response
 }
 
 func mapProjectConversationWorkspaceMetadataResponse(

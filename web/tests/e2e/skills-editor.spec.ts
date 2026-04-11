@@ -31,10 +31,13 @@ test('skills page supports editing, disabling, and binding a skill', async ({
   const description = page.getByPlaceholder('Description...')
   await description.fill('Build and redeploy OpenASE with rollback checks.')
 
-  const editor = page.locator('[data-testid="skill-editor-textarea-container"] .cm-content').first()
+  const editor = page
+    .locator('[data-testid="skill-editor-textarea-container"] .cm-content[contenteditable="true"]')
+    .first()
+  await expect(editor).toBeVisible()
   await editor.click()
-  await page.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+A`)
-  await page.keyboard.insertText(
+  await page.keyboard.press('ControlOrMeta+A')
+  await page.keyboard.type(
     [
       '# Deploy OpenASE',
       '',

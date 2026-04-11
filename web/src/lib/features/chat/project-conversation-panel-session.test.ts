@@ -97,6 +97,131 @@ describe('ProjectConversationPanel session status', () => {
     window.localStorage.clear()
   })
 
+  it('renders Claude session status from live session events', async () => {
+    const mux = mockLiveMuxStream()
+
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-claude-1',
+        providerId: 'provider-2',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(
+      createWorkspaceDiff('conversation-claude-1'),
+    )
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const { getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-2',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    await fireEvent.input(getByPlaceholderText('Ask anything about this project…'), {
+      target: { value: 'Inspect this Claude conversation' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-claude-1', {
+        message: 'Inspect this Claude conversation',
+        focus: undefined,
+      })
+    })
+
+    mux.emit('conversation-claude-1', {
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-claude-1',
+        runtimeState: 'ready',
+        providerAnchorKind: 'session',
+        providerAnchorId: 'claude-session-42',
+        providerTurnSupported: false,
+        providerStatus: 'requires_action',
+        providerActiveFlags: ['requires_action'],
+      },
+    })
+
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onFrame: expect.any(Function),
+        onOpen: expect.any(Function),
+      }),
+    )
+  })
+
+  it('renders Codex thread status from live session events', async () => {
+    const mux = mockLiveMuxStream()
+
+    listProjectConversations.mockResolvedValue({ conversations: [] })
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-codex-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(
+      createWorkspaceDiff('conversation-codex-1'),
+    )
+    startProjectConversationTurn.mockResolvedValue({
+      turn: { id: 'turn-1', turn_index: 1, status: 'started' },
+    })
+
+    const { getByPlaceholderText, getByRole } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+        placeholder: 'Ask anything about this project…',
+      },
+    })
+
+    await fireEvent.input(getByPlaceholderText('Ask anything about this project…'), {
+      target: { value: 'Inspect this Codex conversation' },
+    })
+    await fireEvent.click(getByRole('button', { name: 'Send message' }))
+
+    await waitFor(() => {
+      expect(startProjectConversationTurn).toHaveBeenCalledWith('conversation-codex-1', {
+        message: 'Inspect this Codex conversation',
+        focus: undefined,
+      })
+    })
+
+    mux.emit('conversation-codex-1', {
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-codex-1',
+        runtimeState: 'ready',
+        providerAnchorKind: 'thread',
+        providerAnchorId: 'thread-99',
+        providerTurnId: 'turn-99',
+        providerTurnSupported: true,
+        providerStatus: 'waitingOnApproval',
+        providerActiveFlags: ['waitingOnApproval'],
+      },
+    })
+
+    expect(watchProjectConversationMuxStream).toHaveBeenCalledWith(
+      'project-1',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        onFrame: expect.any(Function),
+        onOpen: expect.any(Function),
+      }),
+    )
+  })
+
   it('renders live assistant text chunks from the project conversation stream', async () => {
     const mux = mockLiveMuxStream()
 
@@ -128,7 +253,7 @@ describe('ProjectConversationPanel session status', () => {
         },
       ],
     })
-    const { findAllByText } = render(ProjectConversationPanel, {
+    const { container } = render(ProjectConversationPanel, {
       props: {
         context: { projectId: 'project-1' },
         providers: providerFixtures,
@@ -137,7 +262,9 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect((await findAllByText('Existing prompt')).length).toBeGreaterThanOrEqual(1)
+    await waitFor(() => {
+      expect(container.textContent).toContain('Existing prompt')
+    })
     await waitFor(() => {
       expect(watchProjectConversationMuxStream).toHaveBeenCalled()
     })
@@ -150,7 +277,9 @@ describe('ProjectConversationPanel session status', () => {
       },
     })
 
-    expect((await findAllByText('First streamed reply chunk.')).length).toBeGreaterThanOrEqual(1)
+    await waitFor(() => {
+      expect(container.textContent).toContain('First streamed reply chunk.')
+    })
   })
 
   it('shows Stop while a turn is streaming and preserves partial output after stopping', async () => {
