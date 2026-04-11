@@ -207,8 +207,12 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     expect(view.container.textContent).toContain('README.md')
     expect(view.container.textContent).toContain('text/plain')
-    expect(view.container.textContent).toContain('line alpha')
-    expect(view.container.textContent).toContain('line beta')
+    await waitFor(() =>
+      expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain(
+        'line alpha',
+      ),
+    )
+    expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain('line beta')
     expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
       'overflow-hidden',
     )
@@ -218,8 +222,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
       'overflow-hidden',
     )
-    expect(view.container.querySelector('.code-viewer')?.className).toContain('overflow-auto')
-    expect(view.getByTestId('code-viewer-content').className).toContain('w-max')
+    expect(view.container.querySelector('.code-editor')?.className).toContain('overflow-hidden')
+    expect(view.container.querySelector('.cm-scroller')).not.toBeNull()
+    expect(view.container.querySelector('.cm-lineWrapping')).not.toBeNull()
   })
 
   it('renders git changes and opens a changed file from the status list', async () => {

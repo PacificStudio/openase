@@ -8,17 +8,19 @@
     highlightActiveLine,
     placeholder as cmPlaceholder,
   } from '@codemirror/view'
-  import { EditorState, type Extension } from '@codemirror/state'
+  import { Compartment, EditorState, type Extension } from '@codemirror/state'
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
   import { syntaxHighlighting, defaultHighlightStyle, bracketMatching } from '@codemirror/language'
   import { searchKeymap, highlightSelectionMatches } from '@codemirror/search'
   import { detectLanguage } from './lang'
+  import type { EditorWrapMode } from './wrap-mode'
 
   let {
     value = '',
     filePath = '',
     language = '',
     readonly = false,
+    wrapMode = 'wrap',
     placeholder = '',
     class: className = '',
     onchange,
@@ -31,6 +33,8 @@
     language?: string
     /** Read-only mode */
     readonly?: boolean
+    /** Visual line wrapping mode */
+    wrapMode?: EditorWrapMode
     /** Placeholder text when empty */
     placeholder?: string
     class?: string
@@ -41,8 +45,13 @@
   let container: HTMLDivElement
   let view: EditorView | undefined
   let suppressExternalUpdate = false
+  let languageReloadID = 0
+  let lastLang = ''
+  let lastWrapMode: EditorWrapMode = 'wrap'
 
   const lang = $derived(language || detectLanguage(filePath))
+  const languageCompartment = new Compartment()
+  const wrapCompartment = new Compartment()
 
   // Build a dark theme that matches the existing harness-editor look
   const darkTheme = EditorView.theme(
@@ -133,6 +142,10 @@
     }
   }
 
+  function buildWrapModeExtension(mode: EditorWrapMode): Extension {
+    return mode === 'wrap' ? EditorView.lineWrapping : []
+  }
+
   function buildBaseExtensions(): Extension[] {
     const exts: Extension[] = [
       lineNumbers(),
@@ -143,7 +156,6 @@
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       darkTheme,
       keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
-      EditorView.lineWrapping,
     ]
 
     if (placeholder) {
@@ -172,10 +184,16 @@
     view = new EditorView({
       state: EditorState.create({
         doc: value,
-        extensions: [...buildBaseExtensions(), ...langExts],
+        extensions: [
+          ...buildBaseExtensions(),
+          wrapCompartment.of(buildWrapModeExtension(wrapMode)),
+          languageCompartment.of(langExts),
+        ],
       }),
       parent: container,
     })
+    lastLang = lang
+    lastWrapMode = wrapMode
   }
 
   onMount(() => {
@@ -198,17 +216,29 @@
     })
   })
 
-  // Recreate editor when language changes
-  let lastLang = ''
   $effect(() => {
     const nextLang = lang
     if (nextLang === lastLang || !view) return
-    lastLang = nextLang
 
-    const currentDoc = view.state.doc.toString()
-    view.destroy()
-    value = currentDoc
-    void createEditor()
+    const reloadID = ++languageReloadID
+    void (async () => {
+      const langExts = await loadLanguageExtension(nextLang)
+      if (!view || reloadID !== languageReloadID) return
+      view.dispatch({
+        effects: languageCompartment.reconfigure(langExts),
+      })
+      lastLang = nextLang
+    })()
+  })
+
+  $effect(() => {
+    const nextWrapMode = wrapMode
+    if (nextWrapMode === lastWrapMode || !view) return
+
+    view.dispatch({
+      effects: wrapCompartment.reconfigure(buildWrapModeExtension(nextWrapMode)),
+    })
+    lastWrapMode = nextWrapMode
   })
 </script>
 
