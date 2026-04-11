@@ -104,35 +104,34 @@
   {:else if state === 'loading' || loading}
     <div class="space-y-3">
       {#each { length: 3 } as _}
-        <div class="border-border bg-card rounded-lg border p-4">
-          <div class="grid gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] lg:items-start">
-            <div class="space-y-3">
-              <div class="space-y-1.5">
-                <div class="flex items-center gap-2">
-                  <Skeleton class="h-5 w-32" />
-                  <Skeleton class="h-4 w-10 rounded-full" />
-                </div>
-                <Skeleton class="h-3.5 w-28" />
+        <div class="border-border bg-card rounded-lg border p-3 sm:p-4">
+          <div class="flex items-start gap-3">
+            <div class="min-w-0 flex-1 space-y-1">
+              <div class="flex items-center gap-2">
+                <Skeleton class="h-4 w-32" />
+                <Skeleton class="hidden h-3 w-28 sm:block" />
               </div>
-              <div class="flex items-center gap-1.5">
-                <Skeleton class="size-2 rounded-full" />
-                <Skeleton class="size-2 rounded-full" />
-                <Skeleton class="size-2 rounded-full" />
+              <div class="flex items-center gap-1">
+                <Skeleton class="h-4 w-14 rounded-full" />
+                <Skeleton class="h-4 w-16 rounded-full" />
+                <Skeleton class="h-4 w-20 rounded-full" />
               </div>
-            </div>
-            <div class="space-y-2">
-              {#each { length: 3 } as __}
-                <div class="flex items-center gap-3">
-                  <Skeleton class="h-3 w-10" />
-                  <Skeleton class="h-2 flex-1 rounded-full" />
-                  <Skeleton class="h-3 w-14" />
-                </div>
-              {/each}
             </div>
             <div class="flex items-center gap-1">
-              <Skeleton class="size-8 rounded-md" />
-              <Skeleton class="size-8 rounded-md" />
+              <Skeleton class="size-7 rounded-md" />
+              <Skeleton class="size-7 rounded-md" />
             </div>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
+            {#each { length: 4 } as __}
+              <div class="space-y-1">
+                <div class="flex items-baseline justify-between">
+                  <Skeleton class="h-2.5 w-8" />
+                  <Skeleton class="h-3 w-10" />
+                </div>
+                <Skeleton class="h-1.5 w-full rounded-full" />
+              </div>
+            {/each}
           </div>
         </div>
       {/each}

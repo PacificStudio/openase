@@ -433,6 +433,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/interrupt-turn': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Interrupt the active project conversation turn */
+    post: operations['interruptProjectConversationTurn']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond': {
     parameters: {
       query?: never
@@ -484,6 +501,40 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/terminal-sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create a project conversation terminal session */
+    post: operations['createProjectConversationTerminalSession']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/terminal-sessions/{terminalSessionId}/attach': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Attach websocket terminal I/O for a project conversation terminal session */
+    get: operations['attachProjectConversationTerminalSession']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/turns': {
     parameters: {
       query?: never
@@ -501,6 +552,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get project conversation workspace metadata */
+    get: operations['getProjectConversationWorkspace']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/workspace-diff': {
     parameters: {
       query?: never
@@ -510,6 +578,57 @@ export interface paths {
     }
     /** Get project conversation workspace diff summary */
     get: operations['getProjectConversationWorkspaceDiff']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/file': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Read a project conversation workspace file preview */
+    get: operations['getProjectConversationWorkspaceFile']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/file-patch': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Read one project conversation workspace file diff */
+    get: operations['getProjectConversationWorkspaceFilePatch']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/chat/conversations/{conversationId}/workspace/tree': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List one directory from the project conversation workspace tree */
+    get: operations['listProjectConversationWorkspaceTree']
     put?: never
     post?: never
     delete?: never
@@ -2958,6 +3077,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -3097,6 +3220,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -3209,6 +3336,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -5193,6 +5324,87 @@ export interface operations {
       }
     }
   }
+  interruptProjectConversationTurn: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Project conversation turn interrupted. */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   respondProjectConversationInterrupt: {
     parameters: {
       query?: never
@@ -5456,6 +5668,231 @@ export interface operations {
       }
     }
   }
+  createProjectConversationTerminalSession: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    /** @description Create a project conversation terminal session request body. */
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Initial terminal column count used when starting the PTY session. */
+          cols?: number | null
+          /** @description Optional relative directory path inside the selected repo or workspace root. */
+          cwd_path?: string | null
+          /** @description Terminal mode to create. Only shell is currently supported. */
+          mode?: string
+          /** @description Optional repo selector inside the conversation workspace. Leave empty to start at the workspace root. */
+          repo_path?: string | null
+          /** @description Initial terminal row count used when starting the PTY session. */
+          rows?: number | null
+        }
+      }
+    }
+    responses: {
+      /** @description Create a project conversation terminal session response. */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            terminal_session?: {
+              attach_token?: string
+              created_at?: string
+              cwd?: string
+              id?: string
+              last_attached_at?: string | null
+              mode?: string
+              ws_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  attachProjectConversationTerminalSession: {
+    parameters: {
+      query: {
+        /** @description Attach token returned by terminal session creation. */
+        attach_token: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+        /** @description Stable project conversation terminal session ID. */
+        terminalSessionId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Websocket upgraded for terminal streaming. */
+      101: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Forbidden response. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      default: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
   startProjectConversationTurn: {
     parameters: {
       query?: never
@@ -5700,6 +6137,106 @@ export interface operations {
       }
     }
   }
+  getProjectConversationWorkspace: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Get project conversation workspace metadata response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace?: {
+              available?: boolean
+              conversation_id?: string
+              repos?: {
+                added?: number
+                branch?: string
+                dirty?: boolean
+                files_changed?: number
+                head_commit?: string
+                head_summary?: string
+                name?: string
+                path?: string
+                removed?: number
+              }[]
+              workspace_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
   getProjectConversationWorkspaceDiff: {
     parameters: {
       query?: never
@@ -5760,6 +6297,305 @@ export interface operations {
       }
       /** @description Not Found response. */
       404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectConversationWorkspaceFile: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Repo-relative file path to preview. */
+        path?: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Read a project conversation workspace file preview response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file_preview?: {
+              content?: string
+              conversation_id?: string
+              media_type?: string
+              path?: string
+              preview_kind?: string
+              repo_path?: string
+              /** Format: int64 */
+              size_bytes?: number
+              truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  getProjectConversationWorkspaceFilePatch: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Repo-relative file path whose git diff should be loaded. */
+        path?: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Read one project conversation workspace file diff response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            file_patch?: {
+              conversation_id?: string
+              diff?: string
+              diff_kind?: string
+              path?: string
+              repo_path?: string
+              status?: string
+              truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listProjectConversationWorkspaceTree: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Optional repo-relative directory path to browse. Leave empty for the repo root. */
+        path?: string
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List one directory from the project conversation workspace tree response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace_tree?: {
+              conversation_id?: string
+              entries?: {
+                kind?: string
+                name?: string
+                path?: string
+                /** Format: int64 */
+                size_bytes?: number
+              }[]
+              path?: string
+              repo_path?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
         headers: {
           [name: string]: unknown
         }
@@ -9551,6 +10387,11 @@ export interface operations {
               name?: string
               organization_id?: string
               project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }[]
@@ -9623,6 +10464,15 @@ export interface operations {
           name?: string
           /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
           project_ai_platform_access_allowed?: string[]
+          /** @description Optional Project AI conversation retention policy for the project. */
+          project_ai_retention?: {
+            /** @description Whether Project AI conversation retention is enabled for the project. */
+            enabled?: boolean | null
+            /** @description Number of latest conversations per user to retain when Project AI retention is enabled. */
+            keep_latest_n?: number | null
+            /** @description Number of recent activity days to retain conversations when Project AI retention is enabled. */
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string
           /** @description Current project lifecycle status name. */
@@ -9650,6 +10500,11 @@ export interface operations {
               name?: string
               organization_id?: string
               project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -10896,6 +11751,11 @@ export interface operations {
               name?: string
               organization_id?: string
               project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -10971,6 +11831,11 @@ export interface operations {
               name?: string
               organization_id?: string
               project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -11055,6 +11920,15 @@ export interface operations {
           name?: string | null
           /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
           project_ai_platform_access_allowed?: string[] | null
+          /** @description Optional Project AI conversation retention policy for the project. */
+          project_ai_retention?: {
+            /** @description Whether Project AI conversation retention is enabled for the project. */
+            enabled?: boolean | null
+            /** @description Number of latest conversations per user to retain when Project AI retention is enabled. */
+            keep_latest_n?: number | null
+            /** @description Number of recent activity days to retain conversations when Project AI retention is enabled. */
+            keep_recent_days?: number | null
+          } | null
           /** @description Stable URL-safe project slug. */
           slug?: string | null
           /** @description Current project lifecycle status name. */
@@ -11082,6 +11956,11 @@ export interface operations {
               name?: string
               organization_id?: string
               project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -14572,6 +15451,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -14818,6 +15701,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -14933,6 +15820,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }

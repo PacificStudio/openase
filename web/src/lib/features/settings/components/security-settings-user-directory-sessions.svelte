@@ -18,9 +18,9 @@
 </script>
 
 <div class="space-y-2">
-  <div class="flex items-center justify-between gap-3">
+  <div class="space-y-0.5">
     <div class="text-sm font-medium">Active browser sessions</div>
-    <div class="text-muted-foreground text-xs">
+    <div class="text-muted-foreground text-xs leading-relaxed">
       Clear distinction: these are governable user sessions, not just the current browser.
     </div>
   </div>

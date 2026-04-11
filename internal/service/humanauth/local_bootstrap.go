@@ -22,8 +22,8 @@ var (
 
 const (
 	DefaultLocalBootstrapRequestTTL     = 10 * time.Minute
-	defaultLocalBootstrapSessionTTL     = 8 * time.Hour
-	defaultLocalBootstrapSessionIdleTTL = 30 * time.Minute
+	defaultLocalBootstrapSessionTTL     = 0
+	defaultLocalBootstrapSessionIdleTTL = 0
 	localBootstrapPurposeBrowserSession = "browser_session"
 	localBootstrapActorID               = "local_instance_admin:default"
 )
@@ -168,8 +168,8 @@ func (s *Service) RedeemLocalBootstrapRequest(
 		DeviceOS:      device.OS,
 		DeviceBrowser: device.Browser,
 		DeviceLabel:   device.Label,
-		ExpiresAt:     now.Add(defaultLocalBootstrapSessionTTL),
-		IdleExpiresAt: now.Add(defaultLocalBootstrapSessionIdleTTL),
+		ExpiresAt:     sessionDeadline(now, defaultLocalBootstrapSessionTTL),
+		IdleExpiresAt: sessionDeadline(now, defaultLocalBootstrapSessionIdleTTL),
 		CSRFSecret:    csrfToken,
 		UserAgentHash: hashValue(userAgent),
 		IPPrefix:      ipPrefix(ip),
@@ -237,7 +237,7 @@ func (s *Service) AuthenticateLocalSession(
 	if session.RevokedAt != nil {
 		return LocalSessionAuthentication{}, ErrInvalidSession
 	}
-	if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+	if browserSessionExpired(now, session) {
 		_ = s.repo.RevokeBrowserSession(ctx, session.ID, now)
 		_ = s.recordAuditEvent(ctx, repo.CreateAuthAuditEventInput{
 			SessionID: &session.ID,
@@ -256,9 +256,14 @@ func (s *Service) AuthenticateLocalSession(
 		return LocalSessionAuthentication{}, ErrInvalidSession
 	}
 	if touch {
-		session, err = s.repo.TouchBrowserSession(ctx, session.ID, now.Add(defaultLocalBootstrapSessionIdleTTL))
+		session, err = s.repo.TouchBrowserSession(
+			ctx,
+			session.ID,
+			sessionRefreshAbsoluteDeadline(session.ExpiresAt, now, defaultLocalBootstrapSessionTTL),
+			sessionDeadline(now, defaultLocalBootstrapSessionIdleTTL),
+		)
 		if err != nil {
-			return LocalSessionAuthentication{}, fmt.Errorf("extend local bootstrap session idle ttl: %w", err)
+			return LocalSessionAuthentication{}, fmt.Errorf("refresh local bootstrap session deadlines: %w", err)
 		}
 	}
 

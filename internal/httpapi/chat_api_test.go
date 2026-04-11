@@ -4,16 +4,22 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/BetterAndBetterII/openase/ent"
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
 	"github.com/BetterAndBetterII/openase/internal/config"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -21,6 +27,7 @@ import (
 	humanauthdomain "github.com/BetterAndBetterII/openase/internal/domain/humanauth"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
+	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	catalogrepo "github.com/BetterAndBetterII/openase/internal/repo/catalog"
 	chatrepo "github.com/BetterAndBetterII/openase/internal/repo/chatconversation"
@@ -29,6 +36,7 @@ import (
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 	workflowservice "github.com/BetterAndBetterII/openase/internal/workflow"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 )
 
@@ -169,6 +177,7 @@ func TestCurrentProjectConversationUserIDUsesStableLocalPrincipalWhenAuthDisable
 }
 func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) {
 	projectConversationService := chatservice.NewProjectConversationService(nil, nil, nil, nil, nil, nil, nil)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
 	server := NewServer(
 		config.ServerConfig{Port: 40023},
 		config.GitHubConfig{},
@@ -182,6 +191,7 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeOIDC}),
 		WithHumanAuthService(nil, &humanauthservice.Authorizer{}),
 		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
 	)
 
 	conversationID := uuid.NewString()
@@ -209,15 +219,56 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			target: "/api/v1/chat/conversations/" + conversationID + "/entries",
 		},
 		{
+			name:   "workspace metadata",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace",
+		},
+		{
+			name:   "workspace tree",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/tree?repo_path=openase",
+		},
+		{
+			name:   "workspace file",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/file?repo_path=openase&path=README.md",
+		},
+		{
+			name:   "workspace file patch",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/file-patch?repo_path=openase&path=README.md",
+		},
+		{
 			name:   "workspace diff",
 			method: http.MethodGet,
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace-diff",
+		},
+		{
+			name:   "create terminal session",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/terminal-sessions",
+			body:   `{"mode":"shell"}`,
+		},
+		{
+			name:   "attach terminal session",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/terminal-sessions/" + uuid.NewString() + "/attach?attach_token=token-1",
 		},
 		{
 			name:   "start turn",
 			method: http.MethodPost,
 			target: "/api/v1/chat/conversations/" + conversationID + "/turns",
 			body:   `{"message":"continue"}`,
+		},
+		{
+			name:   "interrupt turn",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/interrupt-turn",
+		},
+		{
+			name:   "delete conversation",
+			method: http.MethodDelete,
+			target: "/api/v1/chat/conversations/" + conversationID,
 		},
 		{
 			name:   "close runtime",
@@ -691,9 +742,15 @@ func TestWriteProjectConversationErrorMappings(t *testing.T) {
 		wantCode   string
 	}{
 		{name: "turn active", err: chatservice.ErrConversationTurnActive, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE"},
+		{name: "workspace dirty", err: chatdomain.ErrWorkspaceDirty, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_DIRTY"},
+		{name: "workspace delete failed", err: chatdomain.ErrWorkspaceDeleteFailed, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_DELETE_FAILED"},
+		{name: "workspace path conflict", err: chatdomain.ErrWorkspacePathConflict, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_PATH_CONFLICT"},
 		{name: "generic conflict", err: chatservice.ErrConversationConflict, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_CONFLICT"},
 		{name: "missing conversation", err: chatservice.ErrConversationNotFound, wantStatus: http.StatusNotFound, wantCode: "CHAT_CONVERSATION_NOT_FOUND"},
 		{name: "runtime missing", err: chatservice.ErrConversationRuntimeAbsent, wantStatus: http.StatusConflict, wantCode: "CHAT_CONVERSATION_RUNTIME_UNAVAILABLE"},
+		{name: "workspace unavailable", err: chatservice.ErrProjectConversationWorkspaceUnavailable, wantStatus: http.StatusConflict, wantCode: "PROJECT_CONVERSATION_WORKSPACE_UNAVAILABLE"},
+		{name: "workspace path invalid", err: chatservice.ErrProjectConversationWorkspacePathInvalid, wantStatus: http.StatusBadRequest, wantCode: "PROJECT_CONVERSATION_WORKSPACE_PATH_INVALID"},
+		{name: "workspace missing", err: chatservice.ErrProjectConversationWorkspaceEntryNotFound, wantStatus: http.StatusNotFound, wantCode: "PROJECT_CONVERSATION_WORKSPACE_NOT_FOUND"},
 		{name: "internal", err: errors.New("boom"), wantStatus: http.StatusInternalServerError, wantCode: "INTERNAL_ERROR"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1116,6 +1173,609 @@ func TestProjectConversationMuxStreamRouteMultiplexesConversationsWithinOneProje
 	}
 }
 
+func TestProjectConversationTerminalSessionCreateRoute(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/terminal-sessions",
+		`{"mode":"shell","repo_path":"backend","cwd_path":"src","cols":90,"rows":33}`,
+	)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+	wantCWD := filepath.Join(fixture.repoPath, "src")
+	if !strings.Contains(rec.Body.String(), `"cwd":"`+wantCWD+`"`) || !strings.Contains(rec.Body.String(), `"mode":"shell"`) || !strings.Contains(rec.Body.String(), `"attach_token":"`) {
+		t.Fatalf("unexpected create terminal response: %s", rec.Body.String())
+	}
+}
+
+func TestProjectConversationTerminalSessionCreateRouteRejectsInvalidMode(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodPost,
+		"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/terminal-sessions",
+		`{"mode":"tmux"}`,
+	)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "mode must be") {
+		t.Fatalf("expected invalid mode rejection, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestProjectConversationTerminalAttachWebsocketFlow(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	createReq, err := http.NewRequest(
+		http.MethodPost,
+		testServer.URL+"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/terminal-sessions",
+		strings.NewReader(`{"mode":"shell","repo_path":"backend","cwd_path":"src"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create request: %v", err)
+	}
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create terminal session request: %v", err)
+	}
+	defer func() { _ = createResp.Body.Close() }()
+	if createResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected 201, got %d: %s", createResp.StatusCode, string(body))
+	}
+	var createPayload struct {
+		TerminalSession struct {
+			ID          string `json:"id"`
+			CWD         string `json:"cwd"`
+			WSPath      string `json:"ws_path"`
+			AttachToken string `json:"attach_token"`
+		} `json:"terminal_session"`
+	}
+	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	wantCWD := filepath.Join(fixture.repoPath, "src")
+	if createPayload.TerminalSession.CWD != wantCWD {
+		t.Fatalf("cwd = %q, want %q", createPayload.TerminalSession.CWD, wantCWD)
+	}
+
+	wsURL := projectConversationWebsocketURL(
+		testServer.URL + createPayload.TerminalSession.WSPath + "?attach_token=" + url.QueryEscape(createPayload.TerminalSession.AttachToken),
+	)
+	conn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		body := ""
+		if response != nil && response.Body != nil {
+			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			body = string(raw)
+		}
+		t.Fatalf("dial websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+	defer func() { _ = conn.Close() }()
+
+	if frame := readConversationTerminalWebsocketFrame(t, conn); frame["type"] != "ready" {
+		t.Fatalf("ready frame = %+v", frame)
+	}
+	if err := conn.WriteJSON(map[string]any{"type": "resize", "cols": 100, "rows": 40}); err != nil {
+		t.Fatalf("write resize frame: %v", err)
+	}
+	if err := conn.WriteJSON(map[string]any{"type": "input", "data": "cHJpbnRmICdXU19PS1xuJwo="}); err != nil {
+		t.Fatalf("write input frame: %v", err)
+	}
+
+	output := collectConversationTerminalOutput(t, conn, func(text string) bool {
+		return strings.Contains(text, "WS_OK")
+	})
+	if !strings.Contains(output, "WS_OK") {
+		t.Fatalf("unexpected terminal output %q", output)
+	}
+
+	if err := conn.WriteJSON(map[string]any{"type": "close"}); err != nil {
+		t.Fatalf("write close frame: %v", err)
+	}
+	exit := awaitConversationTerminalExitFrame(t, conn)
+	if exit["type"] != "exit" {
+		t.Fatalf("exit frame = %+v", exit)
+	}
+	sessionID := uuid.MustParse(createPayload.TerminalSession.ID)
+	awaitConversationTerminalHTTPCleanup(t, terminalService, fixture.conversation.ID, sessionID)
+}
+
+func TestProjectConversationTerminalAttachWebsocketReconnectsExistingSession(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	createReq, err := http.NewRequest(
+		http.MethodPost,
+		testServer.URL+"/api/v1/chat/conversations/"+fixture.conversation.ID.String()+"/terminal-sessions",
+		strings.NewReader(`{"mode":"shell","repo_path":"backend","cwd_path":"src"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create request: %v", err)
+	}
+	createReq.Header.Set("Content-Type", "application/json")
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		t.Fatalf("create terminal session request: %v", err)
+	}
+	defer func() { _ = createResp.Body.Close() }()
+	if createResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(createResp.Body)
+		t.Fatalf("expected 201, got %d: %s", createResp.StatusCode, string(body))
+	}
+	var createPayload struct {
+		TerminalSession struct {
+			ID          string `json:"id"`
+			WSPath      string `json:"ws_path"`
+			AttachToken string `json:"attach_token"`
+		} `json:"terminal_session"`
+	}
+	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+
+	wsURL := projectConversationWebsocketURL(
+		testServer.URL + createPayload.TerminalSession.WSPath + "?attach_token=" + url.QueryEscape(createPayload.TerminalSession.AttachToken),
+	)
+	firstConn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		body := ""
+		if response != nil && response.Body != nil {
+			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			body = string(raw)
+		}
+		t.Fatalf("dial first websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+
+	if frame := readConversationTerminalWebsocketFrame(t, firstConn); frame["type"] != "ready" {
+		t.Fatalf("first ready frame = %+v", frame)
+	}
+	if err := firstConn.WriteJSON(map[string]any{
+		"type": "input",
+		"data": base64.StdEncoding.EncodeToString([]byte("export ASE_REATTACH_MARKER=reattached\n")),
+	}); err != nil {
+		t.Fatalf("write first input frame: %v", err)
+	}
+	if err := firstConn.Close(); err != nil {
+		t.Fatalf("close first websocket: %v", err)
+	}
+
+	time.Sleep(150 * time.Millisecond)
+
+	secondConn, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		body := ""
+		if response != nil && response.Body != nil {
+			raw, _ := io.ReadAll(response.Body)
+			_ = response.Body.Close()
+			body = string(raw)
+		}
+		t.Fatalf("dial second websocket %s: %v body=%s", wsURL, err, body)
+	}
+	if response != nil && response.Body != nil {
+		_ = response.Body.Close()
+	}
+	defer func() { _ = secondConn.Close() }()
+
+	if frame := readConversationTerminalWebsocketFrame(t, secondConn); frame["type"] != "ready" {
+		t.Fatalf("second ready frame = %+v", frame)
+	}
+	if err := secondConn.WriteJSON(map[string]any{
+		"type": "input",
+		"data": base64.StdEncoding.EncodeToString([]byte("printf '%s\\n' \"$ASE_REATTACH_MARKER\"\n")),
+	}); err != nil {
+		t.Fatalf("write second input frame: %v", err)
+	}
+	output := collectConversationTerminalOutput(t, secondConn, func(text string) bool {
+		return strings.Contains(text, "reattached")
+	})
+	if !strings.Contains(output, "reattached") {
+		t.Fatalf("unexpected reconnect output %q", output)
+	}
+
+	if err := secondConn.WriteJSON(map[string]any{"type": "close"}); err != nil {
+		t.Fatalf("write close frame: %v", err)
+	}
+	exit := awaitConversationTerminalExitFrame(t, secondConn)
+	if exit["type"] != "exit" {
+		t.Fatalf("exit frame = %+v", exit)
+	}
+	sessionID := uuid.MustParse(createPayload.TerminalSession.ID)
+	awaitConversationTerminalHTTPCleanup(t, terminalService, fixture.conversation.ID, sessionID)
+}
+
+func TestProjectConversationTerminalAttachRejectsInvalidToken(t *testing.T) {
+	client := openTestEntClient(t)
+	fixture := setupProjectConversationTerminalRouteFixture(t, client)
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		chatrepo.NewEntRepository(client),
+		fixture.catalog,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	terminalService := chatservice.NewConversationTerminalService(nil, projectConversationService)
+	input, err := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{Mode: "shell"})
+	if err != nil {
+		t.Fatalf("ParseOpenTerminalSessionInput() error = %v", err)
+	}
+	session, err := terminalService.CreateSession(context.Background(), chatservice.LocalProjectConversationUserID, fixture.conversation.ID, input)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		fixture.catalog,
+		nil,
+		WithProjectConversationService(projectConversationService),
+		WithConversationTerminalService(terminalService),
+	)
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	wsURL := projectConversationWebsocketURL(testServer.URL + session.WSPath + "?attach_token=wrong-token")
+	_, response, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err == nil {
+		t.Fatal("expected invalid attach token dial to fail")
+	}
+	if response != nil && response.Body != nil {
+		defer func() { _ = response.Body.Close() }()
+	}
+	if response == nil || response.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected 403 for invalid token, got response=%v err=%v", response, err)
+	}
+}
+
+func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T) {
+	originalInterval := chatSSEKeepaliveInterval
+	chatSSEKeepaliveInterval = 5 * time.Millisecond
+	defer func() {
+		chatSSEKeepaliveInterval = originalInterval
+	}()
+
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-mux-keepalive").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Mux Keepalive").
+		SetSlug("openase-mux-keepalive").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	principal := testBrowserSessionAIPrincipal()
+
+	repoStore := chatrepo.NewEntRepository(client)
+	if _, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  project.ID,
+		UserID:     principal.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: uuid.New(),
+	}); err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, WriteTimeout: time.Second},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	testServer := httptest.NewServer(server.Handler())
+	defer testServer.Close()
+
+	// Keep the request open long enough for the SSE handshake and repeated keepalives under load.
+	streamCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(
+		streamCtx,
+		http.MethodGet,
+		testServer.URL+"/api/v1/chat/projects/"+project.ID.String()+"/conversations/stream",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new mux stream request: %v", err)
+	}
+	addAIPrincipalCookie(req, principal)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("open mux stream: %v", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected 200, got %d: %s", resp.StatusCode, string(body))
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	bodyCh := make(chan []byte, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		var body bytes.Buffer
+		keepalives := 0
+		for keepalives < 2 {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				errCh <- err
+				return
+			}
+			body.WriteString(line)
+			if line == ": keepalive\n" {
+				separator, err := reader.ReadString('\n')
+				if err != nil {
+					errCh <- err
+					return
+				}
+				body.WriteString(separator)
+				if separator == "\n" {
+					keepalives++
+				}
+			}
+		}
+		bodyCh <- body.Bytes()
+	}()
+
+	select {
+	case body := <-bodyCh:
+		if got := strings.Count(string(body), ": keepalive\n\n"); got < 2 {
+			t.Fatalf("expected at least two keepalive comments, got %d in %q", got, string(body))
+		}
+	case err := <-errCh:
+		t.Fatalf("read mux stream body: %v", err)
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("timed out waiting for mux stream keepalives")
+	}
+}
+
+func TestProjectConversationDeleteRouteDeletesConversationWhenAuthDisabled(t *testing.T) {
+	client := openTestEntClient(t)
+	ctx := context.Background()
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-delete-route").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName(catalogdomain.LocalMachineName).
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(22).
+		SetWorkspaceRoot(workspaceRoot).
+		SetDescription("Local delete host.").
+		SetStatus("online").
+		SetResources(map[string]any{"transport": "local"}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	projectItem, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Delete Route").
+		SetSlug("openase-delete-route").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machineItem.ID).
+		SetName("Gemini").
+		SetAdapterType("gemini-cli").
+		SetCliCommand("gemini").
+		SetModelName("gemini-2.5-pro").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  projectItem.ID,
+		UserID:     chatservice.LocalProjectConversationUserID.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerItem.ID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	projectConversationService := chatservice.NewProjectConversationService(
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		repoStore,
+		catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	server := NewServer(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		WithProjectConversationService(projectConversationService),
+	)
+
+	rec := performJSONRequest(
+		t,
+		server,
+		http.MethodDelete,
+		"/api/v1/chat/conversations/"+conversation.ID.String(),
+		"",
+	)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if _, err := repoStore.GetConversation(ctx, conversation.ID); !errors.Is(err, chatrepo.ErrNotFound) {
+		t.Fatalf("expected deleted conversation, got %v", err)
+	}
+}
+
 func TestProjectConversationListRouteUsesStableLocalPrincipalWhenAuthDisabled(t *testing.T) {
 	client := openTestEntClient(t)
 	ctx := context.Background()
@@ -1279,6 +1939,205 @@ func TestProjectConversationStreamRouteUsesStableLocalPrincipalWhenAuthDisabled(
 	frame := readProjectConversationSSEFrame(t, bufio.NewReader(resp.Body))
 	if frame.Event != "session" || !strings.Contains(frame.Data, conversation.ID.String()) {
 		t.Fatalf("expected initial session frame for the legacy conversation, got %+v", frame)
+	}
+}
+
+type projectConversationTerminalRouteFixture struct {
+	catalog      catalogservice.Service
+	conversation chatdomain.Conversation
+	repoPath     string
+}
+
+func setupProjectConversationTerminalRouteFixture(t *testing.T, client *ent.Client) projectConversationTerminalRouteFixture {
+	t.Helper()
+
+	ctx := context.Background()
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better-terminal").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	workspaceRoot := t.TempDir()
+	machineItem, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName(catalogdomain.LocalMachineName).
+		SetHost(catalogdomain.LocalMachineHost).
+		SetPort(22).
+		SetWorkspaceRoot(workspaceRoot).
+		SetDescription("Local terminal host.").
+		SetStatus("online").
+		SetResources(map[string]any{"transport": "local"}).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create machine: %v", err)
+	}
+	projectItem, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE Terminal").
+		SetSlug("openase-terminal").
+		SetDescription("Issue-driven automation").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(machineItem.ID).
+		SetName("Codex").
+		SetAdapterType("codex-app-server").
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if _, err := client.ProjectRepo.Create().
+		SetProjectID(projectItem.ID).
+		SetName("backend").
+		SetRepositoryURL("file:///tmp/backend.git").
+		SetDefaultBranch("main").
+		Save(ctx); err != nil {
+		t.Fatalf("create project repo: %v", err)
+	}
+	repoStore := chatrepo.NewEntRepository(client)
+	conversation, err := repoStore.CreateConversation(ctx, chatdomain.CreateConversation{
+		ProjectID:  projectItem.ID,
+		UserID:     chatservice.LocalProjectConversationUserID.String(),
+		Source:     chatdomain.SourceProjectSidebar,
+		ProviderID: providerItem.ID,
+	})
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	workspacePath, err := workspaceinfra.TicketWorkspacePath(
+		workspaceRoot,
+		org.ID.String(),
+		projectItem.Slug,
+		"conv-"+conversation.ID.String(),
+	)
+	if err != nil {
+		t.Fatalf("workspace path: %v", err)
+	}
+	repoPath := workspaceinfra.RepoPath(workspacePath, "", "backend")
+	if err := os.MkdirAll(filepath.Join(repoPath, "src"), 0o750); err != nil {
+		t.Fatalf("mkdir repo path: %v", err)
+	}
+
+	return projectConversationTerminalRouteFixture{
+		catalog:      catalogservice.New(catalogrepo.NewEntRepository(client), executable.NewPathResolver(), nil),
+		conversation: conversation,
+		repoPath:     repoPath,
+	}
+}
+
+func readConversationTerminalWebsocketFrame(t *testing.T, conn *websocket.Conn) map[string]string {
+	t.Helper()
+	frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, 30*time.Second)
+	if err != nil {
+		t.Fatalf("read websocket frame: %v", err)
+	}
+	return frame
+}
+
+func readConversationTerminalWebsocketFrameWithTimeout(
+	conn *websocket.Conn,
+	timeout time.Duration,
+) (map[string]string, error) {
+	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, fmt.Errorf("set read deadline: %w", err)
+	}
+	var payload map[string]any
+	if err := conn.ReadJSON(&payload); err != nil {
+		return nil, err
+	}
+	frame := map[string]string{}
+	for key, value := range payload {
+		frame[key] = fmt.Sprint(value)
+	}
+	return frame, nil
+}
+
+func collectConversationTerminalOutput(
+	t *testing.T,
+	conn *websocket.Conn,
+	done func(string) bool,
+) string {
+	t.Helper()
+	var builder strings.Builder
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, time.Until(deadline))
+		if err != nil {
+			t.Fatalf("read websocket frame: %v", err)
+		}
+		switch frame["type"] {
+		case "output":
+			decoded, err := base64.StdEncoding.DecodeString(frame["data"])
+			if err != nil {
+				t.Fatalf("decode terminal output: %v", err)
+			}
+			builder.Write(decoded)
+			if done(builder.String()) {
+				return builder.String()
+			}
+		case "error":
+			t.Fatalf("unexpected terminal error frame: %+v", frame)
+		}
+	}
+	t.Fatalf("timed out collecting terminal output: %q", builder.String())
+	return ""
+}
+
+func awaitConversationTerminalExitFrame(t *testing.T, conn *websocket.Conn) map[string]string {
+	t.Helper()
+	deadline := time.Now().Add(45 * time.Second)
+	for time.Now().Before(deadline) {
+		frame, err := readConversationTerminalWebsocketFrameWithTimeout(conn, time.Until(deadline))
+		if err != nil {
+			t.Fatalf("read websocket frame: %v", err)
+		}
+		switch frame["type"] {
+		case "exit":
+			return frame
+		case "output":
+			continue
+		case "error":
+			t.Fatalf("unexpected terminal error frame: %+v", frame)
+		default:
+			t.Fatalf("unexpected terminal frame while waiting for exit: %+v", frame)
+		}
+	}
+	t.Fatal("timed out waiting for terminal exit frame")
+	return nil
+}
+
+func awaitConversationTerminalHTTPCleanup(
+	t *testing.T,
+	service *chatservice.ConversationTerminalService,
+	conversationID uuid.UUID,
+	sessionID uuid.UUID,
+) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := service.CloseSession(conversationID, sessionID); errors.Is(err, chatservice.ErrConversationTerminalSessionNotFound) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("expected terminal session cleanup")
+}
+
+func projectConversationWebsocketURL(raw string) string {
+	switch {
+	case strings.HasPrefix(raw, "https://"):
+		return "wss://" + strings.TrimPrefix(raw, "https://")
+	case strings.HasPrefix(raw, "http://"):
+		return "ws://" + strings.TrimPrefix(raw, "http://")
+	default:
+		return raw
 	}
 }
 

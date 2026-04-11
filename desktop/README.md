@@ -13,3 +13,5 @@ Use the repo-root documentation for the full workflow and packaging guide:
 
 - `docs/en/desktop-v1.md`
 - `docs/zh/desktop-v1.md`
+
+The Electron 39 compatibility review, accepted risks, and rollback notes now live in the same desktop v1 guides.

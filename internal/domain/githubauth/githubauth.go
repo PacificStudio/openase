@@ -261,9 +261,13 @@ func RedactToken(raw string) string {
 	return prefix + "..." + suffix
 }
 
-func DefaultCipherSeed(dsn string) string {
-	sum := sha256.Sum256([]byte(strings.TrimSpace(dsn)))
+func DeriveCipherSeed(seed string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(seed)))
 	return base64.StdEncoding.EncodeToString(sum[:])
+}
+
+func DefaultCipherSeed(dsn string) string {
+	return DeriveCipherSeed(dsn)
 }
 
 func ResolveProjectCredential(context ProjectContext, decrypt func(StoredCredential) (string, error)) (ResolvedCredential, error) {

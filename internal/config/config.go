@@ -23,6 +23,7 @@ const (
 type Config struct {
 	Server        ServerConfig
 	Auth          AuthConfig
+	Security      SecurityConfig
 	GitHub        GitHubConfig
 	Database      DatabaseConfig
 	Orchestrator  OrchestratorConfig
@@ -49,6 +50,10 @@ type GitHubConfig struct {
 	WebhookSecret string
 }
 
+type SecurityConfig struct {
+	CipherSeed string
+}
+
 type ServerMode string
 
 const (
@@ -62,7 +67,9 @@ type DatabaseConfig struct {
 }
 
 type OrchestratorConfig struct {
-	TickInterval time.Duration
+	TickInterval             time.Duration
+	WorkspacePrepareTimeout  time.Duration
+	AgentSessionStartTimeout time.Duration
 }
 
 type EventConfig struct {
@@ -137,9 +144,12 @@ func configureDefaults(v *viper.Viper) {
 	v.SetDefault("server.write_timeout", 15*time.Second)
 	v.SetDefault("server.shutdown_timeout", 10*time.Second)
 	configureAuthDefaults(v)
+	v.SetDefault("security.cipher_seed", "")
 	v.SetDefault("github.webhook_secret", "")
 	v.SetDefault("database.dsn", "")
 	v.SetDefault("orchestrator.tick_interval", 5*time.Second)
+	v.SetDefault("orchestrator.workspace_prepare_timeout", 5*time.Minute)
+	v.SetDefault("orchestrator.agent_session_start_timeout", 30*time.Second)
 	v.SetDefault("event.driver", string(EventDriverAuto))
 	v.SetDefault("observability.metrics.enabled", true)
 	v.SetDefault("observability.metrics.export.prometheus", false)
@@ -229,6 +239,11 @@ func parseConfig(v *viper.Viper) (Config, error) {
 		authConfig = AuthConfig{}
 	}
 
+	securityCipherSeed, err := parseOptionalString(v.Get("security.cipher_seed"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse security.cipher_seed: %w", err)
+	}
+
 	gitHubWebhookSecret, err := parseOptionalString(v.Get("github.webhook_secret"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse github.webhook_secret: %w", err)
@@ -242,6 +257,14 @@ func parseConfig(v *viper.Viper) (Config, error) {
 	tickInterval, err := parseDuration(v.Get("orchestrator.tick_interval"))
 	if err != nil {
 		return Config{}, fmt.Errorf("parse orchestrator.tick_interval: %w", err)
+	}
+	workspacePrepareTimeout, err := parseDuration(v.Get("orchestrator.workspace_prepare_timeout"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse orchestrator.workspace_prepare_timeout: %w", err)
+	}
+	agentSessionStartTimeout, err := parseDuration(v.Get("orchestrator.agent_session_start_timeout"))
+	if err != nil {
+		return Config{}, fmt.Errorf("parse orchestrator.agent_session_start_timeout: %w", err)
 	}
 
 	eventDriver, err := parseEventDriver(v.Get("event.driver"))
@@ -304,6 +327,9 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			ShutdownTimeout: shutdownTimeout,
 		},
 		Auth: authConfig,
+		Security: SecurityConfig{
+			CipherSeed: securityCipherSeed,
+		},
 		GitHub: GitHubConfig{
 			WebhookSecret: gitHubWebhookSecret,
 		},
@@ -311,7 +337,9 @@ func parseConfig(v *viper.Viper) (Config, error) {
 			DSN: databaseDSN,
 		},
 		Orchestrator: OrchestratorConfig{
-			TickInterval: tickInterval,
+			TickInterval:             tickInterval,
+			WorkspacePrepareTimeout:  workspacePrepareTimeout,
+			AgentSessionStartTimeout: agentSessionStartTimeout,
 		},
 		Event: EventConfig{
 			Driver: eventDriver,
@@ -416,6 +444,24 @@ func parseDuration(raw any) (time.Duration, error) {
 			return 0, fmt.Errorf("invalid duration %q", value)
 		}
 		return parseDuration(parsed)
+	default:
+		return 0, fmt.Errorf("unsupported duration type %T", raw)
+	}
+}
+
+func parseNonNegativeDuration(raw any) (time.Duration, error) {
+	switch value := raw.(type) {
+	case time.Duration:
+		if value < 0 {
+			return 0, fmt.Errorf("duration %s must not be negative", value)
+		}
+		return value, nil
+	case string:
+		parsed, err := time.ParseDuration(strings.TrimSpace(value))
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration %q", value)
+		}
+		return parseNonNegativeDuration(parsed)
 	default:
 		return 0, fmt.Errorf("unsupported duration type %T", raw)
 	}
@@ -526,6 +572,13 @@ func validateConfig(cfg Config) error {
 		return errors.New("database.dsn is required when event.driver resolves to pgnotify")
 	}
 	return nil
+}
+
+func (cfg Config) ResolvedSecurityCipherSeed() string {
+	if trimmed := strings.TrimSpace(cfg.Security.CipherSeed); trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimSpace(cfg.Database.DSN)
 }
 
 func (cfg Config) ResolvedEventDriver() (EventDriver, error) {

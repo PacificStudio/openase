@@ -44,6 +44,9 @@ func (Project) Fields() []ent.Field {
 			Default(emptyUUIDs),
 		field.Int("max_concurrent_agents").Default(0),
 		field.Text("agent_run_summary_prompt").Optional(),
+		field.Bool("project_ai_retention_enabled").Default(false),
+		field.Int("project_ai_retention_keep_latest_n").Default(0),
+		field.Int("project_ai_retention_keep_recent_days").Default(0),
 	}
 }
 
@@ -64,6 +67,7 @@ func (Project) Edges() []ent.Edge {
 		edge.To("agent_tokens", AgentToken.Type),
 		edge.To("agent_trace_events", AgentTraceEvent.Type),
 		edge.To("agent_step_events", AgentStepEvent.Type),
+		edge.To("daily_token_usage", ProjectDailyTokenUsage.Type),
 		edge.To("scheduled_jobs", ScheduledJob.Type),
 		edge.To("activity_events", ActivityEvent.Type),
 		edge.To("update_threads", ProjectUpdateThread.Type),

@@ -58,6 +58,13 @@ const PR_VARS: TemplateVariable[] = [
   { name: 'message', description: 'Event message' },
 ]
 
+const MACHINE_VARS: TemplateVariable[] = [
+  { name: 'machine_id', description: 'Machine UUID' },
+  { name: 'session_id', description: 'Reverse websocket session ID' },
+  { name: 'transport_mode', description: 'Transport mode, for example ws_reverse' },
+  { name: 'connection_mode', description: 'Connection mode, for example reverse_websocket' },
+]
+
 const AGENT_VARS: TemplateVariable[] = [
   { name: 'agent.name', description: 'Agent name' },
   { name: 'agent.status', description: 'Agent status' },
@@ -97,6 +104,22 @@ const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
     { label: 'Common', variables: COMMON_VARS },
   ],
   'ticket.retry_scheduled': [
+    {
+      label: 'Event',
+      variables: [
+        { name: 'next_retry_at', description: 'Scheduled retry timestamp (RFC3339)' },
+        { name: 'consecutive_errors', description: 'Current consecutive failure count' },
+      ],
+    },
+    { label: 'Ticket', variables: TICKET_VARS },
+    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'ticket.retry_resumed': [
+    {
+      label: 'Event',
+      variables: [{ name: 'pause_reason', description: 'Previous retry pause reason' }],
+    },
     { label: 'Ticket', variables: TICKET_VARS },
     { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
     { label: 'Common', variables: COMMON_VARS },
@@ -113,6 +136,13 @@ const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
     { label: 'Common', variables: COMMON_VARS },
   ],
   'ticket.budget_exhausted': [
+    {
+      label: 'Event',
+      variables: [
+        { name: 'budget_usd', description: 'Configured ticket budget in USD' },
+        { name: 'cost_amount', description: 'Observed ticket cost in USD' },
+      ],
+    },
     { label: 'Ticket', variables: TICKET_VARS },
     { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
     { label: 'Common', variables: COMMON_VARS },
@@ -140,12 +170,37 @@ const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
     { label: 'Pull Request', variables: PR_VARS },
     { label: 'Common', variables: COMMON_VARS },
   ],
-  'pr.merged': [
+  'pr.closed': [
     { label: 'Pull Request', variables: PR_VARS },
     { label: 'Common', variables: COMMON_VARS },
   ],
-  'pr.closed': [
-    { label: 'Pull Request', variables: PR_VARS },
+  'machine.connected': [
+    { label: 'Machine', variables: MACHINE_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'machine.reconnected': [
+    { label: 'Machine', variables: MACHINE_VARS },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'machine.disconnected': [
+    {
+      label: 'Machine',
+      variables: [
+        ...MACHINE_VARS,
+        { name: 'reason', description: 'Disconnect reason when present' },
+      ],
+    },
+    { label: 'Common', variables: COMMON_VARS },
+  ],
+  'machine.daemon_auth_failed': [
+    {
+      label: 'Machine',
+      variables: [
+        ...MACHINE_VARS,
+        { name: 'failure_code', description: 'Structured auth failure code' },
+        { name: 'error', description: 'Underlying auth error message' },
+      ],
+    },
     { label: 'Common', variables: COMMON_VARS },
   ],
 }

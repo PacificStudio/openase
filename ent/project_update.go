@@ -22,6 +22,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -231,6 +232,62 @@ func (_u *ProjectUpdate) ClearAgentRunSummaryPrompt() *ProjectUpdate {
 	return _u
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionEnabled(v bool) *ProjectUpdate {
+	_u.mutation.SetProjectAiRetentionEnabled(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionEnabled(v *bool) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionEnabled(*v)
+	}
+	return _u
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionKeepLatestN(v int) *ProjectUpdate {
+	_u.mutation.ResetProjectAiRetentionKeepLatestN()
+	_u.mutation.SetProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionKeepLatestN(v *int) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepLatestN(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepLatestN adds value to the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdate) AddProjectAiRetentionKeepLatestN(v int) *ProjectUpdate {
+	_u.mutation.AddProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionKeepRecentDays(v int) *ProjectUpdate {
+	_u.mutation.ResetProjectAiRetentionKeepRecentDays()
+	_u.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionKeepRecentDays(v *int) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepRecentDays(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepRecentDays adds value to the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdate) AddProjectAiRetentionKeepRecentDays(v int) *ProjectUpdate {
+	_u.mutation.AddProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdate) SetOrganization(v *Organization) *ProjectUpdate {
 	return _u.SetOrganizationID(v.ID)
@@ -369,6 +426,21 @@ func (_u *ProjectUpdate) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpdate
 		ids[i] = v[i].ID
 	}
 	return _u.AddAgentStepEventIDs(ids...)
+}
+
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
+func (_u *ProjectUpdate) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdate) AddDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
 }
 
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
@@ -651,6 +723,27 @@ func (_u *ProjectUpdate) RemoveAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 	return _u.RemoveAgentStepEventIDs(ids...)
 }
 
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdate) ClearDailyTokenUsage() *ProjectUpdate {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to ProjectDailyTokenUsage entities by IDs.
+func (_u *ProjectUpdate) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdate {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to ProjectDailyTokenUsage entities.
+func (_u *ProjectUpdate) RemoveDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
+}
+
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
 func (_u *ProjectUpdate) ClearScheduledJobs() *ProjectUpdate {
 	_u.mutation.ClearScheduledJobs()
@@ -873,6 +966,21 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AgentRunSummaryPromptCleared() {
 		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionEnabled(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepLatestN(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepLatestN(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepRecentDays(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepRecentDays(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1301,6 +1409,51 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {
@@ -1767,6 +1920,62 @@ func (_u *ProjectUpdateOne) ClearAgentRunSummaryPrompt() *ProjectUpdateOne {
 	return _u
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionEnabled(v bool) *ProjectUpdateOne {
+	_u.mutation.SetProjectAiRetentionEnabled(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionEnabled(v *bool) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionEnabled(*v)
+	}
+	return _u
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionKeepLatestN(v int) *ProjectUpdateOne {
+	_u.mutation.ResetProjectAiRetentionKeepLatestN()
+	_u.mutation.SetProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionKeepLatestN(v *int) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepLatestN(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepLatestN adds value to the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdateOne) AddProjectAiRetentionKeepLatestN(v int) *ProjectUpdateOne {
+	_u.mutation.AddProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionKeepRecentDays(v int) *ProjectUpdateOne {
+	_u.mutation.ResetProjectAiRetentionKeepRecentDays()
+	_u.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionKeepRecentDays(v *int) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepRecentDays(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepRecentDays adds value to the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdateOne) AddProjectAiRetentionKeepRecentDays(v int) *ProjectUpdateOne {
+	_u.mutation.AddProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdateOne) SetOrganization(v *Organization) *ProjectUpdateOne {
 	return _u.SetOrganizationID(v.ID)
@@ -1905,6 +2114,21 @@ func (_u *ProjectUpdateOne) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectUpd
 		ids[i] = v[i].ID
 	}
 	return _u.AddAgentStepEventIDs(ids...)
+}
+
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
+func (_u *ProjectUpdateOne) AddDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.AddDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// AddDailyTokenUsage adds the "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdateOne) AddDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDailyTokenUsageIDs(ids...)
 }
 
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by IDs.
@@ -2187,6 +2411,27 @@ func (_u *ProjectUpdateOne) RemoveAgentStepEvents(v ...*AgentStepEvent) *Project
 	return _u.RemoveAgentStepEventIDs(ids...)
 }
 
+// ClearDailyTokenUsage clears all "daily_token_usage" edges to the ProjectDailyTokenUsage entity.
+func (_u *ProjectUpdateOne) ClearDailyTokenUsage() *ProjectUpdateOne {
+	_u.mutation.ClearDailyTokenUsage()
+	return _u
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to ProjectDailyTokenUsage entities by IDs.
+func (_u *ProjectUpdateOne) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) *ProjectUpdateOne {
+	_u.mutation.RemoveDailyTokenUsageIDs(ids...)
+	return _u
+}
+
+// RemoveDailyTokenUsage removes "daily_token_usage" edges to ProjectDailyTokenUsage entities.
+func (_u *ProjectUpdateOne) RemoveDailyTokenUsage(v ...*ProjectDailyTokenUsage) *ProjectUpdateOne {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDailyTokenUsageIDs(ids...)
+}
+
 // ClearScheduledJobs clears all "scheduled_jobs" edges to the ScheduledJob entity.
 func (_u *ProjectUpdateOne) ClearScheduledJobs() *ProjectUpdateOne {
 	_u.mutation.ClearScheduledJobs()
@@ -2439,6 +2684,21 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.AgentRunSummaryPromptCleared() {
 		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionEnabled(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepLatestN(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepLatestN(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepRecentDays(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepRecentDays(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2867,6 +3127,51 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDailyTokenUsageIDs(); len(nodes) > 0 && !_u.mutation.DailyTokenUsageCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DailyTokenUsageIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.DailyTokenUsageTable,
+			Columns: []string{project.DailyTokenUsageColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(projectdailytokenusage.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

@@ -26,6 +26,7 @@ func (ProjectConversationRun) Fields() []ent.Field {
 		field.String("provider_turn_id").Optional().Nillable(),
 		field.Time("runtime_started_at").Optional().Nillable(),
 		field.Time("terminal_at").Optional().Nillable(),
+		field.Time("snapshot_materialized_at").Optional().Nillable(),
 		field.String("last_error").Optional().Nillable(),
 		field.Time("last_heartbeat_at").Optional().Nillable(),
 		field.Float("cost_amount").Default(0),

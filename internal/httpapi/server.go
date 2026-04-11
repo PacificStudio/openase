@@ -42,45 +42,46 @@ import (
 )
 
 type Server struct {
-	cfg                        config.ServerConfig
-	auth                       config.AuthConfig
-	configFilePath             string
-	homeDir                    string
-	github                     config.GitHubConfig
-	logger                     *slog.Logger
-	events                     provider.EventProvider
-	trace                      provider.TraceProvider
-	metrics                    provider.MetricsProvider
-	metricsHandler             http.Handler
-	echo                       *echo.Echo
-	sseHub                     *sse.Hub
-	activityEmitter            *activitysvc.Emitter
-	ticketService              *ticketservice.Service
-	ticketStatusService        *ticketstatus.Service
-	agentPlatform              *agentplatform.Service
-	catalog                    catalogservice.Services
-	workflowService            *workflowservice.Service
-	scheduledJobService        *scheduledjobservice.Service
-	notificationService        *notificationservice.Service
-	projectUpdateService       *projectupdateservice.Service
-	chatService                *chatservice.Service
-	projectConversationService *chatservice.ProjectConversationService
-	githubAuthService          githubauthservice.SecurityManager
-	githubRepoService          githubreposervice.Service
-	secretService              secretsservice.Manager
-	instanceAuthService        *accesscontrolservice.Service
-	humanAuthService           *humanauthservice.Service
-	humanAuthorizer            *humanauthservice.Authorizer
-	memoryCollector            runtimeobservability.ProcessMemoryCollector
-	ticketWorkspaceResetter    ticketWorkspaceResetter
-	machineChannel             *machinechannelservice.Service
-	machineSessions            *machinechannelservice.SessionRegistry
-	reverseRuntimeRelay        *machinetransport.ReverseRuntimeRelayRegistry
-	shutdownCtx                context.Context
-	shutdownCancel             context.CancelFunc
-	shutdownOnce               sync.Once
-	connMu                     sync.Mutex
-	activeConns                map[net.Conn]struct{}
+	cfg                         config.ServerConfig
+	auth                        config.AuthConfig
+	configFilePath              string
+	homeDir                     string
+	github                      config.GitHubConfig
+	logger                      *slog.Logger
+	events                      provider.EventProvider
+	trace                       provider.TraceProvider
+	metrics                     provider.MetricsProvider
+	metricsHandler              http.Handler
+	echo                        *echo.Echo
+	sseHub                      *sse.Hub
+	activityEmitter             *activitysvc.Emitter
+	ticketService               *ticketservice.Service
+	ticketStatusService         *ticketstatus.Service
+	agentPlatform               *agentplatform.Service
+	catalog                     catalogservice.Services
+	workflowService             *workflowservice.Service
+	scheduledJobService         *scheduledjobservice.Service
+	notificationService         *notificationservice.Service
+	projectUpdateService        *projectupdateservice.Service
+	chatService                 *chatservice.Service
+	projectConversationService  *chatservice.ProjectConversationService
+	conversationTerminalService *chatservice.ConversationTerminalService
+	githubAuthService           githubauthservice.SecurityManager
+	githubRepoService           githubreposervice.Service
+	secretService               secretsservice.Manager
+	instanceAuthService         *accesscontrolservice.Service
+	humanAuthService            *humanauthservice.Service
+	humanAuthorizer             *humanauthservice.Authorizer
+	memoryCollector             runtimeobservability.ProcessMemoryCollector
+	ticketWorkspaceResetter     ticketWorkspaceResetter
+	machineChannel              *machinechannelservice.Service
+	machineSessions             *machinechannelservice.SessionRegistry
+	reverseRuntimeRelay         *machinetransport.ReverseRuntimeRelayRegistry
+	shutdownCtx                 context.Context
+	shutdownCancel              context.CancelFunc
+	shutdownOnce                sync.Once
+	connMu                      sync.Mutex
+	activeConns                 map[net.Conn]struct{}
 }
 
 type ticketWorkspaceResetter interface {
@@ -110,6 +111,12 @@ func WithChatService(service *chatservice.Service) ServerOption {
 func WithProjectConversationService(service *chatservice.ProjectConversationService) ServerOption {
 	return func(server *Server) {
 		server.projectConversationService = service
+	}
+}
+
+func WithConversationTerminalService(service *chatservice.ConversationTerminalService) ServerOption {
+	return func(server *Server) {
+		server.conversationTerminalService = service
 	}
 }
 

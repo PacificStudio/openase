@@ -37,6 +37,12 @@ const (
 	FieldMaxConcurrentAgents = "max_concurrent_agents"
 	// FieldAgentRunSummaryPrompt holds the string denoting the agent_run_summary_prompt field in the database.
 	FieldAgentRunSummaryPrompt = "agent_run_summary_prompt"
+	// FieldProjectAiRetentionEnabled holds the string denoting the project_ai_retention_enabled field in the database.
+	FieldProjectAiRetentionEnabled = "project_ai_retention_enabled"
+	// FieldProjectAiRetentionKeepLatestN holds the string denoting the project_ai_retention_keep_latest_n field in the database.
+	FieldProjectAiRetentionKeepLatestN = "project_ai_retention_keep_latest_n"
+	// FieldProjectAiRetentionKeepRecentDays holds the string denoting the project_ai_retention_keep_recent_days field in the database.
+	FieldProjectAiRetentionKeepRecentDays = "project_ai_retention_keep_recent_days"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
@@ -57,6 +63,8 @@ const (
 	EdgeAgentTraceEvents = "agent_trace_events"
 	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
 	EdgeAgentStepEvents = "agent_step_events"
+	// EdgeDailyTokenUsage holds the string denoting the daily_token_usage edge name in mutations.
+	EdgeDailyTokenUsage = "daily_token_usage"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -141,6 +149,13 @@ const (
 	AgentStepEventsInverseTable = "agent_step_events"
 	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
 	AgentStepEventsColumn = "project_id"
+	// DailyTokenUsageTable is the table that holds the daily_token_usage relation/edge.
+	DailyTokenUsageTable = "project_daily_token_usages"
+	// DailyTokenUsageInverseTable is the table name for the ProjectDailyTokenUsage entity.
+	// It exists in this package in order to avoid circular dependency with the "projectdailytokenusage" package.
+	DailyTokenUsageInverseTable = "project_daily_token_usages"
+	// DailyTokenUsageColumn is the table column denoting the daily_token_usage relation/edge.
+	DailyTokenUsageColumn = "project_id"
 	// ScheduledJobsTable is the table that holds the scheduled_jobs relation/edge.
 	ScheduledJobsTable = "scheduled_jobs"
 	// ScheduledJobsInverseTable is the table name for the ScheduledJob entity.
@@ -200,6 +215,9 @@ var Columns = []string{
 	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
 	FieldAgentRunSummaryPrompt,
+	FieldProjectAiRetentionEnabled,
+	FieldProjectAiRetentionKeepLatestN,
+	FieldProjectAiRetentionKeepRecentDays,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -225,6 +243,12 @@ var (
 	DefaultAccessibleMachineIds func() []uuid.UUID
 	// DefaultMaxConcurrentAgents holds the default value on creation for the "max_concurrent_agents" field.
 	DefaultMaxConcurrentAgents int
+	// DefaultProjectAiRetentionEnabled holds the default value on creation for the "project_ai_retention_enabled" field.
+	DefaultProjectAiRetentionEnabled bool
+	// DefaultProjectAiRetentionKeepLatestN holds the default value on creation for the "project_ai_retention_keep_latest_n" field.
+	DefaultProjectAiRetentionKeepLatestN int
+	// DefaultProjectAiRetentionKeepRecentDays holds the default value on creation for the "project_ai_retention_keep_recent_days" field.
+	DefaultProjectAiRetentionKeepRecentDays int
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -275,6 +299,21 @@ func ByMaxConcurrentAgents(opts ...sql.OrderTermOption) OrderOption {
 // ByAgentRunSummaryPrompt orders the results by the agent_run_summary_prompt field.
 func ByAgentRunSummaryPrompt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAgentRunSummaryPrompt, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionEnabled orders the results by the project_ai_retention_enabled field.
+func ByProjectAiRetentionEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionEnabled, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionKeepLatestN orders the results by the project_ai_retention_keep_latest_n field.
+func ByProjectAiRetentionKeepLatestN(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionKeepLatestN, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionKeepRecentDays orders the results by the project_ai_retention_keep_recent_days field.
+func ByProjectAiRetentionKeepRecentDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionKeepRecentDays, opts...).ToFunc()
 }
 
 // ByOrganizationField orders the results by organization field.
@@ -407,6 +446,20 @@ func ByAgentStepEventsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAgentStepEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByDailyTokenUsageCount orders the results by daily_token_usage count.
+func ByDailyTokenUsageCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDailyTokenUsageStep(), opts...)
+	}
+}
+
+// ByDailyTokenUsage orders the results by daily_token_usage terms.
+func ByDailyTokenUsage(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDailyTokenUsageStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 
@@ -554,6 +607,13 @@ func newAgentStepEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
+	)
+}
+func newDailyTokenUsageStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DailyTokenUsageInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
 	)
 }
 func newScheduledJobsStep() *sqlgraph.Step {

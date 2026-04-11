@@ -7,21 +7,17 @@
     SecuritySettingsResponse,
   } from '$lib/api/contracts'
   import { enableOIDC, saveOIDCDraft, testOIDCDraft } from '$lib/api/openase'
+  import {
+    createOIDCFormState,
+    oidcDraftFormFromAuth,
+    oidcDraftPayloadFromForm,
+    oidcDraftSignature,
+    type OIDCFormState,
+  } from '$lib/features/auth'
   import { toastStore } from '$lib/stores/toast.svelte'
   import SecuritySettingsHumanAuthDisabledSetup from './security-settings-human-auth-disabled-setup.svelte'
 
   type Security = SecuritySettingsResponse['security']
-
-  type OIDCFormState = {
-    issuerURL: string
-    clientID: string
-    clientSecret: string
-    redirectMode: 'auto' | 'fixed'
-    fixedRedirectURL: string
-    scopesText: string
-    allowedDomainsText: string
-    bootstrapAdminEmailsText: string
-  }
 
   let {
     auth,
@@ -33,16 +29,7 @@
     onSecurityChange?: (security: Security) => void
   } = $props()
 
-  let oidcForm = $state<OIDCFormState>({
-    issuerURL: '',
-    clientID: '',
-    clientSecret: '',
-    redirectMode: 'auto',
-    fixedRedirectURL: '',
-    scopesText: '',
-    allowedDomainsText: '',
-    bootstrapAdminEmailsText: '',
-  })
+  let oidcForm = $state<OIDCFormState>(createOIDCFormState())
   let oidcActionKey = $state('')
   let oidcError = $state('')
   let oidcTestResult = $state<OIDCDraftTestResponse | null>(null)
@@ -50,42 +37,13 @@
   let lastDraftSignature = $state('')
 
   $effect(() => {
-    const nextSignature = JSON.stringify(auth.oidc_draft)
+    const nextSignature = oidcDraftSignature(auth)
     if (nextSignature === lastDraftSignature) {
       return
     }
-    oidcForm = {
-      issuerURL: auth.oidc_draft.issuer_url,
-      clientID: auth.oidc_draft.client_id,
-      clientSecret: '',
-      redirectMode: auth.oidc_draft.redirect_mode === 'fixed' ? 'fixed' : 'auto',
-      fixedRedirectURL: auth.oidc_draft.fixed_redirect_url,
-      scopesText: auth.oidc_draft.scopes.join('\n'),
-      allowedDomainsText: auth.oidc_draft.allowed_email_domains.join('\n'),
-      bootstrapAdminEmailsText: auth.oidc_draft.bootstrap_admin_emails.join('\n'),
-    }
+    oidcForm = oidcDraftFormFromAuth(auth)
     lastDraftSignature = nextSignature
   })
-
-  function parseListInput(value: string) {
-    return value
-      .split(/[\n,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
-
-  function oidcDraftPayload() {
-    return {
-      issuer_url: oidcForm.issuerURL.trim(),
-      client_id: oidcForm.clientID.trim(),
-      client_secret: oidcForm.clientSecret.trim(),
-      redirect_mode: oidcForm.redirectMode,
-      fixed_redirect_url: oidcForm.fixedRedirectURL.trim(),
-      scopes: parseListInput(oidcForm.scopesText),
-      allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
-      bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),
-    }
-  }
 
   async function runOIDCAction(
     action: 'save' | 'test' | 'enable',
@@ -111,7 +69,7 @@
 
   async function handleSaveOIDCDraft() {
     await runOIDCAction('save', async (resolvedProjectId) => {
-      const payload = await saveOIDCDraft(resolvedProjectId, oidcDraftPayload())
+      const payload = await saveOIDCDraft(resolvedProjectId, oidcDraftPayloadFromForm(oidcForm))
       onSecurityChange?.(payload.security)
       oidcEnableResult = null
       toastStore.success(
@@ -122,7 +80,7 @@
 
   async function handleTestOIDCDraft() {
     await runOIDCAction('test', async (resolvedProjectId) => {
-      oidcTestResult = await testOIDCDraft(resolvedProjectId, oidcDraftPayload())
+      oidcTestResult = await testOIDCDraft(resolvedProjectId, oidcDraftPayloadFromForm(oidcForm))
       oidcEnableResult = null
       toastStore.success('OIDC provider discovery succeeded.')
     })
@@ -130,7 +88,7 @@
 
   async function handleEnableOIDC() {
     await runOIDCAction('enable', async (resolvedProjectId) => {
-      const payload = await enableOIDC(resolvedProjectId, oidcDraftPayload())
+      const payload = await enableOIDC(resolvedProjectId, oidcDraftPayloadFromForm(oidcForm))
       onSecurityChange?.(payload.security)
       oidcEnableResult = payload.activation
       toastStore.success(
@@ -155,6 +113,8 @@
   onScopes={(value) => (oidcForm.scopesText = value)}
   onAllowedDomains={(value) => (oidcForm.allowedDomainsText = value)}
   onBootstrapAdmins={(value) => (oidcForm.bootstrapAdminEmailsText = value)}
+  onSessionTTL={(value) => (oidcForm.sessionTTL = value)}
+  onSessionIdleTTL={(value) => (oidcForm.sessionIdleTTL = value)}
   onSave={() => void handleSaveOIDCDraft()}
   onTest={() => void handleTestOIDCDraft()}
   onEnable={() => void handleEnableOIDC()}

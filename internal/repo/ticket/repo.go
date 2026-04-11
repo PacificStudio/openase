@@ -1643,6 +1643,7 @@ func mapTicket(item *ent.Ticket) Ticket {
 
 	if item.Edges.Status != nil {
 		result.StatusName = item.Edges.Status.Name
+		result.StatusStage = string(item.Edges.Status.Stage)
 	}
 	if item.Edges.Parent != nil {
 		parent := mapTicketReference(item.Edges.Parent)

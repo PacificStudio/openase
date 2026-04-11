@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	chat "github.com/BetterAndBetterII/openase/internal/chat"
+	chatdomain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
 )
 
 func TestParseProjectConversationTurnRequestPreservesFocus(t *testing.T) {
@@ -87,6 +88,47 @@ func TestParseProjectConversationTurnRequestPreservesFocus(t *testing.T) {
 		request.Focus.Ticket.CurrentRun == nil ||
 		request.Focus.Ticket.TargetMachine == nil {
 		t.Fatalf("unexpected ticket focus = %#v", request.Focus.Ticket)
+	}
+}
+
+func TestParseCreateProjectConversationTerminalSessionRequest(t *testing.T) {
+	t.Parallel()
+
+	repoPath := " backend "
+	cwdPath := " src "
+	cols := 100
+	rows := 35
+	request, err := parseCreateProjectConversationTerminalSessionRequest(
+		rawCreateProjectConversationTerminalSessionRequest{
+			Mode:     " shell ",
+			RepoPath: &repoPath,
+			CWDPath:  &cwdPath,
+			Cols:     &cols,
+			Rows:     &rows,
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseCreateProjectConversationTerminalSessionRequest() error = %v", err)
+	}
+	if request.Terminal.Mode != chatdomain.TerminalModeShell ||
+		request.Terminal.RepoPath == nil ||
+		*request.Terminal.RepoPath != "backend" ||
+		request.Terminal.CWDPath == nil ||
+		*request.Terminal.CWDPath != "src" ||
+		request.Terminal.Cols != 100 ||
+		request.Terminal.Rows != 35 {
+		t.Fatalf("unexpected parsed request = %+v", request.Terminal)
+	}
+}
+
+func TestParseCreateProjectConversationTerminalSessionRequestRejectsUnsupportedMode(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseCreateProjectConversationTerminalSessionRequest(
+		rawCreateProjectConversationTerminalSessionRequest{Mode: "tmux"},
+	)
+	if err == nil {
+		t.Fatal("expected unsupported mode error")
 	}
 }
 

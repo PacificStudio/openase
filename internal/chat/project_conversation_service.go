@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
@@ -33,12 +34,15 @@ var (
 	ErrConversationNotFound         = chatrepo.ErrNotFound
 	ErrConversationConflict         = chatrepo.ErrConflict
 	ErrConversationTurnActive       = chatrepo.ErrTurnAlreadyActive
+	ErrConversationTurnNotActive    = fmt.Errorf("%w: project conversation does not have an active turn", domain.ErrConflict)
 	ErrConversationInterruptPending = domain.ErrInterruptPending
 	ErrPendingInterruptNotFound     = chatrepo.ErrNotFound
 	ErrConversationRuntimeAbsent    = fmt.Errorf("chat conversation runtime is unavailable")
 )
 
 type projectConversationCatalog interface {
+	ListOrganizations(ctx context.Context) ([]catalogdomain.Organization, error)
+	ListProjects(ctx context.Context, organizationID uuid.UUID) ([]catalogdomain.Project, error)
 	GetProject(ctx context.Context, id uuid.UUID) (catalogdomain.Project, error)
 	GetMachine(ctx context.Context, id uuid.UUID) (catalogdomain.Machine, error)
 	GetAgentProvider(ctx context.Context, id uuid.UUID) (catalogdomain.AgentProvider, error)
@@ -60,6 +64,10 @@ type projectConversationSecretManager interface {
 	ResolveBoundForRuntime(context.Context, secretsservice.ResolveBoundRuntimeInput) ([]secretsdomain.ResolvedSecret, error)
 }
 
+type projectConversationActivityEmitter interface {
+	Emit(context.Context, activitysvc.RecordInput) (*catalogdomain.ActivityEvent, error)
+}
+
 type liveProjectConversation struct {
 	principal domain.ProjectConversationPrincipal
 	provider  catalogdomain.AgentProvider
@@ -67,6 +75,7 @@ type liveProjectConversation struct {
 	runtime   Runtime
 	codex     projectConversationCodexRuntime
 	interrupt projectConversationInterruptRuntime
+	turnStop  projectConversationTurnStopRuntime
 	workspace provider.AbsolutePath
 }
 
@@ -88,12 +97,19 @@ type projectConversationCodexRuntime interface {
 	Runtime
 	EnsureSession(ctx context.Context, input RuntimeTurnInput) error
 	RespondInterrupt(ctx context.Context, input RuntimeInterruptResponseInput) (TurnStream, error)
+	InterruptTurn(ctx context.Context, sessionID SessionID) (RuntimeSessionAnchor, error)
 	SessionAnchor(sessionID SessionID) RuntimeSessionAnchor
 }
 
 type projectConversationInterruptRuntime interface {
 	Runtime
 	RespondInterrupt(ctx context.Context, input RuntimeInterruptResponseInput) (TurnStream, error)
+	SessionAnchor(sessionID SessionID) RuntimeSessionAnchor
+}
+
+type projectConversationTurnStopRuntime interface {
+	Runtime
+	InterruptTurn(ctx context.Context, sessionID SessionID) (RuntimeSessionAnchor, error)
 	SessionAnchor(sessionID SessionID) RuntimeSessionAnchor
 }
 
@@ -120,6 +136,7 @@ type ProjectConversationService struct {
 	githubAuth          githubauthservice.TokenResolver
 	secretResolver      RuntimeEnvironmentResolver
 	secretManager       projectConversationSecretManager
+	activityEmitter     projectConversationActivityEmitter
 
 	streamBroker    *projectConversationStreamBroker
 	muxBroker       *projectConversationMuxBroker
@@ -221,6 +238,13 @@ func (s *ProjectConversationService) ConfigureSecretManager(manager projectConve
 		return
 	}
 	s.secretManager = manager
+}
+
+func (s *ProjectConversationService) ConfigureActivityEmitter(emitter projectConversationActivityEmitter) {
+	if s == nil {
+		return
+	}
+	s.activityEmitter = emitter
 }
 
 func projectConversationTurnLockKey(conversation domain.Conversation) UserID {
@@ -823,42 +847,200 @@ func (s *ProjectConversationService) CloseRuntime(ctx context.Context, userID Us
 	if err != nil {
 		return err
 	}
+	return s.closeConversationRuntime(ctx, conversation)
+}
 
-	live, _ := s.runtimeManager.Close(conversationID)
-	if live != nil && live.principal.ID != uuid.Nil {
-		if live.principal.CurrentRunID != nil && *live.principal.CurrentRunID != uuid.Nil {
-			now := time.Now().UTC()
-			terminatedStatus := domain.RunStatusTerminated
-			_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
-				RunID:                *live.principal.CurrentRunID,
-				Status:               &terminatedStatus,
-				TerminalAt:           &now,
-				LastHeartbeatAt:      &now,
-				CurrentStepStatus:    optionalString("runtime_closed"),
-				CurrentStepSummary:   optionalString("Project conversation runtime closed."),
-				CurrentStepChangedAt: &now,
-			})
+func (s *ProjectConversationService) InterruptTurn(
+	ctx context.Context,
+	userID UserID,
+	conversationID uuid.UUID,
+) error {
+	conversation, err := s.GetConversation(ctx, userID, conversationID)
+	if err != nil {
+		return err
+	}
+
+	unlock := s.turnLocks.Lock(projectConversationTurnLockKey(conversation))
+	defer unlock()
+
+	activeTurn, err := s.entries.GetActiveTurn(ctx, conversationID)
+	switch {
+	case err == nil:
+	case errors.Is(err, ErrConversationNotFound):
+		return ErrConversationTurnNotActive
+	default:
+		return err
+	}
+
+	if activeTurn.Status != domain.TurnStatusRunning && activeTurn.Status != domain.TurnStatusPending {
+		return ErrConversationTurnNotActive
+	}
+
+	pendingInterrupts, err := s.interrupts.ListPendingInterrupts(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+	for _, interrupt := range pendingInterrupts {
+		if interrupt.TurnID == activeTurn.ID && interrupt.Status == domain.InterruptStatusPending {
+			return ErrConversationInterruptPending
 		}
-		if principal, principalErr := s.runtimeStore.ClosePrincipal(ctx, domain.ClosePrincipalInput{PrincipalID: live.principal.ID}); principalErr == nil {
+	}
+
+	live, ok := s.runtimeManager.Get(conversationID)
+	if !ok || live == nil || live.turnStop == nil {
+		return ErrConversationRuntimeAbsent
+	}
+
+	anchor, err := live.turnStop.InterruptTurn(ctx, SessionID(conversationID.String()))
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	statusMessage := "Turn stopped by user."
+	reason := "stopped_by_user"
+
+	anchorThreadID := ""
+	anchorTurnID := ""
+	if live.provider.AdapterType != catalogdomain.AgentProviderAdapterTypeCodexAppServer {
+		anchorThreadID = firstNonEmptyTrimmed(
+			anchor.ProviderThreadID,
+			stringPointerValue(conversation.ProviderThreadID),
+		)
+		anchorTurnID = firstNonEmptyTrimmed(
+			anchor.LastTurnID,
+			stringPointerValue(conversation.LastTurnID),
+		)
+	}
+	if _, err := s.entries.CompleteTurn(ctx, activeTurn.ID, domain.TurnStatusInterrupted, optionalNonEmptyString(anchorTurnID)); err != nil {
+		return err
+	}
+	if _, err := s.appendConversationEntryWithConflictRetry(ctx, conversationID, &activeTurn.ID, domain.EntryKindSystem, map[string]any{
+		"type":    "turn_interrupted",
+		"reason":  reason,
+		"message": statusMessage,
+	}); err != nil {
+		return err
+	}
+	entries, err := s.entries.ListEntries(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+	summary := buildRollingSummary(entries)
+	emptyFlags := []string{}
+	updatedConversation, err := s.conversations.UpdateConversationAnchors(
+		ctx,
+		conversationID,
+		domain.ConversationStatusActive,
+		domain.ConversationAnchors{
+			ProviderThreadID:          optionalNonEmptyString(anchorThreadID),
+			LastTurnID:                optionalNonEmptyString(anchorTurnID),
+			ProviderThreadStatus:      optionalString("notLoaded"),
+			ProviderThreadActiveFlags: &emptyFlags,
+			RollingSummary:            summary,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	if live.principal.ID != uuid.Nil {
+		clearRunID := uuid.Nil
+		if principal, principalErr := s.runtimeStore.UpdatePrincipalRuntime(ctx, domain.UpdatePrincipalRuntimeInput{
+			PrincipalID:          live.principal.ID,
+			RuntimeState:         domain.RuntimeStateReady,
+			CurrentSessionID:     optionalString(conversation.ID.String()),
+			CurrentWorkspacePath: optionalString(live.workspace.String()),
+			CurrentRunID:         &clearRunID,
+			LastHeartbeatAt:      &now,
+			CurrentStepStatus:    optionalString("turn_interrupted"),
+			CurrentStepSummary:   optionalString(statusMessage),
+			CurrentStepChangedAt: &now,
+		}); principalErr == nil {
 			live.principal = principal
 		}
 	}
-	updatedConversation, err := s.conversations.CloseConversationRuntime(ctx, conversationID)
-	if err == nil {
-		var providerItem *catalogdomain.AgentProvider
-		if live != nil {
-			providerItem = &live.provider
-		} else if s.catalog != nil {
-			if resolved, resolveErr := s.catalog.GetAgentProvider(ctx, conversation.ProviderID); resolveErr == nil {
-				providerItem = &resolved
-			}
-		}
-		s.broadcastConversationEvent(updatedConversation, StreamEvent{
-			Event:   "session",
-			Payload: conversationSessionPayload(conversationID, "inactive", updatedConversation, providerItem),
+
+	var run domain.ProjectConversationRun
+	if storedRun, runErr := s.runtimeStore.GetRunByTurnID(ctx, activeTurn.ID); runErr == nil {
+		run = storedRun
+		interruptedStatus := domain.RunStatusInterrupted
+		_, _ = s.runtimeStore.UpdateRun(ctx, domain.UpdateRunInput{
+			RunID:                run.ID,
+			Status:               &interruptedStatus,
+			ProviderThreadID:     optionalNonEmptyString(anchorThreadID),
+			ProviderTurnID:       optionalNonEmptyString(anchorTurnID),
+			TerminalAt:           &now,
+			LastError:            optionalString(""),
+			LastHeartbeatAt:      &now,
+			CurrentStepStatus:    optionalString("turn_interrupted"),
+			CurrentStepSummary:   optionalString(statusMessage),
+			CurrentStepChangedAt: &now,
 		})
 	}
-	return err
+
+	if run.ID != uuid.Nil {
+		s.recordConversationTrace(ctx, live, run, "interrupted", map[string]any{
+			"message": statusMessage,
+			"reason":  reason,
+		}, "runtime")
+	}
+
+	s.broadcastConversationEvent(updatedConversation, StreamEvent{
+		Event: "message",
+		Payload: map[string]any{
+			"type": "turn_interrupted",
+			"raw": map[string]any{
+				"message": statusMessage,
+				"reason":  reason,
+			},
+		},
+	})
+	s.broadcastConversationEvent(updatedConversation, StreamEvent{
+		Event: "interrupted",
+		Payload: map[string]any{
+			"conversation_id": conversationID.String(),
+			"turn_id":         activeTurn.ID.String(),
+			"message":         statusMessage,
+			"reason":          reason,
+		},
+	})
+	s.broadcastConversationEvent(updatedConversation, StreamEvent{
+		Event:   "session",
+		Payload: conversationSessionPayload(conversationID, string(domain.RuntimeStateReady), updatedConversation, &live.provider),
+	})
+	return nil
+}
+
+func (s *ProjectConversationService) appendConversationEntryWithConflictRetry(
+	ctx context.Context,
+	conversationID uuid.UUID,
+	turnID *uuid.UUID,
+	kind domain.EntryKind,
+	payload map[string]any,
+) (domain.Entry, error) {
+	const maxAttempts = 3
+
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		entry, err := s.entries.AppendEntry(ctx, conversationID, turnID, kind, payload)
+		if err == nil {
+			return entry, nil
+		}
+		if !errors.Is(err, ErrConversationConflict) {
+			return domain.Entry{}, err
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			return domain.Entry{}, ctx.Err()
+		}
+		if attempt == maxAttempts-1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return domain.Entry{}, lastErr
 }
 
 func (s *ProjectConversationService) recoverStaleActiveTurnBeforeStart(
@@ -2138,6 +2320,14 @@ func renderRecoveryLines(entries []domain.Entry, limit int) []string {
 			lines = append(lines, "assistant: "+strings.TrimSpace(stringValue(entry.Payload["content"])))
 		case domain.EntryKindInterrupt:
 			lines = append(lines, "system: turn paused for interrupt")
+		case domain.EntryKindSystem:
+			if stringValue(entry.Payload["type"]) == "turn_interrupted" {
+				message := strings.TrimSpace(stringValue(entry.Payload["message"]))
+				if message == "" {
+					message = "Turn stopped by user."
+				}
+				lines = append(lines, "system: "+message)
+			}
 		}
 	}
 	return lines
@@ -2177,6 +2367,15 @@ func stringPointerValue(value *string) string {
 		return ""
 	}
 	return strings.TrimSpace(*value)
+}
+
+func firstNonEmptyTrimmed(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func cloneMapAny(value map[string]any) map[string]any {

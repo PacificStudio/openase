@@ -261,8 +261,17 @@ func TestParseAccessControlStateCoversDraftAndActiveErrors(t *testing.T) {
 		SessionTTL:     "1h",
 		SessionIdleTTL: "0s",
 	})
-	if err == nil || !strings.Contains(err.Error(), "session_idle_ttl must be greater than zero") {
-		t.Fatalf("expected session_idle_ttl > 0 error, got %v", err)
+	if err != nil {
+		t.Fatalf("expected zero idle ttl to be accepted, got %v", err)
+	}
+
+	_, err = ParseAccessControlState(AccessControlStateInput{
+		Status:         "draft",
+		SessionTTL:     "1h",
+		SessionIdleTTL: "-1s",
+	})
+	if err == nil || !strings.Contains(err.Error(), "session_idle_ttl must not be negative") {
+		t.Fatalf("expected session_idle_ttl >= 0 error, got %v", err)
 	}
 
 	_, err = parseActiveOIDCConfig(AccessControlStateInput{
@@ -423,6 +432,9 @@ func TestDraftAndActiveOIDCRedirectHelpers(t *testing.T) {
 	}
 
 	autoDraft := DefaultDraftOIDCConfig()
+	if autoDraft.SessionPolicy.SessionTTL != 0 || autoDraft.SessionPolicy.SessionIdleTTL != 0 {
+		t.Fatalf("default draft session policy = %#v", autoDraft.SessionPolicy)
+	}
 	autoURL, err := autoDraft.EffectiveRedirectURL("https://desktop.example.com:43123")
 	if err != nil {
 		t.Fatalf("draft auto EffectiveRedirectURL() error = %v", err)

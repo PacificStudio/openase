@@ -321,7 +321,20 @@ func humanRouteAuthorizationRuleFor(path string, method string) (humanRouteAutho
 			permission:    ticketPermissionForPath(path, method),
 			checkRequired: true,
 		}, true
-	case "/api/v1/chat/conversations/:conversationId", "/api/v1/chat/conversations/:conversationId/entries", "/api/v1/chat/conversations/:conversationId/stream", "/api/v1/chat/conversations/:conversationId/workspace-diff", "/api/v1/chat/conversations/:conversationId/turns", "/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond", "/api/v1/chat/conversations/:conversationId/runtime":
+	case "/api/v1/chat/conversations/:conversationId",
+		"/api/v1/chat/conversations/:conversationId/entries",
+		"/api/v1/chat/conversations/:conversationId/stream",
+		"/api/v1/chat/conversations/:conversationId/workspace",
+		"/api/v1/chat/conversations/:conversationId/workspace/tree",
+		"/api/v1/chat/conversations/:conversationId/workspace/file",
+		"/api/v1/chat/conversations/:conversationId/workspace/file-patch",
+		"/api/v1/chat/conversations/:conversationId/workspace-diff",
+		"/api/v1/chat/conversations/:conversationId/terminal-sessions",
+		"/api/v1/chat/conversations/:conversationId/terminal-sessions/:terminalSessionId/attach",
+		"/api/v1/chat/conversations/:conversationId/turns",
+		"/api/v1/chat/conversations/:conversationId/interrupt-turn",
+		"/api/v1/chat/conversations/:conversationId/interrupts/:interruptId/respond",
+		"/api/v1/chat/conversations/:conversationId/runtime":
 		return humanRouteAuthorizationRule{
 			scopeResolver: humanRouteScopeResolverProject,
 			resource:      "conversation",
@@ -749,13 +762,16 @@ func ticketPermissionForPath(path, method string) humanauthdomain.PermissionKey 
 }
 
 func chatPermissionForPath(path, method string) humanauthdomain.PermissionKey {
+	if strings.Contains(path, "/terminal-sessions") {
+		return humanauthdomain.PermissionConversationUpdate
+	}
 	switch method {
 	case http.MethodGet:
 		return humanauthdomain.PermissionConversationRead
 	case http.MethodDelete:
 		return humanauthdomain.PermissionConversationDelete
 	case http.MethodPost:
-		if strings.HasSuffix(path, "/turns") || strings.Contains(path, "/interrupts/") {
+		if strings.HasSuffix(path, "/turns") || strings.HasSuffix(path, "/interrupt-turn") || strings.Contains(path, "/interrupts/") {
 			return humanauthdomain.PermissionConversationUpdate
 		}
 		return humanauthdomain.PermissionConversationCreate

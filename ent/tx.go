@@ -70,6 +70,8 @@ type Tx struct {
 	ProjectConversationStepEvent *ProjectConversationStepEventClient
 	// ProjectConversationTraceEvent is the client for interacting with the ProjectConversationTraceEvent builders.
 	ProjectConversationTraceEvent *ProjectConversationTraceEventClient
+	// ProjectDailyTokenUsage is the client for interacting with the ProjectDailyTokenUsage builders.
+	ProjectDailyTokenUsage *ProjectDailyTokenUsageClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
 	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
@@ -124,6 +126,8 @@ type Tx struct {
 	WorkflowSkillBinding *WorkflowSkillBindingClient
 	// WorkflowVersion is the client for interacting with the WorkflowVersion builders.
 	WorkflowVersion *WorkflowVersionClient
+	// WorkspaceInitLease is the client for interacting with the WorkspaceInitLease builders.
+	WorkspaceInitLease *WorkspaceInitLeaseClient
 
 	// lazily loaded.
 	client     *Client
@@ -284,6 +288,7 @@ func (tx *Tx) init() {
 	tx.ProjectConversationRun = NewProjectConversationRunClient(tx.config)
 	tx.ProjectConversationStepEvent = NewProjectConversationStepEventClient(tx.config)
 	tx.ProjectConversationTraceEvent = NewProjectConversationTraceEventClient(tx.config)
+	tx.ProjectDailyTokenUsage = NewProjectDailyTokenUsageClient(tx.config)
 	tx.ProjectRepo = NewProjectRepoClient(tx.config)
 	tx.ProjectUpdateComment = NewProjectUpdateCommentClient(tx.config)
 	tx.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(tx.config)
@@ -311,6 +316,7 @@ func (tx *Tx) init() {
 	tx.Workflow = NewWorkflowClient(tx.config)
 	tx.WorkflowSkillBinding = NewWorkflowSkillBindingClient(tx.config)
 	tx.WorkflowVersion = NewWorkflowVersionClient(tx.config)
+	tx.WorkspaceInitLease = NewWorkspaceInitLeaseClient(tx.config)
 }
 
 // txDriver wraps the given dialect.Tx with a nop dialect.Driver implementation.

@@ -127,6 +127,30 @@ export function formatAuthAuditEventLabel(eventType: string) {
   return authAuditEventLabels[eventType] ?? eventType
 }
 
+export type AuthAuditEventSeverity = 'success' | 'warning' | 'danger' | 'neutral'
+
+const authAuditEventSeverity: Record<string, AuthAuditEventSeverity> = {
+  'login.success': 'success',
+  'login.failed': 'danger',
+  logout: 'neutral',
+  'session.revoked': 'warning',
+  'session.expired': 'neutral',
+  'user.enabled': 'success',
+  'user.disabled': 'danger',
+  'user.disabled_after_login': 'danger',
+}
+
+export function formatAuthAuditEventSeverity(eventType: string): AuthAuditEventSeverity {
+  return authAuditEventSeverity[eventType] ?? 'neutral'
+}
+
+export const authAuditEventDotClass: Record<AuthAuditEventSeverity, string> = {
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger: 'bg-red-500',
+  neutral: 'bg-muted-foreground/40',
+}
+
 export function bindingPlaceholder(subjectKind: SubjectKind) {
   return subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'
 }

@@ -354,8 +354,7 @@ func (s *Server) emitPullRequestActivity(
 		eventType = activityevent.TypePRClosed
 		message = fmt.Sprintf("%s PR closed", ticketItem.Identifier)
 	default:
-		eventType = activityevent.TypePROpened
-		message = fmt.Sprintf("%s PR updated", ticketItem.Identifier)
+		return nil
 	}
 
 	return s.emitActivity(ctx, activitysvc.RecordInput{

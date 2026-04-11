@@ -30,8 +30,8 @@ func (InstanceAuthConfig) Fields() []ent.Field {
 		field.String("groups_claim").Default("groups"),
 		textArrayField("allowed_email_domains"),
 		textArrayField("bootstrap_admin_emails"),
-		field.String("session_ttl").Default("8h"),
-		field.String("session_idle_ttl").Default("30m"),
+		field.String("session_ttl").Default("0s"),
+		field.String("session_idle_ttl").Default("0s"),
 		field.JSON("validation_metadata", iam.OIDCValidationMetadata{}).
 			Default(func() iam.OIDCValidationMetadata { return iam.OIDCValidationMetadata{} }),
 		field.JSON("activation_metadata", iam.OIDCActivationMetadata{}).

@@ -34,6 +34,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -62,6 +63,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/google/uuid"
 )
@@ -820,6 +822,18 @@ func init() {
 	projectDescMaxConcurrentAgents := projectFields[11].Descriptor()
 	// project.DefaultMaxConcurrentAgents holds the default value on creation for the max_concurrent_agents field.
 	project.DefaultMaxConcurrentAgents = projectDescMaxConcurrentAgents.Default.(int)
+	// projectDescProjectAiRetentionEnabled is the schema descriptor for project_ai_retention_enabled field.
+	projectDescProjectAiRetentionEnabled := projectFields[13].Descriptor()
+	// project.DefaultProjectAiRetentionEnabled holds the default value on creation for the project_ai_retention_enabled field.
+	project.DefaultProjectAiRetentionEnabled = projectDescProjectAiRetentionEnabled.Default.(bool)
+	// projectDescProjectAiRetentionKeepLatestN is the schema descriptor for project_ai_retention_keep_latest_n field.
+	projectDescProjectAiRetentionKeepLatestN := projectFields[14].Descriptor()
+	// project.DefaultProjectAiRetentionKeepLatestN holds the default value on creation for the project_ai_retention_keep_latest_n field.
+	project.DefaultProjectAiRetentionKeepLatestN = projectDescProjectAiRetentionKeepLatestN.Default.(int)
+	// projectDescProjectAiRetentionKeepRecentDays is the schema descriptor for project_ai_retention_keep_recent_days field.
+	projectDescProjectAiRetentionKeepRecentDays := projectFields[15].Descriptor()
+	// project.DefaultProjectAiRetentionKeepRecentDays holds the default value on creation for the project_ai_retention_keep_recent_days field.
+	project.DefaultProjectAiRetentionKeepRecentDays = projectDescProjectAiRetentionKeepRecentDays.Default.(int)
 	// projectDescID is the schema descriptor for id field.
 	projectDescID := projectFields[0].Descriptor()
 	// project.DefaultID holds the default value on creation for the id field.
@@ -847,47 +861,47 @@ func init() {
 	projectconversationrunFields := schema.ProjectConversationRun{}.Fields()
 	_ = projectconversationrunFields
 	// projectconversationrunDescCostAmount is the schema descriptor for cost_amount field.
-	projectconversationrunDescCostAmount := projectconversationrunFields[15].Descriptor()
+	projectconversationrunDescCostAmount := projectconversationrunFields[16].Descriptor()
 	// projectconversationrun.DefaultCostAmount holds the default value on creation for the cost_amount field.
 	projectconversationrun.DefaultCostAmount = projectconversationrunDescCostAmount.Default.(float64)
 	// projectconversationrunDescInputTokens is the schema descriptor for input_tokens field.
-	projectconversationrunDescInputTokens := projectconversationrunFields[16].Descriptor()
+	projectconversationrunDescInputTokens := projectconversationrunFields[17].Descriptor()
 	// projectconversationrun.DefaultInputTokens holds the default value on creation for the input_tokens field.
 	projectconversationrun.DefaultInputTokens = projectconversationrunDescInputTokens.Default.(int64)
 	// projectconversationrunDescOutputTokens is the schema descriptor for output_tokens field.
-	projectconversationrunDescOutputTokens := projectconversationrunFields[17].Descriptor()
+	projectconversationrunDescOutputTokens := projectconversationrunFields[18].Descriptor()
 	// projectconversationrun.DefaultOutputTokens holds the default value on creation for the output_tokens field.
 	projectconversationrun.DefaultOutputTokens = projectconversationrunDescOutputTokens.Default.(int64)
 	// projectconversationrunDescCachedInputTokens is the schema descriptor for cached_input_tokens field.
-	projectconversationrunDescCachedInputTokens := projectconversationrunFields[18].Descriptor()
+	projectconversationrunDescCachedInputTokens := projectconversationrunFields[19].Descriptor()
 	// projectconversationrun.DefaultCachedInputTokens holds the default value on creation for the cached_input_tokens field.
 	projectconversationrun.DefaultCachedInputTokens = projectconversationrunDescCachedInputTokens.Default.(int64)
 	// projectconversationrunDescCacheCreationTokens is the schema descriptor for cache_creation_tokens field.
-	projectconversationrunDescCacheCreationTokens := projectconversationrunFields[19].Descriptor()
+	projectconversationrunDescCacheCreationTokens := projectconversationrunFields[20].Descriptor()
 	// projectconversationrun.DefaultCacheCreationTokens holds the default value on creation for the cache_creation_tokens field.
 	projectconversationrun.DefaultCacheCreationTokens = projectconversationrunDescCacheCreationTokens.Default.(int64)
 	// projectconversationrunDescReasoningTokens is the schema descriptor for reasoning_tokens field.
-	projectconversationrunDescReasoningTokens := projectconversationrunFields[20].Descriptor()
+	projectconversationrunDescReasoningTokens := projectconversationrunFields[21].Descriptor()
 	// projectconversationrun.DefaultReasoningTokens holds the default value on creation for the reasoning_tokens field.
 	projectconversationrun.DefaultReasoningTokens = projectconversationrunDescReasoningTokens.Default.(int64)
 	// projectconversationrunDescPromptTokens is the schema descriptor for prompt_tokens field.
-	projectconversationrunDescPromptTokens := projectconversationrunFields[21].Descriptor()
+	projectconversationrunDescPromptTokens := projectconversationrunFields[22].Descriptor()
 	// projectconversationrun.DefaultPromptTokens holds the default value on creation for the prompt_tokens field.
 	projectconversationrun.DefaultPromptTokens = projectconversationrunDescPromptTokens.Default.(int64)
 	// projectconversationrunDescCandidateTokens is the schema descriptor for candidate_tokens field.
-	projectconversationrunDescCandidateTokens := projectconversationrunFields[22].Descriptor()
+	projectconversationrunDescCandidateTokens := projectconversationrunFields[23].Descriptor()
 	// projectconversationrun.DefaultCandidateTokens holds the default value on creation for the candidate_tokens field.
 	projectconversationrun.DefaultCandidateTokens = projectconversationrunDescCandidateTokens.Default.(int64)
 	// projectconversationrunDescToolTokens is the schema descriptor for tool_tokens field.
-	projectconversationrunDescToolTokens := projectconversationrunFields[23].Descriptor()
+	projectconversationrunDescToolTokens := projectconversationrunFields[24].Descriptor()
 	// projectconversationrun.DefaultToolTokens holds the default value on creation for the tool_tokens field.
 	projectconversationrun.DefaultToolTokens = projectconversationrunDescToolTokens.Default.(int64)
 	// projectconversationrunDescTotalTokens is the schema descriptor for total_tokens field.
-	projectconversationrunDescTotalTokens := projectconversationrunFields[24].Descriptor()
+	projectconversationrunDescTotalTokens := projectconversationrunFields[25].Descriptor()
 	// projectconversationrun.DefaultTotalTokens holds the default value on creation for the total_tokens field.
 	projectconversationrun.DefaultTotalTokens = projectconversationrunDescTotalTokens.Default.(int64)
 	// projectconversationrunDescCreatedAt is the schema descriptor for created_at field.
-	projectconversationrunDescCreatedAt := projectconversationrunFields[28].Descriptor()
+	projectconversationrunDescCreatedAt := projectconversationrunFields[29].Descriptor()
 	// projectconversationrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	projectconversationrun.DefaultCreatedAt = projectconversationrunDescCreatedAt.Default.(func() time.Time)
 	// projectconversationrunDescID is the schema descriptor for id field.
@@ -934,6 +948,36 @@ func init() {
 	projectconversationtraceeventDescID := projectconversationtraceeventFields[0].Descriptor()
 	// projectconversationtraceevent.DefaultID holds the default value on creation for the id field.
 	projectconversationtraceevent.DefaultID = projectconversationtraceeventDescID.Default.(func() uuid.UUID)
+	projectdailytokenusageFields := schema.ProjectDailyTokenUsage{}.Fields()
+	_ = projectdailytokenusageFields
+	// projectdailytokenusageDescInputTokens is the schema descriptor for input_tokens field.
+	projectdailytokenusageDescInputTokens := projectdailytokenusageFields[3].Descriptor()
+	// projectdailytokenusage.DefaultInputTokens holds the default value on creation for the input_tokens field.
+	projectdailytokenusage.DefaultInputTokens = projectdailytokenusageDescInputTokens.Default.(int64)
+	// projectdailytokenusageDescOutputTokens is the schema descriptor for output_tokens field.
+	projectdailytokenusageDescOutputTokens := projectdailytokenusageFields[4].Descriptor()
+	// projectdailytokenusage.DefaultOutputTokens holds the default value on creation for the output_tokens field.
+	projectdailytokenusage.DefaultOutputTokens = projectdailytokenusageDescOutputTokens.Default.(int64)
+	// projectdailytokenusageDescCachedInputTokens is the schema descriptor for cached_input_tokens field.
+	projectdailytokenusageDescCachedInputTokens := projectdailytokenusageFields[5].Descriptor()
+	// projectdailytokenusage.DefaultCachedInputTokens holds the default value on creation for the cached_input_tokens field.
+	projectdailytokenusage.DefaultCachedInputTokens = projectdailytokenusageDescCachedInputTokens.Default.(int64)
+	// projectdailytokenusageDescReasoningTokens is the schema descriptor for reasoning_tokens field.
+	projectdailytokenusageDescReasoningTokens := projectdailytokenusageFields[6].Descriptor()
+	// projectdailytokenusage.DefaultReasoningTokens holds the default value on creation for the reasoning_tokens field.
+	projectdailytokenusage.DefaultReasoningTokens = projectdailytokenusageDescReasoningTokens.Default.(int64)
+	// projectdailytokenusageDescTotalTokens is the schema descriptor for total_tokens field.
+	projectdailytokenusageDescTotalTokens := projectdailytokenusageFields[7].Descriptor()
+	// projectdailytokenusage.DefaultTotalTokens holds the default value on creation for the total_tokens field.
+	projectdailytokenusage.DefaultTotalTokens = projectdailytokenusageDescTotalTokens.Default.(int64)
+	// projectdailytokenusageDescFinalizedRunCount is the schema descriptor for finalized_run_count field.
+	projectdailytokenusageDescFinalizedRunCount := projectdailytokenusageFields[8].Descriptor()
+	// projectdailytokenusage.DefaultFinalizedRunCount holds the default value on creation for the finalized_run_count field.
+	projectdailytokenusage.DefaultFinalizedRunCount = projectdailytokenusageDescFinalizedRunCount.Default.(int)
+	// projectdailytokenusageDescID is the schema descriptor for id field.
+	projectdailytokenusageDescID := projectdailytokenusageFields[0].Descriptor()
+	// projectdailytokenusage.DefaultID holds the default value on creation for the id field.
+	projectdailytokenusage.DefaultID = projectdailytokenusageDescID.Default.(func() uuid.UUID)
 	projectrepoFields := schema.ProjectRepo{}.Fields()
 	_ = projectrepoFields
 	// projectrepoDescName is the schema descriptor for name field.
@@ -1744,4 +1788,24 @@ func init() {
 	workflowversionDescID := workflowversionFields[0].Descriptor()
 	// workflowversion.DefaultID holds the default value on creation for the id field.
 	workflowversion.DefaultID = workflowversionDescID.Default.(func() uuid.UUID)
+	workspaceinitleaseFields := schema.WorkspaceInitLease{}.Fields()
+	_ = workspaceinitleaseFields
+	// workspaceinitleaseDescLeaseKey is the schema descriptor for lease_key field.
+	workspaceinitleaseDescLeaseKey := workspaceinitleaseFields[1].Descriptor()
+	// workspaceinitlease.LeaseKeyValidator is a validator for the "lease_key" field. It is called by the builders before save.
+	workspaceinitlease.LeaseKeyValidator = workspaceinitleaseDescLeaseKey.Validators[0].(func(string) error)
+	// workspaceinitleaseDescCreatedAt is the schema descriptor for created_at field.
+	workspaceinitleaseDescCreatedAt := workspaceinitleaseFields[6].Descriptor()
+	// workspaceinitlease.DefaultCreatedAt holds the default value on creation for the created_at field.
+	workspaceinitlease.DefaultCreatedAt = workspaceinitleaseDescCreatedAt.Default.(func() time.Time)
+	// workspaceinitleaseDescUpdatedAt is the schema descriptor for updated_at field.
+	workspaceinitleaseDescUpdatedAt := workspaceinitleaseFields[7].Descriptor()
+	// workspaceinitlease.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	workspaceinitlease.DefaultUpdatedAt = workspaceinitleaseDescUpdatedAt.Default.(func() time.Time)
+	// workspaceinitlease.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	workspaceinitlease.UpdateDefaultUpdatedAt = workspaceinitleaseDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// workspaceinitleaseDescID is the schema descriptor for id field.
+	workspaceinitleaseDescID := workspaceinitleaseFields[0].Descriptor()
+	// workspaceinitlease.DefaultID holds the default value on creation for the id field.
+	workspaceinitlease.DefaultID = workspaceinitleaseDescID.Default.(func() uuid.UUID)
 }

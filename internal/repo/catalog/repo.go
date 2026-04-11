@@ -206,7 +206,10 @@ func (r *EntRepository) CreateProject(ctx context.Context, input domain.CreatePr
 		SetProjectAiPlatformAccessAllowed(input.ProjectAIPlatformAccessAllowed).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
-		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt).
+		SetProjectAiRetentionEnabled(input.ProjectAIRetention.Enabled).
+		SetProjectAiRetentionKeepLatestN(input.ProjectAIRetention.KeepLatestN).
+		SetProjectAiRetentionKeepRecentDays(input.ProjectAIRetention.KeepRecentDays)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	}
@@ -238,7 +241,10 @@ func (r *EntRepository) UpdateProject(ctx context.Context, input domain.UpdatePr
 		SetProjectAiPlatformAccessAllowed(input.ProjectAIPlatformAccessAllowed).
 		SetAccessibleMachineIds(input.AccessibleMachineIDs).
 		SetMaxConcurrentAgents(input.MaxConcurrentAgents).
-		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt)
+		SetAgentRunSummaryPrompt(input.AgentRunSummaryPrompt).
+		SetProjectAiRetentionEnabled(input.ProjectAIRetention.Enabled).
+		SetProjectAiRetentionKeepLatestN(input.ProjectAIRetention.KeepLatestN).
+		SetProjectAiRetentionKeepRecentDays(input.ProjectAIRetention.KeepRecentDays)
 	if input.DefaultAgentProviderID != nil {
 		builder.SetDefaultAgentProviderID(*input.DefaultAgentProviderID)
 	} else {
@@ -796,6 +802,11 @@ func mapProject(item *ent.Project) domain.Project {
 		AccessibleMachineIDs:           append([]uuid.UUID(nil), item.AccessibleMachineIds...),
 		MaxConcurrentAgents:            item.MaxConcurrentAgents,
 		AgentRunSummaryPrompt:          item.AgentRunSummaryPrompt,
+		ProjectAIRetention: domain.ProjectAIRetentionPolicy{
+			Enabled:        item.ProjectAiRetentionEnabled,
+			KeepLatestN:    item.ProjectAiRetentionKeepLatestN,
+			KeepRecentDays: item.ProjectAiRetentionKeepRecentDays,
+		},
 	}
 }
 

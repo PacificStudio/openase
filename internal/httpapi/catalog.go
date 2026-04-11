@@ -25,19 +25,26 @@ type organizationResponse struct {
 }
 
 type projectResponse struct {
-	ID                             string   `json:"id"`
-	OrganizationID                 string   `json:"organization_id"`
-	Name                           string   `json:"name"`
-	Slug                           string   `json:"slug"`
-	Description                    string   `json:"description"`
-	Status                         string   `json:"status"`
-	DefaultAgentProviderID         *string  `json:"default_agent_provider_id,omitempty"`
-	ProjectAIPlatformAccessAllowed []string `json:"project_ai_platform_access_allowed"`
-	AccessibleMachineIDs           []string `json:"accessible_machine_ids,omitempty"`
-	MaxConcurrentAgents            int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt          *string  `json:"agent_run_summary_prompt,omitempty"`
-	EffectiveAgentRunSummaryPrompt string   `json:"effective_agent_run_summary_prompt"`
-	AgentRunSummaryPromptSource    string   `json:"agent_run_summary_prompt_source"`
+	ID                             string                     `json:"id"`
+	OrganizationID                 string                     `json:"organization_id"`
+	Name                           string                     `json:"name"`
+	Slug                           string                     `json:"slug"`
+	Description                    string                     `json:"description"`
+	Status                         string                     `json:"status"`
+	DefaultAgentProviderID         *string                    `json:"default_agent_provider_id,omitempty"`
+	ProjectAIPlatformAccessAllowed []string                   `json:"project_ai_platform_access_allowed"`
+	AccessibleMachineIDs           []string                   `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents            int                        `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string                    `json:"agent_run_summary_prompt,omitempty"`
+	EffectiveAgentRunSummaryPrompt string                     `json:"effective_agent_run_summary_prompt"`
+	AgentRunSummaryPromptSource    string                     `json:"agent_run_summary_prompt_source"`
+	ProjectAIRetention             projectAIRetentionResponse `json:"project_ai_retention"`
+}
+
+type projectAIRetentionResponse struct {
+	Enabled        bool `json:"enabled"`
+	KeepLatestN    int  `json:"keep_latest_n"`
+	KeepRecentDays int  `json:"keep_recent_days"`
 }
 
 type machineResponse struct {
@@ -322,6 +329,11 @@ func mapProjectResponse(item domain.Project) projectResponse {
 		AgentRunSummaryPrompt:          stringPointerOrNil(item.AgentRunSummaryPrompt),
 		EffectiveAgentRunSummaryPrompt: effectivePrompt,
 		AgentRunSummaryPromptSource:    promptSource.String(),
+		ProjectAIRetention: projectAIRetentionResponse{
+			Enabled:        item.ProjectAIRetention.Enabled,
+			KeepLatestN:    item.ProjectAIRetention.KeepLatestN,
+			KeepRecentDays: item.ProjectAIRetention.KeepRecentDays,
+		},
 	}
 }
 

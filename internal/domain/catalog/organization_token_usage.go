@@ -10,6 +10,18 @@ import (
 
 const DefaultOrganizationTokenUsageWindowDays = 30
 
+type TokenUsageScopeKind string
+
+const (
+	TokenUsageScopeKindOrganization TokenUsageScopeKind = "organization"
+	TokenUsageScopeKindProject      TokenUsageScopeKind = "project"
+)
+
+type TokenUsageScope struct {
+	Kind TokenUsageScopeKind
+	ID   uuid.UUID
+}
+
 type OrganizationTokenUsageListInput struct {
 	From string
 	To   string
@@ -20,13 +32,24 @@ type ProjectTokenUsageListInput struct {
 	To   string
 }
 
+type ScopedTokenUsageListInput struct {
+	From string
+	To   string
+}
+
 type GetOrganizationTokenUsage struct {
 	OrganizationID uuid.UUID
 	FromDate       time.Time
 	ToDate         time.Time
 }
 
-type OrganizationDailyTokenUsage struct {
+type GetScopedTokenUsage struct {
+	Scope    TokenUsageScope
+	FromDate time.Time
+	ToDate   time.Time
+}
+
+type ScopedDailyTokenUsage struct {
 	UsageDate         time.Time
 	InputTokens       int64
 	OutputTokens      int64
@@ -38,16 +61,28 @@ type OrganizationDailyTokenUsage struct {
 	SourceMode        string
 }
 
-type OrganizationTokenUsagePeakDay struct {
+type ScopedTokenUsagePeakDay struct {
 	Date        time.Time
 	TotalTokens int64
 }
 
-type OrganizationTokenUsageSummary struct {
+type ScopedTokenUsageSummary struct {
 	TotalTokens    int64
 	AvgDailyTokens int64
-	PeakDay        *OrganizationTokenUsagePeakDay
+	PeakDay        *ScopedTokenUsagePeakDay
 }
+
+type ScopedTokenUsageReport struct {
+	Scope    TokenUsageScope
+	FromDate time.Time
+	ToDate   time.Time
+	Days     []ScopedDailyTokenUsage
+	Summary  ScopedTokenUsageSummary
+}
+
+type OrganizationDailyTokenUsage = ScopedDailyTokenUsage
+type OrganizationTokenUsagePeakDay = ScopedTokenUsagePeakDay
+type OrganizationTokenUsageSummary = ScopedTokenUsageSummary
 
 type OrganizationTokenUsageReport struct {
 	OrganizationID uuid.UUID
@@ -63,9 +98,9 @@ type GetProjectTokenUsage struct {
 	ToDate    time.Time
 }
 
-type ProjectDailyTokenUsage = OrganizationDailyTokenUsage
-type ProjectTokenUsagePeakDay = OrganizationTokenUsagePeakDay
-type ProjectTokenUsageSummary = OrganizationTokenUsageSummary
+type ProjectDailyTokenUsage = ScopedDailyTokenUsage
+type ProjectTokenUsagePeakDay = ScopedTokenUsagePeakDay
+type ProjectTokenUsageSummary = ScopedTokenUsageSummary
 
 type ProjectTokenUsageReport struct {
 	ProjectID uuid.UUID
@@ -75,20 +110,59 @@ type ProjectTokenUsageReport struct {
 	Summary   ProjectTokenUsageSummary
 }
 
+func NewOrganizationTokenUsageScope(organizationID uuid.UUID) TokenUsageScope {
+	return TokenUsageScope{
+		Kind: TokenUsageScopeKindOrganization,
+		ID:   organizationID,
+	}
+}
+
+func NewProjectTokenUsageScope(projectID uuid.UUID) TokenUsageScope {
+	return TokenUsageScope{
+		Kind: TokenUsageScopeKindProject,
+		ID:   projectID,
+	}
+}
+
+func (input GetOrganizationTokenUsage) Scope() TokenUsageScope {
+	return NewOrganizationTokenUsageScope(input.OrganizationID)
+}
+
+func (input GetProjectTokenUsage) Scope() TokenUsageScope {
+	return NewProjectTokenUsageScope(input.ProjectID)
+}
+
+func ParseScopedTokenUsage(
+	scope TokenUsageScope,
+	raw ScopedTokenUsageListInput,
+	now time.Time,
+) (GetScopedTokenUsage, error) {
+	fromDate, toDate, err := parseTokenUsageDateRange(raw.From, raw.To, now)
+	if err != nil {
+		return GetScopedTokenUsage{}, err
+	}
+
+	return GetScopedTokenUsage{
+		Scope:    scope,
+		FromDate: fromDate,
+		ToDate:   toDate,
+	}, nil
+}
+
 func ParseOrganizationTokenUsage(
 	organizationID uuid.UUID,
 	raw OrganizationTokenUsageListInput,
 	now time.Time,
 ) (GetOrganizationTokenUsage, error) {
-	fromDate, toDate, err := parseTokenUsageDateRange(raw.From, raw.To, now)
+	parsed, err := ParseScopedTokenUsage(NewOrganizationTokenUsageScope(organizationID), ScopedTokenUsageListInput(raw), now)
 	if err != nil {
 		return GetOrganizationTokenUsage{}, err
 	}
 
 	return GetOrganizationTokenUsage{
 		OrganizationID: organizationID,
-		FromDate:       fromDate,
-		ToDate:         toDate,
+		FromDate:       parsed.FromDate,
+		ToDate:         parsed.ToDate,
 	}, nil
 }
 
@@ -97,15 +171,15 @@ func ParseProjectTokenUsage(
 	raw ProjectTokenUsageListInput,
 	now time.Time,
 ) (GetProjectTokenUsage, error) {
-	fromDate, toDate, err := parseTokenUsageDateRange(raw.From, raw.To, now)
+	parsed, err := ParseScopedTokenUsage(NewProjectTokenUsageScope(projectID), ScopedTokenUsageListInput(raw), now)
 	if err != nil {
 		return GetProjectTokenUsage{}, err
 	}
 
 	return GetProjectTokenUsage{
 		ProjectID: projectID,
-		FromDate:  fromDate,
-		ToDate:    toDate,
+		FromDate:  parsed.FromDate,
+		ToDate:    parsed.ToDate,
 	}, nil
 }
 

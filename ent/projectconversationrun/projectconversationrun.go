@@ -39,6 +39,8 @@ const (
 	FieldRuntimeStartedAt = "runtime_started_at"
 	// FieldTerminalAt holds the string denoting the terminal_at field in the database.
 	FieldTerminalAt = "terminal_at"
+	// FieldSnapshotMaterializedAt holds the string denoting the snapshot_materialized_at field in the database.
+	FieldSnapshotMaterializedAt = "snapshot_materialized_at"
 	// FieldLastError holds the string denoting the last_error field in the database.
 	FieldLastError = "last_error"
 	// FieldLastHeartbeatAt holds the string denoting the last_heartbeat_at field in the database.
@@ -90,6 +92,7 @@ var Columns = []string{
 	FieldProviderTurnID,
 	FieldRuntimeStartedAt,
 	FieldTerminalAt,
+	FieldSnapshotMaterializedAt,
 	FieldLastError,
 	FieldLastHeartbeatAt,
 	FieldCostAmount,
@@ -238,6 +241,11 @@ func ByRuntimeStartedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByTerminalAt orders the results by the terminal_at field.
 func ByTerminalAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldTerminalAt, opts...).ToFunc()
+}
+
+// BySnapshotMaterializedAt orders the results by the snapshot_materialized_at field.
+func BySnapshotMaterializedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSnapshotMaterializedAt, opts...).ToFunc()
 }
 
 // ByLastError orders the results by the last_error field.

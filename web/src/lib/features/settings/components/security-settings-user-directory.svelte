@@ -12,11 +12,10 @@
   } from '$lib/api/auth'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
-  import { Badge } from '$ui/badge'
   import { Input } from '$ui/input'
   import { Users } from '@lucide/svelte'
-  import { formatTimestamp } from './security-settings-human-auth.model'
   import SecuritySettingsUserDirectoryDetail from './security-settings-user-directory-detail.svelte'
+  import SecuritySettingsUserDirectoryList from './security-settings-user-directory-list.svelte'
 
   let {
     canRead = false,
@@ -172,11 +171,6 @@
       actionKey = ''
     }
   }
-
-  function statusVariant(status: string) {
-    return status === 'disabled' ? 'destructive' : 'secondary'
-  }
-
   $effect(() => {
     if (!canRead) {
       users = []
@@ -208,7 +202,7 @@
     <h4 class="text-sm font-semibold">User directory and deprovision</h4>
   </div>
 
-  <div class="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]">
+  <div class="space-y-4">
     <div class="border-border bg-card space-y-4 rounded-lg border p-4">
       <div class="flex flex-col gap-3 sm:flex-row">
         <div class="relative flex-1">
@@ -230,51 +224,15 @@
         </label>
       </div>
 
-      {#if !canRead}
-        <div class="bg-muted/20 text-muted-foreground rounded-lg border px-4 py-3 text-sm">
-          Instance-level <code>security_setting.read</code> is required to browse the user directory.
-        </div>
-      {:else if loading}
-        <div class="space-y-3">
-          {#each { length: 4 } as _}
-            <div class="bg-muted h-16 animate-pulse rounded-lg"></div>
-          {/each}
-        </div>
-      {:else if users.length === 0}
-        <div class="text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-sm">
-          No users match the current search and filter combination.
-        </div>
-      {:else}
-        <div class="space-y-2">
-          {#each users as entry (entry.id)}
-            <button
-              type="button"
-              class={`border-border w-full rounded-lg border p-3 text-left transition-colors ${
-                entry.id === selectedUserId ? 'bg-muted/60' : 'hover:bg-muted/40'
-              }`}
-              onclick={() => {
-                selectedUserId = entry.id
-              }}
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="min-w-0">
-                  <div class="truncate text-sm font-medium">
-                    {entry.displayName || entry.primaryEmail || entry.id}
-                  </div>
-                  <div class="text-muted-foreground truncate text-xs">
-                    {entry.primaryEmail || entry.id}
-                  </div>
-                </div>
-                <Badge variant={statusVariant(entry.status)}>{entry.status}</Badge>
-              </div>
-              <div class="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                <span>Last login: {formatTimestamp(entry.lastLoginAt)}</span>
-                <span>Issuer: {entry.primaryIdentity?.issuer || 'No identity cached'}</span>
-              </div>
-            </button>
-          {/each}
-        </div>
-      {/if}
+      <SecuritySettingsUserDirectoryList
+        {canRead}
+        {loading}
+        {users}
+        {selectedUserId}
+        onSelect={(userId) => {
+          selectedUserId = userId
+        }}
+      />
     </div>
 
     <SecuritySettingsUserDirectoryDetail

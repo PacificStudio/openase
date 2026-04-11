@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SkillFile } from '$lib/api/contracts'
-  import { Textarea } from '$ui/textarea'
+  import { CodeEditor } from '$lib/components/code'
   import { FileWarning } from '@lucide/svelte'
 
   let {
@@ -28,10 +28,10 @@
     <p class="text-xs">{file.size_bytes.toLocaleString()} bytes</p>
   </div>
 {:else}
-  <Textarea
+  <CodeEditor
     value={content}
-    class="h-full min-h-0 flex-1 resize-none rounded-none border-0 font-mono text-sm leading-relaxed focus-visible:ring-0"
-    oninput={(event) =>
-      onContentChange?.(file.path, (event.currentTarget as HTMLTextAreaElement).value)}
+    filePath={file.path}
+    onchange={(value) => onContentChange?.(file.path, value)}
+    class="h-full min-h-0 flex-1"
   />
 {/if}

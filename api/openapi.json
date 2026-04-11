@@ -547,6 +547,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -857,6 +865,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -1052,6 +1068,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -4606,6 +4630,122 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/interrupt-turn": {
+      "post": {
+        "operationId": "interruptProjectConversationTurn",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Project conversation turn interrupted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Interrupt the active project conversation turn",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": {
       "post": {
         "operationId": "respondProjectConversationInterrupt",
@@ -5015,6 +5155,369 @@
           }
         },
         "summary": "Watch project conversation events",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/terminal-sessions": {
+      "post": {
+        "operationId": "createProjectConversationTerminalSession",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "cols": {
+                    "description": "Initial terminal column count used when starting the PTY session.",
+                    "nullable": true,
+                    "type": "integer"
+                  },
+                  "cwd_path": {
+                    "description": "Optional relative directory path inside the selected repo or workspace root.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "mode": {
+                    "description": "Terminal mode to create. Only shell is currently supported.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Optional repo selector inside the conversation workspace. Leave empty to start at the workspace root.",
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "rows": {
+                    "description": "Initial terminal row count used when starting the PTY session.",
+                    "nullable": true,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Create a project conversation terminal session request body.",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "terminal_session": {
+                      "properties": {
+                        "attach_token": {
+                          "type": "string"
+                        },
+                        "created_at": {
+                          "type": "string"
+                        },
+                        "cwd": {
+                          "type": "string"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "last_attached_at": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "mode": {
+                          "type": "string"
+                        },
+                        "ws_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Create a project conversation terminal session response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Create a project conversation terminal session",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/terminal-sessions/{terminalSessionId}/attach": {
+      "get": {
+        "operationId": "attachProjectConversationTerminalSession",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Stable project conversation terminal session ID.",
+            "in": "path",
+            "name": "terminalSessionId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Attach token returned by terminal session creation.",
+            "in": "query",
+            "name": "attach_token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "Websocket upgraded for terminal streaming."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Forbidden response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          },
+          "default": {
+            "description": ""
+          }
+        },
+        "summary": "Attach websocket terminal I/O for a project conversation terminal session",
         "tags": [
           "chat"
         ]
@@ -5554,6 +6057,180 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/workspace": {
+      "get": {
+        "operationId": "getProjectConversationWorkspace",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace": {
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "repos": {
+                          "items": {
+                            "properties": {
+                              "added": {
+                                "type": "integer"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              },
+                              "files_changed": {
+                                "type": "integer"
+                              },
+                              "head_commit": {
+                                "type": "string"
+                              },
+                              "head_summary": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "removed": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "workspace_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Get project conversation workspace metadata response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Get project conversation workspace metadata",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/conversations/{conversationId}/workspace-diff": {
       "get": {
         "operationId": "getProjectConversationWorkspaceDiff",
@@ -5731,6 +6408,520 @@
           }
         },
         "summary": "Get project conversation workspace diff summary",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/file": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceFile",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Repo-relative file path to preview.",
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file_preview": {
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "media_type": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "preview_kind": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "size_bytes": {
+                          "format": "int64",
+                          "type": "integer"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Read a project conversation workspace file preview response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Read a project conversation workspace file preview",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/file-patch": {
+      "get": {
+        "operationId": "getProjectConversationWorkspaceFilePatch",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Repo-relative file path whose git diff should be loaded.",
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file_patch": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "diff": {
+                          "type": "string"
+                        },
+                        "diff_kind": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Read one project conversation workspace file diff response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Read one project conversation workspace file diff",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/tree": {
+      "get": {
+        "operationId": "listProjectConversationWorkspaceTree",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+            "in": "query",
+            "name": "repo_path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional repo-relative directory path to browse. Leave empty for the repo root.",
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace_tree": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "entries": {
+                          "items": {
+                            "properties": {
+                              "kind": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "size_bytes": {
+                                "format": "int64",
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "List one directory from the project conversation workspace tree response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "List one directory from the project conversation workspace tree",
         "tags": [
           "chat"
         ]
@@ -12854,6 +14045,20 @@
                             },
                             "type": "array"
                           },
+                          "project_ai_retention": {
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "keep_latest_n": {
+                                "type": "integer"
+                              },
+                              "keep_recent_days": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "slug": {
                             "type": "string"
                           },
@@ -12988,6 +14193,28 @@
                     },
                     "type": "array"
                   },
+                  "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "type": "string"
@@ -13052,6 +14279,20 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
                         },
                         "slug": {
                           "type": "string"
@@ -15544,6 +16785,20 @@
                           },
                           "type": "array"
                         },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -15701,6 +16956,20 @@
                           },
                           "type": "array"
                         },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -15837,6 +17106,28 @@
                     "nullable": true,
                     "type": "array"
                   },
+                  "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "nullable": true,
@@ -15903,6 +17194,20 @@
                             "type": "string"
                           },
                           "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
                         },
                         "slug": {
                           "type": "string"
@@ -23195,6 +24500,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -23826,6 +25139,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -24033,6 +25354,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"

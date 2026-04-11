@@ -1,11 +1,19 @@
 <script lang="ts">
   import type { ScopedSecret, ScopedSecretBinding, Ticket, Workflow } from '$lib/api/contracts'
+  import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
+  import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
-  import { KeyRound } from '@lucide/svelte'
-
-  import SecuritySettingsSecretBindingsList from './security-settings-secret-bindings-list.svelte'
+  import * as Select from '$ui/select'
+  import {
+    KeyRound,
+    Link,
+    Plus,
+    Ticket as TicketIcon,
+    Trash2,
+    Workflow as WorkflowIcon,
+  } from '@lucide/svelte'
 
   export type SecretBindingDraft = {
     bindingKey: string
@@ -40,9 +48,11 @@
     onDelete: (bindingId: string) => void
   } = $props()
 
+  let dialogOpen = $state(false)
+
   const scopeOptions = [
-    { value: 'workflow' as const, label: 'Workflow override' },
-    { value: 'ticket' as const, label: 'Ticket override' },
+    { value: 'workflow' as const, label: 'Workflow' },
+    { value: 'ticket' as const, label: 'Ticket' },
   ]
 
   const sortedSecrets = $derived(
@@ -65,6 +75,14 @@
       draft.scopeResourceId.length > 0,
   )
 
+  const sortedBindings = $derived(
+    [...bindings].sort((a, b) => {
+      if (a.scope !== b.scope) return a.scope.localeCompare(b.scope)
+      if (a.target.name !== b.target.name) return a.target.name.localeCompare(b.target.name)
+      return a.binding_key.localeCompare(b.binding_key)
+    }),
+  )
+
   function patchDraft(patch: Partial<SecretBindingDraft>) {
     onDraftChange({ ...draft, ...patch })
   }
@@ -80,7 +98,7 @@
   }
 
   function secretScopeLabel(secret: ScopedSecret) {
-    return secret.scope === 'organization' ? 'Org secret' : 'Project secret'
+    return secret.scope === 'organization' ? 'Org' : 'Project'
   }
 
   function targetLabel(target: Workflow | Ticket) {
@@ -89,146 +107,225 @@
     }
     return target.name
   }
+
+  function bindingTargetLabel(binding: ScopedSecretBinding) {
+    if (binding.target.identifier) {
+      return `${binding.target.identifier} - ${binding.target.name}`
+    }
+    return binding.target.name
+  }
+
+  function handleCreate() {
+    onCreate()
+    dialogOpen = false
+  }
 </script>
 
 <div class="space-y-4">
-  <div class="flex items-center gap-2">
-    <KeyRound class="text-muted-foreground size-4" />
-    <h3 class="text-sm font-semibold">Runtime secret bindings</h3>
-  </div>
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <KeyRound class="text-muted-foreground size-4" />
+      <h3 class="text-sm font-semibold">Runtime secret bindings</h3>
+    </div>
 
-  <div class="bg-muted/40 grid gap-3 rounded-xl px-4 py-3 text-sm lg:grid-cols-3">
-    <div>
-      <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Secrets in scope</div>
-      <div class="mt-1 font-semibold">{secrets.length}</div>
-      <div class="text-muted-foreground text-xs">
-        Shared store entries available to this project
-      </div>
-    </div>
-    <div>
-      <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Workflow bindings</div>
-      <div class="mt-1 font-semibold">
-        {bindings.filter((binding) => binding.scope === 'workflow').length}
-      </div>
-      <div class="text-muted-foreground text-xs">Reusable runtime context for workflows</div>
-    </div>
-    <div>
-      <div class="text-muted-foreground text-xs tracking-[0.22em] uppercase">Ticket bindings</div>
-      <div class="mt-1 font-semibold">
-        {bindings.filter((binding) => binding.scope === 'ticket').length}
-      </div>
-      <div class="text-muted-foreground text-xs">One-off overrides that win at runtime</div>
-    </div>
+    <Dialog.Root bind:open={dialogOpen}>
+      <Dialog.Trigger>
+        {#snippet child({ props })}
+          <Button size="sm" {...props}>
+            <Plus class="size-4" />
+            <span class="hidden sm:inline">Bind secret</span>
+          </Button>
+        {/snippet}
+      </Dialog.Trigger>
+      <Dialog.Content class="sm:max-w-md">
+        <Dialog.Header>
+          <Dialog.Title>Bind secret to runtime</Dialog.Title>
+          <Dialog.Description>
+            Attach a shared secret to a workflow or ticket. Values are never exposed here.
+          </Dialog.Description>
+        </Dialog.Header>
+
+        <form
+          class="flex min-h-0 flex-1 flex-col gap-6"
+          onsubmit={(event) => {
+            event.preventDefault()
+            handleCreate()
+          }}
+        >
+          <Dialog.Body class="space-y-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-2">
+                <Label>Scope</Label>
+                <Select.Root
+                  type="single"
+                  value={draft.scope}
+                  onValueChange={(value) => handleScopeChange(value || 'workflow')}
+                >
+                  <Select.Trigger class="w-full">
+                    {scopeOptions.find((o) => o.value === draft.scope)?.label ?? draft.scope}
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each scopeOptions as option (option.value)}
+                      <Select.Item value={option.value}>{option.label}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+              </div>
+
+              <div class="space-y-2">
+                <Label>{draft.scope === 'workflow' ? 'Workflow' : 'Ticket'}</Label>
+                <Select.Root
+                  type="single"
+                  value={draft.scopeResourceId}
+                  onValueChange={(value) => patchDraft({ scopeResourceId: value || '' })}
+                >
+                  <Select.Trigger class="w-full">
+                    {#if draft.scopeResourceId}
+                      {@const target = availableTargets.find((t) => t.id === draft.scopeResourceId)}
+                      {target ? targetLabel(target) : 'Select...'}
+                    {:else}
+                      Select {draft.scope}...
+                    {/if}
+                  </Select.Trigger>
+                  <Select.Content>
+                    {#each availableTargets as target (target.id)}
+                      <Select.Item value={target.id}>{targetLabel(target)}</Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
+                {#if availableTargets.length === 0}
+                  <p class="text-muted-foreground text-xs">
+                    No {draft.scope === 'workflow' ? 'workflows' : 'tickets'} in this project.
+                  </p>
+                {/if}
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <Label>Secret</Label>
+              <Select.Root
+                type="single"
+                value={draft.secretId}
+                onValueChange={(value) => patchDraft({ secretId: value || '' })}
+              >
+                <Select.Trigger class="w-full">
+                  {#if draft.secretId}
+                    {@const secret = sortedSecrets.find((s) => s.id === draft.secretId)}
+                    {secret ? `${secret.name} (${secretScopeLabel(secret)})` : 'Select...'}
+                  {:else}
+                    Select secret...
+                  {/if}
+                </Select.Trigger>
+                <Select.Content>
+                  {#each sortedSecrets as secret (secret.id)}
+                    <Select.Item value={secret.id}>
+                      {secret.name}
+                      <span class="text-muted-foreground ml-1 text-xs">
+                        {secretScopeLabel(secret)}{secret.disabled ? ' · disabled' : ''}
+                      </span>
+                    </Select.Item>
+                  {/each}
+                </Select.Content>
+              </Select.Root>
+              {#if sortedSecrets.length === 0}
+                <p class="text-muted-foreground text-xs">
+                  Create a scoped secret first to enable bindings.
+                </p>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <Label for="binding-key">Binding key</Label>
+              <Input
+                id="binding-key"
+                placeholder="OPENAI_API_KEY"
+                value={draft.bindingKey}
+                oninput={(event) =>
+                  patchDraft({ bindingKey: (event.currentTarget as HTMLInputElement).value })}
+              />
+              <p class="text-muted-foreground text-xs">
+                Upper-snake env var name. Ticket bindings take precedence over workflow bindings.
+              </p>
+            </div>
+          </Dialog.Body>
+
+          <Dialog.Footer>
+            <Dialog.Close>
+              {#snippet child({ props })}
+                <Button variant="outline" {...props}>Cancel</Button>
+              {/snippet}
+            </Dialog.Close>
+            <Button type="submit" disabled={!canCreate || mutationKey === 'create'}>
+              <Link class="size-4" />
+              {mutationKey === 'create' ? 'Binding...' : 'Bind secret'}
+            </Button>
+          </Dialog.Footer>
+        </form>
+      </Dialog.Content>
+    </Dialog.Root>
   </div>
 
   {#if loading}
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <div class="bg-muted h-80 animate-pulse rounded-2xl"></div>
-      <div class="bg-muted h-80 animate-pulse rounded-2xl"></div>
+    <div class="bg-muted h-32 animate-pulse rounded-lg"></div>
+  {:else if error}
+    <div class="text-destructive rounded-lg border px-3 py-2 text-sm">{error}</div>
+  {:else if sortedBindings.length === 0}
+    <div
+      class="text-muted-foreground flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center text-sm"
+    >
+      <KeyRound class="text-muted-foreground/50 size-8" />
+      <p>No secret bindings yet.</p>
+      <p class="text-xs">Bind a shared secret to a workflow or ticket to use it at runtime.</p>
     </div>
   {:else}
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-      <div class="border-border bg-card space-y-4 rounded-2xl border p-5">
-        <div>
-          <div class="text-sm font-semibold">Create binding</div>
-          <p class="text-muted-foreground mt-1 text-xs leading-5">
-            Bind an existing shared secret to a workflow for reusable runs or to a ticket for a
-            one-off execution override. Secret values never appear here.
-          </p>
-        </div>
-
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-1.5">
-            <Label for="binding-scope">Binding scope</Label>
-            <select
-              id="binding-scope"
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              value={draft.scope}
-              onchange={(event) =>
-                handleScopeChange((event.currentTarget as HTMLSelectElement).value)}
-            >
-              {#each scopeOptions as option (option.value)}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
+    <div class="divide-border border-border overflow-hidden rounded-lg border">
+      {#each sortedBindings as binding, index (binding.id)}
+        <div
+          class="flex flex-col gap-3 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between {index >
+          0
+            ? 'border-border border-t'
+            : ''}"
+        >
+          <div class="min-w-0 space-y-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <Badge variant={binding.scope === 'ticket' ? 'default' : 'secondary'}>
+                {#if binding.scope === 'ticket'}
+                  <TicketIcon class="mr-1 size-3" />
+                {:else}
+                  <WorkflowIcon class="mr-1 size-3" />
+                {/if}
+                {binding.scope}
+              </Badge>
+              <code class="bg-muted truncate rounded px-1.5 py-0.5 text-xs">
+                {binding.binding_key}
+              </code>
+            </div>
+            <div class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
+              <span class="font-medium">{bindingTargetLabel(binding)}</span>
+              <span>·</span>
+              <span>{binding.secret.name}</span>
+              <span class="text-muted-foreground/70">
+                ({binding.secret.scope === 'organization' ? 'org' : 'project'})
+              </span>
+              {#if binding.secret.disabled}
+                <span class="text-amber-600">disabled</span>
+              {/if}
+            </div>
           </div>
 
-          <div class="space-y-1.5">
-            <Label for="binding-target">
-              {draft.scope === 'workflow' ? 'Workflow target' : 'Ticket target'}
-            </Label>
-            <select
-              id="binding-target"
-              class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-              value={draft.scopeResourceId}
-              onchange={(event) =>
-                patchDraft({ scopeResourceId: (event.currentTarget as HTMLSelectElement).value })}
-            >
-              <option value="" disabled>
-                {draft.scope === 'workflow' ? 'Select workflow' : 'Select ticket'}
-              </option>
-              {#each availableTargets as target (target.id)}
-                <option value={target.id}>{targetLabel(target)}</option>
-              {/each}
-            </select>
-            {#if availableTargets.length === 0}
-              <p class="text-muted-foreground text-xs">
-                {draft.scope === 'workflow'
-                  ? 'No workflows available in this project.'
-                  : 'No tickets available in this project.'}
-              </p>
-            {/if}
-          </div>
-        </div>
-
-        <div class="space-y-1.5">
-          <Label for="binding-secret">Secret</Label>
-          <select
-            id="binding-secret"
-            class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
-            value={draft.secretId}
-            onchange={(event) =>
-              patchDraft({ secretId: (event.currentTarget as HTMLSelectElement).value })}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="text-muted-foreground hover:text-destructive shrink-0 self-end sm:self-auto"
+            title="Delete binding"
+            onclick={() => onDelete(binding.id)}
+            disabled={mutationKey === `delete:${binding.id}`}
           >
-            <option value="" disabled>Select secret</option>
-            {#each sortedSecrets as secret (secret.id)}
-              <option value={secret.id}>
-                {secret.name} - {secretScopeLabel(secret)}{secret.disabled ? ' - disabled' : ''}
-              </option>
-            {/each}
-          </select>
-          {#if sortedSecrets.length === 0}
-            <p class="text-muted-foreground text-xs">
-              Create a scoped secret first to enable bindings.
-            </p>
-          {/if}
-        </div>
-
-        <div class="space-y-1.5">
-          <Label for="binding-key">Binding key</Label>
-          <Input
-            id="binding-key"
-            placeholder="OPENAI_API_KEY"
-            value={draft.bindingKey}
-            oninput={(event) =>
-              patchDraft({ bindingKey: (event.currentTarget as HTMLInputElement).value })}
-          />
-          <p class="text-muted-foreground text-xs">
-            Runtime lookup uses the normalized upper-snake binding key. Ticket bindings outrank
-            workflow, agent, project, and organization bindings.
-          </p>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <Button size="sm" onclick={onCreate} disabled={!canCreate || mutationKey === 'create'}>
-            {mutationKey === 'create' ? 'Creating...' : 'Create binding'}
+            <Trash2 class="size-4" />
+            <span class="sr-only">Delete binding</span>
           </Button>
-          <span class="text-muted-foreground text-xs">No secret value is exposed in this flow.</span
-          >
         </div>
-      </div>
-
-      <SecuritySettingsSecretBindingsList {bindings} {error} {mutationKey} {onDelete} />
+      {/each}
     </div>
   {/if}
 </div>

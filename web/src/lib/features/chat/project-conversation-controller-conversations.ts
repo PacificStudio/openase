@@ -48,6 +48,17 @@ export function createProjectConversationControllerConversations(
     )
   }
 
+  function removeConversation(conversationId: string) {
+    if (!conversationId) return
+    const nextConversations = input
+      .getConversations()
+      .filter((conversation) => conversation.id !== conversationId)
+    if (nextConversations.length === input.getConversations().length) {
+      return
+    }
+    input.setConversations(sortProjectConversations(nextConversations))
+  }
+
   function applySessionPayload(
     tabConversationId: string,
     payload: ProjectConversationSessionPayload,
@@ -68,10 +79,7 @@ export function createProjectConversationControllerConversations(
       providerTurnId: payload.providerTurnId ?? existing?.providerTurnId,
       providerTurnSupported: payload.providerTurnSupported ?? existing?.providerTurnSupported,
       providerStatus: payload.providerStatus ?? existing?.providerStatus,
-      providerActiveFlags:
-        payload.providerActiveFlags.length > 0
-          ? [...payload.providerActiveFlags]
-          : [...(existing?.providerActiveFlags ?? [])],
+      providerActiveFlags: [...payload.providerActiveFlags],
       status: existing?.status ?? '',
       rollingSummary: payload.rollingSummary ?? existing?.rollingSummary ?? '',
       lastActivityAt: now,
@@ -85,6 +93,7 @@ export function createProjectConversationControllerConversations(
     sortProjectConversations,
     touchConversation,
     upsertConversation,
+    removeConversation,
     applySessionPayload,
   }
 }

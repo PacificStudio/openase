@@ -71,8 +71,27 @@ describe('ProjectConversationHistoryPopover', () => {
       },
     })
 
-    await fireEvent.click(getByRole('button', { name: /Keep the first question stable/i }))
+    await fireEvent.click(
+      getByRole('button', { name: /Open conversation Keep the first question stable/i }),
+    )
 
     expect(onSelect).toHaveBeenCalledWith('conversation-1')
+  })
+
+  it('shows a delete action without triggering selection', async () => {
+    const onDelete = vi.fn()
+    const onSelect = vi.fn()
+    const { getByRole } = render(ProjectConversationHistoryPopover, {
+      props: {
+        conversations: conversationFixtures,
+        onDelete,
+        onSelect,
+      },
+    })
+
+    await fireEvent.click(getByRole('button', { name: /Delete Keep the first question stable/i }))
+
+    expect(onDelete).toHaveBeenCalledWith('conversation-1')
+    expect(onSelect).not.toHaveBeenCalled()
   })
 })

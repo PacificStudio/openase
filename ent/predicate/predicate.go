@@ -93,6 +93,9 @@ type ProjectConversationStepEvent func(*sql.Selector)
 // ProjectConversationTraceEvent is the predicate function for projectconversationtraceevent builders.
 type ProjectConversationTraceEvent func(*sql.Selector)
 
+// ProjectDailyTokenUsage is the predicate function for projectdailytokenusage builders.
+type ProjectDailyTokenUsage func(*sql.Selector)
+
 // ProjectRepo is the predicate function for projectrepo builders.
 type ProjectRepo func(*sql.Selector)
 
@@ -173,3 +176,6 @@ type WorkflowSkillBinding func(*sql.Selector)
 
 // WorkflowVersion is the predicate function for workflowversion builders.
 type WorkflowVersion func(*sql.Selector)
+
+// WorkspaceInitLease is the predicate function for workspaceinitlease builders.
+type WorkspaceInitLease func(*sql.Selector)

@@ -46,6 +46,8 @@ const skillStatesFixture: SkillState[] = [
     description: 'Run linters on changed files',
     path: 'skills/lint',
     bound: true,
+    required: false,
+    lockReason: '',
   },
   {
     id: 'sk-2',
@@ -53,6 +55,17 @@ const skillStatesFixture: SkillState[] = [
     description: 'Execute test suites',
     path: 'skills/test-runner',
     bound: false,
+    required: false,
+    lockReason: '',
+  },
+  {
+    id: 'sk-3',
+    name: 'openase-platform',
+    description: 'Platform operations for tickets, projects, and runtime coordination.',
+    path: 'skills/openase-platform',
+    bound: true,
+    required: true,
+    lockReason: 'Required by every workflow runtime.',
   },
 ]
 
@@ -84,7 +97,10 @@ describe('WorkflowEditorPanel', () => {
     await fireEvent.click(trigger as HTMLElement)
   }
 
-  function getSkillToggle(skillName: string, actionTitle: 'Bind skill' | 'Unbind skill') {
+  function getSkillToggle(
+    skillName: string,
+    actionTitle: 'Bind skill' | 'Unbind skill' | 'Required skill',
+  ) {
     const row = within(document.body).getByText(skillName).closest('button')
     expect(row).toBeTruthy()
     return within(row as HTMLElement).getByTitle(actionTitle)
@@ -130,6 +146,16 @@ describe('WorkflowEditorPanel', () => {
 
     expect(onToggleSkill).toHaveBeenCalledTimes(1)
     expect(onToggleSkill).toHaveBeenCalledWith(skillStatesFixture[1])
+  })
+
+  it('renders required workflow skills as locked', async () => {
+    const { container } = renderPanel()
+
+    await openSkillsDropdown(container)
+
+    const requiredToggle = getSkillToggle('openase-platform', 'Required skill')
+    expect(requiredToggle).toBeTruthy()
+    expect((requiredToggle as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('toggles the workflow list panel via the sidebar button', async () => {

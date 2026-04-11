@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	entagentrun "github.com/BetterAndBetterII/openase/ent/agentrun"
 	entticket "github.com/BetterAndBetterII/openase/ent/ticket"
 	entworkflow "github.com/BetterAndBetterII/openase/ent/workflow"
+	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	"github.com/BetterAndBetterII/openase/internal/domain/ticketing"
+	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
+	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
 )
 
@@ -20,6 +24,11 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
+	bus := eventinfra.NewChannelBus()
+	activityStream, err := bus.Subscribe(ctx, provider.MustParseTopic("activity.events"))
+	if err != nil {
+		t.Fatalf("subscribe activity events: %v", err)
+	}
 	now := time.Date(2026, 3, 20, 13, 0, 0, 0, time.UTC)
 
 	workflow, err := client.Workflow.Create().
@@ -53,7 +62,7 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus)
 	retryService.now = func() time.Time {
 		return now
 	}
@@ -114,12 +123,41 @@ func TestRetryServiceMarkAttemptFailedSchedulesExponentialBackoffAndReleasesClai
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected run marked errored, got %+v", runAfter)
 	}
+
+	select {
+	case event := <-activityStream:
+		if event.Type != provider.MustParseEventType(activityevent.TypeTicketRetryScheduled.String()) {
+			t.Fatalf("expected retry_scheduled activity, got %+v", event)
+		}
+		var payload struct {
+			Event struct {
+				EventType string         `json:"event_type"`
+				Metadata  map[string]any `json:"metadata"`
+			} `json:"event"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatalf("decode retry_scheduled payload: %v", err)
+		}
+		if payload.Event.EventType != activityevent.TypeTicketRetryScheduled.String() {
+			t.Fatalf("unexpected retry_scheduled payload: %+v", payload)
+		}
+		if payload.Event.Metadata["ticket_identifier"] != "ASE-401" {
+			t.Fatalf("retry_scheduled payload missing ticket identifier: %+v", payload)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for retry_scheduled activity")
+	}
 }
 
 func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) {
 	ctx := context.Background()
 	client := openTestEntClient(t)
 	fixture := seedProjectFixture(ctx, t, client)
+	bus := eventinfra.NewChannelBus()
+	activityStream, err := bus.Subscribe(ctx, provider.MustParseTopic("activity.events"))
+	if err != nil {
+		t.Fatalf("subscribe activity events: %v", err)
+	}
 	now := time.Date(2026, 3, 20, 13, 30, 0, 0, time.UTC)
 	workflow, err := client.Workflow.Create().
 		SetProjectID(fixture.projectID).
@@ -151,7 +189,7 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	originalRetryToken := ticketItem.RetryToken
 	runItem := mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), bus)
 	retryService.now = func() time.Time {
 		return now
 	}
@@ -191,6 +229,30 @@ func TestRetryServiceMarkAttemptFailedPausesWhenBudgetIsExhausted(t *testing.T) 
 	if runAfter.Status != entagentrun.StatusErrored {
 		t.Fatalf("expected budget exhausted run errored, got %+v", runAfter)
 	}
+
+	select {
+	case event := <-activityStream:
+		if event.Type != provider.MustParseEventType(activityevent.TypeTicketBudgetExhausted.String()) {
+			t.Fatalf("expected budget_exhausted activity, got %+v", event)
+		}
+		var payload struct {
+			Event struct {
+				EventType string         `json:"event_type"`
+				Metadata  map[string]any `json:"metadata"`
+			} `json:"event"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatalf("decode budget_exhausted payload: %v", err)
+		}
+		if payload.Event.EventType != activityevent.TypeTicketBudgetExhausted.String() {
+			t.Fatalf("unexpected budget_exhausted payload: %+v", payload)
+		}
+		if payload.Event.Metadata["pause_reason"] != ticketing.PauseReasonBudgetExhausted.String() {
+			t.Fatalf("budget_exhausted payload missing pause reason: %+v", payload)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for budget_exhausted activity")
+	}
 }
 
 func TestRetryServiceLogsStructuredRetryDecision(t *testing.T) {
@@ -226,7 +288,7 @@ func TestRetryServiceLogsStructuredRetryDecision(t *testing.T) {
 	_ = mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
 	var logBuffer bytes.Buffer
-	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(&logBuffer, nil)))
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(&logBuffer, nil)), nil)
 	retryService.now = func() time.Time {
 		return now
 	}
@@ -285,7 +347,7 @@ func TestRetryServiceMarkAttemptFailedUsesConsecutiveErrorsForBackoff(t *testing
 	}
 	_ = mustCreateCurrentRun(ctx, t, client, agentItem, workflow.ID, ticketItem.ID, entagentrun.StatusExecuting, now)
 
-	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	retryService := NewRetryService(client, slog.New(slog.NewTextHandler(io.Discard, nil)), nil)
 	retryService.now = func() time.Time {
 		return now
 	}

@@ -41,6 +41,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -68,6 +69,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/workflow"
 	"github.com/BetterAndBetterII/openase/ent/workflowskillbinding"
 	"github.com/BetterAndBetterII/openase/ent/workflowversion"
+	"github.com/BetterAndBetterII/openase/ent/workspaceinitlease"
 	"github.com/BetterAndBetterII/openase/internal/domain/githubauth"
 	"github.com/BetterAndBetterII/openase/internal/domain/iam"
 	"github.com/BetterAndBetterII/openase/internal/types/pgarray"
@@ -112,6 +114,7 @@ const (
 	TypeProjectConversationRun        = "ProjectConversationRun"
 	TypeProjectConversationStepEvent  = "ProjectConversationStepEvent"
 	TypeProjectConversationTraceEvent = "ProjectConversationTraceEvent"
+	TypeProjectDailyTokenUsage        = "ProjectDailyTokenUsage"
 	TypeProjectRepo                   = "ProjectRepo"
 	TypeProjectUpdateComment          = "ProjectUpdateComment"
 	TypeProjectUpdateCommentRevision  = "ProjectUpdateCommentRevision"
@@ -139,6 +142,7 @@ const (
 	TypeWorkflow                      = "Workflow"
 	TypeWorkflowSkillBinding          = "WorkflowSkillBinding"
 	TypeWorkflowVersion               = "WorkflowVersion"
+	TypeWorkspaceInitLease            = "WorkspaceInitLease"
 )
 
 // ActivityEventMutation represents an operation that mutates the ActivityEvent nodes in the graph.
@@ -29113,6 +29117,11 @@ type ProjectMutation struct {
 	max_concurrent_agents                    *int
 	addmax_concurrent_agents                 *int
 	agent_run_summary_prompt                 *string
+	project_ai_retention_enabled             *bool
+	project_ai_retention_keep_latest_n       *int
+	addproject_ai_retention_keep_latest_n    *int
+	project_ai_retention_keep_recent_days    *int
+	addproject_ai_retention_keep_recent_days *int
 	clearedFields                            map[string]struct{}
 	organization                             *uuid.UUID
 	clearedorganization                      bool
@@ -29143,6 +29152,9 @@ type ProjectMutation struct {
 	agent_step_events                        map[uuid.UUID]struct{}
 	removedagent_step_events                 map[uuid.UUID]struct{}
 	clearedagent_step_events                 bool
+	daily_token_usage                        map[uuid.UUID]struct{}
+	removeddaily_token_usage                 map[uuid.UUID]struct{}
+	cleareddaily_token_usage                 bool
 	scheduled_jobs                           map[uuid.UUID]struct{}
 	removedscheduled_jobs                    map[uuid.UUID]struct{}
 	clearedscheduled_jobs                    bool
@@ -29816,6 +29828,154 @@ func (m *ProjectMutation) ResetAgentRunSummaryPrompt() {
 	delete(m.clearedFields, project.FieldAgentRunSummaryPrompt)
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (m *ProjectMutation) SetProjectAiRetentionEnabled(b bool) {
+	m.project_ai_retention_enabled = &b
+}
+
+// ProjectAiRetentionEnabled returns the value of the "project_ai_retention_enabled" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionEnabled() (r bool, exists bool) {
+	v := m.project_ai_retention_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionEnabled returns the old "project_ai_retention_enabled" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionEnabled: %w", err)
+	}
+	return oldValue.ProjectAiRetentionEnabled, nil
+}
+
+// ResetProjectAiRetentionEnabled resets all changes to the "project_ai_retention_enabled" field.
+func (m *ProjectMutation) ResetProjectAiRetentionEnabled() {
+	m.project_ai_retention_enabled = nil
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) SetProjectAiRetentionKeepLatestN(i int) {
+	m.project_ai_retention_keep_latest_n = &i
+	m.addproject_ai_retention_keep_latest_n = nil
+}
+
+// ProjectAiRetentionKeepLatestN returns the value of the "project_ai_retention_keep_latest_n" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionKeepLatestN() (r int, exists bool) {
+	v := m.project_ai_retention_keep_latest_n
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionKeepLatestN returns the old "project_ai_retention_keep_latest_n" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionKeepLatestN(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionKeepLatestN is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionKeepLatestN requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionKeepLatestN: %w", err)
+	}
+	return oldValue.ProjectAiRetentionKeepLatestN, nil
+}
+
+// AddProjectAiRetentionKeepLatestN adds i to the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) AddProjectAiRetentionKeepLatestN(i int) {
+	if m.addproject_ai_retention_keep_latest_n != nil {
+		*m.addproject_ai_retention_keep_latest_n += i
+	} else {
+		m.addproject_ai_retention_keep_latest_n = &i
+	}
+}
+
+// AddedProjectAiRetentionKeepLatestN returns the value that was added to the "project_ai_retention_keep_latest_n" field in this mutation.
+func (m *ProjectMutation) AddedProjectAiRetentionKeepLatestN() (r int, exists bool) {
+	v := m.addproject_ai_retention_keep_latest_n
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProjectAiRetentionKeepLatestN resets all changes to the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) ResetProjectAiRetentionKeepLatestN() {
+	m.project_ai_retention_keep_latest_n = nil
+	m.addproject_ai_retention_keep_latest_n = nil
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) SetProjectAiRetentionKeepRecentDays(i int) {
+	m.project_ai_retention_keep_recent_days = &i
+	m.addproject_ai_retention_keep_recent_days = nil
+}
+
+// ProjectAiRetentionKeepRecentDays returns the value of the "project_ai_retention_keep_recent_days" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionKeepRecentDays() (r int, exists bool) {
+	v := m.project_ai_retention_keep_recent_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionKeepRecentDays returns the old "project_ai_retention_keep_recent_days" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionKeepRecentDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionKeepRecentDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionKeepRecentDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionKeepRecentDays: %w", err)
+	}
+	return oldValue.ProjectAiRetentionKeepRecentDays, nil
+}
+
+// AddProjectAiRetentionKeepRecentDays adds i to the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) AddProjectAiRetentionKeepRecentDays(i int) {
+	if m.addproject_ai_retention_keep_recent_days != nil {
+		*m.addproject_ai_retention_keep_recent_days += i
+	} else {
+		m.addproject_ai_retention_keep_recent_days = &i
+	}
+}
+
+// AddedProjectAiRetentionKeepRecentDays returns the value that was added to the "project_ai_retention_keep_recent_days" field in this mutation.
+func (m *ProjectMutation) AddedProjectAiRetentionKeepRecentDays() (r int, exists bool) {
+	v := m.addproject_ai_retention_keep_recent_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProjectAiRetentionKeepRecentDays resets all changes to the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) ResetProjectAiRetentionKeepRecentDays() {
+	m.project_ai_retention_keep_recent_days = nil
+	m.addproject_ai_retention_keep_recent_days = nil
+}
+
 // ClearOrganization clears the "organization" edge to the Organization entity.
 func (m *ProjectMutation) ClearOrganization() {
 	m.clearedorganization = true
@@ -30329,6 +30489,60 @@ func (m *ProjectMutation) ResetAgentStepEvents() {
 	m.removedagent_step_events = nil
 }
 
+// AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by ids.
+func (m *ProjectMutation) AddDailyTokenUsageIDs(ids ...uuid.UUID) {
+	if m.daily_token_usage == nil {
+		m.daily_token_usage = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		m.daily_token_usage[ids[i]] = struct{}{}
+	}
+}
+
+// ClearDailyTokenUsage clears the "daily_token_usage" edge to the ProjectDailyTokenUsage entity.
+func (m *ProjectMutation) ClearDailyTokenUsage() {
+	m.cleareddaily_token_usage = true
+}
+
+// DailyTokenUsageCleared reports if the "daily_token_usage" edge to the ProjectDailyTokenUsage entity was cleared.
+func (m *ProjectMutation) DailyTokenUsageCleared() bool {
+	return m.cleareddaily_token_usage
+}
+
+// RemoveDailyTokenUsageIDs removes the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
+func (m *ProjectMutation) RemoveDailyTokenUsageIDs(ids ...uuid.UUID) {
+	if m.removeddaily_token_usage == nil {
+		m.removeddaily_token_usage = make(map[uuid.UUID]struct{})
+	}
+	for i := range ids {
+		delete(m.daily_token_usage, ids[i])
+		m.removeddaily_token_usage[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedDailyTokenUsage returns the removed IDs of the "daily_token_usage" edge to the ProjectDailyTokenUsage entity.
+func (m *ProjectMutation) RemovedDailyTokenUsageIDs() (ids []uuid.UUID) {
+	for id := range m.removeddaily_token_usage {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// DailyTokenUsageIDs returns the "daily_token_usage" edge IDs in the mutation.
+func (m *ProjectMutation) DailyTokenUsageIDs() (ids []uuid.UUID) {
+	for id := range m.daily_token_usage {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetDailyTokenUsage resets all changes to the "daily_token_usage" edge.
+func (m *ProjectMutation) ResetDailyTokenUsage() {
+	m.daily_token_usage = nil
+	m.cleareddaily_token_usage = false
+	m.removeddaily_token_usage = nil
+}
+
 // AddScheduledJobIDs adds the "scheduled_jobs" edge to the ScheduledJob entity by ids.
 func (m *ProjectMutation) AddScheduledJobIDs(ids ...uuid.UUID) {
 	if m.scheduled_jobs == nil {
@@ -30660,7 +30874,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 12)
+	fields := make([]string, 0, 15)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -30697,6 +30911,15 @@ func (m *ProjectMutation) Fields() []string {
 	if m.agent_run_summary_prompt != nil {
 		fields = append(fields, project.FieldAgentRunSummaryPrompt)
 	}
+	if m.project_ai_retention_enabled != nil {
+		fields = append(fields, project.FieldProjectAiRetentionEnabled)
+	}
+	if m.project_ai_retention_keep_latest_n != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepLatestN)
+	}
+	if m.project_ai_retention_keep_recent_days != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepRecentDays)
+	}
 	return fields
 }
 
@@ -30729,6 +30952,12 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.MaxConcurrentAgents()
 	case project.FieldAgentRunSummaryPrompt:
 		return m.AgentRunSummaryPrompt()
+	case project.FieldProjectAiRetentionEnabled:
+		return m.ProjectAiRetentionEnabled()
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.ProjectAiRetentionKeepLatestN()
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.ProjectAiRetentionKeepRecentDays()
 	}
 	return nil, false
 }
@@ -30762,6 +30991,12 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldMaxConcurrentAgents(ctx)
 	case project.FieldAgentRunSummaryPrompt:
 		return m.OldAgentRunSummaryPrompt(ctx)
+	case project.FieldProjectAiRetentionEnabled:
+		return m.OldProjectAiRetentionEnabled(ctx)
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.OldProjectAiRetentionKeepLatestN(ctx)
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.OldProjectAiRetentionKeepRecentDays(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -30855,6 +31090,27 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAgentRunSummaryPrompt(v)
 		return nil
+	case project.FieldProjectAiRetentionEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionEnabled(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionKeepLatestN(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionKeepRecentDays(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -30866,6 +31122,12 @@ func (m *ProjectMutation) AddedFields() []string {
 	if m.addmax_concurrent_agents != nil {
 		fields = append(fields, project.FieldMaxConcurrentAgents)
 	}
+	if m.addproject_ai_retention_keep_latest_n != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepLatestN)
+	}
+	if m.addproject_ai_retention_keep_recent_days != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepRecentDays)
+	}
 	return fields
 }
 
@@ -30876,6 +31138,10 @@ func (m *ProjectMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case project.FieldMaxConcurrentAgents:
 		return m.AddedMaxConcurrentAgents()
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.AddedProjectAiRetentionKeepLatestN()
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.AddedProjectAiRetentionKeepRecentDays()
 	}
 	return nil, false
 }
@@ -30891,6 +31157,20 @@ func (m *ProjectMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddMaxConcurrentAgents(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProjectAiRetentionKeepLatestN(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProjectAiRetentionKeepRecentDays(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Project numeric field %s", name)
@@ -30988,13 +31268,22 @@ func (m *ProjectMutation) ResetField(name string) error {
 	case project.FieldAgentRunSummaryPrompt:
 		m.ResetAgentRunSummaryPrompt()
 		return nil
+	case project.FieldProjectAiRetentionEnabled:
+		m.ResetProjectAiRetentionEnabled()
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		m.ResetProjectAiRetentionKeepLatestN()
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		m.ResetProjectAiRetentionKeepRecentDays()
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ProjectMutation) AddedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.organization != nil {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -31024,6 +31313,9 @@ func (m *ProjectMutation) AddedEdges() []string {
 	}
 	if m.agent_step_events != nil {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.daily_token_usage != nil {
+		edges = append(edges, project.EdgeDailyTokenUsage)
 	}
 	if m.scheduled_jobs != nil {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -31108,6 +31400,12 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeDailyTokenUsage:
+		ids := make([]ent.Value, 0, len(m.daily_token_usage))
+		for id := range m.daily_token_usage {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeScheduledJobs:
 		ids := make([]ent.Value, 0, len(m.scheduled_jobs))
 		for id := range m.scheduled_jobs {
@@ -31148,7 +31446,7 @@ func (m *ProjectMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ProjectMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.removedrepos != nil {
 		edges = append(edges, project.EdgeRepos)
 	}
@@ -31175,6 +31473,9 @@ func (m *ProjectMutation) RemovedEdges() []string {
 	}
 	if m.removedagent_step_events != nil {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.removeddaily_token_usage != nil {
+		edges = append(edges, project.EdgeDailyTokenUsage)
 	}
 	if m.removedscheduled_jobs != nil {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -31252,6 +31553,12 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case project.EdgeDailyTokenUsage:
+		ids := make([]ent.Value, 0, len(m.removeddaily_token_usage))
+		for id := range m.removeddaily_token_usage {
+			ids = append(ids, id)
+		}
+		return ids
 	case project.EdgeScheduledJobs:
 		ids := make([]ent.Value, 0, len(m.removedscheduled_jobs))
 		for id := range m.removedscheduled_jobs {
@@ -31288,7 +31595,7 @@ func (m *ProjectMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ProjectMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 16)
+	edges := make([]string, 0, 17)
 	if m.clearedorganization {
 		edges = append(edges, project.EdgeOrganization)
 	}
@@ -31318,6 +31625,9 @@ func (m *ProjectMutation) ClearedEdges() []string {
 	}
 	if m.clearedagent_step_events {
 		edges = append(edges, project.EdgeAgentStepEvents)
+	}
+	if m.cleareddaily_token_usage {
+		edges = append(edges, project.EdgeDailyTokenUsage)
 	}
 	if m.clearedscheduled_jobs {
 		edges = append(edges, project.EdgeScheduledJobs)
@@ -31364,6 +31674,8 @@ func (m *ProjectMutation) EdgeCleared(name string) bool {
 		return m.clearedagent_trace_events
 	case project.EdgeAgentStepEvents:
 		return m.clearedagent_step_events
+	case project.EdgeDailyTokenUsage:
+		return m.cleareddaily_token_usage
 	case project.EdgeScheduledJobs:
 		return m.clearedscheduled_jobs
 	case project.EdgeActivityEvents:
@@ -31427,6 +31739,9 @@ func (m *ProjectMutation) ResetEdge(name string) error {
 		return nil
 	case project.EdgeAgentStepEvents:
 		m.ResetAgentStepEvents()
+		return nil
+	case project.EdgeDailyTokenUsage:
+		m.ResetDailyTokenUsage()
 		return nil
 	case project.EdgeScheduledJobs:
 		m.ResetScheduledJobs()
@@ -32765,6 +33080,7 @@ type ProjectConversationRunMutation struct {
 	provider_turn_id         *string
 	runtime_started_at       *time.Time
 	terminal_at              *time.Time
+	snapshot_materialized_at *time.Time
 	last_error               *string
 	last_heartbeat_at        *time.Time
 	cost_amount              *float64
@@ -33422,6 +33738,55 @@ func (m *ProjectConversationRunMutation) TerminalAtCleared() bool {
 func (m *ProjectConversationRunMutation) ResetTerminalAt() {
 	m.terminal_at = nil
 	delete(m.clearedFields, projectconversationrun.FieldTerminalAt)
+}
+
+// SetSnapshotMaterializedAt sets the "snapshot_materialized_at" field.
+func (m *ProjectConversationRunMutation) SetSnapshotMaterializedAt(t time.Time) {
+	m.snapshot_materialized_at = &t
+}
+
+// SnapshotMaterializedAt returns the value of the "snapshot_materialized_at" field in the mutation.
+func (m *ProjectConversationRunMutation) SnapshotMaterializedAt() (r time.Time, exists bool) {
+	v := m.snapshot_materialized_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSnapshotMaterializedAt returns the old "snapshot_materialized_at" field's value of the ProjectConversationRun entity.
+// If the ProjectConversationRun object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectConversationRunMutation) OldSnapshotMaterializedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSnapshotMaterializedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSnapshotMaterializedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSnapshotMaterializedAt: %w", err)
+	}
+	return oldValue.SnapshotMaterializedAt, nil
+}
+
+// ClearSnapshotMaterializedAt clears the value of the "snapshot_materialized_at" field.
+func (m *ProjectConversationRunMutation) ClearSnapshotMaterializedAt() {
+	m.snapshot_materialized_at = nil
+	m.clearedFields[projectconversationrun.FieldSnapshotMaterializedAt] = struct{}{}
+}
+
+// SnapshotMaterializedAtCleared returns if the "snapshot_materialized_at" field was cleared in this mutation.
+func (m *ProjectConversationRunMutation) SnapshotMaterializedAtCleared() bool {
+	_, ok := m.clearedFields[projectconversationrun.FieldSnapshotMaterializedAt]
+	return ok
+}
+
+// ResetSnapshotMaterializedAt resets all changes to the "snapshot_materialized_at" field.
+func (m *ProjectConversationRunMutation) ResetSnapshotMaterializedAt() {
+	m.snapshot_materialized_at = nil
+	delete(m.clearedFields, projectconversationrun.FieldSnapshotMaterializedAt)
 }
 
 // SetLastError sets the "last_error" field.
@@ -34299,7 +34664,7 @@ func (m *ProjectConversationRunMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectConversationRunMutation) Fields() []string {
-	fields := make([]string, 0, 28)
+	fields := make([]string, 0, 29)
 	if m.principal_id != nil {
 		fields = append(fields, projectconversationrun.FieldPrincipalID)
 	}
@@ -34335,6 +34700,9 @@ func (m *ProjectConversationRunMutation) Fields() []string {
 	}
 	if m.terminal_at != nil {
 		fields = append(fields, projectconversationrun.FieldTerminalAt)
+	}
+	if m.snapshot_materialized_at != nil {
+		fields = append(fields, projectconversationrun.FieldSnapshotMaterializedAt)
 	}
 	if m.last_error != nil {
 		fields = append(fields, projectconversationrun.FieldLastError)
@@ -34416,6 +34784,8 @@ func (m *ProjectConversationRunMutation) Field(name string) (ent.Value, bool) {
 		return m.RuntimeStartedAt()
 	case projectconversationrun.FieldTerminalAt:
 		return m.TerminalAt()
+	case projectconversationrun.FieldSnapshotMaterializedAt:
+		return m.SnapshotMaterializedAt()
 	case projectconversationrun.FieldLastError:
 		return m.LastError()
 	case projectconversationrun.FieldLastHeartbeatAt:
@@ -34481,6 +34851,8 @@ func (m *ProjectConversationRunMutation) OldField(ctx context.Context, name stri
 		return m.OldRuntimeStartedAt(ctx)
 	case projectconversationrun.FieldTerminalAt:
 		return m.OldTerminalAt(ctx)
+	case projectconversationrun.FieldSnapshotMaterializedAt:
+		return m.OldSnapshotMaterializedAt(ctx)
 	case projectconversationrun.FieldLastError:
 		return m.OldLastError(ctx)
 	case projectconversationrun.FieldLastHeartbeatAt:
@@ -34605,6 +34977,13 @@ func (m *ProjectConversationRunMutation) SetField(name string, value ent.Value) 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTerminalAt(v)
+		return nil
+	case projectconversationrun.FieldSnapshotMaterializedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSnapshotMaterializedAt(v)
 		return nil
 	case projectconversationrun.FieldLastError:
 		v, ok := value.(string)
@@ -34892,6 +35271,9 @@ func (m *ProjectConversationRunMutation) ClearedFields() []string {
 	if m.FieldCleared(projectconversationrun.FieldTerminalAt) {
 		fields = append(fields, projectconversationrun.FieldTerminalAt)
 	}
+	if m.FieldCleared(projectconversationrun.FieldSnapshotMaterializedAt) {
+		fields = append(fields, projectconversationrun.FieldSnapshotMaterializedAt)
+	}
 	if m.FieldCleared(projectconversationrun.FieldLastError) {
 		fields = append(fields, projectconversationrun.FieldLastError)
 	}
@@ -34941,6 +35323,9 @@ func (m *ProjectConversationRunMutation) ClearField(name string) error {
 		return nil
 	case projectconversationrun.FieldTerminalAt:
 		m.ClearTerminalAt()
+		return nil
+	case projectconversationrun.FieldSnapshotMaterializedAt:
+		m.ClearSnapshotMaterializedAt()
 		return nil
 	case projectconversationrun.FieldLastError:
 		m.ClearLastError()
@@ -35000,6 +35385,9 @@ func (m *ProjectConversationRunMutation) ResetField(name string) error {
 		return nil
 	case projectconversationrun.FieldTerminalAt:
 		m.ResetTerminalAt()
+		return nil
+	case projectconversationrun.FieldSnapshotMaterializedAt:
+		m.ResetSnapshotMaterializedAt()
 		return nil
 	case projectconversationrun.FieldLastError:
 		m.ResetLastError()
@@ -36780,6 +37168,1079 @@ func (m *ProjectConversationTraceEventMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *ProjectConversationTraceEventMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ProjectConversationTraceEvent edge %s", name)
+}
+
+// ProjectDailyTokenUsageMutation represents an operation that mutates the ProjectDailyTokenUsage nodes in the graph.
+type ProjectDailyTokenUsageMutation struct {
+	config
+	op                     Op
+	typ                    string
+	id                     *uuid.UUID
+	usage_date             *time.Time
+	input_tokens           *int64
+	addinput_tokens        *int64
+	output_tokens          *int64
+	addoutput_tokens       *int64
+	cached_input_tokens    *int64
+	addcached_input_tokens *int64
+	reasoning_tokens       *int64
+	addreasoning_tokens    *int64
+	total_tokens           *int64
+	addtotal_tokens        *int64
+	finalized_run_count    *int
+	addfinalized_run_count *int
+	recomputed_at          *time.Time
+	source_mode            *projectdailytokenusage.SourceMode
+	clearedFields          map[string]struct{}
+	project                *uuid.UUID
+	clearedproject         bool
+	done                   bool
+	oldValue               func(context.Context) (*ProjectDailyTokenUsage, error)
+	predicates             []predicate.ProjectDailyTokenUsage
+}
+
+var _ ent.Mutation = (*ProjectDailyTokenUsageMutation)(nil)
+
+// projectdailytokenusageOption allows management of the mutation configuration using functional options.
+type projectdailytokenusageOption func(*ProjectDailyTokenUsageMutation)
+
+// newProjectDailyTokenUsageMutation creates new mutation for the ProjectDailyTokenUsage entity.
+func newProjectDailyTokenUsageMutation(c config, op Op, opts ...projectdailytokenusageOption) *ProjectDailyTokenUsageMutation {
+	m := &ProjectDailyTokenUsageMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeProjectDailyTokenUsage,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withProjectDailyTokenUsageID sets the ID field of the mutation.
+func withProjectDailyTokenUsageID(id uuid.UUID) projectdailytokenusageOption {
+	return func(m *ProjectDailyTokenUsageMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *ProjectDailyTokenUsage
+		)
+		m.oldValue = func(ctx context.Context) (*ProjectDailyTokenUsage, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().ProjectDailyTokenUsage.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withProjectDailyTokenUsage sets the old ProjectDailyTokenUsage of the mutation.
+func withProjectDailyTokenUsage(node *ProjectDailyTokenUsage) projectdailytokenusageOption {
+	return func(m *ProjectDailyTokenUsageMutation) {
+		m.oldValue = func(context.Context) (*ProjectDailyTokenUsage, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ProjectDailyTokenUsageMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ProjectDailyTokenUsageMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of ProjectDailyTokenUsage entities.
+func (m *ProjectDailyTokenUsageMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *ProjectDailyTokenUsageMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *ProjectDailyTokenUsageMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().ProjectDailyTokenUsage.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetProjectID sets the "project_id" field.
+func (m *ProjectDailyTokenUsageMutation) SetProjectID(u uuid.UUID) {
+	m.project = &u
+}
+
+// ProjectID returns the value of the "project_id" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) ProjectID() (r uuid.UUID, exists bool) {
+	v := m.project
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectID returns the old "project_id" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldProjectID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectID: %w", err)
+	}
+	return oldValue.ProjectID, nil
+}
+
+// ResetProjectID resets all changes to the "project_id" field.
+func (m *ProjectDailyTokenUsageMutation) ResetProjectID() {
+	m.project = nil
+}
+
+// SetUsageDate sets the "usage_date" field.
+func (m *ProjectDailyTokenUsageMutation) SetUsageDate(t time.Time) {
+	m.usage_date = &t
+}
+
+// UsageDate returns the value of the "usage_date" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) UsageDate() (r time.Time, exists bool) {
+	v := m.usage_date
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUsageDate returns the old "usage_date" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldUsageDate(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUsageDate is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUsageDate requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUsageDate: %w", err)
+	}
+	return oldValue.UsageDate, nil
+}
+
+// ResetUsageDate resets all changes to the "usage_date" field.
+func (m *ProjectDailyTokenUsageMutation) ResetUsageDate() {
+	m.usage_date = nil
+}
+
+// SetInputTokens sets the "input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) SetInputTokens(i int64) {
+	m.input_tokens = &i
+	m.addinput_tokens = nil
+}
+
+// InputTokens returns the value of the "input_tokens" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) InputTokens() (r int64, exists bool) {
+	v := m.input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldInputTokens returns the old "input_tokens" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldInputTokens: %w", err)
+	}
+	return oldValue.InputTokens, nil
+}
+
+// AddInputTokens adds i to the "input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) AddInputTokens(i int64) {
+	if m.addinput_tokens != nil {
+		*m.addinput_tokens += i
+	} else {
+		m.addinput_tokens = &i
+	}
+}
+
+// AddedInputTokens returns the value that was added to the "input_tokens" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedInputTokens() (r int64, exists bool) {
+	v := m.addinput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetInputTokens resets all changes to the "input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) ResetInputTokens() {
+	m.input_tokens = nil
+	m.addinput_tokens = nil
+}
+
+// SetOutputTokens sets the "output_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) SetOutputTokens(i int64) {
+	m.output_tokens = &i
+	m.addoutput_tokens = nil
+}
+
+// OutputTokens returns the value of the "output_tokens" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) OutputTokens() (r int64, exists bool) {
+	v := m.output_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOutputTokens returns the old "output_tokens" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldOutputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOutputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOutputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOutputTokens: %w", err)
+	}
+	return oldValue.OutputTokens, nil
+}
+
+// AddOutputTokens adds i to the "output_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) AddOutputTokens(i int64) {
+	if m.addoutput_tokens != nil {
+		*m.addoutput_tokens += i
+	} else {
+		m.addoutput_tokens = &i
+	}
+}
+
+// AddedOutputTokens returns the value that was added to the "output_tokens" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedOutputTokens() (r int64, exists bool) {
+	v := m.addoutput_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetOutputTokens resets all changes to the "output_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) ResetOutputTokens() {
+	m.output_tokens = nil
+	m.addoutput_tokens = nil
+}
+
+// SetCachedInputTokens sets the "cached_input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) SetCachedInputTokens(i int64) {
+	m.cached_input_tokens = &i
+	m.addcached_input_tokens = nil
+}
+
+// CachedInputTokens returns the value of the "cached_input_tokens" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) CachedInputTokens() (r int64, exists bool) {
+	v := m.cached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCachedInputTokens returns the old "cached_input_tokens" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldCachedInputTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCachedInputTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCachedInputTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCachedInputTokens: %w", err)
+	}
+	return oldValue.CachedInputTokens, nil
+}
+
+// AddCachedInputTokens adds i to the "cached_input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) AddCachedInputTokens(i int64) {
+	if m.addcached_input_tokens != nil {
+		*m.addcached_input_tokens += i
+	} else {
+		m.addcached_input_tokens = &i
+	}
+}
+
+// AddedCachedInputTokens returns the value that was added to the "cached_input_tokens" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedCachedInputTokens() (r int64, exists bool) {
+	v := m.addcached_input_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCachedInputTokens resets all changes to the "cached_input_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) ResetCachedInputTokens() {
+	m.cached_input_tokens = nil
+	m.addcached_input_tokens = nil
+}
+
+// SetReasoningTokens sets the "reasoning_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) SetReasoningTokens(i int64) {
+	m.reasoning_tokens = &i
+	m.addreasoning_tokens = nil
+}
+
+// ReasoningTokens returns the value of the "reasoning_tokens" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) ReasoningTokens() (r int64, exists bool) {
+	v := m.reasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldReasoningTokens returns the old "reasoning_tokens" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldReasoningTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldReasoningTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldReasoningTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldReasoningTokens: %w", err)
+	}
+	return oldValue.ReasoningTokens, nil
+}
+
+// AddReasoningTokens adds i to the "reasoning_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) AddReasoningTokens(i int64) {
+	if m.addreasoning_tokens != nil {
+		*m.addreasoning_tokens += i
+	} else {
+		m.addreasoning_tokens = &i
+	}
+}
+
+// AddedReasoningTokens returns the value that was added to the "reasoning_tokens" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedReasoningTokens() (r int64, exists bool) {
+	v := m.addreasoning_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetReasoningTokens resets all changes to the "reasoning_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) ResetReasoningTokens() {
+	m.reasoning_tokens = nil
+	m.addreasoning_tokens = nil
+}
+
+// SetTotalTokens sets the "total_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) SetTotalTokens(i int64) {
+	m.total_tokens = &i
+	m.addtotal_tokens = nil
+}
+
+// TotalTokens returns the value of the "total_tokens" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) TotalTokens() (r int64, exists bool) {
+	v := m.total_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTotalTokens returns the old "total_tokens" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldTotalTokens(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTotalTokens is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTotalTokens requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTotalTokens: %w", err)
+	}
+	return oldValue.TotalTokens, nil
+}
+
+// AddTotalTokens adds i to the "total_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) AddTotalTokens(i int64) {
+	if m.addtotal_tokens != nil {
+		*m.addtotal_tokens += i
+	} else {
+		m.addtotal_tokens = &i
+	}
+}
+
+// AddedTotalTokens returns the value that was added to the "total_tokens" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedTotalTokens() (r int64, exists bool) {
+	v := m.addtotal_tokens
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTotalTokens resets all changes to the "total_tokens" field.
+func (m *ProjectDailyTokenUsageMutation) ResetTotalTokens() {
+	m.total_tokens = nil
+	m.addtotal_tokens = nil
+}
+
+// SetFinalizedRunCount sets the "finalized_run_count" field.
+func (m *ProjectDailyTokenUsageMutation) SetFinalizedRunCount(i int) {
+	m.finalized_run_count = &i
+	m.addfinalized_run_count = nil
+}
+
+// FinalizedRunCount returns the value of the "finalized_run_count" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) FinalizedRunCount() (r int, exists bool) {
+	v := m.finalized_run_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldFinalizedRunCount returns the old "finalized_run_count" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldFinalizedRunCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldFinalizedRunCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldFinalizedRunCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldFinalizedRunCount: %w", err)
+	}
+	return oldValue.FinalizedRunCount, nil
+}
+
+// AddFinalizedRunCount adds i to the "finalized_run_count" field.
+func (m *ProjectDailyTokenUsageMutation) AddFinalizedRunCount(i int) {
+	if m.addfinalized_run_count != nil {
+		*m.addfinalized_run_count += i
+	} else {
+		m.addfinalized_run_count = &i
+	}
+}
+
+// AddedFinalizedRunCount returns the value that was added to the "finalized_run_count" field in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedFinalizedRunCount() (r int, exists bool) {
+	v := m.addfinalized_run_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetFinalizedRunCount resets all changes to the "finalized_run_count" field.
+func (m *ProjectDailyTokenUsageMutation) ResetFinalizedRunCount() {
+	m.finalized_run_count = nil
+	m.addfinalized_run_count = nil
+}
+
+// SetRecomputedAt sets the "recomputed_at" field.
+func (m *ProjectDailyTokenUsageMutation) SetRecomputedAt(t time.Time) {
+	m.recomputed_at = &t
+}
+
+// RecomputedAt returns the value of the "recomputed_at" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) RecomputedAt() (r time.Time, exists bool) {
+	v := m.recomputed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRecomputedAt returns the old "recomputed_at" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldRecomputedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRecomputedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRecomputedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRecomputedAt: %w", err)
+	}
+	return oldValue.RecomputedAt, nil
+}
+
+// ResetRecomputedAt resets all changes to the "recomputed_at" field.
+func (m *ProjectDailyTokenUsageMutation) ResetRecomputedAt() {
+	m.recomputed_at = nil
+}
+
+// SetSourceMode sets the "source_mode" field.
+func (m *ProjectDailyTokenUsageMutation) SetSourceMode(pm projectdailytokenusage.SourceMode) {
+	m.source_mode = &pm
+}
+
+// SourceMode returns the value of the "source_mode" field in the mutation.
+func (m *ProjectDailyTokenUsageMutation) SourceMode() (r projectdailytokenusage.SourceMode, exists bool) {
+	v := m.source_mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceMode returns the old "source_mode" field's value of the ProjectDailyTokenUsage entity.
+// If the ProjectDailyTokenUsage object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectDailyTokenUsageMutation) OldSourceMode(ctx context.Context) (v projectdailytokenusage.SourceMode, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceMode: %w", err)
+	}
+	return oldValue.SourceMode, nil
+}
+
+// ResetSourceMode resets all changes to the "source_mode" field.
+func (m *ProjectDailyTokenUsageMutation) ResetSourceMode() {
+	m.source_mode = nil
+}
+
+// ClearProject clears the "project" edge to the Project entity.
+func (m *ProjectDailyTokenUsageMutation) ClearProject() {
+	m.clearedproject = true
+	m.clearedFields[projectdailytokenusage.FieldProjectID] = struct{}{}
+}
+
+// ProjectCleared reports if the "project" edge to the Project entity was cleared.
+func (m *ProjectDailyTokenUsageMutation) ProjectCleared() bool {
+	return m.clearedproject
+}
+
+// ProjectIDs returns the "project" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ProjectID instead. It exists only for internal usage by the builders.
+func (m *ProjectDailyTokenUsageMutation) ProjectIDs() (ids []uuid.UUID) {
+	if id := m.project; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetProject resets all changes to the "project" edge.
+func (m *ProjectDailyTokenUsageMutation) ResetProject() {
+	m.project = nil
+	m.clearedproject = false
+}
+
+// Where appends a list predicates to the ProjectDailyTokenUsageMutation builder.
+func (m *ProjectDailyTokenUsageMutation) Where(ps ...predicate.ProjectDailyTokenUsage) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ProjectDailyTokenUsageMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ProjectDailyTokenUsageMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ProjectDailyTokenUsage, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ProjectDailyTokenUsageMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ProjectDailyTokenUsageMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ProjectDailyTokenUsage).
+func (m *ProjectDailyTokenUsageMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ProjectDailyTokenUsageMutation) Fields() []string {
+	fields := make([]string, 0, 10)
+	if m.project != nil {
+		fields = append(fields, projectdailytokenusage.FieldProjectID)
+	}
+	if m.usage_date != nil {
+		fields = append(fields, projectdailytokenusage.FieldUsageDate)
+	}
+	if m.input_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldInputTokens)
+	}
+	if m.output_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldOutputTokens)
+	}
+	if m.cached_input_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldCachedInputTokens)
+	}
+	if m.reasoning_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldReasoningTokens)
+	}
+	if m.total_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldTotalTokens)
+	}
+	if m.finalized_run_count != nil {
+		fields = append(fields, projectdailytokenusage.FieldFinalizedRunCount)
+	}
+	if m.recomputed_at != nil {
+		fields = append(fields, projectdailytokenusage.FieldRecomputedAt)
+	}
+	if m.source_mode != nil {
+		fields = append(fields, projectdailytokenusage.FieldSourceMode)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ProjectDailyTokenUsageMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case projectdailytokenusage.FieldProjectID:
+		return m.ProjectID()
+	case projectdailytokenusage.FieldUsageDate:
+		return m.UsageDate()
+	case projectdailytokenusage.FieldInputTokens:
+		return m.InputTokens()
+	case projectdailytokenusage.FieldOutputTokens:
+		return m.OutputTokens()
+	case projectdailytokenusage.FieldCachedInputTokens:
+		return m.CachedInputTokens()
+	case projectdailytokenusage.FieldReasoningTokens:
+		return m.ReasoningTokens()
+	case projectdailytokenusage.FieldTotalTokens:
+		return m.TotalTokens()
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		return m.FinalizedRunCount()
+	case projectdailytokenusage.FieldRecomputedAt:
+		return m.RecomputedAt()
+	case projectdailytokenusage.FieldSourceMode:
+		return m.SourceMode()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ProjectDailyTokenUsageMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case projectdailytokenusage.FieldProjectID:
+		return m.OldProjectID(ctx)
+	case projectdailytokenusage.FieldUsageDate:
+		return m.OldUsageDate(ctx)
+	case projectdailytokenusage.FieldInputTokens:
+		return m.OldInputTokens(ctx)
+	case projectdailytokenusage.FieldOutputTokens:
+		return m.OldOutputTokens(ctx)
+	case projectdailytokenusage.FieldCachedInputTokens:
+		return m.OldCachedInputTokens(ctx)
+	case projectdailytokenusage.FieldReasoningTokens:
+		return m.OldReasoningTokens(ctx)
+	case projectdailytokenusage.FieldTotalTokens:
+		return m.OldTotalTokens(ctx)
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		return m.OldFinalizedRunCount(ctx)
+	case projectdailytokenusage.FieldRecomputedAt:
+		return m.OldRecomputedAt(ctx)
+	case projectdailytokenusage.FieldSourceMode:
+		return m.OldSourceMode(ctx)
+	}
+	return nil, fmt.Errorf("unknown ProjectDailyTokenUsage field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectDailyTokenUsageMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case projectdailytokenusage.FieldProjectID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectID(v)
+		return nil
+	case projectdailytokenusage.FieldUsageDate:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUsageDate(v)
+		return nil
+	case projectdailytokenusage.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetInputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOutputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCachedInputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetReasoningTokens(v)
+		return nil
+	case projectdailytokenusage.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTotalTokens(v)
+		return nil
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetFinalizedRunCount(v)
+		return nil
+	case projectdailytokenusage.FieldRecomputedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRecomputedAt(v)
+		return nil
+	case projectdailytokenusage.FieldSourceMode:
+		v, ok := value.(projectdailytokenusage.SourceMode)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceMode(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectDailyTokenUsage field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedFields() []string {
+	var fields []string
+	if m.addinput_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldInputTokens)
+	}
+	if m.addoutput_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldOutputTokens)
+	}
+	if m.addcached_input_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldCachedInputTokens)
+	}
+	if m.addreasoning_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldReasoningTokens)
+	}
+	if m.addtotal_tokens != nil {
+		fields = append(fields, projectdailytokenusage.FieldTotalTokens)
+	}
+	if m.addfinalized_run_count != nil {
+		fields = append(fields, projectdailytokenusage.FieldFinalizedRunCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ProjectDailyTokenUsageMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case projectdailytokenusage.FieldInputTokens:
+		return m.AddedInputTokens()
+	case projectdailytokenusage.FieldOutputTokens:
+		return m.AddedOutputTokens()
+	case projectdailytokenusage.FieldCachedInputTokens:
+		return m.AddedCachedInputTokens()
+	case projectdailytokenusage.FieldReasoningTokens:
+		return m.AddedReasoningTokens()
+	case projectdailytokenusage.FieldTotalTokens:
+		return m.AddedTotalTokens()
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		return m.AddedFinalizedRunCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ProjectDailyTokenUsageMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case projectdailytokenusage.FieldInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddInputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldOutputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOutputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldCachedInputTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCachedInputTokens(v)
+		return nil
+	case projectdailytokenusage.FieldReasoningTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddReasoningTokens(v)
+		return nil
+	case projectdailytokenusage.FieldTotalTokens:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTotalTokens(v)
+		return nil
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddFinalizedRunCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectDailyTokenUsage numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ProjectDailyTokenUsageMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ProjectDailyTokenUsageMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ProjectDailyTokenUsageMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown ProjectDailyTokenUsage nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ProjectDailyTokenUsageMutation) ResetField(name string) error {
+	switch name {
+	case projectdailytokenusage.FieldProjectID:
+		m.ResetProjectID()
+		return nil
+	case projectdailytokenusage.FieldUsageDate:
+		m.ResetUsageDate()
+		return nil
+	case projectdailytokenusage.FieldInputTokens:
+		m.ResetInputTokens()
+		return nil
+	case projectdailytokenusage.FieldOutputTokens:
+		m.ResetOutputTokens()
+		return nil
+	case projectdailytokenusage.FieldCachedInputTokens:
+		m.ResetCachedInputTokens()
+		return nil
+	case projectdailytokenusage.FieldReasoningTokens:
+		m.ResetReasoningTokens()
+		return nil
+	case projectdailytokenusage.FieldTotalTokens:
+		m.ResetTotalTokens()
+		return nil
+	case projectdailytokenusage.FieldFinalizedRunCount:
+		m.ResetFinalizedRunCount()
+		return nil
+	case projectdailytokenusage.FieldRecomputedAt:
+		m.ResetRecomputedAt()
+		return nil
+	case projectdailytokenusage.FieldSourceMode:
+		m.ResetSourceMode()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectDailyTokenUsage field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.project != nil {
+		edges = append(edges, projectdailytokenusage.EdgeProject)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ProjectDailyTokenUsageMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case projectdailytokenusage.EdgeProject:
+		if id := m.project; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ProjectDailyTokenUsageMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ProjectDailyTokenUsageMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ProjectDailyTokenUsageMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedproject {
+		edges = append(edges, projectdailytokenusage.EdgeProject)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ProjectDailyTokenUsageMutation) EdgeCleared(name string) bool {
+	switch name {
+	case projectdailytokenusage.EdgeProject:
+		return m.clearedproject
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ProjectDailyTokenUsageMutation) ClearEdge(name string) error {
+	switch name {
+	case projectdailytokenusage.EdgeProject:
+		m.ClearProject()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectDailyTokenUsage unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ProjectDailyTokenUsageMutation) ResetEdge(name string) error {
+	switch name {
+	case projectdailytokenusage.EdgeProject:
+		m.ResetProject()
+		return nil
+	}
+	return fmt.Errorf("unknown ProjectDailyTokenUsage edge %s", name)
 }
 
 // ProjectRepoMutation represents an operation that mutates the ProjectRepo nodes in the graph.
@@ -66386,4 +67847,660 @@ func (m *WorkflowVersionMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown WorkflowVersion edge %s", name)
+}
+
+// WorkspaceInitLeaseMutation represents an operation that mutates the WorkspaceInitLease nodes in the graph.
+type WorkspaceInitLeaseMutation struct {
+	config
+	op               Op
+	typ              string
+	id               *uuid.UUID
+	lease_key        *string
+	machine_id       *uuid.UUID
+	owner_run_id     *uuid.UUID
+	lease_expires_at *time.Time
+	heartbeat_at     *time.Time
+	created_at       *time.Time
+	updated_at       *time.Time
+	clearedFields    map[string]struct{}
+	done             bool
+	oldValue         func(context.Context) (*WorkspaceInitLease, error)
+	predicates       []predicate.WorkspaceInitLease
+}
+
+var _ ent.Mutation = (*WorkspaceInitLeaseMutation)(nil)
+
+// workspaceinitleaseOption allows management of the mutation configuration using functional options.
+type workspaceinitleaseOption func(*WorkspaceInitLeaseMutation)
+
+// newWorkspaceInitLeaseMutation creates new mutation for the WorkspaceInitLease entity.
+func newWorkspaceInitLeaseMutation(c config, op Op, opts ...workspaceinitleaseOption) *WorkspaceInitLeaseMutation {
+	m := &WorkspaceInitLeaseMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeWorkspaceInitLease,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withWorkspaceInitLeaseID sets the ID field of the mutation.
+func withWorkspaceInitLeaseID(id uuid.UUID) workspaceinitleaseOption {
+	return func(m *WorkspaceInitLeaseMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *WorkspaceInitLease
+		)
+		m.oldValue = func(ctx context.Context) (*WorkspaceInitLease, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().WorkspaceInitLease.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withWorkspaceInitLease sets the old WorkspaceInitLease of the mutation.
+func withWorkspaceInitLease(node *WorkspaceInitLease) workspaceinitleaseOption {
+	return func(m *WorkspaceInitLeaseMutation) {
+		m.oldValue = func(context.Context) (*WorkspaceInitLease, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m WorkspaceInitLeaseMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m WorkspaceInitLeaseMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of WorkspaceInitLease entities.
+func (m *WorkspaceInitLeaseMutation) SetID(id uuid.UUID) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *WorkspaceInitLeaseMutation) ID() (id uuid.UUID, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *WorkspaceInitLeaseMutation) IDs(ctx context.Context) ([]uuid.UUID, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []uuid.UUID{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().WorkspaceInitLease.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetLeaseKey sets the "lease_key" field.
+func (m *WorkspaceInitLeaseMutation) SetLeaseKey(s string) {
+	m.lease_key = &s
+}
+
+// LeaseKey returns the value of the "lease_key" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) LeaseKey() (r string, exists bool) {
+	v := m.lease_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaseKey returns the old "lease_key" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldLeaseKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaseKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaseKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaseKey: %w", err)
+	}
+	return oldValue.LeaseKey, nil
+}
+
+// ResetLeaseKey resets all changes to the "lease_key" field.
+func (m *WorkspaceInitLeaseMutation) ResetLeaseKey() {
+	m.lease_key = nil
+}
+
+// SetMachineID sets the "machine_id" field.
+func (m *WorkspaceInitLeaseMutation) SetMachineID(u uuid.UUID) {
+	m.machine_id = &u
+}
+
+// MachineID returns the value of the "machine_id" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) MachineID() (r uuid.UUID, exists bool) {
+	v := m.machine_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMachineID returns the old "machine_id" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldMachineID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMachineID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMachineID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMachineID: %w", err)
+	}
+	return oldValue.MachineID, nil
+}
+
+// ResetMachineID resets all changes to the "machine_id" field.
+func (m *WorkspaceInitLeaseMutation) ResetMachineID() {
+	m.machine_id = nil
+}
+
+// SetOwnerRunID sets the "owner_run_id" field.
+func (m *WorkspaceInitLeaseMutation) SetOwnerRunID(u uuid.UUID) {
+	m.owner_run_id = &u
+}
+
+// OwnerRunID returns the value of the "owner_run_id" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) OwnerRunID() (r uuid.UUID, exists bool) {
+	v := m.owner_run_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerRunID returns the old "owner_run_id" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldOwnerRunID(ctx context.Context) (v uuid.UUID, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerRunID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerRunID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerRunID: %w", err)
+	}
+	return oldValue.OwnerRunID, nil
+}
+
+// ResetOwnerRunID resets all changes to the "owner_run_id" field.
+func (m *WorkspaceInitLeaseMutation) ResetOwnerRunID() {
+	m.owner_run_id = nil
+}
+
+// SetLeaseExpiresAt sets the "lease_expires_at" field.
+func (m *WorkspaceInitLeaseMutation) SetLeaseExpiresAt(t time.Time) {
+	m.lease_expires_at = &t
+}
+
+// LeaseExpiresAt returns the value of the "lease_expires_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) LeaseExpiresAt() (r time.Time, exists bool) {
+	v := m.lease_expires_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldLeaseExpiresAt returns the old "lease_expires_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldLeaseExpiresAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldLeaseExpiresAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldLeaseExpiresAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldLeaseExpiresAt: %w", err)
+	}
+	return oldValue.LeaseExpiresAt, nil
+}
+
+// ResetLeaseExpiresAt resets all changes to the "lease_expires_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetLeaseExpiresAt() {
+	m.lease_expires_at = nil
+}
+
+// SetHeartbeatAt sets the "heartbeat_at" field.
+func (m *WorkspaceInitLeaseMutation) SetHeartbeatAt(t time.Time) {
+	m.heartbeat_at = &t
+}
+
+// HeartbeatAt returns the value of the "heartbeat_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) HeartbeatAt() (r time.Time, exists bool) {
+	v := m.heartbeat_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldHeartbeatAt returns the old "heartbeat_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldHeartbeatAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldHeartbeatAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldHeartbeatAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldHeartbeatAt: %w", err)
+	}
+	return oldValue.HeartbeatAt, nil
+}
+
+// ResetHeartbeatAt resets all changes to the "heartbeat_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetHeartbeatAt() {
+	m.heartbeat_at = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *WorkspaceInitLeaseMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *WorkspaceInitLeaseMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *WorkspaceInitLeaseMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the WorkspaceInitLease entity.
+// If the WorkspaceInitLease object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *WorkspaceInitLeaseMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *WorkspaceInitLeaseMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the WorkspaceInitLeaseMutation builder.
+func (m *WorkspaceInitLeaseMutation) Where(ps ...predicate.WorkspaceInitLease) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the WorkspaceInitLeaseMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *WorkspaceInitLeaseMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.WorkspaceInitLease, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *WorkspaceInitLeaseMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *WorkspaceInitLeaseMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (WorkspaceInitLease).
+func (m *WorkspaceInitLeaseMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *WorkspaceInitLeaseMutation) Fields() []string {
+	fields := make([]string, 0, 7)
+	if m.lease_key != nil {
+		fields = append(fields, workspaceinitlease.FieldLeaseKey)
+	}
+	if m.machine_id != nil {
+		fields = append(fields, workspaceinitlease.FieldMachineID)
+	}
+	if m.owner_run_id != nil {
+		fields = append(fields, workspaceinitlease.FieldOwnerRunID)
+	}
+	if m.lease_expires_at != nil {
+		fields = append(fields, workspaceinitlease.FieldLeaseExpiresAt)
+	}
+	if m.heartbeat_at != nil {
+		fields = append(fields, workspaceinitlease.FieldHeartbeatAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, workspaceinitlease.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, workspaceinitlease.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *WorkspaceInitLeaseMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		return m.LeaseKey()
+	case workspaceinitlease.FieldMachineID:
+		return m.MachineID()
+	case workspaceinitlease.FieldOwnerRunID:
+		return m.OwnerRunID()
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		return m.LeaseExpiresAt()
+	case workspaceinitlease.FieldHeartbeatAt:
+		return m.HeartbeatAt()
+	case workspaceinitlease.FieldCreatedAt:
+		return m.CreatedAt()
+	case workspaceinitlease.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *WorkspaceInitLeaseMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		return m.OldLeaseKey(ctx)
+	case workspaceinitlease.FieldMachineID:
+		return m.OldMachineID(ctx)
+	case workspaceinitlease.FieldOwnerRunID:
+		return m.OldOwnerRunID(ctx)
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		return m.OldLeaseExpiresAt(ctx)
+	case workspaceinitlease.FieldHeartbeatAt:
+		return m.OldHeartbeatAt(ctx)
+	case workspaceinitlease.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case workspaceinitlease.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *WorkspaceInitLeaseMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaseKey(v)
+		return nil
+	case workspaceinitlease.FieldMachineID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMachineID(v)
+		return nil
+	case workspaceinitlease.FieldOwnerRunID:
+		v, ok := value.(uuid.UUID)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerRunID(v)
+		return nil
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetLeaseExpiresAt(v)
+		return nil
+	case workspaceinitlease.FieldHeartbeatAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetHeartbeatAt(v)
+		return nil
+	case workspaceinitlease.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case workspaceinitlease.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *WorkspaceInitLeaseMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *WorkspaceInitLeaseMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ResetField(name string) error {
+	switch name {
+	case workspaceinitlease.FieldLeaseKey:
+		m.ResetLeaseKey()
+		return nil
+	case workspaceinitlease.FieldMachineID:
+		m.ResetMachineID()
+		return nil
+	case workspaceinitlease.FieldOwnerRunID:
+		m.ResetOwnerRunID()
+		return nil
+	case workspaceinitlease.FieldLeaseExpiresAt:
+		m.ResetLeaseExpiresAt()
+		return nil
+	case workspaceinitlease.FieldHeartbeatAt:
+		m.ResetHeartbeatAt()
+		return nil
+	case workspaceinitlease.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case workspaceinitlease.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown WorkspaceInitLease field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *WorkspaceInitLeaseMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *WorkspaceInitLeaseMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *WorkspaceInitLeaseMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *WorkspaceInitLeaseMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *WorkspaceInitLeaseMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown WorkspaceInitLease edge %s", name)
 }

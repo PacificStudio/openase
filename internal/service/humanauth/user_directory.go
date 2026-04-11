@@ -181,7 +181,7 @@ func activeSessions(sessions []domain.BrowserSession, now time.Time) []domain.Br
 		if session.RevokedAt != nil {
 			continue
 		}
-		if now.After(session.ExpiresAt) || now.After(session.IdleExpiresAt) {
+		if browserSessionExpired(now, session) {
 			continue
 		}
 		active = append(active, session)

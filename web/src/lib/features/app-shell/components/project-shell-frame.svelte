@@ -3,6 +3,7 @@
   import Sidebar from '$lib/components/layout/sidebar.svelte'
   import TopBar from '$lib/components/layout/top-bar.svelte'
   import type { ProjectAIFocus } from '$lib/features/chat'
+  import { workspaceBrowserPortal, ProjectConversationWorkspaceBrowser } from '$lib/features/chat'
   import type { ProjectSection } from '$lib/stores/app-context'
   import { appStore } from '$lib/stores/app.svelte'
   import { viewport } from '$lib/stores/viewport.svelte'
@@ -183,8 +184,22 @@
       </aside>
     {/if}
 
-    <main class={cn('flex min-w-0 flex-1 flex-col overflow-hidden', resizing && 'select-none')}>
+    <main
+      class={cn('relative flex min-w-0 flex-1 flex-col overflow-hidden', resizing && 'select-none')}
+    >
       {@render children()}
+      {#if workspaceBrowserPortal.open}
+        <div class="bg-background absolute inset-0 z-10 hidden lg:flex">
+          <ProjectConversationWorkspaceBrowser
+            conversationId={workspaceBrowserPortal.conversationId}
+            workspaceDiff={workspaceBrowserPortal.workspaceDiff}
+            workspaceDiffLoading={workspaceBrowserPortal.workspaceDiffLoading}
+            pendingFilePath={workspaceBrowserPortal.pendingFilePath}
+            onClose={() => workspaceBrowserPortal.close()}
+            onPendingFileConsumed={() => workspaceBrowserPortal.consumePendingFile()}
+          />
+        </div>
+      {/if}
     </main>
 
     {#if currentOrg?.id && currentProject?.id}

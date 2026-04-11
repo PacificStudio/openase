@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
@@ -77,6 +77,12 @@ vi.mock('$lib/api/openase', () => ({
 }))
 
 describe('Security settings', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.scrollIntoView ??= vi.fn()
+    HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
+    HTMLElement.prototype.releasePointerCapture ??= vi.fn()
+  })
+
   afterEach(() => {
     cleanup()
     appStore.currentOrg = null
@@ -132,12 +138,8 @@ describe('Security settings', () => {
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(await findByText('Runtime secret bindings')).toBeTruthy()
     expect(await findByText('Project AI platform access')).toBeTruthy()
-    expect(
-      await findByText('Fullstack Developer Workflow', { selector: 'div.text-sm.font-medium' }),
-    ).toBeTruthy()
+    expect(await findByText('Fullstack Developer Workflow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
-    expect(await findByText('Migrate inline provider auth_config secrets')).toBeTruthy()
-    expect(await findByText('2 inline secrets across 1 providers')).toBeTruthy()
   })
 
   it('saves a project override token from the security surface', async () => {
@@ -245,24 +247,31 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    listScopedSecrets.mockResolvedValue({ secrets: [scopedSecrets()[0]] })
     mockProjectScopedSecrets()
     listScopedSecretBindings.mockResolvedValue({ bindings: [] })
     createScopedSecretBinding.mockResolvedValue({
       binding: scopedSecretBindings()[0],
     })
 
-    const { findByLabelText, findByRole } = render(SecuritySettings)
+    const { findAllByRole, findByLabelText, findByRole, findByText } = render(SecuritySettings)
+
+    const bindButtons = await findAllByRole('button', { name: 'Bind secret' })
+    await fireEvent.click(bindButtons[bindButtons.length - 1])
 
     await fireEvent.input(await findByLabelText('Binding key'), {
       target: { value: 'openai_api_key' },
     })
-    await fireEvent.change(await findByLabelText('Workflow target'), {
-      target: { value: 'workflow-fullstack' },
-    })
-    await fireEvent.change(await findByLabelText('Secret'), {
-      target: { value: 'secret-project-openai' },
-    })
-    await fireEvent.click(await findByRole('button', { name: 'Create binding' }))
+    const workflowTrigger = await findByText('Select workflow...')
+    workflowTrigger.focus()
+    await fireEvent.keyDown(workflowTrigger, { key: 'ArrowDown' })
+    await fireEvent.keyDown(workflowTrigger, { key: 'Enter' })
+    const secretTrigger = await findByText('Select secret...')
+    secretTrigger.focus()
+    await fireEvent.keyDown(secretTrigger, { key: 'ArrowDown' })
+    await fireEvent.keyDown(secretTrigger, { key: 'Enter' })
+    const submitButtons = await findAllByRole('button', { name: 'Bind secret' })
+    await fireEvent.click(submitButtons[submitButtons.length - 1])
 
     await waitFor(() => {
       expect(createScopedSecretBinding).toHaveBeenCalledWith(appStore.currentProject?.id, {

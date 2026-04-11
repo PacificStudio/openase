@@ -18,6 +18,7 @@
     onProviderChange,
     onCreateTab,
     onOpenConversation,
+    onDeleteConversation,
     onClose,
   }: {
     title?: string
@@ -30,6 +31,7 @@
     onProviderChange?: (providerId: string) => void
     onCreateTab?: () => void
     onOpenConversation?: (conversationId: string) => void
+    onDeleteConversation?: (conversationId: string) => void
     onClose?: () => void
   } = $props()
 
@@ -38,6 +40,11 @@
   function handleSelectConversation(conversationId: string) {
     historyOpen = false
     onOpenConversation?.(conversationId)
+  }
+
+  function handleDeleteConversation(conversationId: string) {
+    historyOpen = false
+    onDeleteConversation?.(conversationId)
   }
 </script>
 
@@ -76,6 +83,7 @@
           {conversations}
           {openConversationIds}
           onSelect={handleSelectConversation}
+          onDelete={handleDeleteConversation}
         />
       </Popover.Content>
     </Popover.Root>

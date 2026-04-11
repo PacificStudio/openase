@@ -171,6 +171,27 @@ func buildProjectPatchActivityInputs(current domain.Project, item domain.Project
 			},
 		})
 	}
+	if current.ProjectAIRetention != item.ProjectAIRetention {
+		activityInputs = append(activityInputs, activitysvc.RecordInput{
+			ProjectID: item.ID,
+			EventType: activityevent.TypeProjectAIRetentionUpdated,
+			Message:   "Updated Project AI retention for " + item.Name,
+			Metadata: map[string]any{
+				"project_name": item.Name,
+				"from": map[string]any{
+					"enabled":          current.ProjectAIRetention.Enabled,
+					"keep_latest_n":    current.ProjectAIRetention.KeepLatestN,
+					"keep_recent_days": current.ProjectAIRetention.KeepRecentDays,
+				},
+				"to": map[string]any{
+					"enabled":          item.ProjectAIRetention.Enabled,
+					"keep_latest_n":    item.ProjectAIRetention.KeepLatestN,
+					"keep_recent_days": item.ProjectAIRetention.KeepRecentDays,
+				},
+				"changed_fields": []string{"project_ai_retention"},
+			},
+		})
+	}
 	if len(changedFields) > 0 {
 		activityInputs = append(activityInputs, activitysvc.RecordInput{
 			ProjectID: item.ID,

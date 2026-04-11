@@ -5,6 +5,7 @@ import sonarjs from 'eslint-plugin-sonarjs'
 import svelte from 'eslint-plugin-svelte'
 import globals from 'globals'
 import ts from 'typescript-eslint'
+import { fileBudgetLimits } from './file-budgets.config.mjs'
 import svelteConfig from './svelte.config.js'
 
 export default defineConfig(
@@ -72,50 +73,75 @@ export default defineConfig(
   },
   {
     files: ['src/routes/**/+page.svelte'],
-    ignores: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
     rules: {
-      'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
-    },
-  },
-  {
-    files: ['src/routes/+page.svelte', 'src/routes/ticket/+page.svelte'],
-    rules: {
-      'max-lines': ['warn', { max: 250, skipBlankLines: true, skipComments: true }],
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.routePage.hard, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {
     files: ['src/routes/**/+layout.svelte'],
     rules: {
-      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.routeLayout.hard, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {
-    files: ['src/lib/features/**/*.svelte', 'src/lib/features/**/*.{js,ts,mjs,cjs}'],
+    files: ['src/lib/features/**/*.svelte'],
     rules: {
-      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.featureComponent.hard, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}'],
+    rules: {
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.featureTest.hard, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/features/**/*.svelte.{ts,js}'],
+    rules: {
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.featureStateModule.hard, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  {
+    files: ['src/lib/features/**/*.{js,ts,mjs,cjs}'],
+    ignores: ['src/lib/features/**/*.test.{js,ts,mjs,cjs}', 'src/lib/features/**/*.svelte.{ts,js}'],
+    rules: {
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.featureModule.hard, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {
     files: ['src/lib/components/layout/**/*.svelte'],
     rules: {
-      'max-lines': ['error', { max: 300, skipBlankLines: true, skipComments: true }],
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.layoutComponent.hard, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {
     files: ['src/lib/components/ui/**/*.svelte'],
     rules: {
-      'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
-    },
-  },
-  {
-    files: [
-      'src/lib/features/board/components/board-page-controls.test.ts',
-      'src/lib/features/skills/components/skill-editor-page.test.ts',
-      'src/lib/features/workflows/components/workflows-page.test.ts',
-      'src/lib/features/chat/project-conversation-controller.test.ts',
-    ],
-    rules: {
-      'max-lines': 'off',
+      'max-lines': [
+        'error',
+        { max: fileBudgetLimits.uiPrimitive.hard, skipBlankLines: true, skipComments: true },
+      ],
     },
   },
   {

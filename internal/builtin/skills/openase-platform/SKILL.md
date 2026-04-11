@@ -16,6 +16,37 @@ platform context already attached. Use it first. Do not hand-roll URLs, guess
 endpoints, bypass the platform by writing the database directly, or fake
 platform state.
 
+## Core Concepts
+
+Use these distinctions before you choose commands or explain the platform to a
+user:
+
+- `workflow`: the execution policy for a role. A workflow decides which agent
+  handles work, which ticket statuses it may pick up, which statuses count as
+  finished, which harness instructions and skills are active, and which
+  platform scopes the runtime may use.
+- `updates`: curated project progress threads for humans. Use these for
+  milestone checkpoints, risk reporting, stakeholder communication, and
+  discussion. Updates are intentionally higher-signal than raw runtime logs.
+- `activity`: the append-only project event stream. It records what actually
+  happened across tickets, agents, workflows, and platform writes for
+  traceability, debugging, and auditability.
+
+One short mental model:
+
+- workflows decide how work runs
+- activity records what happened
+- updates summarize what matters
+
+Keep the boundaries clear:
+
+- Do not describe `workflow` as "just a prompt"; it is prompt + routing +
+  policy + execution limits.
+- Do not treat `updates` as a synonym for `activity`; updates are curated,
+  while activity is the raw event timeline.
+- Do not treat `activity` as a task board; it explains history, not desired
+  future state.
+
 ## What This Skill Is For
 
 OpenASE is not a small helper that just runs commands. It is an issue-driven

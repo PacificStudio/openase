@@ -94,6 +94,21 @@ func AgentRunSummaryPrompt(v string) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldAgentRunSummaryPrompt, v))
 }
 
+// ProjectAiRetentionEnabled applies equality check predicate on the "project_ai_retention_enabled" field. It's identical to ProjectAiRetentionEnabledEQ.
+func ProjectAiRetentionEnabled(v bool) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionEnabled, v))
+}
+
+// ProjectAiRetentionKeepLatestN applies equality check predicate on the "project_ai_retention_keep_latest_n" field. It's identical to ProjectAiRetentionKeepLatestNEQ.
+func ProjectAiRetentionKeepLatestN(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepRecentDays applies equality check predicate on the "project_ai_retention_keep_recent_days" field. It's identical to ProjectAiRetentionKeepRecentDaysEQ.
+func ProjectAiRetentionKeepRecentDays(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
 // OrganizationIDEQ applies the EQ predicate on the "organization_id" field.
 func OrganizationIDEQ(v uuid.UUID) predicate.Project {
 	return predicate.Project(sql.FieldEQ(FieldOrganizationID, v))
@@ -549,6 +564,96 @@ func AgentRunSummaryPromptContainsFold(v string) predicate.Project {
 	return predicate.Project(sql.FieldContainsFold(FieldAgentRunSummaryPrompt, v))
 }
 
+// ProjectAiRetentionEnabledEQ applies the EQ predicate on the "project_ai_retention_enabled" field.
+func ProjectAiRetentionEnabledEQ(v bool) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionEnabled, v))
+}
+
+// ProjectAiRetentionEnabledNEQ applies the NEQ predicate on the "project_ai_retention_enabled" field.
+func ProjectAiRetentionEnabledNEQ(v bool) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldProjectAiRetentionEnabled, v))
+}
+
+// ProjectAiRetentionKeepLatestNEQ applies the EQ predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepLatestNNEQ applies the NEQ predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNNEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepLatestNIn applies the In predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldProjectAiRetentionKeepLatestN, vs...))
+}
+
+// ProjectAiRetentionKeepLatestNNotIn applies the NotIn predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNNotIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldProjectAiRetentionKeepLatestN, vs...))
+}
+
+// ProjectAiRetentionKeepLatestNGT applies the GT predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNGT(v int) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepLatestNGTE applies the GTE predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNGTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepLatestNLT applies the LT predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNLT(v int) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepLatestNLTE applies the LTE predicate on the "project_ai_retention_keep_latest_n" field.
+func ProjectAiRetentionKeepLatestNLTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldProjectAiRetentionKeepLatestN, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysEQ applies the EQ predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldEQ(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysNEQ applies the NEQ predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysNEQ(v int) predicate.Project {
+	return predicate.Project(sql.FieldNEQ(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysIn applies the In predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldIn(FieldProjectAiRetentionKeepRecentDays, vs...))
+}
+
+// ProjectAiRetentionKeepRecentDaysNotIn applies the NotIn predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysNotIn(vs ...int) predicate.Project {
+	return predicate.Project(sql.FieldNotIn(FieldProjectAiRetentionKeepRecentDays, vs...))
+}
+
+// ProjectAiRetentionKeepRecentDaysGT applies the GT predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysGT(v int) predicate.Project {
+	return predicate.Project(sql.FieldGT(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysGTE applies the GTE predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysGTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldGTE(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysLT applies the LT predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysLT(v int) predicate.Project {
+	return predicate.Project(sql.FieldLT(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
+// ProjectAiRetentionKeepRecentDaysLTE applies the LTE predicate on the "project_ai_retention_keep_recent_days" field.
+func ProjectAiRetentionKeepRecentDaysLTE(v int) predicate.Project {
+	return predicate.Project(sql.FieldLTE(FieldProjectAiRetentionKeepRecentDays, v))
+}
+
 // HasOrganization applies the HasEdge predicate on the "organization" edge.
 func HasOrganization() predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
@@ -771,6 +876,29 @@ func HasAgentStepEvents() predicate.Project {
 func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.Project {
 	return predicate.Project(func(s *sql.Selector) {
 		step := newAgentStepEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasDailyTokenUsage applies the HasEdge predicate on the "daily_token_usage" edge.
+func HasDailyTokenUsage() predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasDailyTokenUsageWith applies the HasEdge predicate on the "daily_token_usage" edge with a given conditions (other predicates).
+func HasDailyTokenUsageWith(preds ...predicate.ProjectDailyTokenUsage) predicate.Project {
+	return predicate.Project(func(s *sql.Selector) {
+		step := newDailyTokenUsageStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

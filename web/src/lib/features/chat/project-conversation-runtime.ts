@@ -15,6 +15,7 @@ export function startProjectConversationStream(params: {
   abortController: AbortController | null
   onEvent: (event: ProjectConversationStreamEvent) => void
   onReconnect?: () => void
+  onRetrying?: () => void
   onError: (message: string) => void
 }) {
   params.abortController?.abort()
@@ -26,6 +27,7 @@ export function startProjectConversationStream(params: {
     signal: controller.signal,
     onEvent: params.onEvent,
     onReconnect: params.onReconnect,
+    onRetrying: params.onRetrying,
   })
   const stream = subscription.stream.catch((caughtError) => {
     if (isAbortError(caughtError)) {

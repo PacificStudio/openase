@@ -7,6 +7,7 @@
   import type { ProjectConversationTabView } from './project-conversation-panel-labels'
   import type { ProjectConversationTranscriptEntry } from './project-conversation-transcript-state'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+  import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
 
   let {
     tabs = [],
@@ -41,6 +42,26 @@
       answer?: Record<string, unknown>
     }) => void
   } = $props()
+
+  const browserOpen = $derived(workspaceBrowserPortal.open)
+
+  $effect(() => {
+    workspaceBrowserPortal.conversationId = conversationId
+    workspaceBrowserPortal.workspaceDiff = workspaceDiff ?? null
+    workspaceBrowserPortal.workspaceDiffLoading = workspaceDiffLoading
+  })
+
+  $effect(() => {
+    if (!conversationId) {
+      workspaceBrowserPortal.close()
+    }
+  })
+
+  $effect(() => {
+    return () => {
+      workspaceBrowserPortal.close()
+    }
+  })
 </script>
 
 <ProjectConversationTabStrip
@@ -57,11 +78,22 @@
   {workspaceDiff}
   loading={workspaceDiffLoading}
   error={workspaceDiffError}
+  {browserOpen}
+  onBrowse={() => {
+    if (conversationId) workspaceBrowserPortal.toggle()
+  }}
+  onOpenFile={(filePath) => {
+    if (conversationId) workspaceBrowserPortal.openToFile(filePath)
+  }}
 />
 
-<ScrollArea
-  class="min-h-0 flex-1 px-4 py-4"
-  scrollbarYClasses="data-vertical:w-[3px] data-vertical:pr-0"
->
-  <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
-</ScrollArea>
+<div class="flex min-h-0 flex-1">
+  <div class="min-w-0 flex-1">
+    <ScrollArea
+      class="h-full px-4 py-4"
+      scrollbarYClasses="data-vertical:w-[3px] data-vertical:pr-0"
+    >
+      <ProjectConversationTranscript {entries} {pending} {onRespondInterrupt} />
+    </ScrollArea>
+  </div>
+</div>

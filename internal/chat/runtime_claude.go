@@ -128,6 +128,17 @@ func (r *ClaudeRuntime) CloseSession(sessionID SessionID) bool {
 	return r.activeSessions.Close(sessionID)
 }
 
+func (r *ClaudeRuntime) InterruptTurn(
+	_ context.Context,
+	sessionID SessionID,
+) (RuntimeSessionAnchor, error) {
+	anchor := r.SessionAnchor(sessionID)
+	if !r.activeSessions.Close(sessionID) {
+		return RuntimeSessionAnchor{}, fmt.Errorf("claude chat session %s is not running", sessionID)
+	}
+	return anchor, nil
+}
+
 func (r *ClaudeRuntime) buildSessionSpec(
 	ctx context.Context,
 	input RuntimeTurnInput,

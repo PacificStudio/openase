@@ -50,11 +50,19 @@
   let bootstrapping = $state(false)
   let agents = $state([...untrack(() => initialState.agents)])
   let workflows = $state([...untrack(() => initialState.workflows)])
-  let selectedPreset = $state<ProjectBootstrapPreset | null>(
-    initialState.selectedPresetKey
-      ? (bootstrapPresets.find((p) => p.key === initialState.selectedPresetKey) ?? null)
-      : null,
-  )
+  function resolveInitialPreset(): ProjectBootstrapPreset | null {
+    return untrack(() => {
+      if (!initialState.selectedPresetKey) {
+        return null
+      }
+
+      return (
+        bootstrapPresets.find((preset) => preset.key === initialState.selectedPresetKey) ?? null
+      )
+    })
+  }
+
+  let selectedPreset = $state<ProjectBootstrapPreset | null>(resolveInitialPreset())
 
   const hasAgentAndWorkflow = $derived(agents.length > 0 && workflows.length > 0)
   const isTerminal = $derived(isTerminalProjectStatus(projectStatus))

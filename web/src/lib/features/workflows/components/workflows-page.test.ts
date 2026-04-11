@@ -118,6 +118,8 @@ const pageDataFixture = {
       description: 'Run linters',
       path: '.openase/skills/lint/SKILL.md',
       bound: false,
+      required: false,
+      lockReason: '',
     },
   ],
   builtinRoleContent: '',
@@ -220,6 +222,8 @@ describe('WorkflowsPage', () => {
           description: 'Run linters',
           path: '.openase/skills/lint/SKILL.md',
           bound: true,
+          required: false,
+          lockReason: '',
         },
       ],
     })
@@ -257,6 +261,8 @@ describe('WorkflowsPage', () => {
           description: 'Run linters',
           path: '.openase/skills/lint/SKILL.md',
           bound: true,
+          required: false,
+          lockReason: '',
         },
       ],
     })
@@ -315,6 +321,8 @@ describe('WorkflowsPage', () => {
           description: 'Commit the current work.',
           path: '.openase/skills/commit/SKILL.md',
           bound: false,
+          required: false,
+          lockReason: '',
         },
       ],
     })

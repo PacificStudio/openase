@@ -17,4 +17,16 @@ var (
 		"%w: project conversation has a pending interrupt",
 		ErrConflict,
 	)
+	ErrWorkspaceDirty = fmt.Errorf(
+		"%w: project conversation workspace has uncommitted changes",
+		ErrConflict,
+	)
+	ErrWorkspaceDeleteFailed = fmt.Errorf(
+		"%w: project conversation workspace deletion failed",
+		ErrConflict,
+	)
+	ErrWorkspacePathConflict = fmt.Errorf(
+		"%w: project conversation workspace path is unsafe",
+		ErrConflict,
+	)
 )

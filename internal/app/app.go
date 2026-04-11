@@ -162,7 +162,7 @@ func (a *App) RunServe(ctx context.Context) error {
 	catalogRepo := catalogrepo.NewEntRepository(client)
 	humanAuthRepo := humanauthrepo.NewEntRepository(client)
 	humanVisibility := humanauthservice.NewVisibilityResolver(humanAuthRepo)
-	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
+	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.ResolvedSecurityCipherSeed())
 	if err != nil {
 		return err
 	}
@@ -242,6 +242,8 @@ func (a *App) RunServe(ctx context.Context) error {
 	projectConversationSvc.ConfigureGitHubCredentials(githubAuthSvc)
 	projectConversationSvc.ConfigureSecretResolver(chatSecretResolver)
 	projectConversationSvc.ConfigureSecretManager(secretSvc)
+	projectConversationSvc.ConfigureActivityEmitter(activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events))
+	conversationTerminalSvc := chatservice.NewConversationTerminalService(a.logger, projectConversationSvc)
 	projectUpdateSvc := projectupdateservice.NewService(
 		client,
 		activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events),
@@ -288,6 +290,7 @@ func (a *App) RunServe(ctx context.Context) error {
 		httpapi.WithProjectUpdateService(projectUpdateSvc),
 		httpapi.WithChatService(chatSvc),
 		httpapi.WithProjectConversationService(projectConversationSvc),
+		httpapi.WithConversationTerminalService(conversationTerminalSvc),
 		httpapi.WithMachineChannel(machineChannelSvc, machineSessions),
 		httpapi.WithReverseRuntimeRelay(a.reverseRuntimeRelay),
 		httpapi.WithTicketWorkspaceResetter(ticketWorkspaceResetSvc),
@@ -340,7 +343,7 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 		}
 	}()
 
-	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.Database.DSN)
+	githubAuthSvc, err := githubauthservice.New(githubauthrepo.NewEntRepository(client), http.DefaultClient, a.config.ResolvedSecurityCipherSeed())
 	if err != nil {
 		return err
 	}
@@ -348,6 +351,22 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	catalogSvc := catalogservice.New(
+		catalogrepo.NewEntRepository(client),
+		executable.NewPathResolver(),
+		machinetransport.NewTester(transportResolver),
+		catalogservice.WithMachineHealthCollector(machinetransport.NewMonitorCollector(transportResolver, sshPool)),
+	)
+	projectConversationSvc := chatservice.NewProjectConversationService(
+		a.logger,
+		chatconversationrepo.NewEntRepository(client),
+		catalogSvc,
+		nil,
+		nil,
+		agentcli.NewManager(agentcli.ManagerOptions{}),
+		sshPool,
+	)
+	projectConversationSvc.ConfigureActivityEmitter(activitysvc.NewEmitter(activitysvc.EntRecorder{Client: client}, a.events))
 	ticketStatusRepo := ticketstatusrepo.NewEntRepository(client)
 	scheduler := orchestrator.NewScheduler(client, a.logger, a.events)
 	healthChecker := orchestrator.NewHealthChecker(client, a.logger)
@@ -371,6 +390,10 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	runtimeLauncher.ConfigureMetrics(a.metrics)
 	runtimeLauncher.ConfigurePlatformEnvironment(a.agentPlatformAPIURL(), agentplatform.NewService(agentplatformrepo.NewEntRepository(client)))
 	runtimeLauncher.ConfigureSecretManager(secretSvc)
+	runtimeLauncher.ConfigureLaunchTimeouts(
+		a.config.Orchestrator.WorkspacePrepareTimeout,
+		a.config.Orchestrator.AgentSessionStartTimeout,
+	)
 	defer func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -385,6 +408,8 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 	a.logger.Info(
 		"orchestrator runtime ready",
 		"tick_interval", a.config.Orchestrator.TickInterval.String(),
+		"workspace_prepare_timeout", a.config.Orchestrator.WorkspacePrepareTimeout.String(),
+		"agent_session_start_timeout", a.config.Orchestrator.AgentSessionStartTimeout.String(),
 		"config_file", a.config.Metadata.ConfigFile,
 		"event_driver", driver,
 	)
@@ -394,6 +419,8 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 
 	ticker := time.NewTicker(a.config.Orchestrator.TickInterval)
 	defer ticker.Stop()
+	lastProjectConversationCleanupAt := time.Time{}
+	projectConversationCleanupInterval := time.Hour
 
 	for {
 		select {
@@ -412,15 +439,22 @@ func (a *App) RunOrchestrate(ctx context.Context) error {
 			machineReport, machineErr := machineMonitor.RunTick(tickCtx)
 			report, runErr := scheduler.RunTick(tickCtx)
 			launchErr := runtimeLauncher.RunTick(tickCtx)
+			var cleanupResults any
+			var cleanupErr error
+			if lastProjectConversationCleanupAt.IsZero() || start.Sub(lastProjectConversationCleanupAt) >= projectConversationCleanupInterval {
+				lastProjectConversationCleanupAt = start
+				cleanupResults, cleanupErr = projectConversationSvc.RunRetentionCleanup(tickCtx)
+			}
 			statusSnapshots, statusErr := ticketstatus.ListStatusRuntimeSnapshots(tickCtx, ticketStatusRepo)
 			payload := map[string]any{
-				"mode":           string(a.config.Server.Mode),
-				"time":           tick.UTC().Format(time.RFC3339),
-				"health_report":  healthReport,
-				"machine_report": machineReport,
-				"report":         report,
+				"mode":                         string(a.config.Server.Mode),
+				"time":                         tick.UTC().Format(time.RFC3339),
+				"health_report":                healthReport,
+				"machine_report":               machineReport,
+				"report":                       report,
+				"project_conversation_cleanup": cleanupResults,
 			}
-			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr, statusErr)
+			combinedErr := joinOrchestratorTickErrors(healthErr, machineErr, runErr, launchErr, cleanupErr, statusErr)
 			if combinedErr != nil {
 				payload["error"] = combinedErr.Error()
 				span.RecordError(combinedErr)
@@ -523,8 +557,22 @@ func sumSkipCounts(values map[string]int) int {
 	return total
 }
 
-func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr error, launcherErr error, stageErr error) error {
-	errs := make([]error, 0, 5)
+func joinOrchestratorTickErrors(
+	healthErr error,
+	machineErr error,
+	schedulerErr error,
+	launcherErr error,
+	optionalErrs ...error,
+) error {
+	errs := make([]error, 0, 6)
+	var cleanupErr error
+	var stageErr error
+	if len(optionalErrs) > 0 {
+		cleanupErr = optionalErrs[0]
+	}
+	if len(optionalErrs) > 1 {
+		stageErr = optionalErrs[1]
+	}
 	if healthErr != nil {
 		errs = append(errs, fmt.Errorf("health check: %w", healthErr))
 	}
@@ -536,6 +584,9 @@ func joinOrchestratorTickErrors(healthErr error, machineErr error, schedulerErr 
 	}
 	if launcherErr != nil {
 		errs = append(errs, fmt.Errorf("runtime launcher: %w", launcherErr))
+	}
+	if cleanupErr != nil {
+		errs = append(errs, fmt.Errorf("project conversation cleanup: %w", cleanupErr))
 	}
 	if stageErr != nil {
 		errs = append(errs, fmt.Errorf("stage metrics: %w", stageErr))

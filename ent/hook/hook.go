@@ -357,6 +357,18 @@ func (f ProjectConversationTraceEventFunc) Mutate(ctx context.Context, m ent.Mut
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectConversationTraceEventMutation", m)
 }
 
+// The ProjectDailyTokenUsageFunc type is an adapter to allow the use of ordinary
+// function as ProjectDailyTokenUsage mutator.
+type ProjectDailyTokenUsageFunc func(context.Context, *ent.ProjectDailyTokenUsageMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ProjectDailyTokenUsageFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ProjectDailyTokenUsageMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ProjectDailyTokenUsageMutation", m)
+}
+
 // The ProjectRepoFunc type is an adapter to allow the use of ordinary
 // function as ProjectRepo mutator.
 type ProjectRepoFunc func(context.Context, *ent.ProjectRepoMutation) (ent.Value, error)
@@ -679,6 +691,18 @@ func (f WorkflowVersionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkflowVersionMutation", m)
+}
+
+// The WorkspaceInitLeaseFunc type is an adapter to allow the use of ordinary
+// function as WorkspaceInitLease mutator.
+type WorkspaceInitLeaseFunc func(context.Context, *ent.WorkspaceInitLeaseMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f WorkspaceInitLeaseFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.WorkspaceInitLeaseMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.WorkspaceInitLeaseMutation", m)
 }
 
 // Condition is a hook condition function.

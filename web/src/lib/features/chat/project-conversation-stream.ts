@@ -24,6 +24,7 @@ type ProjectConversationStreamHandlers = {
       | 'task_progress'
       | 'task_notification'
       | 'reasoning_updated'
+      | 'interrupted'
       | 'turn_done'
       | 'error'
       | 'thread_status'
@@ -150,6 +151,24 @@ export function handleProjectConversationStreamEvent(
         entry_id: event.payload.entryId,
       },
     })
+    return
+  }
+
+  if (event.kind === 'interrupted') {
+    handlers.finalizeAssistantEntry()
+    if (event.payload.reason !== 'stopped_by_user') {
+      handlers.appendTaskStatus({
+        statusType: 'interrupted',
+        title: 'Turn interrupted',
+        detail: event.payload.message,
+        raw: {
+          conversation_id: event.payload.conversationId,
+          turn_id: event.payload.turnId,
+          reason: event.payload.reason,
+        },
+      })
+    }
+    handlers.setPending(false)
     return
   }
 

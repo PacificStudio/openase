@@ -1,16 +1,21 @@
 import { cleanup, render } from '@testing-library/svelte'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { OrganizationTokenUsageAnalytics } from '../types'
-import OrganizationTokenAnalyticsPanel from './organization-token-analytics-panel.svelte'
+import type { TokenUsageAnalytics } from '../types'
+import TokenUsageAnalyticsPanel from './token-usage-analytics-panel.svelte'
 
-describe('OrganizationTokenAnalyticsPanel', () => {
+vi.mock('$ui/chart', async () => {
+  const { default: LineChart } = await import('./test-line-chart.stub.svelte')
+  return { LineChart }
+})
+
+describe('TokenUsageAnalyticsPanel', () => {
   afterEach(() => {
     cleanup()
   })
 
-  it('renders trend and calendar summaries for organization token snapshots', () => {
-    const analytics: OrganizationTokenUsageAnalytics = {
+  it('renders trend and calendar summaries for shared token snapshots', () => {
+    const analytics: TokenUsageAnalytics = {
       rangeDays: 30,
       days: [
         {
@@ -76,7 +81,7 @@ describe('OrganizationTokenAnalyticsPanel', () => {
       maxDailyTokens: 200,
     }
 
-    const { getByText, container } = render(OrganizationTokenAnalyticsPanel, {
+    const { getByText, container } = render(TokenUsageAnalyticsPanel, {
       props: {
         analytics,
         selectedRange: 30,
@@ -88,6 +93,7 @@ describe('OrganizationTokenAnalyticsPanel', () => {
     expect(getByText('Calendar')).toBeTruthy()
     expect(getByText('320')).toBeTruthy()
     expect(getByText('Tue, Mar 31')).toBeTruthy()
-    expect(container.querySelector('svg')).toBeTruthy()
+    expect(container.querySelector('[data-testid="mock-line-chart"]')).toBeTruthy()
+    expect(container.querySelectorAll('[data-testid="token-usage-calendar-cell"]')).toHaveLength(2)
   })
 })

@@ -32,19 +32,26 @@ type OpenAPIOrganization struct {
 }
 
 type OpenAPIProject struct {
-	ID                             string   `json:"id"`
-	OrganizationID                 string   `json:"organization_id"`
-	Name                           string   `json:"name"`
-	Slug                           string   `json:"slug"`
-	Description                    string   `json:"description"`
-	Status                         string   `json:"status"`
-	DefaultAgentProviderID         *string  `json:"default_agent_provider_id,omitempty"`
-	ProjectAIPlatformAccessAllowed []string `json:"project_ai_platform_access_allowed"`
-	AccessibleMachineIDs           []string `json:"accessible_machine_ids,omitempty"`
-	MaxConcurrentAgents            int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt          *string  `json:"agent_run_summary_prompt,omitempty"`
-	EffectiveAgentRunSummaryPrompt string   `json:"effective_agent_run_summary_prompt"`
-	AgentRunSummaryPromptSource    string   `json:"agent_run_summary_prompt_source"`
+	ID                             string                    `json:"id"`
+	OrganizationID                 string                    `json:"organization_id"`
+	Name                           string                    `json:"name"`
+	Slug                           string                    `json:"slug"`
+	Description                    string                    `json:"description"`
+	Status                         string                    `json:"status"`
+	DefaultAgentProviderID         *string                   `json:"default_agent_provider_id,omitempty"`
+	ProjectAIPlatformAccessAllowed []string                  `json:"project_ai_platform_access_allowed"`
+	AccessibleMachineIDs           []string                  `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents            int                       `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string                   `json:"agent_run_summary_prompt,omitempty"`
+	EffectiveAgentRunSummaryPrompt string                    `json:"effective_agent_run_summary_prompt"`
+	AgentRunSummaryPromptSource    string                    `json:"agent_run_summary_prompt_source"`
+	ProjectAIRetention             OpenAPIProjectAIRetention `json:"project_ai_retention"`
+}
+
+type OpenAPIProjectAIRetention struct {
+	Enabled        bool `json:"enabled"`
+	KeepLatestN    int  `json:"keep_latest_n"`
+	KeepRecentDays int  `json:"keep_recent_days"`
 }
 
 type OpenAPIWorkspaceDashboardMetrics struct {
@@ -517,6 +524,98 @@ type OpenAPIProjectConversationWorkspaceDiff struct {
 
 type OpenAPIProjectConversationWorkspaceDiffResponse struct {
 	WorkspaceDiff OpenAPIProjectConversationWorkspaceDiff `json:"workspace_diff"`
+}
+
+type OpenAPIProjectConversationWorkspaceRepoMetadata struct {
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Branch       string `json:"branch"`
+	HeadCommit   string `json:"head_commit"`
+	HeadSummary  string `json:"head_summary"`
+	Dirty        bool   `json:"dirty"`
+	FilesChanged int    `json:"files_changed"`
+	Added        int    `json:"added"`
+	Removed      int    `json:"removed"`
+}
+
+type OpenAPIProjectConversationWorkspaceMetadata struct {
+	ConversationID string                                            `json:"conversation_id"`
+	Available      bool                                              `json:"available"`
+	WorkspacePath  string                                            `json:"workspace_path"`
+	Repos          []OpenAPIProjectConversationWorkspaceRepoMetadata `json:"repos"`
+}
+
+type OpenAPIProjectConversationWorkspaceMetadataResponse struct {
+	Workspace OpenAPIProjectConversationWorkspaceMetadata `json:"workspace"`
+}
+
+type OpenAPIProjectConversationWorkspaceTreeEntry struct {
+	Path      string `json:"path"`
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	SizeBytes int64  `json:"size_bytes"`
+}
+
+type OpenAPIProjectConversationWorkspaceTree struct {
+	ConversationID string                                         `json:"conversation_id"`
+	RepoPath       string                                         `json:"repo_path"`
+	Path           string                                         `json:"path"`
+	Entries        []OpenAPIProjectConversationWorkspaceTreeEntry `json:"entries"`
+}
+
+type OpenAPIProjectConversationWorkspaceTreeResponse struct {
+	WorkspaceTree OpenAPIProjectConversationWorkspaceTree `json:"workspace_tree"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePreview struct {
+	ConversationID string `json:"conversation_id"`
+	RepoPath       string `json:"repo_path"`
+	Path           string `json:"path"`
+	SizeBytes      int64  `json:"size_bytes"`
+	MediaType      string `json:"media_type"`
+	PreviewKind    string `json:"preview_kind"`
+	Truncated      bool   `json:"truncated"`
+	Content        string `json:"content"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePreviewResponse struct {
+	FilePreview OpenAPIProjectConversationWorkspaceFilePreview `json:"file_preview"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePatch struct {
+	ConversationID string `json:"conversation_id"`
+	RepoPath       string `json:"repo_path"`
+	Path           string `json:"path"`
+	Status         string `json:"status"`
+	DiffKind       string `json:"diff_kind"`
+	Truncated      bool   `json:"truncated"`
+	Diff           string `json:"diff"`
+}
+
+type OpenAPIProjectConversationWorkspaceFilePatchResponse struct {
+	FilePatch OpenAPIProjectConversationWorkspaceFilePatch `json:"file_patch"`
+}
+
+type OpenAPIProjectConversationTerminalSessionRequest struct {
+	Mode     string  `json:"mode"`
+	RepoPath *string `json:"repo_path,omitempty"`
+	CWDPath  *string `json:"cwd_path,omitempty"`
+	Cols     *int    `json:"cols,omitempty"`
+	Rows     *int    `json:"rows,omitempty"`
+}
+
+type OpenAPIProjectConversationTerminalSession struct {
+	ID             string  `json:"id"`
+	Mode           string  `json:"mode"`
+	CWD            string  `json:"cwd"`
+	WSPath         string  `json:"ws_path"`
+	AttachToken    string  `json:"attach_token"`
+	CreatedAt      string  `json:"created_at"`
+	LastAttachedAt *string `json:"last_attached_at,omitempty"`
+}
+
+type OpenAPIProjectConversationTerminalSessionResponse struct {
+	TerminalSession OpenAPIProjectConversationTerminalSession `json:"terminal_session"`
 }
 
 type OpenAPIProjectConversationTurn struct {
@@ -2205,15 +2304,19 @@ var (
 		"env_vars":                          "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{
-		"name":                               "Human-readable project name.",
-		"slug":                               "Stable URL-safe project slug.",
-		"description":                        "Human-readable project description.",
-		"status":                             "Current project lifecycle status name.",
-		"default_agent_provider_id":          "Optional default agent provider ID for the project.",
-		"project_ai_platform_access_allowed": "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
-		"accessible_machine_ids":             "Machine IDs that the project is allowed to use.",
-		"max_concurrent_agents":              "Maximum number of agents that may run concurrently in the project.",
-		"agent_run_summary_prompt":           "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+		"name":                                  "Human-readable project name.",
+		"slug":                                  "Stable URL-safe project slug.",
+		"description":                           "Human-readable project description.",
+		"status":                                "Current project lifecycle status name.",
+		"default_agent_provider_id":             "Optional default agent provider ID for the project.",
+		"project_ai_platform_access_allowed":    "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
+		"accessible_machine_ids":                "Machine IDs that the project is allowed to use.",
+		"max_concurrent_agents":                 "Maximum number of agents that may run concurrently in the project.",
+		"agent_run_summary_prompt":              "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+		"project_ai_retention":                  "Optional Project AI conversation retention policy for the project.",
+		"project_ai_retention.enabled":          "Whether Project AI conversation retention is enabled for the project.",
+		"project_ai_retention.keep_latest_n":    "Number of latest conversations per user to retain when Project AI retention is enabled.",
+		"project_ai_retention.keep_recent_days": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
 		"name":                                   "Human-readable provider name.",
@@ -2303,6 +2406,8 @@ var (
 		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
 		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
 		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
+		"session_ttl":            "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+		"session_idle_ttl":       "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
 	}
 	openAPIAgentRequestDescriptions = map[string]string{
 		"name":        "Human-readable agent name.",
@@ -2502,6 +2607,13 @@ var (
 		"focus.machine_status":                              "Machine runtime status currently in focus.",
 		"focus.health_summary":                              "Compact health or resource summary for the focused machine.",
 	}
+	openAPIProjectConversationTerminalSessionDescriptions = map[string]string{
+		"mode":      "Terminal mode to create. Only shell is currently supported.",
+		"repo_path": "Optional repo selector inside the conversation workspace. Leave empty to start at the workspace root.",
+		"cwd_path":  "Optional relative directory path inside the selected repo or workspace root.",
+		"cols":      "Initial terminal column count used when starting the PTY session.",
+		"rows":      "Initial terminal row count used when starting the PTY session.",
+	}
 	openAPIProjectConversationInterruptResponseDescriptions = map[string]string{
 		"decision": "Provider-native interrupt decision identifier such as approve_once.",
 		"answer":   "Structured answer payload for requestUserInput interrupts.",
@@ -2614,9 +2726,10 @@ var (
 		"POST /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes":                             openAPIRepoScopeCreateDescriptions,
 		"PATCH /api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}":                  openAPIRepoScopePatchDescriptions,
 		"POST /api/v1/projects/{projectId}/hr-advisor/activate":                                        openAPIHRAdvisorActivateDescriptions,
-		"POST /api/v1/chat":                                      openAPIChatRequestDescriptions,
-		"POST /api/v1/chat/conversations":                        openAPIProjectConversationCreateDescriptions,
-		"POST /api/v1/chat/conversations/{conversationId}/turns": openAPIProjectConversationTurnDescriptions,
+		"POST /api/v1/chat":               openAPIChatRequestDescriptions,
+		"POST /api/v1/chat/conversations": openAPIProjectConversationCreateDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/terminal-sessions":                openAPIProjectConversationTerminalSessionDescriptions,
+		"POST /api/v1/chat/conversations/{conversationId}/turns":                            openAPIProjectConversationTurnDescriptions,
 		"POST /api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": openAPIProjectConversationInterruptResponseDescriptions,
 		"POST /api/v1/instance/role-bindings":                                               openAPIRoleBindingRequestDescriptions,
 		"POST /api/v1/instance/users/{userId}/status":                                       openAPIUserStatusTransitionDescriptions,
@@ -6276,6 +6389,106 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	projectConversationEntries.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/entries", http.MethodGet, projectConversationEntries)
 
+	projectConversationWorkspace, err := b.jsonOperation(
+		"getProjectConversationWorkspace",
+		"Get project conversation workspace metadata",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceMetadataResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspace.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace", http.MethodGet, projectConversationWorkspace)
+
+	projectConversationWorkspaceTree, err := b.jsonOperation(
+		"listProjectConversationWorkspaceTree",
+		"List one directory from the project conversation workspace tree",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceTreeResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceTree.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceTree.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceTree.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Optional repo-relative directory path to browse. Leave empty for the repo root.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/tree", http.MethodGet, projectConversationWorkspaceTree)
+
+	projectConversationWorkspaceFile, err := b.jsonOperation(
+		"getProjectConversationWorkspaceFile",
+		"Read a project conversation workspace file preview",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceFilePreviewResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceFile.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceFile.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceFile.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Repo-relative file path to preview.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file", http.MethodGet, projectConversationWorkspaceFile)
+
+	projectConversationWorkspaceFilePatch, err := b.jsonOperation(
+		"getProjectConversationWorkspaceFilePatch",
+		"Read one project conversation workspace file diff",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceFilePatchResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceFilePatch.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceFilePatch.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceFilePatch.AddParameter(openapi3.NewQueryParameter("path").
+		WithDescription("Repo-relative file path whose git diff should be loaded.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/file-patch", http.MethodGet, projectConversationWorkspaceFilePatch)
+
 	projectConversationWorkspaceDiff, err := b.jsonOperation(
 		"getProjectConversationWorkspaceDiff",
 		"Get project conversation workspace diff summary",
@@ -6293,6 +6506,54 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationWorkspaceDiff.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace-diff", http.MethodGet, projectConversationWorkspaceDiff)
+
+	projectConversationTerminalSessionCreate, err := b.jsonOperation(
+		"createProjectConversationTerminalSession",
+		"Create a project conversation terminal session",
+		[]string{"chat"},
+		http.StatusCreated,
+		OpenAPIProjectConversationTerminalSessionResponse{},
+		OpenAPIProjectConversationTerminalSessionRequest{},
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationTerminalSessionCreate.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/terminal-sessions", http.MethodPost, projectConversationTerminalSessionCreate)
+
+	projectConversationTerminalAttach := openapi3.NewOperation()
+	projectConversationTerminalAttach.OperationID = "attachProjectConversationTerminalSession"
+	projectConversationTerminalAttach.Summary = "Attach websocket terminal I/O for a project conversation terminal session"
+	projectConversationTerminalAttach.Tags = []string{"chat"}
+	projectConversationTerminalAttach.Responses = openapi3.NewResponses()
+	projectConversationTerminalAttach.AddResponse(http.StatusSwitchingProtocols, openapi3.NewResponse().WithDescription("Websocket upgraded for terminal streaming."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusForbidden,
+		http.StatusNotFound,
+		http.StatusConflict,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		response, responseErr := b.errorResponse(code)
+		if responseErr != nil {
+			return responseErr
+		}
+		projectConversationTerminalAttach.AddResponse(code, response)
+	}
+	projectConversationTerminalAttach.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationTerminalAttach.AddParameter(uuidPathParameter("terminalSessionId", "Stable project conversation terminal session ID."))
+	projectConversationTerminalAttach.AddParameter(openapi3.NewQueryParameter("attach_token").
+		WithDescription("Attach token returned by terminal session creation.").
+		WithRequired(true).
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/terminal-sessions/{terminalSessionId}/attach", http.MethodGet, projectConversationTerminalAttach)
 
 	projectConversationTurn, err := b.jsonOperation(
 		"startProjectConversationTurn",
@@ -6312,6 +6573,28 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/turns", http.MethodPost, projectConversationTurn)
+
+	projectConversationInterruptTurn := openapi3.NewOperation()
+	projectConversationInterruptTurn.OperationID = "interruptProjectConversationTurn"
+	projectConversationInterruptTurn.Summary = "Interrupt the active project conversation turn"
+	projectConversationInterruptTurn.Tags = []string{"chat"}
+	projectConversationInterruptTurn.Responses = openapi3.NewResponsesWithCapacity(6)
+	projectConversationInterruptTurn.AddResponse(http.StatusAccepted, openapi3.NewResponse().WithDescription("Project conversation turn interrupted."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		projectConversationInterruptTurn.AddResponse(code, errorResponse)
+	}
+	projectConversationInterruptTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/interrupt-turn", http.MethodPost, projectConversationInterruptTurn)
 
 	projectConversationMuxStream, err := b.streamOperation(
 		"streamProjectConversationsMux",

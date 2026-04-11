@@ -14,7 +14,14 @@
   } = $props()
 
   // Auto-expand when there's a transition or a failure
-  let open = $state(!!transition || auth.last_validation.status === 'failed')
+  const shouldAutoOpen = $derived(!!transition || auth.last_validation.status === 'failed')
+  let open = $state(false)
+
+  $effect(() => {
+    if (shouldAutoOpen) {
+      open = true
+    }
+  })
 </script>
 
 <Collapsible.Root bind:open>

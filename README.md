@@ -276,7 +276,7 @@ You create a ticket  →  Orchestrator detects pickup status
 | **CLI** | ✅ Stable | Dual-layer contract, resource commands, raw API, live streams |
 | **Setup** | ✅ Stable | Interactive terminal setup, Docker PostgreSQL, managed user service (`systemd --user` on Linux, `launchd` on macOS) |
 | **Machines (Remote)** | ✅ Stable | Remote Runtime v1 uses websocket-only execution for direct-connect listeners and reverse-connect daemons; SSH is helper-only for bootstrap and diagnostics |
-| **OIDC Auth** | 🚧 WIP | Browser login, session management, RBAC |
+| **OIDC Auth & RBAC** | ✅ Stable | Browser login, session management, org/project RBAC |
 
 ### Roadmap
 
@@ -284,7 +284,7 @@ You create a ticket  →  Orchestrator detects pickup status
 |----------|------|-------------|
 | 🟡 Medium | **Remote Runtime Operations** | Expand rollout automation, dashboards, and operator tooling around the websocket-only remote runtime plane |
 | 🟡 Medium | **Windows Support** | Native service management and shell-script support outside WSL2 |
-| 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
+| 🟡 Medium | **Notification Channels** | Webhook, Telegram, Slack, and WeCom notification delivery |
 | 🟡 Medium | **iOS & Android App** | Mobile control plane for monitoring and managing projects on the go |
 | 🟡 Medium | **Desktop All-in-One App** | Standalone desktop application bundling the full OpenASE experience |
 | 🟡 Medium | **Kubernetes Runtime** | Run agent workloads on Kubernetes clusters for elastic scaling |
@@ -574,6 +574,7 @@ If you prefer env vars over config files:
 
 ```bash
 export OPENASE_DATABASE_DSN=postgres://openase:openase@localhost:5432/openase?sslmode=disable
+export OPENASE_SECURITY_CIPHER_SEED=shared-cluster-seed
 export OPENASE_SERVER_PORT=19836
 export OPENASE_ORCHESTRATOR_TICK_INTERVAL=2s
 
@@ -597,9 +598,12 @@ set -a && source ~/.openase/.env && set +a
 |----------|---------|-------------|
 | `OPENASE_SERVER_PORT` | `19836` | HTTP server port |
 | `OPENASE_DATABASE_DSN` | — | PostgreSQL connection string (**required**) |
+| `OPENASE_SECURITY_CIPHER_SEED` | empty | Optional shared encryption seed for GitHub credential storage; set this explicitly when different environments must read the same encrypted records |
 | `OPENASE_ORCHESTRATOR_TICK_INTERVAL` | `5s` | Orchestrator polling interval |
 | `OPENASE_LOG_FORMAT` | `text` | Log format (`text` or `json`) |
 | `OPENASE_LOG_LEVEL` | `info` | Log level |
+
+`OPENASE_SECURITY_CIPHER_SEED` maps to `security.cipher_seed` in config files. If it is unset, OpenASE keeps the legacy behavior and derives the GitHub credential cipher seed from `database.dsn`.
 
 ### Config File Lookup Order
 

@@ -738,8 +738,8 @@ var (
 		{Name: "groups_claim", Type: field.TypeString, Default: "groups"},
 		{Name: "allowed_email_domains", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
 		{Name: "bootstrap_admin_emails", Type: field.TypeOther, Nullable: true, SchemaType: map[string]string{"postgres": "text[]"}},
-		{Name: "session_ttl", Type: field.TypeString, Default: "8h"},
-		{Name: "session_idle_ttl", Type: field.TypeString, Default: "30m"},
+		{Name: "session_ttl", Type: field.TypeString, Default: "0s"},
+		{Name: "session_idle_ttl", Type: field.TypeString, Default: "0s"},
 		{Name: "validation_metadata", Type: field.TypeJSON},
 		{Name: "activation_metadata", Type: field.TypeJSON},
 		{Name: "created_at", Type: field.TypeTime},
@@ -1179,6 +1179,9 @@ var (
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 0},
 		{Name: "agent_run_summary_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "project_ai_retention_enabled", Type: field.TypeBool, Default: false},
+		{Name: "project_ai_retention_keep_latest_n", Type: field.TypeInt, Default: 0},
+		{Name: "project_ai_retention_keep_recent_days", Type: field.TypeInt, Default: 0},
 		{Name: "organization_id", Type: field.TypeUUID},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
@@ -1190,13 +1193,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[11]},
+				Columns:    []*schema.Column{ProjectsColumns[14]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[12]},
+				Columns:    []*schema.Column{ProjectsColumns[15]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1205,7 +1208,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[11], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[14], ProjectsColumns[2]},
 			},
 		},
 	}
@@ -1267,6 +1270,7 @@ var (
 		{Name: "provider_turn_id", Type: field.TypeString, Nullable: true},
 		{Name: "runtime_started_at", Type: field.TypeTime, Nullable: true},
 		{Name: "terminal_at", Type: field.TypeTime, Nullable: true},
+		{Name: "snapshot_materialized_at", Type: field.TypeTime, Nullable: true},
 		{Name: "last_error", Type: field.TypeString, Nullable: true},
 		{Name: "last_heartbeat_at", Type: field.TypeTime, Nullable: true},
 		{Name: "cost_amount", Type: field.TypeFloat64, Default: 0},
@@ -1293,17 +1297,17 @@ var (
 			{
 				Name:    "projectconversationrun_principal_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[1], ProjectConversationRunsColumns[28]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[1], ProjectConversationRunsColumns[29]},
 			},
 			{
 				Name:    "projectconversationrun_conversation_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[2], ProjectConversationRunsColumns[28]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[2], ProjectConversationRunsColumns[29]},
 			},
 			{
 				Name:    "projectconversationrun_status_last_heartbeat_at",
 				Unique:  false,
-				Columns: []*schema.Column{ProjectConversationRunsColumns[6], ProjectConversationRunsColumns[14]},
+				Columns: []*schema.Column{ProjectConversationRunsColumns[6], ProjectConversationRunsColumns[15]},
 			},
 			{
 				Name:    "projectconversationrun_turn_id",
@@ -1382,6 +1386,46 @@ var (
 				Name:    "projectconversationtraceevent_principal_id_created_at",
 				Unique:  false,
 				Columns: []*schema.Column{ProjectConversationTraceEventsColumns[1], ProjectConversationTraceEventsColumns[11]},
+			},
+		},
+	}
+	// ProjectDailyTokenUsagesColumns holds the columns for the "project_daily_token_usages" table.
+	ProjectDailyTokenUsagesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "usage_date", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "date"}},
+		{Name: "input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "output_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "cached_input_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "reasoning_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "total_tokens", Type: field.TypeInt64, Default: 0},
+		{Name: "finalized_run_count", Type: field.TypeInt, Default: 0},
+		{Name: "recomputed_at", Type: field.TypeTime},
+		{Name: "source_mode", Type: field.TypeEnum, Enums: []string{"materialized", "lazy_backfill"}, Default: "materialized"},
+		{Name: "project_id", Type: field.TypeUUID},
+	}
+	// ProjectDailyTokenUsagesTable holds the schema information for the "project_daily_token_usages" table.
+	ProjectDailyTokenUsagesTable = &schema.Table{
+		Name:       "project_daily_token_usages",
+		Columns:    ProjectDailyTokenUsagesColumns,
+		PrimaryKey: []*schema.Column{ProjectDailyTokenUsagesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "project_daily_token_usages_projects_daily_token_usage",
+				Columns:    []*schema.Column{ProjectDailyTokenUsagesColumns[10]},
+				RefColumns: []*schema.Column{ProjectsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "projectdailytokenusage_project_id_usage_date",
+				Unique:  true,
+				Columns: []*schema.Column{ProjectDailyTokenUsagesColumns[10], ProjectDailyTokenUsagesColumns[1]},
+			},
+			{
+				Name:    "projectdailytokenusage_usage_date",
+				Unique:  false,
+				Columns: []*schema.Column{ProjectDailyTokenUsagesColumns[1]},
 			},
 		},
 	}
@@ -2532,6 +2576,45 @@ var (
 			},
 		},
 	}
+	// WorkspaceInitLeasesColumns holds the columns for the "workspace_init_leases" table.
+	WorkspaceInitLeasesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeUUID},
+		{Name: "lease_key", Type: field.TypeString},
+		{Name: "machine_id", Type: field.TypeUUID},
+		{Name: "owner_run_id", Type: field.TypeUUID},
+		{Name: "lease_expires_at", Type: field.TypeTime},
+		{Name: "heartbeat_at", Type: field.TypeTime},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "updated_at", Type: field.TypeTime},
+	}
+	// WorkspaceInitLeasesTable holds the schema information for the "workspace_init_leases" table.
+	WorkspaceInitLeasesTable = &schema.Table{
+		Name:       "workspace_init_leases",
+		Columns:    WorkspaceInitLeasesColumns,
+		PrimaryKey: []*schema.Column{WorkspaceInitLeasesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "workspaceinitlease_lease_key",
+				Unique:  true,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[1]},
+			},
+			{
+				Name:    "workspaceinitlease_machine_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[2]},
+			},
+			{
+				Name:    "workspaceinitlease_owner_run_id",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[3]},
+			},
+			{
+				Name:    "workspaceinitlease_lease_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{WorkspaceInitLeasesColumns[4]},
+			},
+		},
+	}
 	// WorkflowPickupStatusesColumns holds the columns for the "workflow_pickup_statuses" table.
 	WorkflowPickupStatusesColumns = []*schema.Column{
 		{Name: "workflow_id", Type: field.TypeUUID},
@@ -2613,6 +2696,7 @@ var (
 		ProjectConversationRunsTable,
 		ProjectConversationStepEventsTable,
 		ProjectConversationTraceEventsTable,
+		ProjectDailyTokenUsagesTable,
 		ProjectReposTable,
 		ProjectUpdateCommentsTable,
 		ProjectUpdateCommentRevisionsTable,
@@ -2640,6 +2724,7 @@ var (
 		WorkflowsTable,
 		WorkflowSkillBindingsTable,
 		WorkflowVersionsTable,
+		WorkspaceInitLeasesTable,
 		WorkflowPickupStatusesTable,
 		WorkflowFinishStatusesTable,
 	}
@@ -2691,6 +2776,7 @@ func init() {
 	OrganizationMembershipsTable.ForeignKeys[1].RefTable = UsersTable
 	ProjectsTable.ForeignKeys[0].RefTable = OrganizationsTable
 	ProjectsTable.ForeignKeys[1].RefTable = AgentProvidersTable
+	ProjectDailyTokenUsagesTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectReposTable.ForeignKeys[0].RefTable = ProjectsTable
 	ProjectUpdateCommentsTable.ForeignKeys[0].RefTable = ProjectUpdateThreadsTable
 	ProjectUpdateCommentRevisionsTable.ForeignKeys[0].RefTable = ProjectUpdateCommentsTable

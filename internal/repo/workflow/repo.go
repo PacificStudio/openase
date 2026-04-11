@@ -240,7 +240,7 @@ func (r *EntRepository) Get(ctx context.Context, workflowID uuid.UUID) (domain.W
 	return mapWorkflow(item), nil
 }
 
-func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, harnessContent string, createdBy string) (domain.Workflow, error) {
+func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, skillIDs []uuid.UUID, harnessContent string, createdBy string) (domain.Workflow, error) {
 	workflowID := workflow.ID
 	if workflowID == uuid.Nil {
 		workflowID = uuid.New()
@@ -279,6 +279,14 @@ func (r *EntRepository) Create(ctx context.Context, workflow domain.Workflow, ha
 		_, err = tx.Workflow.UpdateOneID(workflowID).SetAgentID(*workflow.AgentID).Save(ctx)
 		if err != nil {
 			return domain.Workflow{}, mapWorkflowWriteError("set workflow agent", err)
+		}
+	}
+	for _, skillID := range skillIDs {
+		if _, err := tx.WorkflowSkillBinding.Create().
+			SetWorkflowID(workflowID).
+			SetSkillID(skillID).
+			Save(ctx); err != nil {
+			return domain.Workflow{}, fmt.Errorf("create initial workflow skill binding: %w", err)
 		}
 	}
 
@@ -485,6 +493,15 @@ func (r *EntRepository) PublishWorkflowVersion(ctx context.Context, workflowID u
 }
 
 func (r *EntRepository) ListWorkflowBoundSkillNames(ctx context.Context, workflowID uuid.UUID, enabledOnly bool) ([]string, error) {
+	workflowItem, err := r.client.Workflow.Query().
+		Where(entworkflow.IDEQ(workflowID)).
+		Only(ctx)
+	if err != nil {
+		if ent.IsNotFound(err) {
+			return nil, domain.ErrWorkflowNotFound
+		}
+		return nil, fmt.Errorf("get workflow for skill bindings: %w", err)
+	}
 	bindings, err := r.client.WorkflowSkillBinding.Query().
 		Where(entworkflowskillbinding.WorkflowIDEQ(workflowID)).
 		WithSkill().
@@ -502,6 +519,13 @@ func (r *EntRepository) ListWorkflowBoundSkillNames(ctx context.Context, workflo
 			continue
 		}
 		names = append(names, binding.Edges.Skill.Name)
+	}
+	requiredSkill, err := r.SkillByName(ctx, workflowItem.ProjectID, domain.RequiredWorkflowSkillName)
+	if err != nil && !errors.Is(err, domain.ErrSkillNotFound) {
+		return nil, err
+	}
+	if err == nil && !slicesContainsString(names, requiredSkill.Name) {
+		names = append(names, requiredSkill.Name)
 	}
 	sort.Strings(names)
 	return names, nil
@@ -636,6 +660,33 @@ func (r *EntRepository) ListSkills(ctx context.Context, projectID uuid.UUID) ([]
 			Name:        binding.Edges.Workflow.Name,
 			HarnessPath: binding.Edges.Workflow.HarnessPath,
 		})
+	}
+	requiredSkill, err := r.SkillByName(ctx, projectID, domain.RequiredWorkflowSkillName)
+	if err != nil && !errors.Is(err, domain.ErrSkillNotFound) {
+		return nil, err
+	}
+	if err == nil {
+		workflows, workflowErr := r.client.Workflow.Query().
+			Where(entworkflow.ProjectIDEQ(projectID)).
+			Order(ent.Asc(entworkflow.FieldName)).
+			All(ctx)
+		if workflowErr != nil {
+			return nil, fmt.Errorf("list workflows for required skill bindings: %w", workflowErr)
+		}
+		existing := make(map[uuid.UUID]struct{}, len(bindingsBySkillID[requiredSkill.ID]))
+		for _, binding := range bindingsBySkillID[requiredSkill.ID] {
+			existing[binding.ID] = struct{}{}
+		}
+		for _, workflowItem := range workflows {
+			if _, ok := existing[workflowItem.ID]; ok {
+				continue
+			}
+			bindingsBySkillID[requiredSkill.ID] = append(bindingsBySkillID[requiredSkill.ID], domain.SkillWorkflowBinding{
+				ID:          workflowItem.ID,
+				Name:        workflowItem.Name,
+				HarnessPath: workflowItem.HarnessPath,
+			})
+		}
 	}
 
 	result := make([]domain.Skill, 0, len(items))
@@ -972,7 +1023,7 @@ func (r *EntRepository) ResolveInjectedSkillNames(ctx context.Context, projectID
 	if err != nil && !errors.Is(err, domain.ErrSkillNotFound) {
 		return nil, err
 	}
-	if err == nil && platformSkill.IsEnabled && !slicesContainsString(names, platformSkill.Name) {
+	if err == nil && !slicesContainsString(names, platformSkill.Name) {
 		names = append(names, platformSkill.Name)
 		sort.Strings(names)
 	}
@@ -1434,7 +1485,7 @@ func (r *EntRepository) runtimeSkillSnapshots(
 	if err != nil && !errors.Is(err, domain.ErrSkillNotFound) {
 		return nil, err
 	}
-	if err == nil && platformSkill.IsEnabled && platformSkill.ArchivedAt == nil {
+	if err == nil && platformSkill.ArchivedAt == nil {
 		if _, ok := seen[platformSkill.ID]; !ok {
 			versionItem, versionErr := r.CurrentSkillVersion(ctx, platformSkill.ID, nil)
 			if versionErr != nil {

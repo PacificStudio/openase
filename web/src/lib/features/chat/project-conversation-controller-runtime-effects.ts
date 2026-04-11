@@ -173,6 +173,7 @@ export function handleTabStreamEvent(
     case 'interrupt_resolved':
       tab.phase = 'awaiting_reply'
       break
+    case 'interrupted':
     case 'turn_done':
     case 'error':
       tab.phase = 'idle'
@@ -213,6 +214,9 @@ export async function reconcileTabAfterReconnect(
     if (nextPhase === 'awaiting_reply' && !input.isActiveTab(tab)) {
       tab.phase = 'awaiting_reply'
       tab.needsHydration = true
+      tab.unread = true
+      input.touchTabs()
+      input.persistTabs()
       return
     }
 

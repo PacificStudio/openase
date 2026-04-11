@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ProjectEventEnvelope } from '$lib/features/project-events'
@@ -21,6 +21,7 @@ const {
   deleteProjectUpdateComment,
   deleteProjectUpdateThread,
   getHRAdvisor,
+  getProjectTokenUsage,
   getSystemDashboard,
   listActivity,
   listAgents,
@@ -35,6 +36,7 @@ const {
   deleteProjectUpdateComment: vi.fn(),
   deleteProjectUpdateThread: vi.fn(),
   getHRAdvisor: vi.fn(),
+  getProjectTokenUsage: vi.fn(),
   getSystemDashboard: vi.fn(),
   listActivity: vi.fn(),
   listAgents: vi.fn(),
@@ -55,6 +57,7 @@ vi.mock('$lib/api/openase', () => ({
   deleteProjectUpdateComment,
   deleteProjectUpdateThread,
   getHRAdvisor,
+  getProjectTokenUsage,
   getSystemDashboard,
   listActivity,
   listAgents,
@@ -108,6 +111,7 @@ vi.mock('$lib/features/project-events', async () => {
 describe('OrgDashboard', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T12:00:00Z'))
     seedOrgDashboardStore()
 
     listAgents.mockResolvedValue(agentPayload)
@@ -115,6 +119,27 @@ describe('OrgDashboard', () => {
     listActivity.mockResolvedValue(activityPayload)
     getSystemDashboard.mockResolvedValue(systemDashboardPayload)
     getHRAdvisor.mockResolvedValue(hrAdvisorPayload)
+    getProjectTokenUsage.mockResolvedValue({
+      days: [
+        {
+          date: '2026-04-02',
+          input_tokens: 90,
+          output_tokens: 30,
+          cached_input_tokens: 10,
+          reasoning_tokens: 4,
+          total_tokens: 120,
+          finalized_run_count: 2,
+        },
+      ],
+      summary: {
+        total_tokens: 120,
+        avg_daily_tokens: 4,
+        peak_day: {
+          date: '2026-04-02',
+          total_tokens: 120,
+        },
+      },
+    })
     listProjectUpdates.mockResolvedValue({ threads: [], has_more: false, next_cursor: '' })
     loadOrganizationDashboardSummary.mockResolvedValue(organizationSummaryPayload)
   })
@@ -135,6 +160,7 @@ describe('OrgDashboard', () => {
       expect(listActivity).toHaveBeenCalledTimes(1)
       expect(getSystemDashboard).toHaveBeenCalledTimes(1)
       expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+      expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
       expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
       expect(listProjectUpdates).toHaveBeenCalledTimes(1)
     })
@@ -146,6 +172,7 @@ describe('OrgDashboard', () => {
     expect(listActivity).toHaveBeenCalledTimes(1)
     expect(getSystemDashboard).toHaveBeenCalledTimes(1)
     expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+    expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
     expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(10_000)
@@ -158,6 +185,7 @@ describe('OrgDashboard', () => {
     expect(listTickets).toHaveBeenCalledTimes(1)
     expect(listActivity).toHaveBeenCalledTimes(1)
     expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+    expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
     expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
   })
 
@@ -170,6 +198,7 @@ describe('OrgDashboard', () => {
       expect(listActivity).toHaveBeenCalledTimes(1)
       expect(getSystemDashboard).toHaveBeenCalledTimes(1)
       expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+      expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
       expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
     })
 
@@ -193,6 +222,33 @@ describe('OrgDashboard', () => {
     expect(listActivity).toHaveBeenCalledTimes(1)
     expect(getSystemDashboard).toHaveBeenCalledTimes(1)
     expect(getHRAdvisor).toHaveBeenCalledTimes(1)
+    expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
     expect(loadOrganizationDashboardSummary).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads project token usage on the dashboard and refreshes the selected window', async () => {
+    const view = render(OrgDashboard)
+
+    await waitFor(() => {
+      expect(getProjectTokenUsage).toHaveBeenCalledTimes(1)
+    })
+
+    expect(getProjectTokenUsage.mock.calls[0]?.[0]).toBe('project-1')
+    expect(getProjectTokenUsage.mock.calls[0]?.[1]).toEqual({
+      from: '2026-03-04',
+      to: '2026-04-02',
+    })
+    expect(view.getByText('Token Usage')).toBeTruthy()
+
+    await fireEvent.click(view.getByRole('button', { name: '7d' }))
+
+    await waitFor(() => {
+      expect(getProjectTokenUsage).toHaveBeenCalledTimes(2)
+    })
+
+    expect(getProjectTokenUsage.mock.calls[1]?.[1]).toEqual({
+      from: '2026-03-27',
+      to: '2026-04-02',
+    })
   })
 })

@@ -28,6 +28,10 @@
     WorkflowSummary,
     WorkflowTemplateDraft,
   } from '../types'
+  import {
+    REQUIRED_WORKFLOW_PLATFORM_SCOPE,
+    REQUIRED_WORKFLOW_SKILL_NAME,
+  } from '../workflow-requirements'
   import WorkflowCreationAdvancedSection from './workflow-creation-advanced-section.svelte'
   import WorkflowStatusChipGroup from './workflow-status-chip-group.svelte'
 
@@ -274,6 +278,18 @@
         {#if templateStatusError}
           <p class="text-destructive text-xs">{templateStatusError}</p>
         {/if}
+        <div class="bg-muted/40 rounded-md border px-3 py-2 text-xs leading-relaxed">
+          <span class="font-medium">System-enforced runtime access.</span>
+          New workflows always include
+          <code class="bg-background rounded px-1 py-0.5 font-mono"
+            >{REQUIRED_WORKFLOW_PLATFORM_SCOPE}</code
+          >
+          and the
+          <code class="bg-background rounded px-1 py-0.5 font-mono"
+            >{REQUIRED_WORKFLOW_SKILL_NAME}</code
+          >
+          skill. The platform adds both automatically and keeps them locked.
+        </div>
         <WorkflowCreationAdvancedSection
           bind:open={advancedOpen}
           draft={hookDraft}

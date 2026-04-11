@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { oidcSessionFieldCopy, type OIDCFormState } from '$lib/features/auth'
   import type { SecurityAuthSettings } from '$lib/api/contracts'
   import { AlertTriangle, CheckCircle2, Rocket, Save, TestTube2 } from '@lucide/svelte'
   import { Badge } from '$ui/badge'
@@ -7,17 +8,6 @@
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
   import OIDCRedirectFields from './oidc-redirect-fields.svelte'
-
-  type OIDCFormState = {
-    issuerURL: string
-    clientID: string
-    clientSecret: string
-    redirectMode: 'auto' | 'fixed'
-    fixedRedirectURL: string
-    scopesText: string
-    allowedDomainsText: string
-    bootstrapAdminEmailsText: string
-  }
 
   type OIDCTestResult = {
     status: string
@@ -51,6 +41,8 @@
     onScopes,
     onAllowedDomains,
     onBootstrapAdmins,
+    onSessionTTL,
+    onSessionIdleTTL,
     onSave,
     onTest,
     onEnable,
@@ -69,6 +61,8 @@
     onScopes: (value: string) => void
     onAllowedDomains: (value: string) => void
     onBootstrapAdmins: (value: string) => void
+    onSessionTTL: (value: string) => void
+    onSessionIdleTTL: (value: string) => void
     onSave: () => void
     onTest: () => void
     onEnable: () => void
@@ -180,6 +174,30 @@
         {onRedirectMode}
         {onFixedRedirectURL}
       />
+      <div class="space-y-2">
+        <Label for="oidc-session-ttl">Session TTL</Label>
+        <Input
+          id="oidc-session-ttl"
+          value={form.sessionTTL}
+          placeholder="8h"
+          oninput={(event) => onSessionTTL((event.currentTarget as HTMLInputElement).value)}
+        />
+        <p class="text-muted-foreground text-[11px]">
+          {oidcSessionFieldCopy.sessionTTLDescription}
+        </p>
+      </div>
+      <div class="space-y-2">
+        <Label for="oidc-session-idle-ttl">Idle TTL</Label>
+        <Input
+          id="oidc-session-idle-ttl"
+          value={form.sessionIdleTTL}
+          placeholder="30m"
+          oninput={(event) => onSessionIdleTTL((event.currentTarget as HTMLInputElement).value)}
+        />
+        <p class="text-muted-foreground text-[11px]">
+          {oidcSessionFieldCopy.sessionIdleTTLDescription}
+        </p>
+      </div>
       <div class="space-y-2 lg:col-span-2">
         <Label for="oidc-scopes">Scopes</Label>
         <Textarea
