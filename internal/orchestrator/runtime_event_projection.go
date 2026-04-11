@@ -182,7 +182,7 @@ func (l *RuntimeLauncher) projectItemStartedEvent(ctx context.Context, input run
 		return nil
 	}
 	startedAt := input.ObservedAt.UTC()
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:  identity,
 		Status:    "started",
 		StartedAt: &startedAt,
@@ -239,7 +239,7 @@ func (l *RuntimeLauncher) projectOutputEvent(ctx context.Context, input runtimeE
 		textMode = activityTextModeReplace
 	}
 
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity: identity,
 		Status:   status,
 		LiveText: &activityTextUpdate{
@@ -303,7 +303,7 @@ func (l *RuntimeLauncher) projectToolCallEvent(ctx context.Context, input runtim
 		identity.IdentityConfidence = catalogdomain.AgentActivityIdentityConfidenceHigh
 	}
 	startedAt := input.ObservedAt.UTC()
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:  identity,
 		Status:    "started",
 		StartedAt: &startedAt,
@@ -339,7 +339,7 @@ func (l *RuntimeLauncher) projectApprovalEvent(ctx context.Context, input runtim
 		return nil
 	}
 	startedAt := input.ObservedAt.UTC()
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:  identity,
 		Status:    "requested",
 		StartedAt: &startedAt,
@@ -368,7 +368,7 @@ func (l *RuntimeLauncher) projectUserInputEvent(ctx context.Context, input runti
 		return nil
 	}
 	startedAt := input.ObservedAt.UTC()
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:  identity,
 		Status:    "requested",
 		StartedAt: &startedAt,
@@ -397,7 +397,7 @@ func (l *RuntimeLauncher) projectTaskStatusEvent(ctx context.Context, input runt
 		return nil
 	}
 
-	statusValue := "in_progress"
+	var statusValue string
 	var liveText *activityTextUpdate
 	var finalText *string
 	var completedAt *time.Time
@@ -430,7 +430,7 @@ func (l *RuntimeLauncher) projectTaskStatusEvent(ctx context.Context, input runt
 		}
 	}
 
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:    identity,
 		Status:      statusValue,
 		LiveText:    liveText,
@@ -493,7 +493,7 @@ func (l *RuntimeLauncher) projectReasoningEvent(ctx context.Context, input runti
 	if identity.ActivityID == "" {
 		return nil
 	}
-	_, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity: identity,
 		Status:   "in_progress",
 		LiveText: &activityTextUpdate{Text: reasoning.Delta, Mode: activityTextModeAppend},
@@ -556,7 +556,7 @@ func (l *RuntimeLauncher) projectTurnEvent(ctx context.Context, input runtimeEve
 		completed := input.ObservedAt.UTC()
 		completedAt = &completed
 	}
-	if _, err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
+	if err := l.upsertAgentActivity(ctx, input, activityUpsertInput{
 		Identity:    identity,
 		Status:      status,
 		CompletedAt: completedAt,
@@ -593,10 +593,10 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 	ctx context.Context,
 	input runtimeEventProjectionInput,
 	update activityUpsertInput,
-) (*ent.AgentActivityInstance, error) {
+) error {
 	identity := update.Identity
 	if strings.TrimSpace(identity.Kind) == "" || strings.TrimSpace(identity.ActivityID) == "" {
-		return nil, nil
+		return nil
 	}
 
 	existing, err := l.client.AgentActivityInstance.Query().
@@ -607,7 +607,7 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 		).
 		Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {
-		return nil, fmt.Errorf("query activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, err)
+		return fmt.Errorf("query activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, err)
 	}
 
 	if ent.IsNotFound(err) {
@@ -662,11 +662,10 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 		if update.CompletedAt != nil {
 			create.SetCompletedAt(update.CompletedAt.UTC())
 		}
-		created, saveErr := create.Save(ctx)
-		if saveErr != nil {
-			return nil, fmt.Errorf("create activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, saveErr)
+		if _, saveErr := create.Save(ctx); saveErr != nil {
+			return fmt.Errorf("create activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, saveErr)
 		}
-		return created, nil
+		return nil
 	}
 
 	builder := existing.Update().
@@ -712,11 +711,10 @@ func (l *RuntimeLauncher) upsertAgentActivity(
 			builder.SetFinalTextBytes(len([]byte(nextFinalText)))
 		}
 	}
-	saved, saveErr := builder.Save(ctx)
-	if saveErr != nil {
-		return nil, fmt.Errorf("update activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, saveErr)
+	if _, saveErr := builder.Save(ctx); saveErr != nil {
+		return fmt.Errorf("update activity %s/%s for run %s: %w", identity.Kind, identity.ActivityID, input.RunID, saveErr)
 	}
-	return saved, nil
+	return nil
 }
 
 func (l *RuntimeLauncher) appendAgentTranscriptEntry(
@@ -1169,15 +1167,6 @@ func mergeActivityText(existing string, next string, mode activityTextMode) stri
 	default:
 		return strings.TrimSpace(existing + next)
 	}
-}
-
-func textHasContinuationPrefix(existing string, next string) bool {
-	existing = strings.TrimSpace(existing)
-	next = strings.TrimSpace(next)
-	if existing == "" || next == "" {
-		return false
-	}
-	return strings.HasPrefix(next, existing) || strings.HasPrefix(existing, next)
 }
 
 func cloneProjectionMap(source map[string]any) map[string]any {

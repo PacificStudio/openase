@@ -1471,9 +1471,7 @@ func (f *fakeCatalogService) ListAgentRunRawEvents(
 	}
 
 	pageItems := make([]domain.AgentRawEventEntry, 0, max(0, end-start))
-	for _, item := range items[start:end] {
-		pageItems = append(pageItems, item)
-	}
+	pageItems = append(pageItems, items[start:end]...)
 
 	page := domain.AgentRunRawEventPage{
 		Entries:          pageItems,
@@ -1576,9 +1574,7 @@ func (f *fakeCatalogService) ListAgentRunTranscriptEntries(
 	}
 
 	pageItems := make([]domain.AgentTranscriptEntry, 0, max(0, end-start))
-	for _, item := range items[start:end] {
-		pageItems = append(pageItems, item)
-	}
+	pageItems = append(pageItems, items[start:end]...)
 	page := domain.AgentRunTranscriptEntryPage{
 		Entries:          pageItems,
 		HasOlder:         start > 0,
