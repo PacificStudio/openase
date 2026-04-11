@@ -1677,6 +1677,13 @@ func runOpenAPIStreamCommand(cmd *cobra.Command, deps apiCommandDeps, contract o
 }
 
 func registerOpenAPICommandFlags(flags *pflag.FlagSet, contract openAPICommandContract) {
+	registerOpenAPIOperationFlags(flags, contract)
+
+	var apiOptions apiCommandOptions
+	bindAPICommandFlags(flags, &apiOptions)
+}
+
+func registerOpenAPIOperationFlags(flags *pflag.FlagSet, contract openAPICommandContract) {
 	for _, field := range contract.pathParams {
 		registerFieldFlag(flags, field, false)
 	}
@@ -1687,10 +1694,8 @@ func registerOpenAPICommandFlags(flags *pflag.FlagSet, contract openAPICommandCo
 		registerFieldFlag(flags, field, true)
 	}
 
-	var apiOptions apiCommandOptions
 	var output apiOutputOptions
 	var input string
-	bindAPICommandFlags(flags, &apiOptions)
 	bindAPIOutputFlags(flags, &output)
 	if contract.hasBody {
 		flags.StringVar(&input, "input", "", "Read the raw JSON request body from a file. Use - for stdin.")

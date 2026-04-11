@@ -390,8 +390,8 @@ func TestTicketUpdateCommandFallsBackToCurrentTicketEnv(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	if payload["description"] != "updated" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -425,8 +425,8 @@ func TestTicketUpdateCommandAcceptsStatusName(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	if payload["status_name"] != "Done" {
 		t.Fatalf("unexpected update payload: %+v", payload)
@@ -468,8 +468,8 @@ func TestTicketUpdateCommandSupportsExpandedPatchSurface(t *testing.T) {
 		t.Fatalf("ExecuteContext returned error: %v", err)
 	}
 
-	if path != "/projects/project-123/tickets/ticket-9" {
-		t.Fatalf("expected project-scoped ticket path, got %q", path)
+	if path != "/tickets/ticket-9" {
+		t.Fatalf("expected canonical ticket path, got %q", path)
 	}
 	for key, want := range map[string]any{
 		"priority":         "high",
@@ -665,6 +665,7 @@ func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	t.Setenv("OPENASE_API_URL", server.URL)
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+	t.Setenv("OPENASE_PROJECT_ID", "")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"report-usage", "--input-tokens", "120", "--output-tokens", "45", "--cost-usd", "0.21"})
@@ -833,7 +834,7 @@ func TestTicketUpdateCommandUsesCurrentTicketRouteWithoutProjectScope(t *testing
 	}
 }
 
-func TestTicketUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(t *testing.T) {
+func TestTicketUpdateCommandUsesCanonicalRouteWhenTicketsUpdateScopePresent(t *testing.T) {
 	var method string
 	var path string
 	var payload map[string]any
@@ -864,8 +865,8 @@ func TestTicketUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(
 	if method != http.MethodPatch {
 		t.Fatalf("expected PATCH, got %s", method)
 	}
-	if path != "/projects/project-123/tickets/ticket-456" {
-		t.Fatalf("expected project-scoped update path, got %q", path)
+	if path != "/tickets/ticket-456" {
+		t.Fatalf("expected canonical update path, got %q", path)
 	}
 	if payload["status_name"] != "Done" {
 		t.Fatalf("unexpected ticket update payload: %+v", payload)

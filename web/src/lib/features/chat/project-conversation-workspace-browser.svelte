@@ -1,28 +1,23 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { Button } from '$ui/button'
-  import { cn } from '$lib/utils'
+  import { syncProjectConversationWorkspace } from '$lib/api/chat'
   import { appStore } from '$lib/stores/app.svelte'
-  import {
-    AlertCircle,
-    Check,
-    Copy,
-    FolderTree,
-    RefreshCcw,
-    SquareTerminal,
-    X,
-  } from '@lucide/svelte'
+  import { AlertCircle } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
   import { PROJECT_AI_FOCUS_PRIORITY } from './project-ai-focus'
   import ProjectConversationWorkspaceBrowserPane from './project-conversation-workspace-browser-pane.svelte'
+  import ProjectConversationWorkspaceBrowserToolbar from './project-conversation-workspace-browser-toolbar.svelte'
+  import ProjectConversationWorkspaceSyncBanner from './project-conversation-workspace-sync-banner.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
   import { createTerminalManager } from './terminal-manager.svelte'
+  import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
 
   let {
     conversationId = '',
     workspaceDiff = null,
     workspaceDiffLoading = false,
     runtimeActive = false,
+    syncGeneration = 0,
     pendingFilePath = '',
     onClose,
     onPendingFileConsumed,
@@ -31,6 +26,7 @@
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     workspaceDiffLoading?: boolean
     runtimeActive?: boolean
+    syncGeneration?: number
     /** File path to navigate to (consumed once on change). */
     pendingFilePath?: string
     onClose?: () => void
@@ -58,19 +54,13 @@
   })
 
   let pathCopied = $state(false)
-
-  function copyWorkspacePath() {
-    const path = browser.metadata?.workspacePath
-    if (!path) return
-    navigator.clipboard.writeText(path)
-    pathCopied = true
-    setTimeout(() => (pathCopied = false), 1500)
-  }
-
   let refreshGeneration = $state(0)
   let lastRefreshKey = $state('')
   let lastWorkspaceDiffLoading = $state(false)
   let lastConversationId = $state('')
+  let lastSyncGeneration = $state(0)
+  let syncInFlight = $state(false)
+  let syncError = $state('')
 
   const selectedRepo = $derived(
     browser.metadata?.repos.find((repo) => repo.path === browser.selectedRepoPath) ??
@@ -80,8 +70,35 @@
   const selectedRepoDiff = $derived(
     liveWorkspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
+  const syncPrompt = $derived(liveWorkspaceDiff?.syncPrompt ?? browser.metadata?.syncPrompt ?? null)
 
-  // Navigate to a pending file when set
+  function copyWorkspacePath() {
+    const path = browser.metadata?.workspacePath
+    if (!path) return
+    navigator.clipboard.writeText(path)
+    pathCopied = true
+    setTimeout(() => (pathCopied = false), 1500)
+  }
+
+  async function handleSyncWorkspace() {
+    if (!conversationId || syncInFlight) {
+      return
+    }
+    syncInFlight = true
+    syncError = ''
+    try {
+      await syncProjectConversationWorkspace(conversationId)
+      workspaceBrowserPortal.markWorkspaceSynced()
+      await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
+      await browser.refreshWorkspace(true)
+    } catch (error) {
+      syncError =
+        error instanceof Error ? error.message : 'Failed to sync the Project AI workspace.'
+    } finally {
+      syncInFlight = false
+    }
+  }
+
   $effect(() => {
     if (pendingFilePath && browser.metadata?.available) {
       untrack(() => {
@@ -104,6 +121,19 @@
       refreshGeneration += 1
     }
     lastWorkspaceDiffLoading = nextLoading
+  })
+
+  $effect(() => {
+    if (!conversationId) {
+      lastSyncGeneration = syncGeneration
+      return
+    }
+    if (syncGeneration !== lastSyncGeneration) {
+      lastSyncGeneration = syncGeneration
+      untrack(() => {
+        void browser.refreshWorkspace(true)
+      })
+    }
   })
 
   $effect(() => {
@@ -211,60 +241,18 @@
   class="bg-background flex h-full min-h-0 w-full flex-col"
   data-testid="project-conversation-workspace-browser"
 >
-  <!-- Compact toolbar -->
-  <div class="border-border flex h-9 items-center gap-1.5 border-b px-3">
-    <FolderTree class="text-muted-foreground size-3 shrink-0" />
-    <span class="text-[12px] font-semibold">Workspace</span>
-    {#if browser.metadata?.workspacePath}
-      <button
-        type="button"
-        class="text-muted-foreground/50 hover:text-muted-foreground group flex min-w-0 items-center gap-1 truncate text-[11px] transition-colors"
-        title="Click to copy path"
-        onclick={copyWorkspacePath}
-      >
-        <span class="min-w-0 truncate">{browser.metadata.workspacePath}</span>
-        {#if pathCopied}
-          <Check class="size-2.5 shrink-0 text-emerald-500" />
-        {:else}
-          <Copy class="size-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-        {/if}
-      </button>
-    {/if}
-    <div class="flex-1"></div>
-    {#if browser.metadata?.available}
-      <Button
-        variant={terminalManager.panelOpen ? 'secondary' : 'ghost'}
-        size="icon-xs"
-        class={cn('text-muted-foreground size-6', terminalManager.panelOpen && 'text-foreground')}
-        aria-label="Toggle terminal"
-        onclick={() => terminalManager.togglePanel()}
-        disabled={!conversationId}
-      >
-        <SquareTerminal class="size-3" />
-      </Button>
-    {/if}
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      class="text-muted-foreground size-6"
-      aria-label="Refresh workspace browser"
-      onclick={() => void browser.refreshWorkspace(true)}
-      disabled={!conversationId || browser.metadataLoading}
-    >
-      <RefreshCcw class={cn('size-3', browser.metadataLoading && 'animate-spin')} />
-    </Button>
-    {#if onClose}
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        class="text-muted-foreground size-6"
-        aria-label="Close workspace browser"
-        onclick={onClose}
-      >
-        <X class="size-3" />
-      </Button>
-    {/if}
-  </div>
+  <ProjectConversationWorkspaceBrowserToolbar
+    workspacePath={browser.metadata?.workspacePath ?? ''}
+    {pathCopied}
+    showTerminalButton={Boolean(browser.metadata?.available)}
+    terminalPanelOpen={terminalManager.panelOpen}
+    {conversationId}
+    metadataLoading={browser.metadataLoading}
+    onCopyWorkspacePath={copyWorkspacePath}
+    onToggleTerminal={() => terminalManager.togglePanel()}
+    onRefreshWorkspace={() => void browser.refreshWorkspace(true)}
+    {onClose}
+  />
 
   {#if !conversationId}
     <div
@@ -296,13 +284,31 @@
     >
       The workspace will appear after Project AI provisions the conversation workdir.
     </div>
-  {:else}
-    <ProjectConversationWorkspaceBrowserPane
-      {browser}
-      {selectedRepo}
-      {selectedRepoDiff}
-      {runtimeActive}
-      {terminalManager}
+  {:else if syncPrompt && (browser.metadata?.repos.length ?? 0) === 0}
+    <ProjectConversationWorkspaceSyncBanner
+      prompt={syncPrompt}
+      {syncError}
+      {syncInFlight}
+      centered
+      onSync={handleSyncWorkspace}
     />
+  {:else}
+    <div class="flex min-h-0 flex-1 flex-col">
+      {#if syncPrompt}
+        <ProjectConversationWorkspaceSyncBanner
+          prompt={syncPrompt}
+          {syncError}
+          {syncInFlight}
+          onSync={handleSyncWorkspace}
+        />
+      {/if}
+      <ProjectConversationWorkspaceBrowserPane
+        {browser}
+        {selectedRepo}
+        {selectedRepoDiff}
+        {runtimeActive}
+        {terminalManager}
+      />
+    </div>
   {/if}
 </div>

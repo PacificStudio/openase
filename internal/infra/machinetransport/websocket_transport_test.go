@@ -2,21 +2,27 @@ package machinetransport
 
 import (
 	"context"
+	"errors"
 	"io"
+	"net"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
+	machinechanneldomain "github.com/BetterAndBetterII/openase/internal/domain/machinechannel"
 	runtimecontract "github.com/BetterAndBetterII/openase/internal/domain/websocketruntime"
 	"github.com/BetterAndBetterII/openase/internal/infra/machineprobe"
 	workspaceinfra "github.com/BetterAndBetterII/openase/internal/infra/workspace"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 func TestWebsocketListenerTransportProbeAndReachability(t *testing.T) {
@@ -143,6 +149,82 @@ func TestWebsocketListenerTransportPrepareWorkspaceAndSyncArtifacts(t *testing.T
 	}
 }
 
+func TestWebsocketReverseTransportPrepareWorkspaceKeepsSessionAvailableWithoutInjectedDisconnect(t *testing.T) {
+	t.Parallel()
+
+	fixture := startReverseRuntimeTransportFixture(t)
+
+	workspaceRoot := t.TempDir()
+	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
+		WorkspaceRoot:    workspaceRoot,
+		OrganizationSlug: "acme",
+		ProjectSlug:      "reverse-test",
+		AgentName:        "agent",
+		TicketIdentifier: "ase-166",
+	})
+	if err != nil {
+		t.Fatalf("ParseSetupRequest() error = %v", err)
+	}
+
+	workspaceItem, err := fixture.transport.PrepareWorkspace(context.Background(), fixture.machine, request)
+	if err != nil {
+		t.Fatalf("expected reverse workspace_prepare to succeed without injected disconnect, got %v", err)
+	}
+	if _, err := os.Stat(workspaceItem.Path); err != nil {
+		t.Fatalf("prepared reverse workspace %s missing: %v", workspaceItem.Path, err)
+	}
+
+	if _, err := fixture.relay.client(fixture.machine.ID); err != nil {
+		t.Fatalf("expected reverse session to stay registered after successful workspace_prepare, got %v", err)
+	}
+
+	commandSession, err := fixture.transport.OpenCommandSession(context.Background(), fixture.machine)
+	if err != nil {
+		t.Fatalf("OpenCommandSession() after workspace_prepare error = %v", err)
+	}
+	output, err := commandSession.CombinedOutput("printf reverse-after-prepare")
+	if err != nil {
+		t.Fatalf("CombinedOutput() after workspace_prepare error = %v", err)
+	}
+	if string(output) != "reverse-after-prepare" {
+		t.Fatalf("expected reverse session to keep serving requests after workspace_prepare, got %q", string(output))
+	}
+}
+
+func TestWebsocketReverseTransportPrepareWorkspaceFailsAfterInjectedDisconnect(t *testing.T) {
+	t.Parallel()
+
+	fixture := startReverseRuntimeTransportFixture(t)
+	fixture.disconnect()
+	waitForReverseRuntimeDisconnect(t, fixture.relay, fixture.machine.ID)
+
+	request, err := workspaceinfra.ParseSetupRequest(workspaceinfra.SetupInput{
+		WorkspaceRoot:    t.TempDir(),
+		OrganizationSlug: "acme",
+		ProjectSlug:      "reverse-test",
+		AgentName:        "agent",
+		TicketIdentifier: "ase-166",
+	})
+	if err != nil {
+		t.Fatalf("ParseSetupRequest() error = %v", err)
+	}
+
+	_, err = fixture.transport.PrepareWorkspace(context.Background(), fixture.machine, request)
+	if err == nil {
+		t.Fatal("expected reverse workspace_prepare to fail after injected disconnect")
+	}
+	var prepareErr *workspaceinfra.PrepareError
+	if !errors.As(err, &prepareErr) {
+		t.Fatalf("expected workspace prepare error classification after injected disconnect, got %T %v", err, err)
+	}
+	if prepareErr.Stage != workspaceinfra.PrepareFailureStageTransport {
+		t.Fatalf("expected transport-stage prepare failure after injected disconnect, got %+v", prepareErr)
+	}
+	if !errors.Is(err, ErrTransportUnavailable) {
+		t.Fatalf("expected injected disconnect to surface transport unavailable semantics, got %v", err)
+	}
+}
+
 func TestWebsocketListenerTransportStartProcess(t *testing.T) {
 	t.Parallel()
 
@@ -238,4 +320,127 @@ func websocketURL(raw string) string {
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+type reverseRuntimeTransportFixture struct {
+	machine    domain.Machine
+	transport  websocketTransport
+	relay      *ReverseRuntimeRelayRegistry
+	disconnect func()
+}
+
+func startReverseRuntimeTransportFixture(t *testing.T) reverseRuntimeTransportFixture {
+	t.Helper()
+
+	machineID := uuid.New()
+	relay := NewReverseRuntimeRelayRegistry()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upgrader := websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer func() { _ = conn.Close() }()
+
+		helloEnvelope, err := readMachineEnvelopeForTest(conn)
+		if err != nil || helloEnvelope.Type != machinechanneldomain.MessageTypeHello {
+			return
+		}
+		authenticateEnvelope, err := readMachineEnvelopeForTest(conn)
+		if err != nil || authenticateEnvelope.Type != machinechanneldomain.MessageTypeAuthenticate {
+			return
+		}
+
+		sessionID := uuid.NewString()
+		relay.Register(machineID, sessionID, func(ctx context.Context, envelope runtimecontract.Envelope) error {
+			return writeMachineEnvelopeForTest(conn, machinechanneldomain.MessageTypeRuntime, sessionID, envelope)
+		})
+		defer relay.Remove(sessionID)
+
+		if err := writeMachineEnvelopeForTest(conn, machinechanneldomain.MessageTypeRegistered, sessionID, machinechanneldomain.Registered{
+			MachineID:                machineID.String(),
+			SessionID:                sessionID,
+			HeartbeatIntervalSeconds: 1,
+			HeartbeatTimeoutSeconds:  5,
+		}); err != nil {
+			return
+		}
+
+		for {
+			envelope, err := readMachineEnvelopeForTest(conn)
+			if err != nil {
+				return
+			}
+			switch envelope.Type {
+			case machinechanneldomain.MessageTypeHeartbeat:
+				continue
+			case machinechanneldomain.MessageTypeGoodbye:
+				return
+			case machinechanneldomain.MessageTypeRuntime:
+				runtimeEnvelope, err := runtimeEnvelopeFromMachineEnvelopeForTest(envelope)
+				if err != nil {
+					return
+				}
+				if err := relay.Deliver(sessionID, runtimeEnvelope); err != nil {
+					return
+				}
+			default:
+				return
+			}
+		}
+	}))
+
+	//nolint:gosec // The fixture returns disconnect and also calls it from t.Cleanup.
+	participantCtx, cancelParticipant := context.WithCancel(context.Background())
+	var disconnectOnce sync.Once
+	disconnect := func() {
+		disconnectOnce.Do(cancelParticipant)
+	}
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- runReverseRuntimeParticipant(participantCtx, server.URL, machineID)
+	}()
+
+	waitForReverseRuntimeRegistration(t, relay, machineID)
+
+	t.Cleanup(func() {
+		disconnect()
+		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, net.ErrClosed) {
+			t.Errorf("reverse runtime participant returned error: %v", err)
+		}
+		server.Close()
+	})
+
+	return reverseRuntimeTransportFixture{
+		machine: domain.Machine{
+			ID:             machineID,
+			Name:           "reverse-01",
+			Host:           "reverse.internal",
+			ConnectionMode: domain.MachineConnectionModeWSReverse,
+			DaemonStatus: domain.MachineDaemonStatus{
+				Registered:   true,
+				SessionState: domain.MachineTransportSessionStateConnected,
+			},
+		},
+		transport: websocketTransport{
+			mode:         domain.MachineConnectionModeWSReverse,
+			reverseRelay: relay,
+		},
+		relay:      relay,
+		disconnect: disconnect,
+	}
+}
+
+func waitForReverseRuntimeDisconnect(t *testing.T, relay *ReverseRuntimeRelayRegistry, machineID uuid.UUID) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := relay.client(machineID); errors.Is(err, ErrTransportUnavailable) {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("reverse runtime session for machine %s stayed registered after injected disconnect", machineID)
 }

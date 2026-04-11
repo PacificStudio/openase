@@ -276,6 +276,7 @@
     {workspaceDiffError}
     {entries}
     {pending}
+    onSyncWorkspace={() => controller.refreshWorkspaceDiff()}
     onSelectTab={controller.selectTab}
     onCloseTab={controller.closeTab}
     onRespondInterrupt={controller.respondInterrupt}

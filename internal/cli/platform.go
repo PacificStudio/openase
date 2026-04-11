@@ -1416,15 +1416,7 @@ func (client platformClient) updateTicket(ctx context.Context, platform platform
 		payload["archived"] = input.archived
 	}
 
-	path := "/tickets/" + url.PathEscape(input.ticketID)
-	if platform.useProjectScopedTicketUpdate() {
-		if strings.TrimSpace(platform.projectID) == "" {
-			return nil, fmt.Errorf("project id is required via --project-id or OPENASE_PROJECT_ID for project-scoped ticket updates")
-		}
-		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID)
-	}
-
-	return client.doJSON(ctx, platform, http.MethodPatch, path, payload)
+	return client.doJSON(ctx, platform, http.MethodPatch, "/tickets/"+url.PathEscape(input.ticketID), payload)
 }
 
 func (client platformClient) reportTicketUsage(ctx context.Context, platform platformContext, input ticketReportUsageInput) ([]byte, error) {

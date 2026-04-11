@@ -9,6 +9,8 @@ import (
 )
 
 func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
+	t.Setenv("OPENASE_AGENT_TOKEN", "")
+
 	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
 	if err := saveHumanSessionState(sessionPath, humanSessionState{
 		APIURL:       "http://127.0.0.1:19836/api/v1",
@@ -54,6 +56,8 @@ func TestAPICommandContextUsesStoredHumanSessionForMutations(t *testing.T) {
 }
 
 func TestAPICommandContextUsesStoredHumanSessionForReadsWithoutCSRF(t *testing.T) {
+	t.Setenv("OPENASE_AGENT_TOKEN", "")
+
 	sessionPath := filepath.Join(t.TempDir(), "human-session.json")
 	if err := saveHumanSessionState(sessionPath, humanSessionState{
 		SessionToken: "session-token",

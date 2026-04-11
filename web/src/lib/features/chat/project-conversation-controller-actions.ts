@@ -95,6 +95,7 @@ type ProjectConversationControllerActionsInput = {
       message: string,
       focus?: ProjectAIFocus | null,
     ) => Promise<boolean>
+    refreshWorkspaceDiff: () => Promise<void>
     resetConversation: () => Promise<void>
     stopTurn: () => Promise<void>
     respondInterrupt: (inputValue: {
@@ -181,6 +182,9 @@ export function createProjectConversationControllerActions(
     },
     async sendTurn(message: string, focus?: ProjectAIFocus | null) {
       await input.operations.sendTurnInTab(input.getActiveTab(), message, focus)
+    },
+    async refreshWorkspaceDiff() {
+      await input.operations.refreshWorkspaceDiff()
     },
     async resetConversation() {
       await input.operations.resetConversation()

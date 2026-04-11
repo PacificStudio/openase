@@ -136,6 +136,15 @@ export function createProjectConversationControllerOperations(
     await runtime.resetConversation()
   }
 
+  async function refreshWorkspaceDiff() {
+    const activeTab = input.getActiveTab()
+    const conversationId = activeTab?.conversationId ?? ''
+    if (!activeTab || !conversationId) {
+      return
+    }
+    await runtime.refreshWorkspaceDiff(activeTab, conversationId)
+  }
+
   async function stopTurn() {
     const activeTab = input.getActiveTab()
     if (
@@ -217,6 +226,7 @@ export function createProjectConversationControllerOperations(
     createTab,
     selectTab,
     closeTab,
+    refreshWorkspaceDiff,
     resetConversation,
     stopTurn,
     respondInterrupt,

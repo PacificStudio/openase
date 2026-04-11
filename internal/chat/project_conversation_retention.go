@@ -447,7 +447,7 @@ func (s *ProjectConversationService) conversationWorkspaceDirty(
 	target projectConversationWorkspaceTarget,
 	conversation domain.Conversation,
 ) (bool, error) {
-	location, err := s.resolveConversationWorkspaceLocation(ctx, target.project, target.provider, conversation.ID)
+	location, err := s.resolveConversationWorkspaceLocation(ctx, conversation, target.project, target.provider)
 	if err != nil {
 		return false, err
 	}
