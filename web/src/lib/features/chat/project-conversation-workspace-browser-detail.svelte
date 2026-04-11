@@ -1,6 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
-  import { FileCode2 } from '@lucide/svelte'
+  import { FileCode2, WrapText } from '@lucide/svelte'
   import { Button } from '$ui/button'
   import { CodeEditor, DiffViewer } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
@@ -87,14 +87,14 @@
         {#if showWrapToggle}
           <Button
             variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
-            size="xs"
-            class="h-6"
+            size="icon-xs"
             aria-label={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
             aria-pressed={wrapMode === 'wrap'}
+            title={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
             data-testid="workspace-browser-wrap-toggle"
             onclick={toggleWrapMode}
           >
-            {wrapMode === 'wrap' ? 'Wrap on' : 'Wrap off'}
+            <WrapText />
           </Button>
         {/if}
         {#if preview}

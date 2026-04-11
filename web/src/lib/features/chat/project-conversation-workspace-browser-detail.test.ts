@@ -48,14 +48,16 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     await waitFor(() => expect(firstView.container.querySelector('.cm-editor')).not.toBeNull())
 
     const wrapToggle = firstView.getByTestId('workspace-browser-wrap-toggle')
-    expect(wrapToggle.textContent).toContain('Wrap on')
+    expect(wrapToggle.getAttribute('aria-pressed')).toBe('true')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Disable line wrap')
     expect(firstView.container.querySelector('.cm-lineWrapping')).not.toBeNull()
 
     await fireEvent.click(wrapToggle)
 
     await waitFor(() => expect(firstView.container.querySelector('.cm-lineWrapping')).toBeNull())
     expect(window.localStorage.getItem(EDITOR_WRAP_MODE_STORAGE_KEY)).toBe('nowrap')
-    expect(wrapToggle.textContent).toContain('Wrap off')
+    expect(wrapToggle.getAttribute('aria-pressed')).toBe('false')
+    expect(wrapToggle.getAttribute('aria-label')).toBe('Enable line wrap')
 
     firstView.unmount()
 
@@ -79,9 +81,9 @@ describe('ProjectConversationWorkspaceBrowserDetail', () => {
     })
 
     await waitFor(() => expect(secondView.container.querySelector('.cm-editor')).not.toBeNull())
-    expect(secondView.getByTestId('workspace-browser-wrap-toggle').textContent).toContain(
-      'Wrap off',
-    )
+    const persistedToggle = secondView.getByTestId('workspace-browser-wrap-toggle')
+    expect(persistedToggle.getAttribute('aria-pressed')).toBe('false')
+    expect(persistedToggle.getAttribute('aria-label')).toBe('Enable line wrap')
     expect(secondView.container.querySelector('.cm-lineWrapping')).toBeNull()
   })
 })
