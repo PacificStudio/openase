@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
@@ -196,6 +197,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				Tool:      event.ToolCall.Tool,
 				Arguments: append(json.RawMessage(nil), event.ToolCall.Arguments...),
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeApprovalRequested:
 		if event.Approval == nil {
@@ -211,6 +213,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				Options:   mapCodexApprovalOptions(event.Approval.Options),
 				Payload:   cloneCodexPayload(event.Approval.Payload),
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeUserInputRequested:
 		if event.UserInput == nil {
@@ -224,6 +227,24 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				TurnID:    event.UserInput.TurnID,
 				Payload:   cloneCodexPayload(event.UserInput.Payload),
 			},
+			Raw: rawCodexProviderEvent(event),
+		}, true
+	case codex.EventTypeItemStarted:
+		if event.Item == nil {
+			return agentEvent{}, false
+		}
+		return agentEvent{
+			Type: agentEventTypeItemStarted,
+			Item: &agentItemStartedEvent{
+				ThreadID: event.Item.ThreadID,
+				TurnID:   event.Item.TurnID,
+				ItemID:   event.Item.ItemID,
+				ItemType: event.Item.ItemType,
+				Phase:    event.Item.Phase,
+				Command:  event.Item.Command,
+				Text:     event.Item.Text,
+			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeTokenUsageUpdated:
 		if event.TokenUsage == nil {
@@ -242,6 +263,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				LastTokens:         event.TokenUsage.LastTokens,
 				ModelContextWindow: event.TokenUsage.ModelContextWindow,
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeRateLimitUpdated:
 		if event.RateLimit == nil {
@@ -250,6 +272,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 		return agentEvent{
 			Type:      agentEventTypeRateLimitUpdated,
 			RateLimit: event.RateLimit,
+			Raw:       rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeOutputProduced:
 		if event.Output == nil {
@@ -267,6 +290,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				Phase:    event.Output.Phase,
 				Snapshot: event.Output.Snapshot,
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeThreadStatus:
 		if event.ThreadStatus == nil {
@@ -279,6 +303,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				Status:      event.ThreadStatus.Status,
 				ActiveFlags: append([]string(nil), event.ThreadStatus.ActiveFlags...),
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeTurnDiffUpdated:
 		if event.Diff == nil {
@@ -291,6 +316,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				TurnID:   event.Diff.TurnID,
 				Diff:     event.Diff.Diff,
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeReasoningUpdated:
 		if event.Reasoning == nil {
@@ -307,6 +333,7 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				SummaryIndex: cloneIntPointer(event.Reasoning.SummaryIndex),
 				ContentIndex: cloneIntPointer(event.Reasoning.ContentIndex),
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	case codex.EventTypeTurnStarted, codex.EventTypeTurnCompleted, codex.EventTypeTurnFailed:
 		if event.Turn == nil {
@@ -327,10 +354,219 @@ func mapCodexAgentEvent(event codex.Event) (agentEvent, bool) {
 				Status:   event.Turn.Status,
 				Error:    mapCodexTurnError(event.Turn.Error),
 			},
+			Raw: rawCodexProviderEvent(event),
 		}, true
 	default:
 		return agentEvent{}, false
 	}
+}
+
+func rawCodexProviderEvent(event codex.Event) *agentRawProviderEvent {
+	method, payload, threadID, turnID, activityHintID, eventID, text := codexRawEventEnvelope(event)
+	if method == "" {
+		return nil
+	}
+	dedupKey := firstCodexNonEmpty(eventID, threadID+"|"+turnID+"|"+method+"|"+activityHintID)
+	if strings.TrimSpace(dedupKey) == "" {
+		return nil
+	}
+	kind, subtype := splitCodexMethod(method)
+	return &agentRawProviderEvent{
+		DedupKey:             dedupKey,
+		ProviderEventKind:    kind,
+		ProviderEventSubtype: subtype,
+		ProviderEventID:      eventID,
+		ThreadID:             threadID,
+		TurnID:               turnID,
+		ActivityHintID:       activityHintID,
+		Payload:              payload,
+		TextExcerpt:          text,
+	}
+}
+
+func codexRawEventEnvelope(event codex.Event) (method string, payload map[string]any, threadID string, turnID string, activityHintID string, eventID string, text string) {
+	switch event.Type {
+	case codex.EventTypeItemStarted:
+		if event.Item == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id": event.Item.ThreadID,
+			"turn_id":   event.Item.TurnID,
+			"item_id":   event.Item.ItemID,
+			"item_type": event.Item.ItemType,
+			"phase":     event.Item.Phase,
+			"command":   event.Item.Command,
+			"text":      event.Item.Text,
+		}
+		return "item/started", payload, event.Item.ThreadID, event.Item.TurnID, event.Item.ItemID, event.Item.ItemID, firstCodexNonEmpty(event.Item.Command, event.Item.Text)
+	case codex.EventTypeOutputProduced:
+		if event.Output == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id": event.Output.ThreadID,
+			"turn_id":   event.Output.TurnID,
+			"item_id":   event.Output.ItemID,
+			"stream":    event.Output.Stream,
+			"command":   event.Output.Command,
+			"text":      event.Output.Text,
+			"phase":     event.Output.Phase,
+			"snapshot":  event.Output.Snapshot,
+		}
+		method = "item/agentMessage/delta"
+		if strings.TrimSpace(event.Output.Stream) == "command" {
+			method = "item/commandExecution/outputDelta"
+		}
+		if event.Output.Snapshot {
+			method = "item/completed"
+		}
+		return method, payload, event.Output.ThreadID, event.Output.TurnID, event.Output.ItemID, event.Output.ItemID, firstCodexNonEmpty(event.Output.Command, event.Output.Text)
+	case codex.EventTypeToolCallRequested:
+		if event.ToolCall == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id": event.ToolCall.ThreadID,
+			"turn_id":   event.ToolCall.TurnID,
+			"call_id":   event.ToolCall.CallID,
+			"tool":      event.ToolCall.Tool,
+			"arguments": decodeRawJSON(event.ToolCall.Arguments),
+		}
+		return "item/tool/call", payload, event.ToolCall.ThreadID, event.ToolCall.TurnID, event.ToolCall.CallID, event.ToolCall.CallID, event.ToolCall.Tool
+	case codex.EventTypeApprovalRequested:
+		if event.Approval == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		method = "item/commandExecution/requestApproval"
+		approvalKind := strings.TrimSpace(string(event.Approval.Kind))
+		if approvalKind == "file_change" {
+			method = "item/fileChange/requestApproval"
+		}
+		payload = map[string]any{
+			"thread_id":  event.Approval.ThreadID,
+			"turn_id":    event.Approval.TurnID,
+			"request_id": event.Approval.RequestID,
+			"kind":       approvalKind,
+			"payload":    cloneCodexPayload(event.Approval.Payload),
+		}
+		requestID := event.Approval.RequestID.String()
+		return method, payload, event.Approval.ThreadID, event.Approval.TurnID, requestID, requestID, approvalKind
+	case codex.EventTypeUserInputRequested:
+		if event.UserInput == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id":  event.UserInput.ThreadID,
+			"turn_id":    event.UserInput.TurnID,
+			"request_id": event.UserInput.RequestID,
+			"payload":    cloneCodexPayload(event.UserInput.Payload),
+		}
+		requestID := event.UserInput.RequestID.String()
+		return "item/tool/requestUserInput", payload, event.UserInput.ThreadID, event.UserInput.TurnID, requestID, requestID, ""
+	case codex.EventTypeThreadStatus:
+		if event.ThreadStatus == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id":    event.ThreadStatus.ThreadID,
+			"status":       event.ThreadStatus.Status,
+			"active_flags": append([]string(nil), event.ThreadStatus.ActiveFlags...),
+		}
+		return "thread/status/changed", payload, event.ThreadStatus.ThreadID, "", "", event.ThreadStatus.ThreadID + ":" + event.ThreadStatus.Status, event.ThreadStatus.Status
+	case codex.EventTypeTurnDiffUpdated:
+		if event.Diff == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id": event.Diff.ThreadID,
+			"turn_id":   event.Diff.TurnID,
+			"diff":      event.Diff.Diff,
+		}
+		return "turn/diff/updated", payload, event.Diff.ThreadID, event.Diff.TurnID, "", event.Diff.ThreadID + ":" + event.Diff.TurnID + ":diff", event.Diff.Diff
+	case codex.EventTypeReasoningUpdated:
+		if event.Reasoning == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		method = "item/reasoning/textDelta"
+		switch event.Reasoning.Kind {
+		case codex.ReasoningKindSummaryPart:
+			method = "item/reasoning/summaryPartAdded"
+		case codex.ReasoningKindSummaryText:
+			method = "item/reasoning/summaryTextDelta"
+		}
+		payload = map[string]any{
+			"thread_id":     event.Reasoning.ThreadID,
+			"turn_id":       event.Reasoning.TurnID,
+			"item_id":       event.Reasoning.ItemID,
+			"kind":          event.Reasoning.Kind,
+			"delta":         event.Reasoning.Delta,
+			"summary_index": event.Reasoning.SummaryIndex,
+			"content_index": event.Reasoning.ContentIndex,
+		}
+		return method, payload, event.Reasoning.ThreadID, event.Reasoning.TurnID, event.Reasoning.ItemID, event.Reasoning.ItemID, event.Reasoning.Delta
+	case codex.EventTypeTokenUsageUpdated:
+		if event.TokenUsage == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		payload = map[string]any{
+			"thread_id":    event.TokenUsage.ThreadID,
+			"turn_id":      event.TokenUsage.TurnID,
+			"total_tokens": event.TokenUsage.TotalTokens,
+			"last_tokens":  event.TokenUsage.LastTokens,
+		}
+		return "thread/tokenUsage/updated", payload, event.TokenUsage.ThreadID, event.TokenUsage.TurnID, "", event.TokenUsage.ThreadID + ":" + event.TokenUsage.TurnID + ":usage", ""
+	case codex.EventTypeTurnStarted, codex.EventTypeTurnCompleted, codex.EventTypeTurnFailed:
+		if event.Turn == nil {
+			return "", nil, "", "", "", "", ""
+		}
+		method = "turn/started"
+		switch event.Type {
+		case codex.EventTypeTurnCompleted:
+			method = "turn/completed"
+		case codex.EventTypeTurnFailed:
+			method = "turn/failed"
+		}
+		payload = map[string]any{
+			"thread_id": event.Turn.ThreadID,
+			"turn_id":   event.Turn.TurnID,
+			"status":    event.Turn.Status,
+		}
+		if event.Turn.Error != nil {
+			payload["error"] = map[string]any{
+				"message":            event.Turn.Error.Message,
+				"additional_details": event.Turn.Error.AdditionalDetails,
+			}
+		}
+		errorMessage := ""
+		if event.Turn.Error != nil {
+			errorMessage = event.Turn.Error.Message
+		}
+		return method, payload, event.Turn.ThreadID, event.Turn.TurnID, "", event.Turn.ThreadID + ":" + event.Turn.TurnID + ":" + method, firstCodexNonEmpty(event.Turn.Status, errorMessage)
+	default:
+		return "", nil, "", "", "", "", ""
+	}
+}
+
+func splitCodexMethod(method string) (string, string) {
+	trimmed := strings.TrimSpace(method)
+	if trimmed == "" {
+		return "", ""
+	}
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 1 {
+		return parts[0], ""
+	}
+	return parts[0], strings.Join(parts[1:], "/")
+}
+
+func firstCodexNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func mapCodexTurnError(err *codex.TurnError) *agentTurnError {

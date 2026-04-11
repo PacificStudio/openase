@@ -452,7 +452,7 @@ func TestTicketCommandExposesRunRetryAndExternalLinkSubcommands(t *testing.T) {
 	}
 }
 
-func TestTicketRunCommandExposesListAndGetSubcommands(t *testing.T) {
+func TestTicketRunCommandExposesProjectedRunReaders(t *testing.T) {
 	root := NewRootCommand("dev")
 	command, _, err := root.Find([]string{"ticket", "run"})
 	if err != nil {
@@ -469,7 +469,7 @@ func TestTicketRunCommandExposesListAndGetSubcommands(t *testing.T) {
 		}
 		names = append(names, child.Name())
 	}
-	if strings.Join(names, ",") != "get,list" {
+	if strings.Join(names, ",") != "activities,get,list,raw-events,transcript" {
 		t.Fatalf("ticket run subcommands = %v", names)
 	}
 }

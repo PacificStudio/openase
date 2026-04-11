@@ -263,6 +263,8 @@ export type TicketRunTranscriptPage = {
   hiddenNewerCount: number
   oldestCursor?: string
   newestCursor?: string
+  oldestEventCursor?: string
+  newestEventCursor?: string
 }
 
 export type TicketRunDetail = {

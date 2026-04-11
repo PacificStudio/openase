@@ -110,6 +110,80 @@ type ticketRunTranscriptItemResponse struct {
 	StepEntry  *ticketRunStepEntryResponse  `json:"step_entry,omitempty"`
 }
 
+type ticketRunRawEventResponse struct {
+	ID                   string         `json:"id"`
+	Provider             string         `json:"provider"`
+	ProviderEventKind    string         `json:"provider_event_kind"`
+	ProviderEventSubtype string         `json:"provider_event_subtype"`
+	ProviderEventID      *string        `json:"provider_event_id,omitempty"`
+	ThreadID             *string        `json:"thread_id,omitempty"`
+	TurnID               *string        `json:"turn_id,omitempty"`
+	ActivityHintID       *string        `json:"activity_hint_id,omitempty"`
+	OccurredAt           string         `json:"occurred_at"`
+	Payload              map[string]any `json:"payload"`
+	TextExcerpt          string         `json:"text_excerpt"`
+}
+
+type ticketRunRawEventPageResponse struct {
+	Entries          []ticketRunRawEventResponse `json:"entries"`
+	HasOlder         bool                        `json:"has_older"`
+	HiddenOlderCount int                         `json:"hidden_older_count"`
+	HasNewer         bool                        `json:"has_newer"`
+	HiddenNewerCount int                         `json:"hidden_newer_count"`
+	OldestCursor     string                      `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                      `json:"newest_cursor,omitempty"`
+}
+
+type ticketRunActivityResponse struct {
+	ID                 string         `json:"id"`
+	Provider           string         `json:"provider"`
+	ActivityKind       string         `json:"activity_kind"`
+	ActivityID         string         `json:"activity_id"`
+	IDSource           string         `json:"id_source"`
+	IdentityConfidence string         `json:"identity_confidence"`
+	ParentActivityID   *string        `json:"parent_activity_id,omitempty"`
+	ThreadID           *string        `json:"thread_id,omitempty"`
+	TurnID             *string        `json:"turn_id,omitempty"`
+	Command            *string        `json:"command,omitempty"`
+	ToolName           *string        `json:"tool_name,omitempty"`
+	Title              *string        `json:"title,omitempty"`
+	Status             string         `json:"status"`
+	LiveText           *string        `json:"live_text,omitempty"`
+	FinalText          *string        `json:"final_text,omitempty"`
+	LiveTextBytes      int            `json:"live_text_bytes"`
+	FinalTextBytes     int            `json:"final_text_bytes"`
+	Metadata           map[string]any `json:"metadata"`
+	StartedAt          *string        `json:"started_at,omitempty"`
+	UpdatedAt          string         `json:"updated_at"`
+	CompletedAt        *string        `json:"completed_at,omitempty"`
+}
+
+type ticketRunTranscriptEntryResponse struct {
+	ID           string         `json:"id"`
+	Provider     string         `json:"provider"`
+	EntryKey     string         `json:"entry_key"`
+	EntryKind    string         `json:"entry_kind"`
+	ActivityKind *string        `json:"activity_kind,omitempty"`
+	ActivityID   *string        `json:"activity_id,omitempty"`
+	Title        *string        `json:"title,omitempty"`
+	Summary      *string        `json:"summary,omitempty"`
+	BodyText     *string        `json:"body_text,omitempty"`
+	Command      *string        `json:"command,omitempty"`
+	ToolName     *string        `json:"tool_name,omitempty"`
+	Metadata     map[string]any `json:"metadata"`
+	CreatedAt    string         `json:"created_at"`
+}
+
+type ticketRunTranscriptEntryPageResponse struct {
+	Entries          []ticketRunTranscriptEntryResponse `json:"entries"`
+	HasOlder         bool                               `json:"has_older"`
+	HiddenOlderCount int                                `json:"hidden_older_count"`
+	HasNewer         bool                               `json:"has_newer"`
+	HiddenNewerCount int                                `json:"hidden_newer_count"`
+	OldestCursor     string                             `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                             `json:"newest_cursor,omitempty"`
+}
+
 type ticketRunLifecycleEventResponse struct {
 	EventType string `json:"event_type"`
 	Message   string `json:"message"`
@@ -232,13 +306,123 @@ func (s *Server) handleGetTicketRun(c echo.Context) error {
 	if err != nil {
 		return writeCatalogError(c, err)
 	}
+	activityInput, err := domain.ParseListAgentRunActivities(projectID, runID, c.QueryParam("activity_status"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_ACTIVITY_STATUS", err.Error())
+	}
+	activities, err := s.catalog.ListAgentRunActivities(c.Request().Context(), activityInput)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	transcriptEntriesInput, err := domain.ParseListAgentRunTranscriptEntries(projectID, runID, domain.AgentRunEventPageInput{})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TRANSCRIPT_PAGE", err.Error())
+	}
+	transcriptEntriesPage, err := s.catalog.ListAgentRunTranscriptEntries(c.Request().Context(), transcriptEntriesInput)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
 	traceEntries, stepEntries := splitTicketRunTranscriptPage(transcriptPage)
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"run":             mapTicketRunResponse(runItem, catalog),
-		"transcript_page": mapTicketRunTranscriptPageResponse(transcriptPage),
-		"trace_entries":   mapTicketRunTraceEntryResponses(traceEntries),
-		"step_entries":    mapTicketRunStepEntryResponses(stepEntries),
+		"run":                     mapTicketRunResponse(runItem, catalog),
+		"transcript_page":         mapTicketRunTranscriptPageResponse(transcriptPage),
+		"trace_entries":           mapTicketRunTraceEntryResponses(traceEntries),
+		"step_entries":            mapTicketRunStepEntryResponses(stepEntries),
+		"activities":              mapTicketRunActivityResponses(activities),
+		"transcript_entries_page": mapTicketRunTranscriptEntryPageResponse(transcriptEntriesPage),
+	})
+}
+
+func (s *Server) handleListTicketRunRawEvents(c echo.Context) error {
+	if s.ticketService == nil || s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
+	}
+	projectID, ticketID, err := parseTicketRunPathParams(c)
+	if err != nil {
+		return err
+	}
+	runID, err := parseUUIDPathParam(c, "runId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_RUN_ID", err.Error())
+	}
+	if err := s.ensureTicketBelongsToProject(c.Request().Context(), projectID, ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+	pageInput, err := domain.ParseListAgentRunRawEvents(projectID, runID, domain.AgentRunEventPageInput{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+		After:  c.QueryParam("after"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_RAW_EVENT_PAGE", err.Error())
+	}
+	page, err := s.catalog.ListAgentRunRawEvents(c.Request().Context(), pageInput)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"raw_events_page": mapTicketRunRawEventPageResponse(page),
+	})
+}
+
+func (s *Server) handleListTicketRunActivities(c echo.Context) error {
+	if s.ticketService == nil || s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
+	}
+	projectID, ticketID, err := parseTicketRunPathParams(c)
+	if err != nil {
+		return err
+	}
+	runID, err := parseUUIDPathParam(c, "runId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_RUN_ID", err.Error())
+	}
+	if err := s.ensureTicketBelongsToProject(c.Request().Context(), projectID, ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+	input, err := domain.ParseListAgentRunActivities(projectID, runID, c.QueryParam("status"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_ACTIVITY_STATUS", err.Error())
+	}
+	activities, err := s.catalog.ListAgentRunActivities(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"activities": mapTicketRunActivityResponses(activities),
+	})
+}
+
+func (s *Server) handleListTicketRunTranscriptEntries(c echo.Context) error {
+	if s.ticketService == nil || s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "ticket run service unavailable")
+	}
+	projectID, ticketID, err := parseTicketRunPathParams(c)
+	if err != nil {
+		return err
+	}
+	runID, err := parseUUIDPathParam(c, "runId")
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_RUN_ID", err.Error())
+	}
+	if err := s.ensureTicketBelongsToProject(c.Request().Context(), projectID, ticketID); err != nil {
+		return writeTicketError(c, err)
+	}
+	input, err := domain.ParseListAgentRunTranscriptEntries(projectID, runID, domain.AgentRunEventPageInput{
+		Limit:  c.QueryParam("limit"),
+		Before: c.QueryParam("before"),
+		After:  c.QueryParam("after"),
+	})
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_TRANSCRIPT_PAGE", err.Error())
+	}
+	page, err := s.catalog.ListAgentRunTranscriptEntries(c.Request().Context(), input)
+	if err != nil {
+		return writeCatalogError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"transcript_entries_page": mapTicketRunTranscriptEntryPageResponse(page),
 	})
 }
 
@@ -646,6 +830,104 @@ func mapTicketRunStepEntryResponses(items []domain.AgentStepEntry) []ticketRunSt
 			Summary:            item.Summary,
 			SourceTraceEventID: uuidToStringPointer(item.SourceTraceEventID),
 			CreatedAt:          item.CreatedAt.UTC().Format(time.RFC3339),
+		})
+	}
+	return response
+}
+
+func mapTicketRunRawEventPageResponse(page domain.AgentRunRawEventPage) ticketRunRawEventPageResponse {
+	return ticketRunRawEventPageResponse{
+		Entries:          mapTicketRunRawEventResponses(page.Entries),
+		HasOlder:         page.HasOlder,
+		HiddenOlderCount: page.HiddenOlderCount,
+		HasNewer:         page.HasNewer,
+		HiddenNewerCount: page.HiddenNewerCount,
+		OldestCursor:     page.OldestCursor,
+		NewestCursor:     page.NewestCursor,
+	}
+}
+
+func mapTicketRunRawEventResponses(items []domain.AgentRawEventEntry) []ticketRunRawEventResponse {
+	response := make([]ticketRunRawEventResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, ticketRunRawEventResponse{
+			ID:                   item.ID.String(),
+			Provider:             item.Provider,
+			ProviderEventKind:    item.ProviderEventKind,
+			ProviderEventSubtype: item.ProviderEventSubtype,
+			ProviderEventID:      copyStringPointer(item.ProviderEventID),
+			ThreadID:             copyStringPointer(item.ThreadID),
+			TurnID:               copyStringPointer(item.TurnID),
+			ActivityHintID:       copyStringPointer(item.ActivityHintID),
+			OccurredAt:           item.OccurredAt.UTC().Format(time.RFC3339),
+			Payload:              cloneMap(item.Payload),
+			TextExcerpt:          item.TextExcerpt,
+		})
+	}
+	return response
+}
+
+func mapTicketRunActivityResponses(items []domain.AgentActivityInstance) []ticketRunActivityResponse {
+	response := make([]ticketRunActivityResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, ticketRunActivityResponse{
+			ID:                 item.ID.String(),
+			Provider:           item.Provider,
+			ActivityKind:       item.ActivityKind,
+			ActivityID:         item.ActivityID,
+			IDSource:           item.IDSource,
+			IdentityConfidence: item.IdentityConfidence,
+			ParentActivityID:   copyStringPointer(item.ParentActivityID),
+			ThreadID:           copyStringPointer(item.ThreadID),
+			TurnID:             copyStringPointer(item.TurnID),
+			Command:            copyStringPointer(item.Command),
+			ToolName:           copyStringPointer(item.ToolName),
+			Title:              copyStringPointer(item.Title),
+			Status:             item.Status,
+			LiveText:           copyStringPointer(item.LiveText),
+			FinalText:          copyStringPointer(item.FinalText),
+			LiveTextBytes:      item.LiveTextBytes,
+			FinalTextBytes:     item.FinalTextBytes,
+			Metadata:           cloneMap(item.Metadata),
+			StartedAt:          timeToStringPointer(item.StartedAt),
+			UpdatedAt:          item.UpdatedAt.UTC().Format(time.RFC3339),
+			CompletedAt:        timeToStringPointer(item.CompletedAt),
+		})
+	}
+	return response
+}
+
+func mapTicketRunTranscriptEntryPageResponse(
+	page domain.AgentRunTranscriptEntryPage,
+) ticketRunTranscriptEntryPageResponse {
+	return ticketRunTranscriptEntryPageResponse{
+		Entries:          mapTicketRunTranscriptEntryResponses(page.Entries),
+		HasOlder:         page.HasOlder,
+		HiddenOlderCount: page.HiddenOlderCount,
+		HasNewer:         page.HasNewer,
+		HiddenNewerCount: page.HiddenNewerCount,
+		OldestCursor:     page.OldestCursor,
+		NewestCursor:     page.NewestCursor,
+	}
+}
+
+func mapTicketRunTranscriptEntryResponses(items []domain.AgentTranscriptEntry) []ticketRunTranscriptEntryResponse {
+	response := make([]ticketRunTranscriptEntryResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, ticketRunTranscriptEntryResponse{
+			ID:           item.ID.String(),
+			Provider:     item.Provider,
+			EntryKey:     item.EntryKey,
+			EntryKind:    item.EntryKind,
+			ActivityKind: copyStringPointer(item.ActivityKind),
+			ActivityID:   copyStringPointer(item.ActivityID),
+			Title:        copyStringPointer(item.Title),
+			Summary:      copyStringPointer(item.Summary),
+			BodyText:     copyStringPointer(item.BodyText),
+			Command:      copyStringPointer(item.Command),
+			ToolName:     copyStringPointer(item.ToolName),
+			Metadata:     cloneMap(item.Metadata),
+			CreatedAt:    item.CreatedAt.UTC().Format(time.RFC3339),
 		})
 	}
 	return response

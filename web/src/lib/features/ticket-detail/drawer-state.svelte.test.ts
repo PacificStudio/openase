@@ -241,7 +241,7 @@ describe('createTicketDrawerState', () => {
     expect(fetchLiveContext).toHaveBeenCalledTimes(2)
   })
 
-  it('uses a normalized oldest transcript cursor when loading earlier run history', async () => {
+  it('uses separate transcript and transcript-entry cursors when loading earlier run history', async () => {
     const fetchRun = vi
       .fn()
       .mockResolvedValueOnce({
@@ -280,9 +280,9 @@ describe('createTicketDrawerState', () => {
           items: [
             {
               kind: 'step',
-              cursor: ' 2026-04-03T12:00:11Z|step|0|step-1 ',
+              cursor: ' 2026-04-03T12:00:11Z|step|0|11111111-1111-4111-8111-111111111111 ',
               step_entry: {
-                id: 'step-1',
+                id: '11111111-1111-4111-8111-111111111111',
                 agent_run_id: 'run-1',
                 step_status: 'running_command',
                 summary: 'Running tests.',
@@ -292,9 +292,9 @@ describe('createTicketDrawerState', () => {
             },
             {
               kind: 'trace',
-              cursor: '2026-04-03T12:00:12Z|trace|2|trace-2',
+              cursor: '2026-04-03T12:00:12Z|trace|2|22222222-2222-4222-8222-222222222222',
               trace_entry: {
-                id: 'trace-2',
+                id: '22222222-2222-4222-8222-222222222222',
                 agent_run_id: 'run-1',
                 sequence: 2,
                 provider: 'codex',
@@ -313,6 +313,32 @@ describe('createTicketDrawerState', () => {
           oldest_cursor: 'broken-cursor',
           newest_cursor: 'still-broken',
         },
+        transcript_entries_page: {
+          entries: [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              provider: 'codex',
+              entry_key: 'assistant:1',
+              entry_kind: 'assistant_message',
+              activity_kind: 'assistant_message',
+              activity_id: '44444444-4444-4444-8444-444444444444',
+              title: 'Assistant',
+              summary: 'Running tests.',
+              body_text: 'Running tests.',
+              command: null,
+              tool_name: null,
+              metadata: {},
+              created_at: '2026-04-03T12:00:11Z',
+            },
+          ],
+          has_older: true,
+          hidden_older_count: 4,
+          has_newer: false,
+          hidden_newer_count: 0,
+          oldest_cursor: '2026-04-03T12:00:11Z|33333333-3333-4333-8333-333333333333',
+          newest_cursor: '2026-04-03T12:00:11Z|33333333-3333-4333-8333-333333333333',
+        },
+        activities: [],
         trace_entries: [],
         step_entries: [],
       })
@@ -358,12 +384,53 @@ describe('createTicketDrawerState', () => {
         trace_entries: [],
         step_entries: [],
       })
+    const fetchRunTranscriptEntries = vi
+      .fn()
+      .mockResolvedValueOnce({
+        transcript_entries_page: {
+          entries: [
+            {
+              id: '33333333-3333-4333-8333-333333333333',
+              provider: 'codex',
+              entry_key: 'assistant:1',
+              entry_kind: 'assistant_message',
+              activity_kind: 'assistant_message',
+              activity_id: '44444444-4444-4444-8444-444444444444',
+              title: 'Assistant',
+              summary: 'Running tests.',
+              body_text: 'Running tests.',
+              command: null,
+              tool_name: null,
+              metadata: {},
+              created_at: '2026-04-03T12:00:11Z',
+            },
+          ],
+          has_older: true,
+          hidden_older_count: 4,
+          has_newer: false,
+          hidden_newer_count: 0,
+          oldest_cursor: '2026-04-03T12:00:11Z|33333333-3333-4333-8333-333333333333',
+          newest_cursor: '2026-04-03T12:00:11Z|33333333-3333-4333-8333-333333333333',
+        },
+      })
+      .mockResolvedValueOnce({
+        transcript_entries_page: {
+          entries: [],
+          has_older: false,
+          hidden_older_count: 0,
+          has_newer: true,
+          hidden_newer_count: 2,
+          oldest_cursor: '2026-04-03T12:00:08Z|55555555-5555-4555-8555-555555555555',
+          newest_cursor: '2026-04-03T12:00:08Z|55555555-5555-4555-8555-555555555555',
+        },
+      })
 
     const state = createTicketDrawerState({
       fetchLiveContext: vi.fn().mockResolvedValue(buildLiveContext()),
       fetchReferenceData: vi
         .fn<() => Promise<TicketDetailProjectReferenceData>>()
         .mockResolvedValue(buildReferenceData()),
+      ...createRunDeps(),
       fetchRuns: vi.fn().mockResolvedValue({
         runs: [
           {
@@ -400,6 +467,7 @@ describe('createTicketDrawerState', () => {
         ],
       }),
       fetchRun,
+      fetchRunTranscriptEntries,
     })
 
     await state.load('project-1', 'ticket-1')
@@ -408,7 +476,11 @@ describe('createTicketDrawerState', () => {
 
     expect(fetchRun).toHaveBeenNthCalledWith(1, 'project-1', 'ticket-1', 'run-1')
     expect(fetchRun).toHaveBeenNthCalledWith(2, 'project-1', 'ticket-1', 'run-1', {
-      before: '2026-04-03T12:00:11Z|step|0|step-1',
+      before: '2026-04-03T12:00:11Z|step|0|11111111-1111-4111-8111-111111111111',
+    })
+    expect(fetchRunTranscriptEntries).toHaveBeenNthCalledWith(1, 'project-1', 'ticket-1', 'run-1')
+    expect(fetchRunTranscriptEntries).toHaveBeenNthCalledWith(2, 'project-1', 'ticket-1', 'run-1', {
+      before: '2026-04-03T12:00:11Z|33333333-3333-4333-8333-333333333333',
     })
   })
 })

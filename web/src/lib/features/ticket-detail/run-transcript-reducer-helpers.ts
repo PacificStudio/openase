@@ -21,6 +21,7 @@ import {
   mergeRunStepSnapshot,
 } from './run-transcript-run-helpers'
 import {
+  maxTicketRunEventCursor,
   buildTicketRunStepCursor,
   buildTicketRunTraceCursor,
   maxTicketRunTranscriptCursor,
@@ -51,6 +52,12 @@ export function mergeTranscriptPageIntoState(
         newestCursor: maxTicketRunTranscriptCursor(
           nextState.pageInfoByRun[runId]?.newestCursor,
           page.newestCursor,
+        ),
+        oldestEventCursor:
+          page.oldestEventCursor ?? nextState.pageInfoByRun[runId]?.oldestEventCursor,
+        newestEventCursor: maxTicketRunEventCursor(
+          nextState.pageInfoByRun[runId]?.newestEventCursor,
+          page.newestEventCursor,
         ),
       },
     },
@@ -151,6 +158,8 @@ export function rebuildRunTranscriptState(
           ),
           newestCursor,
         ),
+        oldestEventCursor: state.pageInfoByRun[runId]?.oldestEventCursor,
+        newestEventCursor: state.pageInfoByRun[runId]?.newestEventCursor,
       },
     },
   })

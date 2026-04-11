@@ -1428,10 +1428,12 @@ type OpenAPITicketRunsResponse struct {
 }
 
 type OpenAPITicketRunResponse struct {
-	Run            OpenAPITicketRun               `json:"run"`
-	TranscriptPage OpenAPITicketRunTranscriptPage `json:"transcript_page"`
-	TraceEntries   []OpenAPITicketRunTraceEntry   `json:"trace_entries"`
-	StepEntries    []OpenAPITicketRunStepEntry    `json:"step_entries"`
+	Run                   OpenAPITicketRun                      `json:"run"`
+	TranscriptPage        OpenAPITicketRunTranscriptPage        `json:"transcript_page"`
+	TraceEntries          []OpenAPITicketRunTraceEntry          `json:"trace_entries"`
+	StepEntries           []OpenAPITicketRunStepEntry           `json:"step_entries"`
+	Activities            []OpenAPITicketRunActivity            `json:"activities"`
+	TranscriptEntriesPage OpenAPITicketRunTranscriptEntriesPage `json:"transcript_entries_page"`
 }
 
 type OpenAPITicketRunTranscriptPage struct {
@@ -1449,6 +1451,92 @@ type OpenAPITicketRunTranscriptItem struct {
 	Cursor     string                      `json:"cursor"`
 	TraceEntry *OpenAPITicketRunTraceEntry `json:"trace_entry,omitempty"`
 	StepEntry  *OpenAPITicketRunStepEntry  `json:"step_entry,omitempty"`
+}
+
+type OpenAPITicketRunRawEventsResponse struct {
+	RawEventsPage OpenAPITicketRunRawEventPage `json:"raw_events_page"`
+}
+
+type OpenAPITicketRunRawEventPage struct {
+	Entries          []OpenAPITicketRunRawEvent `json:"entries"`
+	HasOlder         bool                       `json:"has_older"`
+	HiddenOlderCount int                        `json:"hidden_older_count"`
+	HasNewer         bool                       `json:"has_newer"`
+	HiddenNewerCount int                        `json:"hidden_newer_count"`
+	OldestCursor     string                     `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                     `json:"newest_cursor,omitempty"`
+}
+
+type OpenAPITicketRunRawEvent struct {
+	ID                   string         `json:"id"`
+	Provider             string         `json:"provider"`
+	ProviderEventKind    string         `json:"provider_event_kind"`
+	ProviderEventSubtype string         `json:"provider_event_subtype"`
+	ProviderEventID      *string        `json:"provider_event_id,omitempty"`
+	ThreadID             *string        `json:"thread_id,omitempty"`
+	TurnID               *string        `json:"turn_id,omitempty"`
+	ActivityHintID       *string        `json:"activity_hint_id,omitempty"`
+	OccurredAt           string         `json:"occurred_at"`
+	Payload              map[string]any `json:"payload"`
+	TextExcerpt          string         `json:"text_excerpt"`
+}
+
+type OpenAPITicketRunActivitiesResponse struct {
+	Activities []OpenAPITicketRunActivity `json:"activities"`
+}
+
+type OpenAPITicketRunActivity struct {
+	ID                 string         `json:"id"`
+	Provider           string         `json:"provider"`
+	ActivityKind       string         `json:"activity_kind"`
+	ActivityID         string         `json:"activity_id"`
+	IDSource           string         `json:"id_source"`
+	IdentityConfidence string         `json:"identity_confidence"`
+	ParentActivityID   *string        `json:"parent_activity_id,omitempty"`
+	ThreadID           *string        `json:"thread_id,omitempty"`
+	TurnID             *string        `json:"turn_id,omitempty"`
+	Command            *string        `json:"command,omitempty"`
+	ToolName           *string        `json:"tool_name,omitempty"`
+	Title              *string        `json:"title,omitempty"`
+	Status             string         `json:"status"`
+	LiveText           *string        `json:"live_text,omitempty"`
+	FinalText          *string        `json:"final_text,omitempty"`
+	LiveTextBytes      int            `json:"live_text_bytes"`
+	FinalTextBytes     int            `json:"final_text_bytes"`
+	Metadata           map[string]any `json:"metadata"`
+	StartedAt          *string        `json:"started_at,omitempty"`
+	UpdatedAt          string         `json:"updated_at"`
+	CompletedAt        *string        `json:"completed_at,omitempty"`
+}
+
+type OpenAPITicketRunTranscriptEntriesResponse struct {
+	TranscriptEntriesPage OpenAPITicketRunTranscriptEntriesPage `json:"transcript_entries_page"`
+}
+
+type OpenAPITicketRunTranscriptEntriesPage struct {
+	Entries          []OpenAPITicketRunTranscriptEntry `json:"entries"`
+	HasOlder         bool                              `json:"has_older"`
+	HiddenOlderCount int                               `json:"hidden_older_count"`
+	HasNewer         bool                              `json:"has_newer"`
+	HiddenNewerCount int                               `json:"hidden_newer_count"`
+	OldestCursor     string                            `json:"oldest_cursor,omitempty"`
+	NewestCursor     string                            `json:"newest_cursor,omitempty"`
+}
+
+type OpenAPITicketRunTranscriptEntry struct {
+	ID           string         `json:"id"`
+	Provider     string         `json:"provider"`
+	EntryKey     string         `json:"entry_key"`
+	EntryKind    string         `json:"entry_kind"`
+	ActivityKind *string        `json:"activity_kind,omitempty"`
+	ActivityID   *string        `json:"activity_id,omitempty"`
+	Title        *string        `json:"title,omitempty"`
+	Summary      *string        `json:"summary,omitempty"`
+	BodyText     *string        `json:"body_text,omitempty"`
+	Command      *string        `json:"command,omitempty"`
+	ToolName     *string        `json:"tool_name,omitempty"`
+	Metadata     map[string]any `json:"metadata"`
+	CreatedAt    string         `json:"created_at"`
 }
 
 type OpenAPIActivityEventsResponse struct {
@@ -5665,6 +5753,84 @@ func (b openAPISpecBuilder) addTicketOperations() error {
 		WithDescription("Load transcript items newer than this cursor.").
 		WithSchema(openapi3.NewStringSchema()))
 	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}", http.MethodGet, ticketRunGet)
+
+	ticketRunRawEventsGet, err := b.jsonOperation(
+		"listTicketRunRawEvents",
+		"List ticket run raw provider events",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketRunRawEventsResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunRawEventsGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunRawEventsGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	ticketRunRawEventsGet.AddParameter(uuidPathParameter("runId", "Run ID."))
+	ticketRunRawEventsGet.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Raw event page size. Defaults to 100.").
+		WithSchema(openapi3.NewIntegerSchema()))
+	ticketRunRawEventsGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Load raw events older than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
+	ticketRunRawEventsGet.AddParameter(openapi3.NewQueryParameter("after").
+		WithDescription("Load raw events newer than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events", http.MethodGet, ticketRunRawEventsGet)
+
+	ticketRunActivitiesGet, err := b.jsonOperation(
+		"listTicketRunActivities",
+		"List ticket run activity state",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketRunActivitiesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunActivitiesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunActivitiesGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	ticketRunActivitiesGet.AddParameter(uuidPathParameter("runId", "Run ID."))
+	ticketRunActivitiesGet.AddParameter(openapi3.NewQueryParameter("status").
+		WithDescription("Filter activities by exact status.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities", http.MethodGet, ticketRunActivitiesGet)
+
+	ticketRunTranscriptEntriesGet, err := b.jsonOperation(
+		"listTicketRunTranscriptEntries",
+		"List ticket run transcript entries",
+		[]string{"tickets"},
+		http.StatusOK,
+		OpenAPITicketRunTranscriptEntriesResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusNotFound,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	ticketRunTranscriptEntriesGet.AddParameter(uuidPathParameter("projectId", "Project ID."))
+	ticketRunTranscriptEntriesGet.AddParameter(uuidPathParameter("ticketId", "Ticket ID."))
+	ticketRunTranscriptEntriesGet.AddParameter(uuidPathParameter("runId", "Run ID."))
+	ticketRunTranscriptEntriesGet.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Transcript entry page size. Defaults to 100.").
+		WithSchema(openapi3.NewIntegerSchema()))
+	ticketRunTranscriptEntriesGet.AddParameter(openapi3.NewQueryParameter("before").
+		WithDescription("Load transcript entries older than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
+	ticketRunTranscriptEntriesGet.AddParameter(openapi3.NewQueryParameter("after").
+		WithDescription("Load transcript entries newer than this cursor.").
+		WithSchema(openapi3.NewStringSchema()))
+	b.doc.AddOperation("/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript", http.MethodGet, ticketRunTranscriptEntriesGet)
 
 	return nil
 }

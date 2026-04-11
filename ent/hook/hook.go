@@ -33,6 +33,18 @@ func (f AgentFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentMutation", m)
 }
 
+// The AgentActivityInstanceFunc type is an adapter to allow the use of ordinary
+// function as AgentActivityInstance mutator.
+type AgentActivityInstanceFunc func(context.Context, *ent.AgentActivityInstanceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentActivityInstanceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentActivityInstanceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentActivityInstanceMutation", m)
+}
+
 // The AgentProviderFunc type is an adapter to allow the use of ordinary
 // function as AgentProvider mutator.
 type AgentProviderFunc func(context.Context, *ent.AgentProviderMutation) (ent.Value, error)
@@ -43,6 +55,18 @@ func (f AgentProviderFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Valu
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentProviderMutation", m)
+}
+
+// The AgentRawEventFunc type is an adapter to allow the use of ordinary
+// function as AgentRawEvent mutator.
+type AgentRawEventFunc func(context.Context, *ent.AgentRawEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentRawEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentRawEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentRawEventMutation", m)
 }
 
 // The AgentRunFunc type is an adapter to allow the use of ordinary
@@ -91,6 +115,18 @@ func (f AgentTraceEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Va
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTraceEventMutation", m)
+}
+
+// The AgentTranscriptEntryFunc type is an adapter to allow the use of ordinary
+// function as AgentTranscriptEntry mutator.
+type AgentTranscriptEntryFunc func(context.Context, *ent.AgentTranscriptEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f AgentTranscriptEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.AgentTranscriptEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AgentTranscriptEntryMutation", m)
 }
 
 // The ApprovalPolicyRuleFunc type is an adapter to allow the use of ordinary

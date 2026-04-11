@@ -14,11 +14,14 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentactivityinstance"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrawevent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttranscriptentry"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
 	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
@@ -132,11 +135,14 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			activityevent.Table:                 activityevent.ValidColumn,
 			agent.Table:                         agent.ValidColumn,
+			agentactivityinstance.Table:         agentactivityinstance.ValidColumn,
 			agentprovider.Table:                 agentprovider.ValidColumn,
+			agentrawevent.Table:                 agentrawevent.ValidColumn,
 			agentrun.Table:                      agentrun.ValidColumn,
 			agentstepevent.Table:                agentstepevent.ValidColumn,
 			agenttoken.Table:                    agenttoken.ValidColumn,
 			agenttraceevent.Table:               agenttraceevent.ValidColumn,
+			agenttranscriptentry.Table:          agenttranscriptentry.ValidColumn,
 			approvalpolicyrule.Table:            approvalpolicyrule.ValidColumn,
 			authauditevent.Table:                authauditevent.ValidColumn,
 			browsersession.Table:                browsersession.ValidColumn,

@@ -920,6 +920,9 @@ type stubRepository struct {
 	listedProviders        []domain.AgentProvider
 	traceEntries           []domain.AgentTraceEntry
 	stepEntries            []domain.AgentStepEntry
+	rawEventPage           domain.AgentRunRawEventPage
+	activityInstances      []domain.AgentActivityInstance
+	transcriptEntryPage    domain.AgentRunTranscriptEntryPage
 	provider               domain.AgentProvider
 	agent                  domain.Agent
 	machine                domain.Machine
@@ -1109,6 +1112,18 @@ func (r *stubRepository) ListAgentRunTraceEntries(context.Context, domain.ListAg
 
 func (r *stubRepository) ListAgentRunStepEntries(context.Context, domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error) {
 	return append([]domain.AgentStepEntry(nil), r.stepEntries...), nil
+}
+
+func (r *stubRepository) ListAgentRunRawEvents(context.Context, domain.ListAgentRunRawEvents) (domain.AgentRunRawEventPage, error) {
+	return r.rawEventPage, nil
+}
+
+func (r *stubRepository) ListAgentRunActivities(context.Context, domain.ListAgentRunActivities) ([]domain.AgentActivityInstance, error) {
+	return append([]domain.AgentActivityInstance(nil), r.activityInstances...), nil
+}
+
+func (r *stubRepository) ListAgentRunTranscriptEntries(context.Context, domain.ListAgentRunTranscriptEntries) (domain.AgentRunTranscriptEntryPage, error) {
+	return r.transcriptEntryPage, nil
 }
 
 func (r *stubRepository) CreateAgent(context.Context, domain.CreateAgent) (domain.Agent, error) {

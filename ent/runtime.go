@@ -7,11 +7,14 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentactivityinstance"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrawevent"
 	"github.com/BetterAndBetterII/openase/ent/agentrun"
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttranscriptentry"
 	"github.com/BetterAndBetterII/openase/ent/approvalpolicyrule"
 	"github.com/BetterAndBetterII/openase/ent/authauditevent"
 	"github.com/BetterAndBetterII/openase/ent/browsersession"
@@ -108,6 +111,52 @@ func init() {
 	agentDescID := agentFields[0].Descriptor()
 	// agent.DefaultID holds the default value on creation for the id field.
 	agent.DefaultID = agentDescID.Default.(func() uuid.UUID)
+	agentactivityinstanceFields := schema.AgentActivityInstance{}.Fields()
+	_ = agentactivityinstanceFields
+	// agentactivityinstanceDescProvider is the schema descriptor for provider field.
+	agentactivityinstanceDescProvider := agentactivityinstanceFields[5].Descriptor()
+	// agentactivityinstance.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	agentactivityinstance.ProviderValidator = agentactivityinstanceDescProvider.Validators[0].(func(string) error)
+	// agentactivityinstanceDescActivityKind is the schema descriptor for activity_kind field.
+	agentactivityinstanceDescActivityKind := agentactivityinstanceFields[6].Descriptor()
+	// agentactivityinstance.ActivityKindValidator is a validator for the "activity_kind" field. It is called by the builders before save.
+	agentactivityinstance.ActivityKindValidator = agentactivityinstanceDescActivityKind.Validators[0].(func(string) error)
+	// agentactivityinstanceDescActivityID is the schema descriptor for activity_id field.
+	agentactivityinstanceDescActivityID := agentactivityinstanceFields[7].Descriptor()
+	// agentactivityinstance.ActivityIDValidator is a validator for the "activity_id" field. It is called by the builders before save.
+	agentactivityinstance.ActivityIDValidator = agentactivityinstanceDescActivityID.Validators[0].(func(string) error)
+	// agentactivityinstanceDescIDSource is the schema descriptor for id_source field.
+	agentactivityinstanceDescIDSource := agentactivityinstanceFields[8].Descriptor()
+	// agentactivityinstance.IDSourceValidator is a validator for the "id_source" field. It is called by the builders before save.
+	agentactivityinstance.IDSourceValidator = agentactivityinstanceDescIDSource.Validators[0].(func(string) error)
+	// agentactivityinstanceDescIdentityConfidence is the schema descriptor for identity_confidence field.
+	agentactivityinstanceDescIdentityConfidence := agentactivityinstanceFields[9].Descriptor()
+	// agentactivityinstance.IdentityConfidenceValidator is a validator for the "identity_confidence" field. It is called by the builders before save.
+	agentactivityinstance.IdentityConfidenceValidator = agentactivityinstanceDescIdentityConfidence.Validators[0].(func(string) error)
+	// agentactivityinstanceDescStatus is the schema descriptor for status field.
+	agentactivityinstanceDescStatus := agentactivityinstanceFields[16].Descriptor()
+	// agentactivityinstance.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	agentactivityinstance.StatusValidator = agentactivityinstanceDescStatus.Validators[0].(func(string) error)
+	// agentactivityinstanceDescLiveTextBytes is the schema descriptor for live_text_bytes field.
+	agentactivityinstanceDescLiveTextBytes := agentactivityinstanceFields[19].Descriptor()
+	// agentactivityinstance.DefaultLiveTextBytes holds the default value on creation for the live_text_bytes field.
+	agentactivityinstance.DefaultLiveTextBytes = agentactivityinstanceDescLiveTextBytes.Default.(int)
+	// agentactivityinstanceDescFinalTextBytes is the schema descriptor for final_text_bytes field.
+	agentactivityinstanceDescFinalTextBytes := agentactivityinstanceFields[20].Descriptor()
+	// agentactivityinstance.DefaultFinalTextBytes holds the default value on creation for the final_text_bytes field.
+	agentactivityinstance.DefaultFinalTextBytes = agentactivityinstanceDescFinalTextBytes.Default.(int)
+	// agentactivityinstanceDescMetadata is the schema descriptor for metadata field.
+	agentactivityinstanceDescMetadata := agentactivityinstanceFields[21].Descriptor()
+	// agentactivityinstance.DefaultMetadata holds the default value on creation for the metadata field.
+	agentactivityinstance.DefaultMetadata = agentactivityinstanceDescMetadata.Default.(func() map[string]interface{})
+	// agentactivityinstanceDescCreatedAt is the schema descriptor for created_at field.
+	agentactivityinstanceDescCreatedAt := agentactivityinstanceFields[25].Descriptor()
+	// agentactivityinstance.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agentactivityinstance.DefaultCreatedAt = agentactivityinstanceDescCreatedAt.Default.(func() time.Time)
+	// agentactivityinstanceDescID is the schema descriptor for id field.
+	agentactivityinstanceDescID := agentactivityinstanceFields[0].Descriptor()
+	// agentactivityinstance.DefaultID holds the default value on creation for the id field.
+	agentactivityinstance.DefaultID = agentactivityinstanceDescID.Default.(func() uuid.UUID)
 	agentproviderFields := schema.AgentProvider{}.Fields()
 	_ = agentproviderFields
 	// agentproviderDescName is the schema descriptor for name field.
@@ -158,6 +207,32 @@ func init() {
 	agentproviderDescID := agentproviderFields[0].Descriptor()
 	// agentprovider.DefaultID holds the default value on creation for the id field.
 	agentprovider.DefaultID = agentproviderDescID.Default.(func() uuid.UUID)
+	agentraweventFields := schema.AgentRawEvent{}.Fields()
+	_ = agentraweventFields
+	// agentraweventDescDedupKey is the schema descriptor for dedup_key field.
+	agentraweventDescDedupKey := agentraweventFields[5].Descriptor()
+	// agentrawevent.DedupKeyValidator is a validator for the "dedup_key" field. It is called by the builders before save.
+	agentrawevent.DedupKeyValidator = agentraweventDescDedupKey.Validators[0].(func(string) error)
+	// agentraweventDescProvider is the schema descriptor for provider field.
+	agentraweventDescProvider := agentraweventFields[6].Descriptor()
+	// agentrawevent.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	agentrawevent.ProviderValidator = agentraweventDescProvider.Validators[0].(func(string) error)
+	// agentraweventDescProviderEventKind is the schema descriptor for provider_event_kind field.
+	agentraweventDescProviderEventKind := agentraweventFields[7].Descriptor()
+	// agentrawevent.ProviderEventKindValidator is a validator for the "provider_event_kind" field. It is called by the builders before save.
+	agentrawevent.ProviderEventKindValidator = agentraweventDescProviderEventKind.Validators[0].(func(string) error)
+	// agentraweventDescPayload is the schema descriptor for payload field.
+	agentraweventDescPayload := agentraweventFields[14].Descriptor()
+	// agentrawevent.DefaultPayload holds the default value on creation for the payload field.
+	agentrawevent.DefaultPayload = agentraweventDescPayload.Default.(func() map[string]interface{})
+	// agentraweventDescCreatedAt is the schema descriptor for created_at field.
+	agentraweventDescCreatedAt := agentraweventFields[16].Descriptor()
+	// agentrawevent.DefaultCreatedAt holds the default value on creation for the created_at field.
+	agentrawevent.DefaultCreatedAt = agentraweventDescCreatedAt.Default.(func() time.Time)
+	// agentraweventDescID is the schema descriptor for id field.
+	agentraweventDescID := agentraweventFields[0].Descriptor()
+	// agentrawevent.DefaultID holds the default value on creation for the id field.
+	agentrawevent.DefaultID = agentraweventDescID.Default.(func() uuid.UUID)
 	agentrunFields := schema.AgentRun{}.Fields()
 	_ = agentrunFields
 	// agentrunDescInputTokens is the schema descriptor for input_tokens field.
@@ -266,6 +341,28 @@ func init() {
 	agenttraceeventDescID := agenttraceeventFields[0].Descriptor()
 	// agenttraceevent.DefaultID holds the default value on creation for the id field.
 	agenttraceevent.DefaultID = agenttraceeventDescID.Default.(func() uuid.UUID)
+	agenttranscriptentryFields := schema.AgentTranscriptEntry{}.Fields()
+	_ = agenttranscriptentryFields
+	// agenttranscriptentryDescProvider is the schema descriptor for provider field.
+	agenttranscriptentryDescProvider := agenttranscriptentryFields[5].Descriptor()
+	// agenttranscriptentry.ProviderValidator is a validator for the "provider" field. It is called by the builders before save.
+	agenttranscriptentry.ProviderValidator = agenttranscriptentryDescProvider.Validators[0].(func(string) error)
+	// agenttranscriptentryDescEntryKey is the schema descriptor for entry_key field.
+	agenttranscriptentryDescEntryKey := agenttranscriptentryFields[6].Descriptor()
+	// agenttranscriptentry.EntryKeyValidator is a validator for the "entry_key" field. It is called by the builders before save.
+	agenttranscriptentry.EntryKeyValidator = agenttranscriptentryDescEntryKey.Validators[0].(func(string) error)
+	// agenttranscriptentryDescEntryKind is the schema descriptor for entry_kind field.
+	agenttranscriptentryDescEntryKind := agenttranscriptentryFields[7].Descriptor()
+	// agenttranscriptentry.EntryKindValidator is a validator for the "entry_kind" field. It is called by the builders before save.
+	agenttranscriptentry.EntryKindValidator = agenttranscriptentryDescEntryKind.Validators[0].(func(string) error)
+	// agenttranscriptentryDescMetadata is the schema descriptor for metadata field.
+	agenttranscriptentryDescMetadata := agenttranscriptentryFields[15].Descriptor()
+	// agenttranscriptentry.DefaultMetadata holds the default value on creation for the metadata field.
+	agenttranscriptentry.DefaultMetadata = agenttranscriptentryDescMetadata.Default.(func() map[string]interface{})
+	// agenttranscriptentryDescID is the schema descriptor for id field.
+	agenttranscriptentryDescID := agenttranscriptentryFields[0].Descriptor()
+	// agenttranscriptentry.DefaultID holds the default value on creation for the id field.
+	agenttranscriptentry.DefaultID = agenttranscriptentryDescID.Default.(func() uuid.UUID)
 	approvalpolicyruleFields := schema.ApprovalPolicyRule{}.Fields()
 	_ = approvalpolicyruleFields
 	// approvalpolicyruleDescScopeID is the schema descriptor for scope_id field.
