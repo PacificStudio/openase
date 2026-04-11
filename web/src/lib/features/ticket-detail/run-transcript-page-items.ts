@@ -11,6 +11,7 @@ import {
   buildTicketRunStepCursor,
   buildTicketRunTraceCursor,
   compareTicketRunTranscriptCursors,
+  normalizeTicketRunEventCursor,
   normalizeTicketRunTranscriptCursor,
 } from './run-transcript-cursor'
 import { mapTicketRunStepEntry, mapTicketRunTraceEntry } from './run-transcript-entry-mappers'
@@ -18,6 +19,9 @@ import { mapTicketRunStepEntry, mapTicketRunTraceEntry } from './run-transcript-
 export function mapProjectedTranscriptPage(
   payload: TicketRunDetailPayload,
 ): TicketRunTranscriptPage {
+  const transcriptCursorPage = payload.transcript_page
+    ? mapTranscriptPageRecord(payload.transcript_page)
+    : undefined
   const transcriptItems = mapTranscriptEntriesToItems(
     payload.run.id,
     payload.transcript_entries_page,
@@ -36,12 +40,10 @@ export function mapProjectedTranscriptPage(
     hiddenOlderCount: payload.transcript_entries_page?.hidden_older_count ?? 0,
     hasNewer: payload.transcript_entries_page?.has_newer ?? false,
     hiddenNewerCount: payload.transcript_entries_page?.hidden_newer_count ?? 0,
-    oldestCursor:
-      payload.transcript_entries_page?.oldest_cursor ??
-      (items.length > 0 ? items[0]?.cursor : undefined),
-    newestCursor:
-      payload.transcript_entries_page?.newest_cursor ??
-      (items.length > 0 ? items.at(-1)?.cursor : undefined),
+    oldestCursor: transcriptCursorPage?.oldestCursor,
+    newestCursor: transcriptCursorPage?.newestCursor,
+    oldestEventCursor: normalizeTicketRunEventCursor(payload.transcript_entries_page?.oldest_cursor),
+    newestEventCursor: normalizeTicketRunEventCursor(payload.transcript_entries_page?.newest_cursor),
   }
 }
 
@@ -60,6 +62,8 @@ export function mapTranscriptPageRecord(
     hiddenNewerCount: record.hidden_newer_count,
     oldestCursor: normalizeTicketRunTranscriptCursor(record.oldest_cursor) ?? items[0]?.cursor,
     newestCursor: normalizeTicketRunTranscriptCursor(record.newest_cursor) ?? items.at(-1)?.cursor,
+    oldestEventCursor: undefined,
+    newestEventCursor: undefined,
   }
 }
 

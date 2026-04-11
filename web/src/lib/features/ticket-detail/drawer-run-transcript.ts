@@ -113,18 +113,26 @@ export async function recoverTicketDrawerRunTranscript(
   }
   const currentRunId = nextState.currentRun.id
   let afterCursor = nextState.pageInfoByRun[currentRunId]?.newestCursor
+  let afterEventCursor = nextState.pageInfoByRun[currentRunId]?.newestEventCursor
   while (afterCursor) {
     const [detailPayload, transcriptEntriesPayload] = await Promise.all([
       deps.fetchRun === getTicketRun
         ? getTicketRun(projectId, ticketId, currentRunId, { after: afterCursor })
         : deps.fetchRun(projectId, ticketId, currentRunId, { after: afterCursor }),
-      deps.fetchRunTranscriptEntries === listTicketRunTranscriptEntries
-        ? listTicketRunTranscriptEntries(projectId, ticketId, currentRunId, { after: afterCursor })
-        : deps.fetchRunTranscriptEntries(projectId, ticketId, currentRunId, { after: afterCursor }),
+      afterEventCursor
+        ? deps.fetchRunTranscriptEntries === listTicketRunTranscriptEntries
+          ? listTicketRunTranscriptEntries(projectId, ticketId, currentRunId, {
+              after: afterEventCursor,
+            })
+          : deps.fetchRunTranscriptEntries(projectId, ticketId, currentRunId, {
+              after: afterEventCursor,
+            })
+        : Promise.resolve(undefined),
     ])
     const backfillDetail = mapTicketRunDetail({
       ...detailPayload,
-      transcript_entries_page: transcriptEntriesPayload.transcript_entries_page,
+      transcript_entries_page:
+        transcriptEntriesPayload?.transcript_entries_page ?? detailPayload.transcript_entries_page,
     })
     if (!isCurrentRequest(requestId)) {
       return
@@ -140,6 +148,7 @@ export async function recoverTicketDrawerRunTranscript(
       break
     }
     afterCursor = backfillDetail.transcriptPage.newestCursor
+    afterEventCursor = backfillDetail.transcriptPage.newestEventCursor
   }
 }
 
@@ -150,18 +159,22 @@ export async function loadOlderTicketDrawerRunTranscript(
   ticketId: string,
   runId: string,
   oldestCursor: string,
+  oldestEventCursor?: string,
 ) {
   const [detailPayload, transcriptEntriesPayload] = await Promise.all([
     deps.fetchRun === getTicketRun
       ? getTicketRun(projectId, ticketId, runId, { before: oldestCursor })
       : deps.fetchRun(projectId, ticketId, runId, { before: oldestCursor }),
-    deps.fetchRunTranscriptEntries === listTicketRunTranscriptEntries
-      ? listTicketRunTranscriptEntries(projectId, ticketId, runId, { before: oldestCursor })
-      : deps.fetchRunTranscriptEntries(projectId, ticketId, runId, { before: oldestCursor }),
+    oldestEventCursor
+      ? deps.fetchRunTranscriptEntries === listTicketRunTranscriptEntries
+        ? listTicketRunTranscriptEntries(projectId, ticketId, runId, { before: oldestEventCursor })
+        : deps.fetchRunTranscriptEntries(projectId, ticketId, runId, { before: oldestEventCursor })
+      : Promise.resolve(undefined),
   ])
   const detail = mapTicketRunDetail({
     ...detailPayload,
-    transcript_entries_page: transcriptEntriesPayload.transcript_entries_page,
+    transcript_entries_page:
+      transcriptEntriesPayload?.transcript_entries_page ?? detailPayload.transcript_entries_page,
   })
   if (detail.transcriptPage.items.length === 0) {
     return

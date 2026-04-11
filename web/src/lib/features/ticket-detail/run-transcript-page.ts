@@ -51,6 +51,8 @@ export function mapTicketRunTranscriptPage(
     hiddenNewerCount: 0,
     oldestCursor: items[0]?.cursor,
     newestCursor: items.at(-1)?.cursor,
+    oldestEventCursor: undefined,
+    newestEventCursor: undefined,
   }
 }
 
