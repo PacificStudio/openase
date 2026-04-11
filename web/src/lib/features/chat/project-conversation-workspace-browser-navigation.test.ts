@@ -4,21 +4,27 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  saveProjectConversationWorkspaceFile,
 } = vi.hoisted(() => ({
   getProjectConversationWorkspace: vi.fn(),
+  getProjectConversationWorkspaceDiff: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  saveProjectConversationWorkspaceFile: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspace,
+  getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  saveProjectConversationWorkspaceFile,
 }))
 
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
@@ -27,6 +33,25 @@ import {
   mockWorkspaceMetadata,
   workspaceDiff,
 } from './project-conversation-workspace-browser.test-helpers'
+import { workspaceFileDraftStorageKey } from './project-conversation-workspace-file-drafts'
+
+function buildTextPreview(path: string, content: string) {
+  return {
+    conversationId: 'conversation-1',
+    repoPath: 'services/openase',
+    path,
+    sizeBytes: content.length,
+    mediaType: 'text/plain',
+    previewKind: 'text' as const,
+    truncated: false,
+    content,
+    revision: `rev-${path}`,
+    writable: true,
+    readOnlyReason: '',
+    encoding: 'utf-8' as const,
+    lineEnding: 'lf' as const,
+  }
+}
 
 describe('ProjectConversationWorkspaceBrowser', () => {
   beforeAll(() => {
@@ -36,6 +61,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    window.localStorage.clear()
   })
 
   it('reloads workspace metadata after the parent diff refresh completes', async () => {
@@ -207,12 +233,10 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     expect(view.container.textContent).toContain('README.md')
     expect(view.container.textContent).toContain('text/plain')
-    await waitFor(() =>
-      expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain(
-        'line alpha',
-      ),
-    )
-    expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain('line beta')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('line alpha')
+      expect(view.container.textContent).toContain('line beta')
+    })
     expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
       'overflow-hidden',
     )
@@ -222,7 +246,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
       'overflow-hidden',
     )
-    expect(view.container.querySelector('.code-editor')?.className).toContain('overflow-hidden')
+    expect(view.container.querySelector('.code-editor')).not.toBeNull()
     expect(view.container.querySelector('.cm-scroller')).not.toBeNull()
     expect(view.container.querySelector('.cm-lineWrapping')).not.toBeNull()
   })
@@ -298,7 +322,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     })
 
     expect(view.container.textContent).toContain('added')
-    expect(view.container.textContent).toContain('export const ready = true;')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('export const ready = true;')
+    })
     expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
       'overflow-hidden',
     )
@@ -308,7 +334,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
       'overflow-hidden',
     )
-    expect(view.container.querySelector('.diff-viewer')?.className).toContain('overflow-auto')
+    expect(view.container.querySelector('.code-editor')).not.toBeNull()
   })
 
   it('expands the explorer tree to the selected changed file from the changes list', async () => {
@@ -370,7 +396,8 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     })
 
     const changeButton = await view.findByRole('button', { name: /new\.ts/i })
-    expect(view.getAllByRole('button', { name: /new\.ts/i })).toHaveLength(1)
+    const explorerList = view.getByTestId('workspace-browser-explorer-list')
+    expect(within(explorerList).queryAllByRole('button', { name: /new\.ts/i })).toHaveLength(0)
 
     await fireEvent.click(changeButton)
 
@@ -379,10 +406,169 @@ describe('ProjectConversationWorkspaceBrowser', () => {
         repoPath: 'services/openase',
         path: 'src',
       })
-      expect(view.getAllByRole('button', { name: /new\.ts/i })).toHaveLength(2)
+      expect(within(explorerList).getAllByRole('button', { name: /new\.ts/i })).toHaveLength(1)
     })
 
     expect(view.container.textContent).toContain('src')
-    expect(view.container.textContent).toContain('export const ready = true;')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('export const ready = true;')
+    })
+  })
+
+  it('asks before closing a dirty tab and discards the persisted draft when requested', async () => {
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
+    getProjectConversationWorkspaceDiff.mockResolvedValue({ workspaceDiff })
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
+      },
+    })
+    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
+      filePreview: buildTextPreview('README.md', 'line one\n'),
+    })
+    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
+      filePatch: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+        status: 'modified',
+        diffKind: 'text',
+        truncated: false,
+        diff: '@@ -1 +1 @@\n-line one\n+line one\n',
+      },
+    })
+    saveProjectConversationWorkspaceFile.mockResolvedValue({
+      file: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+        revision: 'rev-readme-next',
+        sizeBytes: 18,
+        encoding: 'utf-8',
+        lineEnding: 'lf',
+      },
+    })
+
+    const persistedKey = workspaceFileDraftStorageKey({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      filePath: 'README.md',
+    })
+    window.localStorage.setItem(
+      'openase.project-conversation.workspace-file-drafts',
+      JSON.stringify({
+        [persistedKey]: {
+          draftContent: 'line one\nline two\n',
+          baseSavedContent: 'line one\n',
+          baseSavedRevision: 'rev-README.md',
+          encoding: 'utf-8',
+          lineEnding: 'lf',
+          updatedAt: '2026-04-11T00:00:00.000Z',
+        },
+      }),
+    )
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff,
+        workspaceDiffLoading: false,
+      },
+    })
+
+    await fireEvent.click(
+      await view.findByRole('button', { name: /README\.md/ }, { timeout: 3000 }),
+    )
+
+    await waitFor(() => {
+      expect(view.getByTestId('workspace-browser-detail-tab-dirty-dot')).toBeTruthy()
+      expect(view.container.textContent).toContain('line two')
+    })
+
+    await fireEvent.click(view.getByLabelText('Close README.md'))
+
+    expect(await view.findByText('Save changes?')).toBeTruthy()
+    expect(
+      await view.findByText('README.md has unsaved changes. Save them before closing the tab?'),
+    ).toBeTruthy()
+
+    await fireEvent.click(view.getByRole('button', { name: "Don't save" }))
+
+    await waitFor(() => {
+      expect(view.queryByTestId('workspace-browser-detail-tab-README.md')).toBeNull()
+      expect(
+        window.localStorage.getItem('openase.project-conversation.workspace-file-drafts'),
+      ).toBeNull()
+    })
+  })
+
+  it('prompts the browser before unload when any open tab has unsaved changes', async () => {
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
+    getProjectConversationWorkspaceDiff.mockResolvedValue({ workspaceDiff })
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
+      },
+    })
+    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
+      filePreview: buildTextPreview('README.md', 'line one\n'),
+    })
+    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
+      filePatch: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+        status: 'modified',
+        diffKind: 'text',
+        truncated: false,
+        diff: '@@ -1 +1 @@\n-line one\n+line one\n',
+      },
+    })
+
+    const persistedKey = workspaceFileDraftStorageKey({
+      conversationId: 'conversation-1',
+      repoPath: 'services/openase',
+      filePath: 'README.md',
+    })
+    window.localStorage.setItem(
+      'openase.project-conversation.workspace-file-drafts',
+      JSON.stringify({
+        [persistedKey]: {
+          draftContent: 'dirty readme\n',
+          baseSavedContent: 'line one\n',
+          baseSavedRevision: 'rev-README.md',
+          encoding: 'utf-8',
+          lineEnding: 'lf',
+          updatedAt: '2026-04-11T00:00:00.000Z',
+        },
+      }),
+    )
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff,
+        workspaceDiffLoading: false,
+      },
+    })
+
+    await fireEvent.click(
+      await view.findByRole('button', { name: /README\.md/ }, { timeout: 3000 }),
+    )
+    await waitFor(() =>
+      expect(view.getByTestId('workspace-browser-detail-tab-dirty-dot')).toBeTruthy(),
+    )
+
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+
+    view.unmount()
   })
 })

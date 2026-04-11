@@ -1,14 +1,13 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
   import { syncProjectConversationWorkspace } from '$lib/api/chat'
-  import { cn } from '$lib/utils'
+  import { appStore } from '$lib/stores/app.svelte'
   import { AlertCircle } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
-  import WorkspaceTerminalPanel from './workspace-terminal-panel.svelte'
-  import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
-  import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
-  import ProjectConversationWorkspaceSyncBanner from './project-conversation-workspace-sync-banner.svelte'
+  import { PROJECT_AI_FOCUS_PRIORITY } from './project-ai-focus'
+  import ProjectConversationWorkspaceBrowserPane from './project-conversation-workspace-browser-pane.svelte'
   import ProjectConversationWorkspaceBrowserToolbar from './project-conversation-workspace-browser-toolbar.svelte'
+  import ProjectConversationWorkspaceSyncBanner from './project-conversation-workspace-sync-banner.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
   import { createTerminalManager } from './terminal-manager.svelte'
   import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
@@ -17,6 +16,7 @@
     conversationId = '',
     workspaceDiff = null,
     workspaceDiffLoading = false,
+    runtimeActive = false,
     syncGeneration = 0,
     pendingFilePath = '',
     onClose,
@@ -25,6 +25,7 @@
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     workspaceDiffLoading?: boolean
+    runtimeActive?: boolean
     syncGeneration?: number
     /** File path to navigate to (consumed once on change). */
     pendingFilePath?: string
@@ -32,8 +33,15 @@
     onPendingFileConsumed?: () => void
   } = $props()
 
+  const projectAIFocusOwner = 'project-conversation-workspace-browser'
+  let refreshedWorkspaceDiff = $state<ProjectConversationWorkspaceDiff | null>(null)
+  const liveWorkspaceDiff = $derived(refreshedWorkspaceDiff ?? workspaceDiff ?? null)
+
   const browser = createProjectConversationWorkspaceBrowserState({
     getConversationId: () => conversationId,
+    onWorkspaceDiffUpdated: (nextWorkspaceDiff) => {
+      refreshedWorkspaceDiff = nextWorkspaceDiff
+    },
   })
 
   const terminalManager = createTerminalManager({
@@ -46,74 +54,6 @@
   })
 
   let pathCopied = $state(false)
-
-  function copyWorkspacePath() {
-    const path = browser.metadata?.workspacePath
-    if (!path) return
-    navigator.clipboard.writeText(path)
-    pathCopied = true
-    setTimeout(() => (pathCopied = false), 1500)
-  }
-
-  const MIN_SIDEBAR_WIDTH = 180
-  const MAX_SIDEBAR_WIDTH = 480
-  let sidebarWidth = $state(240)
-  let sidebarResizing = $state(false)
-
-  function handleSidebarResizeStart(event: PointerEvent) {
-    event.preventDefault()
-    sidebarResizing = true
-    const startX = event.clientX
-    const startWidth = sidebarWidth
-
-    function onMove(e: PointerEvent) {
-      sidebarWidth = Math.min(
-        MAX_SIDEBAR_WIDTH,
-        Math.max(MIN_SIDEBAR_WIDTH, startWidth + (e.clientX - startX)),
-      )
-    }
-
-    function onUp() {
-      sidebarResizing = false
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-
-  const MIN_TERMINAL_HEIGHT = 120
-  const DEFAULT_TERMINAL_HEIGHT = 260
-  let terminalHeight = $state(DEFAULT_TERMINAL_HEIGHT)
-  let terminalResizing = $state(false)
-  let containerElement: HTMLDivElement | null = null
-
-  function handleTerminalResizeStart(event: PointerEvent) {
-    event.preventDefault()
-    terminalResizing = true
-    const startY = event.clientY
-    const startHeight = terminalHeight
-
-    function onMove(e: PointerEvent) {
-      const maxHeight = containerElement ? containerElement.clientHeight - 100 : 600
-      terminalHeight = Math.min(
-        maxHeight,
-        Math.max(MIN_TERMINAL_HEIGHT, startHeight - (e.clientY - startY)),
-      )
-    }
-
-    function onUp() {
-      terminalResizing = false
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      terminalManager.refitAll()
-    }
-
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-
   let refreshGeneration = $state(0)
   let lastRefreshKey = $state('')
   let lastWorkspaceDiffLoading = $state(false)
@@ -128,9 +68,17 @@
       null,
   )
   const selectedRepoDiff = $derived(
-    workspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
+    liveWorkspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
-  const syncPrompt = $derived(workspaceDiff?.syncPrompt ?? browser.metadata?.syncPrompt ?? null)
+  const syncPrompt = $derived(liveWorkspaceDiff?.syncPrompt ?? browser.metadata?.syncPrompt ?? null)
+
+  function copyWorkspacePath() {
+    const path = browser.metadata?.workspacePath
+    if (!path) return
+    navigator.clipboard.writeText(path)
+    pathCopied = true
+    setTimeout(() => (pathCopied = false), 1500)
+  }
 
   async function handleSyncWorkspace() {
     if (!conversationId || syncInFlight) {
@@ -151,7 +99,6 @@
     }
   }
 
-  // Navigate to a pending file when set
   $effect(() => {
     if (pendingFilePath && browser.metadata?.available) {
       untrack(() => {
@@ -207,12 +154,92 @@
       void browser.refreshWorkspace(true)
     })
   })
+
+  $effect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      const editorState = browser.selectedEditorState
+      if (!editorState) {
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        if (!editorState.dirty || !browser.preview?.writable) {
+          return
+        }
+        event.preventDefault()
+        void browser.saveSelectedFile()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  })
+
+  $effect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!browser.hasDirtyTabs) {
+        return
+      }
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id ?? ''
+    const editorState = browser.selectedEditorState
+    if (
+      !projectId ||
+      !conversationId ||
+      !browser.selectedRepoPath ||
+      !browser.selectedFilePath ||
+      !editorState
+    ) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'workspace_file',
+        projectId,
+        conversationId,
+        repoPath: browser.selectedRepoPath,
+        filePath: browser.selectedFilePath,
+        selectedArea: 'edit',
+        hasDirtyDraft: editorState.dirty,
+        draftContent: editorState.dirty ? editorState.draftContent : undefined,
+        encoding: editorState.encoding,
+        lineEnding: editorState.lineEnding,
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
+  })
 </script>
 
 <div
   class="bg-background flex h-full min-h-0 w-full flex-col"
   data-testid="project-conversation-workspace-browser"
-  bind:this={containerElement}
 >
   <ProjectConversationWorkspaceBrowserToolbar
     workspacePath={browser.metadata?.workspacePath ?? ''}
@@ -266,12 +293,7 @@
       onSync={handleSyncWorkspace}
     />
   {:else}
-    <div
-      class={cn(
-        'flex min-h-0 flex-1 flex-col',
-        (sidebarResizing || terminalResizing) && 'select-none',
-      )}
-    >
+    <div class="flex min-h-0 flex-1 flex-col">
       {#if syncPrompt}
         <ProjectConversationWorkspaceSyncBanner
           prompt={syncPrompt}
@@ -280,70 +302,13 @@
           onSync={handleSyncWorkspace}
         />
       {/if}
-      <!-- Files area -->
-      <div class="flex min-h-0 flex-1">
-        <!-- Sidebar (resizable) -->
-        <div
-          class="relative min-h-0 shrink-0 overflow-hidden"
-          style="width: {sidebarWidth}px"
-          data-testid="workspace-browser-sidebar-panel"
-        >
-          <ProjectConversationWorkspaceBrowserSidebar
-            repos={browser.metadata?.repos ?? []}
-            selectedRepoPath={browser.selectedRepoPath}
-            {selectedRepo}
-            {selectedRepoDiff}
-            treeNodes={browser.treeNodes}
-            expandedDirs={browser.expandedDirs}
-            loadingDirs={browser.loadingDirs}
-            selectedFilePath={browser.selectedFilePath}
-            onOpenRepo={browser.openRepo}
-            onToggleDir={browser.toggleDir}
-            onSelectFile={browser.selectFile}
-          />
-          <!-- Resize handle -->
-          <div
-            class={cn(
-              'absolute inset-y-0 right-0 z-10 w-1 cursor-col-resize transition-colors',
-              sidebarResizing ? 'bg-primary' : 'bg-border hover:bg-primary/50',
-            )}
-            role="separator"
-            aria-orientation="vertical"
-            onpointerdown={handleSidebarResizeStart}
-          ></div>
-        </div>
-        <!-- Detail -->
-        <div
-          class="min-h-0 min-w-0 flex-1 overflow-hidden"
-          data-testid="workspace-browser-detail-panel"
-        >
-          <ProjectConversationWorkspaceBrowserDetail
-            {selectedRepo}
-            selectedFilePath={browser.selectedFilePath}
-            preview={browser.preview}
-            patch={browser.patch}
-            fileLoading={browser.fileLoading}
-            fileError={browser.fileError}
-          />
-        </div>
-      </div>
-
-      <!-- Terminal panel (bottom, like VSCode) -->
-      {#if terminalManager.panelOpen}
-        <!-- Resize handle -->
-        <div
-          class={cn(
-            'h-[3px] shrink-0 cursor-row-resize transition-colors',
-            terminalResizing ? 'bg-primary' : 'bg-border hover:bg-primary/50',
-          )}
-          role="separator"
-          aria-orientation="horizontal"
-          onpointerdown={handleTerminalResizeStart}
-        ></div>
-        <div class="flex min-h-0 shrink-0 overflow-hidden" style="height: {terminalHeight}px">
-          <WorkspaceTerminalPanel manager={terminalManager} />
-        </div>
-      {/if}
+      <ProjectConversationWorkspaceBrowserPane
+        {browser}
+        {selectedRepo}
+        {selectedRepoDiff}
+        {runtimeActive}
+        {terminalManager}
+      />
     </div>
   {/if}
 </div>

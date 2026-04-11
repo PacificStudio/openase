@@ -17,8 +17,9 @@ type rawCreateConversationRequest struct {
 }
 
 type rawConversationTurnRequest struct {
-	Message string                                   `json:"message"`
-	Focus   *chatservice.RawProjectConversationFocus `json:"focus"`
+	Message            string                                           `json:"message"`
+	Focus              *chatservice.RawProjectConversationFocus         `json:"focus"`
+	WorkspaceFileDraft *rawProjectConversationWorkspaceFileDraftContext `json:"workspace_file_draft,omitempty"`
 }
 
 type rawInterruptResponseRequest struct {
@@ -33,8 +34,9 @@ type createProjectConversationRequest struct {
 }
 
 type projectConversationTurnRequest struct {
-	Message string
-	Focus   *chatservice.ProjectConversationFocus
+	Message            string
+	Focus              *chatservice.ProjectConversationFocus
+	WorkspaceFileDraft *chatservice.ProjectConversationWorkspaceFileDraftContext
 }
 
 type projectConversationWorkspaceTreeRequest struct {
@@ -45,6 +47,27 @@ type projectConversationWorkspaceTreeRequest struct {
 type projectConversationWorkspaceFileRequest struct {
 	RepoPath string
 	Path     string
+}
+
+type rawUpdateProjectConversationWorkspaceFileRequest struct {
+	RepoPath     string `json:"repo_path"`
+	Path         string `json:"path"`
+	BaseRevision string `json:"base_revision"`
+	Content      string `json:"content"`
+	Encoding     string `json:"encoding"`
+	LineEnding   string `json:"line_ending"`
+}
+
+type updateProjectConversationWorkspaceFileRequest struct {
+	File chatservice.ProjectConversationWorkspaceFileSaveInput
+}
+
+type rawProjectConversationWorkspaceFileDraftContext struct {
+	RepoPath   string `json:"repo_path"`
+	Path       string `json:"path"`
+	Content    string `json:"content"`
+	Encoding   string `json:"encoding"`
+	LineEnding string `json:"line_ending"`
 }
 
 type rawCreateProjectConversationTerminalSessionRequest struct {
@@ -89,9 +112,14 @@ func parseProjectConversationTurnRequest(raw rawConversationTurnRequest) (projec
 	if err != nil {
 		return projectConversationTurnRequest{}, writeableError(err.Error())
 	}
+	workspaceFileDraft, err := parseProjectConversationWorkspaceFileDraftContext(raw.WorkspaceFileDraft)
+	if err != nil {
+		return projectConversationTurnRequest{}, writeableError(err.Error())
+	}
 	return projectConversationTurnRequest{
-		Message: message,
-		Focus:   focus,
+		Message:            message,
+		Focus:              focus,
+		WorkspaceFileDraft: workspaceFileDraft,
 	}, nil
 }
 
@@ -131,6 +159,80 @@ func parseProjectConversationWorkspaceFileRequest(
 	return projectConversationWorkspaceFileRequest{
 		RepoPath: trimmedRepoPath,
 		Path:     trimmedPath,
+	}, nil
+}
+
+func parseUpdateProjectConversationWorkspaceFileRequest(
+	raw rawUpdateProjectConversationWorkspaceFileRequest,
+) (updateProjectConversationWorkspaceFileRequest, error) {
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	filePath, err := chatservice.ParseWorkspaceFilePath(raw.Path)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	baseRevision, err := chatservice.ParseWorkspaceFileRevision(raw.BaseRevision)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	content, err := chatservice.ParseWorkspaceTextContent(raw.Content)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	encoding, err := chatservice.ParseWorkspaceEncoding(raw.Encoding)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	lineEnding, err := chatservice.ParseWorkspaceLineEnding(raw.LineEnding)
+	if err != nil {
+		return updateProjectConversationWorkspaceFileRequest{}, writeableError(err.Error())
+	}
+	return updateProjectConversationWorkspaceFileRequest{
+		File: chatservice.ProjectConversationWorkspaceFileSaveInput{
+			RepoPath:     repoPath,
+			Path:         filePath,
+			BaseRevision: baseRevision,
+			Content:      content,
+			Encoding:     encoding,
+			LineEnding:   lineEnding,
+		},
+	}, nil
+}
+
+func parseProjectConversationWorkspaceFileDraftContext(
+	raw *rawProjectConversationWorkspaceFileDraftContext,
+) (*chatservice.ProjectConversationWorkspaceFileDraftContext, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	repoPath, err := chatservice.ParseWorkspaceRepoPath(raw.RepoPath)
+	if err != nil {
+		return nil, err
+	}
+	filePath, err := chatservice.ParseWorkspaceFilePath(raw.Path)
+	if err != nil {
+		return nil, err
+	}
+	content, err := chatservice.ParseWorkspaceTextContent(raw.Content)
+	if err != nil {
+		return nil, err
+	}
+	encoding, err := chatservice.ParseWorkspaceEncoding(raw.Encoding)
+	if err != nil {
+		return nil, err
+	}
+	lineEnding, err := chatservice.ParseWorkspaceLineEnding(raw.LineEnding)
+	if err != nil {
+		return nil, err
+	}
+	return &chatservice.ProjectConversationWorkspaceFileDraftContext{
+		RepoPath:   repoPath,
+		Path:       filePath,
+		Content:    content,
+		Encoding:   encoding,
+		LineEnding: lineEnding,
 	}, nil
 }
 

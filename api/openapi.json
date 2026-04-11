@@ -5554,6 +5554,11 @@
                         },
                         "type": "array"
                       },
+                      "conversation_id": {
+                        "description": "Conversation ID for the focused workspace file surface.",
+                        "nullable": true,
+                        "type": "string"
+                      },
                       "harness_path": {
                         "description": "Harness path for the focused workflow.",
                         "nullable": true,
@@ -5575,7 +5580,7 @@
                         "type": "boolean"
                       },
                       "kind": {
-                        "description": "Focused surface kind. Supported values are workflow, skill, ticket, and machine.",
+                        "description": "Focused surface kind. Supported values are workflow, skill, ticket, machine, and workspace_file.",
                         "type": "string"
                       },
                       "machine_host": {
@@ -5879,6 +5884,16 @@
                         "description": "Workflow type currently in focus.",
                         "nullable": true,
                         "type": "string"
+                      },
+                      "workspace_file_path": {
+                        "description": "Repo-relative file path for the focused workspace file.",
+                        "nullable": true,
+                        "type": "string"
+                      },
+                      "workspace_repo_path": {
+                        "description": "Workspace-relative repo path for the focused workspace file.",
+                        "nullable": true,
+                        "type": "string"
                       }
                     },
                     "type": "object"
@@ -5886,6 +5901,33 @@
                   "message": {
                     "description": "User message content appended as the next project conversation turn.",
                     "type": "string"
+                  },
+                  "workspace_file_draft": {
+                    "description": "Optional request-scoped unsaved workspace file draft context for the active turn.",
+                    "nullable": true,
+                    "properties": {
+                      "content": {
+                        "description": "Full unsaved draft content for the active workspace file.",
+                        "type": "string"
+                      },
+                      "encoding": {
+                        "description": "Normalized draft encoding. V1 supports utf-8 only.",
+                        "type": "string"
+                      },
+                      "line_ending": {
+                        "description": "Requested line ending style for the unsaved draft context.",
+                        "type": "string"
+                      },
+                      "path": {
+                        "description": "Repo-relative file path for the unsaved draft.",
+                        "type": "string"
+                      },
+                      "repo_path": {
+                        "description": "Workspace-relative repo path for the unsaved draft.",
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
                   }
                 },
                 "type": "object"
@@ -6504,6 +6546,12 @@
                         "conversation_id": {
                           "type": "string"
                         },
+                        "encoding": {
+                          "type": "string"
+                        },
+                        "line_ending": {
+                          "type": "string"
+                        },
                         "media_type": {
                           "type": "string"
                         },
@@ -6513,7 +6561,13 @@
                         "preview_kind": {
                           "type": "string"
                         },
+                        "read_only_reason": {
+                          "type": "string"
+                        },
                         "repo_path": {
+                          "type": "string"
+                        },
+                        "revision": {
                           "type": "string"
                         },
                         "size_bytes": {
@@ -6521,6 +6575,9 @@
                           "type": "integer"
                         },
                         "truncated": {
+                          "type": "boolean"
+                        },
+                        "writable": {
                           "type": "boolean"
                         }
                       },
@@ -6625,6 +6682,193 @@
           }
         },
         "summary": "Read a project conversation workspace file preview",
+        "tags": [
+          "chat"
+        ]
+      },
+      "put": {
+        "operationId": "saveProjectConversationWorkspaceFile",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "base_revision": {
+                    "description": "Opaque saved-file revision token the client last loaded. Saves reject stale revisions with 409 Conflict.",
+                    "type": "string"
+                  },
+                  "content": {
+                    "description": "Complete replacement text content for the file save request.",
+                    "type": "string"
+                  },
+                  "encoding": {
+                    "description": "Normalized text encoding for the save request. V1 supports utf-8 only.",
+                    "type": "string"
+                  },
+                  "line_ending": {
+                    "description": "Requested line ending style to preserve when writing the file.",
+                    "type": "string"
+                  },
+                  "path": {
+                    "description": "Repo-relative existing file path to update inside the conversation workspace.",
+                    "type": "string"
+                  },
+                  "repo_path": {
+                    "description": "Workspace-relative repo path chosen from the workspace metadata response.",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Save one project conversation workspace file request body.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "file": {
+                      "properties": {
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "encoding": {
+                          "type": "string"
+                        },
+                        "line_ending": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "repo_path": {
+                          "type": "string"
+                        },
+                        "revision": {
+                          "type": "string"
+                        },
+                        "size_bytes": {
+                          "format": "int64",
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Save one project conversation workspace file response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Save one project conversation workspace file",
         "tags": [
           "chat"
         ]

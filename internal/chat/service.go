@@ -824,6 +824,18 @@ func renderProjectConversationFocus(focus *ProjectConversationFocus) string {
 		if focus.Machine.HealthSummary != "" {
 			_, _ = fmt.Fprintf(&sb, "- health_summary: %s\n", focus.Machine.HealthSummary)
 		}
+	case ProjectConversationFocusWorkspace:
+		if focus.Workspace == nil {
+			return "- none\n"
+		}
+		_, _ = fmt.Fprintf(&sb, "- Type: workspace_file\n")
+		_, _ = fmt.Fprintf(&sb, "- conversation_id: %s\n", focus.Workspace.ConversationID)
+		_, _ = fmt.Fprintf(&sb, "- repo_path: %s\n", focus.Workspace.RepoPath)
+		_, _ = fmt.Fprintf(&sb, "- file_path: %s\n", focus.Workspace.FilePath)
+		if focus.Workspace.SelectedArea != "" {
+			_, _ = fmt.Fprintf(&sb, "- selected_area: %s\n", focus.Workspace.SelectedArea)
+		}
+		_, _ = fmt.Fprintf(&sb, "- has_dirty_draft: %t\n", focus.Workspace.HasDirtyDraft)
 	}
 	return sb.String()
 }

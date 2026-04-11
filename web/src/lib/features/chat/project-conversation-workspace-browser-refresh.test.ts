@@ -176,7 +176,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
     expect(view.container.textContent).toContain('main.ts')
-    expect(view.container.textContent).toContain('export const refreshed = true;')
+    await waitFor(() => {
+      expect(view.container.textContent).toContain('export const refreshed = true;')
+    })
   })
 
   it('keeps tree and file DOM stable when a refresh returns identical data', async () => {
