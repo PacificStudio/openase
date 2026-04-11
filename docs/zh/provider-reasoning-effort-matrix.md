@@ -44,15 +44,19 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
 
 | Model | Supported efforts | Default |
 | --- | --- | --- |
-| `claude-opus-4-6` | `low`, `medium`, `high`, `max` | `medium` |
-| `claude-sonnet-4-6` | `low`, `medium`, `high`, `max` | `medium` |
-| `claude-haiku-4-5` | `low`, `medium`, `high`, `max` | `medium` |
+| `claude-opus-4-6` | `low`, `medium`, `high`, `max` | account-plan dependent; OpenASE leaves default unset and defers to CLI |
+| `claude-sonnet-4-6` | `low`, `medium`, `high` | account-plan dependent; OpenASE leaves default unset and defers to CLI |
+| `claude-haiku-4-5` | not supported | n/a |
 
 运行时透传方式：
 
 - OpenASE 持久化字段：`reasoning_effort`
 - OpenASE Runtime / Adapter：通过 Claude CLI 参数 `--effort <value>`
 - Provider 自定义 `cli_args` 中手工写入的 `--effort` 会在 Service 层被归一化移除，避免与 Provider 配置冲突
+- Claude 官方 `model-config` 当前说明：
+  - effort 仅对 `claude-opus-4-6` 与 `claude-sonnet-4-6` 生效
+  - `max` 仅对 `claude-opus-4-6` 可用
+  - 默认 effort 取决于 Claude 账户计划，而不是单纯由模型决定；因此 OpenASE 对 Claude 不伪造固定 `default_effort`
 
 ## OpenASE 设计结论
 
@@ -76,6 +80,7 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
   - `capabilities.reasoning`
   - `capabilities.reasoning.selected_effort`
   - `capabilities.reasoning.effective_effort`
+  - 对 Claude 未显式选择 preset 时，`effective_effort` 可能为空，表示“沿用 CLI / account plan 默认值，OpenASE 不猜测”
 - Provider model catalog 暴露：
   - `reasoning.state`
   - `reasoning.supported_efforts`
@@ -159,6 +164,14 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
   - 继续直接探测 `https://claude.ai/` 首页时，自动化浏览器同样只拿到 Cloudflare `Just a moment... / Performing security verification` 页面，进一步排除了从现有 Web 会话导出可用 SSO 状态的可能性
 
 这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证；要完成最终验收，仍需要刷新 Claude 登录态或提供可用的 `ANTHROPIC_API_KEY`。
+
+补充修正（2026-04-12）：
+
+- 基于 Claude 官方 `model-config` 文档，OpenASE 已把 Claude reasoning 内建矩阵修正为：
+  - `claude-opus-4-6`: `low / medium / high / max`
+  - `claude-sonnet-4-6`: `low / medium / high`
+  - `claude-haiku-4-5`: unsupported
+- 同时移除了对 Claude 固定 `default_effort = medium` 的错误假设，避免在 UI / API 中把 plan-dependent 默认值错误呈现成确定值。
 
 ## 风险与后续建议
 

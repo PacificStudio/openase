@@ -94,20 +94,16 @@ var builtinAgentProviderModelReasoning = map[AgentProviderAdapterType]map[string
 		"claude-opus-4-6": {
 			State:                  AgentProviderCapabilityStateAvailable,
 			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh, AgentProviderReasoningEffortMax),
-			DefaultEffort:          reasoningEffortPointer(AgentProviderReasoningEffortMedium),
 			SupportsProviderPreset: true,
 		},
 		"claude-sonnet-4-6": {
 			State:                  AgentProviderCapabilityStateAvailable,
-			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh, AgentProviderReasoningEffortMax),
-			DefaultEffort:          reasoningEffortPointer(AgentProviderReasoningEffortMedium),
+			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh),
 			SupportsProviderPreset: true,
 		},
 		"claude-haiku-4-5": {
-			State:                  AgentProviderCapabilityStateAvailable,
-			SupportedEfforts:       newReasoningEffortSlice(AgentProviderReasoningEffortLow, AgentProviderReasoningEffortMedium, AgentProviderReasoningEffortHigh, AgentProviderReasoningEffortMax),
-			DefaultEffort:          reasoningEffortPointer(AgentProviderReasoningEffortMedium),
-			SupportsProviderPreset: true,
+			State:  AgentProviderCapabilityStateUnsupported,
+			Reason: availabilityReasonPointer(providerReasonReasoningUnsupported),
 		},
 	},
 }

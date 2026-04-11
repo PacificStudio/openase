@@ -109,7 +109,7 @@ export function providerReasoningCapabilitySummary(
     case 'unknown_model':
       return 'Reasoning presets are only available for built-in models in the catalog.'
     case 'reasoning_unsupported':
-      return 'This adapter does not expose a reasoning preset contract.'
+      return 'Reasoning presets are unavailable for this model or adapter.'
     default:
       if (capability.state === 'available') {
         const efforts = capability.supportedEfforts ?? []

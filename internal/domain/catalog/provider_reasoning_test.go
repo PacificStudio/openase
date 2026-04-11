@@ -23,6 +23,35 @@ func TestBuiltinAgentProviderModelReasoningCapabilityCodex(t *testing.T) {
 	}
 }
 
+func TestBuiltinAgentProviderModelReasoningCapabilityClaudeSonnet(t *testing.T) {
+	capability := BuiltinAgentProviderModelReasoningCapability(
+		AgentProviderAdapterTypeClaudeCodeCLI,
+		"claude-sonnet-4-6",
+	)
+	if capability.State != AgentProviderCapabilityStateAvailable {
+		t.Fatalf("capability state = %q, want available", capability.State)
+	}
+	if capability.DefaultEffort != nil {
+		t.Fatalf("default effort = %+v, want nil because Claude defaults depend on account plan", capability.DefaultEffort)
+	}
+	if got := reasoningEffortStrings(capability.SupportedEfforts); strings.Join(got, ",") != "low,medium,high" {
+		t.Fatalf("supported efforts = %v", got)
+	}
+}
+
+func TestBuiltinAgentProviderModelReasoningCapabilityClaudeHaikuUnsupported(t *testing.T) {
+	capability := BuiltinAgentProviderModelReasoningCapability(
+		AgentProviderAdapterTypeClaudeCodeCLI,
+		"claude-haiku-4-5",
+	)
+	if capability.State != AgentProviderCapabilityStateUnsupported {
+		t.Fatalf("capability state = %q, want unsupported", capability.State)
+	}
+	if capability.Reason == nil || *capability.Reason != providerReasonReasoningUnsupported {
+		t.Fatalf("capability reason = %+v, want %q", capability.Reason, providerReasonReasoningUnsupported)
+	}
+}
+
 func TestBuiltinAgentProviderModelReasoningCapabilityUnknownModel(t *testing.T) {
 	capability := BuiltinAgentProviderModelReasoningCapability(
 		AgentProviderAdapterTypeCodexAppServer,
@@ -127,6 +156,23 @@ func TestResolveAgentProviderReasoningCapabilityUsesSelectedEffort(t *testing.T)
 	}
 	if capability.EffectiveEffort == nil || *capability.EffectiveEffort != AgentProviderReasoningEffortHigh {
 		t.Fatalf("effective effort = %+v, want high", capability.EffectiveEffort)
+	}
+}
+
+func TestResolveAgentProviderReasoningCapabilityLeavesUnknownClaudeDefaultUnset(t *testing.T) {
+	capability := ResolveAgentProviderReasoningCapability(AgentProvider{
+		ID:          uuid.New(),
+		AdapterType: AgentProviderAdapterTypeClaudeCodeCLI,
+		ModelName:   "claude-sonnet-4-6",
+	})
+	if capability.State != AgentProviderCapabilityStateAvailable {
+		t.Fatalf("capability state = %q, want available", capability.State)
+	}
+	if capability.DefaultEffort != nil {
+		t.Fatalf("default effort = %+v, want nil", capability.DefaultEffort)
+	}
+	if capability.EffectiveEffort != nil {
+		t.Fatalf("effective effort = %+v, want nil when no preset is selected", capability.EffectiveEffort)
 	}
 }
 

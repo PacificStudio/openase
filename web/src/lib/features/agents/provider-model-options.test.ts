@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AgentProviderModelCatalogEntry } from '$lib/api/contracts'
 import {
+  providerReasoningCapabilitySummary,
   providerModelReasoningCapability,
   recommendedProviderModelId,
   splitProviderModelSelection,
@@ -40,6 +41,59 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
           supported_efforts: ['low', 'medium', 'high', 'xhigh'],
           default_effort: 'medium',
           supports_provider_preset: true,
+          supports_model_override: false,
+        },
+      },
+    ],
+  },
+  {
+    adapter_type: 'claude-code-cli',
+    options: [
+      {
+        id: 'claude-opus-4-6',
+        label: 'Default',
+        description: 'Opus 4.6 with 1M context.',
+        recommended: true,
+        preview: false,
+        pricing_config: null,
+        reasoning: {
+          state: 'available',
+          reason: null,
+          supported_efforts: ['low', 'medium', 'high', 'max'],
+          default_effort: null,
+          supports_provider_preset: true,
+          supports_model_override: false,
+        },
+      },
+      {
+        id: 'claude-sonnet-4-6',
+        label: 'Sonnet',
+        description: 'Sonnet 4.6.',
+        recommended: false,
+        preview: false,
+        pricing_config: null,
+        reasoning: {
+          state: 'available',
+          reason: null,
+          supported_efforts: ['low', 'medium', 'high'],
+          default_effort: null,
+          supports_provider_preset: true,
+          supports_model_override: false,
+        },
+      },
+      {
+        id: 'claude-haiku-4-5',
+        label: 'Haiku',
+        description: 'Haiku 4.5.',
+        recommended: false,
+        preview: false,
+        pricing_config: null,
+        reasoning: {
+          state: 'unsupported',
+          reason: 'reasoning_unsupported',
+          supported_efforts: [],
+          default_effort: null,
+          supports_provider_preset: false,
           supports_model_override: false,
         },
       },
@@ -150,6 +204,37 @@ describe('provider model options', () => {
         state: 'unsupported',
         reason: 'unknown_model',
       }),
+    )
+  })
+
+  it('keeps Claude plan-dependent defaults unset and models unsupported effort explicitly', () => {
+    expect(
+      providerModelReasoningCapability(
+        providerModelCatalogFixture,
+        'claude-code-cli',
+        'claude-sonnet-4-6',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        state: 'available',
+        defaultEffort: null,
+        supportedEfforts: ['low', 'medium', 'high'],
+      }),
+    )
+
+    const unsupported = providerModelReasoningCapability(
+      providerModelCatalogFixture,
+      'claude-code-cli',
+      'claude-haiku-4-5',
+    )
+    expect(unsupported).toEqual(
+      expect.objectContaining({
+        state: 'unsupported',
+        reason: 'reasoning_unsupported',
+      }),
+    )
+    expect(providerReasoningCapabilitySummary(unsupported)).toBe(
+      'Reasoning presets are unavailable for this model or adapter.',
     )
   })
 })
