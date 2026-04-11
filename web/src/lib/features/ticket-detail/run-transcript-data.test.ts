@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { mapTicketRun } from './run-transcript-data'
+import { mapTicketRun, mapTicketRunDetail } from './run-transcript-data'
 
 describe('mapTicketRun', () => {
   it('maps legacy stalled status to ended and preserves terminal timestamps', () => {
@@ -41,5 +41,84 @@ describe('mapTicketRun', () => {
     expect(run.usage.cacheCreation).toBe(2)
     expect(run.terminalAt).toBe('2026-04-03T12:02:00Z')
     expect(run.completedAt).toBeUndefined()
+  })
+})
+
+describe('mapTicketRunDetail', () => {
+  it('falls back to transcript item cursors when page cursors are malformed', () => {
+    const detail = mapTicketRunDetail({
+      run: {
+        id: 'run-1',
+        attempt_number: 1,
+        agent_id: 'agent-1',
+        agent_name: 'Runner',
+        provider: 'Codex',
+        adapter_type: 'codex-app-server',
+        model_name: 'gpt-5.4',
+        usage: {
+          total: 25,
+          input: 20,
+          output: 5,
+          cached_input: 3,
+          cache_creation: 2,
+          reasoning: 1,
+          prompt: 18,
+          candidate: 4,
+          tool: 2,
+        },
+        status: 'ready',
+        current_step_status: null,
+        current_step_summary: null,
+        created_at: '2026-04-03T12:00:00Z',
+        runtime_started_at: '2026-04-03T12:00:10Z',
+        last_heartbeat_at: '2026-04-03T12:01:00Z',
+        terminal_at: null,
+        completed_at: null,
+        last_error: null,
+        completion_summary: undefined,
+      },
+      transcript_page: {
+        items: [
+          {
+            kind: 'step',
+            cursor: ' 2026-04-03T12:00:11Z|step|0|step-1 ',
+            step_entry: {
+              id: 'step-1',
+              agent_run_id: 'run-1',
+              step_status: 'running_command',
+              summary: 'Running tests.',
+              source_trace_event_id: null,
+              created_at: '2026-04-03T12:00:11Z',
+            },
+          },
+          {
+            kind: 'trace',
+            cursor: '2026-04-03T12:00:12Z|trace|2|trace-2',
+            trace_entry: {
+              id: 'trace-2',
+              agent_run_id: 'run-1',
+              sequence: 2,
+              provider: 'codex',
+              kind: 'assistant_delta',
+              stream: 'assistant',
+              output: 'Tests passed.',
+              payload: {},
+              created_at: '2026-04-03T12:00:12Z',
+            },
+          },
+        ],
+        has_older: true,
+        hidden_older_count: 4,
+        has_newer: false,
+        hidden_newer_count: 0,
+        oldest_cursor: 'broken-cursor',
+        newest_cursor: 'still-broken',
+      },
+      trace_entries: [],
+      step_entries: [],
+    })
+
+    expect(detail.transcriptPage.oldestCursor).toBe('2026-04-03T12:00:11Z|step|0|step-1')
+    expect(detail.transcriptPage.newestCursor).toBe('2026-04-03T12:00:12Z|trace|2|trace-2')
   })
 })
