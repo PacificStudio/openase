@@ -62,6 +62,55 @@ func TestParseAgentProviderReasoningEffortRejectsUnsupportedCombination(t *testi
 	}
 }
 
+func TestParseAgentProviderReasoningEffortHandlesEmptyInput(t *testing.T) {
+	if got, err := parseAgentProviderReasoningEffort(
+		AgentProviderAdapterTypeCodexAppServer,
+		"gpt-5.4",
+		nil,
+	); err != nil || got != nil {
+		t.Fatalf("parseAgentProviderReasoningEffort(nil) = (%v, %v), want (nil, nil)", got, err)
+	}
+
+	raw := "   "
+	if got, err := parseAgentProviderReasoningEffort(
+		AgentProviderAdapterTypeCodexAppServer,
+		"gpt-5.4",
+		&raw,
+	); err != nil || got != nil {
+		t.Fatalf("parseAgentProviderReasoningEffort(blank) = (%v, %v), want (nil, nil)", got, err)
+	}
+}
+
+func TestParseAgentProviderReasoningEffortRejectsInvalidValue(t *testing.T) {
+	raw := "turbo"
+	if _, err := parseAgentProviderReasoningEffort(
+		AgentProviderAdapterTypeCodexAppServer,
+		"gpt-5.4",
+		&raw,
+	); err == nil || !strings.Contains(err.Error(), "reasoning_effort must be one of minimal, low, medium, high, xhigh, max") {
+		t.Fatalf("parseAgentProviderReasoningEffort() error = %v", err)
+	}
+}
+
+func TestParseAgentProviderReasoningEffortRejectsUnsupportedProviderPreset(t *testing.T) {
+	raw := "high"
+	if _, err := parseAgentProviderReasoningEffort(
+		AgentProviderAdapterTypeCustom,
+		"custom-model",
+		&raw,
+	); err == nil || !strings.Contains(err.Error(), "(reasoning_unsupported)") {
+		t.Fatalf("parseAgentProviderReasoningEffort(custom) error = %v", err)
+	}
+
+	if _, err := parseAgentProviderReasoningEffort(
+		AgentProviderAdapterTypeCodexAppServer,
+		"missing-model",
+		&raw,
+	); err == nil || !strings.Contains(err.Error(), "(unknown_model)") {
+		t.Fatalf("parseAgentProviderReasoningEffort(unknown model) error = %v", err)
+	}
+}
+
 func TestResolveAgentProviderReasoningCapabilityUsesSelectedEffort(t *testing.T) {
 	selected := AgentProviderReasoningEffortHigh
 	capability := ResolveAgentProviderReasoningCapability(AgentProvider{
@@ -86,8 +135,21 @@ func TestParseStoredAgentProviderReasoningEffort(t *testing.T) {
 	if got := ParseStoredAgentProviderReasoningEffort(&raw); got == nil || *got != AgentProviderReasoningEffortXHigh {
 		t.Fatalf("ParseStoredAgentProviderReasoningEffort() = %+v, want xhigh", got)
 	}
+	blank := "   "
+	if got := ParseStoredAgentProviderReasoningEffort(&blank); got != nil {
+		t.Fatalf("ParseStoredAgentProviderReasoningEffort(blank) = %+v, want nil", got)
+	}
 	invalid := "invalid"
 	if got := ParseStoredAgentProviderReasoningEffort(&invalid); got != nil {
 		t.Fatalf("ParseStoredAgentProviderReasoningEffort(invalid) = %+v, want nil", got)
+	}
+	if got := ParseStoredAgentProviderReasoningEffort(nil); got != nil {
+		t.Fatalf("ParseStoredAgentProviderReasoningEffort(nil) = %+v, want nil", got)
+	}
+}
+
+func TestReasoningEffortStringsHandlesEmptySlice(t *testing.T) {
+	if got := reasoningEffortStrings(nil); got != nil {
+		t.Fatalf("reasoningEffortStrings(nil) = %v, want nil", got)
 	}
 }
