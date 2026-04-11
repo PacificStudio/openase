@@ -282,30 +282,32 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     })
 
     let readmeLoads = 0
-    getProjectConversationWorkspaceFilePreview.mockImplementation(async (_conversationId, input) => {
-      if (input.path === 'README.md') {
-        readmeLoads += 1
-        return {
-          filePreview:
-            readmeLoads === 1
-              ? buildPreview()
-              : buildPreview({
-                  content: 'readme updated\n',
-                  revision: 'rev-2',
-                  sizeBytes: 15,
-                }),
+    getProjectConversationWorkspaceFilePreview.mockImplementation(
+      async (_conversationId, input) => {
+        if (input.path === 'README.md') {
+          readmeLoads += 1
+          return {
+            filePreview:
+              readmeLoads === 1
+                ? buildPreview()
+                : buildPreview({
+                    content: 'readme updated\n',
+                    revision: 'rev-2',
+                    sizeBytes: 15,
+                  }),
+          }
         }
-      }
-      return {
-        filePreview: buildPreview({
-          path: 'package.json',
-          sizeBytes: 18,
-          mediaType: 'application/json',
-          content: '{"name":"pkg"}\n',
-          revision: 'pkg-rev-1',
-        }),
-      }
-    })
+        return {
+          filePreview: buildPreview({
+            path: 'package.json',
+            sizeBytes: 18,
+            mediaType: 'application/json',
+            content: '{"name":"pkg"}\n',
+            revision: 'pkg-rev-1',
+          }),
+        }
+      },
+    )
 
     const state = createProjectConversationWorkspaceBrowserState({
       getConversationId: () => 'conversation-1',

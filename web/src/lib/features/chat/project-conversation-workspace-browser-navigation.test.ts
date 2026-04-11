@@ -559,7 +559,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await fireEvent.click(
       await view.findByRole('button', { name: /README\.md/ }, { timeout: 3000 }),
     )
-    await waitFor(() => expect(view.getByTestId('workspace-browser-detail-tab-dirty-dot')).toBeTruthy())
+    await waitFor(() =>
+      expect(view.getByTestId('workspace-browser-detail-tab-dirty-dot')).toBeTruthy(),
+    )
 
     const event = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(event)
