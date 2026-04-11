@@ -42,10 +42,14 @@ retryable_patterns=(
   "EOF"
 )
 
+lint_proxy_modes=("${GOPROXY:-https://proxy.golang.org,direct}" "direct")
 attempt=1
-max_attempts=3
+max_attempts=4
+mode_index=0
+
 while (( attempt <= max_attempts )); do
-  output="$("${lint_cmd[@]}" 2>&1)" && {
+  current_proxy="${lint_proxy_modes[mode_index]}"
+  output="$(GOPROXY="${current_proxy}" "${lint_cmd[@]}" 2>&1)" && {
     printf '%s\n' "${output}"
     exit 0
   }
@@ -63,7 +67,13 @@ while (( attempt <= max_attempts )); do
     exit 1
   fi
 
-  printf 'lint bootstrap failed with a transient network error; retrying (%d/%d)\n' "${attempt}" "${max_attempts}" >&2
+  if (( mode_index == 0 && ${#lint_proxy_modes[@]} > 1 )) && [[ "${output}" == *"proxy.golang.org"* ]]; then
+    mode_index=1
+    printf 'lint bootstrap failed via %s; retrying with GOPROXY=%s (%d/%d)\n' \
+      "${current_proxy}" "${lint_proxy_modes[mode_index]}" "${attempt}" "${max_attempts}" >&2
+  else
+    printf 'lint bootstrap failed with a transient network error; retrying (%d/%d)\n' "${attempt}" "${max_attempts}" >&2
+  fi
   sleep $(( attempt * 2 ))
   ((attempt++))
 done
