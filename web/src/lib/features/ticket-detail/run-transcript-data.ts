@@ -21,6 +21,7 @@ import {
   buildTicketRunStepCursor,
   buildTicketRunTraceCursor,
   compareTicketRunTranscriptCursors,
+  normalizeTicketRunTranscriptCursor,
 } from './run-transcript-cursor'
 
 export function mapTicketRuns(payload: TicketRunListPayload): TicketRun[] {
@@ -212,8 +213,8 @@ function mapTranscriptPageRecord(record: TicketRunTranscriptPageRecord): TicketR
     hiddenOlderCount: record.hidden_older_count,
     hasNewer: record.has_newer,
     hiddenNewerCount: record.hidden_newer_count,
-    oldestCursor: record.oldest_cursor ?? items[0]?.cursor,
-    newestCursor: record.newest_cursor ?? items.at(-1)?.cursor,
+    oldestCursor: normalizeTicketRunTranscriptCursor(record.oldest_cursor) ?? items[0]?.cursor,
+    newestCursor: normalizeTicketRunTranscriptCursor(record.newest_cursor) ?? items.at(-1)?.cursor,
   }
 }
 
@@ -222,7 +223,8 @@ function mapTicketRunTranscriptItem(item: TicketRunTranscriptItemRecord): Ticket
     const stepEntry = mapTicketRunStepEntry(item.step_entry)
     return {
       kind: 'step',
-      cursor: item.cursor || buildTicketRunStepCursor(stepEntry),
+      cursor:
+        normalizeTicketRunTranscriptCursor(item.cursor) ?? buildTicketRunStepCursor(stepEntry),
       stepEntry,
     }
   }
@@ -242,7 +244,8 @@ function mapTicketRunTranscriptItem(item: TicketRunTranscriptItemRecord): Ticket
   )
   return {
     kind: 'trace',
-    cursor: item.cursor || buildTicketRunTraceCursor(traceEntry),
+    cursor:
+      normalizeTicketRunTranscriptCursor(item.cursor) ?? buildTicketRunTraceCursor(traceEntry),
     traceEntry,
   }
 }
