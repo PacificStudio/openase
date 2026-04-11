@@ -338,7 +338,6 @@ func applyScopedDailyUsageDelta(
 	usageDate time.Time,
 	totals runDailyUsageTotals,
 	recomputedAt time.Time,
-	sourceMode string,
 ) error {
 	switch scope.Kind {
 	case domain.TokenUsageScopeKindOrganization:
@@ -353,12 +352,8 @@ func applyScopedDailyUsageDelta(
 			AddReasoningTokens(totals.reasoningTokens).
 			AddTotalTokens(totals.totalTokens).
 			AddFinalizedRunCount(totals.runCount).
-			SetRecomputedAt(recomputedAt)
-		if sourceMode == "lazy_backfill" {
-			update.SetSourceMode(entorganizationdailytokenusage.SourceModeLazyBackfill)
-		} else {
-			update.SetSourceMode(entorganizationdailytokenusage.SourceModeMaterialized)
-		}
+			SetRecomputedAt(recomputedAt).
+			SetSourceMode(entorganizationdailytokenusage.SourceModeMaterialized)
 		updatedCount, err := update.Save(ctx)
 		if err != nil {
 			return fmt.Errorf("update organization daily token usage: %w", err)
@@ -376,12 +371,8 @@ func applyScopedDailyUsageDelta(
 			SetReasoningTokens(totals.reasoningTokens).
 			SetTotalTokens(totals.totalTokens).
 			SetFinalizedRunCount(totals.runCount).
-			SetRecomputedAt(recomputedAt)
-		if sourceMode == "lazy_backfill" {
-			builder.SetSourceMode(entorganizationdailytokenusage.SourceModeLazyBackfill)
-		} else {
-			builder.SetSourceMode(entorganizationdailytokenusage.SourceModeMaterialized)
-		}
+			SetRecomputedAt(recomputedAt).
+			SetSourceMode(entorganizationdailytokenusage.SourceModeMaterialized)
 		if _, err := builder.Save(ctx); err != nil {
 			if ent.IsConstraintError(err) {
 				return errScopedDailyUsageRetry
@@ -401,12 +392,8 @@ func applyScopedDailyUsageDelta(
 			AddReasoningTokens(totals.reasoningTokens).
 			AddTotalTokens(totals.totalTokens).
 			AddFinalizedRunCount(totals.runCount).
-			SetRecomputedAt(recomputedAt)
-		if sourceMode == "lazy_backfill" {
-			update.SetSourceMode(entprojectdailytokenusage.SourceModeLazyBackfill)
-		} else {
-			update.SetSourceMode(entprojectdailytokenusage.SourceModeMaterialized)
-		}
+			SetRecomputedAt(recomputedAt).
+			SetSourceMode(entprojectdailytokenusage.SourceModeMaterialized)
 		updatedCount, err := update.Save(ctx)
 		if err != nil {
 			return fmt.Errorf("update project daily token usage: %w", err)
@@ -424,12 +411,8 @@ func applyScopedDailyUsageDelta(
 			SetReasoningTokens(totals.reasoningTokens).
 			SetTotalTokens(totals.totalTokens).
 			SetFinalizedRunCount(totals.runCount).
-			SetRecomputedAt(recomputedAt)
-		if sourceMode == "lazy_backfill" {
-			builder.SetSourceMode(entprojectdailytokenusage.SourceModeLazyBackfill)
-		} else {
-			builder.SetSourceMode(entprojectdailytokenusage.SourceModeMaterialized)
-		}
+			SetRecomputedAt(recomputedAt).
+			SetSourceMode(entprojectdailytokenusage.SourceModeMaterialized)
 		if _, err := builder.Save(ctx); err != nil {
 			if ent.IsConstraintError(err) {
 				return errScopedDailyUsageRetry
@@ -640,10 +623,10 @@ func materializeAgentRunDailyUsageOnce(
 	projectID := runItem.Edges.Ticket.ProjectID
 	organizationID := runItem.Edges.Ticket.Edges.Project.OrganizationID
 
-	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewOrganizationTokenUsageScope(organizationID), usageDate, totals, recomputedAt, "materialized"); err != nil {
+	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewOrganizationTokenUsageScope(organizationID), usageDate, totals, recomputedAt); err != nil {
 		return err
 	}
-	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewProjectTokenUsageScope(projectID), usageDate, totals, recomputedAt, "materialized"); err != nil {
+	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewProjectTokenUsageScope(projectID), usageDate, totals, recomputedAt); err != nil {
 		return err
 	}
 
@@ -719,10 +702,10 @@ func materializeProjectConversationRunDailyUsageOnce(
 	usageDate := startOfUTCDay(runItem.TerminalAt.UTC())
 	totals := runDailyUsageTotalsFromConversationRun(runItem)
 
-	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewOrganizationTokenUsageScope(projectItem.OrganizationID), usageDate, totals, recomputedAt, "materialized"); err != nil {
+	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewOrganizationTokenUsageScope(projectItem.OrganizationID), usageDate, totals, recomputedAt); err != nil {
 		return err
 	}
-	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewProjectTokenUsageScope(runItem.ProjectID), usageDate, totals, recomputedAt, "materialized"); err != nil {
+	if err := applyScopedDailyUsageDelta(ctx, tx, domain.NewProjectTokenUsageScope(runItem.ProjectID), usageDate, totals, recomputedAt); err != nil {
 		return err
 	}
 

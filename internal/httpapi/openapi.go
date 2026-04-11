@@ -6559,6 +6559,28 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	projectConversationTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/turns", http.MethodPost, projectConversationTurn)
 
+	projectConversationInterruptTurn := openapi3.NewOperation()
+	projectConversationInterruptTurn.OperationID = "interruptProjectConversationTurn"
+	projectConversationInterruptTurn.Summary = "Interrupt the active project conversation turn"
+	projectConversationInterruptTurn.Tags = []string{"chat"}
+	projectConversationInterruptTurn.Responses = openapi3.NewResponsesWithCapacity(6)
+	projectConversationInterruptTurn.AddResponse(http.StatusAccepted, openapi3.NewResponse().WithDescription("Project conversation turn interrupted."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		projectConversationInterruptTurn.AddResponse(code, errorResponse)
+	}
+	projectConversationInterruptTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/interrupt-turn", http.MethodPost, projectConversationInterruptTurn)
+
 	projectConversationMuxStream, err := b.streamOperation(
 		"streamProjectConversationsMux",
 		"Watch multiplexed project conversation events for one project",

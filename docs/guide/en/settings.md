@@ -57,7 +57,7 @@ After configuration, click "Test Connection" to ensure agents can access code pr
 
 Set up notification rules for project events:
 
-- Configure notification channels (email, Slack, etc.)
+- Configure notification channels (webhook, Telegram, Slack, and WeCom)
 - Choose which events trigger notifications (ticket completion, execution failure, etc.)
 
 ### Security

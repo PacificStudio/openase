@@ -1403,6 +1403,30 @@ func TestTicketRepoScopeRoutesPublishPullRequestActivityEvents(t *testing.T) {
 	executeJSON(
 		t,
 		server,
+		http.MethodPatch,
+		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
+		map[string]any{"pull_request_url": "https://github.com/acme/backend/pull/45"},
+		http.StatusOK,
+		nil,
+	)
+
+	select {
+	case event := <-activityStream:
+		if event.Type != provider.MustParseEventType(activityevent.TypeTicketUpdated.String()) {
+			t.Fatalf("expected PR URL update to fall back to ticket.updated only, got %+v", event)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("expected PR URL update to keep emitting the generic ticket.updated activity")
+	}
+	select {
+	case event := <-activityStream:
+		t.Fatalf("expected PR URL update to avoid synthetic PR activity after ticket.updated, got %+v", event)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	executeJSON(
+		t,
+		server,
 		http.MethodDelete,
 		"/api/v1/projects/"+project.ID.String()+"/tickets/"+ticket.ID.String()+"/repo-scopes/"+createResp.RepoScope.ID,
 		nil,
@@ -1422,7 +1446,7 @@ func TestTicketRepoScopeRoutesPublishPullRequestActivityEvents(t *testing.T) {
 	if err := json.Unmarshal(closed.Payload, &closedPayload); err != nil {
 		t.Fatalf("decode pr.closed payload: %v", err)
 	}
-	if closedPayload.Event.EventType != activityevent.TypePRClosed.String() || closedPayload.Event.Metadata["previous_pr_url"] != "https://github.com/acme/backend/pull/44" {
+	if closedPayload.Event.EventType != activityevent.TypePRClosed.String() || closedPayload.Event.Metadata["previous_pr_url"] != "https://github.com/acme/backend/pull/45" {
 		t.Fatalf("unexpected pr.closed payload: %+v", closedPayload)
 	}
 }

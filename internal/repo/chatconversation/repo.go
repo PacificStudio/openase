@@ -536,6 +536,22 @@ func (r *Repository) GetConversation(ctx context.Context, id uuid.UUID) (domain.
 	return mapConversation(item), nil
 }
 
+func activeChatTurnPredicates(conversationID uuid.UUID) []predicate.ChatTurn {
+	return []predicate.ChatTurn{
+		entchatturn.ConversationIDEQ(conversationID),
+		entchatturn.Or(
+			entchatturn.StatusIn(
+				string(domain.TurnStatusPending),
+				string(domain.TurnStatusRunning),
+			),
+			entchatturn.And(
+				entchatturn.StatusEQ(string(domain.TurnStatusInterrupted)),
+				entchatturn.CompletedAtIsNil(),
+			),
+		),
+	}
+}
+
 func (r *Repository) CreateTurnWithUserEntry(
 	ctx context.Context,
 	conversationID uuid.UUID,
@@ -548,14 +564,7 @@ func (r *Repository) CreateTurnWithUserEntry(
 	defer rollbackOnError(ctx, tx, &err)
 
 	hasActiveTurn, err := tx.ChatTurn.Query().
-		Where(
-			entchatturn.ConversationIDEQ(conversationID),
-			entchatturn.StatusIn(
-				string(domain.TurnStatusPending),
-				string(domain.TurnStatusRunning),
-				string(domain.TurnStatusInterrupted),
-			),
-		).
+		Where(activeChatTurnPredicates(conversationID)...).
 		Exist(ctx)
 	if err != nil {
 		return domain.Turn{}, domain.Entry{}, fmt.Errorf("query active chat turns: %w", err)
@@ -659,14 +668,7 @@ func (r *Repository) ListEntries(ctx context.Context, conversationID uuid.UUID) 
 
 func (r *Repository) GetActiveTurn(ctx context.Context, conversationID uuid.UUID) (domain.Turn, error) {
 	item, err := r.client.ChatTurn.Query().
-		Where(
-			entchatturn.ConversationIDEQ(conversationID),
-			entchatturn.StatusIn(
-				string(domain.TurnStatusPending),
-				string(domain.TurnStatusRunning),
-				string(domain.TurnStatusInterrupted),
-			),
-		).
+		Where(activeChatTurnPredicates(conversationID)...).
 		Order(ent.Desc(entchatturn.FieldTurnIndex)).
 		First(ctx)
 	if err != nil {
