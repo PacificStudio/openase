@@ -209,13 +209,9 @@ export function mapTicketRunTranscriptPage(
 }
 
 function mapProjectedTranscriptPage(payload: TicketRunDetailPayload): TicketRunTranscriptPage {
-  const transcriptItems = mapTranscriptEntriesToItems(
-    payload.run.id,
-    payload.run.ticket_id,
-    payload.transcript_entries_page,
-  )
+  const transcriptItems = mapTranscriptEntriesToItems(payload.run.id, payload.transcript_entries_page)
   const liveActivityItems = (payload.activities ?? [])
-    .map((activity) => mapActivityToTranscriptItem(payload.run.id, payload.run.ticket_id, activity))
+    .map((activity) => mapActivityToTranscriptItem(payload.run.id, activity))
     .filter((item): item is TicketRunTranscriptItem => item !== null)
 
   const items = [...transcriptItems, ...liveActivityItems].sort((left, right) =>
@@ -255,17 +251,15 @@ function mapTranscriptPageRecord(record: TicketRunTranscriptPageRecord): TicketR
 
 function mapTranscriptEntriesToItems(
   runId: string,
-  ticketId: string,
   page: TicketRunTranscriptEntryPageRecord | undefined,
 ): TicketRunTranscriptItem[] {
   return (page?.entries ?? [])
-    .map((entry) => mapTranscriptEntryToItem(runId, ticketId, entry))
+    .map((entry) => mapTranscriptEntryToItem(runId, entry))
     .filter((item): item is TicketRunTranscriptItem => item !== null)
 }
 
 function mapTranscriptEntryToItem(
   runId: string,
-  ticketId: string,
   entry: TicketRunTranscriptEntryRecord,
 ): TicketRunTranscriptItem | null {
   const summary = entry.summary ?? entry.title ?? entry.command ?? entry.tool_name ?? ''
@@ -297,8 +291,8 @@ function mapTranscriptEntryToItem(
     case 'command_started': {
       const stepEntry = mapTicketRunStepEntry({
         id: `transcript:${entry.id}`,
-        ticket_id: ticketId,
         agent_run_id: runId,
+        source_trace_event_id: null,
         step_status: 'running_command',
         summary: entry.command ?? summary,
         created_at: entry.created_at,
@@ -442,7 +436,6 @@ function mapTranscriptEntryToItem(
 
 function mapActivityToTranscriptItem(
   runId: string,
-  ticketId: string,
   activity: TicketRunActivityRecord,
 ): TicketRunTranscriptItem | null {
   const liveText = activity.live_text?.trim()
@@ -519,8 +512,8 @@ function mapActivityToTranscriptItem(
 
   const stepEntry = mapTicketRunStepEntry({
     id: `activity:${activity.id}`,
-    ticket_id: ticketId,
     agent_run_id: runId,
+    source_trace_event_id: null,
     step_status: activity.status,
     summary: activity.title ?? liveText,
     created_at: activity.updated_at,

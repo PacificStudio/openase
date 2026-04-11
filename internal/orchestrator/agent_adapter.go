@@ -101,15 +101,15 @@ type agentItemStartedEvent struct {
 }
 
 type agentRawProviderEvent struct {
-	DedupKey            string
-	ProviderEventKind   string
+	DedupKey             string
+	ProviderEventKind    string
 	ProviderEventSubtype string
-	ProviderEventID     string
-	ThreadID            string
-	TurnID              string
-	ActivityHintID      string
-	Payload             map[string]any
-	TextExcerpt         string
+	ProviderEventID      string
+	ThreadID             string
+	TurnID               string
+	ActivityHintID       string
+	Payload              map[string]any
+	TextExcerpt          string
 }
 
 type agentTaskStatusEvent struct {

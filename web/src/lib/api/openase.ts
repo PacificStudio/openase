@@ -90,8 +90,11 @@ import type {
   StatusResponse,
   SystemDashboardResponse,
   TicketDetailPayload,
+  TicketRunActivitiesPayload,
   TicketRunDetailPayload,
   TicketRunListPayload,
+  TicketRunRawEventsPayload,
+  TicketRunTranscriptEntriesPayload,
   TicketDependencyDeleteResponse,
   TicketDependencyResponse,
   TicketCreateResponse,
@@ -1109,6 +1112,68 @@ export function getTicketRun(
 ) {
   return api.get<TicketRunDetailPayload>(
     `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}`,
+    {
+      params: {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      },
+    },
+  )
+}
+
+export function listTicketRunActivities(
+  projectId: string,
+  ticketId: string,
+  runId: string,
+  query: {
+    status?: string
+  } = {},
+) {
+  return api.get<TicketRunActivitiesPayload>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}/activities`,
+    {
+      params: {
+        status: query.status,
+      },
+    },
+  )
+}
+
+export function listTicketRunRawEvents(
+  projectId: string,
+  ticketId: string,
+  runId: string,
+  query: {
+    limit?: number
+    before?: string
+    after?: string
+  } = {},
+) {
+  return api.get<TicketRunRawEventsPayload>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}/raw-events`,
+    {
+      params: {
+        limit: query.limit,
+        before: query.before,
+        after: query.after,
+      },
+    },
+  )
+}
+
+export function listTicketRunTranscriptEntries(
+  projectId: string,
+  ticketId: string,
+  runId: string,
+  query: {
+    limit?: number
+    before?: string
+    after?: string
+  } = {},
+) {
+  return api.get<TicketRunTranscriptEntriesPayload>(
+    `/api/v1/projects/${projectId}/tickets/${ticketId}/runs/${runId}/transcript`,
     {
       params: {
         limit: query.limit,

@@ -98,6 +98,9 @@ func TestSupportedRuleEventContractsExposeSingleSourceTopics(t *testing.T) {
 			t.Fatalf("excluded event %s leaked into supported contract", item.EventType)
 		}
 	}
+	if topic, ok := RuleEventTopic(RuleEventType("unsupported")); ok || topic != "" {
+		t.Fatalf("RuleEventTopic(unsupported) = %q, %t; want empty, false", topic, ok)
+	}
 }
 
 func TestRuleParsingAndTemplateHelpers(t *testing.T) {
