@@ -319,18 +319,6 @@ func TestAgentPlatformTicketRoutesRespectScopesAndBoundaries(t *testing.T) {
 	if forbiddenRec.Code != http.StatusForbidden {
 		t.Fatalf("expected updating another ticket to return 403, got %d: %s", forbiddenRec.Code, forbiddenRec.Body.String())
 	}
-	projectScopedForbiddenRec := performJSONRequestWithHeaders(
-		t,
-		server,
-		http.MethodPatch,
-		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s", projectID, currentTicketID),
-		`{"description":"should fail"}`,
-		map[string]string{echo.HeaderAuthorization: "Bearer " + issued.Token, echo.HeaderContentType: echo.MIMEApplicationJSON},
-	)
-	if projectScopedForbiddenRec.Code != http.StatusForbidden {
-		t.Fatalf("expected project-scoped ticket update without tickets.update to return 403, got %d: %s", projectScopedForbiddenRec.Code, projectScopedForbiddenRec.Body.String())
-	}
-
 	forbiddenCommentRec := performJSONRequestWithHeaders(
 		t,
 		server,
@@ -666,7 +654,7 @@ func TestAgentPlatformProjectConversationTokenRejectsTicketOnlyRoutes(t *testing
 		t,
 		server,
 		http.MethodPatch,
-		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s", projectID, currentTicketID),
+		fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID),
 		map[string]any{
 			"status_name": "In Progress",
 		},
@@ -675,7 +663,7 @@ func TestAgentPlatformProjectConversationTokenRejectsTicketOnlyRoutes(t *testing
 		&updateResp,
 	)
 	if updateResp.Ticket.StatusName != "In Progress" || updateResp.Ticket.CreatedBy != "project-conversation:"+conversationID.String() {
-		t.Fatalf("unexpected project-scoped update payload: %+v", updateResp.Ticket)
+		t.Fatalf("unexpected canonical ticket update payload: %+v", updateResp.Ticket)
 	}
 
 	forbiddenRec := performJSONRequestWithHeaders(
@@ -1171,11 +1159,8 @@ func TestAgentPlatformRouteErrorMappingsAndInvalidPayloads(t *testing.T) {
 	}{
 		{name: "list invalid project", method: http.MethodGet, target: "/api/v1/platform/projects/not-a-uuid/tickets", wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
 		{name: "create invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/projects/%s/tickets", projectID), body: `{"title":"   "}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
-		{name: "project update invalid project", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s", "not-a-uuid", currentTicketID), body: `{"description":"nope"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},
-		{name: "project update invalid ticket", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s", projectID, "not-a-uuid"), body: `{"description":"nope"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
 		{name: "update invalid ticket", method: http.MethodPatch, target: "/api/v1/platform/tickets/not-a-uuid", body: `{"description":"nope"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
 		{name: "update invalid status", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/tickets/%s", currentTicketID), body: `{"status_id":"not-a-uuid"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
-		{name: "project update invalid status", method: http.MethodPatch, target: fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s", projectID, currentTicketID), body: `{"status_id":"not-a-uuid"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "report usage invalid ticket", method: http.MethodPost, target: "/api/v1/platform/tickets/not-a-uuid/usage", body: `{"input_tokens":1}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_TICKET_ID"},
 		{name: "report usage invalid request", method: http.MethodPost, target: fmt.Sprintf("/api/v1/platform/tickets/%s/usage", currentTicketID), body: `{}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_REQUEST"},
 		{name: "update project invalid project", method: http.MethodPatch, target: "/api/v1/platform/projects/not-a-uuid", body: `{"description":"x"}`, wantStatus: http.StatusBadRequest, wantBody: "INVALID_PROJECT_ID"},

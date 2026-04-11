@@ -26,10 +26,9 @@ func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/workflows", s.handleAgentListProjectWorkflows)
 	api.GET("/projects/:projectId/updates", s.handleAgentListProjectUpdates)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
-	api.PATCH("/projects/:projectId/tickets/:ticketId", s.handleAgentUpdateProjectTicket)
 	api.POST("/projects/:projectId/updates", s.handleAgentCreateProjectUpdateThread)
 	api.GET("/tickets/:ticketId", s.handleAgentGetOwnTicket)
-	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateOwnTicket)
+	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateTicket)
 	api.GET("/tickets/:ticketId/comments", s.handleAgentListOwnTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleAgentCreateOwnTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleAgentUpdateOwnTicketComment)
@@ -217,50 +216,14 @@ func (s *Server) handleAgentGetOwnTicket(c echo.Context) error {
 	})
 }
 
-func (s *Server) handleAgentUpdateOwnTicket(c echo.Context) error {
+func (s *Server) handleAgentUpdateTicket(c echo.Context) error {
 	if s.ticketService == nil {
 		return writeTicketError(c, ticketservice.ErrUnavailable)
 	}
 
-	claims, current, ok := s.requireAgentOwnTicket(c, agentplatform.ScopeTicketsUpdateSelf)
+	claims, current, ok := s.requireAgentTicketUpdate(c)
 	if !ok {
 		return nil
-	}
-	if current.ProjectID != claims.ProjectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
-	}
-
-	return s.handleAgentTicketUpdate(c, claims, current)
-}
-
-func (s *Server) handleAgentUpdateProjectTicket(c echo.Context) error {
-	if s.ticketService == nil {
-		return writeTicketError(c, ticketservice.ErrUnavailable)
-	}
-
-	claims, ok := requireAgentScope(c, agentplatform.ScopeTicketsUpdate)
-	if !ok {
-		return nil
-	}
-
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-	}
-	if claims.ProjectID != projectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
-	}
-
-	ticketID, err := parseTicketID(c)
-	if err != nil {
-		return writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
-	}
-	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
-	if err != nil {
-		return writeTicketError(c, err)
-	}
-	if current.ProjectID != projectID {
-		return writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 	}
 
 	return s.handleAgentTicketUpdate(c, claims, current)
@@ -817,6 +780,43 @@ func (s *Server) requireAgentOwnTicket(c echo.Context, scope agentplatform.Scope
 	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
 	if err != nil {
 		_ = writeTicketError(c, err)
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+
+	return claims, current, true
+}
+
+func (s *Server) requireAgentTicketUpdate(c echo.Context) (agentplatform.Claims, ticketservice.Ticket, bool) {
+	claims, ok := requireAgentAnyScope(c, agentplatform.ScopeTicketsUpdateSelf, agentplatform.ScopeTicketsUpdate)
+	if !ok {
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+
+	ticketID, err := parseTicketID(c)
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_TICKET_ID", err.Error())
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+
+	current, err := s.ticketService.Get(c.Request().Context(), ticketID)
+	if err != nil {
+		_ = writeTicketError(c, err)
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+	if current.ProjectID != claims.ProjectID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+
+	if claims.HasScope(agentplatform.ScopeTicketsUpdate) {
+		return claims, current, true
+	}
+	if !claims.IsTicketAgent() {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PRINCIPAL_KIND_FORBIDDEN", "project conversation principals cannot access ticket-runtime-only endpoints")
+		return agentplatform.Claims{}, ticketservice.Ticket{}, false
+	}
+	if claims.TicketID != ticketID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_TICKET_FORBIDDEN", "agent token can only access its current ticket")
 		return agentplatform.Claims{}, ticketservice.Ticket{}, false
 	}
 
