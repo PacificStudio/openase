@@ -19,13 +19,9 @@
   import ProviderAuthConfigField from './provider-auth-config-field.svelte'
   import ProviderPricingFields from './provider-pricing-fields.svelte'
   import ProviderModelPicker from './provider-model-picker.svelte'
+  import ProviderReasoningFields from './provider-reasoning-fields.svelte'
   import ProviderSecretBindingsFields from './provider-secret-bindings-fields.svelte'
-  import {
-    formatReasoningEffortLabel,
-    providerDefaultReasoningValue,
-    providerModelReasoningCapability,
-    providerReasoningCapabilitySummary,
-  } from '../provider-model-options'
+  import { providerModelReasoningCapability } from '../provider-model-options'
 
   let {
     draft,
@@ -207,55 +203,12 @@
     />
   </div>
 
-  <div class="space-y-2">
-    <Label>Reasoning preset</Label>
-    {#if reasoningCapability?.state === 'available'}
-      <Select.Root
-        type="single"
-        value={draft.reasoningEffort.trim() || providerDefaultReasoningValue}
-        onValueChange={(value) =>
-          onFieldChange?.(
-            'reasoningEffort',
-            value === providerDefaultReasoningValue ? '' : (value ?? ''),
-          )}
-      >
-        <Select.Trigger class="w-full">
-          {#if draft.reasoningEffort.trim()}
-            {formatReasoningEffortLabel(draft.reasoningEffort.trim())}
-          {:else if reasoningCapability.defaultEffort}
-            Model default ({formatReasoningEffortLabel(reasoningCapability.defaultEffort)})
-          {:else}
-            Use model default
-          {/if}
-        </Select.Trigger>
-        <Select.Content>
-          <Select.Item value={providerDefaultReasoningValue}>
-            Use model default
-            {#if reasoningCapability.defaultEffort}
-              ({formatReasoningEffortLabel(reasoningCapability.defaultEffort)})
-            {/if}
-          </Select.Item>
-          {#each reasoningCapability.supportedEfforts ?? [] as effort (effort)}
-            <Select.Item value={effort}>{formatReasoningEffortLabel(effort)}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
-      <p class="text-muted-foreground text-xs">
-        {providerReasoningCapabilitySummary(reasoningCapability)}
-      </p>
-      {#if effectiveReasoningEffort}
-        <p class="text-muted-foreground text-xs">
-          Effective effort: {formatReasoningEffortLabel(effectiveReasoningEffort)}.
-        </p>
-      {/if}
-    {:else}
-      <div
-        class="border-border bg-muted/30 text-muted-foreground rounded-md border px-3 py-2 text-sm"
-      >
-        {providerReasoningCapabilitySummary(reasoningCapability)}
-      </div>
-    {/if}
-  </div>
+  <ProviderReasoningFields
+    capability={reasoningCapability}
+    selectedEffort={draft.reasoningEffort}
+    effectiveEffort={effectiveReasoningEffort}
+    onValueChange={(value) => onFieldChange?.('reasoningEffort', value)}
+  />
 
   <div class="border-border border-t pt-2">
     <button
