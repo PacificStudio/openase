@@ -27,6 +27,7 @@ import (
 
 var chatSSEKeepaliveInterval = 5 * time.Second
 var conversationTerminalUpgrader = websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+var errConversationTerminalExplicitClose = errors.New("conversation terminal explicit close requested")
 
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
@@ -727,28 +728,29 @@ func (s *Server) handleAttachProjectConversationTerminalSession(c echo.Context) 
 	for {
 		select {
 		case <-streamCtx.Done():
-			_ = attachment.Close()
+			_ = attachment.Detach()
 			return nil
 		case err := <-readFrames:
-			_ = attachment.Close()
-			if err == nil {
+			switch {
+			case err == nil, errors.Is(err, errConversationTerminalExplicitClose):
 				readFrames = nil
 				continue
-			}
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				readFrames = nil
-				continue
-			}
-			if err != nil && !errors.Is(err, io.EOF) {
+			case websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway), errors.Is(err, io.EOF):
+				_ = attachment.Detach()
+				return nil
+			default:
+				_ = attachment.Detach()
 				return nil
 			}
-			return nil
 		case event, ok := <-attachment.Events:
 			if !ok {
 				return nil
 			}
 			if err := writeConversationTerminalFrame(conn, event); err != nil {
-				_ = attachment.Close()
+				_ = attachment.Detach()
+				return nil
+			}
+			if event.Type == "exit" || event.Type == "error" {
 				return nil
 			}
 		}
@@ -974,7 +976,10 @@ func (s *Server) readConversationTerminalFrames(
 				return err
 			}
 		case "close":
-			return attachment.Close()
+			if err := attachment.Close(); err != nil {
+				return err
+			}
+			return errConversationTerminalExplicitClose
 		default:
 			return fmt.Errorf("unsupported terminal frame type %q", frame.Type)
 		}

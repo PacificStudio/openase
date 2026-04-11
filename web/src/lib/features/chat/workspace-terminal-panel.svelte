@@ -37,7 +37,7 @@
   }
 </script>
 
-<div class="flex min-h-0 flex-1 flex-col">
+<div class="flex h-full min-h-0 flex-1 flex-col">
   <!-- Tab bar -->
   <div class="border-border flex h-8 items-center gap-0 border-b px-1">
     {#each manager.instances as inst (inst.id)}
