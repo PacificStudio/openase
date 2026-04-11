@@ -1,4 +1,4 @@
-import { cleanup, render } from '@testing-library/svelte'
+import { cleanup, fireEvent, render } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { authStore } from '$lib/stores/auth.svelte'
@@ -178,10 +178,14 @@ describe('Instance admin page', () => {
   it('loads current-session context and the governable user directory for oidc admins', async () => {
     seedOidcAdmin()
 
-    const { findByText } = render(InstanceAdminPage)
+    const { findByText, findByRole } = render(InstanceAdminPage)
 
     expect(await findByText('Your session')).toBeTruthy()
+
+    await fireEvent.click(await findByRole('button', { name: 'Your sessions' }))
     expect(await findByText('Session governance')).toBeTruthy()
+
+    await fireEvent.click(await findByRole('button', { name: 'User directory' }))
     expect(await findByText('User directory and deprovision')).toBeTruthy()
     expect(await findByText('Bob Reviewer')).toBeTruthy()
   })

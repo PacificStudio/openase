@@ -3,13 +3,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
-  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
 } = vi.hoisted(() => ({
-  createProjectConversationTerminalSession: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
@@ -17,7 +15,6 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
-  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,

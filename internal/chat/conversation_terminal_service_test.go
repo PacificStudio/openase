@@ -233,6 +233,85 @@ func TestConversationTerminalServiceAttachStreamsAndCleansUp(t *testing.T) {
 	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
 }
 
+func TestConversationTerminalServiceDetachAllowsReattachAndReplaysBufferedOutput(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{{
+		name:  "backend",
+		files: map[string]string{"README.md": "workspace\n"},
+	}})
+	service := NewConversationTerminalService(nil, fixture.service)
+	process := newFakeConversationTerminalProcess()
+	service.launch = func(_ context.Context, spec conversationTerminalLaunchSpec) (conversationTerminalProcess, error) {
+		return process, nil
+	}
+
+	input, err := chatdomain.ParseOpenTerminalSessionInput(chatdomain.OpenTerminalSessionRawInput{Mode: "shell"})
+	if err != nil {
+		t.Fatalf("ParseOpenTerminalSessionInput() error = %v", err)
+	}
+	session, err := service.CreateSession(fixture.ctx, UserID("user:conversation"), fixture.conversation.ID, input)
+	if err != nil {
+		t.Fatalf("CreateSession() error = %v", err)
+	}
+
+	firstAttachment, err := service.AttachSession(
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		session.ID,
+		session.AttachToken,
+	)
+	if err != nil {
+		t.Fatalf("AttachSession(first) error = %v", err)
+	}
+	if ready := requireConversationTerminalEvent(t, firstAttachment.Events); ready.Type != "ready" {
+		t.Fatalf("first ready event = %+v", ready)
+	}
+
+	process.emitOutput(t, "before-detach\n")
+	firstOutput := requireConversationTerminalEvent(t, firstAttachment.Events)
+	if firstOutput.Type != "output" || string(firstOutput.Data) != "before-detach\n" {
+		t.Fatalf("first output = %+v", firstOutput)
+	}
+
+	if err := firstAttachment.Detach(); err != nil {
+		t.Fatalf("Detach() error = %v", err)
+	}
+
+	process.emitOutput(t, "after-detach\n")
+
+	secondAttachment, err := service.AttachSession(
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		session.ID,
+		session.AttachToken,
+	)
+	if err != nil {
+		t.Fatalf("AttachSession(second) error = %v", err)
+	}
+	if ready := requireConversationTerminalEvent(t, secondAttachment.Events); ready.Type != "ready" {
+		t.Fatalf("second ready event = %+v", ready)
+	}
+	buffered := requireConversationTerminalEvent(t, secondAttachment.Events)
+	if buffered.Type != "output" || string(buffered.Data) != "after-detach\n" {
+		t.Fatalf("buffered output = %+v", buffered)
+	}
+
+	if err := secondAttachment.WriteInput([]byte("pwd\n")); err != nil {
+		t.Fatalf("WriteInput() after reattach error = %v", err)
+	}
+	if got := process.inputString(); got != "pwd\n" {
+		t.Fatalf("input after reattach = %q, want %q", got, "pwd\\n")
+	}
+
+	process.complete(nil)
+	exit := requireConversationTerminalEvent(t, secondAttachment.Events)
+	if exit.Type != "exit" || exit.ExitCode != 0 {
+		t.Fatalf("exit event = %+v", exit)
+	}
+	awaitConversationTerminalCleanup(t, service, fixture.conversation.ID, session.ID)
+}
+
 func TestConversationTerminalServiceCloseTriggersCleanup(t *testing.T) {
 	t.Parallel()
 

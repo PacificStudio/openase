@@ -64,6 +64,7 @@ type AttachedConversationTerminal struct {
 	Session ConversationTerminalSession
 	Events  <-chan ConversationTerminalEvent
 	session *conversationTerminalManagedSession
+	client  *conversationTerminalAttachedClient
 }
 
 func (a AttachedConversationTerminal) WriteInput(data []byte) error {
@@ -85,6 +86,13 @@ func (a AttachedConversationTerminal) Close() error {
 		return ErrConversationTerminalSessionNotFound
 	}
 	return a.session.close()
+}
+
+func (a AttachedConversationTerminal) Detach() error {
+	if a.session == nil {
+		return ErrConversationTerminalSessionNotFound
+	}
+	return a.session.detach(a.client)
 }
 
 func NewConversationTerminalService(
@@ -257,10 +265,35 @@ type conversationTerminalManagedSession struct {
 	finalizeOnce sync.Once
 
 	mu                 sync.Mutex
-	events             chan ConversationTerminalEvent
+	client             *conversationTerminalAttachedClient
 	pendingOutput      [][]byte
 	pendingOutputBytes int
 	closing            bool
+}
+
+type conversationTerminalAttachedClient struct {
+	events chan ConversationTerminalEvent
+	done   chan struct{}
+	once   sync.Once
+}
+
+func newConversationTerminalAttachedClient(bufferSize int) *conversationTerminalAttachedClient {
+	if bufferSize < 64 {
+		bufferSize = 64
+	}
+	return &conversationTerminalAttachedClient{
+		events: make(chan ConversationTerminalEvent, bufferSize),
+		done:   make(chan struct{}),
+	}
+}
+
+func (c *conversationTerminalAttachedClient) detach() {
+	if c == nil {
+		return
+	}
+	c.once.Do(func() {
+		close(c.done)
+	})
 }
 
 func (s *conversationTerminalManagedSession) snapshot() ConversationTerminalSession {
@@ -284,27 +317,25 @@ func (s *conversationTerminalManagedSession) attach(
 	}
 
 	s.mu.Lock()
-	if s.events != nil {
+	if s.client != nil {
 		s.mu.Unlock()
 		return AttachedConversationTerminal{}, ErrConversationTerminalAlreadyAttached
 	}
-	events := make(chan ConversationTerminalEvent, 64)
 	pendingOutput := append([][]byte(nil), s.pendingOutput...)
 	s.pendingOutput = nil
 	s.pendingOutputBytes = 0
-	s.events = events
+	client := newConversationTerminalAttachedClient(len(pendingOutput) + 1)
+	s.client = client
 	s.meta.LastAttachedAt = &attachedAt
 	meta := s.meta
 	s.mu.Unlock()
 
-	events <- ConversationTerminalEvent{Type: "ready"}
-	for _, chunk := range pendingOutput {
-		events <- ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}
-	}
+	go s.flushPendingOutput(client, pendingOutput)
 	return AttachedConversationTerminal{
 		Session: meta,
-		Events:  events,
+		Events:  client.events,
 		session: s,
+		client:  client,
 	}, nil
 }
 
@@ -339,6 +370,19 @@ func (s *conversationTerminalManagedSession) close() error {
 	return nil
 }
 
+func (s *conversationTerminalManagedSession) detach(client *conversationTerminalAttachedClient) error {
+	if client == nil {
+		return nil
+	}
+	s.mu.Lock()
+	if s.client == client {
+		s.client = nil
+	}
+	s.mu.Unlock()
+	client.detach()
+	return nil
+}
+
 func (s *conversationTerminalManagedSession) readLoop() {
 	buffer := make([]byte, 4096)
 	for {
@@ -366,39 +410,75 @@ func (s *conversationTerminalManagedSession) waitLoop() {
 func (s *conversationTerminalManagedSession) emitOutput(chunk []byte) {
 	copied := append([]byte(nil), chunk...)
 	s.mu.Lock()
-	events := s.events
-	if events == nil {
+	client := s.client
+	if client == nil {
 		s.queuePendingOutputLocked(copied)
 		s.mu.Unlock()
 		return
 	}
 	s.mu.Unlock()
-	events <- ConversationTerminalEvent{Type: "output", Data: copied}
+	if s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: copied}) {
+		return
+	}
+	s.mu.Lock()
+	if s.client == nil {
+		s.queuePendingOutputLocked(copied)
+	}
+	s.mu.Unlock()
 }
 
 func (s *conversationTerminalManagedSession) emitError(message string) {
 	s.mu.Lock()
-	events := s.events
+	client := s.client
 	s.mu.Unlock()
-	if events == nil {
+	if client == nil {
 		return
 	}
-	events <- ConversationTerminalEvent{Type: "error", Message: message}
+	_ = s.sendEvent(client, ConversationTerminalEvent{Type: "error", Message: message})
 }
 
 func (s *conversationTerminalManagedSession) finalize(event ConversationTerminalEvent) {
 	s.finalizeOnce.Do(func() {
 		_ = s.close()
 		s.mu.Lock()
-		events := s.events
-		s.events = nil
+		client := s.client
+		s.client = nil
 		s.mu.Unlock()
-		if events != nil {
-			events <- event
-			close(events)
+		if client != nil {
+			_ = s.sendEvent(client, event)
+			client.detach()
 		}
 		s.service.registry.remove(s.meta.ID)
 	})
+}
+
+func (s *conversationTerminalManagedSession) flushPendingOutput(
+	client *conversationTerminalAttachedClient,
+	pendingOutput [][]byte,
+) {
+	if !s.sendEvent(client, ConversationTerminalEvent{Type: "ready"}) {
+		return
+	}
+	for _, chunk := range pendingOutput {
+		if !s.sendEvent(client, ConversationTerminalEvent{Type: "output", Data: append([]byte(nil), chunk...)}) {
+			return
+		}
+	}
+}
+
+func (s *conversationTerminalManagedSession) sendEvent(
+	client *conversationTerminalAttachedClient,
+	event ConversationTerminalEvent,
+) bool {
+	if client == nil {
+		return false
+	}
+	select {
+	case <-client.done:
+		return false
+	case client.events <- event:
+		return true
+	}
 }
 
 func (s *conversationTerminalManagedSession) queuePendingOutputLocked(chunk []byte) {

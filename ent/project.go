@@ -43,6 +43,12 @@ type Project struct {
 	MaxConcurrentAgents int `json:"max_concurrent_agents,omitempty"`
 	// AgentRunSummaryPrompt holds the value of the "agent_run_summary_prompt" field.
 	AgentRunSummaryPrompt string `json:"agent_run_summary_prompt,omitempty"`
+	// ProjectAiRetentionEnabled holds the value of the "project_ai_retention_enabled" field.
+	ProjectAiRetentionEnabled bool `json:"project_ai_retention_enabled,omitempty"`
+	// ProjectAiRetentionKeepLatestN holds the value of the "project_ai_retention_keep_latest_n" field.
+	ProjectAiRetentionKeepLatestN int `json:"project_ai_retention_keep_latest_n,omitempty"`
+	// ProjectAiRetentionKeepRecentDays holds the value of the "project_ai_retention_keep_recent_days" field.
+	ProjectAiRetentionKeepRecentDays int `json:"project_ai_retention_keep_recent_days,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the ProjectQuery when eager-loading is set.
 	Edges        ProjectEdges `json:"edges"`
@@ -256,7 +262,9 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
 		case project.FieldGithubOutboundCredential, project.FieldGithubTokenProbe, project.FieldAccessibleMachineIds:
 			values[i] = new([]byte)
-		case project.FieldMaxConcurrentAgents:
+		case project.FieldProjectAiRetentionEnabled:
+			values[i] = new(sql.NullBool)
+		case project.FieldMaxConcurrentAgents, project.FieldProjectAiRetentionKeepLatestN, project.FieldProjectAiRetentionKeepRecentDays:
 			values[i] = new(sql.NullInt64)
 		case project.FieldName, project.FieldSlug, project.FieldDescription, project.FieldStatus, project.FieldAgentRunSummaryPrompt:
 			values[i] = new(sql.NullString)
@@ -355,6 +363,24 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field agent_run_summary_prompt", values[i])
 			} else if value.Valid {
 				_m.AgentRunSummaryPrompt = value.String
+			}
+		case project.FieldProjectAiRetentionEnabled:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field project_ai_retention_enabled", values[i])
+			} else if value.Valid {
+				_m.ProjectAiRetentionEnabled = value.Bool
+			}
+		case project.FieldProjectAiRetentionKeepLatestN:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field project_ai_retention_keep_latest_n", values[i])
+			} else if value.Valid {
+				_m.ProjectAiRetentionKeepLatestN = int(value.Int64)
+			}
+		case project.FieldProjectAiRetentionKeepRecentDays:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field project_ai_retention_keep_recent_days", values[i])
+			} else if value.Valid {
+				_m.ProjectAiRetentionKeepRecentDays = int(value.Int64)
 			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
@@ -511,6 +537,15 @@ func (_m *Project) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("agent_run_summary_prompt=")
 	builder.WriteString(_m.AgentRunSummaryPrompt)
+	builder.WriteString(", ")
+	builder.WriteString("project_ai_retention_enabled=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProjectAiRetentionEnabled))
+	builder.WriteString(", ")
+	builder.WriteString("project_ai_retention_keep_latest_n=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProjectAiRetentionKeepLatestN))
+	builder.WriteString(", ")
+	builder.WriteString("project_ai_retention_keep_recent_days=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProjectAiRetentionKeepRecentDays))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { AuthAuditEvent } from '$lib/api/auth'
+  import type { UserDirectoryDetail } from '$lib/api/auth'
   import * as Collapsible from '$ui/collapsible'
-  import { ChevronDown, Clock3 } from '@lucide/svelte'
+  import { ChevronDown } from '@lucide/svelte'
   import {
     authAuditEventDotClass,
     formatAuthAuditEventLabel,
@@ -9,7 +9,7 @@
     formatTimestamp,
   } from './security-settings-human-auth.model'
 
-  let { auditEvents }: { auditEvents: AuthAuditEvent[] } = $props()
+  let { events }: { events: UserDirectoryDetail['recentAuditEvents'] } = $props()
   let open = $state(false)
 </script>
 
@@ -23,12 +23,9 @@
           class="hover:bg-muted/40 flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors"
         >
           <div class="flex min-w-0 items-center gap-2">
-            <Clock3 class="text-muted-foreground size-4 shrink-0" />
-            <h5 class="text-sm font-semibold">Auth audit timeline</h5>
-            {#if auditEvents.length > 0}
-              <span class="text-muted-foreground text-xs font-normal">
-                {auditEvents.length}
-              </span>
+            <span class="text-sm font-semibold">Recent auth audit</span>
+            {#if events.length > 0}
+              <span class="text-muted-foreground text-xs font-normal">{events.length}</span>
             {/if}
           </div>
           <ChevronDown
@@ -41,9 +38,9 @@
     </Collapsible.Trigger>
     <Collapsible.Content>
       <div class="border-border/60 border-t">
-        {#if auditEvents.length > 0}
+        {#if events.length > 0}
           <ul class="divide-border/40 max-h-72 divide-y overflow-y-auto">
-            {#each auditEvents as event (event.id)}
+            {#each events as event (event.id)}
               {@const dotClass =
                 authAuditEventDotClass[formatAuthAuditEventSeverity(event.eventType)]}
               <li
@@ -62,7 +59,7 @@
           </ul>
         {:else}
           <div class="text-muted-foreground px-4 py-3 text-xs">
-            Auth audit events appear here after sign-in, logout, expiry, and revoke actions.
+            No recent auth audit events for this user.
           </div>
         {/if}
       </div>

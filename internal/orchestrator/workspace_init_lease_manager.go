@@ -20,6 +20,7 @@ const (
 	defaultWorkspaceInitLeaseHeartbeatInterval = 10 * time.Second
 	defaultWorkspaceInitLeaseWaitInterval      = time.Second
 	defaultWorkspaceInitLeaseReleaseTimeout    = 5 * time.Second
+	minWorkspaceInitLeaseHeartbeatTimeout      = 250 * time.Millisecond
 )
 
 type workspaceInitLeaseManager struct {
@@ -232,7 +233,7 @@ func (h *workspaceInitLeaseHandle) runHeartbeat() {
 			return
 		case <-ticker.C:
 			now := h.manager.currentTime()
-			renewCtx, cancel := context.WithTimeout(context.WithoutCancel(h.ctx), interval)
+			renewCtx, cancel := context.WithTimeout(context.WithoutCancel(h.ctx), h.manager.heartbeatTimeout(interval))
 			ok, err := h.manager.repo.Renew(renewCtx, workspaceinitleaserepo.RenewInput{
 				LeaseKey:       h.leaseKey,
 				OwnerRunID:     h.ownerRunID,
@@ -272,6 +273,27 @@ func (m *workspaceInitLeaseManager) currentTime() time.Time {
 		return time.Now().UTC()
 	}
 	return m.now().UTC()
+}
+
+func (m *workspaceInitLeaseManager) heartbeatTimeout(interval time.Duration) time.Duration {
+	timeout := interval
+	if timeout <= 0 {
+		timeout = defaultWorkspaceInitLeaseHeartbeatInterval
+	}
+	if timeout < minWorkspaceInitLeaseHeartbeatTimeout {
+		timeout = minWorkspaceInitLeaseHeartbeatTimeout
+	}
+
+	// Small test intervals can be shorter than a single database round-trip on a
+	// loaded runner. Give renewals breathing room without waiting longer than a
+	// meaningful fraction of the lease lifetime.
+	if m != nil && m.leaseDuration > 0 {
+		maxTimeout := m.leaseDuration / 2
+		if maxTimeout > 0 && timeout > maxTimeout {
+			timeout = maxTimeout
+		}
+	}
+	return timeout
 }
 
 func workspaceInitLeaseKey(machineID uuid.UUID) string {

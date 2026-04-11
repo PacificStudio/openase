@@ -71,12 +71,6 @@ export const boundaryRules = [
 
       return 'Feature modules may only import another feature through its public entrypoint.'
     },
-    allowlist: {
-      'src/lib/features/board/components/board-page.test.ts':
-        'Legacy board coverage still reuses the tickets page until board/tickets view extraction lands.',
-      'src/lib/features/tickets/components/tickets-page.svelte':
-        'Legacy tickets page still composes board internals until the board feature boundary is extracted.',
-    },
   },
   {
     name: 'routes-do-not-import-route-implementations',
@@ -97,15 +91,5 @@ export const boundaryRules = [
         reason: 'Route files must compose features instead of owning API or SSE integrations.',
       },
     ],
-    allowlist: {
-      'src/routes/+page.svelte':
-        'Legacy dashboard route still owns API/SSE wiring until the dashboard refactor lands.',
-      'src/routes/(app)/orgs/+page.svelte':
-        'Legacy workspace organizations route still owns API-backed dashboard wiring until org dashboard extraction lands.',
-      'src/routes/(app)/orgs/[orgId]/+page.svelte':
-        'Legacy organization overview route still owns API-backed dashboard wiring until org dashboard extraction lands.',
-      'src/routes/ticket/+page.svelte':
-        'Legacy ticket detail route still owns API/SSE wiring until the ticket refactor lands.',
-    },
   },
 ]

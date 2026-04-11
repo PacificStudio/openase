@@ -139,6 +139,12 @@ type MachineMutationBody = {
   workspace_root?: string
 }
 
+type ProjectAIRetentionPolicyMutationBody = {
+  enabled?: boolean
+  keep_latest_n?: number
+  keep_recent_days?: number
+}
+
 export function getSystemDashboard() {
   return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
 }
@@ -228,6 +234,7 @@ export function createProject(
     default_agent_provider_id?: string | null
     accessible_machine_ids?: string[]
     max_concurrent_agents?: number
+    project_ai_retention?: ProjectAIRetentionPolicyMutationBody
   },
 ) {
   return api.post<ProjectCreateResponse>(`/api/v1/orgs/${orgId}/projects`, { body })
@@ -713,6 +720,7 @@ export function updateProject(
     description?: string | null
     max_concurrent_agents?: number | null
     name?: string | null
+    project_ai_retention?: ProjectAIRetentionPolicyMutationBody
     slug?: string | null
     status?: string | null
   },

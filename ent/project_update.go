@@ -220,6 +220,62 @@ func (_u *ProjectUpdate) ClearAgentRunSummaryPrompt() *ProjectUpdate {
 	return _u
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionEnabled(v bool) *ProjectUpdate {
+	_u.mutation.SetProjectAiRetentionEnabled(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionEnabled(v *bool) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionEnabled(*v)
+	}
+	return _u
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionKeepLatestN(v int) *ProjectUpdate {
+	_u.mutation.ResetProjectAiRetentionKeepLatestN()
+	_u.mutation.SetProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionKeepLatestN(v *int) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepLatestN(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepLatestN adds value to the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdate) AddProjectAiRetentionKeepLatestN(v int) *ProjectUpdate {
+	_u.mutation.AddProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdate) SetProjectAiRetentionKeepRecentDays(v int) *ProjectUpdate {
+	_u.mutation.ResetProjectAiRetentionKeepRecentDays()
+	_u.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field if the given value is not nil.
+func (_u *ProjectUpdate) SetNillableProjectAiRetentionKeepRecentDays(v *int) *ProjectUpdate {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepRecentDays(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepRecentDays adds value to the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdate) AddProjectAiRetentionKeepRecentDays(v int) *ProjectUpdate {
+	_u.mutation.AddProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdate) SetOrganization(v *Organization) *ProjectUpdate {
 	return _u.SetOrganizationID(v.ID)
@@ -890,6 +946,21 @@ func (_u *ProjectUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.AgentRunSummaryPromptCleared() {
 		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionEnabled(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepLatestN(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepLatestN(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepRecentDays(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepRecentDays(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -1817,6 +1888,62 @@ func (_u *ProjectUpdateOne) ClearAgentRunSummaryPrompt() *ProjectUpdateOne {
 	return _u
 }
 
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionEnabled(v bool) *ProjectUpdateOne {
+	_u.mutation.SetProjectAiRetentionEnabled(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionEnabled(v *bool) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionEnabled(*v)
+	}
+	return _u
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionKeepLatestN(v int) *ProjectUpdateOne {
+	_u.mutation.ResetProjectAiRetentionKeepLatestN()
+	_u.mutation.SetProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionKeepLatestN(v *int) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepLatestN(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepLatestN adds value to the "project_ai_retention_keep_latest_n" field.
+func (_u *ProjectUpdateOne) AddProjectAiRetentionKeepLatestN(v int) *ProjectUpdateOne {
+	_u.mutation.AddProjectAiRetentionKeepLatestN(v)
+	return _u
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdateOne) SetProjectAiRetentionKeepRecentDays(v int) *ProjectUpdateOne {
+	_u.mutation.ResetProjectAiRetentionKeepRecentDays()
+	_u.mutation.SetProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
+// SetNillableProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field if the given value is not nil.
+func (_u *ProjectUpdateOne) SetNillableProjectAiRetentionKeepRecentDays(v *int) *ProjectUpdateOne {
+	if v != nil {
+		_u.SetProjectAiRetentionKeepRecentDays(*v)
+	}
+	return _u
+}
+
+// AddProjectAiRetentionKeepRecentDays adds value to the "project_ai_retention_keep_recent_days" field.
+func (_u *ProjectUpdateOne) AddProjectAiRetentionKeepRecentDays(v int) *ProjectUpdateOne {
+	_u.mutation.AddProjectAiRetentionKeepRecentDays(v)
+	return _u
+}
+
 // SetOrganization sets the "organization" edge to the Organization entity.
 func (_u *ProjectUpdateOne) SetOrganization(v *Organization) *ProjectUpdateOne {
 	return _u.SetOrganizationID(v.ID)
@@ -2517,6 +2644,21 @@ func (_u *ProjectUpdateOne) sqlSave(ctx context.Context) (_node *Project, err er
 	}
 	if _u.mutation.AgentRunSummaryPromptCleared() {
 		_spec.ClearField(project.FieldAgentRunSummaryPrompt, field.TypeString)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionEnabled(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionEnabled, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepLatestN(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepLatestN(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepLatestN, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ProjectAiRetentionKeepRecentDays(); ok {
+		_spec.SetField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedProjectAiRetentionKeepRecentDays(); ok {
+		_spec.AddField(project.FieldProjectAiRetentionKeepRecentDays, field.TypeInt, value)
 	}
 	if _u.mutation.OrganizationCleared() {
 		edge := &sqlgraph.EdgeSpec{

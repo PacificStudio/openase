@@ -1,6 +1,5 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { ApiError } from '$lib/api/client'
   import type { AgentProvider } from '$lib/api/contracts'
   import { interruptAgent } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -8,6 +7,8 @@
   import ProjectConversationComposer from './project-conversation-composer.svelte'
   import ProjectConversationContent from './project-conversation-content.svelte'
   import ProjectConversationHeader from './project-conversation-header.svelte'
+  import { runProjectConversationDeleteFlow } from './project-conversation-panel-delete'
+  import { interruptFocusedProjectAgent } from './project-conversation-panel-interrupt'
   import {
     describeProjectAIFocus,
     projectAIFocusKey,
@@ -225,23 +226,27 @@
   }
 
   async function handleInterruptFocusedAgent() {
-    if (!focusInterruptTarget) {
-      return
-    }
-    const confirmed = window.confirm(
-      `Interrupt "${focusInterruptTarget.agentName}"? This stops the current agent run. Use Close Runtime separately if you want to stop Project AI itself.`,
+    await interruptFocusedProjectAgent(
+      focusInterruptTarget
+        ? {
+            agentId: focusInterruptTarget.agentId,
+            agentName: focusInterruptTarget.agentName,
+            interruptAgent,
+            onSuccess: (message) => toastStore.success(message),
+            onError: (message) => toastStore.error(message),
+          }
+        : null,
     )
-    if (!confirmed) {
-      return
-    }
-    try {
-      await interruptAgent(focusInterruptTarget.agentId)
-      toastStore.success(`Interrupt requested for "${focusInterruptTarget.agentName}".`)
-    } catch (error) {
-      toastStore.error(
-        error instanceof ApiError ? error.detail : 'Failed to interrupt the focused agent.',
-      )
-    }
+  }
+
+  async function handleDeleteConversation(conversationId: string, force = false) {
+    await runProjectConversationDeleteFlow({
+      conversationId,
+      force,
+      deleteConversation: controller.deleteConversation,
+      onDeleted: () => toastStore.success('Project AI conversation deleted.'),
+      onError: (message) => toastStore.error(message),
+    })
   }
 </script>
 
@@ -257,6 +262,7 @@
     onProviderChange={(nextProviderId) => void controller.selectProvider(nextProviderId)}
     onCreateTab={() => controller.createTab()}
     onOpenConversation={(conversationId) => void controller.openConversation(conversationId)}
+    onDeleteConversation={(conversationId) => void handleDeleteConversation(conversationId)}
     {onClose}
   />
   <ProjectConversationContent
@@ -293,9 +299,7 @@
     {stopDisabled}
     onFocusAction={handleInterruptFocusedAgent}
     onStop={() => void controller.stopTurn()}
-    onDismissFocus={() => {
-      suppressedFocusKey = effectiveFocusKey
-    }}
+    onDismissFocus={() => (suppressedFocusKey = effectiveFocusKey)}
     onCancelQueuedTurn={(id) => controller.cancelQueuedTurn(id)}
     onDraftChange={controller.setDraft}
     onSend={handleSend}

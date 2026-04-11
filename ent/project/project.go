@@ -35,6 +35,12 @@ const (
 	FieldMaxConcurrentAgents = "max_concurrent_agents"
 	// FieldAgentRunSummaryPrompt holds the string denoting the agent_run_summary_prompt field in the database.
 	FieldAgentRunSummaryPrompt = "agent_run_summary_prompt"
+	// FieldProjectAiRetentionEnabled holds the string denoting the project_ai_retention_enabled field in the database.
+	FieldProjectAiRetentionEnabled = "project_ai_retention_enabled"
+	// FieldProjectAiRetentionKeepLatestN holds the string denoting the project_ai_retention_keep_latest_n field in the database.
+	FieldProjectAiRetentionKeepLatestN = "project_ai_retention_keep_latest_n"
+	// FieldProjectAiRetentionKeepRecentDays holds the string denoting the project_ai_retention_keep_recent_days field in the database.
+	FieldProjectAiRetentionKeepRecentDays = "project_ai_retention_keep_recent_days"
 	// EdgeOrganization holds the string denoting the organization edge name in mutations.
 	EdgeOrganization = "organization"
 	// EdgeRepos holds the string denoting the repos edge name in mutations.
@@ -206,6 +212,9 @@ var Columns = []string{
 	FieldAccessibleMachineIds,
 	FieldMaxConcurrentAgents,
 	FieldAgentRunSummaryPrompt,
+	FieldProjectAiRetentionEnabled,
+	FieldProjectAiRetentionKeepLatestN,
+	FieldProjectAiRetentionKeepRecentDays,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -229,6 +238,12 @@ var (
 	DefaultAccessibleMachineIds func() []uuid.UUID
 	// DefaultMaxConcurrentAgents holds the default value on creation for the "max_concurrent_agents" field.
 	DefaultMaxConcurrentAgents int
+	// DefaultProjectAiRetentionEnabled holds the default value on creation for the "project_ai_retention_enabled" field.
+	DefaultProjectAiRetentionEnabled bool
+	// DefaultProjectAiRetentionKeepLatestN holds the default value on creation for the "project_ai_retention_keep_latest_n" field.
+	DefaultProjectAiRetentionKeepLatestN int
+	// DefaultProjectAiRetentionKeepRecentDays holds the default value on creation for the "project_ai_retention_keep_recent_days" field.
+	DefaultProjectAiRetentionKeepRecentDays int
 	// DefaultID holds the default value on creation for the "id" field.
 	DefaultID func() uuid.UUID
 )
@@ -279,6 +294,21 @@ func ByMaxConcurrentAgents(opts ...sql.OrderTermOption) OrderOption {
 // ByAgentRunSummaryPrompt orders the results by the agent_run_summary_prompt field.
 func ByAgentRunSummaryPrompt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldAgentRunSummaryPrompt, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionEnabled orders the results by the project_ai_retention_enabled field.
+func ByProjectAiRetentionEnabled(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionEnabled, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionKeepLatestN orders the results by the project_ai_retention_keep_latest_n field.
+func ByProjectAiRetentionKeepLatestN(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionKeepLatestN, opts...).ToFunc()
+}
+
+// ByProjectAiRetentionKeepRecentDays orders the results by the project_ai_retention_keep_recent_days field.
+func ByProjectAiRetentionKeepRecentDays(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldProjectAiRetentionKeepRecentDays, opts...).ToFunc()
 }
 
 // ByOrganizationField orders the results by organization field.

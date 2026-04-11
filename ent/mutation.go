@@ -29101,73 +29101,78 @@ func (m *OrganizationMembershipMutation) ResetEdge(name string) error {
 // ProjectMutation represents an operation that mutates the Project nodes in the graph.
 type ProjectMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *uuid.UUID
-	name                          *string
-	slug                          *string
-	description                   *string
-	status                        *string
-	github_outbound_credential    **githubauth.StoredCredential
-	github_token_probe            **githubauth.TokenProbe
-	accessible_machine_ids        *[]uuid.UUID
-	appendaccessible_machine_ids  []uuid.UUID
-	max_concurrent_agents         *int
-	addmax_concurrent_agents      *int
-	agent_run_summary_prompt      *string
-	clearedFields                 map[string]struct{}
-	organization                  *uuid.UUID
-	clearedorganization           bool
-	repos                         map[uuid.UUID]struct{}
-	removedrepos                  map[uuid.UUID]struct{}
-	clearedrepos                  bool
-	skills                        map[uuid.UUID]struct{}
-	removedskills                 map[uuid.UUID]struct{}
-	clearedskills                 bool
-	statuses                      map[uuid.UUID]struct{}
-	removedstatuses               map[uuid.UUID]struct{}
-	clearedstatuses               bool
-	workflows                     map[uuid.UUID]struct{}
-	removedworkflows              map[uuid.UUID]struct{}
-	clearedworkflows              bool
-	tickets                       map[uuid.UUID]struct{}
-	removedtickets                map[uuid.UUID]struct{}
-	clearedtickets                bool
-	agents                        map[uuid.UUID]struct{}
-	removedagents                 map[uuid.UUID]struct{}
-	clearedagents                 bool
-	agent_tokens                  map[uuid.UUID]struct{}
-	removedagent_tokens           map[uuid.UUID]struct{}
-	clearedagent_tokens           bool
-	agent_trace_events            map[uuid.UUID]struct{}
-	removedagent_trace_events     map[uuid.UUID]struct{}
-	clearedagent_trace_events     bool
-	agent_step_events             map[uuid.UUID]struct{}
-	removedagent_step_events      map[uuid.UUID]struct{}
-	clearedagent_step_events      bool
-	daily_token_usage             map[uuid.UUID]struct{}
-	removeddaily_token_usage      map[uuid.UUID]struct{}
-	cleareddaily_token_usage      bool
-	scheduled_jobs                map[uuid.UUID]struct{}
-	removedscheduled_jobs         map[uuid.UUID]struct{}
-	clearedscheduled_jobs         bool
-	activity_events               map[uuid.UUID]struct{}
-	removedactivity_events        map[uuid.UUID]struct{}
-	clearedactivity_events        bool
-	update_threads                map[uuid.UUID]struct{}
-	removedupdate_threads         map[uuid.UUID]struct{}
-	clearedupdate_threads         bool
-	chat_conversations            map[uuid.UUID]struct{}
-	removedchat_conversations     map[uuid.UUID]struct{}
-	clearedchat_conversations     bool
-	notification_rules            map[uuid.UUID]struct{}
-	removednotification_rules     map[uuid.UUID]struct{}
-	clearednotification_rules     bool
-	default_agent_provider        *uuid.UUID
-	cleareddefault_agent_provider bool
-	done                          bool
-	oldValue                      func(context.Context) (*Project, error)
-	predicates                    []predicate.Project
+	op                                       Op
+	typ                                      string
+	id                                       *uuid.UUID
+	name                                     *string
+	slug                                     *string
+	description                              *string
+	status                                   *string
+	github_outbound_credential               **githubauth.StoredCredential
+	github_token_probe                       **githubauth.TokenProbe
+	accessible_machine_ids                   *[]uuid.UUID
+	appendaccessible_machine_ids             []uuid.UUID
+	max_concurrent_agents                    *int
+	addmax_concurrent_agents                 *int
+	agent_run_summary_prompt                 *string
+	project_ai_retention_enabled             *bool
+	project_ai_retention_keep_latest_n       *int
+	addproject_ai_retention_keep_latest_n    *int
+	project_ai_retention_keep_recent_days    *int
+	addproject_ai_retention_keep_recent_days *int
+	clearedFields                            map[string]struct{}
+	organization                             *uuid.UUID
+	clearedorganization                      bool
+	repos                                    map[uuid.UUID]struct{}
+	removedrepos                             map[uuid.UUID]struct{}
+	clearedrepos                             bool
+	skills                                   map[uuid.UUID]struct{}
+	removedskills                            map[uuid.UUID]struct{}
+	clearedskills                            bool
+	statuses                                 map[uuid.UUID]struct{}
+	removedstatuses                          map[uuid.UUID]struct{}
+	clearedstatuses                          bool
+	workflows                                map[uuid.UUID]struct{}
+	removedworkflows                         map[uuid.UUID]struct{}
+	clearedworkflows                         bool
+	tickets                                  map[uuid.UUID]struct{}
+	removedtickets                           map[uuid.UUID]struct{}
+	clearedtickets                           bool
+	agents                                   map[uuid.UUID]struct{}
+	removedagents                            map[uuid.UUID]struct{}
+	clearedagents                            bool
+	agent_tokens                             map[uuid.UUID]struct{}
+	removedagent_tokens                      map[uuid.UUID]struct{}
+	clearedagent_tokens                      bool
+	agent_trace_events                       map[uuid.UUID]struct{}
+	removedagent_trace_events                map[uuid.UUID]struct{}
+	clearedagent_trace_events                bool
+	agent_step_events                        map[uuid.UUID]struct{}
+	removedagent_step_events                 map[uuid.UUID]struct{}
+	clearedagent_step_events                 bool
+	daily_token_usage                        map[uuid.UUID]struct{}
+	removeddaily_token_usage                 map[uuid.UUID]struct{}
+	cleareddaily_token_usage                 bool
+	scheduled_jobs                           map[uuid.UUID]struct{}
+	removedscheduled_jobs                    map[uuid.UUID]struct{}
+	clearedscheduled_jobs                    bool
+	activity_events                          map[uuid.UUID]struct{}
+	removedactivity_events                   map[uuid.UUID]struct{}
+	clearedactivity_events                   bool
+	update_threads                           map[uuid.UUID]struct{}
+	removedupdate_threads                    map[uuid.UUID]struct{}
+	clearedupdate_threads                    bool
+	chat_conversations                       map[uuid.UUID]struct{}
+	removedchat_conversations                map[uuid.UUID]struct{}
+	clearedchat_conversations                bool
+	notification_rules                       map[uuid.UUID]struct{}
+	removednotification_rules                map[uuid.UUID]struct{}
+	clearednotification_rules                bool
+	default_agent_provider                   *uuid.UUID
+	cleareddefault_agent_provider            bool
+	done                                     bool
+	oldValue                                 func(context.Context) (*Project, error)
+	predicates                               []predicate.Project
 }
 
 var _ ent.Mutation = (*ProjectMutation)(nil)
@@ -29768,6 +29773,154 @@ func (m *ProjectMutation) AgentRunSummaryPromptCleared() bool {
 func (m *ProjectMutation) ResetAgentRunSummaryPrompt() {
 	m.agent_run_summary_prompt = nil
 	delete(m.clearedFields, project.FieldAgentRunSummaryPrompt)
+}
+
+// SetProjectAiRetentionEnabled sets the "project_ai_retention_enabled" field.
+func (m *ProjectMutation) SetProjectAiRetentionEnabled(b bool) {
+	m.project_ai_retention_enabled = &b
+}
+
+// ProjectAiRetentionEnabled returns the value of the "project_ai_retention_enabled" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionEnabled() (r bool, exists bool) {
+	v := m.project_ai_retention_enabled
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionEnabled returns the old "project_ai_retention_enabled" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionEnabled(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionEnabled is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionEnabled requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionEnabled: %w", err)
+	}
+	return oldValue.ProjectAiRetentionEnabled, nil
+}
+
+// ResetProjectAiRetentionEnabled resets all changes to the "project_ai_retention_enabled" field.
+func (m *ProjectMutation) ResetProjectAiRetentionEnabled() {
+	m.project_ai_retention_enabled = nil
+}
+
+// SetProjectAiRetentionKeepLatestN sets the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) SetProjectAiRetentionKeepLatestN(i int) {
+	m.project_ai_retention_keep_latest_n = &i
+	m.addproject_ai_retention_keep_latest_n = nil
+}
+
+// ProjectAiRetentionKeepLatestN returns the value of the "project_ai_retention_keep_latest_n" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionKeepLatestN() (r int, exists bool) {
+	v := m.project_ai_retention_keep_latest_n
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionKeepLatestN returns the old "project_ai_retention_keep_latest_n" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionKeepLatestN(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionKeepLatestN is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionKeepLatestN requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionKeepLatestN: %w", err)
+	}
+	return oldValue.ProjectAiRetentionKeepLatestN, nil
+}
+
+// AddProjectAiRetentionKeepLatestN adds i to the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) AddProjectAiRetentionKeepLatestN(i int) {
+	if m.addproject_ai_retention_keep_latest_n != nil {
+		*m.addproject_ai_retention_keep_latest_n += i
+	} else {
+		m.addproject_ai_retention_keep_latest_n = &i
+	}
+}
+
+// AddedProjectAiRetentionKeepLatestN returns the value that was added to the "project_ai_retention_keep_latest_n" field in this mutation.
+func (m *ProjectMutation) AddedProjectAiRetentionKeepLatestN() (r int, exists bool) {
+	v := m.addproject_ai_retention_keep_latest_n
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProjectAiRetentionKeepLatestN resets all changes to the "project_ai_retention_keep_latest_n" field.
+func (m *ProjectMutation) ResetProjectAiRetentionKeepLatestN() {
+	m.project_ai_retention_keep_latest_n = nil
+	m.addproject_ai_retention_keep_latest_n = nil
+}
+
+// SetProjectAiRetentionKeepRecentDays sets the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) SetProjectAiRetentionKeepRecentDays(i int) {
+	m.project_ai_retention_keep_recent_days = &i
+	m.addproject_ai_retention_keep_recent_days = nil
+}
+
+// ProjectAiRetentionKeepRecentDays returns the value of the "project_ai_retention_keep_recent_days" field in the mutation.
+func (m *ProjectMutation) ProjectAiRetentionKeepRecentDays() (r int, exists bool) {
+	v := m.project_ai_retention_keep_recent_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProjectAiRetentionKeepRecentDays returns the old "project_ai_retention_keep_recent_days" field's value of the Project entity.
+// If the Project object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ProjectMutation) OldProjectAiRetentionKeepRecentDays(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProjectAiRetentionKeepRecentDays is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProjectAiRetentionKeepRecentDays requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProjectAiRetentionKeepRecentDays: %w", err)
+	}
+	return oldValue.ProjectAiRetentionKeepRecentDays, nil
+}
+
+// AddProjectAiRetentionKeepRecentDays adds i to the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) AddProjectAiRetentionKeepRecentDays(i int) {
+	if m.addproject_ai_retention_keep_recent_days != nil {
+		*m.addproject_ai_retention_keep_recent_days += i
+	} else {
+		m.addproject_ai_retention_keep_recent_days = &i
+	}
+}
+
+// AddedProjectAiRetentionKeepRecentDays returns the value that was added to the "project_ai_retention_keep_recent_days" field in this mutation.
+func (m *ProjectMutation) AddedProjectAiRetentionKeepRecentDays() (r int, exists bool) {
+	v := m.addproject_ai_retention_keep_recent_days
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetProjectAiRetentionKeepRecentDays resets all changes to the "project_ai_retention_keep_recent_days" field.
+func (m *ProjectMutation) ResetProjectAiRetentionKeepRecentDays() {
+	m.project_ai_retention_keep_recent_days = nil
+	m.addproject_ai_retention_keep_recent_days = nil
 }
 
 // ClearOrganization clears the "organization" edge to the Organization entity.
@@ -30668,7 +30821,7 @@ func (m *ProjectMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ProjectMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 14)
 	if m.organization != nil {
 		fields = append(fields, project.FieldOrganizationID)
 	}
@@ -30702,6 +30855,15 @@ func (m *ProjectMutation) Fields() []string {
 	if m.agent_run_summary_prompt != nil {
 		fields = append(fields, project.FieldAgentRunSummaryPrompt)
 	}
+	if m.project_ai_retention_enabled != nil {
+		fields = append(fields, project.FieldProjectAiRetentionEnabled)
+	}
+	if m.project_ai_retention_keep_latest_n != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepLatestN)
+	}
+	if m.project_ai_retention_keep_recent_days != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepRecentDays)
+	}
 	return fields
 }
 
@@ -30732,6 +30894,12 @@ func (m *ProjectMutation) Field(name string) (ent.Value, bool) {
 		return m.MaxConcurrentAgents()
 	case project.FieldAgentRunSummaryPrompt:
 		return m.AgentRunSummaryPrompt()
+	case project.FieldProjectAiRetentionEnabled:
+		return m.ProjectAiRetentionEnabled()
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.ProjectAiRetentionKeepLatestN()
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.ProjectAiRetentionKeepRecentDays()
 	}
 	return nil, false
 }
@@ -30763,6 +30931,12 @@ func (m *ProjectMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldMaxConcurrentAgents(ctx)
 	case project.FieldAgentRunSummaryPrompt:
 		return m.OldAgentRunSummaryPrompt(ctx)
+	case project.FieldProjectAiRetentionEnabled:
+		return m.OldProjectAiRetentionEnabled(ctx)
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.OldProjectAiRetentionKeepLatestN(ctx)
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.OldProjectAiRetentionKeepRecentDays(ctx)
 	}
 	return nil, fmt.Errorf("unknown Project field %s", name)
 }
@@ -30849,6 +31023,27 @@ func (m *ProjectMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetAgentRunSummaryPrompt(v)
 		return nil
+	case project.FieldProjectAiRetentionEnabled:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionEnabled(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionKeepLatestN(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProjectAiRetentionKeepRecentDays(v)
+		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)
 }
@@ -30860,6 +31055,12 @@ func (m *ProjectMutation) AddedFields() []string {
 	if m.addmax_concurrent_agents != nil {
 		fields = append(fields, project.FieldMaxConcurrentAgents)
 	}
+	if m.addproject_ai_retention_keep_latest_n != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepLatestN)
+	}
+	if m.addproject_ai_retention_keep_recent_days != nil {
+		fields = append(fields, project.FieldProjectAiRetentionKeepRecentDays)
+	}
 	return fields
 }
 
@@ -30870,6 +31071,10 @@ func (m *ProjectMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case project.FieldMaxConcurrentAgents:
 		return m.AddedMaxConcurrentAgents()
+	case project.FieldProjectAiRetentionKeepLatestN:
+		return m.AddedProjectAiRetentionKeepLatestN()
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		return m.AddedProjectAiRetentionKeepRecentDays()
 	}
 	return nil, false
 }
@@ -30885,6 +31090,20 @@ func (m *ProjectMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddMaxConcurrentAgents(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProjectAiRetentionKeepLatestN(v)
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddProjectAiRetentionKeepRecentDays(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Project numeric field %s", name)
@@ -30978,6 +31197,15 @@ func (m *ProjectMutation) ResetField(name string) error {
 		return nil
 	case project.FieldAgentRunSummaryPrompt:
 		m.ResetAgentRunSummaryPrompt()
+		return nil
+	case project.FieldProjectAiRetentionEnabled:
+		m.ResetProjectAiRetentionEnabled()
+		return nil
+	case project.FieldProjectAiRetentionKeepLatestN:
+		m.ResetProjectAiRetentionKeepLatestN()
+		return nil
+	case project.FieldProjectAiRetentionKeepRecentDays:
+		m.ResetProjectAiRetentionKeepRecentDays()
 		return nil
 	}
 	return fmt.Errorf("unknown Project field %s", name)

@@ -48,6 +48,17 @@ export function createProjectConversationControllerConversations(
     )
   }
 
+  function removeConversation(conversationId: string) {
+    if (!conversationId) return
+    const nextConversations = input
+      .getConversations()
+      .filter((conversation) => conversation.id !== conversationId)
+    if (nextConversations.length === input.getConversations().length) {
+      return
+    }
+    input.setConversations(sortProjectConversations(nextConversations))
+  }
+
   function applySessionPayload(
     tabConversationId: string,
     payload: ProjectConversationSessionPayload,
@@ -82,6 +93,7 @@ export function createProjectConversationControllerConversations(
     sortProjectConversations,
     touchConversation,
     upsertConversation,
+    removeConversation,
     applySessionPayload,
   }
 }

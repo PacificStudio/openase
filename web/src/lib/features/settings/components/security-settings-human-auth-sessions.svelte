@@ -188,7 +188,7 @@
       </div>
     </div>
 
-    <div class="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+    <div class="space-y-4">
       <div class="space-y-3">
         {#if governance.sessions.length > 0}
           {#each governance.sessions as session (session.id)}

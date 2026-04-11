@@ -34,6 +34,9 @@ func (Project) Fields() []ent.Field {
 			Default(emptyUUIDs),
 		field.Int("max_concurrent_agents").Default(0),
 		field.Text("agent_run_summary_prompt").Optional(),
+		field.Bool("project_ai_retention_enabled").Default(false),
+		field.Int("project_ai_retention_keep_latest_n").Default(0),
+		field.Int("project_ai_retention_keep_recent_days").Default(0),
 	}
 }
 
