@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -391,6 +392,10 @@ func startReverseRuntimeTransportFixture(t *testing.T) reverseRuntimeTransportFi
 	}))
 
 	participantCtx, cancelParticipant := context.WithCancel(context.Background())
+	var disconnectOnce sync.Once
+	disconnect := func() {
+		disconnectOnce.Do(cancelParticipant)
+	}
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- runReverseRuntimeParticipant(participantCtx, server.URL, machineID)
@@ -399,7 +404,7 @@ func startReverseRuntimeTransportFixture(t *testing.T) reverseRuntimeTransportFi
 	waitForReverseRuntimeRegistration(t, relay, machineID)
 
 	t.Cleanup(func() {
-		cancelParticipant()
+		disconnect()
 		if err := <-errCh; err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, net.ErrClosed) {
 			t.Errorf("reverse runtime participant returned error: %v", err)
 		}
@@ -422,7 +427,7 @@ func startReverseRuntimeTransportFixture(t *testing.T) reverseRuntimeTransportFi
 			reverseRelay: relay,
 		},
 		relay:      relay,
-		disconnect: cancelParticipant,
+		disconnect: disconnect,
 	}
 }
 
