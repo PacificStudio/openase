@@ -1,7 +1,9 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { FileCode2 } from '@lucide/svelte'
-  import { CodeViewer, DiffViewer } from '$lib/components/code'
+  import { Button } from '$ui/button'
+  import { CodeEditor, DiffViewer } from '$lib/components/code'
+  import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
   import type {
     ProjectConversationWorkspaceFilePatch,
     ProjectConversationWorkspaceFilePreview,
@@ -30,6 +32,13 @@
     return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
   })
   const hasDiff = $derived(patch?.diffKind === 'text' && !!patch.diff)
+  const showWrapToggle = $derived(hasDiff || preview?.previewKind === 'text')
+  let wrapMode = $state(readEditorWrapMode())
+
+  function toggleWrapMode() {
+    wrapMode = wrapMode === 'wrap' ? 'nowrap' : 'wrap'
+    storeEditorWrapMode(wrapMode)
+  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -74,14 +83,29 @@
           {patch.status}
         </span>
       {/if}
-      {#if preview}
-        <span class="text-muted-foreground/50 ml-auto text-[10px]">
-          {preview.mediaType} · {preview.sizeBytes} B
-        </span>
-      {/if}
-      {#if fileLoading}
-        <span class="text-muted-foreground/50 text-[10px]">Loading…</span>
-      {/if}
+      <div class="ml-auto flex items-center gap-2">
+        {#if showWrapToggle}
+          <Button
+            variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
+            size="xs"
+            class="h-6"
+            aria-label={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+            aria-pressed={wrapMode === 'wrap'}
+            data-testid="workspace-browser-wrap-toggle"
+            onclick={toggleWrapMode}
+          >
+            {wrapMode === 'wrap' ? 'Wrap on' : 'Wrap off'}
+          </Button>
+        {/if}
+        {#if preview}
+          <span class="text-muted-foreground/50 text-[10px]">
+            {preview.mediaType} · {preview.sizeBytes} B
+          </span>
+        {/if}
+        {#if fileLoading}
+          <span class="text-muted-foreground/50 text-[10px]">Loading…</span>
+        {/if}
+      </div>
     </div>
 
     <!-- Unified content: diff or syntax-highlighted preview -->
@@ -94,6 +118,7 @@
           <DiffViewer
             diff={patch?.diff ?? ''}
             sourceContent={preview?.content ?? ''}
+            {wrapMode}
             class="h-full"
           />
         </div>
@@ -106,7 +131,13 @@
           class="h-full min-h-0 min-w-0 overflow-hidden"
           data-testid="workspace-browser-detail-scroll-frame"
         >
-          <CodeViewer code={preview.content ?? ''} filePath={selectedFilePath} class="h-full" />
+          <CodeEditor
+            value={preview.content ?? ''}
+            filePath={selectedFilePath}
+            readonly={true}
+            {wrapMode}
+            class="h-full"
+          />
         </div>
       {:else if fileLoading}
         <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
