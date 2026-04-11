@@ -254,7 +254,7 @@ describe('Security settings', () => {
       binding: scopedSecretBindings()[0],
     })
 
-    const { findAllByRole, findByLabelText, findByRole, findByText } = render(SecuritySettings)
+    const { findAllByRole, findByLabelText, findByText } = render(SecuritySettings)
 
     const bindButtons = await findAllByRole('button', { name: 'Bind secret' })
     await fireEvent.click(bindButtons[bindButtons.length - 1])
