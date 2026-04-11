@@ -535,7 +535,7 @@ func resolveLocalProjectConversationWorkspaceCreateTarget(
 			if !errors.Is(err, os.ErrNotExist) {
 				return "", fmt.Errorf("stat workspace directory %s: %w", nextPath, err)
 			}
-			if err := os.Mkdir(nextPath, 0o755); err != nil && !errors.Is(err, os.ErrExist) {
+			if err := os.Mkdir(nextPath, 0o750); err != nil && !errors.Is(err, os.ErrExist) {
 				return "", fmt.Errorf("create workspace directory %s: %w", nextPath, err)
 			}
 			info, err = os.Lstat(nextPath)
