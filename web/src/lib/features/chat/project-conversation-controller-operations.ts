@@ -1,5 +1,6 @@
 import {
   deleteProjectConversation,
+  interruptProjectConversationTurn,
   respondProjectConversationInterrupt,
   type ProjectConversation,
 } from '$lib/api/chat'
@@ -135,6 +136,28 @@ export function createProjectConversationControllerOperations(
     await runtime.resetConversation()
   }
 
+  async function stopTurn() {
+    const activeTab = input.getActiveTab()
+    if (
+      !activeTab?.conversationId ||
+      (activeTab.phase !== 'awaiting_reply' &&
+        activeTab.phase !== 'connecting_stream' &&
+        activeTab.phase !== 'stopping_turn')
+    ) {
+      return
+    }
+    const previousPhase = activeTab.phase
+    activeTab.phase = 'stopping_turn'
+    try {
+      await interruptProjectConversationTurn(activeTab.conversationId)
+    } catch (caughtError) {
+      activeTab.phase = previousPhase
+      input.controllerInput.onError?.(
+        caughtError instanceof Error ? caughtError.message : 'Failed to stop the current turn.',
+      )
+    }
+  }
+
   async function respondInterrupt(inputValue: {
     interruptId: string
     decision?: string
@@ -195,6 +218,7 @@ export function createProjectConversationControllerOperations(
     selectTab,
     closeTab,
     resetConversation,
+    stopTurn,
     respondInterrupt,
     deleteConversation,
     dispose,

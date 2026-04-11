@@ -1909,7 +1909,7 @@ func (l *RuntimeLauncher) handleExecutionFailure(ctx context.Context, runID uuid
 	l.prepareRunCompletionSummaryBestEffort(ctx, runID)
 	l.scheduleRunCompletionSummary(runID)
 
-	retrySvc := NewRetryService(l.client, l.logger)
+	retrySvc := NewRetryService(l.client, l.logger, l.events)
 	retrySvc.now = l.now
 	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
 		l.logger.Error("mark execution failed retry", "ticket_id", ticketID, "agent_id", agentID, "error", err)

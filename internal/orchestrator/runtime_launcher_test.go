@@ -257,6 +257,9 @@ Access {% for machine in accessible_machines %}{{ machine.name }}={{ machine.ssh
 	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "## OpenASE Platform Capability Contract") {
 		t.Fatalf("expected platform capability contract in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}
+	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "## Shared Workflow Execution Rules") {
+		t.Fatalf("expected shared workflow guidance in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
+	}
 	if !strings.Contains(manager.capturedThreadStart().DeveloperInstructions, "Current principal: `ticket_agent`") {
 		t.Fatalf("expected ticket principal contract in developer instructions, got %q", manager.capturedThreadStart().DeveloperInstructions)
 	}

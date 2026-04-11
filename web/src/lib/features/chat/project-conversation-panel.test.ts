@@ -90,12 +90,14 @@ describe('ProjectConversationPanel', () => {
       conversations: [
         {
           id: 'conversation-1',
+          title: 'Current conversation',
           rollingSummary: 'Current conversation',
           lastActivityAt: '2026-04-01T10:00:00Z',
           providerId: 'provider-1',
         },
         {
           id: 'conversation-2',
+          title: 'Older discussion',
           rollingSummary: 'Older discussion',
           lastActivityAt: '2026-03-31T09:00:00Z',
           providerId: 'provider-1',
@@ -151,6 +153,7 @@ describe('ProjectConversationPanel', () => {
       conversations: [
         {
           id: 'conversation-1',
+          title: 'Current conversation',
           rollingSummary: 'Current conversation',
           lastActivityAt: '2026-04-01T10:00:00Z',
           providerId: 'provider-1',

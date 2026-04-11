@@ -284,7 +284,7 @@ You create a ticket  →  Orchestrator detects pickup status
 |----------|------|-------------|
 | 🟡 Medium | **Remote Runtime Operations** | Expand rollout automation, dashboards, and operator tooling around the websocket-only remote runtime plane |
 | 🟡 Medium | **Windows Support** | Native service management and shell-script support outside WSL2 |
-| 🟡 Medium | **Notification Channels** | Slack, email, and webhook notification delivery |
+| 🟡 Medium | **Notification Channels** | Webhook, Telegram, Slack, and WeCom notification delivery |
 | 🟡 Medium | **iOS & Android App** | Mobile control plane for monitoring and managing projects on the go |
 | 🟡 Medium | **Desktop All-in-One App** | Standalone desktop application bundling the full OpenASE experience |
 | 🟡 Medium | **Kubernetes Runtime** | Run agent workloads on Kubernetes clusters for elastic scaling |

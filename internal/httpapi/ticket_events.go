@@ -7,6 +7,7 @@ import (
 
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
+	ticketingdomain "github.com/BetterAndBetterII/openase/internal/domain/ticketing"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	ticketservice "github.com/BetterAndBetterII/openase/internal/ticket"
 )
@@ -18,6 +19,8 @@ var (
 	ticketArchivedType     = activityevent.TypeTicketArchived
 	ticketUnarchivedType   = activityevent.TypeTicketUnarchived
 	ticketStatusEventType  = activityevent.TypeTicketStatusChanged
+	ticketCompletedType    = activityevent.TypeTicketCompleted
+	ticketCancelledType    = activityevent.TypeTicketCancelled
 	ticketRetryResumedType = activityevent.TypeTicketRetryResumed
 )
 
@@ -67,6 +70,19 @@ func (s *Server) publishTicketEvent(
 	return nil
 }
 
+func (s *Server) publishTicketEvents(
+	ctx context.Context,
+	eventTypes []activityevent.Type,
+	ticket ticketservice.Ticket,
+) error {
+	for _, eventType := range eventTypes {
+		if err := s.publishTicketEvent(ctx, eventType, ticket); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func buildTicketActivityMessage(eventType activityevent.Type, ticket ticketservice.Ticket) string {
 	switch eventType {
 	case activityevent.TypeTicketCreated:
@@ -77,6 +93,10 @@ func buildTicketActivityMessage(eventType activityevent.Type, ticket ticketservi
 		return fmt.Sprintf("Unarchived ticket %s", ticket.Identifier)
 	case activityevent.TypeTicketStatusChanged:
 		return fmt.Sprintf("Updated %s status to %s", ticket.Identifier, ticket.StatusName)
+	case activityevent.TypeTicketCompleted:
+		return fmt.Sprintf("Completed ticket %s", ticket.Identifier)
+	case activityevent.TypeTicketCancelled:
+		return fmt.Sprintf("Cancelled ticket %s", ticket.Identifier)
 	case activityevent.TypeTicketRetryResumed:
 		return fmt.Sprintf("Resumed retry for %s after repeated stalls", ticket.Identifier)
 	default:
@@ -99,9 +119,11 @@ func buildTicketActivityMetadata(
 	case activityevent.TypeTicketArchived, activityevent.TypeTicketUnarchived:
 		metadata["archived"] = ticket.Archived
 		metadata["changed_fields"] = []string{"archived"}
-	case activityevent.TypeTicketStatusChanged:
+	case activityevent.TypeTicketStatusChanged, activityevent.TypeTicketCompleted, activityevent.TypeTicketCancelled:
 		metadata["to_status_id"] = ticket.StatusID.String()
 		metadata["to_status_name"] = ticket.StatusName
+		metadata["status_stage"] = ticket.StatusStage
+		metadata["changed_fields"] = []string{"status"}
 	case activityevent.TypeTicketRetryResumed:
 		metadata["retry_paused"] = ticket.RetryPaused
 		metadata["pause_reason"] = ticket.PauseReason
@@ -113,15 +135,22 @@ func buildTicketActivityMetadata(
 	return metadata
 }
 
-func ticketMutationEventType(input ticketservice.UpdateInput) activityevent.Type {
+func ticketMutationEventTypes(input ticketservice.UpdateInput, ticket ticketservice.Ticket) []activityevent.Type {
 	if input.Archived.Set {
 		if input.Archived.Value {
-			return ticketArchivedType
+			return []activityevent.Type{ticketArchivedType}
 		}
-		return ticketUnarchivedType
+		return []activityevent.Type{ticketUnarchivedType}
 	}
 	if input.StatusID.Set {
-		return ticketStatusEventType
+		eventTypes := []activityevent.Type{ticketStatusEventType}
+		switch ticketingdomain.StatusStage(ticket.StatusStage) {
+		case ticketingdomain.StatusStageCompleted:
+			eventTypes = append(eventTypes, ticketCompletedType)
+		case ticketingdomain.StatusStageCanceled:
+			eventTypes = append(eventTypes, ticketCancelledType)
+		}
+		return eventTypes
 	}
-	return ticketUpdatedEventType
+	return []activityevent.Type{ticketUpdatedEventType}
 }

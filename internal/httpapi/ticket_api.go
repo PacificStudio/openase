@@ -481,8 +481,8 @@ func (s *Server) handleUpdateTicket(c echo.Context) error {
 	if err != nil {
 		return writeTicketError(c, err)
 	}
-	eventType := ticketMutationEventType(input)
-	if err := s.publishTicketEvent(c.Request().Context(), eventType, item); err != nil {
+	eventTypes := ticketMutationEventTypes(input, item)
+	if err := s.publishTicketEvents(c.Request().Context(), eventTypes, item); err != nil {
 		return writeTicketError(c, err)
 	}
 	if input.ParentTicketID.Set {

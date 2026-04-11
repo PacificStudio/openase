@@ -181,6 +181,7 @@ type Ticket struct {
 	Description          string            `json:"description"`
 	StatusID             uuid.UUID         `json:"status_id"`
 	StatusName           string            `json:"status_name"`
+	StatusStage          string            `json:"status_stage,omitempty"`
 	Archived             bool              `json:"archived"`
 	Priority             Priority          `json:"priority"`
 	Type                 Type              `json:"type"`

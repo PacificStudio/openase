@@ -429,6 +429,13 @@ func newChatCommand() *cobra.Command {
 		PositionalParams: []string{"conversationId"},
 		Example:          `openase chat conversation turn $OPENASE_CONVERSATION_ID --message "Continue from the last interrupted step"`,
 	}))
+	conversation.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+		Use:              "interrupt-turn [conversationId]",
+		Short:            "Interrupt the active project conversation turn.",
+		Method:           http.MethodPost,
+		Path:             "/api/v1/chat/conversations/{conversationId}/interrupt-turn",
+		PositionalParams: []string{"conversationId"},
+	}))
 	conversation.AddCommand(newOpenAPIStreamCommand(openAPICommandSpec{
 		Use:              "watch [conversationId]",
 		Short:            "Watch project conversation events.",
@@ -2228,6 +2235,7 @@ func allOpenAPICommandSpecs() []openAPICommandSpec {
 		{Use: "entries [conversationId]", Short: "List project conversation transcript entries.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/entries", PositionalParams: []string{"conversationId"}},
 		{Use: "workspace-diff [conversationId]", Short: "Get project conversation workspace diff summary.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/workspace-diff", PositionalParams: []string{"conversationId"}},
 		{Use: "turn [conversationId]", Short: "Start a project conversation turn.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/turns", PositionalParams: []string{"conversationId"}},
+		{Use: "interrupt-turn [conversationId]", Short: "Interrupt the active project conversation turn.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/interrupt-turn", PositionalParams: []string{"conversationId"}},
 		{Use: "watch [conversationId]", Short: "Watch project conversation events.", Method: http.MethodGet, Path: "/api/v1/chat/conversations/{conversationId}/stream", PositionalParams: []string{"conversationId"}},
 		{Use: "respond-interrupt [conversationId] [interruptId]", Short: "Respond to a project conversation interrupt.", Method: http.MethodPost, Path: "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond", PositionalParams: []string{"conversationId", "interruptId"}},
 		{Use: "close-runtime [conversationId]", Short: "Close a project conversation live runtime.", Method: http.MethodDelete, Path: "/api/v1/chat/conversations/{conversationId}/runtime", PositionalParams: []string{"conversationId"}},
