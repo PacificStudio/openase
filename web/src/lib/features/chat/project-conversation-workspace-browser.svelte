@@ -1,29 +1,17 @@
 <script lang="ts">
-  /* eslint-disable max-lines */
-  import { untrack } from 'svelte'
-  import { Button } from '$ui/button'
-  import {
-    syncProjectConversationWorkspace,
-    type ProjectConversationWorkspaceSyncPrompt,
-  } from '$lib/api/chat'
+  import { onDestroy, untrack } from 'svelte'
+  import { syncProjectConversationWorkspace } from '$lib/api/chat'
   import { cn } from '$lib/utils'
-  import {
-    AlertCircle,
-    Check,
-    Copy,
-    FolderTree,
-    RefreshCcw,
-    SquareTerminal,
-    X,
-  } from '@lucide/svelte'
+  import { AlertCircle } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
   import WorkspaceTerminalPanel from './workspace-terminal-panel.svelte'
   import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
   import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
+  import ProjectConversationWorkspaceSyncBanner from './project-conversation-workspace-sync-banner.svelte'
+  import ProjectConversationWorkspaceBrowserToolbar from './project-conversation-workspace-browser-toolbar.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
   import { createTerminalManager } from './terminal-manager.svelte'
   import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
-  import { onDestroy } from 'svelte'
 
   let {
     conversationId = '',
@@ -67,7 +55,6 @@
     setTimeout(() => (pathCopied = false), 1500)
   }
 
-  // -- Sidebar resize --
   const MIN_SIDEBAR_WIDTH = 180
   const MAX_SIDEBAR_WIDTH = 480
   let sidebarWidth = $state(240)
@@ -96,7 +83,6 @@
     window.addEventListener('pointerup', onUp)
   }
 
-  // -- Terminal panel vertical resize --
   const MIN_TERMINAL_HEIGHT = 120
   const DEFAULT_TERMINAL_HEIGHT = 260
   let terminalHeight = $state(DEFAULT_TERMINAL_HEIGHT)
@@ -145,21 +131,6 @@
     workspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
   const syncPrompt = $derived(workspaceDiff?.syncPrompt ?? browser.metadata?.syncPrompt ?? null)
-
-  function syncPromptTitle(prompt: ProjectConversationWorkspaceSyncPrompt | null) {
-    if (!prompt) return ''
-    return prompt.reason === 'repo_binding_changed'
-      ? 'Workspace sync required'
-      : 'Some project repos are missing from this workspace'
-  }
-
-  function syncPromptDescription(prompt: ProjectConversationWorkspaceSyncPrompt | null) {
-    if (!prompt) return ''
-    if (prompt.reason === 'repo_binding_changed') {
-      return 'This conversation workspace was prepared before the latest project repo binding changes. Newly bound repos have not been cloned into this workspace yet, so browse and diff can be incomplete until you sync.'
-    }
-    return 'One or more repos are bound to this project but are still missing from the current conversation workspace. Sync the workspace to clone them before browsing or diffing.'
-  }
 
   async function handleSyncWorkspace() {
     if (!conversationId || syncInFlight) {
@@ -243,60 +214,18 @@
   data-testid="project-conversation-workspace-browser"
   bind:this={containerElement}
 >
-  <!-- Compact toolbar -->
-  <div class="border-border flex h-9 items-center gap-1.5 border-b px-3">
-    <FolderTree class="text-muted-foreground size-3 shrink-0" />
-    <span class="text-[12px] font-semibold">Workspace</span>
-    {#if browser.metadata?.workspacePath}
-      <button
-        type="button"
-        class="text-muted-foreground/50 hover:text-muted-foreground group flex min-w-0 items-center gap-1 truncate text-[11px] transition-colors"
-        title="Click to copy path"
-        onclick={copyWorkspacePath}
-      >
-        <span class="min-w-0 truncate">{browser.metadata.workspacePath}</span>
-        {#if pathCopied}
-          <Check class="size-2.5 shrink-0 text-emerald-500" />
-        {:else}
-          <Copy class="size-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
-        {/if}
-      </button>
-    {/if}
-    <div class="flex-1"></div>
-    {#if browser.metadata?.available}
-      <Button
-        variant={terminalManager.panelOpen ? 'secondary' : 'ghost'}
-        size="icon-xs"
-        class={cn('text-muted-foreground size-6', terminalManager.panelOpen && 'text-foreground')}
-        aria-label="Toggle terminal"
-        onclick={() => terminalManager.togglePanel()}
-        disabled={!conversationId}
-      >
-        <SquareTerminal class="size-3" />
-      </Button>
-    {/if}
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      class="text-muted-foreground size-6"
-      aria-label="Refresh workspace browser"
-      onclick={() => void browser.refreshWorkspace(true)}
-      disabled={!conversationId || browser.metadataLoading}
-    >
-      <RefreshCcw class={cn('size-3', browser.metadataLoading && 'animate-spin')} />
-    </Button>
-    {#if onClose}
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        class="text-muted-foreground size-6"
-        aria-label="Close workspace browser"
-        onclick={onClose}
-      >
-        <X class="size-3" />
-      </Button>
-    {/if}
-  </div>
+  <ProjectConversationWorkspaceBrowserToolbar
+    workspacePath={browser.metadata?.workspacePath ?? ''}
+    {pathCopied}
+    showTerminalButton={Boolean(browser.metadata?.available)}
+    terminalPanelOpen={terminalManager.panelOpen}
+    {conversationId}
+    metadataLoading={browser.metadataLoading}
+    onCopyWorkspacePath={copyWorkspacePath}
+    onToggleTerminal={() => terminalManager.togglePanel()}
+    onRefreshWorkspace={() => void browser.refreshWorkspace(true)}
+    {onClose}
+  />
 
   {#if !conversationId}
     <div
@@ -329,24 +258,13 @@
       The workspace will appear after Project AI provisions the conversation workdir.
     </div>
   {:else if syncPrompt && (browser.metadata?.repos.length ?? 0) === 0}
-    <div class="flex flex-1 items-center justify-center px-6">
-      <div class="border-border bg-muted/20 max-w-lg rounded-xl border p-5 text-left">
-        <p class="text-sm font-medium">{syncPromptTitle(syncPrompt)}</p>
-        <p class="text-muted-foreground mt-2 text-sm">{syncPromptDescription(syncPrompt)}</p>
-        <p class="text-muted-foreground mt-3 text-xs">
-          Missing repos:
-          {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
-        </p>
-        {#if syncError}
-          <p class="text-destructive mt-3 text-xs">{syncError}</p>
-        {/if}
-        <div class="mt-4 flex gap-2">
-          <Button size="sm" onclick={() => void handleSyncWorkspace()} disabled={syncInFlight}>
-            {syncInFlight ? 'Syncing repos...' : 'Sync repos'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    <ProjectConversationWorkspaceSyncBanner
+      prompt={syncPrompt}
+      {syncError}
+      {syncInFlight}
+      centered
+      onSync={handleSyncWorkspace}
+    />
   {:else}
     <div
       class={cn(
@@ -355,32 +273,12 @@
       )}
     >
       {#if syncPrompt}
-        <div
-          class="border-border border-b bg-amber-50/80 px-3 py-2 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"
-        >
-          <div class="flex items-start gap-3">
-            <AlertCircle class="mt-0.5 size-4 shrink-0" />
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-medium">{syncPromptTitle(syncPrompt)}</p>
-              <p class="mt-1 text-xs leading-5">{syncPromptDescription(syncPrompt)}</p>
-              <p class="mt-2 text-xs">
-                Missing repos: {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
-              </p>
-              {#if syncError}
-                <p class="text-destructive mt-2 text-xs">{syncError}</p>
-              {/if}
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              class="shrink-0"
-              onclick={() => void handleSyncWorkspace()}
-              disabled={syncInFlight}
-            >
-              {syncInFlight ? 'Syncing...' : 'Sync repos'}
-            </Button>
-          </div>
-        </div>
+        <ProjectConversationWorkspaceSyncBanner
+          prompt={syncPrompt}
+          {syncError}
+          {syncInFlight}
+          onSync={handleSyncWorkspace}
+        />
       {/if}
       <!-- Files area -->
       <div class="flex min-h-0 flex-1">

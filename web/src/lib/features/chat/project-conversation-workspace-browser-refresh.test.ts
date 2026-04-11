@@ -102,10 +102,8 @@ describe('ProjectConversationWorkspaceBrowser', () => {
         workspaceDiffLoading: false,
       },
     })
-
     await view.findByText('Workspace sync required')
     await fireEvent.click(view.getByRole('button', { name: 'Sync repos' }))
-
     await waitFor(() => {
       expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
@@ -159,14 +157,11 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     await fireEvent.click(await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(1)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(1)
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
@@ -180,7 +175,6 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.container.textContent).toContain('main.ts')
     expect(view.container.textContent).toContain('export const refreshed = true;')
   })
@@ -233,19 +227,15 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     const mainFileButton = await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 })
     await fireEvent.click(mainFileButton)
-
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() => {
       expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading files…')
@@ -363,20 +353,16 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     await fireEvent.click(await view.findByRole('button', { name: 'src' }, { timeout: 3000 }))
     const mainFileButton = await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 })
     await fireEvent.click(mainFileButton)
-
     await waitFor(() => {
       expect(view.container.textContent).toContain('export const stable = true;')
     })
-
     await fireEvent.click(view.getByRole('button', { name: 'Refresh workspace browser' }))
-
     await waitFor(() =>
       expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
         repoPath: 'services/openase',
         path: 'src',
       }),
     )
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading files…')
@@ -396,7 +382,6 @@ describe('ProjectConversationWorkspaceBrowser', () => {
       expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledTimes(2)
       expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledTimes(2)
     })
-
     expect(view.getByRole('button', { name: 'main.ts' })).toBe(mainFileButton)
     expect(view.container.textContent).toContain('export const stable = true;')
     expect(view.container.textContent).not.toContain('Loading…')
