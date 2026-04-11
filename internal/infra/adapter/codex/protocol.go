@@ -24,6 +24,7 @@ const (
 	methodThreadCompacted          = "thread/compacted"
 	methodTurnStart                = "turn/start"
 	methodToolCall                 = "item/tool/call"
+	methodItemStarted              = "item/started"
 	methodCommandApproval          = "item/commandExecution/requestApproval"
 	methodExecApproval             = "execCommandApproval"
 	methodPatchApproval            = "applyPatchApproval"

@@ -290,6 +290,15 @@ type RawTicketRunListPayload = DeepRequired<
 type RawTicketRunDetailPayload = DeepRequired<
   ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}', 'get'>
 >
+type RawTicketRunActivitiesPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities', 'get'>
+>
+type RawTicketRunRawEventsPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events', 'get'>
+>
+type RawTicketRunTranscriptEntriesPayload = DeepRequired<
+  ResponseFor<'/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript', 'get'>
+>
 export type TicketRunCompletionSummaryRecord = {
   status: 'pending' | 'completed' | 'failed'
   markdown?: string
@@ -321,9 +330,96 @@ export type TicketRunTranscriptPageRecord = {
   oldest_cursor?: string
   newest_cursor?: string
 }
-export type TicketRunDetailPayload = Omit<RawTicketRunDetailPayload, 'run'> & {
+export type TicketRunRawEventRecord = {
+  id: string
+  provider: string
+  provider_event_kind: string
+  provider_event_subtype: string
+  provider_event_id?: string | null
+  thread_id?: string | null
+  turn_id?: string | null
+  activity_hint_id?: string | null
+  occurred_at: string
+  payload: Record<string, unknown>
+  text_excerpt: string
+}
+export type TicketRunRawEventPageRecord = {
+  entries: TicketRunRawEventRecord[]
+  has_older: boolean
+  hidden_older_count: number
+  has_newer: boolean
+  hidden_newer_count: number
+  oldest_cursor?: string
+  newest_cursor?: string
+}
+export type TicketRunActivityRecord = {
+  id: string
+  provider: string
+  activity_kind: string
+  activity_id: string
+  id_source: string
+  identity_confidence: string
+  parent_activity_id?: string | null
+  thread_id?: string | null
+  turn_id?: string | null
+  command?: string | null
+  tool_name?: string | null
+  title?: string | null
+  status: string
+  live_text?: string | null
+  final_text?: string | null
+  live_text_bytes: number
+  final_text_bytes: number
+  metadata: Record<string, unknown>
+  started_at?: string | null
+  updated_at: string
+  completed_at?: string | null
+}
+export type TicketRunTranscriptEntryRecord = {
+  id: string
+  provider: string
+  entry_key: string
+  entry_kind: string
+  activity_kind?: string | null
+  activity_id?: string | null
+  title?: string | null
+  summary?: string | null
+  body_text?: string | null
+  command?: string | null
+  tool_name?: string | null
+  metadata: Record<string, unknown>
+  created_at: string
+}
+export type TicketRunTranscriptEntryPageRecord = {
+  entries: TicketRunTranscriptEntryRecord[]
+  has_older: boolean
+  hidden_older_count: number
+  has_newer: boolean
+  hidden_newer_count: number
+  oldest_cursor?: string
+  newest_cursor?: string
+}
+export type TicketRunDetailPayload = Omit<
+  RawTicketRunDetailPayload,
+  'run' | 'transcript_page' | 'raw_events_page' | 'activities' | 'transcript_entries_page'
+> & {
   run: TicketRunRecord
   transcript_page?: TicketRunTranscriptPageRecord
+  raw_events_page?: TicketRunRawEventPageRecord
+  activities?: TicketRunActivityRecord[]
+  transcript_entries_page?: TicketRunTranscriptEntryPageRecord
+}
+export type TicketRunActivitiesPayload = Omit<RawTicketRunActivitiesPayload, 'activities'> & {
+  activities: TicketRunActivityRecord[]
+}
+export type TicketRunRawEventsPayload = Omit<RawTicketRunRawEventsPayload, 'raw_events_page'> & {
+  raw_events_page: TicketRunRawEventPageRecord
+}
+export type TicketRunTranscriptEntriesPayload = Omit<
+  RawTicketRunTranscriptEntriesPayload,
+  'transcript_entries_page'
+> & {
+  transcript_entries_page: TicketRunTranscriptEntryPageRecord
 }
 export type TicketRunTraceRecord = ItemOf<TicketRunDetailPayload['trace_entries']>
 export type TicketRunStepRecord = ItemOf<TicketRunDetailPayload['step_entries']>

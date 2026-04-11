@@ -28,6 +28,7 @@ const (
 	EventTypeToolCallRequested  EventType = "tool_call_requested"
 	EventTypeApprovalRequested  EventType = "approval_requested"
 	EventTypeUserInputRequested EventType = "user_input_requested"
+	EventTypeItemStarted        EventType = "item_started"
 	// #nosec G101 -- event type identifier, not a credential.
 	EventTypeTokenUsageUpdated EventType = "token_usage_updated"
 	EventTypeRateLimitUpdated  EventType = "rate_limit_updated"
@@ -106,6 +107,7 @@ type Event struct {
 	UserInput    *UserInputRequest
 	TokenUsage   *TokenUsageEvent
 	RateLimit    *provider.CLIRateLimit
+	Item         *ItemEvent
 	Output       *OutputEvent
 	Turn         *TurnEvent
 	ThreadStatus *ThreadStatusEvent
@@ -255,6 +257,16 @@ type OutputEvent struct {
 	Text     string
 	Phase    string
 	Snapshot bool
+}
+
+type ItemEvent struct {
+	ThreadID string
+	TurnID   string
+	ItemID   string
+	ItemType string
+	Phase    string
+	Command  string
+	Text     string
 }
 
 type Session struct {
@@ -1192,6 +1204,21 @@ func (s *Session) handleNotification(message jsonRPCMessage) error {
 		})
 
 		return nil
+	case methodItemStarted:
+		var notification wireItemCompletedNotification
+		if err := decodeParams(message.Params, &notification); err != nil {
+			return fmt.Errorf("decode codex item started notification: %w", err)
+		}
+		itemEvent, ok := itemEventFromWire(notification)
+		if !ok {
+			return nil
+		}
+		s.emit(Event{
+			Type: EventTypeItemStarted,
+			Item: itemEvent,
+		})
+
+		return nil
 	case methodCommandOutput:
 		var notification wireCommandExecutionOutputDeltaNotification
 		if err := decodeParams(message.Params, &notification); err != nil {
@@ -1364,6 +1391,25 @@ func outputEventFromCompletedItem(notification wireItemCompletedNotification) (*
 	default:
 		return nil, false
 	}
+}
+
+func itemEventFromWire(notification wireItemCompletedNotification) (*ItemEvent, bool) {
+	itemID := strings.TrimSpace(notification.Item.ID)
+	itemType := strings.TrimSpace(notification.Item.Type)
+	if itemID == "" || itemType == "" {
+		return nil, false
+	}
+
+	event := &ItemEvent{
+		ThreadID: strings.TrimSpace(notification.ThreadID),
+		TurnID:   strings.TrimSpace(notification.TurnID),
+		ItemID:   itemID,
+		ItemType: itemType,
+		Phase:    strings.TrimSpace(notification.Item.Phase),
+		Command:  strings.TrimSpace(optionalStringValue(notification.Item.Command)),
+		Text:     strings.TrimSpace(notification.Item.Text),
+	}
+	return event, true
 }
 
 func (s *Session) handleResponse(message jsonRPCMessage) error {

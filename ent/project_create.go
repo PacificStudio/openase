@@ -11,10 +11,13 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/BetterAndBetterII/openase/ent/activityevent"
 	"github.com/BetterAndBetterII/openase/ent/agent"
+	"github.com/BetterAndBetterII/openase/ent/agentactivityinstance"
 	"github.com/BetterAndBetterII/openase/ent/agentprovider"
+	"github.com/BetterAndBetterII/openase/ent/agentrawevent"
 	"github.com/BetterAndBetterII/openase/ent/agentstepevent"
 	"github.com/BetterAndBetterII/openase/ent/agenttoken"
 	"github.com/BetterAndBetterII/openase/ent/agenttraceevent"
+	"github.com/BetterAndBetterII/openase/ent/agenttranscriptentry"
 	"github.com/BetterAndBetterII/openase/ent/chatconversation"
 	"github.com/BetterAndBetterII/openase/ent/notificationrule"
 	"github.com/BetterAndBetterII/openase/ent/organization"
@@ -344,6 +347,51 @@ func (_c *ProjectCreate) AddAgentStepEvents(v ...*AgentStepEvent) *ProjectCreate
 		ids[i] = v[i].ID
 	}
 	return _c.AddAgentStepEventIDs(ids...)
+}
+
+// AddAgentRawEventIDs adds the "agent_raw_events" edge to the AgentRawEvent entity by IDs.
+func (_c *ProjectCreate) AddAgentRawEventIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddAgentRawEventIDs(ids...)
+	return _c
+}
+
+// AddAgentRawEvents adds the "agent_raw_events" edges to the AgentRawEvent entity.
+func (_c *ProjectCreate) AddAgentRawEvents(v ...*AgentRawEvent) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentRawEventIDs(ids...)
+}
+
+// AddAgentActivityInstanceIDs adds the "agent_activity_instances" edge to the AgentActivityInstance entity by IDs.
+func (_c *ProjectCreate) AddAgentActivityInstanceIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddAgentActivityInstanceIDs(ids...)
+	return _c
+}
+
+// AddAgentActivityInstances adds the "agent_activity_instances" edges to the AgentActivityInstance entity.
+func (_c *ProjectCreate) AddAgentActivityInstances(v ...*AgentActivityInstance) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentActivityInstanceIDs(ids...)
+}
+
+// AddAgentTranscriptEntryIDs adds the "agent_transcript_entries" edge to the AgentTranscriptEntry entity by IDs.
+func (_c *ProjectCreate) AddAgentTranscriptEntryIDs(ids ...uuid.UUID) *ProjectCreate {
+	_c.mutation.AddAgentTranscriptEntryIDs(ids...)
+	return _c
+}
+
+// AddAgentTranscriptEntries adds the "agent_transcript_entries" edges to the AgentTranscriptEntry entity.
+func (_c *ProjectCreate) AddAgentTranscriptEntries(v ...*AgentTranscriptEntry) *ProjectCreate {
+	ids := make([]uuid.UUID, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAgentTranscriptEntryIDs(ids...)
 }
 
 // AddDailyTokenUsageIDs adds the "daily_token_usage" edge to the ProjectDailyTokenUsage entity by IDs.
@@ -796,6 +844,54 @@ func (_c *ProjectCreate) createSpec() (*Project, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(agentstepevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentRawEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentRawEventsTable,
+			Columns: []string{project.AgentRawEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentrawevent.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentActivityInstancesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentActivityInstancesTable,
+			Columns: []string{project.AgentActivityInstancesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agentactivityinstance.FieldID, field.TypeUUID),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AgentTranscriptEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   project.AgentTranscriptEntriesTable,
+			Columns: []string{project.AgentTranscriptEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(agenttranscriptentry.FieldID, field.TypeUUID),
 			},
 		}
 		for _, k := range nodes {

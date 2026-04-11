@@ -1725,6 +1725,75 @@ func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.Ticket 
 	})
 }
 
+// HasAgentRawEvents applies the HasEdge predicate on the "agent_raw_events" edge.
+func HasAgentRawEvents() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentRawEventsTable, AgentRawEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentRawEventsWith applies the HasEdge predicate on the "agent_raw_events" edge with a given conditions (other predicates).
+func HasAgentRawEventsWith(preds ...predicate.AgentRawEvent) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newAgentRawEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentActivityInstances applies the HasEdge predicate on the "agent_activity_instances" edge.
+func HasAgentActivityInstances() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentActivityInstancesTable, AgentActivityInstancesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentActivityInstancesWith applies the HasEdge predicate on the "agent_activity_instances" edge with a given conditions (other predicates).
+func HasAgentActivityInstancesWith(preds ...predicate.AgentActivityInstance) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newAgentActivityInstancesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentTranscriptEntries applies the HasEdge predicate on the "agent_transcript_entries" edge.
+func HasAgentTranscriptEntries() predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTranscriptEntriesTable, AgentTranscriptEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTranscriptEntriesWith applies the HasEdge predicate on the "agent_transcript_entries" edge with a given conditions (other predicates).
+func HasAgentTranscriptEntriesWith(preds ...predicate.AgentTranscriptEntry) predicate.Ticket {
+	return predicate.Ticket(func(s *sql.Selector) {
+		step := newAgentTranscriptEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasActivityEvents applies the HasEdge predicate on the "activity_events" edge.
 func HasActivityEvents() predicate.Ticket {
 	return predicate.Ticket(func(s *sql.Selector) {

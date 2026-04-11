@@ -187,9 +187,18 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 	level3Due := machineMonitorDue(machine.Resources, "l3", now, machineMonitorLevel3Interval)
 	level4Due := machineMonitorDue(machine.Resources, "l4", now, machineMonitorLevel4Interval)
 	level5Due := machineMonitorDue(machine.Resources, "l5", now, machineMonitorLevel5Interval)
+	logger := m.machineLogger(machine)
 	if !level1Due && !level2Due && !level3Due && !level4Due && !level5Due {
 		return machine, false
 	}
+	logger.Info("machine monitor tick started",
+		"machine_status", string(machine.Status),
+		"level1_due", level1Due,
+		"level2_due", level2Due,
+		"level3_due", level3Due,
+		"level4_due", level4Due,
+		"level5_due", level5Due,
+	)
 
 	resources := cloneResourceMap(machine.Resources)
 	status := machine.Status
@@ -221,9 +230,24 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 			}
 			softReachabilityFailure = true
 			hardReachabilityFailure = failures >= machineMonitorOfflineFailures && machine.Host != domain.LocalMachineHost
+			logger.Warn("machine monitor l1 reachability failed",
+				"checked_at", formatMachineMonitorTime(lastHeartbeatAt),
+				"transport", reachability.Transport,
+				"reachable", reachability.Reachable,
+				"latency_ms", reachability.LatencyMS,
+				"failure_cause", firstNonEmptyMachineMonitor(reachability.FailureCause, errorString(err)),
+				"failure_count", failures,
+				"hard_reachability_failure", hardReachabilityFailure,
+			)
 		} else {
 			setMachineMonitorFailures(resources, 0)
 			clearMachineMonitorError(resources, "l1")
+			logger.Info("machine monitor l1 reachability completed",
+				"checked_at", formatMachineMonitorTime(lastHeartbeatAt),
+				"transport", reachability.Transport,
+				"reachable", reachability.Reachable,
+				"latency_ms", reachability.LatencyMS,
+			)
 		}
 	}
 
@@ -233,9 +257,19 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		if err != nil {
 			systemProbeFailure = true
 			setMachineMonitorError(resources, "l2", err.Error())
+			logger.Warn("machine monitor l2 system probe failed", "error", err)
 		} else {
 			updateL2Resources(resources, systemResources)
 			clearMachineMonitorError(resources, "l2")
+			logger.Info("machine monitor l2 system probe completed",
+				"collected_at", formatMachineMonitorTime(systemResources.CollectedAt),
+				"cpu_cores", systemResources.CPUCores,
+				"cpu_usage_percent", systemResources.CPUUsagePercent,
+				"memory_available_gb", systemResources.MemoryAvailableGB,
+				"memory_available_percent", systemResources.MemoryAvailablePercent,
+				"disk_available_gb", systemResources.DiskAvailableGB,
+				"disk_available_percent", systemResources.DiskAvailablePercent,
+			)
 		}
 	}
 
@@ -244,9 +278,15 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		gpuResources, err := m.collector.CollectGPUResources(ctx, domainMachine)
 		if err != nil {
 			setMachineMonitorError(resources, "l3", err.Error())
+			logger.Warn("machine monitor l3 gpu probe failed", "error", err)
 		} else {
 			updateL3Resources(resources, gpuResources)
 			clearMachineMonitorError(resources, "l3")
+			logger.Info("machine monitor l3 gpu probe completed",
+				"collected_at", formatMachineMonitorTime(gpuResources.CollectedAt),
+				"gpu_available", gpuResources.Available,
+				"gpu_count", len(gpuResources.GPUs),
+			)
 		}
 	}
 
@@ -256,9 +296,15 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		if err != nil {
 			level4ProbeFailure = true
 			setMachineMonitorError(resources, "l4", err.Error())
+			logger.Warn("machine monitor l4 agent environment probe failed", "error", err)
 		} else {
 			updateL4Resources(resources, agentEnvironment)
 			clearMachineMonitorError(resources, "l4")
+			logger.Info("machine monitor l4 agent environment probe completed",
+				"collected_at", formatMachineMonitorTime(agentEnvironment.CollectedAt),
+				"dispatchable", agentEnvironment.Dispatchable,
+				"cli_count", len(agentEnvironment.CLIs),
+			)
 		}
 	}
 
@@ -268,10 +314,27 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 		if err != nil {
 			level5ProbeFailure = true
 			setMachineMonitorError(resources, "l5", err.Error())
+			logger.Warn("machine monitor l5 full audit failed", "error", err)
 		} else {
 			updateL5Resources(resources, fullAudit)
 			clearMachineMonitorError(resources, "l5")
+			logger.Info("machine monitor l5 full audit completed",
+				"collected_at", formatMachineMonitorTime(fullAudit.CollectedAt),
+				"git_installed", fullAudit.Git.Installed,
+				"github_cli_installed", fullAudit.GitHubCLI.Installed,
+				"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+				"github_reachable", fullAudit.Network.GitHubReachable,
+				"pypi_reachable", fullAudit.Network.PyPIReachable,
+				"npm_reachable", fullAudit.Network.NPMReachable,
+			)
 		}
+	}
+
+	if (level2Due || level3Due || level4Due || level5Due) && (softReachabilityFailure || hardReachabilityFailure) {
+		logger.Info("machine monitor deeper probes skipped",
+			"soft_reachability_failure", softReachabilityFailure,
+			"hard_reachability_failure", hardReachabilityFailure,
+		)
 	}
 
 	if machine.Status != entmachine.StatusMaintenance {
@@ -284,6 +347,17 @@ func (m *MachineMonitor) runMachineTick(ctx context.Context, machine monitoredMa
 			status = entmachine.StatusOnline
 		}
 	}
+	logger.Info("machine monitor tick completed",
+		"checked_at", formatMachineMonitorTime(lastHeartbeatAt),
+		"previous_status", string(machine.Status),
+		"next_status", string(status),
+		"soft_reachability_failure", softReachabilityFailure,
+		"hard_reachability_failure", hardReachabilityFailure,
+		"system_probe_failure", systemProbeFailure,
+		"agent_environment_failure", level4ProbeFailure,
+		"full_audit_failure", level5ProbeFailure,
+		"low_disk", machineHasLowDisk(resources),
+	)
 
 	return monitoredMachine{
 		OrganizationID:     machine.OrganizationID,
@@ -912,4 +986,40 @@ func anyToBool(value any) bool {
 	default:
 		return false
 	}
+}
+
+func (m *MachineMonitor) machineLogger(machine monitoredMachine) *slog.Logger {
+	logger := slog.Default().With("component", "machine-monitor")
+	if m != nil && m.logger != nil {
+		logger = m.logger
+	}
+	return logger.With(
+		"machine_id", machine.ID.String(),
+		"machine_name", machine.Name,
+		"host", machine.Host,
+	)
+}
+
+func formatMachineMonitorTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func firstNonEmptyMachineMonitor(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

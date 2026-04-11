@@ -1784,6 +1784,75 @@ func HasAgentStepEventsWith(preds ...predicate.AgentStepEvent) predicate.AgentRu
 	})
 }
 
+// HasAgentRawEvents applies the HasEdge predicate on the "agent_raw_events" edge.
+func HasAgentRawEvents() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentRawEventsTable, AgentRawEventsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentRawEventsWith applies the HasEdge predicate on the "agent_raw_events" edge with a given conditions (other predicates).
+func HasAgentRawEventsWith(preds ...predicate.AgentRawEvent) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newAgentRawEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentActivityInstances applies the HasEdge predicate on the "agent_activity_instances" edge.
+func HasAgentActivityInstances() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentActivityInstancesTable, AgentActivityInstancesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentActivityInstancesWith applies the HasEdge predicate on the "agent_activity_instances" edge with a given conditions (other predicates).
+func HasAgentActivityInstancesWith(preds ...predicate.AgentActivityInstance) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newAgentActivityInstancesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAgentTranscriptEntries applies the HasEdge predicate on the "agent_transcript_entries" edge.
+func HasAgentTranscriptEntries() predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AgentTranscriptEntriesTable, AgentTranscriptEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAgentTranscriptEntriesWith applies the HasEdge predicate on the "agent_transcript_entries" edge with a given conditions (other predicates).
+func HasAgentTranscriptEntriesWith(preds ...predicate.AgentTranscriptEntry) predicate.AgentRun {
+	return predicate.AgentRun(func(s *sql.Selector) {
+		step := newAgentTranscriptEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.AgentRun) predicate.AgentRun {
 	return predicate.AgentRun(sql.AndPredicates(predicates...))

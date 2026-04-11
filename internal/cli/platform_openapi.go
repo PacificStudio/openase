@@ -173,6 +173,39 @@ func newAgentPlatformTicketRunCommandWithDeps(deps apiCommandDeps) *cobra.Comman
 		},
 		Example: "openase ticket run get $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
 	}, deps))
+	command.AddCommand(newAgentPlatformNestedOpenAPIOperationCommandWithDeps(openAPICommandSpec{
+		Use:              "activities [projectId] [ticketId] [runId]",
+		Short:            "List ticket run activities.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"This returns the low-noise activity state projection for one run, including in-progress status and provider-resolved activity identities.",
+		},
+		Example: "openase ticket run activities $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}, deps))
+	command.AddCommand(newAgentPlatformNestedOpenAPIOperationCommandWithDeps(openAPICommandSpec{
+		Use:              "raw-events [projectId] [ticketId] [runId]",
+		Short:            "List ticket run raw events.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"Use this when you need provider-native facts for audit, replay, or protocol debugging without the activity/transcript projection layer.",
+		},
+		Example: "openase ticket run raw-events $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}, deps))
+	command.AddCommand(newAgentPlatformNestedOpenAPIOperationCommandWithDeps(openAPICommandSpec{
+		Use:              "transcript [projectId] [ticketId] [runId]",
+		Short:            "List ticket run transcript entries.",
+		Method:           http.MethodGet,
+		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript",
+		PositionalParams: []string{"projectId", "ticketId", "runId"},
+		HelpNotes: []string{
+			"This returns the user-facing transcript projection for one run, keeping high-frequency telemetry separate from the main product transcript.",
+		},
+		Example: "openase ticket run transcript $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
+	}, deps))
 	return command
 }
 

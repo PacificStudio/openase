@@ -2,27 +2,16 @@ import type {
   TicketRunDetailPayload,
   TicketRunListPayload,
   TicketRunRecord,
-  TicketRunTranscriptItemRecord,
-  TicketRunTranscriptPageRecord,
-  TicketRunStepRecord,
-  TicketRunTraceRecord,
 } from '$lib/api/contracts'
 import type {
   TicketRun,
   TicketRunCompletionSummary,
   TicketRunDetail,
-  TicketRunStepEntry,
-  TicketRunTranscriptItem,
-  TicketRunTranscriptPage,
-  TicketRunTraceEntry,
   TicketRunUsage,
 } from './types'
-import {
-  buildTicketRunStepCursor,
-  buildTicketRunTraceCursor,
-  compareTicketRunTranscriptCursors,
-  normalizeTicketRunTranscriptCursor,
-} from './run-transcript-cursor'
+import { mapTicketRunTranscriptPage } from './run-transcript-page'
+
+export { mapTicketRunStepEntry, mapTicketRunTraceEntry } from './run-transcript-page'
 
 export function mapTicketRuns(payload: TicketRunListPayload): TicketRun[] {
   return payload.runs.map(mapTicketRun)
@@ -139,117 +128,6 @@ export function mapTicketRunStreamLifecycleEvent(
     createdAt: item.created_at ?? item.createdAt ?? '',
   }
 }
-
-export function mapTicketRunTraceEntry(item: TicketRunTraceRecord): TicketRunTraceEntry {
-  return {
-    id: item.id,
-    agentRunId: item.agent_run_id,
-    sequence: item.sequence,
-    provider: item.provider,
-    kind: item.kind,
-    stream: item.stream,
-    output: item.output,
-    payload: item.payload ?? {},
-    createdAt: item.created_at,
-  }
-}
-
-export function mapTicketRunStepEntry(item: TicketRunStepRecord): TicketRunStepEntry {
-  return {
-    id: item.id,
-    agentRunId: item.agent_run_id,
-    stepStatus: item.step_status,
-    summary: item.summary,
-    sourceTraceEventId: item.source_trace_event_id ?? undefined,
-    createdAt: item.created_at,
-  }
-}
-
-export function mapTicketRunTranscriptPage(
-  payload: TicketRunDetailPayload,
-): TicketRunTranscriptPage {
-  if (payload.transcript_page) {
-    return mapTranscriptPageRecord(payload.transcript_page)
-  }
-
-  const items = [
-    ...(payload.step_entries ?? []).map((item) => {
-      const stepEntry = mapTicketRunStepEntry(item)
-      return {
-        kind: 'step' as const,
-        cursor: buildTicketRunStepCursor(stepEntry),
-        stepEntry,
-      }
-    }),
-    ...(payload.trace_entries ?? []).map((item) => {
-      const traceEntry = mapTicketRunTraceEntry(item)
-      return {
-        kind: 'trace' as const,
-        cursor: buildTicketRunTraceCursor(traceEntry),
-        traceEntry,
-      }
-    }),
-  ].sort((left, right) => compareTicketRunTranscriptCursors(left.cursor, right.cursor))
-
-  return {
-    items,
-    hasOlder: false,
-    hiddenOlderCount: 0,
-    hasNewer: false,
-    hiddenNewerCount: 0,
-    oldestCursor: items[0]?.cursor,
-    newestCursor: items.at(-1)?.cursor,
-  }
-}
-
-function mapTranscriptPageRecord(record: TicketRunTranscriptPageRecord): TicketRunTranscriptPage {
-  const items = (record.items ?? [])
-    .map(mapTicketRunTranscriptItem)
-    .sort((left, right) => compareTicketRunTranscriptCursors(left.cursor, right.cursor))
-
-  return {
-    items,
-    hasOlder: record.has_older,
-    hiddenOlderCount: record.hidden_older_count,
-    hasNewer: record.has_newer,
-    hiddenNewerCount: record.hidden_newer_count,
-    oldestCursor: normalizeTicketRunTranscriptCursor(record.oldest_cursor) ?? items[0]?.cursor,
-    newestCursor: normalizeTicketRunTranscriptCursor(record.newest_cursor) ?? items.at(-1)?.cursor,
-  }
-}
-
-function mapTicketRunTranscriptItem(item: TicketRunTranscriptItemRecord): TicketRunTranscriptItem {
-  if (item.kind === 'step' && item.step_entry) {
-    const stepEntry = mapTicketRunStepEntry(item.step_entry)
-    return {
-      kind: 'step',
-      cursor:
-        normalizeTicketRunTranscriptCursor(item.cursor) ?? buildTicketRunStepCursor(stepEntry),
-      stepEntry,
-    }
-  }
-
-  const traceEntry = mapTicketRunTraceEntry(
-    item.trace_entry ?? {
-      id: '',
-      agent_run_id: '',
-      sequence: 0,
-      provider: '',
-      kind: '',
-      stream: '',
-      output: '',
-      payload: {},
-      created_at: '',
-    },
-  )
-  return {
-    kind: 'trace',
-    cursor:
-      normalizeTicketRunTranscriptCursor(item.cursor) ?? buildTicketRunTraceCursor(traceEntry),
-    traceEntry,
-  }
-}
-
 function normalizeRunStatus(status: string): TicketRun['status'] {
   if (
     status === 'launching' ||

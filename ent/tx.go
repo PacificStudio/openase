@@ -16,8 +16,12 @@ type Tx struct {
 	ActivityEvent *ActivityEventClient
 	// Agent is the client for interacting with the Agent builders.
 	Agent *AgentClient
+	// AgentActivityInstance is the client for interacting with the AgentActivityInstance builders.
+	AgentActivityInstance *AgentActivityInstanceClient
 	// AgentProvider is the client for interacting with the AgentProvider builders.
 	AgentProvider *AgentProviderClient
+	// AgentRawEvent is the client for interacting with the AgentRawEvent builders.
+	AgentRawEvent *AgentRawEventClient
 	// AgentRun is the client for interacting with the AgentRun builders.
 	AgentRun *AgentRunClient
 	// AgentStepEvent is the client for interacting with the AgentStepEvent builders.
@@ -26,6 +30,8 @@ type Tx struct {
 	AgentToken *AgentTokenClient
 	// AgentTraceEvent is the client for interacting with the AgentTraceEvent builders.
 	AgentTraceEvent *AgentTraceEventClient
+	// AgentTranscriptEntry is the client for interacting with the AgentTranscriptEntry builders.
+	AgentTranscriptEntry *AgentTranscriptEntryClient
 	// ApprovalPolicyRule is the client for interacting with the ApprovalPolicyRule builders.
 	ApprovalPolicyRule *ApprovalPolicyRuleClient
 	// AuthAuditEvent is the client for interacting with the AuthAuditEvent builders.
@@ -261,11 +267,14 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.ActivityEvent = NewActivityEventClient(tx.config)
 	tx.Agent = NewAgentClient(tx.config)
+	tx.AgentActivityInstance = NewAgentActivityInstanceClient(tx.config)
 	tx.AgentProvider = NewAgentProviderClient(tx.config)
+	tx.AgentRawEvent = NewAgentRawEventClient(tx.config)
 	tx.AgentRun = NewAgentRunClient(tx.config)
 	tx.AgentStepEvent = NewAgentStepEventClient(tx.config)
 	tx.AgentToken = NewAgentTokenClient(tx.config)
 	tx.AgentTraceEvent = NewAgentTraceEventClient(tx.config)
+	tx.AgentTranscriptEntry = NewAgentTranscriptEntryClient(tx.config)
 	tx.ApprovalPolicyRule = NewApprovalPolicyRuleClient(tx.config)
 	tx.AuthAuditEvent = NewAuthAuditEventClient(tx.config)
 	tx.BrowserSession = NewBrowserSessionClient(tx.config)

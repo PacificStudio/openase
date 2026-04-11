@@ -48,6 +48,9 @@ type fakeCatalogService struct {
 	activityEvents       []domain.ActivityEvent
 	traceEvents          []domain.AgentTraceEntry
 	stepEvents           []domain.AgentStepEntry
+	rawEvents            []domain.AgentRawEventEntry
+	activityInstances    []domain.AgentActivityInstance
+	transcriptEntries    []domain.AgentTranscriptEntry
 }
 
 type fakeCatalogTicket struct {
@@ -70,6 +73,9 @@ func newFakeCatalogService() *fakeCatalogService {
 		activityEvents:       []domain.ActivityEvent{},
 		traceEvents:          []domain.AgentTraceEntry{},
 		stepEvents:           []domain.AgentStepEntry{},
+		rawEvents:            []domain.AgentRawEventEntry{},
+		activityInstances:    []domain.AgentActivityInstance{},
+		transcriptEntries:    []domain.AgentTranscriptEntry{},
 	}
 }
 

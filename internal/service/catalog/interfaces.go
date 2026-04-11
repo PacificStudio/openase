@@ -82,6 +82,12 @@ type AgentRunQueryService interface {
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
 	ListAgentRunTraceEntries(ctx context.Context, input domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error)
 	ListAgentRunStepEntries(ctx context.Context, input domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error)
+	ListAgentRunRawEvents(ctx context.Context, input domain.ListAgentRunRawEvents) (domain.AgentRunRawEventPage, error)
+	ListAgentRunActivities(ctx context.Context, input domain.ListAgentRunActivities) ([]domain.AgentActivityInstance, error)
+	ListAgentRunTranscriptEntries(
+		ctx context.Context,
+		input domain.ListAgentRunTranscriptEntries,
+	) (domain.AgentRunTranscriptEntryPage, error)
 	GetAgentRunTranscriptPage(ctx context.Context, input domain.ListAgentRunTranscriptPage) (domain.AgentRunTranscriptPage, error)
 }
 
@@ -220,6 +226,12 @@ type AgentRunQueryRepository interface {
 	ListAgentSteps(ctx context.Context, input domain.ListAgentSteps) ([]domain.AgentStepEntry, error)
 	ListAgentRunTraceEntries(ctx context.Context, input domain.ListAgentRunTraceEntries) ([]domain.AgentTraceEntry, error)
 	ListAgentRunStepEntries(ctx context.Context, input domain.ListAgentRunStepEntries) ([]domain.AgentStepEntry, error)
+	ListAgentRunRawEvents(ctx context.Context, input domain.ListAgentRunRawEvents) (domain.AgentRunRawEventPage, error)
+	ListAgentRunActivities(ctx context.Context, input domain.ListAgentRunActivities) ([]domain.AgentActivityInstance, error)
+	ListAgentRunTranscriptEntries(
+		ctx context.Context,
+		input domain.ListAgentRunTranscriptEntries,
+	) (domain.AgentRunTranscriptEntryPage, error)
 }
 
 type ActivityQueryRepository interface {
