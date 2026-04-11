@@ -2397,6 +2397,8 @@ var (
 		"scopes":                 "OIDC scopes requested during the authorization-code flow.",
 		"allowed_email_domains":  "Optional email domain allowlist enforced after ID token verification.",
 		"bootstrap_admin_emails": "Trusted email addresses that receive instance_admin on first successful OIDC login.",
+		"session_ttl":            "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+		"session_idle_ttl":       "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
 	}
 	openAPIAgentRequestDescriptions = map[string]string{
 		"name":        "Human-readable agent name.",

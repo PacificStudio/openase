@@ -368,6 +368,10 @@ func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.Acc
 	if err != nil {
 		return iam.DraftOIDCConfig{}, err
 	}
+	sessionPolicy, err := sessionPolicyFromRequest(raw, existing.SessionPolicy)
+	if err != nil {
+		return iam.DraftOIDCConfig{}, err
+	}
 	return iam.DraftOIDCConfig{
 		IssuerURL:            strings.TrimSpace(raw.IssuerURL),
 		ClientID:             strings.TrimSpace(raw.ClientID),
@@ -378,8 +382,34 @@ func draftOIDCConfigFromRequest(raw rawSecurityOIDCDraftRequest, current iam.Acc
 		Claims:               existing.Claims,
 		AllowedEmailDomains:  normalizeStringList(raw.AllowedEmailDomains, true),
 		BootstrapAdminEmails: normalizeStringList(raw.BootstrapAdminEmails, true),
-		SessionPolicy:        existing.SessionPolicy,
+		SessionPolicy:        sessionPolicy,
 	}, nil
+}
+
+func sessionPolicyFromRequest(
+	raw rawSecurityOIDCDraftRequest,
+	existing iam.OIDCSessionPolicy,
+) (iam.OIDCSessionPolicy, error) {
+	state, err := iam.ParseAccessControlState(iam.AccessControlStateInput{
+		Status:         iam.AccessControlStatusDraft.String(),
+		SessionTTL:     fallbackTrimmedDuration(raw.SessionTTL, existing.SessionTTL),
+		SessionIdleTTL: fallbackTrimmedDuration(raw.SessionIdleTTL, existing.SessionIdleTTL),
+	})
+	if err != nil {
+		return iam.OIDCSessionPolicy{}, err
+	}
+	if state.Draft == nil {
+		return iam.OIDCSessionPolicy{}, errors.New("draft oidc config is required")
+	}
+	return state.Draft.SessionPolicy, nil
+}
+
+func fallbackTrimmedDuration(raw string, fallback time.Duration) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed != "" {
+		return trimmed
+	}
+	return fallback.String()
 }
 
 func activeOIDCConfigFromDraft(draft iam.DraftOIDCConfig) (iam.ActiveOIDCConfig, error) {

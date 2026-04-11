@@ -143,6 +143,8 @@ describe('admin auth API helpers', () => {
       scopes: ['openid', 'profile', 'email'],
       allowed_email_domains: [],
       bootstrap_admin_emails: [],
+      session_ttl: '0s',
+      session_idle_ttl: '0s',
     })
 
     expect(payload.warnings).toEqual([])

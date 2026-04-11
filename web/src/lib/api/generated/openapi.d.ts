@@ -3077,6 +3077,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -3216,6 +3220,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -3328,6 +3336,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -15405,6 +15417,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -15651,6 +15667,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }
@@ -15766,6 +15786,10 @@ export interface operations {
           redirect_url?: string
           /** @description OIDC scopes requested during the authorization-code flow. */
           scopes?: string[]
+          /** @description Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it. */
+          session_idle_ttl?: string
+          /** @description Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry. */
+          session_ttl?: string
         }
       }
     }

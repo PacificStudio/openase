@@ -547,6 +547,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -857,6 +865,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -1052,6 +1068,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -24361,6 +24385,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -24992,6 +25024,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"
@@ -25199,6 +25239,14 @@
                       "type": "string"
                     },
                     "type": "array"
+                  },
+                  "session_idle_ttl": {
+                    "description": "Sliding idle timeout enforced after no browser activity. Use Go duration strings such as 30m or 0; 0 and 0s disable idle expiry. When session_ttl is greater than 0, session_idle_ttl must not exceed it.",
+                    "type": "string"
+                  },
+                  "session_ttl": {
+                    "description": "Absolute browser session lifetime. Use Go duration strings such as 8h, 30m, or 0; 0 and 0s disable absolute expiry.",
+                    "type": "string"
                   }
                 },
                 "type": "object"

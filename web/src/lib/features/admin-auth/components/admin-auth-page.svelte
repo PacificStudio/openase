@@ -7,6 +7,13 @@
     SecurityAuthSettings,
   } from '$lib/api/contracts'
   import {
+    createOIDCFormState,
+    oidcDraftFormFromAuth,
+    oidcDraftPayloadFromForm,
+    oidcDraftSignature,
+    type OIDCFormState,
+  } from '$lib/features/auth'
+  import {
     disableAdminAuth,
     enableAdminOIDC,
     getAdminAuth,
@@ -20,17 +27,6 @@
   import AdminAuthOverview from './admin-auth-overview.svelte'
   import AdminAuthRuntimeDetails from './admin-auth-runtime-details.svelte'
 
-  type OIDCFormState = {
-    issuerURL: string
-    clientID: string
-    clientSecret: string
-    redirectMode: 'auto' | 'fixed'
-    fixedRedirectURL: string
-    scopesText: string
-    allowedDomainsText: string
-    bootstrapAdminEmailsText: string
-  }
-
   let loading = $state(false)
   let error = $state('')
   let errorCode = $state('')
@@ -38,53 +34,15 @@
   let auth = $state<SecurityAuthSettings | null>(null)
   let transition = $state<AdminAuthModeTransitionResponse['transition'] | null>(null)
   let lastDraftSignature = $state('')
-  let oidcForm = $state<OIDCFormState>({
-    issuerURL: '',
-    clientID: '',
-    clientSecret: '',
-    redirectMode: 'auto',
-    fixedRedirectURL: '',
-    scopesText: '',
-    allowedDomainsText: '',
-    bootstrapAdminEmailsText: '',
-  })
-
-  function parseListInput(value: string) {
-    return value
-      .split(/[\n,]/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  }
+  let oidcForm = $state<OIDCFormState>(createOIDCFormState())
 
   function syncForm(nextAuth: SecurityAuthSettings) {
-    const nextSignature = JSON.stringify(nextAuth.oidc_draft)
+    const nextSignature = oidcDraftSignature(nextAuth)
     if (nextSignature === lastDraftSignature) {
       return
     }
-    oidcForm = {
-      issuerURL: nextAuth.oidc_draft.issuer_url,
-      clientID: nextAuth.oidc_draft.client_id,
-      clientSecret: '',
-      redirectMode: nextAuth.oidc_draft.redirect_mode === 'fixed' ? 'fixed' : 'auto',
-      fixedRedirectURL: nextAuth.oidc_draft.fixed_redirect_url,
-      scopesText: nextAuth.oidc_draft.scopes.join('\n'),
-      allowedDomainsText: nextAuth.oidc_draft.allowed_email_domains.join('\n'),
-      bootstrapAdminEmailsText: nextAuth.oidc_draft.bootstrap_admin_emails.join('\n'),
-    }
+    oidcForm = oidcDraftFormFromAuth(nextAuth)
     lastDraftSignature = nextSignature
-  }
-
-  function oidcDraftPayload() {
-    return {
-      issuer_url: oidcForm.issuerURL.trim(),
-      client_id: oidcForm.clientID.trim(),
-      client_secret: oidcForm.clientSecret.trim(),
-      redirect_mode: oidcForm.redirectMode,
-      fixed_redirect_url: oidcForm.fixedRedirectURL.trim(),
-      scopes: parseListInput(oidcForm.scopesText),
-      allowed_email_domains: parseListInput(oidcForm.allowedDomainsText),
-      bootstrap_admin_emails: parseListInput(oidcForm.bootstrapAdminEmailsText),
-    }
   }
 
   async function refreshAuth() {
@@ -149,7 +107,7 @@
     await runAction(
       'save',
       async () => {
-        const payload = await saveAdminOIDCDraft(oidcDraftPayload())
+        const payload = await saveAdminOIDCDraft(oidcDraftPayloadFromForm(oidcForm))
         auth = payload.auth
         syncForm(payload.auth)
         transition = null
@@ -163,7 +121,7 @@
     await runAction(
       'test',
       async () => {
-        const payload = await testAdminOIDCDraft(oidcDraftPayload())
+        const payload = await testAdminOIDCDraft(oidcDraftPayloadFromForm(oidcForm))
         applyValidationResult(payload)
         transition = null
         toastStore.success(
@@ -181,7 +139,7 @@
     await runAction(
       'enable',
       async () => {
-        const payload = await enableAdminOIDC(oidcDraftPayload())
+        const payload = await enableAdminOIDC(oidcDraftPayloadFromForm(oidcForm))
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition

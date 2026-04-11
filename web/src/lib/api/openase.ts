@@ -145,6 +145,19 @@ type ProjectAIRetentionPolicyMutationBody = {
   keep_recent_days?: number
 }
 
+type OIDCDraftMutationBody = {
+  issuer_url: string
+  client_id: string
+  client_secret?: string
+  redirect_mode: string
+  fixed_redirect_url: string
+  scopes: string[]
+  allowed_email_domains: string[]
+  bootstrap_admin_emails: string[]
+  session_ttl: string
+  session_idle_ttl: string
+}
+
 export function getSystemDashboard() {
   return api.get<SystemDashboardResponse>('/api/v1/system/dashboard')
 }
@@ -370,44 +383,17 @@ export function getAdminAuth() {
   return api.get<AdminAuthResponse>('/api/v1/admin/auth').then(normalizeAdminAuthResponse)
 }
 
-export function saveAdminOIDCDraft(body: {
-  issuer_url: string
-  client_id: string
-  client_secret?: string
-  redirect_mode: string
-  fixed_redirect_url: string
-  scopes: string[]
-  allowed_email_domains: string[]
-  bootstrap_admin_emails: string[]
-}) {
+export function saveAdminOIDCDraft(body: OIDCDraftMutationBody) {
   const request = api.put<AdminAuthResponse>('/api/v1/admin/auth/oidc-draft', { body })
   return request.then(normalizeAdminAuthResponse)
 }
 
-export function testAdminOIDCDraft(body: {
-  issuer_url: string
-  client_id: string
-  client_secret?: string
-  redirect_mode: string
-  fixed_redirect_url: string
-  scopes: string[]
-  allowed_email_domains: string[]
-  bootstrap_admin_emails: string[]
-}) {
+export function testAdminOIDCDraft(body: OIDCDraftMutationBody) {
   const request = api.post<OIDCDraftTestResponse>('/api/v1/admin/auth/oidc-draft/test', { body })
   return request.then(normalizeOIDCDraftTestResponse)
 }
 
-export function enableAdminOIDC(body: {
-  issuer_url: string
-  client_id: string
-  client_secret?: string
-  redirect_mode: string
-  fixed_redirect_url: string
-  scopes: string[]
-  allowed_email_domains: string[]
-  bootstrap_admin_emails: string[]
-}) {
+export function enableAdminOIDC(body: OIDCDraftMutationBody) {
   const request = api.post<AdminAuthModeTransitionResponse>('/api/v1/admin/auth/oidc-enable', {
     body,
   })
@@ -534,19 +520,7 @@ export function deleteOrganizationScopedSecret(orgId: string, secretId: string) 
   return api.delete<void>(`/api/v1/orgs/${orgId}/security-settings/secrets/${secretId}`)
 }
 
-export function saveOIDCDraft(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_mode: string
-    fixed_redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function saveOIDCDraft(projectId: string, body: OIDCDraftMutationBody) {
   const request = api.put<SecuritySettingsResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft`,
     {
@@ -556,19 +530,7 @@ export function saveOIDCDraft(
   return request.then(normalizeSecuritySettingsResponse)
 }
 
-export function testOIDCDraft(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_mode: string
-    fixed_redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function testOIDCDraft(projectId: string, body: OIDCDraftMutationBody) {
   const request = api.post<OIDCDraftTestResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-draft/test`,
     { body },
@@ -576,19 +538,7 @@ export function testOIDCDraft(
   return request.then(normalizeOIDCDraftTestResponse)
 }
 
-export function enableOIDC(
-  projectId: string,
-  body: {
-    issuer_url: string
-    client_id: string
-    client_secret?: string
-    redirect_mode: string
-    fixed_redirect_url: string
-    scopes: string[]
-    allowed_email_domains: string[]
-    bootstrap_admin_emails: string[]
-  },
-) {
+export function enableOIDC(projectId: string, body: OIDCDraftMutationBody) {
   const request = api.post<OIDCEnableResponse>(
     `/api/v1/projects/${projectId}/security-settings/oidc-enable`,
     {

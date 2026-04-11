@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { oidcSessionFieldCopy, type OIDCFormState } from '$lib/features/auth'
   import type { SecurityAuthSettings } from '$lib/api/contracts'
   import * as Dialog from '$ui/dialog'
   import * as Select from '$ui/select'
@@ -8,17 +9,6 @@
   import { Textarea } from '$ui/textarea'
   import { Separator } from '$ui/separator'
   import { RefreshCcw, Rocket, Save, Settings2, TestTube2 } from '@lucide/svelte'
-
-  type OIDCFormState = {
-    issuerURL: string
-    clientID: string
-    clientSecret: string
-    redirectMode: 'auto' | 'fixed'
-    fixedRedirectURL: string
-    scopesText: string
-    allowedDomainsText: string
-    bootstrapAdminEmailsText: string
-  }
 
   let {
     auth,
@@ -31,6 +21,8 @@
       scopesText: '',
       allowedDomainsText: '',
       bootstrapAdminEmailsText: '',
+      sessionTTL: '',
+      sessionIdleTTL: '',
     } satisfies OIDCFormState),
     actionKey = '',
     onSave,
@@ -125,6 +117,9 @@
             <span>Scopes: <span class="text-foreground">{scopesSummary()}</span></span>
             <span>Domains: <span class="text-foreground">{domainsSummary()}</span></span>
             <span>Bootstrap admins: <span class="text-foreground">{bootstrapSummary()}</span></span>
+            <span>Session TTL: <span class="text-foreground">{form.sessionTTL || '0s'}</span></span>
+            <span>Idle TTL: <span class="text-foreground">{form.sessionIdleTTL || '0s'}</span></span
+            >
           </div>
         </div>
         <Dialog.Root bind:open={advancedOpen}>
@@ -139,7 +134,9 @@
           <Dialog.Content class="max-w-lg">
             <Dialog.Header>
               <Dialog.Title>Advanced Settings</Dialog.Title>
-              <Dialog.Description>Redirect, scopes, and access policy.</Dialog.Description>
+              <Dialog.Description>
+                Redirect, scopes, session policy, and access policy.
+              </Dialog.Description>
             </Dialog.Header>
             <Dialog.Body>
               <div class="space-y-5">
@@ -182,6 +179,36 @@
                     />
                   </div>
                 {/if}
+
+                <Separator />
+
+                <div class="space-y-2">
+                  <Label for="admin-oidc-session-ttl">Session TTL</Label>
+                  <Input
+                    id="admin-oidc-session-ttl"
+                    value={form.sessionTTL}
+                    placeholder="8h"
+                    oninput={(event) =>
+                      (form.sessionTTL = (event.currentTarget as HTMLInputElement).value)}
+                  />
+                  <p class="text-muted-foreground text-[11px]">
+                    {oidcSessionFieldCopy.sessionTTLDescription}
+                  </p>
+                </div>
+
+                <div class="space-y-2">
+                  <Label for="admin-oidc-session-idle-ttl">Idle TTL</Label>
+                  <Input
+                    id="admin-oidc-session-idle-ttl"
+                    value={form.sessionIdleTTL}
+                    placeholder="30m"
+                    oninput={(event) =>
+                      (form.sessionIdleTTL = (event.currentTarget as HTMLInputElement).value)}
+                  />
+                  <p class="text-muted-foreground text-[11px]">
+                    {oidcSessionFieldCopy.sessionIdleTTLDescription}
+                  </p>
+                </div>
 
                 <Separator />
 
