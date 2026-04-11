@@ -1,5 +1,6 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
+  import { Button } from '$ui/button'
   import { ChevronRight, Folder, FolderOpen, GitBranch, Loader2 } from '@lucide/svelte'
   import type {
     ProjectConversationWorkspaceDiffRepo,
@@ -23,9 +24,13 @@
     expandedDirs = new Set(),
     loadingDirs = new Set(),
     selectedFilePath = '',
+    recentFiles = [],
     onOpenRepo,
     onToggleDir,
     onSelectFile,
+    onCreateFile,
+    onRenameFile,
+    onDeleteFile,
   }: {
     repos?: ProjectConversationWorkspaceRepoMetadata[]
     selectedRepoPath?: string
@@ -35,13 +40,20 @@
     expandedDirs?: Set<string>
     loadingDirs?: Set<string>
     selectedFilePath?: string
+    recentFiles?: Array<{ repoPath: string; filePath: string }>
     onOpenRepo?: (repoPath: string) => void
     onToggleDir?: (path: string) => void
     onSelectFile?: (path: string) => void
+    onCreateFile?: () => void
+    onRenameFile?: () => void
+    onDeleteFile?: () => void
   } = $props()
 
   const rootEntries = $derived(treeNodes.get('') ?? [])
   const dirtyFiles = $derived(selectedRepoDiff?.files ?? [])
+  const visibleRecentFiles = $derived(
+    (recentFiles ?? []).filter((item) => item.repoPath === selectedRepoPath).slice(0, 5),
+  )
 
   /** Map of dirty file path → status */
   const dirtyFileStatus = $derived(
@@ -184,6 +196,59 @@
           {repo.name}
         </button>
       {/each}
+    </div>
+  {/if}
+
+  <div class="border-border flex items-center gap-1 border-b px-2 py-2">
+    <Button size="sm" variant="secondary" class="h-7 px-2 text-[11px]" onclick={onCreateFile}>
+      New file
+    </Button>
+    <Button
+      size="sm"
+      variant="ghost"
+      class="h-7 px-2 text-[11px]"
+      disabled={!selectedFilePath}
+      onclick={onRenameFile}
+    >
+      Rename
+    </Button>
+    <Button
+      size="sm"
+      variant="ghost"
+      class="h-7 px-2 text-[11px]"
+      disabled={!selectedFilePath}
+      onclick={onDeleteFile}
+    >
+      Delete
+    </Button>
+  </div>
+
+  {#if visibleRecentFiles.length > 0}
+    <div class="border-border border-b px-2 py-2">
+      <div
+        class="text-muted-foreground px-1 pb-1 text-[10px] font-semibold tracking-wider uppercase"
+      >
+        Recent
+      </div>
+      <div class="space-y-0.5">
+        {#each visibleRecentFiles as item (item.filePath)}
+          <button
+            type="button"
+            class={cn(
+              'hover:bg-muted/50 flex w-full items-center gap-1 rounded px-1.5 py-1 text-left text-[12px] transition-colors',
+              item.filePath === selectedFilePath && 'bg-primary/10 text-primary',
+            )}
+            onclick={() => onSelectFile?.(item.filePath)}
+          >
+            <span class="truncate">{filenameFromPath(item.filePath)}</span>
+            {#if item.filePath.includes('/')}
+              <span class="text-muted-foreground/50 truncate text-[10px]">
+                {item.filePath.slice(0, item.filePath.lastIndexOf('/'))}
+              </span>
+            {/if}
+          </button>
+        {/each}
+      </div>
     </div>
   {/if}
 

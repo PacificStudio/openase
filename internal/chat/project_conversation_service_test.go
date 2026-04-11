@@ -5349,6 +5349,78 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		}
 	})
 
+	t.Run("creates renames and deletes workspace files safely", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+
+		created, err := fixture.service.CreateWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileCreateInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Path:     WorkspaceCreatableFilePath("notes/todo.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("CreateWorkspaceFile() error = %v", err)
+		}
+		if created.Path != "notes/todo.md" || created.SizeBytes != 0 || created.Revision == "" {
+			t.Fatalf("unexpected created file = %+v", created)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "todo.md")); err != nil {
+			t.Fatalf("stat created file: %v", err)
+		}
+
+		renamed, err := fixture.service.RenameWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileRenameInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				FromPath: WorkspaceRenamableFilePath("notes/todo.md"),
+				ToPath:   WorkspaceCreatableFilePath("notes/archive/todo-renamed.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("RenameWorkspaceFile() error = %v", err)
+		}
+		if renamed.FromPath != "notes/todo.md" || renamed.ToPath != "notes/archive/todo-renamed.md" {
+			t.Fatalf("unexpected renamed file = %+v", renamed)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "archive", "todo-renamed.md")); err != nil {
+			t.Fatalf("stat renamed file: %v", err)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "todo.md")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected old path removed after rename, got %v", err)
+		}
+
+		deleted, err := fixture.service.DeleteWorkspaceFile(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			ProjectConversationWorkspaceFileDeleteInput{
+				RepoPath: WorkspaceRepoPath("backend"),
+				Path:     WorkspaceDeleteableFilePath("notes/archive/todo-renamed.md"),
+			},
+		)
+		if err != nil {
+			t.Fatalf("DeleteWorkspaceFile() error = %v", err)
+		}
+		if deleted.Path != "notes/archive/todo-renamed.md" {
+			t.Fatalf("unexpected deleted file = %+v", deleted)
+		}
+		if _, err := os.Stat(filepath.Join(fixture.repoPaths["backend"], "notes", "archive", "todo-renamed.md")); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expected file removed after delete, got %v", err)
+		}
+	})
+
 	t.Run("prompts to sync repos added after workspace materialization", func(t *testing.T) {
 		t.Parallel()
 

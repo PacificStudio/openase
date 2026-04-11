@@ -5,7 +5,9 @@
   import { cn } from '$lib/utils'
   import { CodeEditor } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
-  import { FileCode2, WrapText, X } from '@lucide/svelte'
+  import { appStore } from '$lib/stores/app.svelte'
+  import StructuredDiffPreview from './structured-diff-preview.svelte'
+  import { FileCode2, Wand2, WrapText, X } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
   import {
     workspaceTabKey,
@@ -101,6 +103,9 @@
       : '',
   )
   const showWrapToggle = $derived(activePreview?.previewKind === 'text' && !!activeEditorState)
+  const selectedChangedFiles = $derived(browser.selectedChangedFiles)
+  const activeSelection = $derived(activeEditorState?.selection ?? null)
+  const pendingPatch = $derived(activeEditorState?.pendingPatch ?? null)
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -211,6 +216,14 @@
           </span>
         {/if}
         <div class="ml-auto flex items-center gap-2">
+          {#if selectedChangedFiles.length > 1}
+            <Button size="sm" variant="ghost" onclick={() => browser.selectPreviousChangedFile()}>
+              Prev changed
+            </Button>
+            <Button size="sm" variant="ghost" onclick={() => browser.selectNextChangedFile()}>
+              Next changed
+            </Button>
+          {/if}
           {#if showWrapToggle}
             <Button
               variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
@@ -225,6 +238,33 @@
             </Button>
           {/if}
           {#if activeEditorState}
+            <Button size="sm" variant="ghost" onclick={() => browser.formatSelectedDocument()}>
+              Format
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!activeSelection}
+              onclick={() => browser.formatSelectedSelection()}
+            >
+              Format selection
+            </Button>
+            {#if activeSelection}
+              <Button
+                size="sm"
+                variant="ghost"
+                onclick={() => appStore.requestProjectAssistant('Explain the selected code.')}
+              >
+                Explain selection
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onclick={() => appStore.requestProjectAssistant('Rewrite the selected code.')}
+              >
+                Rewrite selection
+              </Button>
+            {/if}
             <Button
               size="sm"
               variant="ghost"
@@ -240,7 +280,7 @@
                 activePreview?.writable !== true}
               onclick={() => void browser.saveSelectedFile()}
             >
-              {activeEditorState.savePhase === 'saving' ? 'Saving...' : 'Save'}
+              {activeEditorState.savePhase === 'saving' ? 'Saving...' : 'Save now'}
             </Button>
           {/if}
           {#if activePreview}
@@ -288,6 +328,27 @@
         </div>
       {/if}
 
+      {#if pendingPatch}
+        <div class="border-border bg-muted/20 space-y-3 border-b px-3 py-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-sm font-medium">Project AI patch proposal</span>
+            <div class="ml-auto flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onclick={() => browser.discardSelectedPendingPatch()}
+              >
+                Discard patch
+              </Button>
+              <Button size="sm" onclick={() => browser.applySelectedPendingPatch()}>
+                Apply patch to editor
+              </Button>
+            </div>
+          </div>
+          <StructuredDiffPreview preview={pendingPatch.preview} />
+        </div>
+      {/if}
+
       <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
         {#if activePreview?.previewKind === 'binary'}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
@@ -306,6 +367,7 @@
               diffMarkers={activeDiffMarkers}
               class="h-full"
               onchange={(value) => browser.updateSelectedDraft(value)}
+              onselectionchange={(selection) => browser.updateSelectedSelection(selection)}
             />
           </div>
         {:else if activeFileLoading}

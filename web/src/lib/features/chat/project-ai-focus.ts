@@ -99,6 +99,24 @@ export type ProjectAIFocus =
       draftContent?: string
       encoding?: 'utf-8'
       lineEnding?: 'lf' | 'crlf'
+      selection?: {
+        from: number
+        to: number
+        startLine: number
+        startColumn: number
+        endLine: number
+        endColumn: number
+        text: string
+        contextBefore: string
+        contextAfter: string
+        truncated: boolean
+      } | null
+      workingSet?: Array<{
+        filePath: string
+        contentExcerpt: string
+        dirty: boolean
+        truncated: boolean
+      }>
     }
 
 export type ProjectAIFocusCard = {
@@ -200,7 +218,11 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
       return {
         label: 'Workspace file',
         title: `${focus.repoPath} / ${focus.filePath}`,
-        detail: [focus.selectedArea ?? 'edit', focus.hasDirtyDraft ? 'unsaved draft' : 'saved']
+        detail: [
+          focus.selectedArea ?? 'edit',
+          focus.selection ? 'selection' : '',
+          focus.hasDirtyDraft ? 'unsaved draft' : 'saved',
+        ]
           .filter(Boolean)
           .join(' · '),
       }

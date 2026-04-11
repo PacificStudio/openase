@@ -20,6 +20,8 @@ function buildBrowserStub(): ProjectConversationWorkspaceBrowserState {
     encoding: 'utf-8',
     lineEnding: 'lf',
     lastSavedAt: '',
+    selection: null,
+    pendingPatch: null,
   }
 
   return {
@@ -45,16 +47,24 @@ function buildBrowserStub(): ProjectConversationWorkspaceBrowserState {
     fileError: '',
     selectedEditorState: editorState,
     selectedDraftLineDiff: { added: [], modified: [], deletionAbove: [], deletionAtEnd: false },
+    selectedChangedFiles: [],
     getEditorState: () => editorState,
     discardDraft: () => {},
     closeTab: () => {},
     activateTab: () => {},
     saveFile: async () => true,
     saveSelectedFile: async () => true,
+    selectPreviousChangedFile: () => {},
+    selectNextChangedFile: () => {},
+    applySelectedPendingPatch: () => {},
+    discardSelectedPendingPatch: () => {},
     revertSelectedDraft: () => {},
     reloadSelectedSavedVersion: () => {},
     keepSelectedDraft: () => {},
     updateSelectedDraft: () => {},
+    updateSelectedSelection: () => {},
+    formatSelectedDocument: () => {},
+    formatSelectedSelection: () => {},
   } as unknown as ProjectConversationWorkspaceBrowserState
 }
 

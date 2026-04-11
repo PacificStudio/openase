@@ -35,6 +35,44 @@
   let terminalResizing = $state(false)
   let containerElement: HTMLDivElement | null = null
 
+  async function handleCreateFile() {
+    const nextPath = window.prompt(
+      'Create file at path',
+      browser.selectedFilePath || 'src/new-file.ts',
+    )
+    if (!nextPath) {
+      return
+    }
+    await browser.createFile(nextPath.trim())
+  }
+
+  async function handleRenameFile() {
+    if (!browser.selectedFilePath) {
+      return
+    }
+    const nextPath = window.prompt('Rename file to', browser.selectedFilePath)
+    if (!nextPath || nextPath.trim() === browser.selectedFilePath) {
+      return
+    }
+    await browser.renameFile(browser.selectedFilePath, nextPath.trim())
+  }
+
+  async function handleDeleteFile() {
+    if (!browser.selectedFilePath) {
+      return
+    }
+    const editor = browser.selectedEditorState
+    const confirmed = window.confirm(
+      editor?.dirty
+        ? `Delete ${browser.selectedFilePath}? Unsaved local draft changes will be discarded.`
+        : `Delete ${browser.selectedFilePath}?`,
+    )
+    if (!confirmed) {
+      return
+    }
+    await browser.deleteFile(browser.selectedFilePath)
+  }
+
   function handleSidebarResizeStart(event: PointerEvent) {
     event.preventDefault()
     sidebarResizing = true
@@ -103,9 +141,13 @@
         expandedDirs={browser.expandedDirs}
         loadingDirs={browser.loadingDirs}
         selectedFilePath={browser.selectedFilePath}
+        recentFiles={browser.recentFiles}
         onOpenRepo={browser.openRepo}
         onToggleDir={browser.toggleDir}
         onSelectFile={browser.selectFile}
+        onCreateFile={handleCreateFile}
+        onRenameFile={handleRenameFile}
+        onDeleteFile={handleDeleteFile}
       />
       <div
         class={cn(

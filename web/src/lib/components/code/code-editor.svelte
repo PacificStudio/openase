@@ -54,6 +54,7 @@
     class: className = '',
     diffMarkers = null,
     onchange,
+    onselectionchange,
   }: {
     /** Current document content */
     value?: string
@@ -72,6 +73,7 @@
     diffMarkers?: CodeEditorDiffMarkers | null
     /** Fires on every edit */
     onchange?: (value: string) => void
+    onselectionchange?: (selection: { from: number; to: number } | null) => void
   } = $props()
 
   let container: HTMLDivElement
@@ -390,6 +392,12 @@
             suppressExternalUpdate = true
             onchange?.(update.state.doc.toString())
             suppressExternalUpdate = false
+          }
+          if (update.docChanged || update.selectionSet) {
+            const selection = update.state.selection.main
+            onselectionchange?.(
+              selection.from === selection.to ? null : { from: selection.from, to: selection.to },
+            )
           }
         }),
       )

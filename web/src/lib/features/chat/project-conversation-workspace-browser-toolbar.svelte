@@ -10,9 +10,11 @@
     terminalPanelOpen = false,
     conversationId = '',
     metadataLoading = false,
+    autosaveEnabled = false,
     onCopyWorkspacePath,
     onToggleTerminal,
     onRefreshWorkspace,
+    onToggleAutosave,
     onClose,
   }: {
     workspacePath?: string
@@ -21,9 +23,11 @@
     terminalPanelOpen?: boolean
     conversationId?: string
     metadataLoading?: boolean
+    autosaveEnabled?: boolean
     onCopyWorkspacePath?: () => void
     onToggleTerminal?: () => void
     onRefreshWorkspace?: () => void
+    onToggleAutosave?: () => void
     onClose?: () => void
   } = $props()
 </script>
@@ -59,6 +63,16 @@
       <SquareTerminal class="size-3" />
     </Button>
   {/if}
+  <Button
+    variant={autosaveEnabled ? 'secondary' : 'ghost'}
+    size="sm"
+    class="h-6 px-2 text-[11px]"
+    aria-label="Toggle autosave"
+    onclick={onToggleAutosave}
+    disabled={!conversationId}
+  >
+    {autosaveEnabled ? 'Autosave on' : 'Autosave off'}
+  </Button>
   <Button
     variant="ghost"
     size="icon-xs"

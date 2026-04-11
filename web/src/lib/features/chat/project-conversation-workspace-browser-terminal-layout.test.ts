@@ -3,24 +3,33 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const {
   createProjectConversationTerminalSession,
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
 } = vi.hoisted(() => ({
   createProjectConversationTerminalSession: vi.fn(),
+  createProjectConversationWorkspaceFile: vi.fn(),
+  deleteProjectConversationWorkspaceFile: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  renameProjectConversationWorkspaceFile: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
   createProjectConversationTerminalSession,
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
 }))
 
 vi.mock('@xterm/xterm', () => ({

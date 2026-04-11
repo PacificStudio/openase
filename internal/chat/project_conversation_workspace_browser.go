@@ -112,6 +112,7 @@ var (
 	ErrProjectConversationWorkspaceRepoNotFound  = errors.New("project conversation workspace repo not found")
 	ErrProjectConversationWorkspacePathInvalid   = errors.New("project conversation workspace path is invalid")
 	ErrProjectConversationWorkspaceEntryNotFound = errors.New("project conversation workspace entry not found")
+	ErrProjectConversationWorkspaceEntryExists   = errors.New("project conversation workspace entry already exists")
 )
 
 type projectConversationWorkspaceResolvedRepo struct {
