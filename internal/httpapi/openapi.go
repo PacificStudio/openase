@@ -32,18 +32,26 @@ type OpenAPIOrganization struct {
 }
 
 type OpenAPIProject struct {
-	ID                             string   `json:"id"`
-	OrganizationID                 string   `json:"organization_id"`
-	Name                           string   `json:"name"`
-	Slug                           string   `json:"slug"`
-	Description                    string   `json:"description"`
-	Status                         string   `json:"status"`
-	DefaultAgentProviderID         *string  `json:"default_agent_provider_id,omitempty"`
-	AccessibleMachineIDs           []string `json:"accessible_machine_ids,omitempty"`
-	MaxConcurrentAgents            int      `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt          *string  `json:"agent_run_summary_prompt,omitempty"`
-	EffectiveAgentRunSummaryPrompt string   `json:"effective_agent_run_summary_prompt"`
-	AgentRunSummaryPromptSource    string   `json:"agent_run_summary_prompt_source"`
+	ID                             string                    `json:"id"`
+	OrganizationID                 string                    `json:"organization_id"`
+	Name                           string                    `json:"name"`
+	Slug                           string                    `json:"slug"`
+	Description                    string                    `json:"description"`
+	Status                         string                    `json:"status"`
+	DefaultAgentProviderID         *string                   `json:"default_agent_provider_id,omitempty"`
+	ProjectAIPlatformAccessAllowed []string                  `json:"project_ai_platform_access_allowed"`
+	AccessibleMachineIDs           []string                  `json:"accessible_machine_ids,omitempty"`
+	MaxConcurrentAgents            int                       `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt          *string                   `json:"agent_run_summary_prompt,omitempty"`
+	EffectiveAgentRunSummaryPrompt string                    `json:"effective_agent_run_summary_prompt"`
+	AgentRunSummaryPromptSource    string                    `json:"agent_run_summary_prompt_source"`
+	ProjectAIRetention             OpenAPIProjectAIRetention `json:"project_ai_retention"`
+}
+
+type OpenAPIProjectAIRetention struct {
+	Enabled        bool `json:"enabled"`
+	KeepLatestN    int  `json:"keep_latest_n"`
+	KeepRecentDays int  `json:"keep_recent_days"`
 }
 
 type OpenAPIWorkspaceDashboardMetrics struct {
@@ -2301,6 +2309,7 @@ var (
 		"description":                           "Human-readable project description.",
 		"status":                                "Current project lifecycle status name.",
 		"default_agent_provider_id":             "Optional default agent provider ID for the project.",
+		"project_ai_platform_access_allowed":    "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
 		"accessible_machine_ids":                "Machine IDs that the project is allowed to use.",
 		"max_concurrent_agents":                 "Maximum number of agents that may run concurrently in the project.",
 		"agent_run_summary_prompt":              "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",

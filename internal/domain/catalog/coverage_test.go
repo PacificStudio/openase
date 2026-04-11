@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	"github.com/google/uuid"
 )
 
@@ -649,11 +650,14 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if createProject.Description != "Raise backend coverage" || createProject.Status != ProjectStatusInProgress || len(createProject.AccessibleMachineIDs) != 2 || createProject.AgentRunSummaryPrompt != "Summarize the run outcome." {
 		t.Fatalf("ParseCreateProject() = %+v", createProject)
 	}
+	if got, want := createProject.ProjectAIPlatformAccessAllowed, agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ParseCreateProject() project ai scopes = %v, want %v", got, want)
+	}
 	updateProject, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p"})
 	if err != nil {
 		t.Fatalf("ParseUpdateProject() error = %v", err)
 	}
-	if updateProject.Status != DefaultProjectStatus || updateProject.MaxConcurrentAgents != DefaultProjectMaxConcurrentAgents {
+	if updateProject.Status != DefaultProjectStatus || updateProject.MaxConcurrentAgents != DefaultProjectMaxConcurrentAgents || len(updateProject.ProjectAIPlatformAccessAllowed) != 0 {
 		t.Fatalf("ParseUpdateProject() defaults = %+v", updateProject)
 	}
 	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "Project", Slug: "project", Status: ProjectStatusCompleted.String()})
@@ -663,20 +667,97 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	if updateProject.Status != ProjectStatusCompleted {
 		t.Fatalf("ParseUpdateProject(success) = %+v", updateProject)
 	}
+	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{
+		Name:                   " Project ",
+		Slug:                   "project-update",
+		Description:            " updated description ",
+		DefaultAgentProviderID: stringPtr(defaultProviderID.String()),
+		AccessibleMachineIDs:   []string{accessibleA.String(), accessibleA.String()},
+		MaxConcurrentAgents:    intPtr(3),
+		AgentRunSummaryPrompt:  stringPtr(" summarize update "),
+	})
+	if err != nil {
+		t.Fatalf("ParseUpdateProject(trimmed success) error = %v", err)
+	}
+	if updateProject.Description != "updated description" || updateProject.DefaultAgentProviderID == nil || *updateProject.DefaultAgentProviderID != defaultProviderID || len(updateProject.AccessibleMachineIDs) != 1 || updateProject.MaxConcurrentAgents != 3 || updateProject.AgentRunSummaryPrompt != "summarize update" {
+		t.Fatalf("ParseUpdateProject(trimmed success) = %+v", updateProject)
+	}
+	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{
+		Name:                           "Project",
+		Slug:                           "project",
+		ProjectAIPlatformAccessAllowed: []string{" projects.update ", "", "projects.update", "tickets.list"},
+	})
+	if err != nil {
+		t.Fatalf("ParseUpdateProject(explicit scopes) error = %v", err)
+	}
+	if got, want := updateProject.ProjectAIPlatformAccessAllowed, []string{"projects.update", "tickets.list"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("ParseUpdateProject(explicit scopes) = %v, want %v", got, want)
+	}
+	updateProject, err = ParseUpdateProject(uuid.New(), orgID, ProjectInput{
+		Name:                           "Project",
+		Slug:                           "project",
+		ProjectAIPlatformAccessAllowed: []string{" ", ""},
+	})
+	if err != nil {
+		t.Fatalf("ParseUpdateProject(blank scopes) error = %v", err)
+	}
+	if updateProject.ProjectAIPlatformAccessAllowed == nil || len(updateProject.ProjectAIPlatformAccessAllowed) != 0 {
+		t.Fatalf("ParseUpdateProject(blank scopes) = %+v", updateProject.ProjectAIPlatformAccessAllowed)
+	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: " ", Slug: "p"}); err == nil {
 		t.Fatal("ParseCreateProject() expected name validation error")
+	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: " ", Slug: "p"}); err == nil {
+		t.Fatal("ParseUpdateProject() expected name validation error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "bad slug"}); err == nil {
 		t.Fatal("ParseCreateProject() expected slug validation error")
 	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "bad slug"}); err == nil {
+		t.Fatal("ParseUpdateProject() expected slug validation error")
+	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", DefaultAgentProviderID: stringPtr("bad")}); err == nil {
 		t.Fatal("ParseCreateProject() expected agent provider validation error")
+	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p", DefaultAgentProviderID: stringPtr("bad")}); err == nil {
+		t.Fatal("ParseUpdateProject() expected agent provider validation error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", AccessibleMachineIDs: []string{"bad"}}); err == nil {
 		t.Fatal("ParseCreateProject() expected accessible machine validation error")
 	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p", AccessibleMachineIDs: []string{"bad"}}); err == nil {
+		t.Fatal("ParseUpdateProject() expected accessible machine validation error")
+	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "bad"}); err == nil {
 		t.Fatal("ParseCreateProject() expected status validation error")
+	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p", Status: "bad"}); err == nil {
+		t.Fatal("ParseUpdateProject() expected status validation error")
+	}
+	if _, err := ParseCreateProject(orgID, ProjectInput{
+		Name:                           "P",
+		Slug:                           "p",
+		ProjectAIPlatformAccessAllowed: []string{"tickets.update.self"},
+	}); err == nil {
+		t.Fatal("ParseCreateProject() expected invalid project ai scope error")
+	}
+	createProject, err = ParseCreateProject(orgID, ProjectInput{
+		Name:                           "Project AI",
+		Slug:                           "project-ai",
+		ProjectAIPlatformAccessAllowed: []string{" ", ""},
+	})
+	if err != nil {
+		t.Fatalf("ParseCreateProject(blank scopes) error = %v", err)
+	}
+	if got, want := createProject.ProjectAIPlatformAccessAllowed, agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation); !reflect.DeepEqual(got, want) {
+		t.Fatalf("ParseCreateProject(blank scopes) = %v, want %v", got, want)
+	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{
+		Name:                           "Project",
+		Slug:                           "project",
+		ProjectAIPlatformAccessAllowed: []string{"tickets.update.self"},
+	}); err == nil {
+		t.Fatal("ParseUpdateProject() expected invalid project ai scope error")
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", Status: "planning"}); err == nil {
 		t.Fatal("ParseCreateProject() expected legacy status validation error")
@@ -689,6 +770,9 @@ func TestCatalogEntityParsersAndHelpers(t *testing.T) {
 	}
 	if _, err := ParseCreateProject(orgID, ProjectInput{Name: "P", Slug: "p", MaxConcurrentAgents: intPtr(-1)}); err == nil {
 		t.Fatal("ParseCreateProject() expected max_concurrent_agents validation error")
+	}
+	if _, err := ParseUpdateProject(uuid.New(), orgID, ProjectInput{Name: "P", Slug: "p", MaxConcurrentAgents: intPtr(-1)}); err == nil {
+		t.Fatal("ParseUpdateProject() expected max_concurrent_agents validation error")
 	}
 
 	createRepo, err := ParseCreateProjectRepo(projectID, ProjectRepoInput{

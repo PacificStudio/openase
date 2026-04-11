@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/internal/config"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	"github.com/BetterAndBetterII/openase/internal/infra/executable"
@@ -148,6 +150,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	if createProjectPayload.Project.AgentRunSummaryPrompt == nil || *createProjectPayload.Project.AgentRunSummaryPrompt != "Summarize ticket runs." {
 		t.Fatalf("expected project summary prompt to round-trip on create, got %+v", createProjectPayload.Project)
 	}
+	if got, want := createProjectPayload.Project.ProjectAIPlatformAccessAllowed, agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation); !slices.Equal(got, want) {
+		t.Fatalf("expected project ai scopes to default to project conversation full set, got %v want %v", got, want)
+	}
 	if createProjectPayload.Project.EffectiveAgentRunSummaryPrompt != "Summarize ticket runs." {
 		t.Fatalf("expected effective project summary prompt to match override, got %+v", createProjectPayload.Project)
 	}
@@ -214,6 +219,9 @@ func TestCatalogCRUDRoutes(t *testing.T) {
 	decodeResponse(t, patchProjectRec, &patchProjectPayload)
 	if patchProjectPayload.Project.Status != "Canceled" || patchProjectPayload.Project.MaxConcurrentAgents != 3 {
 		t.Fatalf("unexpected patched project payload: %+v", patchProjectPayload.Project)
+	}
+	if !slices.Equal(patchProjectPayload.Project.ProjectAIPlatformAccessAllowed, createProjectPayload.Project.ProjectAIPlatformAccessAllowed) {
+		t.Fatalf("expected project ai scopes to remain unchanged on unrelated patch, got %+v", patchProjectPayload.Project)
 	}
 	if patchProjectPayload.Project.AgentRunSummaryPrompt != nil {
 		t.Fatalf("expected blank prompt patch to fall back to unset, got %+v", patchProjectPayload.Project)
@@ -1802,16 +1810,17 @@ func (f *fakeCatalogService) CreateProject(_ context.Context, input domain.Creat
 	}
 
 	project := domain.Project{
-		ID:                     uuid.New(),
-		OrganizationID:         input.OrganizationID,
-		Name:                   input.Name,
-		Slug:                   input.Slug,
-		Description:            input.Description,
-		Status:                 input.Status,
-		DefaultAgentProviderID: input.DefaultAgentProviderID,
-		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
-		MaxConcurrentAgents:    input.MaxConcurrentAgents,
-		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
+		ID:                             uuid.New(),
+		OrganizationID:                 input.OrganizationID,
+		Name:                           input.Name,
+		Slug:                           input.Slug,
+		Description:                    input.Description,
+		Status:                         input.Status,
+		DefaultAgentProviderID:         input.DefaultAgentProviderID,
+		ProjectAIPlatformAccessAllowed: append([]string(nil), input.ProjectAIPlatformAccessAllowed...),
+		AccessibleMachineIDs:           append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
+		MaxConcurrentAgents:            input.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:          input.AgentRunSummaryPrompt,
 	}
 	f.projects[project.ID] = project
 
@@ -1833,16 +1842,17 @@ func (f *fakeCatalogService) UpdateProject(_ context.Context, input domain.Updat
 	}
 
 	item := domain.Project{
-		ID:                     input.ID,
-		OrganizationID:         input.OrganizationID,
-		Name:                   input.Name,
-		Slug:                   input.Slug,
-		Description:            strings.TrimSpace(input.Description),
-		Status:                 input.Status,
-		DefaultAgentProviderID: input.DefaultAgentProviderID,
-		AccessibleMachineIDs:   append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
-		MaxConcurrentAgents:    input.MaxConcurrentAgents,
-		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
+		ID:                             input.ID,
+		OrganizationID:                 input.OrganizationID,
+		Name:                           input.Name,
+		Slug:                           input.Slug,
+		Description:                    strings.TrimSpace(input.Description),
+		Status:                         input.Status,
+		DefaultAgentProviderID:         input.DefaultAgentProviderID,
+		ProjectAIPlatformAccessAllowed: append([]string(nil), input.ProjectAIPlatformAccessAllowed...),
+		AccessibleMachineIDs:           append([]uuid.UUID(nil), input.AccessibleMachineIDs...),
+		MaxConcurrentAgents:            input.MaxConcurrentAgents,
+		AgentRunSummaryPrompt:          input.AgentRunSummaryPrompt,
 	}
 	f.projects[input.ID] = item
 

@@ -33,6 +33,7 @@ function createProvisionalProject(orgId: string, id: string, previous: Project |
     description: previous?.description ?? '',
     status: previous?.status ?? 'active',
     default_agent_provider_id: previous?.default_agent_provider_id ?? '',
+    project_ai_platform_access_allowed: previous?.project_ai_platform_access_allowed ?? [],
     max_concurrent_agents: previous?.max_concurrent_agents ?? 0,
     agent_run_summary_prompt: previous?.agent_run_summary_prompt ?? '',
     effective_agent_run_summary_prompt: previous?.effective_agent_run_summary_prompt ?? '',

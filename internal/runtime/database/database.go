@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/BetterAndBetterII/openase/ent"
 	entmigrate "github.com/BetterAndBetterII/openase/ent/migrate"
+	agentplatformdomain "github.com/BetterAndBetterII/openase/internal/domain/agentplatform"
 	ticketrepo "github.com/BetterAndBetterII/openase/internal/repo/ticket"
 	// Register ent runtime hooks for generated schema metadata.
 	_ "github.com/BetterAndBetterII/openase/ent/runtime"
@@ -189,17 +191,29 @@ func applyLegacyProjectSchemaCompat(ctx context.Context, db *sql.DB) error {
 		return nil
 	}
 
+	defaultProjectAIScopesJSON, err := json.Marshal(
+		agentplatformdomain.SupportedScopesForPrincipalKind(agentplatformdomain.PrincipalKindProjectConversation),
+	)
+	if err != nil {
+		return fmt.Errorf("marshal project ai platform access defaults: %w", err)
+	}
+	quotedProjectAIScopesJSON := "'" + strings.ReplaceAll(string(defaultProjectAIScopesJSON), "'", "''") + "'::jsonb"
+
 	statements := []string{
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_outbound_credential jsonb`,
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS github_token_probe jsonb`,
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS default_agent_provider_id uuid`,
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS project_ai_platform_access_allowed jsonb`,
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS accessible_machine_ids jsonb`,
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS max_concurrent_agents bigint`,
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS agent_run_summary_prompt text`,
-		`UPDATE projects
+		fmt.Sprintf(`UPDATE projects
 			SET
+				project_ai_platform_access_allowed = COALESCE(project_ai_platform_access_allowed, %s),
 				accessible_machine_ids = COALESCE(accessible_machine_ids, '[]'::jsonb),
-				max_concurrent_agents = COALESCE(max_concurrent_agents, 0)`,
+				max_concurrent_agents = COALESCE(max_concurrent_agents, 0)`, quotedProjectAIScopesJSON),
+		fmt.Sprintf(`ALTER TABLE projects ALTER COLUMN project_ai_platform_access_allowed SET DEFAULT %s`, quotedProjectAIScopesJSON),
+		`ALTER TABLE projects ALTER COLUMN project_ai_platform_access_allowed SET NOT NULL`,
 		`ALTER TABLE projects ALTER COLUMN accessible_machine_ids SET DEFAULT '[]'::jsonb`,
 		`ALTER TABLE projects ALTER COLUMN accessible_machine_ids SET NOT NULL`,
 		`ALTER TABLE projects ALTER COLUMN max_concurrent_agents SET DEFAULT 0`,

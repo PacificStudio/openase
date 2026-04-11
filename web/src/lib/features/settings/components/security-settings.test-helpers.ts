@@ -9,6 +9,7 @@ export function currentProject() {
     description: '',
     status: 'active',
     default_agent_provider_id: null,
+    project_ai_platform_access_allowed: ['projects.update', 'projects.add_repo'],
     accessible_machine_ids: [],
     max_concurrent_agents: 4,
   }
@@ -108,6 +109,16 @@ export function configuredSecurity() {
       token_prefix: 'ase_agent_',
       default_scopes: ['tickets.create', 'tickets.list'],
       supported_project_scopes: ['projects.update', 'projects.add_repo'],
+      supported_scope_groups: [
+        {
+          category: 'projects',
+          scopes: ['projects.update', 'projects.add_repo'],
+        },
+        {
+          category: 'tickets',
+          scopes: ['tickets.update.self'],
+        },
+      ],
     },
     github: {
       effective: {
@@ -247,6 +258,26 @@ export function configuredSecurityWithNullPermissions() {
           ...security.github.project_override.probe,
           permissions: null,
         },
+      },
+    },
+  }
+}
+
+export function configuredSecurityWithProjectGitHubOverride() {
+  const security = configuredSecurity()
+  return {
+    ...security,
+    github: {
+      ...security.github,
+      effective: {
+        ...security.github.organization,
+        scope: 'project' as const,
+        source: 'gh_cli_import',
+      },
+      project_override: {
+        ...security.github.organization,
+        scope: 'project' as const,
+        source: 'gh_cli_import',
       },
     },
   }

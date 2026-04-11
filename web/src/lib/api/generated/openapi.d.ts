@@ -10386,6 +10386,12 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }[]
@@ -10456,6 +10462,8 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string
+          /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
+          project_ai_platform_access_allowed?: string[]
           /** @description Optional Project AI conversation retention policy for the project. */
           project_ai_retention?: {
             /** @description Whether Project AI conversation retention is enabled for the project. */
@@ -10491,6 +10499,12 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -11736,6 +11750,12 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -11810,6 +11830,12 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }
@@ -11892,6 +11918,8 @@ export interface operations {
           max_concurrent_agents?: number | null
           /** @description Human-readable project name. */
           name?: string | null
+          /** @description Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set. */
+          project_ai_platform_access_allowed?: string[] | null
           /** @description Optional Project AI conversation retention policy for the project. */
           project_ai_retention?: {
             /** @description Whether Project AI conversation retention is enabled for the project. */
@@ -11927,6 +11955,12 @@ export interface operations {
               max_concurrent_agents?: number
               name?: string
               organization_id?: string
+              project_ai_platform_access_allowed?: string[]
+              project_ai_retention?: {
+                enabled?: boolean
+                keep_latest_n?: number
+                keep_recent_days?: number
+              }
               slug?: string
               status?: string
             }

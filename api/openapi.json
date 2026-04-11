@@ -14039,6 +14039,26 @@
                           "organization_id": {
                             "type": "string"
                           },
+                          "project_ai_platform_access_allowed": {
+                            "items": {
+                              "type": "string"
+                            },
+                            "type": "array"
+                          },
+                          "project_ai_retention": {
+                            "properties": {
+                              "enabled": {
+                                "type": "boolean"
+                              },
+                              "keep_latest_n": {
+                                "type": "integer"
+                              },
+                              "keep_recent_days": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
                           "slug": {
                             "type": "string"
                           },
@@ -14166,6 +14186,13 @@
                     "description": "Human-readable project name.",
                     "type": "string"
                   },
+                  "project_ai_platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "project_ai_retention": {
                     "description": "Optional Project AI conversation retention policy for the project.",
                     "nullable": true,
@@ -14246,6 +14273,26 @@
                         },
                         "organization_id": {
                           "type": "string"
+                        },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
                         },
                         "slug": {
                           "type": "string"
@@ -16732,6 +16779,26 @@
                         "organization_id": {
                           "type": "string"
                         },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -16883,6 +16950,26 @@
                         "organization_id": {
                           "type": "string"
                         },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "slug": {
                           "type": "string"
                         },
@@ -17011,6 +17098,14 @@
                     "nullable": true,
                     "type": "string"
                   },
+                  "project_ai_platform_access_allowed": {
+                    "description": "Allowed OpenASE platform API scopes for Project AI conversations in this project. Defaults to the full Project AI scope set.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "nullable": true,
+                    "type": "array"
+                  },
                   "project_ai_retention": {
                     "description": "Optional Project AI conversation retention policy for the project.",
                     "nullable": true,
@@ -17093,6 +17188,26 @@
                         },
                         "organization_id": {
                           "type": "string"
+                        },
+                        "project_ai_platform_access_allowed": {
+                          "items": {
+                            "type": "string"
+                          },
+                          "type": "array"
+                        },
+                        "project_ai_retention": {
+                          "properties": {
+                            "enabled": {
+                              "type": "boolean"
+                            },
+                            "keep_latest_n": {
+                              "type": "integer"
+                            },
+                            "keep_recent_days": {
+                              "type": "integer"
+                            }
+                          },
+                          "type": "object"
                         },
                         "slug": {
                           "type": "string"

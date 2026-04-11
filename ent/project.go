@@ -37,6 +37,8 @@ type Project struct {
 	GithubTokenProbe *githubauth.TokenProbe `json:"github_token_probe,omitempty"`
 	// DefaultAgentProviderID holds the value of the "default_agent_provider_id" field.
 	DefaultAgentProviderID *uuid.UUID `json:"default_agent_provider_id,omitempty"`
+	// ProjectAiPlatformAccessAllowed holds the value of the "project_ai_platform_access_allowed" field.
+	ProjectAiPlatformAccessAllowed []string `json:"project_ai_platform_access_allowed,omitempty"`
 	// AccessibleMachineIds holds the value of the "accessible_machine_ids" field.
 	AccessibleMachineIds []uuid.UUID `json:"accessible_machine_ids,omitempty"`
 	// MaxConcurrentAgents holds the value of the "max_concurrent_agents" field.
@@ -260,7 +262,7 @@ func (*Project) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case project.FieldDefaultAgentProviderID:
 			values[i] = &sql.NullScanner{S: new(uuid.UUID)}
-		case project.FieldGithubOutboundCredential, project.FieldGithubTokenProbe, project.FieldAccessibleMachineIds:
+		case project.FieldGithubOutboundCredential, project.FieldGithubTokenProbe, project.FieldProjectAiPlatformAccessAllowed, project.FieldAccessibleMachineIds:
 			values[i] = new([]byte)
 		case project.FieldProjectAiRetentionEnabled:
 			values[i] = new(sql.NullBool)
@@ -343,6 +345,14 @@ func (_m *Project) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.DefaultAgentProviderID = new(uuid.UUID)
 				*_m.DefaultAgentProviderID = *value.S.(*uuid.UUID)
+			}
+		case project.FieldProjectAiPlatformAccessAllowed:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field project_ai_platform_access_allowed", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.ProjectAiPlatformAccessAllowed); err != nil {
+					return fmt.Errorf("unmarshal field project_ai_platform_access_allowed: %w", err)
+				}
 			}
 		case project.FieldAccessibleMachineIds:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -528,6 +538,9 @@ func (_m *Project) String() string {
 		builder.WriteString("default_agent_provider_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("project_ai_platform_access_allowed=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ProjectAiPlatformAccessAllowed))
 	builder.WriteString(", ")
 	builder.WriteString("accessible_machine_ids=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AccessibleMachineIds))

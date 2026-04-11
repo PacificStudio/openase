@@ -326,10 +326,28 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		return nil, fmt.Errorf("process command must not be empty")
 	}
 
+	// TODO: remove debug once the ticket runtime launch timeout root cause is confirmed.
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "process_start_begin",
+		"command", request.Process.Command.String(),
+		"args", request.Process.Args,
+		"working_directory", request.Thread.WorkingDirectory,
+		"model", request.Thread.Model,
+	)
+	processStart := time.Now()
 	process, err := a.processManager.Start(ctx, request.Process)
 	if err != nil {
 		return nil, fmt.Errorf("start codex app server: %w", err)
 	}
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "process_start_done",
+		"pid", process.PID(),
+		"elapsed_ms", time.Since(processStart).Milliseconds(),
+	)
 
 	session := newSessionWithLogger(process, a.logger)
 
@@ -338,14 +356,38 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 	go session.waitLoop()
 
 	initializeParams := newWireInitializeParams(request.Initialize)
+	initializeStart := time.Now()
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "initialize_begin",
+	)
 	if err := session.call(ctx, methodInitialize, initializeParams, &wireInitializeResponse{}); err != nil {
 		_ = session.stopWithTimeout()
 		return nil, fmt.Errorf("initialize codex app server: %w", err)
 	}
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "initialize_done",
+		"elapsed_ms", time.Since(initializeStart).Milliseconds(),
+	)
+	initializedNotifyStart := time.Now()
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "initialized_notify_begin",
+	)
 	if err := session.notify(methodInitialized, nil); err != nil {
 		_ = session.stopWithTimeout()
 		return nil, fmt.Errorf("notify codex app server initialized: %w", err)
 	}
+	a.logger.Info(
+		"codex adapter start debug",
+		"debug_marker", "OPENASE_DEBUG_CODEX_START",
+		"stage", "initialized_notify_done",
+		"elapsed_ms", time.Since(initializedNotifyStart).Milliseconds(),
+	)
 
 	if resumeThreadID := strings.TrimSpace(request.Thread.ResumeThreadID); resumeThreadID != "" {
 		resumeParams, err := newWireThreadResumeParams(resumeThreadID, request.Thread)
@@ -354,6 +396,13 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 			return nil, err
 		}
 		var threadResponse wireThreadResumeResponse
+		threadResumeStart := time.Now()
+		a.logger.Info(
+			"codex adapter start debug",
+			"debug_marker", "OPENASE_DEBUG_CODEX_START",
+			"stage", "thread_resume_begin",
+			"resume_thread_id", resumeThreadID,
+		)
 		if err := session.call(ctx, methodThreadResume, resumeParams, &threadResponse); err != nil {
 			_ = session.stopWithTimeout()
 			return nil, fmt.Errorf("resume codex thread: %w", err)
@@ -364,6 +413,13 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		}
 		session.threadID = threadResponse.Thread.ID
 		session.setThreadStatus(threadStatusEventFromWire(session.threadID, threadResponse.Thread.Status))
+		a.logger.Info(
+			"codex adapter start debug",
+			"debug_marker", "OPENASE_DEBUG_CODEX_START",
+			"stage", "thread_resume_done",
+			"thread_id", session.threadID,
+			"elapsed_ms", time.Since(threadResumeStart).Milliseconds(),
+		)
 	} else {
 		threadParams, err := newWireThreadStartParams(request.Thread)
 		if err != nil {
@@ -372,6 +428,14 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		}
 
 		var threadResponse wireThreadStartResponse
+		threadStart := time.Now()
+		a.logger.Info(
+			"codex adapter start debug",
+			"debug_marker", "OPENASE_DEBUG_CODEX_START",
+			"stage", "thread_start_begin",
+			"working_directory", request.Thread.WorkingDirectory,
+			"turn_working_directory", request.Turn.WorkingDirectory,
+		)
 		if err := session.call(ctx, methodThreadStart, threadParams, &threadResponse); err != nil {
 			_ = session.stopWithTimeout()
 			return nil, fmt.Errorf("start codex thread: %w", err)
@@ -382,6 +446,13 @@ func (a *Adapter) Start(ctx context.Context, request StartRequest) (*Session, er
 		}
 		session.threadID = threadResponse.Thread.ID
 		session.setThreadStatus(threadStatusEventFromWire(session.threadID, threadResponse.Thread.Status))
+		a.logger.Info(
+			"codex adapter start debug",
+			"debug_marker", "OPENASE_DEBUG_CODEX_START",
+			"stage", "thread_start_done",
+			"thread_id", session.threadID,
+			"elapsed_ms", time.Since(threadStart).Milliseconds(),
+		)
 	}
 	session.autoApproveRequests = approvalPolicyIsNever(request.Thread.ApprovalPolicy)
 	session.defaultTurnWorkingDirectory = strings.TrimSpace(request.Turn.WorkingDirectory)
