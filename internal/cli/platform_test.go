@@ -551,6 +551,101 @@ func TestTicketCommentUpdateCommandAcceptsTicketIDPositionalAndBodyFileAlias(t *
 	}
 }
 
+func TestTicketCommentListCommandUsesProjectScopedRouteWhenTicketsListScopePresent(t *testing.T) {
+	var path string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"comments":[{"id":"comment-7","body":"Current progress"}]}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.list")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "list", "ticket-9"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/projects/project-123/tickets/ticket-9/comments" {
+		t.Fatalf("expected project-scoped ticket comment list path, got %q", path)
+	}
+}
+
+func TestTicketCommentCreateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(t *testing.T) {
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"comment":{"id":"comment-8","body":"Created from project route"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.update")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "create", "ticket-9", "--body", "Created from project route"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/projects/project-123/tickets/ticket-9/comments" {
+		t.Fatalf("expected project-scoped ticket comment create path, got %q", path)
+	}
+	if payload["body"] != "Created from project route" {
+		t.Fatalf("unexpected comment create payload: %+v", payload)
+	}
+}
+
+func TestTicketCommentUpdateCommandUsesProjectScopedRouteWhenTicketsUpdateScopePresent(t *testing.T) {
+	var path string
+	var payload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			t.Fatalf("Decode returned error: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"comment":{"id":"comment-7","body":"Updated from project route"}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.update")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"comment", "update", "ticket-9", "comment-7", "--body", "Updated from project route"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/projects/project-123/tickets/ticket-9/comments/comment-7" {
+		t.Fatalf("expected project-scoped ticket comment update path, got %q", path)
+	}
+	if payload["body"] != "Updated from project route" {
+		t.Fatalf("unexpected comment update payload: %+v", payload)
+	}
+}
+
 func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	var method string
 	var path string
@@ -570,6 +665,7 @@ func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	t.Setenv("OPENASE_API_URL", server.URL)
 	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
 	t.Setenv("OPENASE_TICKET_ID", "ticket-9")
+	t.Setenv("OPENASE_PROJECT_ID", "")
 
 	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
 	command.SetArgs([]string{"report-usage", "--input-tokens", "120", "--output-tokens", "45", "--cost-usd", "0.21"})
@@ -586,6 +682,33 @@ func TestTicketReportUsageCommandPostsUsagePayload(t *testing.T) {
 	}
 	if payload["input_tokens"] != float64(120) || payload["output_tokens"] != float64(45) || payload["cost_usd"] != 0.21 {
 		t.Fatalf("unexpected usage payload: %+v", payload)
+	}
+}
+
+func TestTicketReportUsageCommandUsesProjectScopedRouteWhenScopePresent(t *testing.T) {
+	var path string
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.RequestURI()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ticket":{"id":"ticket-9"},"applied":{"input_tokens":12,"output_tokens":4,"cost_usd":0.03}}`))
+	}))
+	defer server.Close()
+
+	t.Setenv("OPENASE_API_URL", server.URL)
+	t.Setenv("OPENASE_AGENT_TOKEN", "ase_agent_test")
+	t.Setenv("OPENASE_PROJECT_ID", "project-123")
+	t.Setenv("OPENASE_AGENT_SCOPES", "tickets.report_usage")
+
+	command := newAgentPlatformTicketCommandWithDeps(platformCommandDeps{httpClient: server.Client()})
+	command.SetArgs([]string{"report-usage", "ticket-9", "--input-tokens", "12", "--output-tokens", "4", "--cost-usd", "0.03"})
+
+	if err := command.ExecuteContext(context.Background()); err != nil {
+		t.Fatalf("ExecuteContext returned error: %v", err)
+	}
+
+	if path != "/projects/project-123/tickets/ticket-9/usage" {
+		t.Fatalf("expected project-scoped ticket usage path, got %q", path)
 	}
 }
 

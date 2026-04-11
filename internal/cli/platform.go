@@ -953,6 +953,22 @@ func (platform platformContext) hasScope(scope string) bool {
 	return slicesContains(platform.scopes, strings.TrimSpace(scope))
 }
 
+func (platform platformContext) useProjectScopedTicketRead() bool {
+	return strings.TrimSpace(platform.projectID) != "" && platform.hasScope("tickets.list")
+}
+
+func (platform platformContext) useProjectScopedTicketUpdate() bool {
+	return strings.TrimSpace(platform.projectID) != "" && platform.hasScope("tickets.update")
+}
+
+func (platform platformContext) useProjectScopedTicketCommentWrite() bool {
+	return platform.useProjectScopedTicketUpdate()
+}
+
+func (platform platformContext) useProjectScopedTicketReportUsage() bool {
+	return strings.TrimSpace(platform.projectID) != "" && platform.hasScope("tickets.report_usage")
+}
+
 func (platform platformContext) parseTicketListInput(raw ticketListInput) (ticketListInput, error) {
 	projectID := strings.TrimSpace(firstNonEmpty(raw.projectID, platform.projectID))
 	if projectID == "" {
@@ -1333,21 +1349,33 @@ func (client platformClient) createTicket(ctx context.Context, platform platform
 }
 
 func (client platformClient) listTicketComments(ctx context.Context, platform platformContext, input ticketCommentListInput) ([]byte, error) {
-	return client.doJSON(ctx, platform, http.MethodGet, "/tickets/"+url.PathEscape(input.ticketID)+"/comments", nil)
+	path := "/tickets/" + url.PathEscape(input.ticketID) + "/comments"
+	if platform.useProjectScopedTicketRead() {
+		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID) + "/comments"
+	}
+	return client.doJSON(ctx, platform, http.MethodGet, path, nil)
 }
 
 func (client platformClient) createTicketComment(ctx context.Context, platform platformContext, input ticketCommentCreateInput) ([]byte, error) {
-	return client.doJSON(ctx, platform, http.MethodPost, "/tickets/"+url.PathEscape(input.ticketID)+"/comments", map[string]any{
+	path := "/tickets/" + url.PathEscape(input.ticketID) + "/comments"
+	if platform.useProjectScopedTicketCommentWrite() {
+		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID) + "/comments"
+	}
+	return client.doJSON(ctx, platform, http.MethodPost, path, map[string]any{
 		"body": input.body,
 	})
 }
 
 func (client platformClient) updateTicketComment(ctx context.Context, platform platformContext, input ticketCommentUpdateInput) ([]byte, error) {
+	path := "/tickets/" + url.PathEscape(input.ticketID) + "/comments/" + url.PathEscape(input.commentID)
+	if platform.useProjectScopedTicketCommentWrite() {
+		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID) + "/comments/" + url.PathEscape(input.commentID)
+	}
 	return client.doJSON(
 		ctx,
 		platform,
 		http.MethodPatch,
-		"/tickets/"+url.PathEscape(input.ticketID)+"/comments/"+url.PathEscape(input.commentID),
+		path,
 		map[string]any{"body": input.body},
 	)
 }
@@ -1403,7 +1431,12 @@ func (client platformClient) reportTicketUsage(ctx context.Context, platform pla
 		payload["cost_usd"] = *input.costUSD
 	}
 
-	return client.doJSON(ctx, platform, http.MethodPost, "/tickets/"+url.PathEscape(input.ticketID)+"/usage", payload)
+	path := "/tickets/" + url.PathEscape(input.ticketID) + "/usage"
+	if platform.useProjectScopedTicketReportUsage() {
+		path = "/projects/" + url.PathEscape(platform.projectID) + "/tickets/" + url.PathEscape(input.ticketID) + "/usage"
+	}
+
+	return client.doJSON(ctx, platform, http.MethodPost, path, payload)
 }
 
 func (client platformClient) updateProject(ctx context.Context, platform platformContext, input projectUpdateInput) ([]byte, error) {

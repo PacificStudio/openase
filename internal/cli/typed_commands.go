@@ -216,11 +216,12 @@ func newTicketCommand() *cobra.Command {
 }
 
 func newActivityCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "activity",
 		Short: "Read project activity events through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "list [projectId]",
 		Short:            "List project activity events.",
 		Method:           http.MethodGet,
@@ -230,7 +231,7 @@ func newActivityCommand() *cobra.Command {
 			"Use this to inspect the project event timeline, including workflow edits, ticket transitions, and runtime activity.",
 		},
 		Example: "openase activity list $OPENASE_PROJECT_ID --json events",
-	}))
+	}, deps))
 	return command
 }
 
@@ -611,11 +612,12 @@ func newTypedTicketExternalLinkCommand() *cobra.Command {
 }
 
 func newTypedTicketRunCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "run",
 		Short: "Inspect ticket run history.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "list [projectId] [ticketId]",
 		Short:            "List ticket runs.",
 		Method:           http.MethodGet,
@@ -625,8 +627,8 @@ func newTypedTicketRunCommand() *cobra.Command {
 			"Use this to inspect execution history, retry chains, and current runtime state for one ticket.",
 		},
 		Example: "openase ticket run list $OPENASE_PROJECT_ID $OPENASE_TICKET_ID",
-	}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "get [projectId] [ticketId] [runId]",
 		Short:            "Get a ticket run.",
 		Method:           http.MethodGet,
@@ -636,7 +638,7 @@ func newTypedTicketRunCommand() *cobra.Command {
 			"This returns the stored runtime snapshot for one run, including status, lifecycle timestamps, and retry metadata.",
 		},
 		Example: "openase ticket run get $OPENASE_PROJECT_ID $OPENASE_TICKET_ID $OPENASE_RUN_ID",
-	}))
+	}, deps))
 	return command
 }
 
@@ -853,11 +855,12 @@ project scope fall back to OPENASE_PROJECT_ID.
 }
 
 func newRepoCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "repo",
 		Short: "Operate on project repositories through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "list [projectId]",
 		Short:            "List project repositories.",
 		Method:           http.MethodGet,
@@ -866,28 +869,28 @@ func newRepoCommand() *cobra.Command {
 		HelpNotes: []string{
 			"Use this to inspect repositories currently bound to a project before wiring workflows, repo scopes, or GitHub imports.",
 		},
-	}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "create [projectId]",
 		Short:            "Create a project repository.",
 		Method:           http.MethodPost,
 		Path:             "/api/v1/projects/{projectId}/repos",
 		PositionalParams: []string{"projectId"},
-	}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "update [projectId] [repoId]",
 		Short:            "Update a project repository.",
 		Method:           http.MethodPatch,
 		Path:             "/api/v1/projects/{projectId}/repos/{repoId}",
 		PositionalParams: []string{"projectId", "repoId"},
-	}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "delete [projectId] [repoId]",
 		Short:            "Delete a project repository.",
 		Method:           http.MethodDelete,
 		Path:             "/api/v1/projects/{projectId}/repos/{repoId}",
 		PositionalParams: []string{"projectId", "repoId"},
-	}))
+	}, deps))
 
 	github := &cobra.Command{
 		Use:   "github",
@@ -920,34 +923,34 @@ func newRepoCommand() *cobra.Command {
 		Use:   "scope",
 		Short: "Operate on ticket repository scopes.",
 	}
-	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	scope.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "list [projectId] [ticketId]",
 		Short:            "List ticket repository scopes.",
 		Method:           http.MethodGet,
 		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
 		PositionalParams: []string{"projectId", "ticketId"},
-	}))
-	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	scope.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "create [projectId] [ticketId]",
 		Short:            "Create a ticket repository scope.",
 		Method:           http.MethodPost,
 		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes",
 		PositionalParams: []string{"projectId", "ticketId"},
-	}))
-	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	scope.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "update [projectId] [ticketId] [scopeId]",
 		Short:            "Update a ticket repository scope.",
 		Method:           http.MethodPatch,
 		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
 		PositionalParams: []string{"projectId", "ticketId", "scopeId"},
-	}))
-	scope.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{
+	}, deps))
+	scope.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{
 		Use:              "delete [projectId] [ticketId] [scopeId]",
 		Short:            "Delete a ticket repository scope.",
 		Method:           http.MethodDelete,
 		Path:             "/api/v1/projects/{projectId}/tickets/{ticketId}/repo-scopes/{scopeId}",
 		PositionalParams: []string{"projectId", "ticketId", "scopeId"},
-	}))
+	}, deps))
 	command.AddCommand(scope)
 
 	return command
@@ -1006,15 +1009,16 @@ func newWorkflowCommand() *cobra.Command {
 }
 
 func newScheduledJobCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "scheduled-job",
 		Short: "Operate on scheduled jobs through the OpenASE API.",
 	}
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List scheduled jobs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a scheduled job.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [jobId]", Short: "Update a scheduled job.", Method: http.MethodPatch, Path: "/api/v1/scheduled-jobs/{jobId}", PositionalParams: []string{"jobId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [jobId]", Short: "Delete a scheduled job.", Method: http.MethodDelete, Path: "/api/v1/scheduled-jobs/{jobId}", PositionalParams: []string{"jobId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "trigger [jobId]", Short: "Trigger a scheduled job once.", Method: http.MethodPost, Path: "/api/v1/scheduled-jobs/{jobId}/trigger", PositionalParams: []string{"jobId"}}))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "list [projectId]", Short: "List scheduled jobs.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "create [projectId]", Short: "Create a scheduled job.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/scheduled-jobs", PositionalParams: []string{"projectId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "update [jobId]", Short: "Update a scheduled job.", Method: http.MethodPatch, Path: "/api/v1/scheduled-jobs/{jobId}", PositionalParams: []string{"jobId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "delete [jobId]", Short: "Delete a scheduled job.", Method: http.MethodDelete, Path: "/api/v1/scheduled-jobs/{jobId}", PositionalParams: []string{"jobId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "trigger [jobId]", Short: "Trigger a scheduled job once.", Method: http.MethodPost, Path: "/api/v1/scheduled-jobs/{jobId}/trigger", PositionalParams: []string{"jobId"}}, deps))
 	return command
 }
 
@@ -1371,6 +1375,7 @@ func newProviderCommand() *cobra.Command {
 }
 
 func newAgentCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "agent",
 		Short: "Operate on agents through the OpenASE API.",
@@ -1380,7 +1385,7 @@ func newAgentCommand() *cobra.Command {
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create an agent.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/agents", PositionalParams: []string{"projectId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [agentId]", Short: "Update an agent.", Method: http.MethodPatch, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [agentId]", Short: "Delete an agent.", Method: http.MethodDelete, Path: "/api/v1/agents/{agentId}", PositionalParams: []string{"agentId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "interrupt [agentId]", Short: "Interrupt an agent runtime.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/interrupt", PositionalParams: []string{"agentId"}}))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "interrupt [agentId]", Short: "Interrupt an agent runtime.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/interrupt", PositionalParams: []string{"agentId"}}, deps))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "pause [agentId]", Short: "Pause an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/pause", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "resume [agentId]", Short: "Resume an agent.", Method: http.MethodPost, Path: "/api/v1/agents/{agentId}/resume", PositionalParams: []string{"agentId"}}))
 	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "output [projectId] [agentId]", Short: "List agent output entries.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/agents/{agentId}/output", PositionalParams: []string{"projectId", "agentId"}}))
@@ -1441,23 +1446,24 @@ func newNotificationRuleCommand() *cobra.Command {
 }
 
 func newSkillCommand() *cobra.Command {
+	deps := apiCommandDeps{httpClient: http.DefaultClient}
 	command := &cobra.Command{
 		Use:   "skill",
 		Short: "Operate on skills through the OpenASE API.",
 	}
 	command.AddCommand(newSkillImportCommand())
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}))
-	command.AddCommand(newOpenAPIOperationCommand(openAPICommandSpec{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "list [projectId]", Short: "List project skills.", Method: http.MethodGet, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "create [projectId]", Short: "Create a skill.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills", PositionalParams: []string{"projectId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "refresh [projectId]", Short: "Refresh workspace skills.", Method: http.MethodPost, Path: "/api/v1/projects/{projectId}/skills/refresh", PositionalParams: []string{"projectId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "get [skillId]", Short: "Get a skill.", Method: http.MethodGet, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "update [skillId]", Short: "Update a skill.", Method: http.MethodPut, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "delete [skillId]", Short: "Delete a skill.", Method: http.MethodDelete, Path: "/api/v1/skills/{skillId}", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "enable [skillId]", Short: "Enable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/enable", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "disable [skillId]", Short: "Disable a skill.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/disable", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "bind [skillId]", Short: "Bind a skill to workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/bind", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "unbind [skillId]", Short: "Unbind a skill from workflows.", Method: http.MethodPost, Path: "/api/v1/skills/{skillId}/unbind", PositionalParams: []string{"skillId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "bind-workflow [workflowId]", Short: "Bind skills to a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/bind", PositionalParams: []string{"workflowId"}}, deps))
+	command.AddCommand(newAgentPlatformOpenAPIOperationCommandWithDeps(openAPICommandSpec{Use: "unbind-workflow [workflowId]", Short: "Unbind skills from a workflow.", Method: http.MethodPost, Path: "/api/v1/workflows/{workflowId}/skills/unbind", PositionalParams: []string{"workflowId"}}, deps))
 	return command
 }
 

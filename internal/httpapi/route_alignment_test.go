@@ -17,6 +17,30 @@ import (
 // platform-only runtime helpers stay in the exclusion list below.
 var platformRouteAlignmentExclusions = map[routeSignature]string{
 	{
+		method: http.MethodGet,
+		suffix: "/projects/:projectId/tickets/:ticketId",
+	}: "platform-only project conversation ticket lookup helper; human flows use /tickets/:ticketId today",
+	{
+		method: http.MethodPatch,
+		suffix: "/projects/:projectId/tickets/:ticketId",
+	}: "platform-only project conversation ticket mutation helper; human flows use /tickets/:ticketId today",
+	{
+		method: http.MethodGet,
+		suffix: "/projects/:projectId/tickets/:ticketId/comments",
+	}: "platform-only project conversation comment listing helper; human flows use /tickets/:ticketId/comments today",
+	{
+		method: http.MethodPost,
+		suffix: "/projects/:projectId/tickets/:ticketId/comments",
+	}: "platform-only project conversation comment create helper; human flows use /tickets/:ticketId/comments today",
+	{
+		method: http.MethodPatch,
+		suffix: "/projects/:projectId/tickets/:ticketId/comments/:commentId",
+	}: "platform-only project conversation comment update helper; human flows use /tickets/:ticketId/comments/:commentId today",
+	{
+		method: http.MethodPost,
+		suffix: "/projects/:projectId/tickets/:ticketId/usage",
+	}: "platform-only project conversation usage reporting helper; no human control-plane parity required",
+	{
 		method: http.MethodPost,
 		suffix: "/tickets/:ticketId/usage",
 	}: "platform-only runtime usage reporting helper; no human control-plane parity required",

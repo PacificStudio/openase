@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entactivityevent "github.com/BetterAndBetterII/openase/ent/activityevent"
 	entagentprovider "github.com/BetterAndBetterII/openase/ent/agentprovider"
 	activitysvc "github.com/BetterAndBetterII/openase/internal/activity"
 	"github.com/BetterAndBetterII/openase/internal/agentplatform"
@@ -1717,7 +1718,165 @@ func TestAgentPlatformExpandedTicketRepoScopeRoutesRequireExplicitScopes(t *test
 	}
 }
 
+func TestAgentPlatformExpandedTicketRoutesRequireExplicitScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeTicketsList,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments", fixture.projectID, fixture.ticketID),
+		nil,
+		http.StatusOK,
+		`"comments":[`,
+	)
+
+	createToken := fixture.issueToken(t, agentplatform.ScopeTicketsUpdate)
+	createRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments", fixture.projectID, fixture.ticketID),
+		map[string]any{"body": "Project-scoped comment"},
+		createToken,
+	)
+	if createRec.Code != http.StatusCreated || !strings.Contains(createRec.Body.String(), `"body":"Project-scoped comment"`) {
+		t.Fatalf("expected project ticket comment create to return 201 with comment body, got %d: %s", createRec.Code, createRec.Body.String())
+	}
+	var createPayload struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}
+	decodeResponse(t, createRec, &createPayload)
+
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeTicketsUpdate,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments/%s", fixture.projectID, fixture.ticketID, createPayload.Comment.ID),
+		map[string]any{"body": "Project-scoped comment updated"},
+		http.StatusOK,
+		`"body":"Project-scoped comment updated"`,
+	)
+
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeTicketsList,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/runs", fixture.projectID, fixture.ticketID),
+		nil,
+		http.StatusOK,
+		`"runs":[`,
+	)
+
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeTicketsReportUsage,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/usage", fixture.projectID, fixture.ticketID),
+		map[string]any{"input_tokens": 12, "output_tokens": 4},
+		http.StatusOK,
+		`"applied":{"input_tokens":12,"output_tokens":4`,
+	)
+}
+
+func TestAgentPlatformExpandedAgentInterruptRouteRequiresExplicitScope(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	runItem, err := fixture.client.AgentRun.Create().
+		SetAgentID(fixture.agentID).
+		SetWorkflowID(fixture.mainWorkflowID).
+		SetTicketID(fixture.ticketID).
+		SetProviderID(fixture.providerID).
+		SetStatus("executing").
+		Save(context.Background())
+	if err != nil {
+		t.Fatalf("create active run for interrupt route: %v", err)
+	}
+	if _, err := fixture.client.Ticket.UpdateOneID(fixture.ticketID).SetCurrentRunID(runItem.ID).Save(context.Background()); err != nil {
+		t.Fatalf("attach active run to ticket: %v", err)
+	}
+
+	assertPlatformScopeRoute(
+		t,
+		fixture,
+		agentplatform.ScopeAgentsInterrupt,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/agents/%s/interrupt", fixture.agentID),
+		nil,
+		http.StatusOK,
+		`"runtime_control_state":"interrupt_requested"`,
+	)
+}
+
 func TestAgentPlatformProjectConversationTokenCanListTicketRepoScopes(t *testing.T) {
+	fixture := newAgentPlatformExpandedFixture(t)
+	ctx := context.Background()
+	conversationID := uuid.New()
+
+	if _, err := fixture.client.ChatConversation.Create().
+		SetID(conversationID).
+		SetProjectID(fixture.projectID).
+		SetUserID("browser-user").
+		SetSource("project_sidebar").
+		SetProviderID(fixture.providerID).
+		SetStatus("active").
+		Save(ctx); err != nil {
+		t.Fatalf("create chat conversation: %v", err)
+	}
+	if _, err := fixture.client.ProjectConversationPrincipal.Create().
+		SetID(conversationID).
+		SetConversationID(conversationID).
+		SetProjectID(fixture.projectID).
+		SetProviderID(fixture.providerID).
+		SetName("project-conversation:" + conversationID.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+	runItem, err := fixture.client.AgentRun.Create().
+		SetAgentID(fixture.agentID).
+		SetWorkflowID(fixture.mainWorkflowID).
+		SetTicketID(fixture.ticketID).
+		SetProviderID(fixture.providerID).
+		SetStatus("executing").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create active run for project conversation interrupt: %v", err)
+	}
+	if _, err := fixture.client.Ticket.UpdateOneID(fixture.ticketID).SetCurrentRunID(runItem.ID).Save(ctx); err != nil {
+		t.Fatalf("attach active run to ticket for project conversation interrupt: %v", err)
+	}
+
+	issued, err := fixture.platformService.IssueToken(ctx, agentplatform.IssueInput{
+		PrincipalKind:  agentplatform.PrincipalKindProjectConversation,
+		PrincipalID:    conversationID,
+		ProjectID:      fixture.projectID,
+		ConversationID: conversationID,
+		Scopes:         []string{string(agentplatform.ScopeTicketRepoScopesList)},
+	})
+	if err != nil {
+		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
+	}
+
+	rec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID),
+		nil,
+		issued.Token,
+	)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected project conversation repo scope list to return 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"repo_scopes":[`) {
+		t.Fatalf("expected repo scope list response, got %s", rec.Body.String())
+	}
+}
+
+func TestAgentPlatformProjectConversationTokenCanUseProjectTicketRoutes(t *testing.T) {
 	fixture := newAgentPlatformExpandedFixture(t)
 	ctx := context.Background()
 	conversationID := uuid.New()
@@ -1747,25 +1906,121 @@ func TestAgentPlatformProjectConversationTokenCanListTicketRepoScopes(t *testing
 		PrincipalID:    conversationID,
 		ProjectID:      fixture.projectID,
 		ConversationID: conversationID,
-		Scopes:         []string{string(agentplatform.ScopeTicketRepoScopesList)},
+		Scopes: []string{
+			string(agentplatform.ScopeAgentsInterrupt),
+			string(agentplatform.ScopeTicketsList),
+			string(agentplatform.ScopeTicketsReportUsage),
+			string(agentplatform.ScopeTicketsUpdate),
+		},
 	})
 	if err != nil {
 		t.Fatalf("IssueToken(project conversation) returned error: %v", err)
 	}
 
-	rec := performPlatformRequest(
+	listCommentsRec := performPlatformRequest(
 		t,
 		fixture.server,
 		http.MethodGet,
-		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/repo-scopes", fixture.projectID, fixture.ticketID),
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments", fixture.projectID, fixture.ticketID),
 		nil,
 		issued.Token,
 	)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected project conversation repo scope list to return 200, got %d: %s", rec.Code, rec.Body.String())
+	if listCommentsRec.Code != http.StatusOK || !strings.Contains(listCommentsRec.Body.String(), `"comments":[`) {
+		t.Fatalf("expected project conversation comment list to return 200, got %d: %s", listCommentsRec.Code, listCommentsRec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), `"repo_scopes":[`) {
-		t.Fatalf("expected repo scope list response, got %s", rec.Body.String())
+
+	createCommentRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments", fixture.projectID, fixture.ticketID),
+		map[string]any{"body": "Created by Project AI"},
+		issued.Token,
+	)
+	if createCommentRec.Code != http.StatusCreated {
+		t.Fatalf("expected project conversation comment create to return 201, got %d: %s", createCommentRec.Code, createCommentRec.Body.String())
+	}
+	var createCommentPayload struct {
+		Comment ticketCommentResponse `json:"comment"`
+	}
+	decodeResponse(t, createCommentRec, &createCommentPayload)
+	if createCommentPayload.Comment.CreatedBy != "project-conversation:"+conversationID.String() {
+		t.Fatalf("unexpected created_by for project conversation comment: %+v", createCommentPayload.Comment)
+	}
+
+	updateCommentRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPatch,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/comments/%s", fixture.projectID, fixture.ticketID, createCommentPayload.Comment.ID),
+		map[string]any{"body": "Updated by Project AI"},
+		issued.Token,
+	)
+	if updateCommentRec.Code != http.StatusOK || !strings.Contains(updateCommentRec.Body.String(), `"body":"Updated by Project AI"`) {
+		t.Fatalf("expected project conversation comment update to return 200, got %d: %s", updateCommentRec.Code, updateCommentRec.Body.String())
+	}
+
+	listRunsRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodGet,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/runs", fixture.projectID, fixture.ticketID),
+		nil,
+		issued.Token,
+	)
+	if listRunsRec.Code != http.StatusOK || !strings.Contains(listRunsRec.Body.String(), `"runs":[`) {
+		t.Fatalf("expected project conversation run list to return 200, got %d: %s", listRunsRec.Code, listRunsRec.Body.String())
+	}
+
+	reportUsageRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/projects/%s/tickets/%s/usage", fixture.projectID, fixture.ticketID),
+		map[string]any{"input_tokens": 9, "output_tokens": 3},
+		issued.Token,
+	)
+	if reportUsageRec.Code != http.StatusOK || !strings.Contains(reportUsageRec.Body.String(), `"applied":{"input_tokens":9,"output_tokens":3`) {
+		t.Fatalf("expected project conversation usage report to return 200, got %d: %s", reportUsageRec.Code, reportUsageRec.Body.String())
+	}
+
+	interruptRun, err := fixture.client.AgentRun.Create().
+		SetAgentID(fixture.agentID).
+		SetWorkflowID(fixture.mainWorkflowID).
+		SetTicketID(fixture.ticketID).
+		SetProviderID(fixture.providerID).
+		SetStatus("executing").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create fresh active run for project conversation interrupt: %v", err)
+	}
+	if _, err := fixture.client.Ticket.UpdateOneID(fixture.ticketID).SetCurrentRunID(interruptRun.ID).Save(ctx); err != nil {
+		t.Fatalf("attach fresh active run to ticket for project conversation interrupt: %v", err)
+	}
+
+	interruptRec := performPlatformRequest(
+		t,
+		fixture.server,
+		http.MethodPost,
+		fmt.Sprintf("/api/v1/platform/agents/%s/interrupt", fixture.agentID),
+		nil,
+		issued.Token,
+	)
+	if interruptRec.Code != http.StatusOK || !strings.Contains(interruptRec.Body.String(), `"runtime_control_state":"interrupt_requested"`) {
+		t.Fatalf("expected project conversation interrupt to return 200, got %d: %s", interruptRec.Code, interruptRec.Body.String())
+	}
+
+	usageEvents, err := fixture.client.ActivityEvent.Query().
+		Where(entactivityevent.EventTypeEQ("ticket.cost_recorded")).
+		All(ctx)
+	if err != nil {
+		t.Fatalf("list usage events: %v", err)
+	}
+	if len(usageEvents) == 0 {
+		t.Fatal("expected project conversation usage report to create a cost activity event")
+	}
+	if usageEvents[len(usageEvents)-1].AgentID != nil {
+		t.Fatalf("expected project conversation usage event to omit agent_id, got %+v", usageEvents[len(usageEvents)-1])
 	}
 }
 

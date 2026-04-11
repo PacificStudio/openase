@@ -33,4 +33,47 @@ else
   args+=("./...")
 fi
 
-go run "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${LINT_VERSION}" "${args[@]}"
+lint_cmd=(go run "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${LINT_VERSION}" "${args[@]}")
+retryable_patterns=(
+  "proxy.golang.org"
+  "Client.Timeout exceeded"
+  "TLS handshake timeout"
+  "connection reset by peer"
+  "EOF"
+)
+
+lint_proxy_modes=("${GOPROXY:-https://proxy.golang.org,direct}" "direct")
+attempt=1
+max_attempts=4
+mode_index=0
+
+while (( attempt <= max_attempts )); do
+  current_proxy="${lint_proxy_modes[mode_index]}"
+  output="$(GOPROXY="${current_proxy}" "${lint_cmd[@]}" 2>&1)" && {
+    printf '%s\n' "${output}"
+    exit 0
+  }
+
+  should_retry=0
+  for pattern in "${retryable_patterns[@]}"; do
+    if [[ "${output}" == *"${pattern}"* ]]; then
+      should_retry=1
+      break
+    fi
+  done
+
+  printf '%s\n' "${output}" >&2
+  if (( should_retry == 0 || attempt == max_attempts )); then
+    exit 1
+  fi
+
+  if (( mode_index == 0 && ${#lint_proxy_modes[@]} > 1 )) && [[ "${output}" == *"proxy.golang.org"* ]]; then
+    mode_index=1
+    printf 'lint bootstrap failed via %s; retrying with GOPROXY=%s (%d/%d)\n' \
+      "${current_proxy}" "${lint_proxy_modes[mode_index]}" "${attempt}" "${max_attempts}" >&2
+  else
+    printf 'lint bootstrap failed with a transient network error; retrying (%d/%d)\n' "${attempt}" "${max_attempts}" >&2
+  fi
+  sleep $(( attempt * 2 ))
+  ((attempt++))
+done

@@ -323,10 +323,11 @@ type RecordActivityEventInput struct {
 }
 
 type RecordUsageInput struct {
-	AgentID  uuid.UUID
-	TicketID uuid.UUID
-	RunID    *uuid.UUID
-	Usage    ticketing.RawUsageDelta
+	AgentID        uuid.UUID
+	ConversationID uuid.UUID
+	TicketID       uuid.UUID
+	RunID          *uuid.UUID
+	Usage          ticketing.RawUsageDelta
 }
 
 type AppliedUsage struct {

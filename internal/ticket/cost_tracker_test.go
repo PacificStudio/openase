@@ -260,8 +260,8 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	service := newTicketService(client)
 	if _, err := service.RecordUsage(ctx, RecordUsageInput{
 		AgentID: uuid.Nil,
-	}, nil); err == nil || err.Error() != "agent_id must be a valid UUID" {
-		t.Fatalf("RecordUsage(nil agent) error = %v", err)
+	}, nil); err == nil || err.Error() != "agent_id or conversation_id must be a valid UUID" {
+		t.Fatalf("RecordUsage(missing actor) error = %v", err)
 	}
 	if _, err := service.RecordUsage(ctx, RecordUsageInput{
 		AgentID:  projectAgent.ID,
@@ -333,6 +333,107 @@ func TestServiceRecordUsageEdgeCases(t *testing.T) {
 	}
 	if projectAgentAfter.TotalTokensUsed != 0 {
 		t.Fatalf("expected zero total tokens after explicit-cost-only update, got %d", projectAgentAfter.TotalTokensUsed)
+	}
+}
+
+func TestServiceRecordUsageSupportsProjectConversationPrincipal(t *testing.T) {
+	ctx := context.Background()
+	client := openTestEntClient(t)
+
+	org, err := client.Organization.Create().
+		SetName("Better And Better").
+		SetSlug("better-and-better").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create organization: %v", err)
+	}
+	localMachine, err := client.Machine.Create().
+		SetOrganizationID(org.ID).
+		SetName("local").
+		SetHost("local").
+		SetPort(22).
+		SetStatus("online").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create local machine: %v", err)
+	}
+	project, err := client.Project.Create().
+		SetOrganizationID(org.ID).
+		SetName("OpenASE").
+		SetSlug("openase").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	providerItem, err := client.AgentProvider.Create().
+		SetOrganizationID(org.ID).
+		SetMachineID(localMachine.ID).
+		SetName("Codex").
+		SetAdapterType(entagentprovider.AdapterTypeCodexAppServer).
+		SetCliCommand("codex").
+		SetModelName("gpt-5.4").
+		SetCostPerInputToken(0.001).
+		SetCostPerOutputToken(0.002).
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	statuses, err := newTicketStatusService(client).ResetToDefaultTemplate(ctx, project.ID)
+	if err != nil {
+		t.Fatalf("reset statuses: %v", err)
+	}
+	todoID := findStatusIDByName(t, statuses, "Todo")
+	ticketItem, err := client.Ticket.Create().
+		SetProjectID(project.ID).
+		SetIdentifier("ASE-77").
+		SetTitle("Track Project AI costs").
+		SetStatusID(todoID).
+		SetCreatedBy("project-conversation:test").
+		Save(ctx)
+	if err != nil {
+		t.Fatalf("create ticket: %v", err)
+	}
+	conversationID := uuid.New()
+	if _, err := client.ProjectConversationPrincipal.Create().
+		SetID(conversationID).
+		SetConversationID(conversationID).
+		SetProjectID(project.ID).
+		SetProviderID(providerItem.ID).
+		SetName("project-conversation:" + conversationID.String()).
+		Save(ctx); err != nil {
+		t.Fatalf("create project conversation principal: %v", err)
+	}
+
+	service := newTicketService(client)
+	inputTokens := int64(10)
+	outputTokens := int64(5)
+	result, err := service.RecordUsage(ctx, RecordUsageInput{
+		ConversationID: conversationID,
+		TicketID:       ticketItem.ID,
+		Usage: ticketing.RawUsageDelta{
+			InputTokens:  &inputTokens,
+			OutputTokens: &outputTokens,
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("RecordUsage(project conversation) returned error: %v", err)
+	}
+	if result.Applied.InputTokens != 10 || result.Applied.OutputTokens != 5 {
+		t.Fatalf("unexpected applied usage: %+v", result.Applied)
+	}
+	if math.Abs(result.Applied.CostUSD-0.02) > 0.0001 {
+		t.Fatalf("expected applied cost 0.02, got %.2f", result.Applied.CostUSD)
+	}
+
+	activityEvents, err := client.ActivityEvent.Query().Where(entactivityevent.EventTypeEQ(ticketing.CostRecordedEventType)).All(ctx)
+	if err != nil {
+		t.Fatalf("query usage activity events: %v", err)
+	}
+	if len(activityEvents) != 1 {
+		t.Fatalf("expected one cost activity event, got %+v", activityEvents)
+	}
+	if activityEvents[0].AgentID != nil {
+		t.Fatalf("expected project conversation cost event to omit agent_id, got %+v", activityEvents[0])
 	}
 }
 
