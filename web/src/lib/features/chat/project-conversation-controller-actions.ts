@@ -96,11 +96,13 @@ type ProjectConversationControllerActionsInput = {
       focus?: ProjectAIFocus | null,
     ) => Promise<boolean>
     resetConversation: () => Promise<void>
+    stopTurn: () => Promise<void>
     respondInterrupt: (inputValue: {
       interruptId: string
       decision?: string
       answer?: Record<string, unknown>
     }) => Promise<void>
+    deleteConversation: (conversationId: string, options?: { force?: boolean }) => Promise<boolean>
     dispose: () => void
   }
 }
@@ -183,12 +185,18 @@ export function createProjectConversationControllerActions(
     async resetConversation() {
       await input.operations.resetConversation()
     },
+    async stopTurn() {
+      await input.operations.stopTurn()
+    },
     async respondInterrupt(inputValue: {
       interruptId: string
       decision?: string
       answer?: Record<string, unknown>
     }) {
       await input.operations.respondInterrupt(inputValue)
+    },
+    async deleteConversation(conversationId: string, options?: { force?: boolean }) {
+      return input.operations.deleteConversation(conversationId, options)
     },
     dispose() {
       input.operations.dispose()

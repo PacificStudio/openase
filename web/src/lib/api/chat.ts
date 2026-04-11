@@ -273,6 +273,13 @@ export type ProjectConversationTurnDonePayload = {
   costUSD?: number
 }
 
+export type ProjectConversationInterruptedPayload = {
+  conversationId?: string
+  turnId?: string
+  message: string
+  reason?: string
+}
+
 export type ProjectConversationTurnResponse = {
   turn: {
     id: string
@@ -320,6 +327,7 @@ export type ProjectConversationStreamEvent =
   | { kind: 'interrupt_resolved'; payload: ProjectConversationInterruptResolvedPayload }
   | { kind: 'diff_updated'; payload: ProjectConversationDiffUpdatedPayload }
   | { kind: 'reasoning_updated'; payload: ProjectConversationReasoningUpdatedPayload }
+  | { kind: 'interrupted'; payload: ProjectConversationInterruptedPayload }
   | { kind: 'turn_done'; payload: ProjectConversationTurnDonePayload }
   | { kind: 'error'; payload: ChatErrorPayload }
 
@@ -796,10 +804,52 @@ export function respondProjectConversationInterrupt(
   )
 }
 
+export async function interruptProjectConversationTurn(conversationId: string) {
+  const headers = buildRequestHeaders('POST')
+  const response = await fetch(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/interrupt-turn`,
+    {
+      method: 'POST',
+      headers,
+      credentials: 'same-origin',
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+}
+
 export async function closeProjectConversationRuntime(conversationId: string) {
   const headers = buildRequestHeaders('DELETE')
   const response = await fetch(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/runtime`,
+    {
+      method: 'DELETE',
+      headers,
+      credentials: 'same-origin',
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => response.statusText)
+    throw new ApiError(response.status, detail)
+  }
+}
+
+export async function deleteProjectConversation(
+  conversationId: string,
+  request: { force?: boolean } = {},
+) {
+  const headers = buildRequestHeaders('DELETE')
+  const params = new URLSearchParams()
+  if (request.force) {
+    params.set('force', 'true')
+  }
+  const query = params.size > 0 ? `?${params.toString()}` : ''
+  const response = await fetch(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}${query}`,
     {
       method: 'DELETE',
       headers,
@@ -926,6 +976,18 @@ function parseProjectConversationStreamPayload(
           summaryIndex: readOptionalNumber(object, 'summary_index'),
           contentIndex: readOptionalNumber(object, 'content_index'),
           entryId: readOptionalString(object, 'entry_id'),
+        },
+      }
+    }
+    case 'interrupted': {
+      const object = parseRequiredObject(payload)
+      return {
+        kind: 'interrupted',
+        payload: {
+          conversationId: readOptionalString(object, 'conversation_id'),
+          turnId: readOptionalString(object, 'turn_id'),
+          message: readRequiredString(object, 'message'),
+          reason: readOptionalString(object, 'reason'),
         },
       }
     }

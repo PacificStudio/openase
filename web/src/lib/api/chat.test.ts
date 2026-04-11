@@ -13,6 +13,7 @@ import {
   closeProjectConversationRuntime,
   createProjectConversation,
   getProjectConversation,
+  interruptProjectConversationTurn,
   listProjectConversationEntries,
   listProjectConversations,
   parseRawProjectConversationMuxFrame,
@@ -761,6 +762,10 @@ describe('project conversation REST mapping', () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 204,
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
         }),
     )
 
@@ -769,6 +774,7 @@ describe('project conversation REST mapping', () => {
     await getProjectConversation('conversation-1')
     await listProjectConversationEntries('conversation-1')
     await startProjectConversationTurn('conversation-1', { message: 'continue' })
+    await expect(interruptProjectConversationTurn('conversation-1')).resolves.toBeUndefined()
     await expect(closeProjectConversationRuntime('conversation-1')).resolves.toBeUndefined()
 
     for (const [, init] of vi.mocked(fetch).mock.calls) {
@@ -803,6 +809,39 @@ describe('parseRawProjectConversationMuxFrame', () => {
             conversationId: 'conversation-1',
             turnId: 'turn-1',
             costUSD: 1.25,
+          },
+        },
+      },
+    })
+  })
+
+  it('parses interrupted multiplexed project conversation frames into typed events', () => {
+    expect(
+      parseRawProjectConversationMuxFrame({
+        event: 'interrupted',
+        data: JSON.stringify({
+          conversation_id: 'conversation-1',
+          sent_at: '2026-04-04T12:34:56Z',
+          payload: {
+            conversation_id: 'conversation-1',
+            turn_id: 'turn-1',
+            message: 'Turn stopped by user.',
+            reason: 'stopped_by_user',
+          },
+        }),
+      }),
+    ).toEqual({
+      ok: true,
+      value: {
+        conversationId: 'conversation-1',
+        sentAt: '2026-04-04T12:34:56Z',
+        event: {
+          kind: 'interrupted',
+          payload: {
+            conversationId: 'conversation-1',
+            turnId: 'turn-1',
+            message: 'Turn stopped by user.',
+            reason: 'stopped_by_user',
           },
         },
       },

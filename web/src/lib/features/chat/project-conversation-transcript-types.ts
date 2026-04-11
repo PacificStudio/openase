@@ -49,6 +49,7 @@ export type ProjectConversationTaskStatusEntry = {
     | 'task_progress'
     | 'task_notification'
     | 'reasoning_updated'
+    | 'interrupted'
     | 'turn_done'
     | 'error'
     | 'thread_status'

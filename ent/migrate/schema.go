@@ -1178,6 +1178,9 @@ var (
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 0},
 		{Name: "agent_run_summary_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
+		{Name: "project_ai_retention_enabled", Type: field.TypeBool, Default: false},
+		{Name: "project_ai_retention_keep_latest_n", Type: field.TypeInt, Default: 0},
+		{Name: "project_ai_retention_keep_recent_days", Type: field.TypeInt, Default: 0},
 		{Name: "organization_id", Type: field.TypeUUID},
 		{Name: "default_agent_provider_id", Type: field.TypeUUID, Nullable: true},
 	}
@@ -1189,13 +1192,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[10]},
+				Columns:    []*schema.Column{ProjectsColumns[13]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[11]},
+				Columns:    []*schema.Column{ProjectsColumns[14]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1204,7 +1207,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[10], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[13], ProjectsColumns[2]},
 			},
 		},
 	}

@@ -337,7 +337,7 @@
           aria-orientation="horizontal"
           onpointerdown={handleTerminalResizeStart}
         ></div>
-        <div class="shrink-0 overflow-hidden" style="height: {terminalHeight}px">
+        <div class="flex min-h-0 shrink-0 overflow-hidden" style="height: {terminalHeight}px">
           <WorkspaceTerminalPanel manager={terminalManager} />
         </div>
       {/if}

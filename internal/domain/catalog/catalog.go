@@ -31,6 +31,13 @@ type Project struct {
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 	AgentRunSummaryPrompt  string
+	ProjectAIRetention     ProjectAIRetentionPolicy
+}
+
+type ProjectAIRetentionPolicy struct {
+	Enabled        bool
+	KeepLatestN    int
+	KeepRecentDays int
 }
 
 type ProjectRepo struct {
@@ -58,14 +65,21 @@ type OrganizationInput struct {
 }
 
 type ProjectInput struct {
-	Name                   string   `json:"name"`
-	Slug                   string   `json:"slug"`
-	Description            string   `json:"description"`
-	Status                 string   `json:"status"`
-	DefaultAgentProviderID *string  `json:"default_agent_provider_id"`
-	AccessibleMachineIDs   []string `json:"accessible_machine_ids"`
-	MaxConcurrentAgents    *int     `json:"max_concurrent_agents"`
-	AgentRunSummaryPrompt  *string  `json:"agent_run_summary_prompt"`
+	Name                   string                         `json:"name"`
+	Slug                   string                         `json:"slug"`
+	Description            string                         `json:"description"`
+	Status                 string                         `json:"status"`
+	DefaultAgentProviderID *string                        `json:"default_agent_provider_id"`
+	AccessibleMachineIDs   []string                       `json:"accessible_machine_ids"`
+	MaxConcurrentAgents    *int                           `json:"max_concurrent_agents"`
+	AgentRunSummaryPrompt  *string                        `json:"agent_run_summary_prompt"`
+	ProjectAIRetention     *ProjectAIRetentionPolicyInput `json:"project_ai_retention"`
+}
+
+type ProjectAIRetentionPolicyInput struct {
+	Enabled        *bool `json:"enabled"`
+	KeepLatestN    *int  `json:"keep_latest_n"`
+	KeepRecentDays *int  `json:"keep_recent_days"`
 }
 
 type ProjectRepoInput struct {
@@ -107,6 +121,7 @@ type CreateProject struct {
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 	AgentRunSummaryPrompt  string
+	ProjectAIRetention     ProjectAIRetentionPolicy
 }
 
 type UpdateProject struct {
@@ -120,6 +135,7 @@ type UpdateProject struct {
 	AccessibleMachineIDs   []uuid.UUID
 	MaxConcurrentAgents    int
 	AgentRunSummaryPrompt  string
+	ProjectAIRetention     ProjectAIRetentionPolicy
 }
 
 type CreateProjectRepo struct {
@@ -226,6 +242,10 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 	if err != nil {
 		return CreateProject{}, err
 	}
+	projectAIRetention, err := ParseProjectAIRetentionPolicy(raw.ProjectAIRetention)
+	if err != nil {
+		return CreateProject{}, err
+	}
 
 	return CreateProject{
 		OrganizationID:         organizationID,
@@ -237,6 +257,7 @@ func ParseCreateProject(organizationID uuid.UUID, raw ProjectInput) (CreateProje
 		AccessibleMachineIDs:   accessibleMachineIDs,
 		MaxConcurrentAgents:    maxConcurrentAgents,
 		AgentRunSummaryPrompt:  strings.TrimSpace(derefString(raw.AgentRunSummaryPrompt)),
+		ProjectAIRetention:     projectAIRetention,
 	}, nil
 }
 
@@ -257,7 +278,47 @@ func ParseUpdateProject(id uuid.UUID, organizationID uuid.UUID, raw ProjectInput
 		AccessibleMachineIDs:   input.AccessibleMachineIDs,
 		MaxConcurrentAgents:    input.MaxConcurrentAgents,
 		AgentRunSummaryPrompt:  input.AgentRunSummaryPrompt,
+		ProjectAIRetention:     input.ProjectAIRetention,
 	}, nil
+}
+
+func ParseProjectAIRetentionPolicy(raw *ProjectAIRetentionPolicyInput) (ProjectAIRetentionPolicy, error) {
+	if raw == nil {
+		return ProjectAIRetentionPolicy{}, nil
+	}
+
+	enabled := false
+	if raw.Enabled != nil {
+		enabled = *raw.Enabled
+	}
+
+	keepLatestN, err := parseNonNegativeInt("project_ai_retention.keep_latest_n", raw.KeepLatestN)
+	if err != nil {
+		return ProjectAIRetentionPolicy{}, err
+	}
+	keepRecentDays, err := parseNonNegativeInt("project_ai_retention.keep_recent_days", raw.KeepRecentDays)
+	if err != nil {
+		return ProjectAIRetentionPolicy{}, err
+	}
+	if enabled && keepLatestN == 0 && keepRecentDays == 0 {
+		return ProjectAIRetentionPolicy{}, fmt.Errorf(
+			"project_ai_retention must keep at least one latest conversation or one recent day when enabled",
+		)
+	}
+
+	return ProjectAIRetentionPolicy{
+		Enabled:        enabled,
+		KeepLatestN:    keepLatestN,
+		KeepRecentDays: keepRecentDays,
+	}, nil
+}
+
+func (p ProjectAIRetentionPolicy) Raw() ProjectAIRetentionPolicyInput {
+	return ProjectAIRetentionPolicyInput{
+		Enabled:        boolPointer(p.Enabled),
+		KeepLatestN:    intPointer(p.KeepLatestN),
+		KeepRecentDays: intPointer(p.KeepRecentDays),
+	}
 }
 
 func derefString(value *string) string {
@@ -551,4 +612,23 @@ func parseMaxConcurrentAgents(raw *int) (int, error) {
 	}
 
 	return *raw, nil
+}
+
+func parseNonNegativeInt(fieldName string, raw *int) (int, error) {
+	if raw == nil {
+		return 0, nil
+	}
+	if *raw < 0 {
+		return 0, fmt.Errorf("%s must be greater than or equal to zero", fieldName)
+	}
+
+	return *raw, nil
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
+
+func intPointer(value int) *int {
+	return &value
 }

@@ -7,6 +7,7 @@ const {
   executeProjectConversationActionProposal,
   getProjectConversation,
   getProjectConversationWorkspaceDiff,
+  interruptProjectConversationTurn,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -17,6 +18,7 @@ const {
   executeProjectConversationActionProposal: vi.fn(),
   getProjectConversation: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
+  interruptProjectConversationTurn: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   respondProjectConversationInterrupt: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock('$lib/api/chat', () => ({
   executeProjectConversationActionProposal,
   getProjectConversation,
   getProjectConversationWorkspaceDiff,
+  interruptProjectConversationTurn,
   listProjectConversationEntries,
   listProjectConversations,
   respondProjectConversationInterrupt,
@@ -117,6 +120,88 @@ describe('createProjectConversationController', () => {
     expect(controller.tabs[0]?.conversationId).toBe('conversation-1')
 
     stream.resolve()
+  })
+
+  it('stops an active turn and returns the tab to idle after interrupted terminal events', async () => {
+    let streamHandlers:
+      | {
+          onEvent: (event: { kind: string; payload: Record<string, unknown> }) => void
+        }
+      | undefined
+
+    createProjectConversation.mockResolvedValue({
+      conversation: {
+        id: 'conversation-1',
+        providerId: 'provider-1',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValue(createWorkspaceDiff('conversation-1'))
+    watchProjectConversationMux.mockImplementation((params) => {
+      streamHandlers = params
+      return resolvedMuxSubscription()
+    })
+    startProjectConversationTurn.mockResolvedValue(startedTurnResponse())
+    interruptProjectConversationTurn.mockResolvedValue(undefined)
+
+    const controller = createProjectConversationController({
+      getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
+      getProjectId: () => 'project-1',
+    })
+    controller.syncProviders(providerFixtures, 'provider-1')
+
+    await controller.sendTurn('Stop after the partial reply')
+    expect(controller.phase).toBe('awaiting_reply')
+
+    streamHandlers?.onEvent({
+      kind: 'message',
+      payload: {
+        type: 'text',
+        content: 'Partial assistant reply',
+      },
+    })
+    expect(controller.entries).toMatchObject([
+      { kind: 'text', role: 'user', content: 'Stop after the partial reply' },
+      { kind: 'text', role: 'assistant', content: 'Partial assistant reply' },
+    ])
+
+    await controller.stopTurn()
+
+    expect(interruptProjectConversationTurn).toHaveBeenCalledWith('conversation-1')
+    expect(controller.phase).toBe('stopping_turn')
+
+    streamHandlers?.onEvent({
+      kind: 'interrupted',
+      payload: {
+        conversationId: 'conversation-1',
+        turnId: 'turn-1',
+        message: 'Turn stopped by user.',
+        reason: 'stopped_by_user',
+      },
+    })
+    expect(controller.phase).toBe('idle')
+    expect(
+      controller.entries.some(
+        (entry) => entry.kind === 'text' && entry.content === 'Partial assistant reply',
+      ),
+    ).toBe(true)
+
+    streamHandlers?.onEvent({
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-1',
+        runtimeState: 'ready',
+        providerStatus: 'ready',
+        providerActiveFlags: [],
+      },
+    })
+    expect(controller.phase).toBe('idle')
+
+    await controller.sendTurn('Continue after stop')
+    expect(startProjectConversationTurn).toHaveBeenLastCalledWith('conversation-1', {
+      message: 'Continue after stop',
+      focus: undefined,
+    })
   })
 
   it('passes per-turn focus metadata through to the project conversation turn request', async () => {

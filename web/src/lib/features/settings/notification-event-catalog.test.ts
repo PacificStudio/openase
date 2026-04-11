@@ -32,10 +32,10 @@ const sampleEventTypes = [
     default_template: '',
   },
   {
-    event_type: 'machine.offline',
-    label: 'Machine Offline',
+    event_type: 'machine.disconnected',
+    label: 'Machine Disconnected',
     group: 'Infrastructure',
-    level: 'critical',
+    level: 'warning',
     default_template: '',
   },
   {

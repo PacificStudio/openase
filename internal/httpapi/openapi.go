@@ -2296,14 +2296,18 @@ var (
 		"env_vars":                          "Environment variable entries exported when work runs on the machine. Secret-like values are masked in responses and may round-trip as [redacted] when unchanged.",
 	}
 	openAPIProjectRequestDescriptions = map[string]string{
-		"name":                      "Human-readable project name.",
-		"slug":                      "Stable URL-safe project slug.",
-		"description":               "Human-readable project description.",
-		"status":                    "Current project lifecycle status name.",
-		"default_agent_provider_id": "Optional default agent provider ID for the project.",
-		"accessible_machine_ids":    "Machine IDs that the project is allowed to use.",
-		"max_concurrent_agents":     "Maximum number of agents that may run concurrently in the project.",
-		"agent_run_summary_prompt":  "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+		"name":                                  "Human-readable project name.",
+		"slug":                                  "Stable URL-safe project slug.",
+		"description":                           "Human-readable project description.",
+		"status":                                "Current project lifecycle status name.",
+		"default_agent_provider_id":             "Optional default agent provider ID for the project.",
+		"accessible_machine_ids":                "Machine IDs that the project is allowed to use.",
+		"max_concurrent_agents":                 "Maximum number of agents that may run concurrently in the project.",
+		"agent_run_summary_prompt":              "Optional project-level prompt override for asynchronous terminal run summaries. Leave blank to use the built-in default prompt.",
+		"project_ai_retention":                  "Optional Project AI conversation retention policy for the project.",
+		"project_ai_retention.enabled":          "Whether Project AI conversation retention is enabled for the project.",
+		"project_ai_retention.keep_latest_n":    "Number of latest conversations per user to retain when Project AI retention is enabled.",
+		"project_ai_retention.keep_recent_days": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
 	}
 	openAPIProviderRequestDescriptions = map[string]string{
 		"name":                                   "Human-readable provider name.",
@@ -6558,6 +6562,28 @@ func (b openAPISpecBuilder) addChatOperations() error {
 	}
 	projectConversationTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/turns", http.MethodPost, projectConversationTurn)
+
+	projectConversationInterruptTurn := openapi3.NewOperation()
+	projectConversationInterruptTurn.OperationID = "interruptProjectConversationTurn"
+	projectConversationInterruptTurn.Summary = "Interrupt the active project conversation turn"
+	projectConversationInterruptTurn.Tags = []string{"chat"}
+	projectConversationInterruptTurn.Responses = openapi3.NewResponsesWithCapacity(6)
+	projectConversationInterruptTurn.AddResponse(http.StatusAccepted, openapi3.NewResponse().WithDescription("Project conversation turn interrupted."))
+	for _, code := range []int{
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	} {
+		errorResponse, err := b.errorResponse(code)
+		if err != nil {
+			return err
+		}
+		projectConversationInterruptTurn.AddResponse(code, errorResponse)
+	}
+	projectConversationInterruptTurn.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/interrupt-turn", http.MethodPost, projectConversationInterruptTurn)
 
 	projectConversationMuxStream, err := b.streamOperation(
 		"streamProjectConversationsMux",

@@ -190,21 +190,9 @@ func (s *ProjectConversationService) resolveConversationWorkspacePath(
 		return filepath.Clean(workspacePath.String()), nil
 	}
 
-	root := ""
-	if machine.WorkspaceRoot != nil && strings.TrimSpace(*machine.WorkspaceRoot) != "" {
-		root = strings.TrimSpace(*machine.WorkspaceRoot)
-	} else if machine.Host == catalogdomain.LocalMachineHost {
-		localRoot, err := workspaceinfra.LocalWorkspaceRoot()
-		if err != nil {
-			return "", err
-		}
-		root = localRoot
-	}
-	if root == "" {
-		return "", fmt.Errorf("%w: chat provider machine %s is missing workspace_root", errProjectConversationWorkspaceLocationUnavailable, machine.Name)
-	}
-	if !filepath.IsAbs(root) {
-		return "", fmt.Errorf("%w: chat provider machine %s workspace_root must be absolute", errProjectConversationWorkspaceLocationUnavailable, machine.Name)
+	root, err := resolveProjectConversationWorkspaceRoot(machine)
+	if err != nil {
+		return "", err
 	}
 
 	workspacePath, err := workspaceinfra.TicketWorkspacePath(

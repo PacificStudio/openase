@@ -27,6 +27,7 @@ import (
 
 var chatSSEKeepaliveInterval = 5 * time.Second
 var conversationTerminalUpgrader = websocket.Upgrader{CheckOrigin: func(*http.Request) bool { return true }}
+var errConversationTerminalExplicitClose = errors.New("conversation terminal explicit close requested")
 
 func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat", s.handleStartChat)
@@ -44,8 +45,10 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.POST("/chat/conversations/:conversationId/terminal-sessions", s.handleCreateProjectConversationTerminalSession)
 	api.GET("/chat/conversations/:conversationId/terminal-sessions/:terminalSessionId/attach", s.handleAttachProjectConversationTerminalSession)
 	api.POST("/chat/conversations/:conversationId/turns", s.handleStartProjectConversationTurn)
+	api.POST("/chat/conversations/:conversationId/interrupt-turn", s.handleInterruptProjectConversationTurn)
 	api.GET("/chat/conversations/:conversationId/stream", s.handleProjectConversationStream)
 	api.POST("/chat/conversations/:conversationId/interrupts/:interruptId/respond", s.handleRespondProjectConversationInterrupt)
+	api.DELETE("/chat/conversations/:conversationId", s.handleDeleteProjectConversation)
 	api.DELETE("/chat/conversations/:conversationId/runtime", s.handleDeleteProjectConversationRuntime)
 }
 
@@ -726,28 +729,29 @@ func (s *Server) handleAttachProjectConversationTerminalSession(c echo.Context) 
 	for {
 		select {
 		case <-streamCtx.Done():
-			_ = attachment.Close()
+			_ = attachment.Detach()
 			return nil
 		case err := <-readFrames:
-			_ = attachment.Close()
-			if err == nil {
+			switch {
+			case err == nil, errors.Is(err, errConversationTerminalExplicitClose):
 				readFrames = nil
 				continue
-			}
-			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				readFrames = nil
-				continue
-			}
-			if err != nil && !errors.Is(err, io.EOF) {
+			case websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway), errors.Is(err, io.EOF):
+				_ = attachment.Detach()
+				return nil
+			default:
+				_ = attachment.Detach()
 				return nil
 			}
-			return nil
 		case event, ok := <-attachment.Events:
 			if !ok {
 				return nil
 			}
 			if err := writeConversationTerminalFrame(conn, event); err != nil {
-				_ = attachment.Close()
+				_ = attachment.Detach()
+				return nil
+			}
+			if event.Type == "exit" || event.Type == "error" {
 				return nil
 			}
 		}
@@ -803,6 +807,24 @@ func (s *Server) handleStartProjectConversationTurn(c echo.Context) error {
 	}
 	response["conversation"] = s.mapProjectConversationResponse(c.Request().Context(), conversation)
 	return c.JSON(http.StatusAccepted, response)
+}
+
+func (s *Server) handleInterruptProjectConversationTurn(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	if err := s.projectConversationService.InterruptTurn(c.Request().Context(), userID, conversationID); err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.NoContent(http.StatusAccepted)
 }
 
 func (s *Server) handleProjectConversationStream(c echo.Context) error {
@@ -919,6 +941,48 @@ func (s *Server) handleDeleteProjectConversationRuntime(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
+func (s *Server) handleDeleteProjectConversation(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	force, err := parseOptionalBoolQueryParam("force", c.QueryParam("force"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_FORCE", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	if _, err := s.projectConversationService.DeleteConversation(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		chatdomain.DeleteConversationInput{Force: force},
+	); err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+func parseOptionalBoolQueryParam(fieldName string, raw string) (bool, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return false, nil
+	}
+	switch strings.ToLower(trimmed) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true, nil
+	case "0", "false", "f", "no", "n", "off":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%s must be a boolean", fieldName)
+	}
+}
+
 type conversationTerminalClientFrame struct {
 	Type string `json:"type"`
 	Data string `json:"data,omitempty"`
@@ -955,7 +1019,10 @@ func (s *Server) readConversationTerminalFrames(
 				return err
 			}
 		case "close":
-			return attachment.Close()
+			if err := attachment.Close(); err != nil {
+				return err
+			}
+			return errConversationTerminalExplicitClose
 		default:
 			return fmt.Errorf("unsupported terminal frame type %q", frame.Type)
 		}
@@ -982,8 +1049,16 @@ func writeProjectConversationError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, chatservice.ErrConversationTurnActive):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_ALREADY_ACTIVE", err.Error())
+	case errors.Is(err, chatservice.ErrConversationTurnNotActive):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_TURN_NOT_ACTIVE", err.Error())
 	case errors.Is(err, chatservice.ErrConversationInterruptPending):
 		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_INTERRUPT_PENDING", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspaceDirty):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_DIRTY", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspaceDeleteFailed):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_DELETE_FAILED", err.Error())
+	case errors.Is(err, chatdomain.ErrWorkspacePathConflict):
+		return writeAPIError(c, http.StatusConflict, "PROJECT_CONVERSATION_WORKSPACE_PATH_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationConflict):
 		return writeAPIError(c, http.StatusConflict, "CHAT_CONVERSATION_CONFLICT", err.Error())
 	case errors.Is(err, chatservice.ErrConversationNotFound), errors.Is(err, chatservice.ErrPendingInterruptNotFound):

@@ -71,9 +71,38 @@ func TestParseCreateRuleRejectsInvalidChannelID(t *testing.T) {
 	}
 }
 
+func TestSupportedRuleEventContractsExposeSingleSourceTopics(t *testing.T) {
+	t.Parallel()
+
+	contracts := SupportedRuleEventContracts()
+	if len(contracts) != len(SupportedRuleEvents()) {
+		t.Fatalf("SupportedRuleEventContracts() length = %d, want %d", len(contracts), len(SupportedRuleEvents()))
+	}
+
+	seen := map[RuleEventType]struct{}{}
+	for _, item := range contracts {
+		if item.Topic == "" {
+			t.Fatalf("contract for %s missing topic", item.EventType)
+		}
+		if _, ok := seen[item.EventType]; ok {
+			t.Fatalf("duplicate supported contract for %s", item.EventType)
+		}
+		seen[item.EventType] = struct{}{}
+		if topic, ok := RuleEventTopic(item.EventType); !ok || topic != item.Topic {
+			t.Fatalf("RuleEventTopic(%s) = %q, %t; want %q, true", item.EventType, topic, ok, item.Topic)
+		}
+	}
+
+	for _, item := range ExplicitlyUnsupportedRuleEvents() {
+		if _, ok := seen[RuleEventType(item.EventType)]; ok {
+			t.Fatalf("excluded event %s leaked into supported contract", item.EventType)
+		}
+	}
+}
+
 func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 	events := SupportedRuleEvents()
-	if len(events) != 10 {
+	if len(events) != 19 {
 		t.Fatalf("SupportedRuleEvents() length = %d, want only the wired catalog", len(events))
 	}
 	if events[0].Group == "" || events[0].Level == "" {
@@ -108,6 +137,11 @@ func TestRuleParsingAndTemplateHelpers(t *testing.T) {
 	}
 	if _, err := ParseRuleEventType("bad"); err == nil {
 		t.Fatal("ParseRuleEventType() expected validation error")
+	}
+	for _, item := range ExplicitlyUnsupportedRuleEvents() {
+		if _, err := ParseRuleEventType(item.EventType); err == nil {
+			t.Fatalf("ParseRuleEventType(%q) unexpectedly accepted excluded event", item.EventType)
+		}
 	}
 
 	channelID := uuid.New()

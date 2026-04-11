@@ -4606,6 +4606,122 @@
         ]
       }
     },
+    "/api/v1/chat/conversations/{conversationId}/interrupt-turn": {
+      "post": {
+        "operationId": "interruptProjectConversationTurn",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Project conversation turn interrupted."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Interrupt the active project conversation turn",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
     "/api/v1/chat/conversations/{conversationId}/interrupts/{interruptId}/respond": {
       "post": {
         "operationId": "respondProjectConversationInterrupt",
@@ -14026,6 +14142,28 @@
                     "description": "Human-readable project name.",
                     "type": "string"
                   },
+                  "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
+                  },
                   "slug": {
                     "description": "Stable URL-safe project slug.",
                     "type": "string"
@@ -16848,6 +16986,28 @@
                     "description": "Human-readable project name.",
                     "nullable": true,
                     "type": "string"
+                  },
+                  "project_ai_retention": {
+                    "description": "Optional Project AI conversation retention policy for the project.",
+                    "nullable": true,
+                    "properties": {
+                      "enabled": {
+                        "description": "Whether Project AI conversation retention is enabled for the project.",
+                        "nullable": true,
+                        "type": "boolean"
+                      },
+                      "keep_latest_n": {
+                        "description": "Number of latest conversations per user to retain when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      },
+                      "keep_recent_days": {
+                        "description": "Number of recent activity days to retain conversations when Project AI retention is enabled.",
+                        "nullable": true,
+                        "type": "integer"
+                      }
+                    },
+                    "type": "object"
                   },
                   "slug": {
                     "description": "Stable URL-safe project slug.",

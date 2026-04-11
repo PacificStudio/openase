@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/ent"
+	entagenttoken "github.com/BetterAndBetterII/openase/ent/agenttoken"
 	entchatconversation "github.com/BetterAndBetterII/openase/ent/chatconversation"
 	entchatentry "github.com/BetterAndBetterII/openase/ent/chatentry"
 	entchatpendinginterrupt "github.com/BetterAndBetterII/openase/ent/chatpendinginterrupt"
@@ -17,6 +18,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	entprojectconversationprincipal "github.com/BetterAndBetterII/openase/ent/projectconversationprincipal"
 	entprojectconversationrun "github.com/BetterAndBetterII/openase/ent/projectconversationrun"
+	entprojectconversationstepevent "github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
 	entprojectconversationtraceevent "github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
 	activityevent "github.com/BetterAndBetterII/openase/internal/domain/activityevent"
 	domain "github.com/BetterAndBetterII/openase/internal/domain/chatconversation"
@@ -530,6 +532,22 @@ func (r *Repository) GetConversation(ctx context.Context, id uuid.UUID) (domain.
 	return mapConversation(item), nil
 }
 
+func activeChatTurnPredicates(conversationID uuid.UUID) []predicate.ChatTurn {
+	return []predicate.ChatTurn{
+		entchatturn.ConversationIDEQ(conversationID),
+		entchatturn.Or(
+			entchatturn.StatusIn(
+				string(domain.TurnStatusPending),
+				string(domain.TurnStatusRunning),
+			),
+			entchatturn.And(
+				entchatturn.StatusEQ(string(domain.TurnStatusInterrupted)),
+				entchatturn.CompletedAtIsNil(),
+			),
+		),
+	}
+}
+
 func (r *Repository) CreateTurnWithUserEntry(
 	ctx context.Context,
 	conversationID uuid.UUID,
@@ -542,14 +560,7 @@ func (r *Repository) CreateTurnWithUserEntry(
 	defer rollbackOnError(ctx, tx, &err)
 
 	hasActiveTurn, err := tx.ChatTurn.Query().
-		Where(
-			entchatturn.ConversationIDEQ(conversationID),
-			entchatturn.StatusIn(
-				string(domain.TurnStatusPending),
-				string(domain.TurnStatusRunning),
-				string(domain.TurnStatusInterrupted),
-			),
-		).
+		Where(activeChatTurnPredicates(conversationID)...).
 		Exist(ctx)
 	if err != nil {
 		return domain.Turn{}, domain.Entry{}, fmt.Errorf("query active chat turns: %w", err)
@@ -653,14 +664,7 @@ func (r *Repository) ListEntries(ctx context.Context, conversationID uuid.UUID) 
 
 func (r *Repository) GetActiveTurn(ctx context.Context, conversationID uuid.UUID) (domain.Turn, error) {
 	item, err := r.client.ChatTurn.Query().
-		Where(
-			entchatturn.ConversationIDEQ(conversationID),
-			entchatturn.StatusIn(
-				string(domain.TurnStatusPending),
-				string(domain.TurnStatusRunning),
-				string(domain.TurnStatusInterrupted),
-			),
-		).
+		Where(activeChatTurnPredicates(conversationID)...).
 		Order(ent.Desc(entchatturn.FieldTurnIndex)).
 		First(ctx)
 	if err != nil {
@@ -878,6 +882,77 @@ func (r *Repository) CloseConversationRuntime(ctx context.Context, conversationI
 		return domain.Conversation{}, mapWriteError("close chat conversation runtime", err)
 	}
 	return mapConversation(item), nil
+}
+
+func (r *Repository) DeleteConversation(
+	ctx context.Context,
+	conversationID uuid.UUID,
+) (domain.DeleteConversationResult, error) {
+	conversation, err := r.client.ChatConversation.Get(ctx, conversationID)
+	if err != nil {
+		return domain.DeleteConversationResult{}, mapReadError("get chat conversation for delete", err)
+	}
+
+	result := domain.DeleteConversationResult{
+		ConversationID: conversation.ID,
+		ProjectID:      conversation.ProjectID,
+		UserID:         conversation.UserID,
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return domain.DeleteConversationResult{}, fmt.Errorf("start delete chat conversation transaction: %w", err)
+	}
+	defer rollbackOnError(ctx, tx, &err)
+
+	if result.AgentTokensDeleted, err = tx.AgentToken.Delete().
+		Where(entagenttoken.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete project conversation agent tokens", err)
+	}
+	if result.TraceEventsDeleted, err = tx.ProjectConversationTraceEvent.Delete().
+		Where(entprojectconversationtraceevent.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete project conversation trace events", err)
+	}
+	if result.StepEventsDeleted, err = tx.ProjectConversationStepEvent.Delete().
+		Where(entprojectconversationstepevent.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete project conversation step events", err)
+	}
+	if result.RunsDeleted, err = tx.ProjectConversationRun.Delete().
+		Where(entprojectconversationrun.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete project conversation runs", err)
+	}
+	if _, err = tx.ProjectConversationPrincipal.Delete().
+		Where(entprojectconversationprincipal.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete project conversation principal", err)
+	}
+	if result.InterruptsDeleted, err = tx.ChatPendingInterrupt.Delete().
+		Where(entchatpendinginterrupt.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete chat pending interrupts", err)
+	}
+	if result.EntriesDeleted, err = tx.ChatEntry.Delete().
+		Where(entchatentry.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete chat entries", err)
+	}
+	if result.TurnsDeleted, err = tx.ChatTurn.Delete().
+		Where(entchatturn.ConversationIDEQ(conversationID)).
+		Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete chat turns", err)
+	}
+	if err = tx.ChatConversation.DeleteOneID(conversationID).Exec(ctx); err != nil {
+		return domain.DeleteConversationResult{}, mapWriteError("delete chat conversation", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return domain.DeleteConversationResult{}, fmt.Errorf("commit delete chat conversation: %w", err)
+	}
+	return result, nil
 }
 
 func createEntryTx(
