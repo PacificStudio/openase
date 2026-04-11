@@ -5345,6 +5345,116 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 			t.Fatalf("ReadWorkspaceFilePreview(symlink escape) error = %v, want ErrProjectConversationWorkspacePathInvalid", err)
 		}
 	})
+
+	t.Run("prompts to sync repos added after workspace materialization", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+			{
+				name:  "backend",
+				files: map[string]string{"README.md": "line one\n"},
+			},
+		})
+
+		repoID := uuid.New()
+		remoteRepoPath, _ := createConversationRemoteRepo(t, "main", map[string]string{
+			"README.md": "docs\n",
+		})
+		fixture.catalog.fakeCatalogReader.projectRepos = append(
+			fixture.catalog.fakeCatalogReader.projectRepos,
+			catalogdomain.ProjectRepo{
+				ID:               repoID,
+				ProjectID:        fixture.catalog.fakeCatalogReader.project.ID,
+				Name:             "docs",
+				RepositoryURL:    remoteRepoPath,
+				DefaultBranch:    "main",
+				WorkspaceDirname: "docs",
+			},
+		)
+		fixture.catalog.fakeCatalogReader.activityEvents = []catalogdomain.ActivityEvent{{
+			ID:        uuid.New(),
+			ProjectID: fixture.catalog.fakeCatalogReader.project.ID,
+			EventType: activityevent.TypeProjectRepoCreated,
+			Metadata: map[string]any{
+				"repo_id":        repoID.String(),
+				"repo_name":      "docs",
+				"changed_fields": []string{"repo"},
+			},
+			CreatedAt: fixture.conversation.CreatedAt.Add(time.Minute),
+		}}
+
+		metadata, err := fixture.service.GetWorkspaceMetadata(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceMetadata() error = %v", err)
+		}
+		if metadata.SyncPrompt == nil || metadata.SyncPrompt.Reason != ProjectConversationWorkspaceSyncReasonRepoBindingChanged {
+			t.Fatalf("expected sync prompt for metadata, got %+v", metadata.SyncPrompt)
+		}
+		if len(metadata.SyncPrompt.MissingRepos) != 1 || metadata.SyncPrompt.MissingRepos[0].Path != "docs" {
+			t.Fatalf("unexpected missing repos: %+v", metadata.SyncPrompt)
+		}
+		if len(metadata.Repos) != 1 || metadata.Repos[0].Name != "backend" {
+			t.Fatalf("expected only prepared repos in metadata, got %+v", metadata.Repos)
+		}
+
+		summary, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff() error = %v", err)
+		}
+		if summary.SyncPrompt == nil || summary.SyncPrompt.Reason != ProjectConversationWorkspaceSyncReasonRepoBindingChanged {
+			t.Fatalf("expected sync prompt for diff, got %+v", summary.SyncPrompt)
+		}
+
+		_, err = fixture.service.ListWorkspaceTree(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+			"docs",
+			"",
+		)
+		var syncErr *ProjectConversationWorkspaceSyncRequiredError
+		if !errors.As(err, &syncErr) {
+			t.Fatalf("ListWorkspaceTree(missing repo) error = %v, want sync required", err)
+		}
+		if syncErr.Prompt.Reason != ProjectConversationWorkspaceSyncReasonRepoBindingChanged {
+			t.Fatalf("unexpected sync required prompt: %+v", syncErr.Prompt)
+		}
+
+		synced, err := fixture.service.SyncWorkspace(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("SyncWorkspace() error = %v", err)
+		}
+		if synced.SyncPrompt != nil {
+			t.Fatalf("expected sync prompt to clear after sync, got %+v", synced.SyncPrompt)
+		}
+		if len(synced.Repos) != 2 {
+			t.Fatalf("expected synced metadata to expose both repos, got %+v", synced.Repos)
+		}
+
+		summaryAfterSync, err := fixture.service.GetWorkspaceDiff(
+			fixture.ctx,
+			UserID("user:conversation"),
+			fixture.conversation.ID,
+		)
+		if err != nil {
+			t.Fatalf("GetWorkspaceDiff(after sync) error = %v", err)
+		}
+		if summaryAfterSync.SyncPrompt != nil {
+			t.Fatalf("expected sync prompt to clear from diff, got %+v", summaryAfterSync.SyncPrompt)
+		}
+	})
 }
 
 type fakeProjectConversationCatalog struct {
@@ -5932,6 +6042,7 @@ func TestProjectConversationServiceGetConversationUsesStableLocalPrincipal(t *te
 type projectConversationWorkspaceDiffFixture struct {
 	ctx           context.Context
 	service       *ProjectConversationService
+	catalog       *fakeProjectConversationCatalog
 	conversation  chatdomain.Conversation
 	workspacePath string
 	repoPaths     map[string]string
@@ -6002,7 +6113,7 @@ func setupProjectConversationWorkspaceDiffFixture(
 		AdapterType:    catalogdomain.AgentProviderAdapterTypeGeminiCLI,
 		CliCommand:     "gemini",
 	}
-	catalog := fakeProjectConversationCatalog{
+	catalog := &fakeProjectConversationCatalog{
 		fakeCatalogReader: fakeCatalogReader{
 			project:      projectItem,
 			projectRepos: projectRepos,
@@ -6040,6 +6151,7 @@ func setupProjectConversationWorkspaceDiffFixture(
 	return projectConversationWorkspaceDiffFixture{
 		ctx:           ctx,
 		service:       service,
+		catalog:       catalog,
 		conversation:  conversation,
 		workspacePath: workspace.String(),
 		repoPaths:     repoPaths,

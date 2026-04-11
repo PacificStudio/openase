@@ -48,6 +48,27 @@ function areWorkspaceMetadataEqual(
     return false
   }
 
+  const leftSync = left.syncPrompt
+  const rightSync = right.syncPrompt
+  if (!!leftSync !== !!rightSync) {
+    return false
+  }
+  if (leftSync && rightSync) {
+    if (
+      leftSync.reason !== rightSync.reason ||
+      leftSync.missingRepos.length !== rightSync.missingRepos.length
+    ) {
+      return false
+    }
+    for (let index = 0; index < leftSync.missingRepos.length; index += 1) {
+      const leftRepo = leftSync.missingRepos[index]
+      const rightRepo = rightSync.missingRepos[index]
+      if (!rightRepo || leftRepo.name !== rightRepo.name || leftRepo.path !== rightRepo.path) {
+        return false
+      }
+    }
+  }
+
   return left.repos.every((repo, index) => {
     const next = right.repos[index]
     return (

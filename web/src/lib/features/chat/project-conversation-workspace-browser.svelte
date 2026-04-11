@@ -2,6 +2,10 @@
   /* eslint-disable max-lines */
   import { untrack } from 'svelte'
   import { Button } from '$ui/button'
+  import {
+    syncProjectConversationWorkspace,
+    type ProjectConversationWorkspaceSyncPrompt,
+  } from '$lib/api/chat'
   import { cn } from '$lib/utils'
   import {
     AlertCircle,
@@ -18,12 +22,14 @@
   import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
   import { createTerminalManager } from './terminal-manager.svelte'
+  import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
   import { onDestroy } from 'svelte'
 
   let {
     conversationId = '',
     workspaceDiff = null,
     workspaceDiffLoading = false,
+    syncGeneration = 0,
     pendingFilePath = '',
     onClose,
     onPendingFileConsumed,
@@ -31,6 +37,7 @@
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     workspaceDiffLoading?: boolean
+    syncGeneration?: number
     /** File path to navigate to (consumed once on change). */
     pendingFilePath?: string
     onClose?: () => void
@@ -125,6 +132,9 @@
   let lastRefreshKey = $state('')
   let lastWorkspaceDiffLoading = $state(false)
   let lastConversationId = $state('')
+  let lastSyncGeneration = $state(0)
+  let syncInFlight = $state(false)
+  let syncError = $state('')
 
   const selectedRepo = $derived(
     browser.metadata?.repos.find((repo) => repo.path === browser.selectedRepoPath) ??
@@ -134,6 +144,41 @@
   const selectedRepoDiff = $derived(
     workspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
+  const syncPrompt = $derived(workspaceDiff?.syncPrompt ?? browser.metadata?.syncPrompt ?? null)
+
+  function syncPromptTitle(prompt: ProjectConversationWorkspaceSyncPrompt | null) {
+    if (!prompt) return ''
+    return prompt.reason === 'repo_binding_changed'
+      ? 'Workspace sync required'
+      : 'Some project repos are missing from this workspace'
+  }
+
+  function syncPromptDescription(prompt: ProjectConversationWorkspaceSyncPrompt | null) {
+    if (!prompt) return ''
+    if (prompt.reason === 'repo_binding_changed') {
+      return 'This conversation workspace was prepared before the latest project repo binding changes. Newly bound repos have not been cloned into this workspace yet, so browse and diff can be incomplete until you sync.'
+    }
+    return 'One or more repos are bound to this project but are still missing from the current conversation workspace. Sync the workspace to clone them before browsing or diffing.'
+  }
+
+  async function handleSyncWorkspace() {
+    if (!conversationId || syncInFlight) {
+      return
+    }
+    syncInFlight = true
+    syncError = ''
+    try {
+      await syncProjectConversationWorkspace(conversationId)
+      workspaceBrowserPortal.markWorkspaceSynced()
+      await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
+      await browser.refreshWorkspace(true)
+    } catch (error) {
+      syncError =
+        error instanceof Error ? error.message : 'Failed to sync the Project AI workspace.'
+    } finally {
+      syncInFlight = false
+    }
+  }
 
   // Navigate to a pending file when set
   $effect(() => {
@@ -158,6 +203,19 @@
       refreshGeneration += 1
     }
     lastWorkspaceDiffLoading = nextLoading
+  })
+
+  $effect(() => {
+    if (!conversationId) {
+      lastSyncGeneration = syncGeneration
+      return
+    }
+    if (syncGeneration !== lastSyncGeneration) {
+      lastSyncGeneration = syncGeneration
+      untrack(() => {
+        void browser.refreshWorkspace(true)
+      })
+    }
   })
 
   $effect(() => {
@@ -270,6 +328,25 @@
     >
       The workspace will appear after Project AI provisions the conversation workdir.
     </div>
+  {:else if syncPrompt && (browser.metadata?.repos.length ?? 0) === 0}
+    <div class="flex flex-1 items-center justify-center px-6">
+      <div class="border-border bg-muted/20 max-w-lg rounded-xl border p-5 text-left">
+        <p class="text-sm font-medium">{syncPromptTitle(syncPrompt)}</p>
+        <p class="text-muted-foreground mt-2 text-sm">{syncPromptDescription(syncPrompt)}</p>
+        <p class="text-muted-foreground mt-3 text-xs">
+          Missing repos:
+          {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
+        </p>
+        {#if syncError}
+          <p class="text-destructive mt-3 text-xs">{syncError}</p>
+        {/if}
+        <div class="mt-4 flex gap-2">
+          <Button size="sm" onclick={() => void handleSyncWorkspace()} disabled={syncInFlight}>
+            {syncInFlight ? 'Syncing repos...' : 'Sync repos'}
+          </Button>
+        </div>
+      </div>
+    </div>
   {:else}
     <div
       class={cn(
@@ -277,6 +354,34 @@
         (sidebarResizing || terminalResizing) && 'select-none',
       )}
     >
+      {#if syncPrompt}
+        <div
+          class="border-border border-b bg-amber-50/80 px-3 py-2 text-amber-950 dark:bg-amber-500/10 dark:text-amber-100"
+        >
+          <div class="flex items-start gap-3">
+            <AlertCircle class="mt-0.5 size-4 shrink-0" />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">{syncPromptTitle(syncPrompt)}</p>
+              <p class="mt-1 text-xs leading-5">{syncPromptDescription(syncPrompt)}</p>
+              <p class="mt-2 text-xs">
+                Missing repos: {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
+              </p>
+              {#if syncError}
+                <p class="text-destructive mt-2 text-xs">{syncError}</p>
+              {/if}
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              class="shrink-0"
+              onclick={() => void handleSyncWorkspace()}
+              disabled={syncInFlight}
+            >
+              {syncInFlight ? 'Syncing...' : 'Sync repos'}
+            </Button>
+          </div>
+        </div>
+      {/if}
       <!-- Files area -->
       <div class="flex min-h-0 flex-1">
         <!-- Sidebar (resizable) -->

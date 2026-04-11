@@ -7,11 +7,13 @@ const {
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  syncProjectConversationWorkspace,
 } = vi.hoisted(() => ({
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  syncProjectConversationWorkspace: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -19,6 +21,7 @@ vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  syncProjectConversationWorkspace,
 }))
 
 vi.mock('@xterm/xterm', () => ({
@@ -65,6 +68,48 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+  })
+
+  it('shows a sync prompt when repo bindings changed and refreshes the browser after syncing', async () => {
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [],
+      },
+    })
+    syncProjectConversationWorkspace.mockResolvedValue({
+      workspace: structuredClone(workspaceMetadata),
+    })
+
+    const syncedMetadata = structuredClone(workspaceMetadata)
+    getProjectConversationWorkspace
+      .mockResolvedValueOnce({ workspace: structuredClone(workspaceMetadata) })
+      .mockResolvedValueOnce({ workspace: syncedMetadata })
+
+    const view = render(ProjectConversationWorkspaceBrowser, {
+      props: {
+        conversationId: 'conversation-1',
+        workspaceDiff: {
+          ...workspaceDiff,
+          syncPrompt: {
+            reason: 'repo_binding_changed',
+            missingRepos: [{ name: 'docs', path: 'docs' }],
+          },
+        },
+        workspaceDiffLoading: false,
+      },
+    })
+
+    await view.findByText('Workspace sync required')
+    await fireEvent.click(view.getByRole('button', { name: 'Sync repos' }))
+
+    await waitFor(() => {
+      expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
+      expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('preserves the expanded directory and selected file when the toolbar refresh is clicked', async () => {

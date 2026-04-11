@@ -144,6 +144,18 @@ export type ProjectConversationWorkspaceDiffFile = {
   removed: number
 }
 
+export type ProjectConversationWorkspaceMissingRepo = {
+  name: string
+  path: string
+}
+
+export type ProjectConversationWorkspaceSyncReason = 'repo_binding_changed' | 'repo_missing'
+
+export type ProjectConversationWorkspaceSyncPrompt = {
+  reason: ProjectConversationWorkspaceSyncReason
+  missingRepos: ProjectConversationWorkspaceMissingRepo[]
+}
+
 export type ProjectConversationWorkspaceDiffRepo = {
   name: string
   path: string
@@ -164,6 +176,7 @@ export type ProjectConversationWorkspaceDiff = {
   added: number
   removed: number
   repos: ProjectConversationWorkspaceDiffRepo[]
+  syncPrompt?: ProjectConversationWorkspaceSyncPrompt
 }
 
 export type ProjectConversationWorkspaceRepoMetadata = {
@@ -183,6 +196,7 @@ export type ProjectConversationWorkspaceMetadata = {
   available: boolean
   workspacePath: string
   repos: ProjectConversationWorkspaceRepoMetadata[]
+  syncPrompt?: ProjectConversationWorkspaceSyncPrompt
 }
 
 export type ProjectConversationWorkspaceTreeEntryKind = 'directory' | 'file'
@@ -489,6 +503,17 @@ export async function getProjectConversationWorkspaceDiff(conversationId: string
 export async function getProjectConversationWorkspace(conversationId: string) {
   const payload = await fetchJSON<{ workspace?: unknown }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace`,
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspace: parseProjectConversationWorkspaceMetadata(object.workspace ?? object),
+  }
+}
+
+export async function syncProjectConversationWorkspace(conversationId: string) {
+  const payload = await fetchJSON<{ workspace?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/sync`,
+    { method: 'POST' },
   )
   const object = parseRequiredObject(payload as Record<string, unknown>)
   return {
@@ -1058,6 +1083,9 @@ function parseProjectConversationWorkspaceDiff(value: unknown): ProjectConversat
     added: readRequiredNumber(object, 'added'),
     removed: readRequiredNumber(object, 'removed'),
     repos: readProjectConversationWorkspaceDiffRepos(object),
+    syncPrompt: parseProjectConversationWorkspaceSyncPrompt(
+      readOptionalObject(object, 'sync_prompt'),
+    ),
   }
 }
 
@@ -1087,6 +1115,34 @@ function parseProjectConversationWorkspaceMetadata(
     available: readRequiredBoolean(object, 'available'),
     workspacePath: readOptionalString(object, 'workspace_path') ?? '',
     repos,
+    syncPrompt: parseProjectConversationWorkspaceSyncPrompt(
+      readOptionalObject(object, 'sync_prompt'),
+    ),
+  }
+}
+
+function parseProjectConversationWorkspaceSyncPrompt(
+  value?: Record<string, unknown>,
+): ProjectConversationWorkspaceSyncPrompt | undefined {
+  if (!value) {
+    return undefined
+  }
+  const reason = readRequiredString(value, 'reason')
+  if (reason !== 'repo_binding_changed' && reason !== 'repo_missing') {
+    throw new Error(`project conversation workspace sync reason ${reason} is unsupported`)
+  }
+  const missingRepos = Array.isArray(value.missing_repos)
+    ? value.missing_repos.map((item) => {
+        const repo = parseRequiredObject(item)
+        return {
+          name: readRequiredString(repo, 'name'),
+          path: readRequiredString(repo, 'path'),
+        } satisfies ProjectConversationWorkspaceMissingRepo
+      })
+    : []
+  return {
+    reason,
+    missingRepos,
   }
 }
 

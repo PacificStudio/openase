@@ -11,6 +11,7 @@ const {
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   getProjectConversationWorkspaceDiff,
+  syncProjectConversationWorkspace,
   listProjectConversationEntries,
   listProjectConversations,
   listProjectConversationWorkspaceTree,
@@ -28,6 +29,7 @@ const {
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
+  syncProjectConversationWorkspace: vi.fn(),
   listProjectConversationEntries: vi.fn(),
   listProjectConversations: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   getProjectConversationWorkspaceDiff,
+  syncProjectConversationWorkspace,
   listProjectConversationEntries,
   listProjectConversations,
   listProjectConversationWorkspaceTree,
@@ -293,5 +296,74 @@ describe('ProjectConversationPanel workspace summary', () => {
 
     await waitFor(() => expect(container.textContent).toContain('1 repo changed · +4 -1'))
     expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces repo sync guidance and refreshes workspace diff after syncing', async () => {
+    listProjectConversations.mockResolvedValue({
+      conversations: [
+        {
+          id: 'conversation-1',
+          rollingSummary: 'Current conversation',
+          lastActivityAt: '2026-04-01T10:00:00Z',
+          providerId: 'provider-1',
+        },
+      ],
+    })
+    getProjectConversationWorkspaceDiff
+      .mockResolvedValueOnce({
+        workspaceDiff: {
+          conversationId: 'conversation-1',
+          workspacePath: '/tmp/conversation-1',
+          dirty: false,
+          reposChanged: 0,
+          filesChanged: 0,
+          added: 0,
+          removed: 0,
+          repos: [],
+          syncPrompt: {
+            reason: 'repo_binding_changed',
+            missingRepos: [{ name: 'docs', path: 'docs' }],
+          },
+        },
+      })
+      .mockResolvedValueOnce(createWorkspaceDiff('conversation-1'))
+    syncProjectConversationWorkspace.mockResolvedValue({
+      workspace: {
+        conversationId: 'conversation-1',
+        available: true,
+        workspacePath: '/tmp/conversation-1',
+        repos: [],
+      },
+    })
+    listProjectConversationEntries.mockResolvedValue({
+      entries: [
+        {
+          id: 'entry-1',
+          conversationId: 'conversation-1',
+          turnId: 'turn-1',
+          seq: 1,
+          kind: 'user_message',
+          payload: { content: 'Current conversation' },
+          createdAt: '2026-04-01T10:00:00Z',
+        },
+      ],
+    })
+    watchProjectConversation.mockResolvedValue(undefined)
+
+    const { findByText, getByText } = render(ProjectConversationPanel, {
+      props: {
+        context: { projectId: 'project-1' },
+        providers: providerFixtures,
+        defaultProviderId: 'provider-1',
+      },
+    })
+
+    await findByText('1 repo needs sync')
+    await fireEvent.click(getByText('Sync repos'))
+
+    await waitFor(() => {
+      expect(syncProjectConversationWorkspace).toHaveBeenCalledWith('conversation-1')
+      expect(getProjectConversationWorkspaceDiff).toHaveBeenCalledTimes(2)
+    })
   })
 })

@@ -6121,6 +6121,29 @@
                           },
                           "type": "array"
                         },
+                        "sync_prompt": {
+                          "nullable": true,
+                          "properties": {
+                            "missing_repos": {
+                              "items": {
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "workspace_path": {
                           "type": "string"
                         }
@@ -6320,6 +6343,29 @@
                         },
                         "repos_changed": {
                           "type": "integer"
+                        },
+                        "sync_prompt": {
+                          "nullable": true,
+                          "properties": {
+                            "missing_repos": {
+                              "items": {
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
                         },
                         "workspace_path": {
                           "type": "string"
@@ -6746,6 +6792,203 @@
           }
         },
         "summary": "Read one project conversation workspace file diff",
+        "tags": [
+          "chat"
+        ]
+      }
+    },
+    "/api/v1/chat/conversations/{conversationId}/workspace/sync": {
+      "post": {
+        "operationId": "syncProjectConversationWorkspace",
+        "parameters": [
+          {
+            "description": "Stable OpenASE conversation ID.",
+            "in": "path",
+            "name": "conversationId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "workspace": {
+                      "properties": {
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "conversation_id": {
+                          "type": "string"
+                        },
+                        "repos": {
+                          "items": {
+                            "properties": {
+                              "added": {
+                                "type": "integer"
+                              },
+                              "branch": {
+                                "type": "string"
+                              },
+                              "dirty": {
+                                "type": "boolean"
+                              },
+                              "files_changed": {
+                                "type": "integer"
+                              },
+                              "head_commit": {
+                                "type": "string"
+                              },
+                              "head_summary": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "removed": {
+                                "type": "integer"
+                              }
+                            },
+                            "type": "object"
+                          },
+                          "type": "array"
+                        },
+                        "sync_prompt": {
+                          "nullable": true,
+                          "properties": {
+                            "missing_repos": {
+                              "items": {
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "path": {
+                                    "type": "string"
+                                  }
+                                },
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "reason": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "workspace_path": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Sync newly bound project repos into the current conversation workspace response."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Bad Request response."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Not Found response."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Conflict response."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Internal Server Error response."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "code": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Service Unavailable response."
+          }
+        },
+        "summary": "Sync newly bound project repos into the current conversation workspace",
         "tags": [
           "chat"
         ]
