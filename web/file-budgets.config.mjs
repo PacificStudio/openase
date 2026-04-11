@@ -66,15 +66,15 @@ export const fileBudgetRules = [
   {
     name: 'Workspace editor V2 editor state',
     match: (filePath) =>
-      filePath === 'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.ts',
+      filePath ===
+      'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.ts',
     softLimit: 350,
     hardLimit: 650,
   },
   {
     name: 'Workspace editor V2 refresh test',
     match: (filePath) =>
-      filePath ===
-      'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
     softLimit: 350,
     hardLimit: 700,
   },
