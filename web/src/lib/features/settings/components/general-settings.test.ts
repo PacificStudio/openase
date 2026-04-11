@@ -167,7 +167,7 @@ describe('General settings', () => {
 
     const { getByLabelText, getByRole } = render(GeneralSettings)
 
-    await fireEvent.click(getByRole('checkbox', { name: /Enable Project AI retention/i }))
+    await fireEvent.click(getByRole('switch', { name: /Enable Project AI retention/i }))
     await fireEvent.input(getByLabelText('Keep latest conversations'), {
       target: { value: '5' },
     })
