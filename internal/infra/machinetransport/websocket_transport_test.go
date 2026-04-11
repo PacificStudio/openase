@@ -391,6 +391,7 @@ func startReverseRuntimeTransportFixture(t *testing.T) reverseRuntimeTransportFi
 		}
 	}))
 
+	//nolint:gosec // The fixture returns disconnect and also calls it from t.Cleanup.
 	participantCtx, cancelParticipant := context.WithCancel(context.Background())
 	var disconnectOnce sync.Once
 	disconnect := func() {
