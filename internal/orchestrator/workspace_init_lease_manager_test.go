@@ -100,3 +100,22 @@ func TestWorkspaceInitLeaseManagerAllowsExpiredTakeover(t *testing.T) {
 		t.Fatalf("lease_expires_at = %s, want future timestamp", record.LeaseExpiresAt)
 	}
 }
+
+func TestWorkspaceInitLeaseManagerHeartbeatTimeoutUsesLeaseAwareFloor(t *testing.T) {
+	manager := &workspaceInitLeaseManager{
+		leaseDuration: 400 * time.Millisecond,
+	}
+
+	if got, want := manager.heartbeatTimeout(20*time.Millisecond), 200*time.Millisecond; got != want {
+		t.Fatalf("heartbeatTimeout(20ms) = %s, want %s", got, want)
+	}
+
+	manager.leaseDuration = 5 * time.Minute
+	if got, want := manager.heartbeatTimeout(20*time.Millisecond), minWorkspaceInitLeaseHeartbeatTimeout; got != want {
+		t.Fatalf("heartbeatTimeout(20ms) with long lease = %s, want %s", got, want)
+	}
+
+	if got, want := manager.heartbeatTimeout(15*time.Second), 15*time.Second; got != want {
+		t.Fatalf("heartbeatTimeout(15s) = %s, want %s", got, want)
+	}
+}
