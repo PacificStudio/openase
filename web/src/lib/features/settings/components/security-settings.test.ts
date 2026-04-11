@@ -1,11 +1,12 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { ScopedSecretRecord } from '$lib/api/contracts'
 import { appStore } from '$lib/stores/app.svelte'
 import SecuritySettings from './security-settings.svelte'
 import {
   configuredSecurity,
+  configuredSecurityWithProjectGitHubOverride,
   configuredSecurityWithNullPermissions,
   currentOrg,
   currentProject,
@@ -34,6 +35,7 @@ const {
   retestGitHubOutboundCredential,
   rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
+  updateProject,
 } = vi.hoisted(() => ({
   createProjectScopedSecret: vi.fn(),
   createScopedSecretBinding: vi.fn(),
@@ -51,6 +53,7 @@ const {
   retestGitHubOutboundCredential: vi.fn(),
   rotateProjectScopedSecret: vi.fn(),
   saveGitHubOutboundCredential: vi.fn(),
+  updateProject: vi.fn(),
 }))
 
 vi.mock('$lib/api/openase', () => ({
@@ -70,9 +73,16 @@ vi.mock('$lib/api/openase', () => ({
   retestGitHubOutboundCredential,
   rotateProjectScopedSecret,
   saveGitHubOutboundCredential,
+  updateProject,
 }))
 
 describe('Security settings', () => {
+  beforeAll(() => {
+    HTMLElement.prototype.scrollIntoView ??= vi.fn()
+    HTMLElement.prototype.hasPointerCapture ??= vi.fn(() => false)
+    HTMLElement.prototype.releasePointerCapture ??= vi.fn()
+  })
+
   afterEach(() => {
     cleanup()
     appStore.currentOrg = null
@@ -127,12 +137,9 @@ describe('Security settings', () => {
     expect(await findByText('Inherited organization defaults')).toBeTruthy()
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
     expect(await findByText('Runtime secret bindings')).toBeTruthy()
-    expect(
-      await findByText('Fullstack Developer Workflow', { selector: 'div.text-sm.font-medium' }),
-    ).toBeTruthy()
+    expect(await findByText('Project AI platform access')).toBeTruthy()
+    expect(await findByText('Fullstack Developer Workflow')).toBeTruthy()
     expect(await findByText('OPENASE_AGENT_TOKEN')).toBeTruthy()
-    expect(await findByText('Migrate inline provider auth_config secrets')).toBeTruthy()
-    expect(await findByText('2 inline secrets across 1 providers')).toBeTruthy()
   })
 
   it('saves a project override token from the security surface', async () => {
@@ -153,10 +160,36 @@ describe('Security settings', () => {
 
     await waitFor(() => {
       expect(saveGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
-        scope: 'project',
         token: 'ghu_project_override',
       })
     })
+  })
+
+  it('saves project ai platform access from the security surface', async () => {
+    appStore.currentOrg = currentOrg()
+    appStore.currentProject = currentProject()
+    getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
+    mockSecretBindingCatalog()
+    mockProjectScopedSecrets()
+    updateProject.mockResolvedValue({
+      project: {
+        ...currentProject(),
+        project_ai_platform_access_allowed: ['projects.update'],
+      },
+    })
+
+    const { findByRole, findByText } = render(SecuritySettings)
+
+    await fireEvent.click(await findByText('projects'))
+    await fireEvent.click(await findByText('add_repo'))
+    await fireEvent.click(await findByRole('button', { name: 'Save Project AI access' }))
+
+    await waitFor(() => {
+      expect(updateProject).toHaveBeenCalledWith(appStore.currentProject?.id, {
+        project_ai_platform_access_allowed: ['projects.update'],
+      })
+    })
+    expect(appStore.currentProject?.project_ai_platform_access_allowed).toEqual(['projects.update'])
   })
 
   it('imports, retests, and deletes credentials through scoped actions', async () => {
@@ -165,8 +198,9 @@ describe('Security settings', () => {
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
-    importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: configuredSecurity() })
-    retestGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
+    const importedSecurity = configuredSecurityWithProjectGitHubOverride()
+    importGitHubOutboundCredentialFromGHCLI.mockResolvedValue({ security: importedSecurity })
+    retestGitHubOutboundCredential.mockResolvedValue({ security: importedSecurity })
     deleteGitHubOutboundCredential.mockResolvedValue({ security: configuredSecurity() })
 
     const { findAllByText, findAllByTitle } = render(SecuritySettings)
@@ -176,25 +210,19 @@ describe('Security settings', () => {
     await waitFor(() => {
       expect(importGitHubOutboundCredentialFromGHCLI).toHaveBeenCalledWith(
         appStore.currentProject?.id,
-        { scope: 'organization' },
       )
     })
 
     const retestButtons = await findAllByTitle('Retest')
     await fireEvent.click(retestButtons[0])
     await waitFor(() => {
-      expect(retestGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id, {
-        scope: 'organization',
-      })
+      expect(retestGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id)
     })
 
     const deleteButtons = await findAllByTitle('Delete')
     await fireEvent.click(deleteButtons[0])
     await waitFor(() => {
-      expect(deleteGitHubOutboundCredential).toHaveBeenCalledWith(
-        appStore.currentProject?.id,
-        'organization',
-      )
+      expect(deleteGitHubOutboundCredential).toHaveBeenCalledWith(appStore.currentProject?.id)
     })
   })
 
@@ -207,10 +235,11 @@ describe('Security settings', () => {
     mockSecretBindingCatalog()
     mockProjectScopedSecrets()
 
-    const { findByText } = render(SecuritySettings)
+    const { findByText, queryByText } = render(SecuritySettings)
 
     expect(await findByText('GitHub outbound credentials')).toBeTruthy()
-    expect(await findByText('No scopes reported')).toBeTruthy()
+    expect(await findByText('ghu_test...1234')).toBeTruthy()
+    expect(queryByText('No scopes reported')).toBeNull()
   })
 
   it('creates a workflow secret binding from the security surface', async () => {
@@ -218,24 +247,31 @@ describe('Security settings', () => {
     appStore.currentProject = currentProject()
     getSecuritySettings.mockResolvedValue({ security: configuredSecurity() })
     mockSecretBindingCatalog()
+    listScopedSecrets.mockResolvedValue({ secrets: [scopedSecrets()[0]] })
     mockProjectScopedSecrets()
     listScopedSecretBindings.mockResolvedValue({ bindings: [] })
     createScopedSecretBinding.mockResolvedValue({
       binding: scopedSecretBindings()[0],
     })
 
-    const { findByLabelText, findByRole } = render(SecuritySettings)
+    const { findAllByRole, findByLabelText, findByText } = render(SecuritySettings)
+
+    const bindButtons = await findAllByRole('button', { name: 'Bind secret' })
+    await fireEvent.click(bindButtons[bindButtons.length - 1])
 
     await fireEvent.input(await findByLabelText('Binding key'), {
       target: { value: 'openai_api_key' },
     })
-    await fireEvent.change(await findByLabelText('Workflow target'), {
-      target: { value: 'workflow-fullstack' },
-    })
-    await fireEvent.change(await findByLabelText('Secret'), {
-      target: { value: 'secret-project-openai' },
-    })
-    await fireEvent.click(await findByRole('button', { name: 'Create binding' }))
+    const workflowTrigger = await findByText('Select workflow...')
+    workflowTrigger.focus()
+    await fireEvent.keyDown(workflowTrigger, { key: 'ArrowDown' })
+    await fireEvent.keyDown(workflowTrigger, { key: 'Enter' })
+    const secretTrigger = await findByText('Select secret...')
+    secretTrigger.focus()
+    await fireEvent.keyDown(secretTrigger, { key: 'ArrowDown' })
+    await fireEvent.keyDown(secretTrigger, { key: 'Enter' })
+    const submitButtons = await findAllByRole('button', { name: 'Bind secret' })
+    await fireEvent.click(submitButtons[submitButtons.length - 1])
 
     await waitFor(() => {
       expect(createScopedSecretBinding).toHaveBeenCalledWith(appStore.currentProject?.id, {

@@ -23,6 +23,8 @@ type rawSecurityOIDCDraftRequest struct {
 	Scopes               []string `json:"scopes"`
 	AllowedEmailDomains  []string `json:"allowed_email_domains,omitempty"`
 	BootstrapAdminEmails []string `json:"bootstrap_admin_emails,omitempty"`
+	SessionTTL           string   `json:"session_ttl,omitempty"`
+	SessionIdleTTL       string   `json:"session_idle_ttl,omitempty"`
 }
 
 func parseSaveGitHubOutboundCredentialRequest(

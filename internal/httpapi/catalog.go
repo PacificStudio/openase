@@ -32,6 +32,7 @@ type projectResponse struct {
 	Description                    string                     `json:"description"`
 	Status                         string                     `json:"status"`
 	DefaultAgentProviderID         *string                    `json:"default_agent_provider_id,omitempty"`
+	ProjectAIPlatformAccessAllowed []string                   `json:"project_ai_platform_access_allowed"`
 	AccessibleMachineIDs           []string                   `json:"accessible_machine_ids,omitempty"`
 	MaxConcurrentAgents            int                        `json:"max_concurrent_agents"`
 	AgentRunSummaryPrompt          *string                    `json:"agent_run_summary_prompt,omitempty"`
@@ -322,6 +323,7 @@ func mapProjectResponse(item domain.Project) projectResponse {
 		Description:                    item.Description,
 		Status:                         item.Status.String(),
 		DefaultAgentProviderID:         uuidToStringPointer(item.DefaultAgentProviderID),
+		ProjectAIPlatformAccessAllowed: cloneStringSlice(item.ProjectAIPlatformAccessAllowed),
 		AccessibleMachineIDs:           uuidSliceToStrings(item.AccessibleMachineIDs),
 		MaxConcurrentAgents:            item.MaxConcurrentAgents,
 		AgentRunSummaryPrompt:          stringPointerOrNil(item.AgentRunSummaryPrompt),

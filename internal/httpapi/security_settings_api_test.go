@@ -395,7 +395,7 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
-		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"8h","session_idle_ttl":"30m"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -437,6 +437,12 @@ func TestSecuritySettingsRouteSavesOIDCDraftWithoutChangingMode(t *testing.T) {
 	if stored.ClientSecretEncrypted == nil {
 		t.Fatal("expected encrypted client secret to be persisted")
 	}
+	if stored.SessionTTL != "8h0m0s" {
+		t.Fatalf("stored session_ttl = %q, want 8h0m0s", stored.SessionTTL)
+	}
+	if stored.SessionIdleTTL != "30m0s" {
+		t.Fatalf("stored session_idle_ttl = %q, want 30m0s", stored.SessionIdleTTL)
+	}
 }
 
 func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
@@ -464,7 +470,7 @@ func TestSecuritySettingsRouteTestsOIDCDraft(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft/test",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"auto","fixed_redirect_url":"","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"8h","session_idle_ttl":"30m"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Forwarded-Proto", "https")
@@ -518,7 +524,7 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"8h","session_idle_ttl":"30m"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -548,6 +554,52 @@ func TestSecuritySettingsRouteEnablesOIDCInConfig(t *testing.T) {
 	if stored.Status != "active" {
 		t.Fatalf("stored status = %q, want active", stored.Status)
 	}
+	if stored.SessionTTL != "8h0m0s" {
+		t.Fatalf("stored session_ttl = %q, want 8h0m0s", stored.SessionTTL)
+	}
+	if stored.SessionIdleTTL != "30m0s" {
+		t.Fatalf("stored session_idle_ttl = %q, want 30m0s", stored.SessionIdleTTL)
+	}
+}
+
+func TestSecuritySettingsRouteRejectsInvalidOIDCSessionPolicy(t *testing.T) {
+	projectID := uuid.New()
+	catalog := newFakeCatalogService()
+	catalog.projects[projectID] = domain.Project{ID: projectID, OrganizationID: uuid.New()}
+	configPath := filepath.Join(t.TempDir(), "config.yaml")
+	_, instanceAuthSvc := newInstanceAuthTestService(t, config.AuthConfig{Mode: config.AuthModeDisabled}, configPath)
+	server := NewServer(
+		config.ServerConfig{Port: 40023, Host: "127.0.0.1"},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalog,
+		nil,
+		WithRuntimeConfigFile(configPath),
+		WithHumanAuthConfig(config.AuthConfig{Mode: config.AuthModeDisabled}),
+		WithInstanceAuthService(instanceAuthSvc),
+	)
+
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/v1/projects/"+projectID.String()+"/security-settings/oidc-draft",
+		strings.NewReader(`{"issuer_url":"https://idp.example.com","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"1h","session_idle_ttl":"2h"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	server.Handler().ServeHTTP(rec, req)
+
+	assertAPIErrorResponse(
+		t,
+		rec,
+		http.StatusBadRequest,
+		"INVALID_REQUEST",
+		"session_idle_ttl must not exceed session_ttl",
+	)
 }
 
 func newTestOIDCDiscoveryServer(t *testing.T) *httptest.Server {

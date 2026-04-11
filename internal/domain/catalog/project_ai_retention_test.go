@@ -107,6 +107,42 @@ func TestParseCreateProjectProjectAIRetention(t *testing.T) {
 	}
 }
 
+func TestParseUpdateProjectProjectAIRetention(t *testing.T) {
+	t.Parallel()
+
+	projectID := uuid.New()
+	orgID := uuid.New()
+
+	project, err := ParseUpdateProject(projectID, orgID, ProjectInput{
+		Name: "Retention Ready",
+		Slug: "retention-ready",
+		ProjectAIRetention: &ProjectAIRetentionPolicyInput{
+			Enabled:        testBoolPtr(true),
+			KeepLatestN:    testIntPtr(2),
+			KeepRecentDays: testIntPtr(7),
+		},
+	})
+	if err != nil {
+		t.Fatalf("ParseUpdateProject(retention) error = %v", err)
+	}
+	if project.ID != projectID || project.OrganizationID != orgID {
+		t.Fatalf("ParseUpdateProject(retention) ids = %+v", project)
+	}
+	if !project.ProjectAIRetention.Enabled || project.ProjectAIRetention.KeepLatestN != 2 || project.ProjectAIRetention.KeepRecentDays != 7 {
+		t.Fatalf("ParseUpdateProject(retention) = %+v", project.ProjectAIRetention)
+	}
+
+	if _, err := ParseUpdateProject(projectID, orgID, ProjectInput{
+		Name: "Bad Retention",
+		Slug: "bad-retention",
+		ProjectAIRetention: &ProjectAIRetentionPolicyInput{
+			Enabled: testBoolPtr(true),
+		},
+	}); err == nil {
+		t.Fatal("ParseUpdateProject(invalid retention) expected validation error")
+	}
+}
+
 func testBoolPtr(value bool) *bool {
 	return &value
 }

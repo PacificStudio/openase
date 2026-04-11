@@ -127,7 +127,7 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	draftReq := httptest.NewRequest(
 		http.MethodPut,
 		"/api/v1/admin/auth/oidc-draft",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"8h","session_idle_ttl":"30m"}`),
 	)
 	draftReq.Header.Set("Content-Type", "application/json")
 	draftReq.Header.Set("Origin", "http://example.com")
@@ -173,11 +173,17 @@ func TestAdminAuthRoutePersistsDraftActivatesAndDisablesOIDC(t *testing.T) {
 	if storedDraft.Status != "draft" {
 		t.Fatalf("stored draft status = %q, want draft", storedDraft.Status)
 	}
+	if storedDraft.SessionTTL != "8h0m0s" {
+		t.Fatalf("stored draft session_ttl = %q, want 8h0m0s", storedDraft.SessionTTL)
+	}
+	if storedDraft.SessionIdleTTL != "30m0s" {
+		t.Fatalf("stored draft session_idle_ttl = %q, want 30m0s", storedDraft.SessionIdleTTL)
+	}
 
 	enableReq := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/auth/oidc-enable",
-		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"]}`),
+		strings.NewReader(`{"issuer_url":"`+issuerServer.URL+`","client_id":"openase","client_secret":"secret","redirect_mode":"fixed","fixed_redirect_url":"http://127.0.0.1:19836/api/v1/auth/oidc/callback","scopes":["openid","profile","email"],"allowed_email_domains":["example.com"],"bootstrap_admin_emails":["admin@example.com"],"session_ttl":"8h","session_idle_ttl":"30m"}`),
 	)
 	enableReq.Header.Set("Content-Type", "application/json")
 	enableReq.Header.Set("Origin", "http://example.com")

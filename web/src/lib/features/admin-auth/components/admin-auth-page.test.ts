@@ -156,6 +156,15 @@ describe('Admin auth page', () => {
     await fireEvent.input(await findByLabelText('Client ID'), {
       target: { value: 'openase' },
     })
+    await fireEvent.click(await findByRole('button', { name: 'Edit' }))
+    await fireEvent.input(await findByLabelText('Session TTL'), {
+      target: { value: '1h' },
+    })
+    await fireEvent.input(await findByLabelText('Idle TTL'), {
+      target: { value: '15m' },
+    })
+    expect(await findByText(/Absolute browser session lifetime/)).toBeTruthy()
+    expect((await findAllByText(/0 or 0s means never expires/)).length).toBeGreaterThan(0)
     await fireEvent.click(await findByRole('button', { name: 'Save draft' }))
 
     await waitFor(() => {
@@ -168,6 +177,8 @@ describe('Admin auth page', () => {
         scopes: ['openid', 'profile', 'email', 'groups'],
         allowed_email_domains: ['example.com'],
         bootstrap_admin_emails: ['admin@example.com'],
+        session_ttl: '1h',
+        session_idle_ttl: '15m',
       })
     })
 

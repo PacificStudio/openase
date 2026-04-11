@@ -143,10 +143,13 @@ export type Project = Omit<
   | 'agent_run_summary_prompt'
   | 'effective_agent_run_summary_prompt'
   | 'agent_run_summary_prompt_source'
+  | 'project_ai_platform_access_allowed'
+  | 'project_ai_retention'
 > & {
   agent_run_summary_prompt?: string
   effective_agent_run_summary_prompt?: string
   agent_run_summary_prompt_source?: 'builtin' | 'project_override'
+  project_ai_platform_access_allowed?: string[]
   project_ai_retention?: ProjectAIRetentionPolicy
 }
 export type ProjectPayload = Omit<RawProjectPayload, 'projects'> & {

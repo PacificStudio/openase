@@ -13,7 +13,7 @@ import (
 
 func (s *Server) registerExpandedAgentPlatformRoutes(api *echo.Group) {
 	api.GET("/projects/:projectId/activity", s.handleAgentListActivityEvents)
-	api.POST("/projects/:projectId/agents/:agentId/interrupt", s.handleAgentInterruptProjectAgent)
+	api.POST("/agents/:agentId/interrupt", s.handleAgentInterruptProjectAgent)
 	api.GET("/projects/:projectId/statuses", s.handleAgentListTicketStatuses)
 	api.POST("/projects/:projectId/statuses", s.handleAgentCreateTicketStatus)
 	api.POST("/projects/:projectId/statuses/reset", s.handleAgentResetTicketStatuses)
@@ -86,16 +86,6 @@ func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agen
 		return domain.Agent{}, false
 	}
 
-	projectID, err := parseProjectID(c)
-	if err != nil {
-		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_PROJECT_ID", err.Error())
-		return domain.Agent{}, false
-	}
-	if claims.ProjectID != projectID {
-		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
-		return domain.Agent{}, false
-	}
-
 	agentID, err := parseUUIDPathParamValue(c, "agentId")
 	if err != nil {
 		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_AGENT_ID", err.Error())
@@ -106,7 +96,7 @@ func (s *Server) requireAgentProjectAgentAnyScope(c echo.Context, scopes ...agen
 		_ = writeCatalogError(c, err)
 		return domain.Agent{}, false
 	}
-	if item.ProjectID != projectID {
+	if item.ProjectID != claims.ProjectID {
 		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
 		return domain.Agent{}, false
 	}

@@ -1411,6 +1411,7 @@ var (
 		{Name: "status", Type: field.TypeString, Default: "Planned"},
 		{Name: "github_outbound_credential", Type: field.TypeJSON, Nullable: true},
 		{Name: "github_token_probe", Type: field.TypeJSON, Nullable: true},
+		{Name: "project_ai_platform_access_allowed", Type: field.TypeJSON},
 		{Name: "accessible_machine_ids", Type: field.TypeJSON},
 		{Name: "max_concurrent_agents", Type: field.TypeInt, Default: 0},
 		{Name: "agent_run_summary_prompt", Type: field.TypeString, Nullable: true, Size: 2147483647},
@@ -1428,13 +1429,13 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "projects_organizations_projects",
-				Columns:    []*schema.Column{ProjectsColumns[13]},
+				Columns:    []*schema.Column{ProjectsColumns[14]},
 				RefColumns: []*schema.Column{OrganizationsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "projects_agent_providers_default_agent_provider",
-				Columns:    []*schema.Column{ProjectsColumns[14]},
+				Columns:    []*schema.Column{ProjectsColumns[15]},
 				RefColumns: []*schema.Column{AgentProvidersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1443,7 +1444,7 @@ var (
 			{
 				Name:    "project_organization_id_slug",
 				Unique:  true,
-				Columns: []*schema.Column{ProjectsColumns[13], ProjectsColumns[2]},
+				Columns: []*schema.Column{ProjectsColumns[14], ProjectsColumns[2]},
 			},
 		},
 	}

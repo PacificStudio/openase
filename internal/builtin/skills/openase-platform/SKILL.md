@@ -137,7 +137,9 @@ When the principal is `ticket_agent`:
 When the principal is `project_conversation`:
 
 - Treat this as a project-scoped conversation runtime, not a ticket runtime.
-- Use project-scoped ticket mutation routes when `tickets.update` is granted.
+- Use the canonical ticket mutation routes when `tickets.update` is granted;
+  project scope still comes from the token claims even though the suffix stays
+  aligned with the human control plane.
 - Do not assume current-ticket comment/update/report-usage endpoints are
   available.
 - Ticket-runtime-only routes can reject this principal kind even when
@@ -298,8 +300,8 @@ Capabilities:
 - At least one update field is required
 
 In `project_conversation` runtimes, do not assume the current-ticket variant is
-available. Prefer project-scoped ticket mutation routes or the typed command
-shape exposed by the current runtime contract.
+available. Prefer the canonical ticket mutation routes exposed by the typed
+command shape in the current runtime contract.
 
 ### 4. Record usage / cost
 
