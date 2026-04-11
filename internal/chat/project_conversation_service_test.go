@@ -5363,20 +5363,20 @@ func TestProjectConversationWorkspaceBrowser(t *testing.T) {
 		remoteRepoPath, _ := createConversationRemoteRepo(t, "main", map[string]string{
 			"README.md": "docs\n",
 		})
-		fixture.catalog.fakeCatalogReader.projectRepos = append(
-			fixture.catalog.fakeCatalogReader.projectRepos,
+		fixture.catalog.projectRepos = append(
+			fixture.catalog.projectRepos,
 			catalogdomain.ProjectRepo{
 				ID:               repoID,
-				ProjectID:        fixture.catalog.fakeCatalogReader.project.ID,
+				ProjectID:        fixture.catalog.project.ID,
 				Name:             "docs",
 				RepositoryURL:    remoteRepoPath,
 				DefaultBranch:    "main",
 				WorkspaceDirname: "docs",
 			},
 		)
-		fixture.catalog.fakeCatalogReader.activityEvents = []catalogdomain.ActivityEvent{{
+		fixture.catalog.activityEvents = []catalogdomain.ActivityEvent{{
 			ID:        uuid.New(),
-			ProjectID: fixture.catalog.fakeCatalogReader.project.ID,
+			ProjectID: fixture.catalog.project.ID,
 			EventType: activityevent.TypeProjectRepoCreated,
 			Metadata: map[string]any{
 				"repo_id":        repoID.String(),
