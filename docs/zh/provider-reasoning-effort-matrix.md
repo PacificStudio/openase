@@ -149,8 +149,8 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
 - 当前环境结果（2026-04-11 再次复核）：
   - `claude auth status --json` 仍显示 `loggedIn: true`
   - 但真实执行仍返回 `401 Invalid authentication credentials`
-  - `~/.claude/.credentials.json` 中当前 OAuth access token 的 `expiresAt` 为 `2026-04-07T02:02:00.406Z`
-  - `claude --debug-file ...` 显示 OAuth refresh 请求对 `https://platform.claude.com/v1/oauth/token` 返回 `400`
+  - `~/.claude/.credentials.json` 当前将 OAuth 记录嵌套在 `claudeAiOauth` 下，其中 `expiresAt = 1775527320406`，对应 `2026-04-07T02:02:00.406Z`
+  - `claude --debug-file ...` 显示 OAuth refresh 请求对 `https://platform.claude.com/v1/oauth/token` 返回 `400`，随后真实 `/v1/messages` 请求继续返回 `401`
   - `claude setup-token` / `claude auth login` 当前都需要交互式浏览器完成重新授权
   - 直接回退到本机仍保留的旧版 CLI（`2.1.97` / `2.1.96` / `2.1.94`）重试，同样返回 `401`，说明 blocker 不是单一版本回归
   - 进一步复用 Firefox 已登录的 `claude.ai` / `claude.com` cookies 做浏览器自动化探测时，`claude auth login` 的 authorize URL 仍会卡在 Cloudflare `Performing security verification`，而 `claude setup-token` 路径会落到 `platform.claude.com` 登录页，说明当前环境也没有可稳定复用的非交互浏览器会话
