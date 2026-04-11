@@ -208,7 +208,9 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.container.textContent).toContain('README.md')
     expect(view.container.textContent).toContain('text/plain')
     await waitFor(() =>
-      expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain('line alpha'),
+      expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain(
+        'line alpha',
+      ),
     )
     expect(view.container.querySelector('.cm-content')?.textContent ?? '').toContain('line beta')
     expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
