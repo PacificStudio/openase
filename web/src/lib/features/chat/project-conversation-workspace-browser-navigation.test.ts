@@ -303,7 +303,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
       'overflow-hidden',
     )
-    expect(view.container.querySelector('.diff-viewer')?.className).toContain('overflow-auto')
+    expect(view.container.querySelector('.code-viewer')?.className).toContain('overflow-auto')
   })
 
   it('expands the explorer tree to the selected changed file from the changes list', async () => {

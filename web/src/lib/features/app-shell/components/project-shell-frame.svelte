@@ -194,6 +194,7 @@
             conversationId={workspaceBrowserPortal.conversationId}
             workspaceDiff={workspaceBrowserPortal.workspaceDiff}
             workspaceDiffLoading={workspaceBrowserPortal.workspaceDiffLoading}
+            runtimeActive={workspaceBrowserPortal.runtimeActive}
             pendingFilePath={workspaceBrowserPortal.pendingFilePath}
             onClose={() => workspaceBrowserPortal.close()}
             onPendingFileConsumed={() => workspaceBrowserPortal.consumePendingFile()}

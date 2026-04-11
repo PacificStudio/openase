@@ -3,6 +3,7 @@
   import { untrack } from 'svelte'
   import { Button } from '$ui/button'
   import { cn } from '$lib/utils'
+  import { appStore } from '$lib/stores/app.svelte'
   import {
     AlertCircle,
     Check,
@@ -13,6 +14,7 @@
     X,
   } from '@lucide/svelte'
   import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
+  import { PROJECT_AI_FOCUS_PRIORITY } from './project-ai-focus'
   import WorkspaceTerminalPanel from './workspace-terminal-panel.svelte'
   import ProjectConversationWorkspaceBrowserDetail from './project-conversation-workspace-browser-detail.svelte'
   import ProjectConversationWorkspaceBrowserSidebar from './project-conversation-workspace-browser-sidebar.svelte'
@@ -24,6 +26,7 @@
     conversationId = '',
     workspaceDiff = null,
     workspaceDiffLoading = false,
+    runtimeActive = false,
     pendingFilePath = '',
     onClose,
     onPendingFileConsumed,
@@ -31,14 +34,21 @@
     conversationId?: string
     workspaceDiff?: ProjectConversationWorkspaceDiff | null
     workspaceDiffLoading?: boolean
+    runtimeActive?: boolean
     /** File path to navigate to (consumed once on change). */
     pendingFilePath?: string
     onClose?: () => void
     onPendingFileConsumed?: () => void
   } = $props()
 
+  const projectAIFocusOwner = 'project-conversation-workspace-browser'
+  let liveWorkspaceDiff = $state<ProjectConversationWorkspaceDiff | null>(null)
+
   const browser = createProjectConversationWorkspaceBrowserState({
     getConversationId: () => conversationId,
+    onWorkspaceDiffUpdated: (nextWorkspaceDiff) => {
+      liveWorkspaceDiff = nextWorkspaceDiff
+    },
   })
 
   const terminalManager = createTerminalManager({
@@ -132,8 +142,12 @@
       null,
   )
   const selectedRepoDiff = $derived(
-    workspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
+    liveWorkspaceDiff?.repos.find((repo) => repo.path === browser.selectedRepoPath) ?? null,
   )
+
+  $effect(() => {
+    liveWorkspaceDiff = workspaceDiff ?? null
+  })
 
   // Navigate to a pending file when set
   $effect(() => {
@@ -177,6 +191,74 @@
     untrack(() => {
       void browser.refreshWorkspace(true)
     })
+  })
+
+  $effect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      const editorState = browser.selectedEditorState
+      if (!editorState) {
+        return
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        if (!editorState.dirty || !browser.preview?.writable) {
+          return
+        }
+        event.preventDefault()
+        void browser.saveSelectedFile()
+        return
+      }
+
+      if (event.key === 'Escape' && editorState.viewMode === 'edit') {
+        event.preventDefault()
+        browser.setSelectedViewMode('preview')
+      }
+    }
+
+    window.addEventListener('keydown', handleKeydown)
+    return () => {
+      window.removeEventListener('keydown', handleKeydown)
+    }
+  })
+
+  $effect(() => {
+    const projectId = appStore.currentProject?.id ?? ''
+    const editorState = browser.selectedEditorState
+    if (
+      !projectId ||
+      !conversationId ||
+      !browser.selectedRepoPath ||
+      !browser.selectedFilePath ||
+      !editorState
+    ) {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+      return
+    }
+
+    appStore.setProjectAssistantFocus(
+      projectAIFocusOwner,
+      {
+        kind: 'workspace_file',
+        projectId,
+        conversationId,
+        repoPath: browser.selectedRepoPath,
+        filePath: browser.selectedFilePath,
+        selectedArea: editorState.viewMode,
+        hasDirtyDraft: editorState.dirty,
+        draftContent: editorState.dirty ? editorState.draftContent : undefined,
+        encoding: editorState.encoding,
+        lineEnding: editorState.lineEnding,
+      },
+      PROJECT_AI_FOCUS_PRIORITY.workspace,
+    )
+
+    return () => {
+      appStore.clearProjectAssistantFocus(projectAIFocusOwner)
+    }
   })
 </script>
 
@@ -319,8 +401,17 @@
             selectedFilePath={browser.selectedFilePath}
             preview={browser.preview}
             patch={browser.patch}
+            editorState={browser.selectedEditorState}
+            draftDiff={browser.selectedDraftDiff}
             fileLoading={browser.fileLoading}
             fileError={browser.fileError}
+            {runtimeActive}
+            onViewModeChange={browser.setSelectedViewMode}
+            onDraftChange={browser.updateSelectedDraft}
+            onSave={() => void browser.saveSelectedFile()}
+            onRevert={browser.revertSelectedDraft}
+            onKeepDraft={browser.keepSelectedDraft}
+            onReloadSavedVersion={browser.reloadSelectedSavedVersion}
           />
         </div>
       </div>

@@ -49,6 +49,7 @@
     workspaceBrowserPortal.conversationId = conversationId
     workspaceBrowserPortal.workspaceDiff = workspaceDiff ?? null
     workspaceBrowserPortal.workspaceDiffLoading = workspaceDiffLoading
+    workspaceBrowserPortal.runtimeActive = pending
   })
 
   $effect(() => {

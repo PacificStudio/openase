@@ -13,6 +13,7 @@ class WorkspaceBrowserPortal {
   conversationId = $state('')
   workspaceDiff: ProjectConversationWorkspaceDiff | null = $state(null)
   workspaceDiffLoading = $state(false)
+  runtimeActive = $state(false)
   /** File path to navigate to when the browser opens (consumed once). */
   pendingFilePath = $state('')
 

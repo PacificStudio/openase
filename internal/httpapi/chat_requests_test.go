@@ -132,6 +132,71 @@ func TestParseCreateProjectConversationTerminalSessionRequestRejectsUnsupportedM
 	}
 }
 
+func TestParseProjectConversationTurnRequestParsesWorkspaceDraftContext(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationTurnRequest(rawConversationTurnRequest{
+		Message: "Review my unsaved workspace draft.",
+		Focus: &chat.RawProjectConversationFocus{
+			Kind:              "workspace_file",
+			ConversationID:    testStringPointer("550e8400-e29b-41d4-a716-446655440000"),
+			WorkspaceRepoPath: testStringPointer("openase"),
+			WorkspaceFilePath: testStringPointer("web/src/lib/app.ts"),
+			SelectedArea:      testStringPointer("edit"),
+			HasDirtyDraft:     testBoolPointer(true),
+		},
+		WorkspaceFileDraft: &rawProjectConversationWorkspaceFileDraftContext{
+			RepoPath:   "openase",
+			Path:       "web/src/lib/app.ts",
+			Content:    "console.log('draft')\n",
+			Encoding:   "utf-8",
+			LineEnding: "lf",
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseProjectConversationTurnRequest() error = %v", err)
+	}
+	if request.Focus == nil || request.Focus.Workspace == nil {
+		t.Fatalf("expected workspace focus, got %#v", request.Focus)
+	}
+	if request.WorkspaceFileDraft == nil {
+		t.Fatal("expected workspace file draft context")
+	}
+	if request.WorkspaceFileDraft.RepoPath.String() != "openase" ||
+		request.WorkspaceFileDraft.Path.String() != "web/src/lib/app.ts" ||
+		request.WorkspaceFileDraft.Content.String() != "console.log('draft')\n" ||
+		request.WorkspaceFileDraft.Encoding.String() != "utf-8" ||
+		request.WorkspaceFileDraft.LineEnding.String() != "lf" {
+		t.Fatalf("unexpected workspace draft context = %#v", request.WorkspaceFileDraft)
+	}
+}
+
+func TestParseUpdateProjectConversationWorkspaceFileRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseUpdateProjectConversationWorkspaceFileRequest(
+		rawUpdateProjectConversationWorkspaceFileRequest{
+			RepoPath:     "openase",
+			Path:         "web/src/lib/app.ts",
+			BaseRevision: "rev-1",
+			Content:      "console.log('saved')\n",
+			Encoding:     "utf-8",
+			LineEnding:   "crlf",
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseUpdateProjectConversationWorkspaceFileRequest() error = %v", err)
+	}
+	if request.File.RepoPath.String() != "openase" ||
+		request.File.Path.String() != "web/src/lib/app.ts" ||
+		request.File.BaseRevision.String() != "rev-1" ||
+		request.File.Content.String() != "console.log('saved')\n" ||
+		request.File.Encoding.String() != "utf-8" ||
+		request.File.LineEnding.String() != "crlf" {
+		t.Fatalf("unexpected parsed workspace file save request = %#v", request.File)
+	}
+}
+
 func testStringPointer(value string) *string {
 	return &value
 }

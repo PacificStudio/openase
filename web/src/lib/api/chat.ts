@@ -212,6 +212,11 @@ export type ProjectConversationWorkspaceFilePreview = {
   previewKind: ProjectConversationWorkspacePreviewKind
   truncated: boolean
   content: string
+  revision: string
+  writable: boolean
+  readOnlyReason: string
+  encoding: 'utf-8'
+  lineEnding: 'lf' | 'crlf'
 }
 
 export type ProjectConversationWorkspaceDiffKind = 'none' | 'text' | 'binary'
@@ -265,6 +270,25 @@ export type ProjectConversationInterruptResolvedPayload = {
 export type ProjectConversationTurnRequest = {
   message: string
   focus?: ProjectAIFocus | null
+}
+
+export type ProjectConversationWorkspaceFileSaveRequest = {
+  repoPath: string
+  path: string
+  baseRevision: string
+  content: string
+  encoding: 'utf-8'
+  lineEnding: 'lf' | 'crlf'
+}
+
+export type ProjectConversationWorkspaceFileSaved = {
+  conversationId: string
+  repoPath: string
+  path: string
+  revision: string
+  sizeBytes: number
+  encoding: 'utf-8'
+  lineEnding: 'lf' | 'crlf'
 }
 
 export type ProjectConversationTurnDonePayload = {
@@ -534,6 +558,30 @@ export async function getProjectConversationWorkspaceFilePreview(
   }
 }
 
+export async function saveProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: ProjectConversationWorkspaceFileSaveRequest,
+) {
+  const payload = await fetchJSON<{ file?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file`,
+    {
+      method: 'PUT',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path,
+        base_revision: request.baseRevision,
+        content: request.content,
+        encoding: request.encoding,
+        line_ending: request.lineEnding,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    file: parseProjectConversationWorkspaceFileSaved(object.file ?? object),
+  }
+}
+
 export async function getProjectConversationWorkspaceFilePatch(
   conversationId: string,
   request: { repoPath: string; path: string },
@@ -580,6 +628,7 @@ export function startProjectConversationTurn(
   conversationId: string,
   request: ProjectConversationTurnRequest,
 ) {
+  const workspaceFileDraft = serializeProjectConversationWorkspaceFileDraft(request.focus)
   return fetchJSON<{ turn?: Record<string, unknown>; conversation?: RawProjectConversation }>(
     `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/turns`,
     {
@@ -587,6 +636,7 @@ export function startProjectConversationTurn(
       body: {
         message: request.message,
         focus: serializeProjectConversationFocus(request.focus),
+        workspace_file_draft: workspaceFileDraft,
       },
     },
   ).then((payload) => {
@@ -627,6 +677,15 @@ function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefi
         skill_name: focus.skillName,
         selected_file_path: focus.selectedFilePath,
         bound_workflow_names: focus.boundWorkflowNames,
+        has_dirty_draft: focus.hasDirtyDraft,
+      }
+    case 'workspace_file':
+      return {
+        kind: focus.kind,
+        conversation_id: focus.conversationId,
+        workspace_repo_path: focus.repoPath,
+        workspace_file_path: focus.filePath,
+        selected_area: focus.selectedArea,
         has_dirty_draft: focus.hasDirtyDraft,
       }
     case 'ticket':
@@ -702,6 +761,24 @@ function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefi
         selected_area: focus.selectedArea,
         health_summary: focus.healthSummary,
       }
+  }
+}
+
+function serializeProjectConversationWorkspaceFileDraft(focus: ProjectAIFocus | null | undefined) {
+  if (
+    focus?.kind !== 'workspace_file' ||
+    !focus.hasDirtyDraft ||
+    typeof focus.draftContent !== 'string' ||
+    focus.draftContent.length === 0
+  ) {
+    return undefined
+  }
+  return {
+    repo_path: focus.repoPath,
+    path: focus.filePath,
+    content: focus.draftContent,
+    encoding: focus.encoding ?? 'utf-8',
+    line_ending: focus.lineEnding ?? 'lf',
   }
 }
 
@@ -1133,6 +1210,26 @@ function parseProjectConversationWorkspaceFilePreview(
     previewKind,
     truncated: readRequiredBoolean(object, 'truncated'),
     content: readOptionalString(object, 'content') ?? '',
+    revision: readRequiredString(object, 'revision'),
+    writable: readRequiredBoolean(object, 'writable'),
+    readOnlyReason: readOptionalString(object, 'read_only_reason') ?? '',
+    encoding: readRequiredString(object, 'encoding') as 'utf-8',
+    lineEnding: readRequiredString(object, 'line_ending') as 'lf' | 'crlf',
+  }
+}
+
+function parseProjectConversationWorkspaceFileSaved(
+  value: unknown,
+): ProjectConversationWorkspaceFileSaved {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: readRequiredString(object, 'path'),
+    revision: readRequiredString(object, 'revision'),
+    sizeBytes: readRequiredNumber(object, 'size_bytes'),
+    encoding: readRequiredString(object, 'encoding') as 'utf-8',
+    lineEnding: readRequiredString(object, 'line_ending') as 'lf' | 'crlf',
   }
 }
 
@@ -1550,7 +1647,7 @@ function isDiffLineOp(value: string): value is ChatDiffLineOp {
 async function fetchJSON<T>(
   path: string,
   options?: {
-    method?: 'GET' | 'POST' | 'DELETE'
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
     params?: Record<string, string | undefined>
     body?: unknown
   },
@@ -1574,8 +1671,30 @@ async function fetchJSON<T>(
     credentials: 'same-origin',
   })
   if (!response.ok) {
-    const detail = await response.text().catch(() => response.statusText)
-    throw new ApiError(response.status, detail)
+    let detail = response.statusText
+    let code: string | undefined
+    let details: unknown
+    try {
+      const contentType = response.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json')) {
+        const payload = (await response.json()) as {
+          message?: string
+          detail?: string
+          error?: string
+          code?: string
+          details?: unknown
+        }
+        detail =
+          payload.message || payload.detail || payload.error || payload.code || response.statusText
+        code = payload.code
+        details = payload.details
+      } else {
+        detail = await response.text()
+      }
+    } catch {
+      detail = response.statusText
+    }
+    throw new ApiError(response.status, detail, code, details)
   }
   if (response.status === 204) {
     return undefined as T

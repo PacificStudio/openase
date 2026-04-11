@@ -9,6 +9,7 @@ import (
 
 type RawProjectConversationFocus struct {
 	Kind                 string                                     `json:"kind"`
+	ConversationID       *string                                    `json:"conversation_id"`
 	WorkflowID           *string                                    `json:"workflow_id"`
 	WorkflowName         *string                                    `json:"workflow_name"`
 	WorkflowType         *string                                    `json:"workflow_type"`
@@ -41,6 +42,8 @@ type RawProjectConversationFocus struct {
 	MachineHost          *string                                    `json:"machine_host"`
 	MachineStatus        *string                                    `json:"machine_status"`
 	HealthSummary        *string                                    `json:"health_summary"`
+	WorkspaceRepoPath    *string                                    `json:"workspace_repo_path"`
+	WorkspaceFilePath    *string                                    `json:"workspace_file_path"`
 }
 
 type RawProjectConversationTicketDependency struct {
@@ -96,18 +99,20 @@ type RawProjectConversationTicketTargetMachine struct {
 type ProjectConversationFocusKind string
 
 const (
-	ProjectConversationFocusWorkflow ProjectConversationFocusKind = "workflow"
-	ProjectConversationFocusSkill    ProjectConversationFocusKind = "skill"
-	ProjectConversationFocusTicket   ProjectConversationFocusKind = "ticket"
-	ProjectConversationFocusMachine  ProjectConversationFocusKind = "machine"
+	ProjectConversationFocusWorkflow  ProjectConversationFocusKind = "workflow"
+	ProjectConversationFocusSkill     ProjectConversationFocusKind = "skill"
+	ProjectConversationFocusTicket    ProjectConversationFocusKind = "ticket"
+	ProjectConversationFocusMachine   ProjectConversationFocusKind = "machine"
+	ProjectConversationFocusWorkspace ProjectConversationFocusKind = "workspace_file"
 )
 
 type ProjectConversationFocus struct {
-	Kind     ProjectConversationFocusKind
-	Workflow *ProjectConversationWorkflowFocus
-	Skill    *ProjectConversationSkillFocus
-	Ticket   *ProjectConversationTicketFocus
-	Machine  *ProjectConversationMachineFocus
+	Kind      ProjectConversationFocusKind
+	Workflow  *ProjectConversationWorkflowFocus
+	Skill     *ProjectConversationSkillFocus
+	Ticket    *ProjectConversationTicketFocus
+	Machine   *ProjectConversationMachineFocus
+	Workspace *ProjectConversationWorkspaceFocus
 }
 
 type ProjectConversationWorkflowFocus struct {
@@ -205,6 +210,14 @@ type ProjectConversationMachineFocus struct {
 	Status        string
 	SelectedArea  string
 	HealthSummary string
+}
+
+type ProjectConversationWorkspaceFocus struct {
+	ConversationID uuid.UUID
+	RepoPath       string
+	FilePath       string
+	SelectedArea   string
+	HasDirtyDraft  bool
 }
 
 func ParseProjectConversationFocus(raw *RawProjectConversationFocus) (*ProjectConversationFocus, error) {
@@ -332,8 +345,31 @@ func ParseProjectConversationFocus(raw *RawProjectConversationFocus) (*ProjectCo
 				HealthSummary: trimOptionalFocusString(raw.HealthSummary),
 			},
 		}, nil
+	case ProjectConversationFocusWorkspace:
+		conversationID, err := parseRequiredFocusUUID("focus.conversation_id", raw.ConversationID)
+		if err != nil {
+			return nil, err
+		}
+		repoPath, err := parseRequiredFocusString("focus.workspace_repo_path", raw.WorkspaceRepoPath)
+		if err != nil {
+			return nil, err
+		}
+		filePath, err := parseRequiredFocusString("focus.workspace_file_path", raw.WorkspaceFilePath)
+		if err != nil {
+			return nil, err
+		}
+		return &ProjectConversationFocus{
+			Kind: ProjectConversationFocusWorkspace,
+			Workspace: &ProjectConversationWorkspaceFocus{
+				ConversationID: conversationID,
+				RepoPath:       repoPath,
+				FilePath:       filePath,
+				SelectedArea:   trimOptionalFocusString(raw.SelectedArea),
+				HasDirtyDraft:  boolPointerValue(raw.HasDirtyDraft),
+			},
+		}, nil
 	default:
-		return nil, fmt.Errorf("focus.kind must be one of workflow, skill, ticket, machine")
+		return nil, fmt.Errorf("focus.kind must be one of workflow, skill, ticket, machine, workspace_file")
 	}
 }
 

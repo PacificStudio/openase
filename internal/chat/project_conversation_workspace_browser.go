@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"mime"
 	"os"
 	"os/exec"
@@ -75,6 +74,11 @@ type ProjectConversationWorkspaceFilePreview struct {
 	PreviewKind    ProjectConversationWorkspacePreviewKind
 	Truncated      bool
 	Content        string
+	Revision       string
+	Writable       bool
+	ReadOnlyReason string
+	Encoding       string
+	LineEnding     string
 }
 
 type ProjectConversationWorkspacePreviewKind string
@@ -604,21 +608,16 @@ func (s *ProjectConversationService) readRemoteProjectConversationWorkspaceFileP
 	if err != nil {
 		return ProjectConversationWorkspaceFilePreview{}, fmt.Errorf("read remote workspace file %s: %w", relativePath, err)
 	}
-	truncated := int64(len(snippet)) > projectConversationWorkspacePreviewLimitBytes || resolvedFile.sizeBytes > projectConversationWorkspacePreviewLimitBytes
-	if int64(len(snippet)) > projectConversationWorkspacePreviewLimitBytes {
-		snippet = snippet[:projectConversationWorkspacePreviewLimitBytes]
+	revisionCommand := fmt.Sprintf(
+		"sha256sum %s | awk '{print $1}'",
+		projectConversationShellQuote(resolvedFile.path),
+	)
+	revisionOutput, err := s.runProjectConversationShellCommand(ctx, machine, revisionCommand, false)
+	if err != nil {
+		return ProjectConversationWorkspaceFilePreview{}, fmt.Errorf("read remote workspace file revision %s: %w", relativePath, err)
 	}
-	preview := ProjectConversationWorkspaceFilePreview{
-		SizeBytes: resolvedFile.sizeBytes,
-		MediaType: projectConversationWorkspaceMediaType(relativePath),
-		Truncated: truncated,
-	}
-	if projectConversationWorkspaceLooksBinary(snippet) {
-		preview.PreviewKind = ProjectConversationWorkspacePreviewKindBinary
-		return preview, nil
-	}
-	preview.PreviewKind = ProjectConversationWorkspacePreviewKindText
-	preview.Content = string(snippet)
+	preview := buildWorkspacePreviewFromContent(relativePath, snippet, resolvedFile.sizeBytes)
+	preview.Revision = strings.TrimSpace(string(revisionOutput))
 	return preview, nil
 }
 
@@ -630,35 +629,11 @@ func readLocalProjectConversationWorkspaceFilePreview(
 	if err != nil {
 		return ProjectConversationWorkspaceFilePreview{}, err
 	}
-	file, err := os.Open(resolvedFile.path)
+	content, _, err := readLocalWorkspaceFileContent(resolvedFile.path)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return ProjectConversationWorkspaceFilePreview{}, ErrProjectConversationWorkspaceEntryNotFound
-		}
-		return ProjectConversationWorkspaceFilePreview{}, fmt.Errorf("open workspace file %s: %w", resolvedFile.path, err)
+		return ProjectConversationWorkspaceFilePreview{}, err
 	}
-	defer func() { _ = file.Close() }()
-
-	snippet, err := io.ReadAll(io.LimitReader(file, projectConversationWorkspacePreviewLimitBytes+1))
-	if err != nil {
-		return ProjectConversationWorkspaceFilePreview{}, fmt.Errorf("read workspace file %s: %w", resolvedFile.path, err)
-	}
-	truncated := int64(len(snippet)) > projectConversationWorkspacePreviewLimitBytes || resolvedFile.sizeBytes > projectConversationWorkspacePreviewLimitBytes
-	if int64(len(snippet)) > projectConversationWorkspacePreviewLimitBytes {
-		snippet = snippet[:projectConversationWorkspacePreviewLimitBytes]
-	}
-	preview := ProjectConversationWorkspaceFilePreview{
-		SizeBytes: resolvedFile.sizeBytes,
-		MediaType: projectConversationWorkspaceMediaType(relativePath),
-		Truncated: truncated,
-	}
-	if projectConversationWorkspaceLooksBinary(snippet) {
-		preview.PreviewKind = ProjectConversationWorkspacePreviewKindBinary
-		return preview, nil
-	}
-	preview.PreviewKind = ProjectConversationWorkspacePreviewKindText
-	preview.Content = string(snippet)
-	return preview, nil
+	return buildWorkspacePreviewFromContent(relativePath, content, resolvedFile.sizeBytes), nil
 }
 
 type resolvedProjectConversationWorkspaceFile struct {
@@ -676,15 +651,11 @@ func (s *ProjectConversationService) resolveRemoteProjectConversationWorkspaceFi
 repo=%s
 relative=%s
 repo_real=$(cd "$repo" && pwd -P)
-parent=""
 base="$relative"
-case "$relative" in
-  */*)
-    parent="${relative%%/*}"
-    base="${relative##*/}"
-    parent="${relative%%/*}"
-    ;;
-esac
+parent=""
+if [ "$relative" != "$base" ]; then
+  parent="${relative%%/*}"
+fi
 target_dir="$repo"
 if [ -n "$parent" ]; then
   target_dir="$repo/$parent"
