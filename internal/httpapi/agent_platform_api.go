@@ -22,13 +22,26 @@ import (
 const agentClaimsContextKey = "agent_platform_claims"
 
 func (s *Server) registerAgentPlatformRoutes(api *echo.Group) {
+	api.GET("/orgs/:orgId/projects", s.handleAgentListProjects)
+	api.POST("/orgs/:orgId/projects", s.handleAgentCreateProject)
+	api.GET("/projects/:projectId", s.handleAgentGetProject)
+	api.DELETE("/projects/:projectId", s.handleAgentArchiveProject)
 	api.GET("/projects/:projectId/tickets", s.handleAgentListTickets)
+	api.GET("/projects/:projectId/tickets/archived", s.handleAgentListArchivedTickets)
+	api.GET("/projects/:projectId/tickets/:ticketId/detail", s.handleAgentGetTicketDetail)
+	api.GET("/projects/:projectId/tickets/:ticketId/runs", s.handleAgentListTicketRuns)
+	api.GET("/projects/:projectId/tickets/:ticketId/runs/:runId", s.handleAgentGetTicketRun)
 	api.GET("/projects/:projectId/workflows", s.handleAgentListProjectWorkflows)
 	api.GET("/projects/:projectId/updates", s.handleAgentListProjectUpdates)
 	api.POST("/projects/:projectId/tickets", s.handleAgentCreateTicket)
 	api.POST("/projects/:projectId/updates", s.handleAgentCreateProjectUpdateThread)
 	api.GET("/tickets/:ticketId", s.handleAgentGetOwnTicket)
 	api.PATCH("/tickets/:ticketId", s.handleAgentUpdateTicket)
+	api.POST("/tickets/:ticketId/retry/resume", s.handleAgentResumeTicketRetry)
+	api.POST("/tickets/:ticketId/dependencies", s.handleAgentAddTicketDependency)
+	api.DELETE("/tickets/:ticketId/dependencies/:dependencyId", s.handleAgentDeleteTicketDependency)
+	api.POST("/tickets/:ticketId/external-links", s.handleAgentAddTicketExternalLink)
+	api.DELETE("/tickets/:ticketId/external-links/:externalLinkId", s.handleAgentDeleteTicketExternalLink)
 	api.GET("/tickets/:ticketId/comments", s.handleAgentListOwnTicketComments)
 	api.POST("/tickets/:ticketId/comments", s.handleAgentCreateOwnTicketComment)
 	api.PATCH("/tickets/:ticketId/comments/:commentId", s.handleAgentUpdateOwnTicketComment)
@@ -83,6 +96,74 @@ func (s *Server) handleAgentListTickets(c echo.Context) error {
 	}
 
 	return s.handleListTickets(c)
+}
+
+func (s *Server) handleAgentListProjects(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !s.requireAgentOrganizationAnyScope(c, agentplatform.ScopeProjectsUpdate) {
+		return nil
+	}
+	return s.listProjects(c)
+}
+
+func (s *Server) handleAgentCreateProject(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !s.requireAgentOrganizationAnyScope(c, agentplatform.ScopeProjectsUpdate) {
+		return nil
+	}
+	return s.createProject(c)
+}
+
+func (s *Server) handleAgentGetProject(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeProjectsUpdate) {
+		return nil
+	}
+	return s.getProject(c)
+}
+
+func (s *Server) handleAgentArchiveProject(c echo.Context) error {
+	if s.catalog.Empty() {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+	}
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeProjectsUpdate) {
+		return nil
+	}
+	return s.archiveProject(c)
+}
+
+func (s *Server) handleAgentListArchivedTickets(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList) {
+		return nil
+	}
+	return s.handleListArchivedTickets(c)
+}
+
+func (s *Server) handleAgentGetTicketDetail(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList) {
+		return nil
+	}
+	return s.handleGetTicketDetail(c)
+}
+
+func (s *Server) handleAgentListTicketRuns(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList) {
+		return nil
+	}
+	return s.handleListTicketRuns(c)
+}
+
+func (s *Server) handleAgentGetTicketRun(c echo.Context) error {
+	if !requireAgentProjectAnyScope(c, agentplatform.ScopeTicketsList, agentplatform.ScopeWorkflowsList) {
+		return nil
+	}
+	return s.handleGetTicketRun(c)
 }
 
 func (s *Server) handleAgentCreateTicket(c echo.Context) error {
@@ -227,6 +308,61 @@ func (s *Server) handleAgentUpdateTicket(c echo.Context) error {
 	}
 
 	return s.handleAgentTicketUpdate(c, claims, current)
+}
+
+func (s *Server) handleAgentAddTicketDependency(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	if _, _, ok := s.requireAgentTicketUpdate(c); !ok {
+		return nil
+	}
+	return s.handleAddTicketDependency(c)
+}
+
+func (s *Server) handleAgentDeleteTicketDependency(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	if _, _, ok := s.requireAgentTicketUpdate(c); !ok {
+		return nil
+	}
+	return s.handleDeleteTicketDependency(c)
+}
+
+func (s *Server) handleAgentResumeTicketRetry(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	if _, _, ok := s.requireAgentTicketUpdate(c); !ok {
+		return nil
+	}
+	return s.handleResumeTicketRetry(c)
+}
+
+func (s *Server) handleAgentAddTicketExternalLink(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	if _, _, ok := s.requireAgentTicketUpdate(c); !ok {
+		return nil
+	}
+	return s.handleAddTicketExternalLink(c)
+}
+
+func (s *Server) handleAgentDeleteTicketExternalLink(c echo.Context) error {
+	if s.ticketService == nil {
+		return writeTicketError(c, ticketservice.ErrUnavailable)
+	}
+
+	if _, _, ok := s.requireAgentTicketUpdate(c); !ok {
+		return nil
+	}
+	return s.handleDeleteTicketExternalLink(c)
 }
 
 func (s *Server) handleAgentTicketUpdate(c echo.Context, claims agentplatform.Claims, current ticketservice.Ticket) error {
@@ -852,6 +988,35 @@ func requireAgentAnyScope(c echo.Context, scopes ...agentplatform.Scope) (agentp
 	}
 	_ = writeAPIError(c, http.StatusForbidden, "AGENT_SCOPE_FORBIDDEN", "agent token is missing required scope one of "+strings.Join(required, ", "))
 	return agentplatform.Claims{}, false
+}
+
+func (s *Server) requireAgentOrganizationAnyScope(c echo.Context, scopes ...agentplatform.Scope) bool {
+	if s.catalog.Empty() {
+		_ = writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "catalog service unavailable")
+		return false
+	}
+
+	claims, ok := requireAgentAnyScope(c, scopes...)
+	if !ok {
+		return false
+	}
+
+	orgID, err := parseUUIDPathParam(c, "orgId")
+	if err != nil {
+		_ = writeAPIError(c, http.StatusBadRequest, "INVALID_ORG_ID", err.Error())
+		return false
+	}
+	project, err := s.catalog.GetProject(c.Request().Context(), claims.ProjectID)
+	if err != nil {
+		_ = writeCatalogError(c, err)
+		return false
+	}
+	if project.OrganizationID != orgID {
+		_ = writeAPIError(c, http.StatusForbidden, "AGENT_PROJECT_FORBIDDEN", "agent token cannot access another project")
+		return false
+	}
+
+	return true
 }
 
 func writeAgentPlatformError(c echo.Context, err error) error {
