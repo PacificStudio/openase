@@ -23,6 +23,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/organization"
 	"github.com/BetterAndBetterII/openase/ent/predicate"
 	"github.com/BetterAndBetterII/openase/ent/project"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatethread"
 	"github.com/BetterAndBetterII/openase/ent/scheduledjob"
@@ -50,6 +51,7 @@ type ProjectQuery struct {
 	withAgentTokens          *AgentTokenQuery
 	withAgentTraceEvents     *AgentTraceEventQuery
 	withAgentStepEvents      *AgentStepEventQuery
+	withDailyTokenUsage      *ProjectDailyTokenUsageQuery
 	withScheduledJobs        *ScheduledJobQuery
 	withActivityEvents       *ActivityEventQuery
 	withUpdateThreads        *ProjectUpdateThreadQuery
@@ -305,6 +307,28 @@ func (_q *ProjectQuery) QueryAgentStepEvents() *AgentStepEventQuery {
 			sqlgraph.From(project.Table, project.FieldID, selector),
 			sqlgraph.To(agentstepevent.Table, agentstepevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, project.AgentStepEventsTable, project.AgentStepEventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryDailyTokenUsage chains the current query on the "daily_token_usage" edge.
+func (_q *ProjectQuery) QueryDailyTokenUsage() *ProjectDailyTokenUsageQuery {
+	query := (&ProjectDailyTokenUsageClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, selector),
+			sqlgraph.To(projectdailytokenusage.Table, projectdailytokenusage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.DailyTokenUsageTable, project.DailyTokenUsageColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -646,6 +670,7 @@ func (_q *ProjectQuery) Clone() *ProjectQuery {
 		withAgentTokens:          _q.withAgentTokens.Clone(),
 		withAgentTraceEvents:     _q.withAgentTraceEvents.Clone(),
 		withAgentStepEvents:      _q.withAgentStepEvents.Clone(),
+		withDailyTokenUsage:      _q.withDailyTokenUsage.Clone(),
 		withScheduledJobs:        _q.withScheduledJobs.Clone(),
 		withActivityEvents:       _q.withActivityEvents.Clone(),
 		withUpdateThreads:        _q.withUpdateThreads.Clone(),
@@ -765,6 +790,17 @@ func (_q *ProjectQuery) WithAgentStepEvents(opts ...func(*AgentStepEventQuery)) 
 		opt(query)
 	}
 	_q.withAgentStepEvents = query
+	return _q
+}
+
+// WithDailyTokenUsage tells the query-builder to eager-load the nodes that are connected to
+// the "daily_token_usage" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ProjectQuery) WithDailyTokenUsage(opts ...func(*ProjectDailyTokenUsageQuery)) *ProjectQuery {
+	query := (&ProjectDailyTokenUsageClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withDailyTokenUsage = query
 	return _q
 }
 
@@ -912,7 +948,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 	var (
 		nodes       = []*Project{}
 		_spec       = _q.querySpec()
-		loadedTypes = [16]bool{
+		loadedTypes = [17]bool{
 			_q.withOrganization != nil,
 			_q.withRepos != nil,
 			_q.withSkills != nil,
@@ -923,6 +959,7 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 			_q.withAgentTokens != nil,
 			_q.withAgentTraceEvents != nil,
 			_q.withAgentStepEvents != nil,
+			_q.withDailyTokenUsage != nil,
 			_q.withScheduledJobs != nil,
 			_q.withActivityEvents != nil,
 			_q.withUpdateThreads != nil,
@@ -1015,6 +1052,15 @@ func (_q *ProjectQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Proj
 		if err := _q.loadAgentStepEvents(ctx, query, nodes,
 			func(n *Project) { n.Edges.AgentStepEvents = []*AgentStepEvent{} },
 			func(n *Project, e *AgentStepEvent) { n.Edges.AgentStepEvents = append(n.Edges.AgentStepEvents, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withDailyTokenUsage; query != nil {
+		if err := _q.loadDailyTokenUsage(ctx, query, nodes,
+			func(n *Project) { n.Edges.DailyTokenUsage = []*ProjectDailyTokenUsage{} },
+			func(n *Project, e *ProjectDailyTokenUsage) {
+				n.Edges.DailyTokenUsage = append(n.Edges.DailyTokenUsage, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1350,6 +1396,36 @@ func (_q *ProjectQuery) loadAgentStepEvents(ctx context.Context, query *AgentSte
 	}
 	query.Where(predicate.AgentStepEvent(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(project.AgentStepEventsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ProjectID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "project_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *ProjectQuery) loadDailyTokenUsage(ctx context.Context, query *ProjectDailyTokenUsageQuery, nodes []*Project, init func(*Project), assign func(*Project, *ProjectDailyTokenUsage)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[uuid.UUID]*Project)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(projectdailytokenusage.FieldProjectID)
+	}
+	query.Where(predicate.ProjectDailyTokenUsage(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(project.DailyTokenUsageColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

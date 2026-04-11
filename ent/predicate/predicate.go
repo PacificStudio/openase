@@ -93,6 +93,9 @@ type ProjectConversationStepEvent func(*sql.Selector)
 // ProjectConversationTraceEvent is the predicate function for projectconversationtraceevent builders.
 type ProjectConversationTraceEvent func(*sql.Selector)
 
+// ProjectDailyTokenUsage is the predicate function for projectdailytokenusage builders.
+type ProjectDailyTokenUsage func(*sql.Selector)
+
 // ProjectRepo is the predicate function for projectrepo builders.
 type ProjectRepo func(*sql.Selector)
 

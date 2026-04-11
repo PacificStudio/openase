@@ -77,6 +77,8 @@ type ProjectEdges struct {
 	AgentTraceEvents []*AgentTraceEvent `json:"agent_trace_events,omitempty"`
 	// AgentStepEvents holds the value of the agent_step_events edge.
 	AgentStepEvents []*AgentStepEvent `json:"agent_step_events,omitempty"`
+	// DailyTokenUsage holds the value of the daily_token_usage edge.
+	DailyTokenUsage []*ProjectDailyTokenUsage `json:"daily_token_usage,omitempty"`
 	// ScheduledJobs holds the value of the scheduled_jobs edge.
 	ScheduledJobs []*ScheduledJob `json:"scheduled_jobs,omitempty"`
 	// ActivityEvents holds the value of the activity_events edge.
@@ -91,7 +93,7 @@ type ProjectEdges struct {
 	DefaultAgentProvider *AgentProvider `json:"default_agent_provider,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [16]bool
+	loadedTypes [17]bool
 }
 
 // OrganizationOrErr returns the Organization value or an error if the edge
@@ -186,10 +188,19 @@ func (e ProjectEdges) AgentStepEventsOrErr() ([]*AgentStepEvent, error) {
 	return nil, &NotLoadedError{edge: "agent_step_events"}
 }
 
+// DailyTokenUsageOrErr returns the DailyTokenUsage value or an error if the edge
+// was not loaded in eager-loading.
+func (e ProjectEdges) DailyTokenUsageOrErr() ([]*ProjectDailyTokenUsage, error) {
+	if e.loadedTypes[10] {
+		return e.DailyTokenUsage, nil
+	}
+	return nil, &NotLoadedError{edge: "daily_token_usage"}
+}
+
 // ScheduledJobsOrErr returns the ScheduledJobs value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.ScheduledJobs, nil
 	}
 	return nil, &NotLoadedError{edge: "scheduled_jobs"}
@@ -198,7 +209,7 @@ func (e ProjectEdges) ScheduledJobsOrErr() ([]*ScheduledJob, error) {
 // ActivityEventsOrErr returns the ActivityEvents value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.ActivityEvents, nil
 	}
 	return nil, &NotLoadedError{edge: "activity_events"}
@@ -207,7 +218,7 @@ func (e ProjectEdges) ActivityEventsOrErr() ([]*ActivityEvent, error) {
 // UpdateThreadsOrErr returns the UpdateThreads value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) UpdateThreadsOrErr() ([]*ProjectUpdateThread, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.UpdateThreads, nil
 	}
 	return nil, &NotLoadedError{edge: "update_threads"}
@@ -216,7 +227,7 @@ func (e ProjectEdges) UpdateThreadsOrErr() ([]*ProjectUpdateThread, error) {
 // ChatConversationsOrErr returns the ChatConversations value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) ChatConversationsOrErr() ([]*ChatConversation, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.ChatConversations, nil
 	}
 	return nil, &NotLoadedError{edge: "chat_conversations"}
@@ -225,7 +236,7 @@ func (e ProjectEdges) ChatConversationsOrErr() ([]*ChatConversation, error) {
 // NotificationRulesOrErr returns the NotificationRules value or an error if the edge
 // was not loaded in eager-loading.
 func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.NotificationRules, nil
 	}
 	return nil, &NotLoadedError{edge: "notification_rules"}
@@ -236,7 +247,7 @@ func (e ProjectEdges) NotificationRulesOrErr() ([]*NotificationRule, error) {
 func (e ProjectEdges) DefaultAgentProviderOrErr() (*AgentProvider, error) {
 	if e.DefaultAgentProvider != nil {
 		return e.DefaultAgentProvider, nil
-	} else if e.loadedTypes[15] {
+	} else if e.loadedTypes[16] {
 		return nil, &NotFoundError{label: agentprovider.Label}
 	}
 	return nil, &NotLoadedError{edge: "default_agent_provider"}
@@ -432,6 +443,11 @@ func (_m *Project) QueryAgentTraceEvents() *AgentTraceEventQuery {
 // QueryAgentStepEvents queries the "agent_step_events" edge of the Project entity.
 func (_m *Project) QueryAgentStepEvents() *AgentStepEventQuery {
 	return NewProjectClient(_m.config).QueryAgentStepEvents(_m)
+}
+
+// QueryDailyTokenUsage queries the "daily_token_usage" edge of the Project entity.
+func (_m *Project) QueryDailyTokenUsage() *ProjectDailyTokenUsageQuery {
+	return NewProjectClient(_m.config).QueryDailyTokenUsage(_m)
 }
 
 // QueryScheduledJobs queries the "scheduled_jobs" edge of the Project entity.

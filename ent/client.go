@@ -45,6 +45,7 @@ import (
 	"github.com/BetterAndBetterII/openase/ent/projectconversationrun"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationstepevent"
 	"github.com/BetterAndBetterII/openase/ent/projectconversationtraceevent"
+	"github.com/BetterAndBetterII/openase/ent/projectdailytokenusage"
 	"github.com/BetterAndBetterII/openase/ent/projectrepo"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecomment"
 	"github.com/BetterAndBetterII/openase/ent/projectupdatecommentrevision"
@@ -138,6 +139,8 @@ type Client struct {
 	ProjectConversationStepEvent *ProjectConversationStepEventClient
 	// ProjectConversationTraceEvent is the client for interacting with the ProjectConversationTraceEvent builders.
 	ProjectConversationTraceEvent *ProjectConversationTraceEventClient
+	// ProjectDailyTokenUsage is the client for interacting with the ProjectDailyTokenUsage builders.
+	ProjectDailyTokenUsage *ProjectDailyTokenUsageClient
 	// ProjectRepo is the client for interacting with the ProjectRepo builders.
 	ProjectRepo *ProjectRepoClient
 	// ProjectUpdateComment is the client for interacting with the ProjectUpdateComment builders.
@@ -234,6 +237,7 @@ func (c *Client) init() {
 	c.ProjectConversationRun = NewProjectConversationRunClient(c.config)
 	c.ProjectConversationStepEvent = NewProjectConversationStepEventClient(c.config)
 	c.ProjectConversationTraceEvent = NewProjectConversationTraceEventClient(c.config)
+	c.ProjectDailyTokenUsage = NewProjectDailyTokenUsageClient(c.config)
 	c.ProjectRepo = NewProjectRepoClient(c.config)
 	c.ProjectUpdateComment = NewProjectUpdateCommentClient(c.config)
 	c.ProjectUpdateCommentRevision = NewProjectUpdateCommentRevisionClient(c.config)
@@ -383,6 +387,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ProjectConversationRun:        NewProjectConversationRunClient(cfg),
 		ProjectConversationStepEvent:  NewProjectConversationStepEventClient(cfg),
 		ProjectConversationTraceEvent: NewProjectConversationTraceEventClient(cfg),
+		ProjectDailyTokenUsage:        NewProjectDailyTokenUsageClient(cfg),
 		ProjectRepo:                   NewProjectRepoClient(cfg),
 		ProjectUpdateComment:          NewProjectUpdateCommentClient(cfg),
 		ProjectUpdateCommentRevision:  NewProjectUpdateCommentRevisionClient(cfg),
@@ -459,6 +464,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ProjectConversationRun:        NewProjectConversationRunClient(cfg),
 		ProjectConversationStepEvent:  NewProjectConversationStepEventClient(cfg),
 		ProjectConversationTraceEvent: NewProjectConversationTraceEventClient(cfg),
+		ProjectDailyTokenUsage:        NewProjectDailyTokenUsageClient(cfg),
 		ProjectRepo:                   NewProjectRepoClient(cfg),
 		ProjectUpdateComment:          NewProjectUpdateCommentClient(cfg),
 		ProjectUpdateCommentRevision:  NewProjectUpdateCommentRevisionClient(cfg),
@@ -524,8 +530,8 @@ func (c *Client) Use(hooks ...Hook) {
 		c.Organization, c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
 		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
 		c.ProjectConversationRun, c.ProjectConversationStepEvent,
-		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
-		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectConversationTraceEvent, c.ProjectDailyTokenUsage, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Secret,
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
@@ -549,8 +555,8 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.Organization, c.OrganizationDailyTokenUsage, c.OrganizationInvitation,
 		c.OrganizationMembership, c.Project, c.ProjectConversationPrincipal,
 		c.ProjectConversationRun, c.ProjectConversationStepEvent,
-		c.ProjectConversationTraceEvent, c.ProjectRepo, c.ProjectUpdateComment,
-		c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
+		c.ProjectConversationTraceEvent, c.ProjectDailyTokenUsage, c.ProjectRepo,
+		c.ProjectUpdateComment, c.ProjectUpdateCommentRevision, c.ProjectUpdateThread,
 		c.ProjectUpdateThreadRevision, c.RoleBinding, c.ScheduledJob, c.Secret,
 		c.SecretBinding, c.Skill, c.SkillBlob, c.SkillVersion, c.SkillVersionFile,
 		c.Ticket, c.TicketComment, c.TicketCommentRevision, c.TicketDependency,
@@ -623,6 +629,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ProjectConversationStepEvent.mutate(ctx, m)
 	case *ProjectConversationTraceEventMutation:
 		return c.ProjectConversationTraceEvent.mutate(ctx, m)
+	case *ProjectDailyTokenUsageMutation:
+		return c.ProjectDailyTokenUsage.mutate(ctx, m)
 	case *ProjectRepoMutation:
 		return c.ProjectRepo.mutate(ctx, m)
 	case *ProjectUpdateCommentMutation:
@@ -5328,6 +5336,22 @@ func (c *ProjectClient) QueryAgentStepEvents(_m *Project) *AgentStepEventQuery {
 	return query
 }
 
+// QueryDailyTokenUsage queries the daily_token_usage edge of a Project.
+func (c *ProjectClient) QueryDailyTokenUsage(_m *Project) *ProjectDailyTokenUsageQuery {
+	query := (&ProjectDailyTokenUsageClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(project.Table, project.FieldID, id),
+			sqlgraph.To(projectdailytokenusage.Table, projectdailytokenusage.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, project.DailyTokenUsageTable, project.DailyTokenUsageColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryScheduledJobs queries the scheduled_jobs edge of a Project.
 func (c *ProjectClient) QueryScheduledJobs(_m *Project) *ScheduledJobQuery {
 	query := (&ScheduledJobClient{config: c.config}).Query()
@@ -5978,6 +6002,155 @@ func (c *ProjectConversationTraceEventClient) mutate(ctx context.Context, m *Pro
 		return (&ProjectConversationTraceEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown ProjectConversationTraceEvent mutation op: %q", m.Op())
+	}
+}
+
+// ProjectDailyTokenUsageClient is a client for the ProjectDailyTokenUsage schema.
+type ProjectDailyTokenUsageClient struct {
+	config
+}
+
+// NewProjectDailyTokenUsageClient returns a client for the ProjectDailyTokenUsage from the given config.
+func NewProjectDailyTokenUsageClient(c config) *ProjectDailyTokenUsageClient {
+	return &ProjectDailyTokenUsageClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `projectdailytokenusage.Hooks(f(g(h())))`.
+func (c *ProjectDailyTokenUsageClient) Use(hooks ...Hook) {
+	c.hooks.ProjectDailyTokenUsage = append(c.hooks.ProjectDailyTokenUsage, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `projectdailytokenusage.Intercept(f(g(h())))`.
+func (c *ProjectDailyTokenUsageClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ProjectDailyTokenUsage = append(c.inters.ProjectDailyTokenUsage, interceptors...)
+}
+
+// Create returns a builder for creating a ProjectDailyTokenUsage entity.
+func (c *ProjectDailyTokenUsageClient) Create() *ProjectDailyTokenUsageCreate {
+	mutation := newProjectDailyTokenUsageMutation(c.config, OpCreate)
+	return &ProjectDailyTokenUsageCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ProjectDailyTokenUsage entities.
+func (c *ProjectDailyTokenUsageClient) CreateBulk(builders ...*ProjectDailyTokenUsageCreate) *ProjectDailyTokenUsageCreateBulk {
+	return &ProjectDailyTokenUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ProjectDailyTokenUsageClient) MapCreateBulk(slice any, setFunc func(*ProjectDailyTokenUsageCreate, int)) *ProjectDailyTokenUsageCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ProjectDailyTokenUsageCreateBulk{err: fmt.Errorf("calling to ProjectDailyTokenUsageClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ProjectDailyTokenUsageCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ProjectDailyTokenUsageCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ProjectDailyTokenUsage.
+func (c *ProjectDailyTokenUsageClient) Update() *ProjectDailyTokenUsageUpdate {
+	mutation := newProjectDailyTokenUsageMutation(c.config, OpUpdate)
+	return &ProjectDailyTokenUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ProjectDailyTokenUsageClient) UpdateOne(_m *ProjectDailyTokenUsage) *ProjectDailyTokenUsageUpdateOne {
+	mutation := newProjectDailyTokenUsageMutation(c.config, OpUpdateOne, withProjectDailyTokenUsage(_m))
+	return &ProjectDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ProjectDailyTokenUsageClient) UpdateOneID(id uuid.UUID) *ProjectDailyTokenUsageUpdateOne {
+	mutation := newProjectDailyTokenUsageMutation(c.config, OpUpdateOne, withProjectDailyTokenUsageID(id))
+	return &ProjectDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ProjectDailyTokenUsage.
+func (c *ProjectDailyTokenUsageClient) Delete() *ProjectDailyTokenUsageDelete {
+	mutation := newProjectDailyTokenUsageMutation(c.config, OpDelete)
+	return &ProjectDailyTokenUsageDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ProjectDailyTokenUsageClient) DeleteOne(_m *ProjectDailyTokenUsage) *ProjectDailyTokenUsageDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ProjectDailyTokenUsageClient) DeleteOneID(id uuid.UUID) *ProjectDailyTokenUsageDeleteOne {
+	builder := c.Delete().Where(projectdailytokenusage.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ProjectDailyTokenUsageDeleteOne{builder}
+}
+
+// Query returns a query builder for ProjectDailyTokenUsage.
+func (c *ProjectDailyTokenUsageClient) Query() *ProjectDailyTokenUsageQuery {
+	return &ProjectDailyTokenUsageQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeProjectDailyTokenUsage},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ProjectDailyTokenUsage entity by its id.
+func (c *ProjectDailyTokenUsageClient) Get(ctx context.Context, id uuid.UUID) (*ProjectDailyTokenUsage, error) {
+	return c.Query().Where(projectdailytokenusage.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ProjectDailyTokenUsageClient) GetX(ctx context.Context, id uuid.UUID) *ProjectDailyTokenUsage {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryProject queries the project edge of a ProjectDailyTokenUsage.
+func (c *ProjectDailyTokenUsageClient) QueryProject(_m *ProjectDailyTokenUsage) *ProjectQuery {
+	query := (&ProjectClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(projectdailytokenusage.Table, projectdailytokenusage.FieldID, id),
+			sqlgraph.To(project.Table, project.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, projectdailytokenusage.ProjectTable, projectdailytokenusage.ProjectColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *ProjectDailyTokenUsageClient) Hooks() []Hook {
+	return c.hooks.ProjectDailyTokenUsage
+}
+
+// Interceptors returns the client interceptors.
+func (c *ProjectDailyTokenUsageClient) Interceptors() []Interceptor {
+	return c.inters.ProjectDailyTokenUsage
+}
+
+func (c *ProjectDailyTokenUsageClient) mutate(ctx context.Context, m *ProjectDailyTokenUsageMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ProjectDailyTokenUsageCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ProjectDailyTokenUsageUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ProjectDailyTokenUsageUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ProjectDailyTokenUsageDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ProjectDailyTokenUsage mutation op: %q", m.Op())
 	}
 }
 
@@ -10899,13 +11072,14 @@ type (
 		NotificationChannel, NotificationRule, Organization,
 		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
 		Project, ProjectConversationPrincipal, ProjectConversationRun,
-		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
-		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
-		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,
-		Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
-		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketRepoWorkspace, TicketStatus, User, UserGroupMembership, UserIdentity,
-		Workflow, WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Hook
+		ProjectConversationStepEvent, ProjectConversationTraceEvent,
+		ProjectDailyTokenUsage, ProjectRepo, ProjectUpdateComment,
+		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
+		RoleBinding, ScheduledJob, Secret, SecretBinding, Skill, SkillBlob,
+		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
+		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
+		WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Hook
 	}
 	inters struct {
 		ActivityEvent, Agent, AgentProvider, AgentRun, AgentStepEvent, AgentToken,
@@ -10915,13 +11089,13 @@ type (
 		NotificationChannel, NotificationRule, Organization,
 		OrganizationDailyTokenUsage, OrganizationInvitation, OrganizationMembership,
 		Project, ProjectConversationPrincipal, ProjectConversationRun,
-		ProjectConversationStepEvent, ProjectConversationTraceEvent, ProjectRepo,
-		ProjectUpdateComment, ProjectUpdateCommentRevision, ProjectUpdateThread,
-		ProjectUpdateThreadRevision, RoleBinding, ScheduledJob, Secret, SecretBinding,
-		Skill, SkillBlob, SkillVersion, SkillVersionFile, Ticket, TicketComment,
-		TicketCommentRevision, TicketDependency, TicketExternalLink, TicketRepoScope,
-		TicketRepoWorkspace, TicketStatus, User, UserGroupMembership, UserIdentity,
-		Workflow, WorkflowSkillBinding, WorkflowVersion,
-		WorkspaceInitLease []ent.Interceptor
+		ProjectConversationStepEvent, ProjectConversationTraceEvent,
+		ProjectDailyTokenUsage, ProjectRepo, ProjectUpdateComment,
+		ProjectUpdateCommentRevision, ProjectUpdateThread, ProjectUpdateThreadRevision,
+		RoleBinding, ScheduledJob, Secret, SecretBinding, Skill, SkillBlob,
+		SkillVersion, SkillVersionFile, Ticket, TicketComment, TicketCommentRevision,
+		TicketDependency, TicketExternalLink, TicketRepoScope, TicketRepoWorkspace,
+		TicketStatus, User, UserGroupMembership, UserIdentity, Workflow,
+		WorkflowSkillBinding, WorkflowVersion, WorkspaceInitLease []ent.Interceptor
 	}
 )

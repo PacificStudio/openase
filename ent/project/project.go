@@ -61,6 +61,8 @@ const (
 	EdgeAgentTraceEvents = "agent_trace_events"
 	// EdgeAgentStepEvents holds the string denoting the agent_step_events edge name in mutations.
 	EdgeAgentStepEvents = "agent_step_events"
+	// EdgeDailyTokenUsage holds the string denoting the daily_token_usage edge name in mutations.
+	EdgeDailyTokenUsage = "daily_token_usage"
 	// EdgeScheduledJobs holds the string denoting the scheduled_jobs edge name in mutations.
 	EdgeScheduledJobs = "scheduled_jobs"
 	// EdgeActivityEvents holds the string denoting the activity_events edge name in mutations.
@@ -145,6 +147,13 @@ const (
 	AgentStepEventsInverseTable = "agent_step_events"
 	// AgentStepEventsColumn is the table column denoting the agent_step_events relation/edge.
 	AgentStepEventsColumn = "project_id"
+	// DailyTokenUsageTable is the table that holds the daily_token_usage relation/edge.
+	DailyTokenUsageTable = "project_daily_token_usages"
+	// DailyTokenUsageInverseTable is the table name for the ProjectDailyTokenUsage entity.
+	// It exists in this package in order to avoid circular dependency with the "projectdailytokenusage" package.
+	DailyTokenUsageInverseTable = "project_daily_token_usages"
+	// DailyTokenUsageColumn is the table column denoting the daily_token_usage relation/edge.
+	DailyTokenUsageColumn = "project_id"
 	// ScheduledJobsTable is the table that holds the scheduled_jobs relation/edge.
 	ScheduledJobsTable = "scheduled_jobs"
 	// ScheduledJobsInverseTable is the table name for the ScheduledJob entity.
@@ -435,6 +444,20 @@ func ByAgentStepEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByDailyTokenUsageCount orders the results by daily_token_usage count.
+func ByDailyTokenUsageCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newDailyTokenUsageStep(), opts...)
+	}
+}
+
+// ByDailyTokenUsage orders the results by daily_token_usage terms.
+func ByDailyTokenUsage(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newDailyTokenUsageStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByScheduledJobsCount orders the results by scheduled_jobs count.
 func ByScheduledJobsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -579,6 +602,13 @@ func newAgentStepEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AgentStepEventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, AgentStepEventsTable, AgentStepEventsColumn),
+	)
+}
+func newDailyTokenUsageStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(DailyTokenUsageInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, DailyTokenUsageTable, DailyTokenUsageColumn),
 	)
 }
 func newScheduledJobsStep() *sqlgraph.Step {

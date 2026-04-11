@@ -42,6 +42,8 @@ type ProjectConversationRun struct {
 	RuntimeStartedAt *time.Time `json:"runtime_started_at,omitempty"`
 	// TerminalAt holds the value of the "terminal_at" field.
 	TerminalAt *time.Time `json:"terminal_at,omitempty"`
+	// SnapshotMaterializedAt holds the value of the "snapshot_materialized_at" field.
+	SnapshotMaterializedAt *time.Time `json:"snapshot_materialized_at,omitempty"`
 	// LastError holds the value of the "last_error" field.
 	LastError *string `json:"last_error,omitempty"`
 	// LastHeartbeatAt holds the value of the "last_heartbeat_at" field.
@@ -90,7 +92,7 @@ func (*ProjectConversationRun) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullInt64)
 		case projectconversationrun.FieldStatus, projectconversationrun.FieldSessionID, projectconversationrun.FieldWorkspacePath, projectconversationrun.FieldProviderThreadID, projectconversationrun.FieldProviderTurnID, projectconversationrun.FieldLastError, projectconversationrun.FieldCurrentStepStatus, projectconversationrun.FieldCurrentStepSummary:
 			values[i] = new(sql.NullString)
-		case projectconversationrun.FieldRuntimeStartedAt, projectconversationrun.FieldTerminalAt, projectconversationrun.FieldLastHeartbeatAt, projectconversationrun.FieldCurrentStepChangedAt, projectconversationrun.FieldCreatedAt:
+		case projectconversationrun.FieldRuntimeStartedAt, projectconversationrun.FieldTerminalAt, projectconversationrun.FieldSnapshotMaterializedAt, projectconversationrun.FieldLastHeartbeatAt, projectconversationrun.FieldCurrentStepChangedAt, projectconversationrun.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
 		case projectconversationrun.FieldID, projectconversationrun.FieldPrincipalID, projectconversationrun.FieldConversationID, projectconversationrun.FieldProjectID, projectconversationrun.FieldProviderID:
 			values[i] = new(uuid.UUID)
@@ -193,6 +195,13 @@ func (_m *ProjectConversationRun) assignValues(columns []string, values []any) e
 			} else if value.Valid {
 				_m.TerminalAt = new(time.Time)
 				*_m.TerminalAt = value.Time
+			}
+		case projectconversationrun.FieldSnapshotMaterializedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field snapshot_materialized_at", values[i])
+			} else if value.Valid {
+				_m.SnapshotMaterializedAt = new(time.Time)
+				*_m.SnapshotMaterializedAt = value.Time
 			}
 		case projectconversationrun.FieldLastError:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -378,6 +387,11 @@ func (_m *ProjectConversationRun) String() string {
 	builder.WriteString(", ")
 	if v := _m.TerminalAt; v != nil {
 		builder.WriteString("terminal_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.SnapshotMaterializedAt; v != nil {
+		builder.WriteString("snapshot_materialized_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
 	builder.WriteString(", ")

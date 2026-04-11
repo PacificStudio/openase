@@ -545,7 +545,7 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 		t.Fatalf("create run three: %v", err)
 	}
 
-	if _, err := client.ProjectConversationRun.Create().
+	conversationRun, err := client.ProjectConversationRun.Create().
 		SetPrincipalID(uuid.New()).
 		SetConversationID(uuid.New()).
 		SetProjectID(project.ID).
@@ -557,7 +557,8 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 		SetCachedInputTokens(2).
 		SetReasoningTokens(1).
 		SetTotalTokens(9).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create project conversation run: %v", err)
 	}
 
@@ -640,6 +641,13 @@ func TestOrganizationTokenUsageRouteMaterializesBackfillsAndAvoidsDoubleCount(t 
 	}
 	if runThreeAfter.SnapshotMaterializedAt == nil {
 		t.Fatalf("expected run three snapshot to be marked materialized, got %+v", runThreeAfter)
+	}
+	conversationRunAfter, err := client.ProjectConversationRun.Get(ctx, conversationRun.ID)
+	if err != nil {
+		t.Fatalf("reload project conversation run: %v", err)
+	}
+	if conversationRunAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected project conversation run snapshot to be marked materialized, got %+v", conversationRunAfter)
 	}
 }
 
@@ -771,7 +779,7 @@ func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing
 	dayOne := time.Date(2026, 3, 29, 9, 0, 0, 0, time.UTC)
 	dayTwo := time.Date(2026, 3, 30, 11, 0, 0, 0, time.UTC)
 
-	if _, err := client.AgentRun.Create().
+	alphaAgentRun, err := client.AgentRun.Create().
 		SetAgentID(alphaAgent.ID).
 		SetWorkflowID(alphaWorkflow.ID).
 		SetTicketID(makeTicket(projectAlpha.ID, alphaTodoID, "ASE-301").ID).
@@ -783,10 +791,11 @@ func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing
 		SetCachedInputTokens(1).
 		SetReasoningTokens(1).
 		SetTotalTokens(12).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create alpha agent run: %v", err)
 	}
-	if _, err := client.ProjectConversationRun.Create().
+	alphaConversationDayOne, err := client.ProjectConversationRun.Create().
 		SetPrincipalID(uuid.New()).
 		SetConversationID(uuid.New()).
 		SetProjectID(projectAlpha.ID).
@@ -798,10 +807,11 @@ func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing
 		SetCachedInputTokens(1).
 		SetReasoningTokens(1).
 		SetTotalTokens(8).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create alpha conversation run day one: %v", err)
 	}
-	if _, err := client.ProjectConversationRun.Create().
+	alphaConversationDayTwo, err := client.ProjectConversationRun.Create().
 		SetPrincipalID(uuid.New()).
 		SetConversationID(uuid.New()).
 		SetProjectID(projectAlpha.ID).
@@ -813,7 +823,8 @@ func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing
 		SetCachedInputTokens(0).
 		SetReasoningTokens(1).
 		SetTotalTokens(4).
-		Save(ctx); err != nil {
+		Save(ctx)
+	if err != nil {
 		t.Fatalf("create alpha conversation run day two: %v", err)
 	}
 	if _, err := client.AgentRun.Create().
@@ -878,6 +889,42 @@ func TestProjectTokenUsageRouteAggregatesAgentRunsAndConversationRuns(t *testing
 	if payload.Summary.PeakDay == nil || payload.Summary.PeakDay.Date != "2026-03-29" || payload.Summary.PeakDay.TotalTokens != 20 {
 		t.Fatalf("unexpected project peak day: %+v", payload.Summary.PeakDay)
 	}
+
+	projectRows, err := client.ProjectDailyTokenUsage.Query().All(ctx)
+	if err != nil {
+		t.Fatalf("query project daily usage rows: %v", err)
+	}
+	if len(projectRows) != 2 {
+		t.Fatalf("expected 2 persisted project daily usage rows, got %+v", projectRows)
+	}
+	if row := findProjectUsageRowByDate(t, projectRows, dayOne); row.TotalTokens != 20 || row.FinalizedRunCount != 2 || row.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected materialized project day one row: %+v", row)
+	}
+	if row := findProjectUsageRowByDate(t, projectRows, dayTwo); row.TotalTokens != 4 || row.FinalizedRunCount != 1 || row.SourceMode.String() != "materialized" {
+		t.Fatalf("unexpected materialized project day two row: %+v", row)
+	}
+
+	alphaAgentRunAfter, err := client.AgentRun.Get(ctx, alphaAgentRun.ID)
+	if err != nil {
+		t.Fatalf("reload alpha agent run: %v", err)
+	}
+	if alphaAgentRunAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected alpha agent run snapshot to be marked materialized, got %+v", alphaAgentRunAfter)
+	}
+	alphaConversationDayOneAfter, err := client.ProjectConversationRun.Get(ctx, alphaConversationDayOne.ID)
+	if err != nil {
+		t.Fatalf("reload alpha day one conversation run: %v", err)
+	}
+	if alphaConversationDayOneAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected alpha day one conversation run snapshot to be marked materialized, got %+v", alphaConversationDayOneAfter)
+	}
+	alphaConversationDayTwoAfter, err := client.ProjectConversationRun.Get(ctx, alphaConversationDayTwo.ID)
+	if err != nil {
+		t.Fatalf("reload alpha day two conversation run: %v", err)
+	}
+	if alphaConversationDayTwoAfter.SnapshotMaterializedAt == nil {
+		t.Fatalf("expected alpha day two conversation run snapshot to be marked materialized, got %+v", alphaConversationDayTwoAfter)
+	}
 }
 
 func findUsageRowByDate(t *testing.T, rows []*ent.OrganizationDailyTokenUsage, day time.Time) *ent.OrganizationDailyTokenUsage {
@@ -891,6 +938,20 @@ func findUsageRowByDate(t *testing.T, rows []*ent.OrganizationDailyTokenUsage, d
 	}
 
 	t.Fatalf("daily usage row for %s not found in %+v", want, rows)
+	return nil
+}
+
+func findProjectUsageRowByDate(t *testing.T, rows []*ent.ProjectDailyTokenUsage, day time.Time) *ent.ProjectDailyTokenUsage {
+	t.Helper()
+
+	want := day.UTC().Format("2006-01-02")
+	for _, row := range rows {
+		if row != nil && row.UsageDate.UTC().Format("2006-01-02") == want {
+			return row
+		}
+	}
+
+	t.Fatalf("project daily usage row for %s not found in %+v", want, rows)
 	return nil
 }
 
