@@ -145,8 +145,11 @@ jobs:
 
           cached_go_bin="/home/docker/actions-runner/_work/_tool/go/1.26.1/x64/bin"
           if [[ -d "${cached_go_bin}" ]]; then
+            export PATH="${cached_go_bin}:${PATH}"
             echo "${cached_go_bin}" >> "${GITHUB_PATH}"
           fi
+          export GOTOOLCHAIN=local
+          echo "GOTOOLCHAIN=local" >> "${GITHUB_ENV}"
 
           command -v go
           go version
