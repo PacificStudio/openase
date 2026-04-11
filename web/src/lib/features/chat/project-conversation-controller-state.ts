@@ -119,7 +119,8 @@ export function isProjectConversationTabPending(tab: ProjectConversationTabState
     tab.phase === 'creating_conversation' ||
     tab.phase === 'connecting_stream' ||
     tab.phase === 'submitting_turn' ||
-    tab.phase === 'awaiting_reply'
+    tab.phase === 'awaiting_reply' ||
+    tab.phase === 'stopping_turn'
   )
 }
 

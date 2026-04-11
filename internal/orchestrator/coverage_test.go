@@ -455,7 +455,7 @@ func TestOrchestratorGuardAndConstructorCoverage(t *testing.T) {
 		t.Fatalf("Scheduler.RunTick(unavailable) = %+v, %v", report, err)
 	}
 
-	retryService := NewRetryService(nil, nil)
+	retryService := NewRetryService(nil, nil, nil)
 	if retryService == nil || retryService.logger == nil || retryService.now == nil {
 		t.Fatalf("NewRetryService() = %+v", retryService)
 	}

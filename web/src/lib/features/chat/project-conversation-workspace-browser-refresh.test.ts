@@ -1,15 +1,13 @@
-/* eslint-disable max-lines */
-import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
-  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
 } = vi.hoisted(() => ({
-  createProjectConversationTerminalSession: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
@@ -17,7 +15,6 @@ const {
 }))
 
 vi.mock('$lib/api/chat', () => ({
-  createProjectConversationTerminalSession,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
@@ -51,96 +48,18 @@ vi.mock('@xterm/addon-fit', () => ({
 }))
 
 vi.mock('@xterm/xterm/css/xterm.css', () => ({}))
-
-import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'
-
-const workspaceMetadata = {
-  conversationId: 'conversation-1',
-  available: true,
-  workspacePath: '/tmp/conversation-1',
-  repos: [
-    {
-      name: 'openase',
-      path: 'services/openase',
-      branch: 'agent/conv-123',
-      headCommit: '123456789abc',
-      headSummary: 'Add workspace browser scaffolding',
-      dirty: true,
-      filesChanged: 1,
-      added: 2,
-      removed: 0,
-    },
-  ],
-}
-
-const workspaceDiff = {
-  conversationId: 'conversation-1',
-  workspacePath: '/tmp/conversation-1',
-  dirty: true,
-  reposChanged: 1,
-  filesChanged: 1,
-  added: 2,
-  removed: 0,
-  repos: [
-    {
-      name: 'openase',
-      path: 'services/openase',
-      branch: 'agent/conv-123',
-      dirty: true,
-      filesChanged: 1,
-      added: 2,
-      removed: 0,
-      files: [{ path: 'README.md', status: 'modified', added: 2, removed: 0 }],
-    },
-  ],
-} satisfies ProjectConversationWorkspaceDiff
-
-class MockWebSocket {
-  static CONNECTING = 0
-  static OPEN = 1
-  static CLOSING = 2
-  static CLOSED = 3
-
-  readyState = MockWebSocket.OPEN
-  onmessage: ((event: { data: string }) => void) | null = null
-  onerror: (() => void) | null = null
-  onclose: (() => void) | null = null
-
-  constructor(public readonly url: string) {}
-
-  send() {}
-
-  close() {
-    this.readyState = MockWebSocket.CLOSED
-    this.onclose?.()
-  }
-}
-
-function mockWorkspaceMetadata() {
-  getProjectConversationWorkspace.mockResolvedValue({
-    workspace: structuredClone(workspaceMetadata),
-  })
-}
-
-function deferredPromise<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((nextResolve, nextReject) => {
-    resolve = nextResolve
-    reject = nextReject
-  })
-  return { promise, resolve, reject }
-}
+import {
+  deferredPromise,
+  ensureResizeObserver,
+  mockWorkspaceMetadata,
+  workspaceMetadata,
+  workspaceDiff,
+} from './project-conversation-workspace-browser.test-helpers'
 
 describe('ProjectConversationWorkspaceBrowser', () => {
   beforeAll(() => {
-    globalThis.ResizeObserver ??= class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-    vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket)
+    ensureResizeObserver()
   })
 
   afterEach(() => {
@@ -148,351 +67,8 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     vi.clearAllMocks()
   })
 
-  it('reloads workspace metadata after the parent diff refresh completes', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockResolvedValue({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
-      },
-    })
-    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
-      filePreview: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        sizeBytes: 64,
-        mediaType: 'text/plain',
-        previewKind: 'text',
-        truncated: false,
-        content: 'line one\nline two\n',
-      },
-    })
-    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
-      filePatch: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        status: 'modified',
-        diffKind: 'text',
-        truncated: false,
-        diff: '@@ -1 +1,2 @@\n line one\n+line two\n',
-      },
-    })
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(1))
-
-    await view.rerender({
-      conversationId: 'conversation-1',
-      workspaceDiff,
-      workspaceDiffLoading: true,
-    })
-    await view.rerender({
-      conversationId: 'conversation-1',
-      workspaceDiff,
-      workspaceDiffLoading: false,
-    })
-
-    await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(2))
-  })
-
-  it('lists root entries, expands directories, and shows the selected repo branch info', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockImplementation(async (_conversationId, input) => ({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: input.path,
-        entries:
-          input.path === ''
-            ? [
-                { path: 'src', name: 'src', kind: 'directory', sizeBytes: 0 },
-                { path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 },
-              ]
-            : [{ path: 'src/main.ts', name: 'main.ts', kind: 'file', sizeBytes: 42 }],
-      },
-    }))
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    await waitFor(() => {
-      expect(view.container.textContent).not.toContain('Loading workspace…')
-    })
-    const explorerList = view.getByTestId('workspace-browser-explorer-list')
-    await within(explorerList).findByRole('button', { name: /README\.md/ }, { timeout: 3000 })
-    expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
-      repoPath: 'services/openase',
-      path: '',
-    })
-    expect(view.container.textContent).toContain('agent/conv-123')
-    expect(view.container.textContent).toContain('123456789abc')
-
-    await fireEvent.click(view.getByRole('button', { name: 'src' }))
-
-    await waitFor(() =>
-      expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'src',
-      }),
-    )
-    await view.findByRole('button', { name: 'main.ts' }, { timeout: 3000 })
-  })
-
-  it('loads and renders file previews when a file is selected from the explorer', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockResolvedValue({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 31 }],
-      },
-    })
-    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
-      filePreview: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        sizeBytes: 31,
-        mediaType: 'text/plain',
-        previewKind: 'text',
-        truncated: false,
-        content: 'line alpha\nline beta\n',
-      },
-    })
-    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
-      filePatch: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'README.md',
-        status: 'modified',
-        diffKind: 'binary',
-        truncated: false,
-        diff: '',
-      },
-    })
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    await waitFor(() => {
-      expect(view.container.textContent).not.toContain('Loading workspace…')
-    })
-    const explorerList = view.getByTestId('workspace-browser-explorer-list')
-    await fireEvent.click(
-      await within(explorerList).findByRole('button', { name: /README\.md/ }, { timeout: 3000 }),
-    )
-
-    await waitFor(() => {
-      expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'README.md',
-      })
-      expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'README.md',
-      })
-    })
-
-    expect(view.container.textContent).toContain('README.md')
-    expect(view.container.textContent).toContain('text/plain')
-    expect(view.container.textContent).toContain('line alpha')
-    expect(view.container.textContent).toContain('line beta')
-    expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.getByTestId('workspace-browser-detail-content').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.container.querySelector('.code-viewer')?.className).toContain('overflow-auto')
-    expect(view.getByTestId('code-viewer-content').className).toContain('w-max')
-  })
-
-  it('renders git changes and opens a changed file from the status list', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockResolvedValue({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [],
-      },
-    })
-    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
-      filePreview: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-        sizeBytes: 55,
-        mediaType: 'text/plain',
-        previewKind: 'text',
-        truncated: false,
-        content: 'export const ready = true;\n',
-      },
-    })
-    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
-      filePatch: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-        status: 'added',
-        diffKind: 'text',
-        truncated: false,
-        diff: '@@ -0,0 +1 @@\n+export const ready = true;\n',
-      },
-    })
-
-    const gitStatusDiff = {
-      ...workspaceDiff,
-      repos: [
-        {
-          ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', added: 5, removed: 0 }],
-        },
-      ],
-    } satisfies ProjectConversationWorkspaceDiff
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff: gitStatusDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    const changeButton = await view.findByRole('button', { name: /new\.ts/i }, { timeout: 3000 })
-    expect(view.container.textContent).toContain('Changes')
-    expect(changeButton.textContent).toContain('+5 -0')
-    expect(changeButton.textContent).toContain('A')
-
-    await fireEvent.click(changeButton)
-
-    await waitFor(() => {
-      expect(getProjectConversationWorkspaceFilePreview).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-      })
-      expect(getProjectConversationWorkspaceFilePatch).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-      })
-    })
-
-    expect(view.container.textContent).toContain('added')
-    expect(view.container.textContent).toContain('export const ready = true;')
-    expect(view.getByTestId('workspace-browser-detail-panel').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.getByTestId('workspace-browser-detail-content').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.getByTestId('workspace-browser-detail-scroll-frame').className).toContain(
-      'overflow-hidden',
-    )
-    expect(view.container.querySelector('.diff-viewer')?.className).toContain('overflow-auto')
-  })
-
-  it('expands the explorer tree to the selected changed file from the changes list', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockImplementation(async (_conversationId, input) => ({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: input.path,
-        entries:
-          input.path === ''
-            ? [
-                { path: 'src', name: 'src', kind: 'directory', sizeBytes: 0 },
-                { path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 },
-              ]
-            : [{ path: 'src/new.ts', name: 'new.ts', kind: 'file', sizeBytes: 55 }],
-      },
-    }))
-    getProjectConversationWorkspaceFilePreview.mockResolvedValue({
-      filePreview: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-        sizeBytes: 55,
-        mediaType: 'text/plain',
-        previewKind: 'text',
-        truncated: false,
-        content: 'export const ready = true;\n',
-      },
-    })
-    getProjectConversationWorkspaceFilePatch.mockResolvedValue({
-      filePatch: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: 'src/new.ts',
-        status: 'added',
-        diffKind: 'text',
-        truncated: false,
-        diff: '@@ -0,0 +1 @@\n+export const ready = true;\n',
-      },
-    })
-
-    const gitStatusDiff = {
-      ...workspaceDiff,
-      repos: [
-        {
-          ...workspaceDiff.repos[0],
-          files: [{ path: 'src/new.ts', status: 'added', added: 5, removed: 0 }],
-        },
-      ],
-    } satisfies ProjectConversationWorkspaceDiff
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff: gitStatusDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    const changeButton = await view.findByRole('button', { name: /new\.ts/i })
-    expect(view.getAllByRole('button', { name: /new\.ts/i })).toHaveLength(1)
-
-    await fireEvent.click(changeButton)
-
-    await waitFor(() => {
-      expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/openase',
-        path: 'src',
-      })
-      expect(view.getAllByRole('button', { name: /new\.ts/i })).toHaveLength(2)
-    })
-
-    expect(view.container.textContent).toContain('src')
-    expect(view.container.textContent).toContain('export const ready = true;')
-  })
-
   it('preserves the expanded directory and selected file when the toolbar refresh is clicked', async () => {
-    mockWorkspaceMetadata()
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
     listProjectConversationWorkspaceTree.mockImplementation(async (_conversationId, input) => ({
       workspaceTree: {
         conversationId: 'conversation-1',
@@ -565,7 +141,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   })
 
   it('keeps tree and file DOM stable when a refresh returns identical data', async () => {
-    mockWorkspaceMetadata()
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
     listProjectConversationWorkspaceTree.mockImplementation(async (_conversationId, input) => ({
       workspaceTree: {
         conversationId: 'conversation-1',
@@ -631,7 +207,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   })
 
   it('does not show extra tree or file loading chrome during a same-data refresh', async () => {
-    mockWorkspaceMetadata()
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
 
     const refreshDir = deferredPromise<{
       workspaceTree: {
@@ -811,7 +387,7 @@ describe('ProjectConversationWorkspaceBrowser', () => {
   })
 
   it('ignores stale file preview responses when the user selects a newer file', async () => {
-    mockWorkspaceMetadata()
+    mockWorkspaceMetadata(getProjectConversationWorkspace)
     listProjectConversationWorkspaceTree.mockResolvedValue({
       workspaceTree: {
         conversationId: 'conversation-1',
@@ -1037,49 +613,5 @@ describe('ProjectConversationWorkspaceBrowser', () => {
 
     expect(view.container.textContent).toContain('guide.md')
     expect(view.queryByRole('button', { name: /README\.md/ })).toBeNull()
-  })
-
-  it('keeps the bottom terminal panel stretched to the configured height', async () => {
-    mockWorkspaceMetadata()
-    listProjectConversationWorkspaceTree.mockResolvedValue({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
-      },
-    })
-    createProjectConversationTerminalSession.mockResolvedValue({
-      terminalSession: {
-        id: 'terminal-1',
-        mode: 'shell',
-        cwd: '/tmp/conversation-1',
-        wsPath: '/api/v1/chat/conversations/conversation-1/terminal-sessions/terminal-1/attach',
-        attachToken: 'attach-token-1',
-      },
-    })
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(1))
-    await fireEvent.click(view.getByRole('button', { name: 'Toggle terminal' }))
-
-    const viewport = await view.findByTestId('workspace-terminal-instance')
-    const panelContent = viewport.parentElement as HTMLElement
-    const panelRoot = panelContent.parentElement as HTMLElement
-    const panelWrapper = panelRoot.parentElement as HTMLElement
-
-    expect(panelRoot.className).toContain('h-full')
-    expect(panelWrapper.className).toContain('flex')
-    expect(panelWrapper.className).toContain('min-h-0')
-    expect(panelWrapper.className).toContain('shrink-0')
-    expect(panelWrapper.className).toContain('overflow-hidden')
-    expect(panelWrapper.getAttribute('style')).toContain('height: 260px')
   })
 })

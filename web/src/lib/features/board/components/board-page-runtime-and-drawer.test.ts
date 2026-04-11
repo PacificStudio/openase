@@ -1,4 +1,3 @@
-/* eslint-disable max-lines */
 import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 

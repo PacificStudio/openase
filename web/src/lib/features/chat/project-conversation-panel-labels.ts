@@ -135,6 +135,8 @@ export function getProjectConversationStatusMessage(
       return 'Sending your message…'
     case 'awaiting_reply':
       return 'Waiting for the assistant reply…'
+    case 'stopping_turn':
+      return 'Stopping the current reply…'
     case 'resetting':
       return 'Resetting the current conversation…'
     default:

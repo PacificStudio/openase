@@ -86,6 +86,12 @@
   )
   const focusCard = $derived(focusForSend ? describeProjectAIFocus(focusForSend) : null)
   const focusInterruptTarget = $derived(deriveFocusInterruptTarget(focusForSend))
+  const showStop = $derived(
+    Boolean(activeTab?.conversationId) &&
+      !controller.hasPendingInterrupt &&
+      (phase === 'connecting_stream' || phase === 'awaiting_reply' || phase === 'stopping_turn'),
+  )
+  const stopDisabled = $derived(phase === 'stopping_turn')
 
   $effect(() =>
     watchProjectConversationProviders({
@@ -283,7 +289,10 @@
     {inputDisabled}
     {sendDisabled}
     {canQueueTurn}
+    {showStop}
+    {stopDisabled}
     onFocusAction={handleInterruptFocusedAgent}
+    onStop={() => void controller.stopTurn()}
     onDismissFocus={() => {
       suppressedFocusKey = effectiveFocusKey
     }}

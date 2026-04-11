@@ -261,6 +261,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			body:   `{"message":"continue"}`,
 		},
 		{
+			name:   "interrupt turn",
+			method: http.MethodPost,
+			target: "/api/v1/chat/conversations/" + conversationID + "/interrupt-turn",
+		},
+		{
 			name:   "close runtime",
 			method: http.MethodDelete,
 			target: "/api/v1/chat/conversations/" + conversationID + "/runtime",
@@ -1602,6 +1607,7 @@ func TestProjectConversationMuxStreamRouteStreamsPeriodicKeepalives(t *testing.T
 	testServer := httptest.NewServer(server.Handler())
 	defer testServer.Close()
 
+	// Keep the request open long enough for the SSE handshake and repeated keepalives under load.
 	streamCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 

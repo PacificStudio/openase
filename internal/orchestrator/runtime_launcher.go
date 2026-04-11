@@ -614,7 +614,7 @@ func (l *RuntimeLauncher) markLaunchFailed(ctx context.Context, agentID uuid.UUI
 		HookName: infrahook.TicketHookOnError,
 	})
 
-	retrySvc := NewRetryService(l.client, l.logger)
+	retrySvc := NewRetryService(l.client, l.logger, l.events)
 	retrySvc.now = l.now
 	if _, err := retrySvc.MarkAttemptFailed(ctx, ticketID); err != nil {
 		return fmt.Errorf("release failed launch claim for ticket %s: %w", ticketID, err)
@@ -1512,15 +1512,7 @@ func (l *RuntimeLauncher) buildDeveloperInstructions(
 		return "", fmt.Errorf("render workflow harness for agent launch: %w", err)
 	}
 
-	rendered = strings.TrimSpace(rendered)
-	platformContract = strings.TrimSpace(platformContract)
-	if platformContract == "" {
-		return rendered, nil
-	}
-	if rendered == "" {
-		return platformContract, nil
-	}
-	return rendered + "\n\n" + platformContract, nil
+	return composeWorkflowDeveloperInstructions(rendered, platformContract), nil
 }
 
 type runtimeLaunchContext struct {

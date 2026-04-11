@@ -146,27 +146,26 @@ func buildRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {
 }
 
 func supportedNotificationTopics() []provider.Topic {
-	return []provider.Topic{ticketEventsTopic, agentEventsTopic, activityEventsTopic}
+	seen := map[string]struct{}{}
+	for _, item := range domain.SupportedRuleEventContracts() {
+		seen[item.Topic] = struct{}{}
+	}
+	topics := make([]provider.Topic, 0, len(seen))
+	for _, topic := range []provider.Topic{ticketEventsTopic, agentEventsTopic, activityEventsTopic} {
+		if _, ok := seen[topic.String()]; ok {
+			topics = append(topics, topic)
+			delete(seen, topic.String())
+		}
+	}
+	for topic := range seen {
+		topics = append(topics, provider.MustParseTopic(topic))
+	}
+	return topics
 }
 
 func notificationEventTopicAllowed(eventType domain.RuleEventType, topic provider.Topic) bool {
-	switch eventType {
-	case domain.RuleEventTypeTicketCreated,
-		domain.RuleEventTypeTicketUpdated,
-		domain.RuleEventTypeTicketStatusChanged:
-		return topic == ticketEventsTopic
-	case domain.RuleEventTypeAgentClaimed,
-		domain.RuleEventTypeAgentFailed:
-		return topic == agentEventsTopic
-	case domain.RuleEventTypeTicketRetryPaused,
-		domain.RuleEventTypeHookFailed,
-		domain.RuleEventTypeHookPassed,
-		domain.RuleEventTypePROpened,
-		domain.RuleEventTypePRClosed:
-		return topic == activityEventsTopic
-	default:
-		return false
-	}
+	expectedTopic, ok := domain.RuleEventTopic(eventType)
+	return ok && topic.String() == expectedTopic
 }
 
 func buildTicketRuleContext(event provider.Event) (uuid.UUID, map[string]any, error) {

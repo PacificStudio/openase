@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { formatBytes, formatCount, formatCurrency } from '$lib/utils'
   import { appStore } from '$lib/stores/app.svelte'
+  import { formatBytes, formatCount, formatCurrency } from '$lib/utils'
   import { Skeleton } from '$ui/skeleton'
   import ActivityFeedPanel from './activity-feed-panel.svelte'
   import HRAdvisorPanel from './hr-advisor-panel.svelte'
@@ -10,6 +10,7 @@
   import { OnboardingPanel } from '$lib/features/onboarding'
   import * as Popover from '$ui/popover'
   import { Bot, Coins, Cpu, MessageSquare, Ticket } from '@lucide/svelte'
+  import ProjectTokenUsagePanel from './project-token-usage-panel.svelte'
 
   const controller = createOrgDashboardController()
 </script>
@@ -219,6 +220,8 @@
             {/if}
           {/if}
         </div>
+
+        <ProjectTokenUsagePanel />
 
         {#if controller.loading}
           <div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
