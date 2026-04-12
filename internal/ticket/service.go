@@ -40,7 +40,13 @@ type RunLifecycleHookInput struct {
 }
 
 type Service struct {
-	repo            Repository
+	activityRepo    ActivityRepository
+	queryRepo       QueryRepository
+	commandRepo     CommandRepository
+	linkRepo        LinkRepository
+	commentRepo     CommentRepository
+	usageRepo       UsageRepository
+	runtimeRepo     RuntimeRepository
 	logger          *slog.Logger
 	sshPool         ticketHookSSHPool
 	transport       ticketHookTransportResolver
@@ -58,10 +64,16 @@ type loadedTicketHookRuntime struct {
 	env         infrahook.Env
 }
 
-func NewService(repo Repository) *Service {
+func NewService(deps Dependencies) *Service {
 	return &Service{
-		repo:   repo,
-		logger: slog.Default().With("component", "ticket-service"),
+		activityRepo: deps.Activity,
+		queryRepo:    deps.Query,
+		commandRepo:  deps.Command,
+		linkRepo:     deps.Link,
+		commentRepo:  deps.Comment,
+		usageRepo:    deps.Usage,
+		runtimeRepo:  deps.Runtime,
+		logger:       slog.Default().With("component", "ticket-service"),
 	}
 }
 
@@ -95,7 +107,7 @@ func (s *Service) ConfigureActivityEmitter(emitter *activitysvc.Emitter) {
 }
 
 func (s *Service) RecordActivityEvent(ctx context.Context, input RecordActivityEventInput) (catalogdomain.ActivityEvent, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.activityRepo == nil {
 		return catalogdomain.ActivityEvent{}, ErrUnavailable
 	}
 	if input.ProjectID == uuid.Nil {
@@ -112,32 +124,32 @@ func (s *Service) RecordActivityEvent(ctx context.Context, input RecordActivityE
 	input.Message = strings.TrimSpace(input.Message)
 	input.Metadata = cloneAnyMap(input.Metadata)
 
-	return s.repo.RecordActivityEvent(ctx, input)
+	return s.activityRepo.RecordActivityEvent(ctx, input)
 }
 
 func (s *Service) List(ctx context.Context, input ListInput) ([]Ticket, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.queryRepo == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.List(ctx, input)
+	return s.queryRepo.List(ctx, input)
 }
 
 func (s *Service) ListArchived(ctx context.Context, input ArchivedListInput) (ArchivedListResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.queryRepo == nil {
 		return ArchivedListResult{}, ErrUnavailable
 	}
-	return s.repo.ListArchived(ctx, input)
+	return s.queryRepo.ListArchived(ctx, input)
 }
 
 func (s *Service) Get(ctx context.Context, ticketID uuid.UUID) (Ticket, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.queryRepo == nil {
 		return Ticket{}, ErrUnavailable
 	}
-	return s.repo.Get(ctx, ticketID)
+	return s.queryRepo.Get(ctx, ticketID)
 }
 
 func (s *Service) GetPickupDiagnosis(ctx context.Context, ticketID uuid.UUID) (PickupDiagnosis, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.runtimeRepo == nil {
 		return PickupDiagnosis{
 			State:                PickupDiagnosisStateUnavailable,
 			PrimaryReasonCode:    PickupDiagnosisReasonSchedulerUnavailable,
@@ -146,21 +158,21 @@ func (s *Service) GetPickupDiagnosis(ctx context.Context, ticketID uuid.UUID) (P
 			BlockedBy:            []PickupDiagnosisBlockedTicket{},
 		}, ErrUnavailable
 	}
-	return s.repo.GetPickupDiagnosis(ctx, ticketID)
+	return s.runtimeRepo.GetPickupDiagnosis(ctx, ticketID)
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) (Ticket, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commandRepo == nil {
 		return Ticket{}, ErrUnavailable
 	}
-	return s.repo.Create(ctx, input)
+	return s.commandRepo.Create(ctx, input)
 }
 
 func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commandRepo == nil {
 		return Ticket{}, ErrUnavailable
 	}
-	result, err := s.repo.Update(ctx, input)
+	result, err := s.commandRepo.Update(ctx, input)
 	if err != nil {
 		return Ticket{}, err
 	}
@@ -177,77 +189,77 @@ func (s *Service) Update(ctx context.Context, input UpdateInput) (Ticket, error)
 }
 
 func (s *Service) ResumeRetry(ctx context.Context, input ResumeRetryInput) (Ticket, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commandRepo == nil {
 		return Ticket{}, ErrUnavailable
 	}
-	return s.repo.ResumeRetry(ctx, input)
+	return s.commandRepo.ResumeRetry(ctx, input)
 }
 
 func (s *Service) AddDependency(ctx context.Context, input AddDependencyInput) (Dependency, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.linkRepo == nil {
 		return Dependency{}, ErrUnavailable
 	}
-	return s.repo.AddDependency(ctx, input)
+	return s.linkRepo.AddDependency(ctx, input)
 }
 
 func (s *Service) RemoveDependency(ctx context.Context, ticketID uuid.UUID, dependencyID uuid.UUID) (DeleteDependencyResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.linkRepo == nil {
 		return DeleteDependencyResult{}, ErrUnavailable
 	}
-	return s.repo.RemoveDependency(ctx, ticketID, dependencyID)
+	return s.linkRepo.RemoveDependency(ctx, ticketID, dependencyID)
 }
 
 func (s *Service) AddExternalLink(ctx context.Context, input AddExternalLinkInput) (ExternalLink, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.linkRepo == nil {
 		return ExternalLink{}, ErrUnavailable
 	}
-	return s.repo.AddExternalLink(ctx, input)
+	return s.linkRepo.AddExternalLink(ctx, input)
 }
 
 func (s *Service) RemoveExternalLink(ctx context.Context, ticketID uuid.UUID, externalLinkID uuid.UUID) (DeleteExternalLinkResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.linkRepo == nil {
 		return DeleteExternalLinkResult{}, ErrUnavailable
 	}
-	return s.repo.RemoveExternalLink(ctx, ticketID, externalLinkID)
+	return s.linkRepo.RemoveExternalLink(ctx, ticketID, externalLinkID)
 }
 
 func (s *Service) ListComments(ctx context.Context, ticketID uuid.UUID) ([]Comment, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commentRepo == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListComments(ctx, ticketID)
+	return s.commentRepo.ListComments(ctx, ticketID)
 }
 
 func (s *Service) ListCommentRevisions(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) ([]CommentRevision, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commentRepo == nil {
 		return nil, ErrUnavailable
 	}
-	return s.repo.ListCommentRevisions(ctx, ticketID, commentID)
+	return s.commentRepo.ListCommentRevisions(ctx, ticketID, commentID)
 }
 
 func (s *Service) AddComment(ctx context.Context, input AddCommentInput) (Comment, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commentRepo == nil {
 		return Comment{}, ErrUnavailable
 	}
-	return s.repo.AddComment(ctx, input)
+	return s.commentRepo.AddComment(ctx, input)
 }
 
 func (s *Service) UpdateComment(ctx context.Context, input UpdateCommentInput) (Comment, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commentRepo == nil {
 		return Comment{}, ErrUnavailable
 	}
-	return s.repo.UpdateComment(ctx, input)
+	return s.commentRepo.UpdateComment(ctx, input)
 }
 
 func (s *Service) RemoveComment(ctx context.Context, ticketID uuid.UUID, commentID uuid.UUID) (DeleteCommentResult, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.commentRepo == nil {
 		return DeleteCommentResult{}, ErrUnavailable
 	}
-	return s.repo.RemoveComment(ctx, ticketID, commentID)
+	return s.commentRepo.RemoveComment(ctx, ticketID, commentID)
 }
 
 func (s *Service) RunLifecycleHook(ctx context.Context, input RunLifecycleHookInput) error {
-	if s == nil || s.repo == nil {
+	if s == nil || s.runtimeRepo == nil {
 		return ErrUnavailable
 	}
 	if input.TicketID == uuid.Nil {
@@ -291,11 +303,11 @@ func (s *Service) RunLifecycleHookBestEffort(ctx context.Context, input RunLifec
 }
 
 func (s *Service) loadHookRuntime(ctx context.Context, input RunLifecycleHookInput) (loadedTicketHookRuntime, error) {
-	if s == nil || s.repo == nil {
+	if s == nil || s.runtimeRepo == nil {
 		return loadedTicketHookRuntime{}, ErrUnavailable
 	}
 
-	data, err := s.repo.LoadLifecycleHookRuntimeData(ctx, input.TicketID, input.RunID, input.WorkflowID)
+	data, err := s.runtimeRepo.LoadLifecycleHookRuntimeData(ctx, input.TicketID, input.RunID, input.WorkflowID)
 	if err != nil {
 		return loadedTicketHookRuntime{}, err
 	}

@@ -15,6 +15,7 @@ jobs:
       go_changed: ${{ steps.detect.outputs.go_changed }}
       web_changed: ${{ steps.detect.outputs.web_changed }}
       desktop_changed: ${{ steps.detect.outputs.desktop_changed }}
+      installer_changed: ${{ steps.detect.outputs.installer_changed }}
       openapi_check_changed: ${{ steps.detect.outputs.openapi_check_changed }}
       frontend_api_audit_changed: ${{ steps.detect.outputs.frontend_api_audit_changed }}
 
@@ -54,6 +55,7 @@ jobs:
           go_changed=false
           web_changed=false
           desktop_changed=false
+          installer_changed=false
           openapi_check_changed=false
           frontend_api_audit_changed=false
 
@@ -63,6 +65,7 @@ jobs:
                 go_changed=true
                 web_changed=true
                 desktop_changed=true
+                installer_changed=true
                 openapi_check_changed=true
                 ;;
               *.go|go.mod|go.sum|api/*)
@@ -73,7 +76,11 @@ jobs:
               Makefile)
                 go_changed=true
                 desktop_changed=true
+                installer_changed=true
                 openapi_check_changed=true
+                ;;
+              scripts/install.sh|scripts/ci/test_installer.py|scripts/ci/installer_smoke.sh|internal/cli/setup.go|internal/cli/setup_test.go|internal/setup/*)
+                installer_changed=true
                 ;;
               scripts/ci/*)
                 go_changed=true
@@ -99,6 +106,7 @@ jobs:
           printf 'go_changed=%s\n' "${go_changed}" >> "${GITHUB_OUTPUT}"
           printf 'web_changed=%s\n' "${web_changed}" >> "${GITHUB_OUTPUT}"
           printf 'desktop_changed=%s\n' "${desktop_changed}" >> "${GITHUB_OUTPUT}"
+          printf 'installer_changed=%s\n' "${installer_changed}" >> "${GITHUB_OUTPUT}"
           printf 'openapi_check_changed=%s\n' "${openapi_check_changed}" >> "${GITHUB_OUTPUT}"
           printf 'frontend_api_audit_changed=%s\n' "${frontend_api_audit_changed}" >> "${GITHUB_OUTPUT}"
 
@@ -263,6 +271,62 @@ jobs:
       - name: Cleanup Frontend Test Artifacts
         if: always()
         run: rm -rf test-results ../.playwright-artifacts
+
+  installer:
+    name: Installer Tests (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux
+            runner: ubuntu-latest
+          - label: macos
+            runner: macos-14
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Run Hermetic Installer Tests
+        run: make installer-test
+
+  installer-smoke:
+    name: Installer Smoke (${{ matrix.label }})
+    needs: changes
+    if: needs.changes.outputs.installer_changed == 'true'
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux
+            runner: ubuntu-latest
+          - label: macos
+            runner: macos-14
+
+    steps:
+      - name: Check Out Repository
+        uses: actions/checkout@v5
+        with:
+          clean: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set Up Go
+        uses: actions/setup-go@v6
+        with:
+          cache: false
+          go-version-file: go.mod
+
+      - name: Run Installer Smoke Test
+        shell: bash
+        run: ./scripts/ci/installer_smoke.sh
 
   desktop:
     name: Desktop Checks

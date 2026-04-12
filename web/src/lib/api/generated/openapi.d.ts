@@ -14934,6 +14934,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -15002,7 +15006,30 @@ export interface operations {
           name?: string
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           }
         }
       }
@@ -15029,6 +15056,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -21995,7 +22026,30 @@ export interface operations {
           name?: string | null
           /** @description Ticket template used to create a ticket for each scheduled run. */
           ticket_template?: {
-            [key: string]: unknown
+            /**
+             * Format: double
+             * @description Optional budget cap in USD applied to tickets created by this scheduled job.
+             */
+            budget_usd?: number | null
+            /** @description Optional audit actor recorded on tickets created by this scheduled job. */
+            created_by?: string
+            /** @description Optional rendered ticket description template for each scheduled run. */
+            description?: string
+            /** @description Ticket priority applied to tickets created by this scheduled job. */
+            priority?: string
+            /** @description Optional repository scopes attached to tickets created by this scheduled job. Multi-repo projects must configure at least one repository scope. */
+            repo_scopes?: {
+              /** @description Optional work-branch override for the scheduled job ticket scope. When omitted or blank, OpenASE uses the repository default behavior for ticket creation. */
+              branch_name?: string | null
+              /** @description Repository ID attached to tickets created by this scheduled job. */
+              repo_id?: string
+            }[]
+            /** @description Ticket status name applied to tickets created by this scheduled job. */
+            status?: string
+            /** @description Rendered ticket title template for each scheduled run. */
+            title?: string
+            /** @description Ticket type applied to tickets created by this scheduled job. */
+            type?: string
           } | null
         }
       }
@@ -22022,6 +22076,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string
@@ -22113,6 +22171,10 @@ export interface operations {
                 created_by?: string
                 description?: string
                 priority?: string
+                repo_scopes?: {
+                  branch_name?: string | null
+                  repo_id?: string
+                }[]
                 status?: string
                 title?: string
                 type?: string

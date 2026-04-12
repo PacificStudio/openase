@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/BetterAndBetterII/openase/internal/config"
+	catalogdomain "github.com/BetterAndBetterII/openase/internal/domain/catalog"
 	eventinfra "github.com/BetterAndBetterII/openase/internal/infra/event"
 	otelinfra "github.com/BetterAndBetterII/openase/internal/infra/otel"
 	"github.com/BetterAndBetterII/openase/internal/provider"
 	runtimeobservability "github.com/BetterAndBetterII/openase/internal/runtime/observability"
+	catalogservice "github.com/BetterAndBetterII/openase/internal/service/catalog"
 	"github.com/BetterAndBetterII/openase/internal/webui"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -56,6 +58,49 @@ func TestMetricsRouteDisabledByDefault(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("expected disabled metrics route to return 404, got %d", rec.Code)
 	}
+}
+
+func TestNewServerWithServicesPreservesNarrowCatalogPorts(t *testing.T) {
+	server := NewServerWithServices(
+		config.ServerConfig{Port: 40023},
+		config.GitHubConfig{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)),
+		eventinfra.NewChannelBus(),
+		nil,
+		nil,
+		nil,
+		catalogservice.Services{ProjectService: stubProjectService{}},
+		nil,
+	)
+
+	if server.catalog.ProjectService == nil {
+		t.Fatal("expected project service to be wired")
+	}
+	if server.catalog.OrganizationService != nil {
+		t.Fatal("expected unrelated catalog ports to remain unset")
+	}
+}
+
+type stubProjectService struct{}
+
+func (stubProjectService) ListProjects(context.Context, uuid.UUID) ([]catalogdomain.Project, error) {
+	return nil, nil
+}
+
+func (stubProjectService) CreateProject(context.Context, catalogdomain.CreateProject) (catalogdomain.Project, error) {
+	return catalogdomain.Project{}, nil
+}
+
+func (stubProjectService) GetProject(context.Context, uuid.UUID) (catalogdomain.Project, error) {
+	return catalogdomain.Project{}, nil
+}
+
+func (stubProjectService) UpdateProject(context.Context, catalogdomain.UpdateProject) (catalogdomain.Project, error) {
+	return catalogdomain.Project{}, nil
+}
+
+func (stubProjectService) ArchiveProject(context.Context, uuid.UUID) (catalogdomain.Project, error) {
+	return catalogdomain.Project{}, nil
 }
 
 func TestSystemDashboardRouteReturnsMemorySnapshot(t *testing.T) {

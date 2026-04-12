@@ -321,12 +321,15 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 		enabled := true
 		name := "  nightly scan  "
 		cronExpression := " 0 1 * * * "
-		template := map[string]any{
-			"title":       "Nightly",
-			"description": "Run checks",
-			"status":      "Todo",
-			"priority":    "high",
-			"type":        "feature",
+		template := rawScheduledJobTicketTemplateRequest{
+			Title:       "Nightly",
+			Description: "Run checks",
+			Status:      "Todo",
+			Priority:    "high",
+			Type:        "feature",
+			RepoScopes: []rawCreateTicketRepoScopeRequest{{
+				RepoID: uuid.New().String(),
+			}},
 		}
 
 		createInput, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
@@ -343,6 +346,9 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 		}
 		if createInput.TicketTemplate.Title != "Nightly" || createInput.TicketTemplate.Priority != "high" {
 			t.Fatalf("parseCreateScheduledJobRequest().TicketTemplate = %+v", createInput.TicketTemplate)
+		}
+		if len(createInput.TicketTemplate.RepoScopes) != 1 {
+			t.Fatalf("parseCreateScheduledJobRequest().TicketTemplate.RepoScopes = %+v", createInput.TicketTemplate.RepoScopes)
 		}
 
 		updateInput, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{
@@ -372,7 +378,7 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 						Name:           " ",
 						CronExpression: "0 1 * * *",
-						TicketTemplate: map[string]any{"title": "Nightly", "status": "Todo"},
+						TicketTemplate: rawScheduledJobTicketTemplateRequest{Title: "Nightly", Status: "Todo"},
 					})
 					return err
 				},
@@ -384,7 +390,7 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 						Name:           "nightly",
 						CronExpression: " ",
-						TicketTemplate: map[string]any{"title": "Nightly", "status": "Todo"},
+						TicketTemplate: rawScheduledJobTicketTemplateRequest{Title: "Nightly", Status: "Todo"},
 					})
 					return err
 				},
@@ -396,7 +402,7 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 					_, err := parseCreateScheduledJobRequest(projectID, rawCreateScheduledJobRequest{
 						Name:           "nightly",
 						CronExpression: "0 1 * * *",
-						TicketTemplate: map[string]any{"title": "Nightly"},
+						TicketTemplate: rawScheduledJobTicketTemplateRequest{Title: "Nightly"},
 					})
 					return err
 				},
@@ -405,7 +411,11 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 			{
 				name: "update invalid template",
 				fn: func() error {
-					badTemplate := map[string]any{"title": 1}
+					badTemplate := rawScheduledJobTicketTemplateRequest{
+						Title:      "Nightly",
+						Status:     "Todo",
+						RepoScopes: []rawCreateTicketRepoScopeRequest{{RepoID: "not-a-uuid"}},
+					}
 					_, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{TicketTemplate: &badTemplate})
 					return err
 				},
@@ -414,7 +424,7 @@ func TestScheduledJobRequestParsersAndTicketEventCoverage(t *testing.T) {
 			{
 				name: "update missing status",
 				fn: func() error {
-					templateWithoutStatus := map[string]any{"title": "Nightly"}
+					templateWithoutStatus := rawScheduledJobTicketTemplateRequest{Title: "Nightly"}
 					_, err := parseUpdateScheduledJobRequest(jobID, rawUpdateScheduledJobRequest{TicketTemplate: &templateWithoutStatus})
 					return err
 				},

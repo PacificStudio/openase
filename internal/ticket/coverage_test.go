@@ -16,7 +16,7 @@ import (
 func TestTicketServiceNilClientGuards(t *testing.T) {
 	t.Parallel()
 
-	service := NewService(nil)
+	service := NewService(Dependencies{})
 	ctx := context.Background()
 	projectID := uuid.New()
 	ticketID := uuid.New()

@@ -2512,11 +2512,43 @@ func newAgentPlatformExpandedFixture(t *testing.T) *agentPlatformExpandedFixture
 	scheduledJobSvc.SetNowFunc(func() time.Time {
 		return time.Date(2026, 3, 20, 9, 0, 0, 0, time.UTC)
 	})
-	scheduledJobMain, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{ProjectID: projectID, Name: "platform-main-job", CronExpression: "0 9 * * 1", TicketTemplate: scheduledjobservice.TicketTemplate{Title: "Platform main job", Description: "main scheduled job", Status: "Backlog", Priority: ticketservice.PriorityMedium, Type: ticketservice.TypeFeature, CreatedBy: "system:platform"}, IsEnabled: true})
+	scheduledJobMain, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{
+		ProjectID:      projectID,
+		Name:           "platform-main-job",
+		CronExpression: "0 9 * * 1",
+		TicketTemplate: scheduledjobservice.TicketTemplate{
+			Title:       "Platform main job",
+			Description: "main scheduled job",
+			Status:      "Backlog",
+			Priority:    ticketservice.PriorityMedium,
+			Type:        ticketservice.TypeFeature,
+			CreatedBy:   "system:platform",
+			RepoScopes: []scheduledjobservice.TicketTemplateRepoScope{{
+				RepoID: repoReadID,
+			}},
+		},
+		IsEnabled: true,
+	})
 	if err != nil {
 		t.Fatalf("create main scheduled job: %v", err)
 	}
-	scheduledJobDelete, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{ProjectID: projectID, Name: "platform-delete-job", CronExpression: "0 10 * * 2", TicketTemplate: scheduledjobservice.TicketTemplate{Title: "Platform delete job", Description: "delete scheduled job", Status: "Backlog", Priority: ticketservice.PriorityMedium, Type: ticketservice.TypeFeature, CreatedBy: "system:platform"}, IsEnabled: true})
+	scheduledJobDelete, err := scheduledJobSvc.Create(ctx, scheduledjobservice.CreateInput{
+		ProjectID:      projectID,
+		Name:           "platform-delete-job",
+		CronExpression: "0 10 * * 2",
+		TicketTemplate: scheduledjobservice.TicketTemplate{
+			Title:       "Platform delete job",
+			Description: "delete scheduled job",
+			Status:      "Backlog",
+			Priority:    ticketservice.PriorityMedium,
+			Type:        ticketservice.TypeFeature,
+			CreatedBy:   "system:platform",
+			RepoScopes: []scheduledjobservice.TicketTemplateRepoScope{{
+				RepoID: repoReadID,
+			}},
+		},
+		IsEnabled: true,
+	})
 	if err != nil {
 		t.Fatalf("create delete scheduled job: %v", err)
 	}
