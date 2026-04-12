@@ -2067,7 +2067,7 @@ func projectConversationScopeContracts(fixture *agentPlatformExpandedFixture) []
 		{scope: agentplatform.ScopeReposDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoDeleteID), wantStatus: http.StatusOK, wantBody: fixture.repoDeleteID.String()},
 		{scope: agentplatform.ScopeReposRead, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"repos":[`},
 		{scope: agentplatform.ScopeReposUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/projects/%s/repos/%s", fixture.projectID, fixture.repoReadID), body: map[string]any{"name": "platform-primary-updated", "repository_url": "file:///srv/git/platform-primary-updated.git", "default_branch": "main"}, wantStatus: http.StatusOK, wantBody: `"repository_url":"file:///srv/git/platform-primary-updated.git"`},
-		{scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: map[string]any{"name": "platform-create-job", "cron_expression": "0 7 * * 2", "ticket_template": map[string]any{"title": "Platform create job", "description": "create via platform scope", "status": "Backlog", "priority": "medium", "type": "feature"}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
+		{scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: scheduledJobCreateContractBody(fixture), wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
 		{scope: agentplatform.ScopeScheduledJobsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobDeleteID), wantStatus: http.StatusOK, wantBody: fixture.scheduledJobDeleteID.String()},
 		{scope: agentplatform.ScopeScheduledJobsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"scheduled_jobs":[`},
 		{scope: agentplatform.ScopeScheduledJobsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobID), body: map[string]any{"name": "platform-main-job-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-main-job-updated"`},
@@ -2118,6 +2118,23 @@ func filterProjectConversationScopeContracts(contracts []projectConversationScop
 		}
 	}
 	return filtered
+}
+
+func scheduledJobCreateContractBody(fixture *agentPlatformExpandedFixture) map[string]any {
+	return map[string]any{
+		"name":            "platform-create-job",
+		"cron_expression": "0 7 * * 2",
+		"ticket_template": map[string]any{
+			"title":       "Platform create job",
+			"description": "create via platform scope",
+			"status":      "Backlog",
+			"priority":    "medium",
+			"type":        "feature",
+			"repo_scopes": []map[string]any{
+				{"repo_id": fixture.repoReadID.String()},
+			},
+		},
+	}
 }
 
 func runProjectConversationScopeContracts(t *testing.T, fixture *agentPlatformExpandedFixture, contracts []projectConversationScopeContract) {
@@ -2171,7 +2188,7 @@ func TestAgentPlatformExpandedScheduledJobRoutesRequireExplicitScopes(t *testing
 		wantBody   string
 	}{
 		{name: "scheduled_jobs.list", scope: agentplatform.ScopeScheduledJobsList, method: http.MethodGet, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), wantStatus: http.StatusOK, wantBody: `"scheduled_jobs":[`},
-		{name: "scheduled_jobs.create", scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: map[string]any{"name": "platform-create-job", "cron_expression": "0 7 * * 2", "ticket_template": map[string]any{"title": "Platform create job", "description": "create via platform scope", "status": "Backlog", "priority": "medium", "type": "feature"}}, wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
+		{name: "scheduled_jobs.create", scope: agentplatform.ScopeScheduledJobsCreate, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/projects/%s/scheduled-jobs", fixture.projectID), body: scheduledJobCreateContractBody(fixture), wantStatus: http.StatusCreated, wantBody: `"name":"platform-create-job"`},
 		{name: "scheduled_jobs.update", scope: agentplatform.ScopeScheduledJobsUpdate, method: http.MethodPatch, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobID), body: map[string]any{"name": "platform-main-job-updated"}, wantStatus: http.StatusOK, wantBody: `"name":"platform-main-job-updated"`},
 		{name: "scheduled_jobs.trigger", scope: agentplatform.ScopeScheduledJobsTrigger, method: http.MethodPost, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s/trigger", fixture.scheduledJobID), wantStatus: http.StatusOK, wantBody: `"ticket":{`},
 		{name: "scheduled_jobs.delete", scope: agentplatform.ScopeScheduledJobsDelete, method: http.MethodDelete, path: fmt.Sprintf("/api/v1/platform/scheduled-jobs/%s", fixture.scheduledJobDeleteID), wantStatus: http.StatusOK, wantBody: fixture.scheduledJobDeleteID.String()},
