@@ -236,6 +236,11 @@ func TestProjectConversationRoutesRequireHumanPrincipalInOIDCMode(t *testing.T) 
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/tree?repo_path=openase",
 		},
 		{
+			name:   "workspace search",
+			method: http.MethodGet,
+			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/search?repo_path=openase&q=readme",
+		},
+		{
 			name:   "workspace file",
 			method: http.MethodGet,
 			target: "/api/v1/chat/conversations/" + conversationID + "/workspace/file?repo_path=openase&path=README.md",

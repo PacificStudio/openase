@@ -10,6 +10,7 @@ const {
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
   syncProjectConversationWorkspace,
 } = vi.hoisted(() => ({
   createProjectConversationWorkspaceFile: vi.fn(),
@@ -19,6 +20,7 @@ const {
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
   renameProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
   syncProjectConversationWorkspace: vi.fn(),
 }))
 
@@ -30,6 +32,7 @@ vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
   syncProjectConversationWorkspace,
 }))
 

@@ -583,6 +583,23 @@ type OpenAPIProjectConversationWorkspaceTreeResponse struct {
 	WorkspaceTree OpenAPIProjectConversationWorkspaceTree `json:"workspace_tree"`
 }
 
+type OpenAPIProjectConversationWorkspaceSearchResult struct {
+	Path string `json:"path"`
+	Name string `json:"name"`
+}
+
+type OpenAPIProjectConversationWorkspaceSearch struct {
+	ConversationID string                                            `json:"conversation_id"`
+	RepoPath       string                                            `json:"repo_path"`
+	Query          string                                            `json:"query"`
+	Truncated      bool                                              `json:"truncated"`
+	Results        []OpenAPIProjectConversationWorkspaceSearchResult `json:"results"`
+}
+
+type OpenAPIProjectConversationWorkspaceSearchResponse struct {
+	WorkspaceSearch OpenAPIProjectConversationWorkspaceSearch `json:"workspace_search"`
+}
+
 type OpenAPIProjectConversationWorkspaceFilePreview struct {
 	ConversationID string `json:"conversation_id"`
 	RepoPath       string `json:"repo_path"`
@@ -6576,6 +6593,37 @@ func (b openAPISpecBuilder) addChatOperations() error {
 		WithSchema(openapi3.NewStringSchema()),
 	)
 	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/tree", http.MethodGet, projectConversationWorkspaceTree)
+
+	projectConversationWorkspaceSearch, err := b.jsonOperation(
+		"searchProjectConversationWorkspacePaths",
+		"Search project conversation workspace file paths within one repo",
+		[]string{"chat"},
+		http.StatusOK,
+		OpenAPIProjectConversationWorkspaceSearchResponse{},
+		nil,
+		http.StatusBadRequest,
+		http.StatusConflict,
+		http.StatusNotFound,
+		http.StatusServiceUnavailable,
+		http.StatusInternalServerError,
+	)
+	if err != nil {
+		return err
+	}
+	projectConversationWorkspaceSearch.AddParameter(uuidPathParameter("conversationId", "Stable OpenASE conversation ID."))
+	projectConversationWorkspaceSearch.AddParameter(openapi3.NewQueryParameter("repo_path").
+		WithDescription("Workspace-relative repo path chosen from the workspace metadata response.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceSearch.AddParameter(openapi3.NewQueryParameter("q").
+		WithDescription("Case-insensitive substring to match against repo-relative file paths.").
+		WithSchema(openapi3.NewStringSchema()),
+	)
+	projectConversationWorkspaceSearch.AddParameter(openapi3.NewQueryParameter("limit").
+		WithDescription("Optional maximum number of matches to return. Defaults to 20 and is capped at 100.").
+		WithSchema(openapi3.NewIntegerSchema()),
+	)
+	b.doc.AddOperation("/api/v1/chat/conversations/{conversationId}/workspace/search", http.MethodGet, projectConversationWorkspaceSearch)
 
 	projectConversationWorkspaceFile, err := b.jsonOperation(
 		"getProjectConversationWorkspaceFile",

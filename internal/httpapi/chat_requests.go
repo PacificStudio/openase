@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	chatservice "github.com/BetterAndBetterII/openase/internal/chat"
@@ -42,6 +44,12 @@ type projectConversationTurnRequest struct {
 type projectConversationWorkspaceTreeRequest struct {
 	RepoPath string
 	Path     string
+}
+
+type projectConversationWorkspaceSearchRequest struct {
+	RepoPath string
+	Query    string
+	Limit    int
 }
 
 type projectConversationWorkspaceFileRequest struct {
@@ -169,6 +177,41 @@ func parseProjectConversationWorkspaceTreeRequest(
 	return projectConversationWorkspaceTreeRequest{
 		RepoPath: trimmedRepoPath,
 		Path:     strings.TrimSpace(path),
+	}, nil
+}
+
+func parseProjectConversationWorkspaceSearchRequest(
+	repoPath string,
+	query string,
+	limit string,
+) (projectConversationWorkspaceSearchRequest, error) {
+	trimmedRepoPath := strings.TrimSpace(repoPath)
+	if trimmedRepoPath == "" {
+		return projectConversationWorkspaceSearchRequest{}, writeableError("repo_path must not be empty")
+	}
+	trimmedQuery := strings.TrimSpace(query)
+	if trimmedQuery == "" {
+		return projectConversationWorkspaceSearchRequest{}, writeableError("q must not be empty")
+	}
+
+	parsedLimit := 0
+	if strings.TrimSpace(limit) != "" {
+		value, err := strconv.Atoi(strings.TrimSpace(limit))
+		if err != nil {
+			return projectConversationWorkspaceSearchRequest{}, writeableError(
+				fmt.Sprintf("limit must be a positive integer: %v", err),
+			)
+		}
+		if value <= 0 {
+			return projectConversationWorkspaceSearchRequest{}, writeableError("limit must be positive")
+		}
+		parsedLimit = value
+	}
+
+	return projectConversationWorkspaceSearchRequest{
+		RepoPath: trimmedRepoPath,
+		Query:    trimmedQuery,
+		Limit:    parsedLimit,
 	}, nil
 }
 

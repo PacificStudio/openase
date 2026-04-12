@@ -13,6 +13,7 @@ const {
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
@@ -23,6 +24,7 @@ const {
   listProjectConversationWorkspaceTree: vi.fn(),
   renameProjectConversationWorkspaceFile: vi.fn(),
   saveProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -35,6 +37,7 @@ vi.mock('$lib/api/chat', () => ({
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 }))
 
 import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
@@ -165,6 +168,15 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         repos: [],
       },
     })
+    searchProjectConversationWorkspacePaths.mockResolvedValue({
+      workspaceSearch: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        query: 'readme',
+        truncated: false,
+        results: [{ path: 'docs/README.md', name: 'README.md' }],
+      },
+    })
   })
 
   it('restores a persisted draft for the same conversation repo and file', async () => {
@@ -191,6 +203,23 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         baseSavedRevision: 'rev-1',
       }),
     )
+  })
+
+  it('searches repo paths through the workspace search API for the selected repo', async () => {
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+
+    const results = await state.searchPaths('readme', 10)
+
+    expect(searchProjectConversationWorkspacePaths).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      query: 'readme',
+      limit: 10,
+    })
+    expect(results).toEqual([{ path: 'docs/README.md', name: 'README.md' }])
   })
 
   it('keeps the local draft and enters conflict mode when save detects a stale revision', async () => {

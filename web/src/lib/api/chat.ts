@@ -215,6 +215,19 @@ export type ProjectConversationWorkspaceTree = {
   entries: ProjectConversationWorkspaceTreeEntry[]
 }
 
+export type ProjectConversationWorkspaceSearchResult = {
+  path: string
+  name: string
+}
+
+export type ProjectConversationWorkspaceSearch = {
+  conversationId: string
+  repoPath: string
+  query: string
+  truncated: boolean
+  results: ProjectConversationWorkspaceSearchResult[]
+}
+
 export type ProjectConversationWorkspacePreviewKind = 'text' | 'binary'
 
 export type ProjectConversationWorkspaceFilePreview = {
@@ -600,6 +613,26 @@ export async function listProjectConversationWorkspaceTree(
   const object = parseRequiredObject(payload as Record<string, unknown>)
   return {
     workspaceTree: parseProjectConversationWorkspaceTree(object.workspace_tree ?? object),
+  }
+}
+
+export async function searchProjectConversationWorkspacePaths(
+  conversationId: string,
+  request: { repoPath: string; query: string; limit?: number },
+) {
+  const payload = await fetchJSON<{ workspace_search?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/search`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        q: request.query,
+        limit: request.limit == null ? undefined : String(request.limit),
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspaceSearch: parseProjectConversationWorkspaceSearch(object.workspace_search ?? object),
   }
 }
 
@@ -1362,6 +1395,29 @@ function parseProjectConversationWorkspaceTree(value: unknown): ProjectConversat
     repoPath: readRequiredString(object, 'repo_path'),
     path: typeof object.path === 'string' ? object.path : '',
     entries,
+  }
+}
+
+function parseProjectConversationWorkspaceSearch(
+  value: unknown,
+): ProjectConversationWorkspaceSearch {
+  const object = parseRequiredObject(value)
+  const results = Array.isArray(object.results)
+    ? object.results.map((item) => {
+        const entry = parseRequiredObject(item)
+        return {
+          path: readRequiredString(entry, 'path'),
+          name: readRequiredString(entry, 'name'),
+        } satisfies ProjectConversationWorkspaceSearchResult
+      })
+    : []
+
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    query: readRequiredString(object, 'query'),
+    truncated: readRequiredBoolean(object, 'truncated'),
+    results,
   }
 }
 

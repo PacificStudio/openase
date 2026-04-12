@@ -12,6 +12,7 @@ const {
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
   createProjectConversationWorkspaceFile: vi.fn(),
   deleteProjectConversationWorkspaceFile: vi.fn(),
@@ -22,6 +23,7 @@ const {
   listProjectConversationWorkspaceTree: vi.fn(),
   renameProjectConversationWorkspaceFile: vi.fn(),
   saveProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -34,6 +36,7 @@ vi.mock('$lib/api/chat', () => ({
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 }))
 
 import ProjectConversationWorkspaceBrowser from './project-conversation-workspace-browser.svelte'

@@ -268,11 +268,9 @@
     terminalPanelOpen={terminalManager.panelOpen}
     {conversationId}
     metadataLoading={browser.metadataLoading}
-    autosaveEnabled={browser.autosaveEnabled}
     onCopyWorkspacePath={copyWorkspacePath}
     onToggleTerminal={() => terminalManager.togglePanel()}
     onRefreshWorkspace={() => void browser.refreshWorkspace(true)}
-    onToggleAutosave={() => browser.setAutosaveEnabled(!browser.autosaveEnabled)}
     {onClose}
   />
 

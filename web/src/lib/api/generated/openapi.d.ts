@@ -624,6 +624,23 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/chat/conversations/{conversationId}/workspace/search': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Search project conversation workspace file paths within one repo */
+    get: operations['searchProjectConversationWorkspacePaths']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/chat/conversations/{conversationId}/workspace/sync': {
     parameters: {
       query?: never
@@ -6940,6 +6957,107 @@ export interface operations {
               path?: string
               repo_path?: string
               status?: string
+              truncated?: boolean
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Conflict response. */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Service Unavailable response. */
+      503: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  searchProjectConversationWorkspacePaths: {
+    parameters: {
+      query?: {
+        /** @description Workspace-relative repo path chosen from the workspace metadata response. */
+        repo_path?: string
+        /** @description Case-insensitive substring to match against repo-relative file paths. */
+        q?: string
+        /** @description Optional maximum number of matches to return. Defaults to 20 and is capped at 100. */
+        limit?: number
+      }
+      header?: never
+      path: {
+        /** @description Stable OpenASE conversation ID. */
+        conversationId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Search project conversation workspace file paths within one repo response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            workspace_search?: {
+              conversation_id?: string
+              query?: string
+              repo_path?: string
+              results?: {
+                name?: string
+                path?: string
+              }[]
               truncated?: boolean
             }
           }

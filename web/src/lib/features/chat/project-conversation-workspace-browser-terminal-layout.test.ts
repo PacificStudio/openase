@@ -10,6 +10,7 @@ const {
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
   createProjectConversationTerminalSession: vi.fn(),
   createProjectConversationWorkspaceFile: vi.fn(),
@@ -19,6 +20,7 @@ const {
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
   renameProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
@@ -30,6 +32,7 @@ vi.mock('$lib/api/chat', () => ({
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 }))
 
 vi.mock('@xterm/xterm', () => ({

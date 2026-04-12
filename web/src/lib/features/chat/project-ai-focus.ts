@@ -214,17 +214,16 @@ export function describeProjectAIFocus(focus: ProjectAIFocus): ProjectAIFocusCar
           .filter(Boolean)
           .join(' · '),
       }
-    case 'workspace_file':
+    case 'workspace_file': {
+      const parts: string[] = []
+      if (focus.selection) {
+        parts.push(`Ln ${focus.selection.startLine}:${focus.selection.endLine}`)
+      }
       return {
         label: 'Workspace file',
         title: `${focus.repoPath} / ${focus.filePath}`,
-        detail: [
-          focus.selectedArea ?? 'edit',
-          focus.selection ? 'selection' : '',
-          focus.hasDirtyDraft ? 'unsaved draft' : 'saved',
-        ]
-          .filter(Boolean)
-          .join(' · '),
+        detail: parts.join(' · ') || '',
       }
+    }
   }
 }

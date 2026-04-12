@@ -214,6 +214,27 @@ func TestParseCreateProjectConversationWorkspaceFileRequest(t *testing.T) {
 	}
 }
 
+func TestParseProjectConversationWorkspaceSearchRequest(t *testing.T) {
+	t.Parallel()
+
+	request, err := parseProjectConversationWorkspaceSearchRequest(" openase ", " readme ", " 25 ")
+	if err != nil {
+		t.Fatalf("parseProjectConversationWorkspaceSearchRequest() error = %v", err)
+	}
+	if request.RepoPath != "openase" || request.Query != "readme" || request.Limit != 25 {
+		t.Fatalf("unexpected parsed workspace search request = %#v", request)
+	}
+}
+
+func TestParseProjectConversationWorkspaceSearchRequestRejectsEmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseProjectConversationWorkspaceSearchRequest("openase", "   ", "")
+	if err == nil {
+		t.Fatal("expected empty query error")
+	}
+}
+
 func TestParseRenameProjectConversationWorkspaceFileRequest(t *testing.T) {
 	t.Parallel()
 

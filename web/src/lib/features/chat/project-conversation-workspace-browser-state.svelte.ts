@@ -6,9 +6,11 @@ import {
   getProjectConversationWorkspaceDiff,
   listProjectConversationWorkspaceTree,
   renameProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
   type ChatDiffPayload,
   type ProjectConversationWorkspaceDiff,
   type ProjectConversationWorkspaceMetadata,
+  type ProjectConversationWorkspaceSearchResult,
   type ProjectConversationWorkspaceTreeEntry,
 } from '$lib/api/chat'
 import { createWorkspaceFileEditorStore } from './project-conversation-workspace-file-editor-state.svelte'
@@ -430,6 +432,21 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     return true
   }
 
+  async function searchPaths(query: string, limit = 20): Promise<ProjectConversationWorkspaceSearchResult[]> {
+    const conversationId = input.getConversationId()
+    const repoPath = treeRepoPath
+    const trimmedQuery = query.trim()
+    if (!conversationId || !repoPath || !trimmedQuery) {
+      return []
+    }
+    const payload = await searchProjectConversationWorkspacePaths(conversationId, {
+      repoPath,
+      query: trimmedQuery,
+      limit,
+    })
+    return payload.workspaceSearch.results
+  }
+
   function remapTabPath(repoPath: string, fromPath: string, toPath: string) {
     const fromKey = workspaceTabKey({ repoPath, filePath: fromPath })
     const toKey = workspaceTabKey({ repoPath, filePath: toPath })
@@ -623,6 +640,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     toggleDir,
     openRepo,
     selectFile,
+    searchPaths,
     openTab,
     closeTab,
     closeAllTabs,

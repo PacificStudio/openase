@@ -40,6 +40,7 @@ func (s *Server) registerChatRoutes(api *echo.Group) {
 	api.GET("/chat/conversations/:conversationId/workspace", s.handleGetProjectConversationWorkspace)
 	api.POST("/chat/conversations/:conversationId/workspace/sync", s.handleSyncProjectConversationWorkspace)
 	api.GET("/chat/conversations/:conversationId/workspace/tree", s.handleListProjectConversationWorkspaceTree)
+	api.GET("/chat/conversations/:conversationId/workspace/search", s.handleSearchProjectConversationWorkspacePaths)
 	api.GET("/chat/conversations/:conversationId/workspace/file", s.handleGetProjectConversationWorkspaceFile)
 	api.POST("/chat/conversations/:conversationId/workspace/file", s.handlePostProjectConversationWorkspaceFile)
 	api.PUT("/chat/conversations/:conversationId/workspace/file", s.handlePutProjectConversationWorkspaceFile)
@@ -600,6 +601,40 @@ func (s *Server) handleListProjectConversationWorkspaceTree(c echo.Context) erro
 		return writeProjectConversationError(c, err)
 	}
 	return c.JSON(http.StatusOK, map[string]any{"workspace_tree": mapProjectConversationWorkspaceTreeResponse(item)})
+}
+
+func (s *Server) handleSearchProjectConversationWorkspacePaths(c echo.Context) error {
+	if s.projectConversationService == nil {
+		return writeAPIError(c, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "project conversation service unavailable")
+	}
+	conversationID, err := parseUUIDString("conversation_id", c.Param("conversationId"))
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_CONVERSATION_ID", err.Error())
+	}
+	request, err := parseProjectConversationWorkspaceSearchRequest(
+		c.QueryParam("repo_path"),
+		c.QueryParam("q"),
+		c.QueryParam("limit"),
+	)
+	if err != nil {
+		return writeAPIError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
+	}
+	userID, err := s.currentProjectConversationUserID(c)
+	if err != nil {
+		return writeChatUserError(c, err)
+	}
+	item, err := s.projectConversationService.SearchWorkspacePaths(
+		c.Request().Context(),
+		userID,
+		conversationID,
+		request.RepoPath,
+		request.Query,
+		request.Limit,
+	)
+	if err != nil {
+		return writeProjectConversationError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]any{"workspace_search": mapProjectConversationWorkspaceSearchResponse(item)})
 }
 
 func (s *Server) handleGetProjectConversationWorkspaceFile(c echo.Context) error {
@@ -1505,6 +1540,25 @@ func mapProjectConversationWorkspaceTreeResponse(
 		"repo_path":       item.RepoPath,
 		"path":            item.Path,
 		"entries":         entries,
+	}
+}
+
+func mapProjectConversationWorkspaceSearchResponse(
+	item chatservice.ProjectConversationWorkspaceSearch,
+) map[string]any {
+	results := make([]map[string]any, 0, len(item.Results))
+	for _, result := range item.Results {
+		results = append(results, map[string]any{
+			"path": result.Path,
+			"name": result.Name,
+		})
+	}
+	return map[string]any{
+		"conversation_id": item.ConversationID.String(),
+		"repo_path":       item.RepoPath,
+		"query":           item.Query,
+		"truncated":       item.Truncated,
+		"results":         results,
 	}
 }
 
