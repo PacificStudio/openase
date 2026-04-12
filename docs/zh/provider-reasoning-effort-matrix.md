@@ -164,6 +164,8 @@ OpenASE 当前内建模型目录显式建模了以下 effort 能力：
   - 继续直接探测 `https://claude.ai/` 首页时，自动化浏览器同样只拿到 Cloudflare `Just a moment... / Performing security verification` 页面，进一步排除了从现有 Web 会话导出可用 SSO 状态的可能性
   - 进一步改用真实 headless Firefox + Selenium 注入 Snap Firefox 配置目录 `~/snap/firefox/common/.mozilla/firefox/6sfz7ccx.default/` 中已存在的 `claude.ai` / `claude.com` / `platform.claude.com` cookies 后，虽然浏览器已不再停在 Cloudflare 挑战页，但 `claude auth login` 和 `claude setup-token` 的 OAuth URL 最终仍都会落到 `https://platform.claude.com/login?returnTo=%2F%3F`
   - 上述真实浏览器页面标题为 `Sign In | Claude Platform`，正文继续要求 `Continue with Google` 或 `Continue with email`，没有出现可自动批准的 OAuth 授权页，也没有拿到可回填给 CLI 的 code；这说明当前浏览器侧现有会话也不足以完成 Claude Code 的平台授权
+  - 进一步查阅 Claude Code 官方 settings 文档后，确认 CLI 还支持 `ANTHROPIC_AUTH_TOKEN` 这一 bearer-token 环境变量；但把当前 `claudeAiOauth.accessToken` 注入后，真实 `claude -p --bare ...` 调用会返回 `401` 与 `OAuth authentication is currently not supported.`，把 `refreshToken` 注入后则返回 `401 Invalid bearer token`
+  - 这进一步说明：当前机器上保存的 Claude OAuth 凭据既不能通过 `CLAUDE_CODE_OAUTH_TOKEN` 被 CLI 直接复用，也不能通过官方记录的 `ANTHROPIC_AUTH_TOKEN` 旁路复用；若要在无人值守环境完成最终验证，仍需要真正可用的 `ANTHROPIC_API_KEY` 或人工刷新后的平台登录态
 
 这说明实现链路已经对齐 Claude Code CLI 参数契约，但本机当前认证状态不足以完成成功的在线 prompt 验证；要完成最终验收，仍需要刷新 Claude 登录态或提供可用的 `ANTHROPIC_API_KEY`。
 
