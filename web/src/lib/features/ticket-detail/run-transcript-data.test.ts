@@ -102,7 +102,6 @@ describe('mapTicketRunDetail', () => {
               source_trace_event_id: null,
               created_at: '2026-04-03T12:00:11Z',
             },
-            trace_entry: undefined,
           },
           {
             kind: 'trace',
