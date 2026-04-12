@@ -215,6 +215,19 @@ export type ProjectConversationWorkspaceTree = {
   entries: ProjectConversationWorkspaceTreeEntry[]
 }
 
+export type ProjectConversationWorkspaceSearchResult = {
+  path: string
+  name: string
+}
+
+export type ProjectConversationWorkspaceSearch = {
+  conversationId: string
+  repoPath: string
+  query: string
+  truncated: boolean
+  results: ProjectConversationWorkspaceSearchResult[]
+}
+
 export type ProjectConversationWorkspacePreviewKind = 'text' | 'binary'
 
 export type ProjectConversationWorkspaceFilePreview = {
@@ -303,6 +316,45 @@ export type ProjectConversationWorkspaceFileSaved = {
   sizeBytes: number
   encoding: 'utf-8'
   lineEnding: 'lf' | 'crlf'
+}
+
+export type ProjectConversationWorkspaceFileCreateRequest = {
+  repoPath: string
+  path: string
+}
+
+export type ProjectConversationWorkspaceFileCreated = {
+  conversationId: string
+  repoPath: string
+  path: string
+  revision: string
+  sizeBytes: number
+  encoding: 'utf-8'
+  lineEnding: 'lf' | 'crlf'
+}
+
+export type ProjectConversationWorkspaceFileRenameRequest = {
+  repoPath: string
+  fromPath: string
+  toPath: string
+}
+
+export type ProjectConversationWorkspaceFileRenamed = {
+  conversationId: string
+  repoPath: string
+  fromPath: string
+  toPath: string
+}
+
+export type ProjectConversationWorkspaceFileDeleteRequest = {
+  repoPath: string
+  path: string
+}
+
+export type ProjectConversationWorkspaceFileDeleted = {
+  conversationId: string
+  repoPath: string
+  path: string
 }
 
 export type ProjectConversationTurnDonePayload = {
@@ -564,6 +616,26 @@ export async function listProjectConversationWorkspaceTree(
   }
 }
 
+export async function searchProjectConversationWorkspacePaths(
+  conversationId: string,
+  request: { repoPath: string; query: string; limit?: number },
+) {
+  const payload = await fetchJSON<{ workspace_search?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/search`,
+    {
+      params: {
+        repo_path: request.repoPath,
+        q: request.query,
+        limit: request.limit == null ? undefined : String(request.limit),
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    workspaceSearch: parseProjectConversationWorkspaceSearch(object.workspace_search ?? object),
+  }
+}
+
 export async function getProjectConversationWorkspaceFilePreview(
   conversationId: string,
   request: { repoPath: string; path: string },
@@ -604,6 +676,67 @@ export async function saveProjectConversationWorkspaceFile(
   const object = parseRequiredObject(payload as Record<string, unknown>)
   return {
     file: parseProjectConversationWorkspaceFileSaved(object.file ?? object),
+  }
+}
+
+export async function createProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: ProjectConversationWorkspaceFileCreateRequest,
+) {
+  const payload = await fetchJSON<{ file?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file`,
+    {
+      method: 'POST',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    file: parseProjectConversationWorkspaceFileCreated(object.file ?? object),
+  }
+}
+
+export async function renameProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: ProjectConversationWorkspaceFileRenameRequest,
+) {
+  const payload = await fetchJSON<{ file?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file`,
+    {
+      method: 'PATCH',
+      body: {
+        repo_path: request.repoPath,
+        from_path: request.fromPath,
+        to_path: request.toPath,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    file: parseProjectConversationWorkspaceFileRenamed(object.file ?? object),
+  }
+}
+
+export async function deleteProjectConversationWorkspaceFile(
+  conversationId: string,
+  request: ProjectConversationWorkspaceFileDeleteRequest,
+) {
+  const payload = await fetchJSON<{ file?: unknown }>(
+    `/api/v1/chat/conversations/${encodeURIComponent(conversationId)}/workspace/file`,
+    {
+      method: 'DELETE',
+      body: {
+        repo_path: request.repoPath,
+        path: request.path,
+      },
+    },
+  )
+  const object = parseRequiredObject(payload as Record<string, unknown>)
+  return {
+    file: parseProjectConversationWorkspaceFileDeleted(object.file ?? object),
   }
 }
 
@@ -712,6 +845,22 @@ function serializeProjectConversationFocus(focus: ProjectAIFocus | null | undefi
         workspace_file_path: focus.filePath,
         selected_area: focus.selectedArea,
         has_dirty_draft: focus.hasDirtyDraft,
+        workspace_selection_from: focus.selection?.from,
+        workspace_selection_to: focus.selection?.to,
+        workspace_selection_start_line: focus.selection?.startLine,
+        workspace_selection_start_column: focus.selection?.startColumn,
+        workspace_selection_end_line: focus.selection?.endLine,
+        workspace_selection_end_column: focus.selection?.endColumn,
+        workspace_selection_text: focus.selection?.text,
+        workspace_selection_context_before: focus.selection?.contextBefore,
+        workspace_selection_context_after: focus.selection?.contextAfter,
+        workspace_selection_truncated: focus.selection?.truncated,
+        workspace_working_set: focus.workingSet?.map((item) => ({
+          file_path: item.filePath,
+          content_excerpt: item.contentExcerpt,
+          dirty: item.dirty,
+          truncated: item.truncated,
+        })),
       }
     case 'ticket':
       return {
@@ -1249,6 +1398,29 @@ function parseProjectConversationWorkspaceTree(value: unknown): ProjectConversat
   }
 }
 
+function parseProjectConversationWorkspaceSearch(
+  value: unknown,
+): ProjectConversationWorkspaceSearch {
+  const object = parseRequiredObject(value)
+  const results = Array.isArray(object.results)
+    ? object.results.map((item) => {
+        const entry = parseRequiredObject(item)
+        return {
+          path: readRequiredString(entry, 'path'),
+          name: readRequiredString(entry, 'name'),
+        } satisfies ProjectConversationWorkspaceSearchResult
+      })
+    : []
+
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    query: readRequiredString(object, 'query'),
+    truncated: readRequiredBoolean(object, 'truncated'),
+    results,
+  }
+}
+
 function parseProjectConversationWorkspaceFilePreview(
   value: unknown,
 ): ProjectConversationWorkspaceFilePreview {
@@ -1286,6 +1458,44 @@ function parseProjectConversationWorkspaceFileSaved(
     sizeBytes: readRequiredNumber(object, 'size_bytes'),
     encoding: readRequiredString(object, 'encoding') as 'utf-8',
     lineEnding: readRequiredString(object, 'line_ending') as 'lf' | 'crlf',
+  }
+}
+
+function parseProjectConversationWorkspaceFileCreated(
+  value: unknown,
+): ProjectConversationWorkspaceFileCreated {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: readRequiredString(object, 'path'),
+    revision: readRequiredString(object, 'revision'),
+    sizeBytes: readRequiredNumber(object, 'size_bytes'),
+    encoding: readRequiredString(object, 'encoding') as 'utf-8',
+    lineEnding: readRequiredString(object, 'line_ending') as 'lf' | 'crlf',
+  }
+}
+
+function parseProjectConversationWorkspaceFileRenamed(
+  value: unknown,
+): ProjectConversationWorkspaceFileRenamed {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    fromPath: readRequiredString(object, 'from_path'),
+    toPath: readRequiredString(object, 'to_path'),
+  }
+}
+
+function parseProjectConversationWorkspaceFileDeleted(
+  value: unknown,
+): ProjectConversationWorkspaceFileDeleted {
+  const object = parseRequiredObject(value)
+  return {
+    conversationId: readRequiredString(object, 'conversation_id'),
+    repoPath: readRequiredString(object, 'repo_path'),
+    path: readRequiredString(object, 'path'),
   }
 }
 
@@ -1703,7 +1913,7 @@ function isDiffLineOp(value: string): value is ChatDiffLineOp {
 async function fetchJSON<T>(
   path: string,
   options?: {
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+    method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
     params?: Record<string, string | undefined>
     body?: unknown
   },

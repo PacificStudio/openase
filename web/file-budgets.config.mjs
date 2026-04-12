@@ -43,6 +43,42 @@ function isUiPrimitive(filePath) {
 
 export const fileBudgetRules = [
   {
+    name: 'Workspace editor V2 detail view',
+    match: (filePath) =>
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-detail.svelte',
+    softLimit: 250,
+    hardLimit: 450,
+  },
+  {
+    name: 'Workspace editor V2 sidebar',
+    match: (filePath) =>
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-sidebar.svelte',
+    softLimit: 250,
+    hardLimit: 400,
+  },
+  {
+    name: 'Workspace editor V2 browser state',
+    match: (filePath) =>
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-state.svelte.ts',
+    softLimit: 350,
+    hardLimit: 700,
+  },
+  {
+    name: 'Workspace editor V2 editor state',
+    match: (filePath) =>
+      filePath ===
+      'src/lib/features/chat/project-conversation-workspace-file-editor-state.svelte.ts',
+    softLimit: 350,
+    hardLimit: 650,
+  },
+  {
+    name: 'Workspace editor V2 refresh test',
+    match: (filePath) =>
+      filePath === 'src/lib/features/chat/project-conversation-workspace-browser-refresh.test.ts',
+    softLimit: 350,
+    hardLimit: 700,
+  },
+  {
     name: 'Route pages',
     match: isRoutePage,
     softLimit: fileBudgetLimits.routePage.soft,

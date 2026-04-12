@@ -38,7 +38,18 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatCount(value: number): string {
-  return value.toLocaleString()
+  if (!Number.isFinite(value) || value < 0) return '0'
+  if (value < 1_000) return String(value)
+  if (value < 1_000_000) {
+    const v = value / 1_000
+    return `${v >= 10 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')}K`
+  }
+  if (value < 1_000_000_000) {
+    const v = value / 1_000_000
+    return `${v >= 10 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')}M`
+  }
+  const v = value / 1_000_000_000
+  return `${v >= 10 ? Math.round(v) : v.toFixed(1).replace(/\.0$/, '')}B`
 }
 
 export function formatBytes(bytes: number): string {

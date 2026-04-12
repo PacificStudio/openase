@@ -9,6 +9,7 @@
     lineNumbers,
     highlightActiveLine,
     placeholder as cmPlaceholder,
+    type KeyBinding,
   } from '@codemirror/view'
   import {
     Compartment,
@@ -54,6 +55,13 @@
     class: className = '',
     diffMarkers = null,
     onchange,
+    onselectionchange,
+    onFormatDocument,
+    onFormatSelection,
+    onSave,
+    onRevert,
+    onExplainSelection,
+    onRewriteSelection,
   }: {
     /** Current document content */
     value?: string
@@ -72,13 +80,117 @@
     diffMarkers?: CodeEditorDiffMarkers | null
     /** Fires on every edit */
     onchange?: (value: string) => void
+    onselectionchange?: (selection: { from: number; to: number } | null) => void
+    /** Format the whole document. Shown in the context menu and bound to Shift+Alt+F when no selection. */
+    onFormatDocument?: () => void
+    /** Format the current selection. Shown in the context menu and bound to Shift+Alt+F when a selection exists. */
+    onFormatSelection?: () => void
+    /** Save the current draft. Bound to Mod+S. */
+    onSave?: () => void
+    /** Revert the current draft. Shown in the context menu; pass undefined to hide. */
+    onRevert?: () => void
+    /** Ask the project assistant to explain the current selection. */
+    onExplainSelection?: () => void
+    /** Ask the project assistant to rewrite the current selection. */
+    onRewriteSelection?: () => void
   } = $props()
 
   let container: HTMLDivElement
   let view: EditorView | undefined
   let suppressExternalUpdate = false
 
+  type ContextMenuState = { x: number; y: number; hasSelection: boolean }
+  let contextMenu = $state<ContextMenuState | null>(null)
+  let contextMenuEl = $state<HTMLDivElement | null>(null)
+
   const lang = $derived(language || detectLanguage(filePath))
+
+  function currentHasSelection(): boolean {
+    if (!view) return false
+    const sel = view.state.selection.main
+    return sel.from !== sel.to
+  }
+
+  function closeContextMenu() {
+    contextMenu = null
+  }
+
+  function handleContextMenu(event: MouseEvent) {
+    const hasAnyAction =
+      !!onFormatDocument ||
+      !!onFormatSelection ||
+      !!onRevert ||
+      !!onExplainSelection ||
+      !!onRewriteSelection
+    if (!hasAnyAction) return
+    event.preventDefault()
+    // Rough clamp against the viewport so the menu doesn't spill off-screen.
+    // A post-render effect could measure the real element, but a fixed
+    // estimate is simpler and close enough for a 6-item menu.
+    const estimatedWidth = 220
+    const estimatedHeight = 240
+    const x = Math.min(event.clientX, window.innerWidth - estimatedWidth - 8)
+    const y = Math.min(event.clientY, window.innerHeight - estimatedHeight - 8)
+    contextMenu = {
+      x: Math.max(8, x),
+      y: Math.max(8, y),
+      hasSelection: currentHasSelection(),
+    }
+  }
+
+  function runMenuAction(action?: () => void) {
+    closeContextMenu()
+    action?.()
+  }
+
+  $effect(() => {
+    if (!contextMenu) return
+    const onPointerDown = (event: MouseEvent) => {
+      if (contextMenuEl && event.target instanceof Node && contextMenuEl.contains(event.target)) {
+        return
+      }
+      closeContextMenu()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeContextMenu()
+      }
+    }
+    window.addEventListener('mousedown', onPointerDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  })
+
+  const customKeymap: KeyBinding[] = [
+    {
+      key: 'Shift-Alt-f',
+      preventDefault: true,
+      run: (target) => {
+        const sel = target.state.selection.main
+        if (sel.from !== sel.to && onFormatSelection) {
+          onFormatSelection()
+          return true
+        }
+        if (onFormatDocument) {
+          onFormatDocument()
+          return true
+        }
+        return false
+      },
+    },
+    {
+      key: 'Mod-s',
+      preventDefault: true,
+      run: () => {
+        if (!onSave) return false
+        onSave()
+        return true
+      },
+    },
+  ]
 
   // Theme shell (background, gutters, cursor, selection). Mirrors the harness
   // look used elsewhere, parameterized for light vs. dark.
@@ -374,7 +486,15 @@
       highlightSelectionMatches(),
       themeCompartment.of(buildThemeExtensions(appStore.theme)),
       wrapCompartment.of(buildWrapModeExtension(wrapMode)),
-      keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+      // Custom bindings come first so Shift+Alt+F and Mod+S beat any default
+      // binding that might otherwise swallow them.
+      keymap.of([
+        ...customKeymap,
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...searchKeymap,
+        indentWithTab,
+      ]),
     ]
 
     if (placeholder) {
@@ -390,6 +510,12 @@
             suppressExternalUpdate = true
             onchange?.(update.state.doc.toString())
             suppressExternalUpdate = false
+          }
+          if (update.docChanged || update.selectionSet) {
+            const selection = update.state.selection.main
+            onselectionchange?.(
+              selection.from === selection.to ? null : { from: selection.from, to: selection.to },
+            )
           }
         }),
       )
@@ -489,7 +615,79 @@
 <div
   bind:this={container}
   class={cn('code-editor h-full min-h-0 overflow-hidden font-mono', className)}
+  oncontextmenu={handleContextMenu}
+  role="presentation"
 ></div>
+
+{#if contextMenu}
+  <div
+    bind:this={contextMenuEl}
+    class="border-border bg-popover text-popover-foreground fixed z-50 min-w-[13rem] rounded-md border p-1 shadow-md"
+    style="left: {contextMenu.x}px; top: {contextMenu.y}px"
+    role="menu"
+    data-testid="code-editor-context-menu"
+  >
+    {#if contextMenu.hasSelection && onFormatSelection}
+      <button
+        type="button"
+        role="menuitem"
+        class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
+        onclick={() => runMenuAction(onFormatSelection)}
+      >
+        <span>Format Selection</span>
+        <span class="text-muted-foreground text-[10px]">⇧⌥F</span>
+      </button>
+    {:else if onFormatDocument}
+      <button
+        type="button"
+        role="menuitem"
+        class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
+        onclick={() => runMenuAction(onFormatDocument)}
+      >
+        <span>Format Document</span>
+        <span class="text-muted-foreground text-[10px]">⇧⌥F</span>
+      </button>
+    {/if}
+
+    {#if onRevert}
+      {#if (contextMenu.hasSelection && onFormatSelection) || onFormatDocument}
+        <div class="bg-border my-1 h-px"></div>
+      {/if}
+      <button
+        type="button"
+        role="menuitem"
+        class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
+        onclick={() => runMenuAction(onRevert)}
+      >
+        <span>Revert File</span>
+      </button>
+    {/if}
+
+    {#if contextMenu.hasSelection && (onExplainSelection || onRewriteSelection)}
+      <div class="bg-border my-1 h-px"></div>
+      {#if onExplainSelection}
+        <button
+          type="button"
+          role="menuitem"
+          class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
+          onclick={() => runMenuAction(onExplainSelection)}
+        >
+          <span>Explain Selection</span>
+        </button>
+      {/if}
+      {#if onRewriteSelection}
+        <button
+          type="button"
+          role="menuitem"
+          class="hover:bg-accent hover:text-accent-foreground flex w-full items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-left text-[12px]"
+          onclick={() => runMenuAction(onRewriteSelection)}
+        >
+          <span>Rewrite Selection</span>
+        </button>
+      {/if}
+    {/if}
+  </div>
+{/if}
 
 <style>
   .code-editor :global(.cm-editor) {

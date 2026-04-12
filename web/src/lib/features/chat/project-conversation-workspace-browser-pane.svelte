@@ -35,6 +35,76 @@
   let terminalResizing = $state(false)
   let containerElement: HTMLDivElement | null = null
 
+  function joinPath(parent: string, child: string): string {
+    return parent ? `${parent}/${child}` : child
+  }
+
+  function parentDirOf(path: string): string {
+    const idx = path.lastIndexOf('/')
+    return idx === -1 ? '' : path.slice(0, idx)
+  }
+
+  async function handleCreateEntry(parentPath: string, name: string, kind: 'file' | 'folder') {
+    // The backend createFile endpoint auto-creates any missing parent
+    // directories. For folders we create a sentinel `.gitkeep` inside so
+    // the directory exists even when empty.
+    const leafPath =
+      kind === 'folder'
+        ? joinPath(joinPath(parentPath, name), '.gitkeep')
+        : joinPath(parentPath, name)
+    await browser.createFile(leafPath)
+  }
+
+  async function handleRenameEntry(fromPath: string, newName: string) {
+    const parent = parentDirOf(fromPath)
+    const toPath = joinPath(parent, newName)
+    if (toPath === fromPath) {
+      return
+    }
+    await browser.renameFile(fromPath, toPath)
+  }
+
+  async function handleDeleteEntry(path: string) {
+    const editor = browser.selectedEditorState
+    const confirmed = window.confirm(
+      editor?.dirty && browser.selectedFilePath === path
+        ? `Delete ${path}? Unsaved local draft changes will be discarded.`
+        : `Delete ${path}?`,
+    )
+    if (!confirmed) {
+      return
+    }
+    await browser.deleteFile(path)
+  }
+
+  async function copyToClipboard(value: string) {
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch {
+      // Clipboard permission can be denied in some contexts; silently ignore.
+    }
+  }
+
+  function buildAbsolutePath(filePath: string): string {
+    const workspaceRoot = browser.metadata?.workspacePath ?? ''
+    const repoPath = browser.selectedRepoPath
+    return [workspaceRoot, repoPath, filePath].filter(Boolean).join('/')
+  }
+
+  function buildRelativePath(filePath: string): string {
+    const repoPath = browser.selectedRepoPath
+    return repoPath ? `${repoPath}/${filePath}` : filePath
+  }
+
+  function handleCopyAbsolutePath(filePath: string) {
+    void copyToClipboard(buildAbsolutePath(filePath))
+  }
+
+  function handleCopyRelativePath(filePath: string) {
+    void copyToClipboard(buildRelativePath(filePath))
+  }
+
   function handleSidebarResizeStart(event: PointerEvent) {
     event.preventDefault()
     sidebarResizing = true
@@ -103,9 +173,16 @@
         expandedDirs={browser.expandedDirs}
         loadingDirs={browser.loadingDirs}
         selectedFilePath={browser.selectedFilePath}
+        recentFiles={browser.recentFiles}
+        onSearchPaths={browser.searchPaths}
         onOpenRepo={browser.openRepo}
         onToggleDir={browser.toggleDir}
         onSelectFile={browser.selectFile}
+        onCreateEntry={handleCreateEntry}
+        onRenameEntry={handleRenameEntry}
+        onDeleteEntry={handleDeleteEntry}
+        onCopyAbsolutePath={handleCopyAbsolutePath}
+        onCopyRelativePath={handleCopyRelativePath}
       />
       <div
         class={cn(

@@ -4,28 +4,40 @@ import { waitFor } from '@testing-library/svelte'
 import { ApiError } from '$lib/api/client'
 
 const {
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 } = vi.hoisted(() => ({
+  createProjectConversationWorkspaceFile: vi.fn(),
+  deleteProjectConversationWorkspaceFile: vi.fn(),
   getProjectConversationWorkspace: vi.fn(),
   getProjectConversationWorkspaceDiff: vi.fn(),
   getProjectConversationWorkspaceFilePatch: vi.fn(),
   getProjectConversationWorkspaceFilePreview: vi.fn(),
   listProjectConversationWorkspaceTree: vi.fn(),
+  renameProjectConversationWorkspaceFile: vi.fn(),
   saveProjectConversationWorkspaceFile: vi.fn(),
+  searchProjectConversationWorkspacePaths: vi.fn(),
 }))
 
 vi.mock('$lib/api/chat', () => ({
+  createProjectConversationWorkspaceFile,
+  deleteProjectConversationWorkspaceFile,
   getProjectConversationWorkspace,
   getProjectConversationWorkspaceDiff,
   getProjectConversationWorkspaceFilePatch,
   getProjectConversationWorkspaceFilePreview,
   listProjectConversationWorkspaceTree,
+  renameProjectConversationWorkspaceFile,
   saveProjectConversationWorkspaceFile,
+  searchProjectConversationWorkspacePaths,
 }))
 
 import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
@@ -101,6 +113,24 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     window.localStorage.clear()
+    createProjectConversationWorkspaceFile.mockResolvedValue({
+      file: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+        revision: 'rev-new',
+        sizeBytes: 0,
+        encoding: 'utf-8',
+        lineEnding: 'lf',
+      },
+    })
+    deleteProjectConversationWorkspaceFile.mockResolvedValue({
+      file: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: 'README.md',
+      },
+    })
     mockWorkspaceMetadata()
     mockTree()
     mockPatch()
@@ -118,6 +148,14 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         lineEnding: 'lf',
       },
     })
+    renameProjectConversationWorkspaceFile.mockResolvedValue({
+      file: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        fromPath: 'README.md',
+        toPath: 'docs/README.md',
+      },
+    })
     getProjectConversationWorkspaceDiff.mockResolvedValue({
       workspaceDiff: {
         conversationId: 'conversation-1',
@@ -128,6 +166,15 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         added: 1,
         removed: 0,
         repos: [],
+      },
+    })
+    searchProjectConversationWorkspacePaths.mockResolvedValue({
+      workspaceSearch: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        query: 'readme',
+        truncated: false,
+        results: [{ path: 'docs/README.md', name: 'README.md' }],
       },
     })
   })
@@ -156,6 +203,23 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
         baseSavedRevision: 'rev-1',
       }),
     )
+  })
+
+  it('searches repo paths through the workspace search API for the selected repo', async () => {
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+
+    const results = await state.searchPaths('readme', 10)
+
+    expect(searchProjectConversationWorkspacePaths).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      query: 'readme',
+      limit: 10,
+    })
+    expect(results).toEqual([{ path: 'docs/README.md', name: 'README.md' }])
   })
 
   it('keeps the local draft and enters conflict mode when save detects a stale revision', async () => {
@@ -353,6 +417,145 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     expect(state.selectedEditorState).toMatchObject({
       draftContent: '{"name":"pkg"}\n',
       dirty: false,
+    })
+  })
+
+  it('creates, renames, and deletes files while remapping editor state', async () => {
+    listProjectConversationWorkspaceTree.mockResolvedValue({
+      workspaceTree: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: '',
+        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 12 }],
+      },
+    })
+    getProjectConversationWorkspaceFilePreview.mockImplementation(
+      async (_conversationId, input) => ({
+        filePreview: buildPreview({ path: input.path, content: '', revision: `rev-${input.path}` }),
+      }),
+    )
+    getProjectConversationWorkspaceFilePatch.mockImplementation(async (_conversationId, input) => ({
+      filePatch: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        path: input.path,
+        status: 'untracked',
+        diffKind: 'text',
+        truncated: false,
+        diff: '',
+      },
+    }))
+
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+    await state.createFile('notes/todo.md')
+    expect(createProjectConversationWorkspaceFile).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      path: 'notes/todo.md',
+    })
+
+    state.selectFile('notes/todo.md')
+    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe(''))
+    state.updateSelectedDraft('draft note')
+
+    await state.renameFile('notes/todo.md', 'notes/archive/todo.md')
+    expect(renameProjectConversationWorkspaceFile).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      fromPath: 'notes/todo.md',
+      toPath: 'notes/archive/todo.md',
+    })
+    expect(state.getEditorState('services/openase', 'notes/archive/todo.md')).toMatchObject({
+      draftContent: 'draft note',
+      dirty: true,
+    })
+
+    await state.deleteFile('notes/archive/todo.md')
+    expect(deleteProjectConversationWorkspaceFile).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      path: 'notes/archive/todo.md',
+    })
+    expect(state.getEditorState('services/openase', 'notes/archive/todo.md')).toBeNull()
+  })
+
+  it('autosaves after idle when enabled and stops on conflict', async () => {
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+    state.selectFile('README.md')
+    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
+    vi.useFakeTimers()
+    try {
+      state.setAutosaveEnabled(true)
+      state.updateSelectedDraft('line one\nline two\n')
+      await vi.advanceTimersByTimeAsync(1100)
+
+      expect(saveProjectConversationWorkspaceFile).toHaveBeenCalledTimes(1)
+
+      saveProjectConversationWorkspaceFile.mockRejectedValueOnce(
+        new ApiError(
+          409,
+          'The workspace file changed before your save completed.',
+          'PROJECT_CONVERSATION_WORKSPACE_FILE_CONFLICT',
+          {
+            current_file: buildPreview({
+              content: 'server version\n',
+              revision: 'rev-3',
+            }),
+          },
+        ),
+      )
+
+      state.updateSelectedDraft('local change again\n')
+      await vi.advanceTimersByTimeAsync(1100)
+
+      expect(state.selectedEditorState?.savePhase).toBe('conflict')
+      saveProjectConversationWorkspaceFile.mockClear()
+      await vi.advanceTimersByTimeAsync(1100)
+      expect(saveProjectConversationWorkspaceFile).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reviews and applies a Project AI patch into the local draft', async () => {
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    await state.refreshWorkspace(true)
+    state.selectFile('README.md')
+    await waitFor(() => expect(state.selectedEditorState?.draftContent).toBe('line one\n'))
+
+    const reviewed = await state.reviewPatch({
+      type: 'diff',
+      file: 'README.md',
+      hunks: [
+        {
+          oldStart: 1,
+          oldLines: 1,
+          newStart: 1,
+          newLines: 2,
+          lines: [
+            { op: 'context', text: 'line one' },
+            { op: 'add', text: 'line two' },
+          ],
+        },
+      ],
+    })
+
+    expect(reviewed).toBe(true)
+    expect(state.selectedEditorState?.pendingPatch?.proposedContent).toBe('line one\nline two')
+
+    expect(state.applySelectedPendingPatch()).toBe(true)
+    expect(state.selectedEditorState).toMatchObject({
+      draftContent: 'line one\nline two',
+      dirty: true,
+      pendingPatch: null,
     })
   })
 })
