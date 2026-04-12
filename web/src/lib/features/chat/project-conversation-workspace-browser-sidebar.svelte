@@ -1,13 +1,17 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import { Button } from '$ui/button'
-  import { ChevronRight, FilePlus2, FolderPlus, GitBranch } from '@lucide/svelte'
+  import { ChevronRight, FilePlus2, FolderPlus } from '@lucide/svelte'
   import type {
+    ProjectConversationWorkspaceBranchRef,
+    ProjectConversationWorkspaceBranchScope,
+    ProjectConversationWorkspaceCurrentRef,
     ProjectConversationWorkspaceDiffRepo,
     ProjectConversationWorkspaceRepoMetadata,
     ProjectConversationWorkspaceSearchResult,
     ProjectConversationWorkspaceTreeEntry,
   } from '$lib/api/chat'
+  import WorkspaceBrowserBranchPicker from './project-conversation-workspace-browser-branch-picker.svelte'
   import {
     buildDirtyFileStatusMap,
     buildDirtyParentDirs,
@@ -46,6 +50,13 @@
     onCreateEntry,
     onRenameEntry,
     onDeleteEntry,
+    currentRef = null,
+    localBranches = [],
+    remoteBranches = [],
+    repoRefsLoading = false,
+    repoRefsError = '',
+    checkoutBlockers = [],
+    onCheckoutBranch,
     onCopyAbsolutePath,
     onCopyRelativePath,
   }: {
@@ -67,6 +78,18 @@
     onSelectFile?: (path: string) => void
     onCreateEntry?: (parentPath: string, name: string, kind: 'file' | 'folder') => void
     onRenameEntry?: (path: string, newName: string) => void
+    currentRef?: ProjectConversationWorkspaceCurrentRef | null
+    localBranches?: ProjectConversationWorkspaceBranchRef[]
+    remoteBranches?: ProjectConversationWorkspaceBranchRef[]
+    repoRefsLoading?: boolean
+    repoRefsError?: string
+    checkoutBlockers?: string[]
+    onCheckoutBranch?: (request: {
+      targetKind: ProjectConversationWorkspaceBranchScope
+      targetName: string
+      createTrackingBranch: boolean
+      localBranchName?: string
+    }) => Promise<{ ok: boolean; blockers: string[] }>
     onDeleteEntry?: (path: string) => void
     onCopyAbsolutePath?: (path: string) => void
     onCopyRelativePath?: (path: string) => void
@@ -286,15 +309,16 @@
     </div>
   {/if}
 
-  {#if selectedRepo}
-    <div class="border-border bg-muted/30 flex items-center gap-1.5 border-t px-3 py-1 text-[11px]">
-      <GitBranch class="text-muted-foreground size-3 shrink-0" />
-      <span class="font-medium">{selectedRepo.branch}</span>
-      <span class="text-muted-foreground/60 min-w-0 truncate font-mono text-[10px]">
-        {selectedRepo.headCommit}
-      </span>
-    </div>
-  {/if}
+  <WorkspaceBrowserBranchPicker
+    {currentRef}
+    {localBranches}
+    {remoteBranches}
+    {repoRefsLoading}
+    {repoRefsError}
+    {checkoutBlockers}
+    {selectedRepo}
+    {onCheckoutBranch}
+  />
 </div>
 
 {#if contextMenu}

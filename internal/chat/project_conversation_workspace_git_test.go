@@ -264,6 +264,58 @@ func TestProjectConversationWorkspaceCheckoutCreatesTrackingBranchAndRefreshesMe
 	}
 }
 
+func TestProjectConversationWorkspaceCheckoutRemoteBranchReportsExistingLocalTrackingBranch(t *testing.T) {
+	t.Parallel()
+
+	fixture := setupProjectConversationWorkspaceDiffFixture(t, []projectConversationWorkspaceRepoFixture{
+		{
+			name: "backend",
+			files: map[string]string{
+				"README.md": "base\n",
+			},
+		},
+	})
+	repoPath := fixture.repoPaths["backend"]
+	createConversationBranchCommit(
+		t,
+		repoPath,
+		"feature/existing-local-main",
+		map[string]string{"feature.txt": "feature\n"},
+	)
+
+	_, err := fixture.service.CheckoutWorkspaceBranch(
+		fixture.ctx,
+		UserID("user:conversation"),
+		fixture.conversation.ID,
+		ProjectConversationWorkspaceCheckoutInput{
+			RepoPath: WorkspaceRepoPath("backend"),
+			Target: WorkspaceCheckoutTarget{
+				Kind:                 WorkspaceCheckoutTargetKindRemoteTrackingBranch,
+				BranchName:           WorkspaceBranchName("origin/main"),
+				CreateTrackingBranch: true,
+			},
+			ExpectedCleanWorkspace: true,
+		},
+	)
+	var preconditionErr *ProjectConversationWorkspaceCheckoutPreconditionError
+	if !errors.As(err, &preconditionErr) {
+		t.Fatalf("CheckoutWorkspaceBranch() error = %v, want precondition error", err)
+	}
+	if preconditionErr.Reason != ProjectConversationWorkspaceCheckoutPreconditionLocalBranchExists {
+		t.Fatalf("precondition reason = %q", preconditionErr.Reason)
+	}
+	if preconditionErr.RequestedBranch != "origin/main" {
+		t.Fatalf("requested branch = %q, want origin/main", preconditionErr.RequestedBranch)
+	}
+	if preconditionErr.SuggestedBranch != "main" {
+		t.Fatalf("suggested branch = %q, want main", preconditionErr.SuggestedBranch)
+	}
+	currentBranch := strings.TrimSpace(runConversationGitCommand(t, "", "git", "-C", repoPath, "branch", "--show-current"))
+	if currentBranch != "feature/existing-local-main" {
+		t.Fatalf("current branch = %q, want feature/existing-local-main", currentBranch)
+	}
+}
+
 func createConversationBranchCommit(
 	t *testing.T,
 	repoPath string,

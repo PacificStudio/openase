@@ -214,6 +214,7 @@ export async function checkoutWorkspaceBranch(input: {
   targetName: string
   createTrackingBranch: boolean
   localBranchName?: string
+  repoRefs?: ProjectConversationWorkspaceRepoRefs | null
   metadata: ProjectConversationWorkspaceMetadata | null
   workspaceDiff: ProjectConversationWorkspaceDiff | null
   openTabs: WorkspaceTab[]
@@ -230,12 +231,13 @@ export async function checkoutWorkspaceBranch(input: {
     return { ok: false as const, blockers }
   }
 
+  const checkoutRequest = resolveWorkspaceCheckoutRequest(input)
   const response = await checkoutProjectConversationWorkspaceBranch(input.conversationId, {
     repoPath: input.repoPath,
-    targetKind: input.targetKind,
-    targetName: input.targetName,
-    createTrackingBranch: input.createTrackingBranch,
-    localBranchName: input.localBranchName,
+    targetKind: checkoutRequest.targetKind,
+    targetName: checkoutRequest.targetName,
+    createTrackingBranch: checkoutRequest.createTrackingBranch,
+    localBranchName: checkoutRequest.localBranchName,
     expectedCleanWorkspace: true,
   })
 
@@ -257,4 +259,52 @@ export async function checkoutWorkspaceBranch(input: {
   await input.refreshWorkspace(true)
   await input.refreshRepoGitContext(input.repoPath)
   return { ok: true as const, blockers: [] as string[] }
+}
+
+export function resolveWorkspaceCheckoutRequest(input: {
+  targetKind: 'local_branch' | 'remote_tracking_branch'
+  targetName: string
+  createTrackingBranch: boolean
+  localBranchName?: string
+  repoRefs?: ProjectConversationWorkspaceRepoRefs | null
+}) {
+  if (input.targetKind !== 'remote_tracking_branch') {
+    return {
+      targetKind: input.targetKind,
+      targetName: input.targetName,
+      createTrackingBranch: input.createTrackingBranch,
+      localBranchName: input.localBranchName,
+    }
+  }
+
+  const localBranchName =
+    input.localBranchName?.trim() || deriveTrackingLocalBranchName(input.targetName)
+  if (
+    localBranchName &&
+    input.repoRefs?.localBranches.some((branch) => branch.name === localBranchName)
+  ) {
+    return {
+      targetKind: 'local_branch' as const,
+      targetName: localBranchName,
+      createTrackingBranch: false,
+      localBranchName: undefined,
+    }
+  }
+
+  return {
+    targetKind: input.targetKind,
+    targetName: input.targetName,
+    createTrackingBranch: input.createTrackingBranch,
+    localBranchName: input.localBranchName,
+  }
+}
+
+function deriveTrackingLocalBranchName(targetName: string): string {
+  const trimmed = targetName.trim()
+  if (!trimmed) return ''
+  const separator = trimmed.indexOf('/')
+  if (separator < 0 || separator === trimmed.length - 1) {
+    return trimmed
+  }
+  return trimmed.slice(separator + 1)
 }

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { cn } from '$lib/utils'
   import type {
+    ProjectConversationWorkspaceBranchRef,
+    ProjectConversationWorkspaceBranchScope,
+    ProjectConversationWorkspaceCurrentRef,
     ProjectConversationWorkspaceDiffRepo,
     ProjectConversationWorkspaceRepoMetadata,
   } from '$lib/api/chat'
@@ -16,12 +19,31 @@
     selectedRepoDiff = null,
     runtimeActive = false,
     terminalManager,
+    currentRef = null,
+    localBranches = [],
+    remoteBranches = [],
+    repoRefsLoading = false,
+    repoRefsError = '',
+    checkoutBlockers = [],
+    onCheckoutBranch,
   }: {
     browser: ProjectConversationWorkspaceBrowserState
     selectedRepo?: ProjectConversationWorkspaceRepoMetadata | null
     selectedRepoDiff?: ProjectConversationWorkspaceDiffRepo | null
     runtimeActive?: boolean
     terminalManager: ReturnType<typeof createTerminalManager>
+    currentRef?: ProjectConversationWorkspaceCurrentRef | null
+    localBranches?: ProjectConversationWorkspaceBranchRef[]
+    remoteBranches?: ProjectConversationWorkspaceBranchRef[]
+    repoRefsLoading?: boolean
+    repoRefsError?: string
+    checkoutBlockers?: string[]
+    onCheckoutBranch?: (request: {
+      targetKind: ProjectConversationWorkspaceBranchScope
+      targetName: string
+      createTrackingBranch: boolean
+      localBranchName?: string
+    }) => Promise<{ ok: boolean; blockers: string[] }>
   } = $props()
 
   const MIN_SIDEBAR_WIDTH = 180
@@ -174,6 +196,13 @@
         loadingDirs={browser.loadingDirs}
         selectedFilePath={browser.selectedFilePath}
         recentFiles={browser.recentFiles}
+        {currentRef}
+        {localBranches}
+        {remoteBranches}
+        {repoRefsLoading}
+        {repoRefsError}
+        {checkoutBlockers}
+        {onCheckoutBranch}
         onSearchPaths={browser.searchPaths}
         onOpenRepo={browser.openRepo}
         onToggleDir={browser.toggleDir}

@@ -262,6 +262,236 @@ describe('createProjectConversationWorkspaceBrowserState', () => {
     expect(checkoutProjectConversationWorkspaceBranch).not.toHaveBeenCalled()
   })
 
+  it('falls back to the existing local branch when a remote tracking branch already has a local checkout', async () => {
+    getProjectConversationWorkspace.mockResolvedValueOnce({
+      workspace: {
+        conversationId: 'conversation-1',
+        available: true,
+        workspacePath: '/tmp/conversation-1',
+        repos: [
+          {
+            name: 'openase',
+            path: 'services/openase',
+            branch: 'feature/current',
+            currentRef: {
+              kind: 'branch',
+              displayName: 'feature/current',
+              cacheKey: 'branch:refs/heads/feature/current',
+              branchName: 'feature/current',
+              branchFullName: 'refs/heads/feature/current',
+              commitId: '123456789abc',
+              shortCommitId: '123456789abc',
+              subject: 'Current branch',
+            },
+            headCommit: '123456789abc',
+            headSummary: 'Current branch',
+            dirty: false,
+            filesChanged: 0,
+            added: 0,
+            removed: 0,
+          },
+        ],
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValueOnce({
+      workspaceDiff: {
+        conversationId: 'conversation-1',
+        workspacePath: '/tmp/conversation-1',
+        dirty: false,
+        reposChanged: 0,
+        filesChanged: 0,
+        added: 0,
+        removed: 0,
+        repos: [],
+      },
+    })
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValueOnce({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'feature/current',
+          cacheKey: 'branch:refs/heads/feature/current',
+          branchName: 'feature/current',
+          branchFullName: 'refs/heads/feature/current',
+          commitId: '123456789abc',
+          shortCommitId: '123456789abc',
+          subject: 'Current branch',
+        },
+        localBranches: [
+          {
+            name: 'main',
+            fullName: 'refs/heads/main',
+            scope: 'local_branch',
+            current: false,
+            commitId: 'abcdef012345',
+            shortCommitId: 'abcdef012345',
+            subject: 'Main branch',
+            upstreamName: 'origin/main',
+            ahead: 0,
+            behind: 0,
+            suggestedLocalBranchName: '',
+          },
+        ],
+        remoteBranches: [
+          {
+            name: 'origin/main',
+            fullName: 'refs/remotes/origin/main',
+            scope: 'remote_tracking_branch',
+            current: false,
+            commitId: 'abcdef012345',
+            shortCommitId: 'abcdef012345',
+            subject: 'Main branch',
+            upstreamName: '',
+            ahead: 0,
+            behind: 0,
+            suggestedLocalBranchName: 'main',
+          },
+        ],
+      },
+    })
+
+    const state = createProjectConversationWorkspaceBrowserState({
+      getConversationId: () => 'conversation-1',
+    })
+
+    checkoutProjectConversationWorkspaceBranch.mockResolvedValueOnce({
+      checkout: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'main',
+          cacheKey: 'branch:refs/heads/main',
+          branchName: 'main',
+          branchFullName: 'refs/heads/main',
+          commitId: 'abcdef012345',
+          shortCommitId: 'abcdef012345',
+          subject: 'Main branch',
+        },
+        createdLocalBranch: '',
+      },
+    })
+    getProjectConversationWorkspace.mockResolvedValueOnce({
+      workspace: {
+        conversationId: 'conversation-1',
+        available: true,
+        workspacePath: '/tmp/conversation-1',
+        repos: [
+          {
+            name: 'openase',
+            path: 'services/openase',
+            branch: 'main',
+            currentRef: {
+              kind: 'branch',
+              displayName: 'main',
+              cacheKey: 'branch:refs/heads/main',
+              branchName: 'main',
+              branchFullName: 'refs/heads/main',
+              commitId: 'abcdef012345',
+              shortCommitId: 'abcdef012345',
+              subject: 'Main branch',
+            },
+            headCommit: 'abcdef012345',
+            headSummary: 'Main branch',
+            dirty: false,
+            filesChanged: 0,
+            added: 0,
+            removed: 0,
+          },
+        ],
+      },
+    })
+    getProjectConversationWorkspaceRepoRefs.mockResolvedValueOnce({
+      repoRefs: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        currentRef: {
+          kind: 'branch',
+          displayName: 'main',
+          cacheKey: 'branch:refs/heads/main',
+          branchName: 'main',
+          branchFullName: 'refs/heads/main',
+          commitId: 'abcdef012345',
+          shortCommitId: 'abcdef012345',
+          subject: 'Main branch',
+        },
+        localBranches: [
+          {
+            name: 'main',
+            fullName: 'refs/heads/main',
+            scope: 'local_branch',
+            current: true,
+            commitId: 'abcdef012345',
+            shortCommitId: 'abcdef012345',
+            subject: 'Main branch',
+            upstreamName: 'origin/main',
+            ahead: 0,
+            behind: 0,
+            suggestedLocalBranchName: '',
+          },
+        ],
+        remoteBranches: [
+          {
+            name: 'origin/main',
+            fullName: 'refs/remotes/origin/main',
+            scope: 'remote_tracking_branch',
+            current: false,
+            commitId: 'abcdef012345',
+            shortCommitId: 'abcdef012345',
+            subject: 'Main branch',
+            upstreamName: '',
+            ahead: 0,
+            behind: 0,
+            suggestedLocalBranchName: 'main',
+          },
+        ],
+      },
+    })
+    getProjectConversationWorkspaceGitGraph.mockResolvedValueOnce({
+      gitGraph: {
+        conversationId: 'conversation-1',
+        repoPath: 'services/openase',
+        limit: 40,
+        commits: [],
+      },
+    })
+    getProjectConversationWorkspaceDiff.mockResolvedValueOnce({
+      workspaceDiff: {
+        conversationId: 'conversation-1',
+        workspacePath: '/tmp/conversation-1',
+        dirty: false,
+        reposChanged: 0,
+        filesChanged: 0,
+        added: 0,
+        removed: 0,
+        repos: [],
+      },
+    })
+
+    await state.refreshWorkspace(true)
+
+    const result = await state.checkoutBranch({
+      repoPath: 'services/openase',
+      targetKind: 'remote_tracking_branch',
+      targetName: 'origin/main',
+      createTrackingBranch: true,
+      localBranchName: 'main',
+    })
+
+    expect(result.ok).toBe(true)
+    expect(checkoutProjectConversationWorkspaceBranch).toHaveBeenCalledWith('conversation-1', {
+      repoPath: 'services/openase',
+      targetKind: 'local_branch',
+      targetName: 'main',
+      createTrackingBranch: false,
+      localBranchName: undefined,
+      expectedCleanWorkspace: true,
+    })
+    await waitFor(() => expect(state.metadata?.repos[0]?.branch).toBe('main'))
+  })
+
   it('refreshes the tree, file preview, and git context after a successful branch checkout', async () => {
     const state = createProjectConversationWorkspaceBrowserState({
       getConversationId: () => 'conversation-1',

@@ -448,6 +448,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
     return runCheckoutWorkspaceBranch({
       conversationId,
       ...request,
+      repoRefs,
       metadata,
       workspaceDiff: currentWorkspaceDiff(),
       openTabs,
