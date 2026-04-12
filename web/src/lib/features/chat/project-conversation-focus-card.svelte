@@ -41,12 +41,12 @@
       {actionLabel}
     </button>
   {/if}
-    <button
-      type="button"
-      class="text-muted-foreground hover:text-foreground -mr-0.5 ml-auto shrink-0 rounded p-0.5 transition-colors"
-      aria-label={chatT('chat.removeFocus')}
-      onclick={onDismiss}
-    >
+  <button
+    type="button"
+    class="text-muted-foreground hover:text-foreground -mr-0.5 ml-auto shrink-0 rounded p-0.5 transition-colors"
+    aria-label={chatT('chat.removeFocus')}
+    onclick={onDismiss}
+  >
     <X class="size-3" />
   </button>
 </div>

@@ -115,9 +115,7 @@ function buildPageItems({
       title: sectionLabel(section),
       subtitle: sectionSubtitle(section, currentProject.name),
       badge:
-        section === currentSection
-          ? searchT('search.badge.current')
-          : searchT('search.badge.page'),
+        section === currentSection ? searchT('search.badge.current') : searchT('search.badge.page'),
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, section) },
       keywords: [section, currentProject.name, currentOrg.name],
     }),
@@ -135,8 +133,7 @@ function buildProjectItems({ currentOrg, projects }: BuildSearchIndexInput): Sea
       group: 'Projects',
       kind: 'project',
       title: project.name,
-      subtitle:
-        project.description || searchT('search.projectSubtitle', { project: project.name }),
+      subtitle: project.description || searchT('search.projectSubtitle', { project: project.name }),
       badge: searchT('search.badge.project'),
       action: { kind: 'navigate', href: projectPath(currentOrg.id, project.id) },
       keywords: [project.slug, project.status, currentOrg.name],
@@ -215,9 +212,7 @@ function buildWorkflowItems({
         type: workflow.type,
         project: currentProject.name,
       }),
-      badge: workflow.is_active
-        ? searchT('search.badge.active')
-        : searchT('search.badge.workflow'),
+      badge: workflow.is_active ? searchT('search.badge.active') : searchT('search.badge.workflow'),
       action: {
         kind: 'navigate',
         href: projectPath(currentOrg.id, currentProject.id, 'workflows'),
@@ -310,7 +305,5 @@ function workflowLabel(
 }
 
 function currentTicketLabel(ticketID: string | null | undefined) {
-  return ticketID
-    ? searchT('search.ticketLabel', { id: ticketID.slice(0, 8) })
-    : ''
+  return ticketID ? searchT('search.ticketLabel', { id: ticketID.slice(0, 8) }) : ''
 }

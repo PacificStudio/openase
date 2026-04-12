@@ -54,30 +54,30 @@
 
   <!-- Actions -->
   <div class="flex shrink-0 items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        title={i18nStore.t('settings.repositoryRow.actions.edit')}
-        onclick={(event) => {
-          event.stopPropagation()
-          handleOpenRepo?.()
-        }}
-      >
-        <Pencil class="size-3.5" />
-      </Button>
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      title={i18nStore.t('settings.repositoryRow.actions.edit')}
+      onclick={(event) => {
+        event.stopPropagation()
+        handleOpenRepo?.()
+      }}
+    >
+      <Pencil class="size-3.5" />
+    </Button>
 
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         {#snippet child({ props })}
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              {...props}
-              onclick={(event) => event.stopPropagation()}
-            >
-              <Ellipsis class="size-3.5" />
-              <span class="sr-only">{i18nStore.t('settings.repositoryRow.actions.more')}</span>
-            </Button>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            {...props}
+            onclick={(event) => event.stopPropagation()}
+          >
+            <Ellipsis class="size-3.5" />
+            <span class="sr-only">{i18nStore.t('settings.repositoryRow.actions.more')}</span>
+          </Button>
         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" class="w-48">

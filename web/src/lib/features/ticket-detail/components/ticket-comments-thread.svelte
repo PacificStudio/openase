@@ -93,7 +93,11 @@
   }
 
   async function handleDeleteComment(commentId: string) {
-    if (deletingCommentId === commentId || !window.confirm(t('ticketDetail.commentThread.confirmDelete'))) return
+    if (
+      deletingCommentId === commentId ||
+      !window.confirm(t('ticketDetail.commentThread.confirmDelete'))
+    )
+      return
 
     const success = (await onDeleteComment?.(commentId)) ?? false
     if (success && editingCommentId === commentId) cancelCommentEdit()
@@ -224,11 +228,9 @@
                       class="size-5"
                       aria-label={t('ticketDetail.commentThread.actions.deleteComment')}
                       onclick={() => handleDeleteComment(item.commentId)}
-                      disabled={
-                        deletingCommentId === item.commentId ||
+                      disabled={deletingCommentId === item.commentId ||
                         updatingCommentId === item.commentId ||
-                        item.isDeleted
-                      }
+                        item.isDeleted}
                     >
                       <Trash2 class="size-3" />
                     </Button>
@@ -236,15 +238,13 @@
                       size="icon-xs"
                       variant="ghost"
                       class="size-5"
-                      aria-label={
-                        isCommentCollapsed(item.commentId)
-                          ? t('ticketDetail.commentThread.actions.expandComment', {
-                              author: item.actor.name,
-                            })
-                          : t('ticketDetail.commentThread.actions.collapseComment', {
-                              author: item.actor.name,
-                            })
-                      }
+                      aria-label={isCommentCollapsed(item.commentId)
+                        ? t('ticketDetail.commentThread.actions.expandComment', {
+                            author: item.actor.name,
+                          })
+                        : t('ticketDetail.commentThread.actions.collapseComment', {
+                            author: item.actor.name,
+                          })}
                       onclick={() => toggleCommentCollapsed(item.commentId)}
                       disabled={editingCommentId === item.commentId}
                     >

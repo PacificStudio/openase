@@ -165,11 +165,7 @@
             >
               {i18nStore.t('settings.organizationSecrets.inventory.buttons.disable')}
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onclick={() => openConfirm('delete', secret)}
-            >
+            <Button variant="destructive" size="sm" onclick={() => openConfirm('delete', secret)}>
               {i18nStore.t('settings.organizationSecrets.inventory.buttons.delete')}
             </Button>
           </div>
@@ -182,16 +178,16 @@
 <!-- Rotate dialog -->
 <Dialog.Root bind:open={rotateOpen}>
   <Dialog.Content class="sm:max-w-md">
-  <Dialog.Header>
-    <Dialog.Title>
-      {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateTitle', {
-        secret: rotateTarget?.name ?? '',
-      })}
-    </Dialog.Title>
-    <Dialog.Description>
-      {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateDescription')}
-    </Dialog.Description>
-  </Dialog.Header>
+    <Dialog.Header>
+      <Dialog.Title>
+        {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateTitle', {
+          secret: rotateTarget?.name ?? '',
+        })}
+      </Dialog.Title>
+      <Dialog.Description>
+        {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateDescription')}
+      </Dialog.Description>
+    </Dialog.Header>
     <div class="space-y-1.5">
       <Label for="org-rotate-value">
         {i18nStore.t('settings.organizationSecrets.inventory.labels.newValue')}
@@ -200,27 +196,25 @@
         id="org-rotate-value"
         type="password"
         bind:value={rotateDraft}
-        placeholder={i18nStore.t(
-          'settings.organizationSecrets.inventory.placeholders.newValue',
-        )}
+        placeholder={i18nStore.t('settings.organizationSecrets.inventory.placeholders.newValue')}
         onkeydown={(e) => {
           if (e.key === 'Enter') submitRotate()
         }}
       />
     </div>
     <Dialog.Footer>
-        <Dialog.Close>
-          {#snippet child({ props })}
-            <Button variant="outline" {...props} disabled={rotateSubmitting}>
-              {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
-            </Button>
-          {/snippet}
-        </Dialog.Close>
-        <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
-          {rotateSubmitting
-            ? i18nStore.t('settings.organizationSecrets.inventory.buttons.rotating')
-            : i18nStore.t('settings.organizationSecrets.inventory.buttons.confirmRotate')}
-        </Button>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={rotateSubmitting}>
+            {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
+          </Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
+        {rotateSubmitting
+          ? i18nStore.t('settings.organizationSecrets.inventory.buttons.rotating')
+          : i18nStore.t('settings.organizationSecrets.inventory.buttons.confirmRotate')}
+      </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -249,13 +243,9 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-        <Button
-          variant="outline"
-          {...props}
-          disabled={confirmSubmitting}
-        >
-          {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
-        </Button>
+          <Button variant="outline" {...props} disabled={confirmSubmitting}>
+            {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button

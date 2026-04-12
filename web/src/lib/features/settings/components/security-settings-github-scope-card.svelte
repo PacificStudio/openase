@@ -118,7 +118,9 @@
       <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         {#if displayLogin()}
           <div>
-            <span class="text-muted-foreground">{i18nStore.t('settings.security.github.labels.user')}</span>
+            <span class="text-muted-foreground"
+              >{i18nStore.t('settings.security.github.labels.user')}</span
+            >
             <div>{displayLogin()}</div>
           </div>
         {/if}
@@ -204,14 +206,14 @@
           {i18nStore.t('settings.security.github.buttons.cancel')}
         </button>
       {/if}
-    <div class="flex gap-2">
-      <Input
-        value={tokenValue}
-        placeholder={i18nStore.t('settings.security.github.placeholders.token')}
-        disabled={anyBusy}
-        class="h-8 text-xs"
-        oninput={(event) => onTokenChange(event.currentTarget.value)}
-      />
+      <div class="flex gap-2">
+        <Input
+          value={tokenValue}
+          placeholder={i18nStore.t('settings.security.github.placeholders.token')}
+          disabled={anyBusy}
+          class="h-8 text-xs"
+          oninput={(event) => onTokenChange(event.currentTarget.value)}
+        />
         <Button size="sm" class="h-8 shrink-0" onclick={() => onAction('save')} disabled={anyBusy}>
           {#if isBusy('save')}
             <LoaderCircle class="mr-1.5 size-3 animate-spin" />

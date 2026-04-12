@@ -95,8 +95,8 @@ const runSummarySectionTemplates: RunSummarySectionTemplate[] = [
   },
 ]
 
-export const runSummarySectionDefinitions: RunSummarySectionDefinition[] = runSummarySectionTemplates.map(
-  (template) => ({
+export const runSummarySectionDefinitions: RunSummarySectionDefinition[] =
+  runSummarySectionTemplates.map((template) => ({
     key: template.key,
     get title() {
       return translateRaw(template.titleKey)
@@ -110,8 +110,7 @@ export const runSummarySectionDefinitions: RunSummarySectionDefinition[] = runSu
     get description() {
       return translateRaw(template.descriptionKey)
     },
-  }),
-)
+  }))
 
 export const defaultRunSummarySectionKeys: RunSummarySectionKey[] = [
   'major_steps',
@@ -139,7 +138,11 @@ export function buildRunSummaryPrompt(
 
   const trimmedCustomInstructions = customInstructions.trim()
   if (trimmedCustomInstructions !== '') {
-    lines.push('', translateRaw('settings.runSummary.prompt.additionalInstructions'), trimmedCustomInstructions)
+    lines.push(
+      '',
+      translateRaw('settings.runSummary.prompt.additionalInstructions'),
+      trimmedCustomInstructions,
+    )
   }
 
   return lines.join('\n')

@@ -11,7 +11,7 @@ const defaultConfigPath = path.join(webRoot, 'i18n-check.config.json')
 const defaultBaselinePath = path.join(webRoot, 'i18n-check.baseline.json')
 const LETTER_RE = /[\p{L}]/u
 const INLINE_EXEMPT_RE = /i18n-exempt/
-const TRANSLATION_USAGE_RE = /\b(i18nStore\.t|translate\(|pageTitle\(|localeLabel\(|labelKey\s*:)/ 
+const TRANSLATION_USAGE_RE = /\b(i18nStore\.t|translate\(|pageTitle\(|localeLabel\(|labelKey\s*:)/
 const FORBIDDEN_FALLBACK_RE = /\btranslateWithFallback\s*\(/
 const FORBIDDEN_TRANSLATION_KEY_CAST_RE = /\bas\s+TranslationKey\b/
 

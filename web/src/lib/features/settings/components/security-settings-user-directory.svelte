@@ -88,7 +88,10 @@
       statusReason = selectedDetail.latestStatusAudit?.reason ?? ''
     } catch (caughtError) {
       selectedDetail = null
-      error = formatError(caughtError, i18nStore.t('settings.security.userDirectory.errors.loadDetail'))
+      error = formatError(
+        caughtError,
+        i18nStore.t('settings.security.userDirectory.errors.loadDetail'),
+      )
     } finally {
       detailLoading = false
     }
@@ -240,8 +243,12 @@
             bind:value={statusFilter}
             class="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <option value="all">{i18nStore.t('settings.security.userDirectory.statusOptions.all')}</option>
-            <option value="active">{i18nStore.t('settings.security.userDirectory.statusOptions.active')}</option>
+            <option value="all"
+              >{i18nStore.t('settings.security.userDirectory.statusOptions.all')}</option
+            >
+            <option value="active"
+              >{i18nStore.t('settings.security.userDirectory.statusOptions.active')}</option
+            >
             <option value="disabled">
               {i18nStore.t('settings.security.userDirectory.statusOptions.disabled')}
             </option>

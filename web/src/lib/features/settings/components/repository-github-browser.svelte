@@ -40,7 +40,7 @@
     <input
       type="text"
       value={query}
-    placeholder={i18nStore.t('settings.repositoryGitHubBrowser.placeholders.search')}
+      placeholder={i18nStore.t('settings.repositoryGitHubBrowser.placeholders.search')}
       class="placeholder:text-muted-foreground h-9 flex-1 bg-transparent text-sm outline-none"
       oninput={(event) => onQueryChange?.((event.currentTarget as HTMLInputElement).value)}
       onkeydown={(event) => {
@@ -66,9 +66,9 @@
       {i18nStore.t('settings.repositoryGitHubBrowser.status.loading')}
     </div>
   {:else if repos.length === 0}
-      <div class="text-muted-foreground py-6 text-center text-xs">
-        {i18nStore.t('settings.repositoryGitHubBrowser.messages.noMatch')}
-      </div>
+    <div class="text-muted-foreground py-6 text-center text-xs">
+      {i18nStore.t('settings.repositoryGitHubBrowser.messages.noMatch')}
+    </div>
   {:else}
     <div
       class="border-border overflow-y-auto rounded-md border"
@@ -91,11 +91,11 @@
               <span class="text-muted-foreground shrink-0 text-[10px]">{repo.default_branch}</span>
             </div>
           </div>
-            <span class="text-muted-foreground shrink-0 text-xs">
-              {bindingRepoFullName === repo.full_name
-                ? i18nStore.t('settings.repositoryGitHubBrowser.status.binding')
-                : i18nStore.t('settings.repositoryGitHubBrowser.actions.bind')}
-            </span>
+          <span class="text-muted-foreground shrink-0 text-xs">
+            {bindingRepoFullName === repo.full_name
+              ? i18nStore.t('settings.repositoryGitHubBrowser.status.binding')
+              : i18nStore.t('settings.repositoryGitHubBrowser.actions.bind')}
+          </span>
         </button>
       {/each}
 

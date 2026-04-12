@@ -18,9 +18,9 @@
 
 <div class="space-y-4">
   <div class="space-y-1">
-      <h3 class="text-sm font-semibold">
-        {t('workflows.detail.hooks.title')}
-      </h3>
+    <h3 class="text-sm font-semibold">
+      {t('workflows.detail.hooks.title')}
+    </h3>
     <p class="text-muted-foreground text-xs">
       {t('workflows.detail.hooks.description')}
     </p>

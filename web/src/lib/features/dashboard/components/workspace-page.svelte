@@ -138,7 +138,7 @@
       </div>
     {/if}
 
-      <section class="space-y-4">
+    <section class="space-y-4">
       <h2 class="text-foreground text-lg font-semibold">
         {i18nStore.t('dashboard.workspace.sections.organizations')}
       </h2>

@@ -122,11 +122,9 @@
       <Input
         id={inputId}
         value={customModelId}
-        placeholder={
-          baseModelId
-            ? baseModelId
-            : i18nStore.t('agents.providerModelPicker.placeholders.enterModelId')
-        }
+        placeholder={baseModelId
+          ? baseModelId
+          : i18nStore.t('agents.providerModelPicker.placeholders.enterModelId')}
         oninput={handleCustomModelInput}
       />
       <p class="text-muted-foreground text-xs">

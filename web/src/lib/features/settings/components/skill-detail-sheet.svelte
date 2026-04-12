@@ -69,9 +69,7 @@
       loaded = true
     } catch (err) {
       toastStore.error(
-        err instanceof ApiError
-          ? err.detail
-          : i18nStore.t('settings.skillDetail.errors.load'),
+        err instanceof ApiError ? err.detail : i18nStore.t('settings.skillDetail.errors.load'),
       )
     } finally {
       loadingDetail = false
@@ -109,9 +107,7 @@
       await onChanged?.()
     } catch (err) {
       toastStore.error(
-        err instanceof ApiError
-          ? err.detail
-          : i18nStore.t('settings.skillDetail.errors.update'),
+        err instanceof ApiError ? err.detail : i18nStore.t('settings.skillDetail.errors.update'),
       )
     } finally {
       busy = false
@@ -164,9 +160,7 @@
       open = false
     } catch (err) {
       toastStore.error(
-        err instanceof ApiError
-          ? err.detail
-          : i18nStore.t('settings.skillDetail.errors.delete'),
+        err instanceof ApiError ? err.detail : i18nStore.t('settings.skillDetail.errors.delete'),
       )
     } finally {
       busy = false
@@ -195,9 +189,7 @@
       await onChanged?.()
     } catch (err) {
       toastStore.error(
-        err instanceof ApiError
-          ? err.detail
-          : i18nStore.t('settings.skillDetail.errors.binding'),
+        err instanceof ApiError ? err.detail : i18nStore.t('settings.skillDetail.errors.binding'),
       )
     } finally {
       busy = false
@@ -237,11 +229,9 @@
                 variant="ghost"
                 size="sm"
                 class="size-7 p-0"
-                title={
-                  editing
-                    ? i18nStore.t('settings.skillDetail.buttons.cancelEdit')
-                    : i18nStore.t('settings.skillDetail.buttons.edit')
-                }
+                title={editing
+                  ? i18nStore.t('settings.skillDetail.buttons.cancelEdit')
+                  : i18nStore.t('settings.skillDetail.buttons.edit')}
                 onclick={startEditing}
                 disabled={busy || loadingDetail}
               >
@@ -252,11 +242,9 @@
               variant="ghost"
               size="sm"
               class="size-7 p-0"
-              title={
-                skill.is_enabled
-                  ? i18nStore.t('settings.skillDetail.buttons.disable')
-                  : i18nStore.t('settings.skillDetail.buttons.enable')
-              }
+              title={skill.is_enabled
+                ? i18nStore.t('settings.skillDetail.buttons.disable')
+                : i18nStore.t('settings.skillDetail.buttons.enable')}
               onclick={() => void handleToggleEnabled()}
               disabled={busy}
             >

@@ -62,14 +62,14 @@
     <Popover.Root bind:open={historyOpen}>
       <Popover.Trigger>
         {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="ghost"
-              size="sm"
-              class="text-muted-foreground size-6 p-0"
-              aria-label={chatT('chat.conversationHistory')}
-              disabled={conversations.length === 0}
-            >
+          <Button
+            {...props}
+            variant="ghost"
+            size="sm"
+            class="text-muted-foreground size-6 p-0"
+            aria-label={chatT('chat.conversationHistory')}
+            disabled={conversations.length === 0}
+          >
             <History class="size-3" />
           </Button>
         {/snippet}

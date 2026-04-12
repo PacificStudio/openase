@@ -41,9 +41,9 @@
       <div class="flex items-start gap-3">
         <AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-600" />
         <div class="space-y-1">
-        <div class="text-sm font-semibold">
-          {adminAuthT('adminAuth.overview.publicExposureRisk')}
-        </div>
+          <div class="text-sm font-semibold">
+            {adminAuthT('adminAuth.overview.publicExposureRisk')}
+          </div>
           {#each auth.warnings as warning (warning)}
             <p class="text-xs leading-relaxed">{warning}</p>
           {/each}
@@ -66,7 +66,9 @@
           {/if}
         </div>
         <div>
-          <div class="text-2xl font-bold tracking-tight uppercase">{modeLabel(auth.active_mode)}</div>
+          <div class="text-2xl font-bold tracking-tight uppercase">
+            {modeLabel(auth.active_mode)}
+          </div>
           <div class="text-muted-foreground mt-0.5 text-sm">{currentAuthMethodLabel}</div>
         </div>
       </div>
@@ -93,8 +95,7 @@
           {adminAuthT('adminAuth.diagnostics.issuerLabel')}
         </div>
         <div class="mt-1 font-mono text-sm break-all">
-          {auth.issuer_url ||
-            adminAuthT('adminAuth.diagnostics.notConfigured')}
+          {auth.issuer_url || adminAuthT('adminAuth.diagnostics.notConfigured')}
         </div>
       </div>
       <div>
@@ -104,9 +105,7 @@
             : adminAuthT('adminAuth.overview.localPrincipal')}
         </div>
         <div class="mt-1 text-sm font-medium">
-          {user?.displayName ||
-            auth.local_principal ||
-            adminAuthT('adminAuth.overview.anonymous')}
+          {user?.displayName || auth.local_principal || adminAuthT('adminAuth.overview.anonymous')}
         </div>
         {#if user?.primaryEmail}
           <div class="text-muted-foreground mt-0.5 text-xs break-all">{user.primaryEmail}</div>
@@ -117,8 +116,7 @@
           {adminAuthT('adminAuth.overview.bootstrap')}
         </div>
         <div class="text-foreground mt-1 text-sm leading-relaxed">
-          {auth.bootstrap_state.summary ||
-            adminAuthT('adminAuth.overview.noAdminsConfigured')}
+          {auth.bootstrap_state.summary || adminAuthT('adminAuth.overview.noAdminsConfigured')}
         </div>
       </div>
     </div>

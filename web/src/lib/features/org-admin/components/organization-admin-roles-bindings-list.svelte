@@ -20,9 +20,9 @@
     canManageBindings: boolean
     canDeleteBinding: (binding: RoleBinding) => boolean
     mutationKey: string
-  onDeleteBinding: (binding: RoleBinding) => void
-} = $props()
-const t = i18nStore.t
+    onDeleteBinding: (binding: RoleBinding) => void
+  } = $props()
+  const t = i18nStore.t
 </script>
 
 {#if error}

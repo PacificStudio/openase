@@ -70,9 +70,7 @@
       )
     }
     if (!selectedDetail.user.lastLoginAt && selectedDetail.activeSessionCount > 0) {
-      diagnostics.push(
-        i18nStore.t('settings.security.userDirectory.diagnostics.missingLastLogin'),
-      )
+      diagnostics.push(i18nStore.t('settings.security.userDirectory.diagnostics.missingLastLogin'))
     }
     return diagnostics
   }
@@ -100,14 +98,14 @@
     <!-- Profile card -->
     <div class="border-border bg-card space-y-4 rounded-lg border p-4">
       <div class="flex items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h5 class="text-sm font-semibold">
-              {i18nStore.t('settings.security.userDirectory.headings.identityGovernance')}
-            </h5>
-            <p class="text-muted-foreground text-xs leading-relaxed">
-              {i18nStore.t('settings.security.userDirectory.description.identityGovernance')}
-            </p>
-          </div>
+        <div class="min-w-0">
+          <h5 class="text-sm font-semibold">
+            {i18nStore.t('settings.security.userDirectory.headings.identityGovernance')}
+          </h5>
+          <p class="text-muted-foreground text-xs leading-relaxed">
+            {i18nStore.t('settings.security.userDirectory.description.identityGovernance')}
+          </p>
+        </div>
         {#if selectedUserStatus}
           <Badge variant={statusVariant(selectedUserStatus)} class="shrink-0">
             {selectedUserStatus}
@@ -151,7 +149,9 @@
 
     <!-- Access card: Identities + Groups -->
     <div class="border-border bg-card space-y-3 rounded-lg border p-4">
-      <h5 class="text-sm font-semibold">{i18nStore.t('settings.security.userDirectory.headings.access')}</h5>
+      <h5 class="text-sm font-semibold">
+        {i18nStore.t('settings.security.userDirectory.headings.access')}
+      </h5>
       <div class="grid gap-4 lg:grid-cols-2">
         <div class="space-y-2">
           <div class="text-muted-foreground text-xs font-medium uppercase">

@@ -76,9 +76,7 @@
       const payload = await listProviders(orgId)
       syncProviderState(payload.providers)
       if (!silent)
-        toastStore.success(
-          i18nStore.t('onboarding.stepProvider.toasts.availabilityRechecked'),
-        )
+        toastStore.success(i18nStore.t('onboarding.stepProvider.toasts.availabilityRechecked'))
     } catch (caughtError) {
       if (!silent) {
         toastStore.error(
@@ -149,13 +147,13 @@
         disabled={isRefreshing(uniqueMachineIds(providers))}
         onclick={() => void refreshProviders(uniqueMachineIds(providers))}
       >
-          {#if isRefreshing(uniqueMachineIds(providers))}
-            <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-            {i18nStore.t('onboarding.stepProvider.actions.checking')}
-          {:else}
-            <RefreshCcw class="mr-1.5 size-3.5" />
-            {i18nStore.t('onboarding.stepProvider.actions.recheckAll')}
-          {/if}
+        {#if isRefreshing(uniqueMachineIds(providers))}
+          <Loader2 class="mr-1.5 size-3.5 animate-spin" />
+          {i18nStore.t('onboarding.stepProvider.actions.checking')}
+        {:else}
+          <RefreshCcw class="mr-1.5 size-3.5" />
+          {i18nStore.t('onboarding.stepProvider.actions.recheckAll')}
+        {/if}
       </Button>
     </div>
 

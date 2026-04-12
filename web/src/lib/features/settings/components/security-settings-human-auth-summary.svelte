@@ -69,7 +69,8 @@
       {i18nStore.t('settings.security.humanAuthSummary.labels.bootstrapState')}
     </div>
     <div class="text-foreground mt-1">
-      {bootstrapSummary || i18nStore.t('settings.security.humanAuthSummary.messages.noBootstrapAdmins')}
+      {bootstrapSummary ||
+        i18nStore.t('settings.security.humanAuthSummary.messages.noBootstrapAdmins')}
     </div>
   </div>
   <div>

@@ -67,12 +67,12 @@
       {#each conversations as conversation (conversation.id)}
         {@const isOpen = openSet.has(conversation.id)}
         <div class="hover:bg-muted/60 flex items-center gap-1 rounded px-1 py-1 transition-colors">
-            <button
-              type="button"
-              class="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left"
-              aria-label={chatT('chat.openConversationLabel', { title: titleText(conversation) })}
-              onclick={() => onSelect?.(conversation.id)}
-            >
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-2 rounded px-1 py-0.5 text-left"
+            aria-label={chatT('chat.openConversationLabel', { title: titleText(conversation) })}
+            onclick={() => onSelect?.(conversation.id)}
+          >
             <span class={`size-1.5 shrink-0 rounded-full ${statusDot(conversation)}`}></span>
             <span class="min-w-0 flex-1">
               <span class="text-foreground block truncate text-[11px] leading-tight">

@@ -65,8 +65,12 @@
       </span>
     </div>
     <p class="text-muted-foreground text-xs">
-      {t('onboarding.providerGuideCard.labels.cli')}: {cliDetectionLabel[cliDetectionState(providers)]} ·{' '}
-      {t('onboarding.providerGuideCard.labels.auth')}: {authDetectionLabel[authDetectionState(providers)]}
+      {t('onboarding.providerGuideCard.labels.cli')}: {cliDetectionLabel[
+        cliDetectionState(providers)
+      ]} ·{' '}
+      {t('onboarding.providerGuideCard.labels.auth')}: {authDetectionLabel[
+        authDetectionState(providers)
+      ]}
     </p>
   </div>
 
@@ -88,11 +92,7 @@
         {/if}
       </Button>
     {/if}
-    <Button
-      size="sm"
-      variant="ghost"
-      onclick={() => onOpenGuide(guide.key)}
-    >
+    <Button size="sm" variant="ghost" onclick={() => onOpenGuide(guide.key)}>
       {t('onboarding.providerGuideCard.actions.openGuide')}
     </Button>
   </div>

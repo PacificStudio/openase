@@ -44,8 +44,6 @@ export async function runProjectConversationDeleteFlow(
       return
     }
 
-    input.onError(
-      error instanceof ApiError ? error.detail : chatT('chat.deleteConversationFailed'),
-    )
+    input.onError(error instanceof ApiError ? error.detail : chatT('chat.deleteConversationFailed'))
   }
 }

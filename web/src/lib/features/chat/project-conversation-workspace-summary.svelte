@@ -40,9 +40,7 @@
 
   function formatRepoSummary(diff: ProjectConversationWorkspaceDiff) {
     const repoLabel =
-      diff.reposChanged === 1
-        ? chatT('chat.repoChangedSingular')
-        : chatT('chat.repoChangedPlural')
+      diff.reposChanged === 1 ? chatT('chat.repoChangedSingular') : chatT('chat.repoChangedPlural')
     return `${diff.reposChanged} ${repoLabel} · ${formatTotals(diff.added, diff.removed)}`
   }
 
@@ -81,9 +79,7 @@
     }
     const repoCount = prompt.missingRepos.length
     const label =
-      repoCount === 1
-        ? chatT('chat.syncPromptLabelSingle')
-        : chatT('chat.syncPromptLabelMultiple')
+      repoCount === 1 ? chatT('chat.syncPromptLabelSingle') : chatT('chat.syncPromptLabelMultiple')
     return `${repoCount} ${label}`
   }
 
@@ -108,8 +104,7 @@
       workspaceBrowserPortal.markWorkspaceSynced()
       await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
     } catch (error) {
-      syncError =
-        error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
+      syncError = error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
     } finally {
       syncInFlight = false
     }
@@ -155,8 +150,8 @@
         {:else if workspaceDiff}
           {#if isDirty}
             <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
-              {:else}
-                <span class="text-muted-foreground/60">{chatT('chat.cleanWorkspace')}</span>
+          {:else}
+            <span class="text-muted-foreground/60">{chatT('chat.cleanWorkspace')}</span>
           {/if}
         {/if}
       </button>
@@ -198,7 +193,9 @@
       <div class="border-border border-t text-[11px]">
         {#if syncPrompt}
           <div class="px-3 py-2">
-            <p class="text-foreground text-[11px] font-medium">{chatT('chat.workspaceSyncRequired')}</p>
+            <p class="text-foreground text-[11px] font-medium">
+              {chatT('chat.workspaceSyncRequired')}
+            </p>
             <p class="text-muted-foreground mt-1 text-[11px]">
               {syncPromptDescription(syncPrompt)}
             </p>

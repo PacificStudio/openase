@@ -60,7 +60,8 @@
             <SheetTitle class="text-sm sm:text-base">
               {mode === 'create'
                 ? i18nStore.t('machines.machineEditorSheet.title.register')
-                : machine?.name ?? i18nStore.t('machines.machineEditorSheet.title.defaultMachine')}
+                : (machine?.name ??
+                  i18nStore.t('machines.machineEditorSheet.title.defaultMachine'))}
             </SheetTitle>
             {#if mode === 'edit' && machine}
               <Badge variant="outline" class={machineStatusBadgeClass(machine.status)}>

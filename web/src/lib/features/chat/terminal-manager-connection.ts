@@ -73,7 +73,8 @@ export function createTerminalConnectionHelpers(input: {
       }
       input.updateInstance(inputState.id, {
         status: 'error',
-        statusMessage: error instanceof Error ? error.message : chatT('chat.terminal.errors.create'),
+        statusMessage:
+          error instanceof Error ? error.message : chatT('chat.terminal.errors.create'),
       })
       return null
     }

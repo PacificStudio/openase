@@ -200,7 +200,9 @@
       <div class="mt-3 space-y-4">
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <Label for="provider-cli-command">{i18nStore.t('agents.providerForm.labels.cliCommand')}</Label>
+            <Label for="provider-cli-command"
+              >{i18nStore.t('agents.providerForm.labels.cliCommand')}</Label
+            >
             <Input
               id="provider-cli-command"
               value={draft.cliCommand}
@@ -257,7 +259,9 @@
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="space-y-2">
-            <Label for="provider-model-max-tokens">{i18nStore.t('agents.providerForm.labels.maxTokens')}</Label>
+            <Label for="provider-model-max-tokens"
+              >{i18nStore.t('agents.providerForm.labels.maxTokens')}</Label
+            >
             <Input
               id="provider-model-max-tokens"
               type="number"

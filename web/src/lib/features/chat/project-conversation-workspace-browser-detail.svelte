@@ -1,6 +1,5 @@
 <script lang="ts">
   import { Button } from '$ui/button'
-  import * as Dialog from '$ui/dialog'
   import { cn } from '$lib/utils'
   import { CodeEditor } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
@@ -15,6 +14,7 @@
     workspaceFileStateLabel,
   } from './project-conversation-workspace-browser-detail-state'
   import { workspaceFileReadOnlyMessage } from './project-conversation-workspace-file-drafts'
+  import WorkspaceBrowserCloseDialog from './project-conversation-workspace-browser-close-dialog.svelte'
   import { chatT } from './i18n'
 
   let {
@@ -114,10 +114,10 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-        <div class="space-y-2">
-          <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
-          <p>{chatT('chat.selectFileHelp')}</p>
-        </div>
+      <div class="space-y-2">
+        <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
+        <p>{chatT('chat.selectFileHelp')}</p>
+      </div>
     </div>
   {:else}
     <div
@@ -145,20 +145,20 @@
         >
           <FileCode2 class="size-3 shrink-0 opacity-60" />
           <span class="min-w-0 truncate">{tabName}</span>
-            <span
-              role="button"
-              tabindex="0"
-              class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
-              aria-label={chatT('chat.closeTab', { tabName })}
-              onclick={(event) => requestCloseTab(event, tab.repoPath, tab.filePath)}
-              onkeydown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  event.stopPropagation()
-                  requestCloseTab(event as unknown as MouseEvent, tab.repoPath, tab.filePath)
-                }
-              }}
-            >
+          <span
+            role="button"
+            tabindex="0"
+            class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
+            aria-label={chatT('chat.closeTab', { tabName })}
+            onclick={(event) => requestCloseTab(event, tab.repoPath, tab.filePath)}
+            onkeydown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault()
+                event.stopPropagation()
+                requestCloseTab(event as unknown as MouseEvent, tab.repoPath, tab.filePath)
+              }
+            }}
+          >
             {#if dirty}
               <span
                 class="size-1.5 rounded-full bg-orange-500"
@@ -215,17 +215,13 @@
             <Button
               variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
               size="icon-xs"
-              aria-label={
-                wrapMode === 'wrap'
-                  ? chatT('chat.disableLineWrap')
-                  : chatT('chat.enableLineWrap')
-              }
+              aria-label={wrapMode === 'wrap'
+                ? chatT('chat.disableLineWrap')
+                : chatT('chat.enableLineWrap')}
               aria-pressed={wrapMode === 'wrap'}
-              title={
-                wrapMode === 'wrap'
-                  ? chatT('chat.disableLineWrap')
-                  : chatT('chat.enableLineWrap')
-              }
+              title={wrapMode === 'wrap'
+                ? chatT('chat.disableLineWrap')
+                : chatT('chat.enableLineWrap')}
               data-testid="workspace-browser-wrap-toggle"
               onclick={toggleWrapMode}
             >
@@ -330,29 +326,11 @@
   {/if}
 </div>
 
-<Dialog.Root
+<WorkspaceBrowserCloseDialog
   open={dialogOpen}
-  onOpenChange={(next) => {
-    if (!next) dismissDialog()
-  }}
->
-    <Dialog.Content class="sm:max-w-md">
-      <Dialog.Header>
-        <Dialog.Title>{chatT('chat.saveChangesTitle')}</Dialog.Title>
-        <Dialog.Description>
-          {chatT('chat.saveChangesDescription', { fileName: pendingCloseFilename() })}
-        </Dialog.Description>
-      </Dialog.Header>
-      <Dialog.Footer>
-        <Button variant="ghost" onclick={dismissDialog} disabled={saving}>
-          {chatT('common.cancel')}
-        </Button>
-        <Button variant="ghost" onclick={confirmDiscardAndClose} disabled={saving}>
-          {chatT('chat.dontSave')}
-        </Button>
-        <Button onclick={confirmSaveAndClose} disabled={saving}>
-          {saving ? chatT('chat.saving') : chatT('chat.save')}
-        </Button>
-      </Dialog.Footer>
-    </Dialog.Content>
-</Dialog.Root>
+  fileName={pendingCloseFilename()}
+  {saving}
+  onDismiss={dismissDialog}
+  onDiscard={confirmDiscardAndClose}
+  onSave={confirmSaveAndClose}
+/>

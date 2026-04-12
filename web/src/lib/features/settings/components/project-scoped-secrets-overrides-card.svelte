@@ -120,41 +120,39 @@
         <div class="border-border bg-card rounded-lg border p-4">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 space-y-1.5">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="text-sm font-medium">{secret.name}</span>
-              <Badge variant="default">
-                {i18nStore.t('settings.projectSecrets.overrides.badge.project')}
-              </Badge>
-              <Badge variant="outline">
-                {isProjectOverride(secret, organizationSecrets)
-                  ? i18nStore.t(
-                      'settings.projectSecrets.overrides.badge.overridesOrgDefault',
-                    )
-                  : i18nStore.t('settings.projectSecrets.overrides.badge.projectOnly')}
-              </Badge>
-              {#if secret.disabled}
-                <Badge variant="destructive">
-                  {i18nStore.t('settings.projectSecrets.overrides.status.disabled')}
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-medium">{secret.name}</span>
+                <Badge variant="default">
+                  {i18nStore.t('settings.projectSecrets.overrides.badge.project')}
                 </Badge>
-              {/if}
-            </div>
-            <p class="text-muted-foreground text-sm">
-              {secret.description ||
-                i18nStore.t('settings.projectSecrets.overrides.messages.noDescription')}
-            </p>
-            <div
-              class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
-            >
-              <code class="bg-muted rounded px-1 py-0.5 font-mono">
-                {secret.encryption.value_preview}
-              </code>
-              <span>{usageIndicator(secret)}</span>
-              <span>
-                {i18nStore.t('settings.projectSecrets.overrides.labels.updated', {
-                  updatedAt: formatSecretTimestamp(secret.updated_at),
-                })}
-              </span>
-            </div>
+                <Badge variant="outline">
+                  {isProjectOverride(secret, organizationSecrets)
+                    ? i18nStore.t('settings.projectSecrets.overrides.badge.overridesOrgDefault')
+                    : i18nStore.t('settings.projectSecrets.overrides.badge.projectOnly')}
+                </Badge>
+                {#if secret.disabled}
+                  <Badge variant="destructive">
+                    {i18nStore.t('settings.projectSecrets.overrides.status.disabled')}
+                  </Badge>
+                {/if}
+              </div>
+              <p class="text-muted-foreground text-sm">
+                {secret.description ||
+                  i18nStore.t('settings.projectSecrets.overrides.messages.noDescription')}
+              </p>
+              <div
+                class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs"
+              >
+                <code class="bg-muted rounded px-1 py-0.5 font-mono">
+                  {secret.encryption.value_preview}
+                </code>
+                <span>{usageIndicator(secret)}</span>
+                <span>
+                  {i18nStore.t('settings.projectSecrets.overrides.labels.updated', {
+                    updatedAt: formatSecretTimestamp(secret.updated_at),
+                  })}
+                </span>
+              </div>
             </div>
 
             <div class="flex shrink-0 flex-wrap gap-2">
@@ -193,35 +191,33 @@
         {i18nStore.t('settings.projectSecrets.overrides.dialogs.rotateDescription')}
       </Dialog.Description>
     </Dialog.Header>
-      <div class="mt-4 space-y-2">
-        <Label for="project-rotate-value">
-          {i18nStore.t('settings.projectSecrets.overrides.labels.newValue')}
-        </Label>
-        <Input
-          id="project-rotate-value"
-          type="password"
-          bind:value={rotateDraft}
-          placeholder={i18nStore.t(
-            'settings.projectSecrets.overrides.placeholders.newValue',
-          )}
-          onkeydown={(e) => {
-            if (e.key === 'Enter') submitRotate()
-          }}
-        />
-      </div>
+    <div class="mt-4 space-y-2">
+      <Label for="project-rotate-value">
+        {i18nStore.t('settings.projectSecrets.overrides.labels.newValue')}
+      </Label>
+      <Input
+        id="project-rotate-value"
+        type="password"
+        bind:value={rotateDraft}
+        placeholder={i18nStore.t('settings.projectSecrets.overrides.placeholders.newValue')}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') submitRotate()
+        }}
+      />
+    </div>
     <Dialog.Footer class="mt-6">
-          <Dialog.Close>
-            {#snippet child({ props })}
-              <Button variant="outline" {...props} disabled={rotateSubmitting}>
-                {i18nStore.t('settings.projectSecrets.overrides.buttons.cancel')}
-              </Button>
-            {/snippet}
-          </Dialog.Close>
-          <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
-            {rotateSubmitting
-              ? i18nStore.t('settings.projectSecrets.overrides.buttons.rotating')
-              : i18nStore.t('settings.projectSecrets.overrides.buttons.confirmRotate')}
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={rotateSubmitting}>
+            {i18nStore.t('settings.projectSecrets.overrides.buttons.cancel')}
           </Button>
+        {/snippet}
+      </Dialog.Close>
+      <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
+        {rotateSubmitting
+          ? i18nStore.t('settings.projectSecrets.overrides.buttons.rotating')
+          : i18nStore.t('settings.projectSecrets.overrides.buttons.confirmRotate')}
+      </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -232,12 +228,8 @@
     <Dialog.Header>
       {@const confirmActionLabel =
         confirmTarget?.kind === 'delete'
-          ? i18nStore.t(
-              'settings.projectSecrets.overrides.confirmDialogs.actions.delete',
-            )
-          : i18nStore.t(
-              'settings.projectSecrets.overrides.confirmDialogs.actions.disable',
-            )}
+          ? i18nStore.t('settings.projectSecrets.overrides.confirmDialogs.actions.delete')
+          : i18nStore.t('settings.projectSecrets.overrides.confirmDialogs.actions.disable')}
       <Dialog.Title>
         {i18nStore.t('settings.projectSecrets.overrides.confirmDialogs.title', {
           action: confirmActionLabel,
@@ -246,30 +238,20 @@
       </Dialog.Title>
       <Dialog.Description>
         {#if confirmTarget?.kind === 'delete'}
-          {i18nStore.t(
-            'settings.projectSecrets.overrides.confirmDialogs.deleteDescription',
-          )}
+          {i18nStore.t('settings.projectSecrets.overrides.confirmDialogs.deleteDescription')}
         {:else}
-          {i18nStore.t(
-            'settings.projectSecrets.overrides.confirmDialogs.disableDescription',
-          )}
+          {i18nStore.t('settings.projectSecrets.overrides.confirmDialogs.disableDescription')}
         {/if}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
-        <Dialog.Close>
-          {#snippet child({ props })}
-            <Button
-              variant="outline"
-              {...props}
-              disabled={confirmSubmitting}
-            >
-              {i18nStore.t(
-                'settings.projectSecrets.overrides.buttons.cancel',
-              )}
-            </Button>
-          {/snippet}
-        </Dialog.Close>
+      <Dialog.Close>
+        {#snippet child({ props })}
+          <Button variant="outline" {...props} disabled={confirmSubmitting}>
+            {i18nStore.t('settings.projectSecrets.overrides.buttons.cancel')}
+          </Button>
+        {/snippet}
+      </Dialog.Close>
       <Button
         variant={confirmTarget?.kind === 'delete' ? 'destructive' : 'outline'}
         onclick={submitConfirm}
@@ -277,12 +259,8 @@
       >
         {#if confirmSubmitting}
           {confirmTarget?.kind === 'delete'
-            ? i18nStore.t(
-                'settings.projectSecrets.overrides.buttons.deleting',
-              )
-            : i18nStore.t(
-                'settings.projectSecrets.overrides.buttons.disabling',
-              )}
+            ? i18nStore.t('settings.projectSecrets.overrides.buttons.deleting')
+            : i18nStore.t('settings.projectSecrets.overrides.buttons.disabling')}
         {:else}
           {confirmTarget?.kind === 'delete'
             ? i18nStore.t('settings.projectSecrets.overrides.buttons.delete')

@@ -100,12 +100,12 @@
     </div>
 
     <div class="mt-4 space-y-3">
-        <Textarea
-          rows={5}
-          bind:value={composerBody}
-          placeholder={i18nStore.t('ticketDetail.discussion.placeholder')}
-          disabled={creatingComment}
-        />
+      <Textarea
+        rows={5}
+        bind:value={composerBody}
+        placeholder={i18nStore.t('ticketDetail.discussion.placeholder')}
+        disabled={creatingComment}
+      />
       <div class="flex justify-end">
         <Button
           size="sm"

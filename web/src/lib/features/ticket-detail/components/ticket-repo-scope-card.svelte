@@ -217,11 +217,7 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button
-            variant="outline"
-            {...props}
-            disabled={saving}
-          >
+          <Button variant="outline" {...props} disabled={saving}>
             {i18nStore.t('ticketDetail.repoScope.form.actions.cancel')}
           </Button>
         {/snippet}

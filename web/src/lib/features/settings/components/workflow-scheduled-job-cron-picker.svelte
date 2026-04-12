@@ -61,13 +61,7 @@
     return getNextTriggerTimes(config, 5)
   })
 
-  const SCHEDULE_MODE_SEQUENCE: ScheduleMode[] = [
-    'seconds',
-    'minutes',
-    'hours',
-    'daily',
-    'monthly',
-  ]
+  const SCHEDULE_MODE_SEQUENCE: ScheduleMode[] = ['seconds', 'minutes', 'hours', 'daily', 'monthly']
   const SCHEDULE_MODE_LABEL_KEYS: Record<ScheduleMode, TranslationKey> = {
     seconds: 'settings.workflowScheduledJobCronPicker.scheduleUnits.seconds',
     minutes: 'settings.workflowScheduledJobCronPicker.scheduleUnits.minutes',
@@ -114,7 +108,9 @@
     <!-- Manual cron input -->
     <div class="space-y-1.5">
       <div class="flex items-center justify-between">
-        <Label class="text-xs">{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.cronExpression')}</Label>
+        <Label class="text-xs"
+          >{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.cronExpression')}</Label
+        >
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
@@ -135,7 +131,9 @@
     <!-- Visual picker -->
     <div class="space-y-1.5">
       <div class="flex items-center justify-between">
-        <Label class="text-xs">{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.schedule')}</Label>
+        <Label class="text-xs"
+          >{i18nStore.t('settings.workflowScheduledJobCronPicker.labels.schedule')}</Label
+        >
         <button
           type="button"
           class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[11px] transition-colors"
@@ -177,11 +175,11 @@
           }}
         >
           <Select.Trigger class="h-8 w-[7.5rem] text-sm">{modeLabel}</Select.Trigger>
-        <Select.Content>
-          {#each SCHEDULE_MODE_SEQUENCE as mode}
-            <Select.Item value={mode}>{i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[mode])}</Select.Item>
-          {/each}
-        </Select.Content>
+          <Select.Content>
+            {#each SCHEDULE_MODE_SEQUENCE as mode}
+              <Select.Item value={mode}>{i18nStore.t(SCHEDULE_MODE_LABEL_KEYS[mode])}</Select.Item>
+            {/each}
+          </Select.Content>
         </Select.Root>
       </div>
     </div>

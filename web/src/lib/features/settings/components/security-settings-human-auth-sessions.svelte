@@ -116,7 +116,9 @@
     try {
       await revokeAuthSession(session.id)
       await loadGovernanceState()
-      toastStore.success(i18nStore.t('settings.security.humanAuth.sessions.messages.sessionRevoked'))
+      toastStore.success(
+        i18nStore.t('settings.security.humanAuth.sessions.messages.sessionRevoked'),
+      )
     } catch (caughtError) {
       const message =
         caughtError instanceof ApiError

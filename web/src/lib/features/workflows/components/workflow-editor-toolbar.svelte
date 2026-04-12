@@ -44,16 +44,14 @@
 </script>
 
 <div class="border-border flex items-center gap-2 border-b px-3 py-2">
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      onclick={onToggleList}
-      title={
-        showList
-          ? t('workflows.editor.toolbar.actions.hideList')
-          : t('workflows.editor.toolbar.actions.showList')
-      }
-    >
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    onclick={onToggleList}
+    title={showList
+      ? t('workflows.editor.toolbar.actions.hideList')
+      : t('workflows.editor.toolbar.actions.showList')}
+  >
     {#if showList}
       <PanelLeftClose class="size-4" />
     {:else}
@@ -61,10 +59,10 @@
     {/if}
   </Button>
 
-    <div class="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
-      <span class="truncate font-medium">
-        {selectedWorkflow?.name ?? t('workflows.editor.toolbar.placeholders.noWorkflow')}
-      </span>
+  <div class="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
+    <span class="truncate font-medium">
+      {selectedWorkflow?.name ?? t('workflows.editor.toolbar.placeholders.noWorkflow')}
+    </span>
     {#if isDirty}
       <Badge variant="outline" class="shrink-0 text-[10px]">
         {t('workflows.editor.toolbar.badge.unsaved')}

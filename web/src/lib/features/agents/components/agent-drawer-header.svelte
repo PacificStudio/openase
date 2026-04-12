@@ -99,12 +99,12 @@
         </div>
       {/if}
       <SheetDescription class="mt-1">
-          <Select.Root
-            type="single"
-            value={agent.providerId}
-            disabled={savingProvider || providers.length === 0}
-            onValueChange={(value) => {
-              if (value) void onProviderChange?.(value)
+        <Select.Root
+          type="single"
+          value={agent.providerId}
+          disabled={savingProvider || providers.length === 0}
+          onValueChange={(value) => {
+            if (value) void onProviderChange?.(value)
           }}
         >
           <Select.Trigger

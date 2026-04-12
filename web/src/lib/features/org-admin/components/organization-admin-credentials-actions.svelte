@@ -21,28 +21,28 @@
 
 {#if configured}
   <div class="flex items-center gap-1">
-      <Button
-        variant="ghost"
-        size="icon"
-        class="size-7"
-        onclick={onRetest}
-        disabled={anyBusy}
-        title={t('orgAdmin.credentials.actions.retest')}
-      >
+    <Button
+      variant="ghost"
+      size="icon"
+      class="size-7"
+      onclick={onRetest}
+      disabled={anyBusy}
+      title={t('orgAdmin.credentials.actions.retest')}
+    >
       {#if actionKey === 'retest'}
         <LoaderCircle class="size-3.5 animate-spin" />
       {:else}
         <RefreshCw class="size-3.5" />
       {/if}
     </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        class="text-destructive hover:text-destructive size-7"
-        onclick={onDelete}
-        disabled={anyBusy}
-        title={t('orgAdmin.credentials.actions.delete')}
-      >
+    <Button
+      variant="ghost"
+      size="icon"
+      class="text-destructive hover:text-destructive size-7"
+      onclick={onDelete}
+      disabled={anyBusy}
+      title={t('orgAdmin.credentials.actions.delete')}
+    >
       {#if actionKey === 'delete'}
         <LoaderCircle class="size-3.5 animate-spin" />
       {:else}

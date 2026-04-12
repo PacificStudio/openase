@@ -112,8 +112,7 @@
               : t('workflows.harness.editor.mode.variables')}
           </span>
           <span>
-            {completionQuery ||
-              t('workflows.harness.editor.mode.browse')}
+            {completionQuery || t('workflows.harness.editor.mode.browse')}
           </span>
         </div>
 

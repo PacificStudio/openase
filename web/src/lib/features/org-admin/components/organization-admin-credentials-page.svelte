@@ -121,13 +121,13 @@
         toastStore.success(t('orgAdmin.credentials.page.actions.deleted'))
       }
       credential = payload.credential
-      } catch (caughtError) {
-        const message =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : t('orgAdmin.credentials.page.errors.updateFailed')
-        error = message
-        toastStore.error(message)
+    } catch (caughtError) {
+      const message =
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : t('orgAdmin.credentials.page.errors.updateFailed')
+      error = message
+      toastStore.error(message)
     } finally {
       actionKey = ''
     }
@@ -156,13 +156,13 @@
     <div class="border-border rounded-md border">
       <!-- Status + actions row -->
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div class="flex items-center gap-2">
-            <span class="inline-block size-2 rounded-full {statusDot()}"></span>
-            <span class="text-sm font-medium">
-              {t('orgAdmin.credentials.page.statusLabel')}
-            </span>
-            <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
-          </div>
+        <div class="flex items-center gap-2">
+          <span class="inline-block size-2 rounded-full {statusDot()}"></span>
+          <span class="text-sm font-medium">
+            {t('orgAdmin.credentials.page.statusLabel')}
+          </span>
+          <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
+        </div>
 
         <div class="flex items-center gap-1.5">
           {#if credential.configured}
@@ -240,22 +240,22 @@
         <div class="border-border border-t px-4 py-3">
           <dl class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-3">
             {#if displayLogin()}
-            <div>
-              <dt class="text-muted-foreground">
-              {t('orgAdmin.credentials.page.details.user')}
-              </dt>
-              <dd class="mt-0.5 font-medium">{displayLogin()}</dd>
-            </div>
+              <div>
+                <dt class="text-muted-foreground">
+                  {t('orgAdmin.credentials.page.details.user')}
+                </dt>
+                <dd class="mt-0.5 font-medium">{displayLogin()}</dd>
+              </div>
             {/if}
             <div>
               <dt class="text-muted-foreground">
-              {t('orgAdmin.credentials.page.details.token')}
+                {t('orgAdmin.credentials.page.details.token')}
               </dt>
               <dd class="mt-0.5 font-mono">{credential.token_preview}</dd>
             </div>
             <div>
               <dt class="text-muted-foreground">
-              {t('orgAdmin.credentials.page.details.source')}
+                {t('orgAdmin.credentials.page.details.source')}
               </dt>
               <dd class="mt-0.5 capitalize">
                 {credential.source ? credential.source.replaceAll('_', ' ') : '—'}
@@ -263,7 +263,7 @@
             </div>
             <div>
               <dt class="text-muted-foreground">
-              {t('orgAdmin.credentials.page.details.repoAccess')}
+                {t('orgAdmin.credentials.page.details.repoAccess')}
               </dt>
               <dd class="mt-0.5 capitalize">
                 {credential.probe.repo_access.replaceAll('_', ' ')}
@@ -271,16 +271,16 @@
             </div>
             <div>
               <dt class="text-muted-foreground">
-              {t('orgAdmin.credentials.page.details.checked')}
+                {t('orgAdmin.credentials.page.details.checked')}
               </dt>
               <dd class="mt-0.5">{formatCheckedAt(credential.probe.checked_at)}</dd>
             </div>
             {#if credential.probe.permissions.length}
               <div class="col-span-2 sm:col-span-3">
-              <dt class="text-muted-foreground">
-                {t('orgAdmin.credentials.page.details.permissions')}
-              </dt>
-              <dd class="mt-0.5">{credential.probe.permissions.join(', ')}</dd>
+                <dt class="text-muted-foreground">
+                  {t('orgAdmin.credentials.page.details.permissions')}
+                </dt>
+                <dd class="mt-0.5">{credential.probe.permissions.join(', ')}</dd>
               </div>
             {/if}
           </dl>

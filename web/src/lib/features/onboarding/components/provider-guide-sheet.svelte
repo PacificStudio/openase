@@ -154,7 +154,7 @@
               rel="noopener noreferrer"
               class="text-primary inline-flex items-center gap-1 text-xs font-medium"
             >
-            {t(KEYS.openDocs)}
+              {t(KEYS.openDocs)}
               <ExternalLink class="size-3.5" />
             </a>
           </div>
@@ -198,7 +198,7 @@
 
         {#if matchingProviders.length > 0}
           <div class="space-y-2">
-          <p class="text-foreground text-sm font-semibold">{t(KEYS.registeredTitle)}</p>
+            <p class="text-foreground text-sm font-semibold">{t(KEYS.registeredTitle)}</p>
             {#each matchingProviders as provider (provider.id)}
               <div
                 class="border-border bg-card flex items-center justify-between gap-3 rounded-xl border p-3"
@@ -213,21 +213,21 @@
                 </div>
 
                 {#if isProviderAvailable(provider)}
-                    <Button
-                      size="sm"
-                      variant={selectedId === provider.id ? 'default' : 'outline'}
-                      disabled={selecting}
-                      onclick={() => void onSelectProvider(provider.id)}
-                    >
-                      {selectedId === provider.id ? t(KEYS.defaultButton) : t(KEYS.useProviderButton)}
-                    </Button>
+                  <Button
+                    size="sm"
+                    variant={selectedId === provider.id ? 'default' : 'outline'}
+                    disabled={selecting}
+                    onclick={() => void onSelectProvider(provider.id)}
+                  >
+                    {selectedId === provider.id ? t(KEYS.defaultButton) : t(KEYS.useProviderButton)}
+                  </Button>
                 {/if}
               </div>
             {/each}
           </div>
         {/if}
 
-{#each guideSections as section (section.key)}
+        {#each guideSections as section (section.key)}
           <div class="space-y-3">
             <p class="text-foreground text-sm font-semibold">{t(section.key)}</p>
             {#each section.items as item (item.command)}
@@ -238,14 +238,14 @@
                     <Icon class="text-muted-foreground size-4" />
                     <p class="text-foreground text-sm font-medium">{item.label}</p>
                   </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onclick={() => void onCopyCommand(item.command)}
-                    >
-                      <Copy class="mr-1.5 size-3.5" />
-                      {t(KEYS.copyButton)}
-                    </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onclick={() => void onCopyCommand(item.command)}
+                  >
+                    <Copy class="mr-1.5 size-3.5" />
+                    {t(KEYS.copyButton)}
+                  </Button>
                 </div>
                 <pre class="bg-muted overflow-x-auto rounded-lg px-3 py-2 text-xs"><code
                     >{item.command}</code

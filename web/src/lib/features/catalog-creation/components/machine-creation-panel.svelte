@@ -16,12 +16,12 @@
 
 <Card.Root class="rounded-2xl">
   <Card.Header>
-      <Card.Title>
-        {i18nStore.t('catalog.machine.panel.title')}
-      </Card.Title>
-      <Card.Description>
-        {i18nStore.t('catalog.machine.panel.description')}
-      </Card.Description>
+    <Card.Title>
+      {i18nStore.t('catalog.machine.panel.title')}
+    </Card.Title>
+    <Card.Description>
+      {i18nStore.t('catalog.machine.panel.description')}
+    </Card.Description>
   </Card.Header>
 
   <Card.Content class="space-y-3">

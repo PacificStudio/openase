@@ -108,7 +108,8 @@
   async function handleCreateChannel(input: ChannelCreateInput): Promise<NotificationChannel> {
     try {
       const orgId = appStore.currentOrg?.id
-      if (!orgId) throw new Error(i18nStore.t('settings.notifications.errors.noOrganizationSelected'))
+      if (!orgId)
+        throw new Error(i18nStore.t('settings.notifications.errors.noOrganizationSelected'))
       const payload = await createNotificationChannel(orgId, input)
       await Promise.all([refreshChannels(), refreshRules()])
       return payload.channel
@@ -163,7 +164,8 @@
   async function handleCreateRule(input: RuleCreateInput): Promise<NotificationRule> {
     try {
       const projectId = appStore.currentProject?.id
-      if (!projectId) throw new Error(i18nStore.t('settings.notifications.errors.noProjectSelected'))
+      if (!projectId)
+        throw new Error(i18nStore.t('settings.notifications.errors.noProjectSelected'))
       const payload = await createNotificationRule(projectId, input)
       await refreshRules()
       return payload.rule

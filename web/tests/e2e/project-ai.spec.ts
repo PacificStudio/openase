@@ -92,9 +92,10 @@ test('ticket drawer routes AI through ticket-focused Project AI with a complete 
   projectPath,
 }) => {
   await page.goto(projectPath('tickets'))
-  await expect(page.getByText('ASE-101')).toBeVisible({ timeout: 10_000 })
+  const ticketCard = page.getByRole('button', { name: /ASE-101/i }).first()
+  await expect(ticketCard).toBeVisible({ timeout: 10_000 })
 
-  await page.getByText('ASE-101').click()
+  await ticketCard.click()
   const drawer = page.getByRole('dialog', { name: 'ASE-101' })
   await expect(drawer).toBeVisible({ timeout: 10_000 })
   await page.keyboard.press(PROJECT_AI_SHORTCUT)

@@ -80,29 +80,29 @@
     {/if}
 
     <div class="text-muted-foreground flex items-center gap-1.5">
-          <Bot class="size-3.5" />
-          <span>{i18nStore.t('ticketDetail.summary.agent')}</span>
+      <Bot class="size-3.5" />
+      <span>{i18nStore.t('ticketDetail.summary.agent')}</span>
     </div>
     <div class="flex items-center gap-1.5">
-        {#if ticket.assignedAgent}
-          <span
-            class="inline-block size-1.5 rounded-full bg-green-400"
-            title={i18nStore.t('ticketDetail.summary.status.online')}
-          ></span>
-          <span class="text-foreground">{ticket.assignedAgent.name}</span>
+      {#if ticket.assignedAgent}
+        <span
+          class="inline-block size-1.5 rounded-full bg-green-400"
+          title={i18nStore.t('ticketDetail.summary.status.online')}
+        ></span>
+        <span class="text-foreground">{ticket.assignedAgent.name}</span>
         <Badge variant="outline" class="h-4 py-0 text-[10px]">
           {ticket.assignedAgent.provider}
         </Badge>
-        {:else}
+      {:else}
         <span class="text-muted-foreground italic">
           {i18nStore.t('ticketDetail.summary.status.unassigned')}
         </span>
-        {/if}
-      </div>
+      {/if}
+    </div>
 
     <div class="text-muted-foreground flex items-center gap-1.5">
-        <DollarSign class="size-3.5" />
-        <span>{i18nStore.t('ticketDetail.summary.cost')}</span>
+      <DollarSign class="size-3.5" />
+      <span>{i18nStore.t('ticketDetail.summary.cost')}</span>
     </div>
     <div class="flex items-center gap-2">
       <span class={cn('text-foreground', costOverBudget && 'text-red-400')}>
@@ -121,22 +121,22 @@
     </div>
 
     <div class="text-muted-foreground flex items-center gap-1.5">
-        <RotateCcw class="size-3.5" />
-        <span>{i18nStore.t('ticketDetail.summary.attempts')}</span>
+      <RotateCcw class="size-3.5" />
+      <span>{i18nStore.t('ticketDetail.summary.attempts')}</span>
     </div>
     <div class="text-foreground">{ticket.attemptCount}</div>
 
     <TicketTokenUsageSummary {ticket} {runs} {runsLoaded} {loadingRuns} {runsError} {onLoadRuns} />
 
     <div class="text-muted-foreground flex items-center gap-1.5">
-        <User class="size-3.5" />
-        <span>{i18nStore.t('ticketDetail.summary.createdBy')}</span>
+      <User class="size-3.5" />
+      <span>{i18nStore.t('ticketDetail.summary.createdBy')}</span>
     </div>
     <div class="text-foreground">{ticket.createdBy}</div>
 
     <div class="text-muted-foreground flex items-center gap-1.5">
-        <Calendar class="size-3.5" />
-        <span>{i18nStore.t('ticketDetail.summary.created')}</span>
+      <Calendar class="size-3.5" />
+      <span>{i18nStore.t('ticketDetail.summary.created')}</span>
     </div>
     <div class="text-foreground">{formatRelativeTime(ticket.createdAt)}</div>
   </div>

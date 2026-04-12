@@ -137,22 +137,22 @@
               class="text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1 text-[11px] transition-colors"
               onclick={() => (expanded = !expanded)}
             >
-          {#if expanded}
-            <ChevronUp class="size-3" />
-            {t('workflows.skills.popover.actions.showLess')}
-          {:else}
-            <ChevronDown class="size-3" />
-            {t('workflows.skills.popover.actions.moreLines', {
-              count: contentLines.length - 12,
-            })}
-          {/if}
+              {#if expanded}
+                <ChevronUp class="size-3" />
+                {t('workflows.skills.popover.actions.showLess')}
+              {:else}
+                <ChevronDown class="size-3" />
+                {t('workflows.skills.popover.actions.moreLines', {
+                  count: contentLines.length - 12,
+                })}
+              {/if}
             </button>
           {/if}
-      {:else}
-        <p class="text-muted-foreground pb-1 text-xs italic">
-          {t('workflows.skills.popover.labels.noContent')}
-        </p>
-      {/if}
+        {:else}
+          <p class="text-muted-foreground pb-1 text-xs italic">
+            {t('workflows.skills.popover.labels.noContent')}
+          </p>
+        {/if}
       </div>
     </div>
 
@@ -165,13 +165,13 @@
         class="h-7 gap-1.5 text-xs"
         onclick={handleToggle}
       >
-      {#if skill.bound}
-        <Unlink class="size-3" />
-        {t('workflows.skills.popover.actions.unbind')}
-      {:else}
-        <Link class="size-3" />
-        {t('workflows.skills.popover.actions.bind')}
-      {/if}
+        {#if skill.bound}
+          <Unlink class="size-3" />
+          {t('workflows.skills.popover.actions.unbind')}
+        {:else}
+          <Link class="size-3" />
+          {t('workflows.skills.popover.actions.bind')}
+        {/if}
       </Button>
     </div>
   </Popover.Content>

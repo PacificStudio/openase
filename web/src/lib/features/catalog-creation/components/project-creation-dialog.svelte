@@ -282,13 +282,13 @@
       </Dialog.Body>
 
       <Dialog.Footer>
-          <Dialog.Close>
-            {#snippet child({ props })}
-              <Button variant="outline" {...props}>
-                {i18nStore.t('catalog.project.dialog.actions.cancel')}
-              </Button>
-            {/snippet}
-          </Dialog.Close>
+        <Dialog.Close>
+          {#snippet child({ props })}
+            <Button variant="outline" {...props}>
+              {i18nStore.t('catalog.project.dialog.actions.cancel')}
+            </Button>
+          {/snippet}
+        </Dialog.Close>
         <Button type="submit" disabled={creating}>
           {creating
             ? i18nStore.t('catalog.project.dialog.actions.creating')

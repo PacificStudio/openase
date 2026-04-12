@@ -60,11 +60,11 @@
             </Badge>
           </Popover.Trigger>
           <Popover.Content class="w-64 p-0" align="start">
-              <div class="border-border border-b px-3 py-1.5">
-                <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase"
-                  >{i18nStore.t('skills.editorHeader.history.title')}</span
-                >
-              </div>
+            <div class="border-border border-b px-3 py-1.5">
+              <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase"
+                >{i18nStore.t('skills.editorHeader.history.title')}</span
+              >
+            </div>
             <div class="max-h-48 overflow-y-auto py-1">
               {#each history as item (item.id)}
                 <div class="flex items-center gap-2 px-3 py-1 text-xs">
@@ -102,18 +102,16 @@
         ? i18nStore.t('skills.editorHeader.actions.saving')
         : i18nStore.t('skills.editorHeader.actions.save')}
     </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        class="size-7 p-0"
-        title={
-          skill.is_enabled
-            ? i18nStore.t('skills.editorHeader.actions.disable')
-            : i18nStore.t('skills.editorHeader.actions.enable')
-        }
-        onclick={onToggleEnabled}
-        disabled={busy}
-      >
+    <Button
+      variant="ghost"
+      size="sm"
+      class="size-7 p-0"
+      title={skill.is_enabled
+        ? i18nStore.t('skills.editorHeader.actions.disable')
+        : i18nStore.t('skills.editorHeader.actions.enable')}
+      onclick={onToggleEnabled}
+      disabled={busy}
+    >
       {#if skill.is_enabled}
         <PowerOff class="size-3.5" />
       {:else}

@@ -2,7 +2,6 @@
   import InstanceAdminPage from '$lib/features/admin/components/instance-admin-page.svelte'
   import { pageTitle } from '$lib/i18n'
   import { i18nStore } from '$lib/i18n/store.svelte'
-  
 </script>
 
 <svelte:head>

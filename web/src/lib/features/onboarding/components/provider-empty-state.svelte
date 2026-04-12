@@ -15,12 +15,12 @@
   <p class="text-muted-foreground mx-auto mt-1 max-w-sm text-xs">
     {i18nStore.t('onboarding.providerEmptyState.description')}
   </p>
-    <Button
-      variant="outline"
-      size="sm"
-      class="mt-4"
-      onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}
-    >
-      {i18nStore.t('onboarding.providerEmptyState.button')}
-    </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    class="mt-4"
+    onclick={() => window.open(`/orgs/${orgId}/settings`, '_blank')}
+  >
+    {i18nStore.t('onboarding.providerEmptyState.button')}
+  </Button>
 </div>

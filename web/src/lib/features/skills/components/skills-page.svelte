@@ -89,9 +89,9 @@
         skills = skillPayload.skills
       } catch (caughtError) {
         if (!cancelled) {
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.loadFailed'),
-        )
+          toastStore.error(
+            caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.loadFailed'),
+          )
         }
       } finally {
         if (!cancelled) {
@@ -147,9 +147,9 @@
       createOpen = false
       toastStore.success(skillsT('skills.createSuccess'))
     } catch (caughtError) {
-        toastStore.error(
-          caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.createFailed'),
-        )
+      toastStore.error(
+        caughtError instanceof ApiError ? caughtError.detail : skillsT('skills.createFailed'),
+      )
     } finally {
       creating = false
     }
@@ -181,11 +181,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="relative min-w-48 flex-1">
         <Search class="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-        <Input
-          bind:value={query}
-          placeholder={skillsT('skills.searchPlaceholder')}
-          class="pl-9"
-        />
+        <Input bind:value={query} placeholder={skillsT('skills.searchPlaceholder')} class="pl-9" />
       </div>
       <div class="flex items-center gap-1.5">
         {#each filterValues as item}

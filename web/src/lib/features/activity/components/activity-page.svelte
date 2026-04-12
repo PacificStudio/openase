@@ -104,7 +104,9 @@
     } catch (caughtError) {
       if (isStaleLoad(projectId, version)) return
       error =
-        caughtError instanceof ApiError ? caughtError.detail : activityT('activity.error.loadActivity')
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : activityT('activity.error.loadActivity')
     } finally {
       if (!isStaleLoad(projectId, version)) {
         loading = false
@@ -147,9 +149,7 @@
     } catch (caughtError) {
       if (activeProjectId !== projectId) return
       error =
-        caughtError instanceof ApiError
-          ? caughtError.detail
-          : activityT('activity.error.loadMore')
+        caughtError instanceof ApiError ? caughtError.detail : activityT('activity.error.loadMore')
     } finally {
       if (activeProjectId === projectId) {
         loadingMore = false

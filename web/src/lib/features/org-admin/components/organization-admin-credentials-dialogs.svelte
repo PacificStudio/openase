@@ -38,24 +38,24 @@
 
 <Dialog.Root open={saveDialogOpen} onOpenChange={onSaveOpenChange}>
   <Dialog.Content class="sm:max-w-md">
-      <Dialog.Header>
-        <Dialog.Title>
-          {credential?.configured
-            ? t('orgAdmin.credentials.dialog.title.rotate')
-            : t('orgAdmin.credentials.dialog.title.save')}
-        </Dialog.Title>
-        <Dialog.Description>
-          {#if credential?.configured}
-            {t('orgAdmin.credentials.dialog.description.rotate')}
-          {:else}
-            {t('orgAdmin.credentials.dialog.description.save.prefix')}
-            <code>ghu_xxx</code>
-            {' or '}
-            <code>github_pat_xxx</code>
-            {t('orgAdmin.credentials.dialog.description.save.suffix')}
-          {/if}
-        </Dialog.Description>
-      </Dialog.Header>
+    <Dialog.Header>
+      <Dialog.Title>
+        {credential?.configured
+          ? t('orgAdmin.credentials.dialog.title.rotate')
+          : t('orgAdmin.credentials.dialog.title.save')}
+      </Dialog.Title>
+      <Dialog.Description>
+        {#if credential?.configured}
+          {t('orgAdmin.credentials.dialog.description.rotate')}
+        {:else}
+          {t('orgAdmin.credentials.dialog.description.save.prefix')}
+          <code>ghu_xxx</code>
+          {' or '}
+          <code>github_pat_xxx</code>
+          {t('orgAdmin.credentials.dialog.description.save.suffix')}
+        {/if}
+      </Dialog.Description>
+    </Dialog.Header>
 
     <div class="space-y-1.5">
       <Label for="credentials-token">

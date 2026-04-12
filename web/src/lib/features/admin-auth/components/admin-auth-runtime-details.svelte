@@ -16,9 +16,9 @@
 <Collapsible.Root bind:open>
   <div class="border-border bg-card rounded-2xl border">
     <Collapsible.Trigger class="flex w-full items-center justify-between px-5 py-4 text-left">
-    <span class="text-sm font-semibold">
-      {adminAuthT('adminAuth.runtime.title')}
-    </span>
+      <span class="text-sm font-semibold">
+        {adminAuthT('adminAuth.runtime.title')}
+      </span>
       <ChevronDown
         class="text-muted-foreground size-4 shrink-0 transition-transform duration-200 {open
           ? 'rotate-180'
@@ -45,17 +45,16 @@
               {adminAuthT('adminAuth.runtime.configFile')}
             </div>
             <div class="mt-1 font-mono text-xs break-all">
-              {auth.config_path ||
-                adminAuthT('adminAuth.runtime.notAvailable')}
+              {auth.config_path || adminAuthT('adminAuth.runtime.notAvailable')}
             </div>
           </div>
         </div>
 
         {#if auth.next_steps.length > 0}
-        <div>
-          <div class="text-muted-foreground mb-2 text-xs font-medium">
-            {adminAuthT('adminAuth.diagnostics.nextStepsTitle')}
-          </div>
+          <div>
+            <div class="text-muted-foreground mb-2 text-xs font-medium">
+              {adminAuthT('adminAuth.diagnostics.nextStepsTitle')}
+            </div>
             <ol
               class="text-muted-foreground list-inside list-decimal space-y-1.5 text-sm leading-relaxed"
             >

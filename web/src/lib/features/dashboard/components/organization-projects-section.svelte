@@ -46,7 +46,8 @@
             <div class="min-w-0 flex-1">
               <h3 class="text-foreground truncate text-sm font-semibold">{project.name}</h3>
               <p class="text-muted-foreground mt-1 truncate text-xs">
-                {project.description ?? i18nStore.t('dashboard.organizationProjectsSection.messages.noDescription')}
+                {project.description ??
+                  i18nStore.t('dashboard.organizationProjectsSection.messages.noDescription')}
               </p>
             </div>
             <Badge variant="secondary" class="shrink-0 text-[10px]">{project.status}</Badge>
@@ -56,27 +57,27 @@
             <div
               class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
             >
-                <span class="flex items-center gap-1">
-                  <Bot class="size-3" />
-                  <span>
-                    {metrics.runningAgents}{' '}
-                    {i18nStore.t('dashboard.organizationProjectsSection.metrics.agentsLabel')}
-                  </span>
+              <span class="flex items-center gap-1">
+                <Bot class="size-3" />
+                <span>
+                  {metrics.runningAgents}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.agentsLabel')}
                 </span>
-                <span class="flex items-center gap-1">
-                  <TicketIcon class="size-3" />
-                  <span>
-                    {metrics.activeTickets}{' '}
-                    {i18nStore.t('dashboard.organizationProjectsSection.metrics.ticketsLabel')}
-                  </span>
+              </span>
+              <span class="flex items-center gap-1">
+                <TicketIcon class="size-3" />
+                <span>
+                  {metrics.activeTickets}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.ticketsLabel')}
                 </span>
-                <span class="flex items-center gap-1">
-                  <Coins class="size-3" />
-                  <span>
-                    {formatCurrency(metrics.todayCost)}{' '}
-                    {i18nStore.t('dashboard.organizationProjectsSection.metrics.todayLabel')}
-                  </span>
+              </span>
+              <span class="flex items-center gap-1">
+                <Coins class="size-3" />
+                <span>
+                  {formatCurrency(metrics.todayCost)}{' '}
+                  {i18nStore.t('dashboard.organizationProjectsSection.metrics.todayLabel')}
                 </span>
+              </span>
               {#if metrics.lastActivity}
                 <span class="ml-auto">{formatRelativeTime(metrics.lastActivity)}</span>
               {/if}

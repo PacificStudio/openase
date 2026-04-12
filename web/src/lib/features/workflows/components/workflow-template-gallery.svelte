@@ -115,11 +115,11 @@
           </div>
         </div>
       {:else}
-          <div class="flex items-center gap-2">
-            <BookTemplate class="text-muted-foreground size-5" />
-            <Sheet.Title>{t('workflows.templates.gallery.title')}</Sheet.Title>
-          </div>
-          <Sheet.Description>{t('workflows.templates.gallery.description')}</Sheet.Description>
+        <div class="flex items-center gap-2">
+          <BookTemplate class="text-muted-foreground size-5" />
+          <Sheet.Title>{t('workflows.templates.gallery.title')}</Sheet.Title>
+        </div>
+        <Sheet.Description>{t('workflows.templates.gallery.description')}</Sheet.Description>
       {/if}
     </Sheet.Header>
 
@@ -185,14 +185,10 @@
 
     {#if selectedRole}
       <div class="border-border flex items-center justify-end gap-2 border-t px-6 py-4">
-          <Button variant="outline" size="sm" onclick={() => (selectedRole = null)}>
-            {t('workflows.templates.gallery.actions.back')}
-          </Button>
-        <Button
-          size="sm"
-          onclick={() => handleUseTemplate(selectedRole!)}
-          disabled={loadingDetail}
-        >
+        <Button variant="outline" size="sm" onclick={() => (selectedRole = null)}>
+          {t('workflows.templates.gallery.actions.back')}
+        </Button>
+        <Button size="sm" onclick={() => handleUseTemplate(selectedRole!)} disabled={loadingDetail}>
           <Sparkles class="size-3.5" />
           {t('workflows.templates.gallery.actions.use')}
         </Button>

@@ -61,13 +61,13 @@
         ) {
           selectedId = catalog.workflows[0]?.id ?? ''
         }
-    } catch (caughtError) {
-      if (cancelled) return
-      error =
-        caughtError instanceof ApiError
-          ? caughtError.detail
-          : i18nStore.t('settings.workflow.errors.load')
-    } finally {
+      } catch (caughtError) {
+        if (cancelled) return
+        error =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : i18nStore.t('settings.workflow.errors.load')
+      } finally {
         if (!cancelled) {
           loading = false
         }
@@ -105,15 +105,15 @@
   })
 </script>
 
-  <div class="space-y-6">
-    <div>
-      <h2 class="text-foreground text-base font-semibold">
-        {i18nStore.t('settings.workflow.heading')}
-      </h2>
-      <p class="text-muted-foreground mt-1 text-sm">
-        {i18nStore.t('settings.workflow.description')}
-      </p>
-    </div>
+<div class="space-y-6">
+  <div>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.workflow.heading')}
+    </h2>
+    <p class="text-muted-foreground mt-1 text-sm">
+      {i18nStore.t('settings.workflow.description')}
+    </p>
+  </div>
 
   <Separator />
 

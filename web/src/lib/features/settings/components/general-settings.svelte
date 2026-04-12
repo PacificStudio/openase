@@ -177,9 +177,7 @@
     const orgId = appStore.currentOrg?.id
     if (!projectId) return
 
-    const confirmed = window.confirm(
-      i18nStore.t('settings.general.archive.confirmation'),
-    )
+    const confirmed = window.confirm(i18nStore.t('settings.general.archive.confirmation'))
     if (!confirmed) return
 
     archiving = true
@@ -190,7 +188,9 @@
       await goto(orgId ? organizationPath(orgId) : '/')
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : i18nStore.t('settings.archive.errors.failure'),
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('settings.archive.errors.failure'),
       )
     } finally {
       archiving = false
@@ -200,7 +200,9 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">{i18nStore.t('settings.general.heading')}</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.general.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
       {i18nStore.t('settings.general.description')}
     </p>

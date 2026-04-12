@@ -38,28 +38,28 @@
 </script>
 
 <div class="flex items-center gap-1">
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      title={i18nStore.t('machines.machineRowCardActions.action.viewDetails')}
-      onclick={(event) => {
-        event.stopPropagation()
-        onOpen?.()
-      }}
-    >
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    title={i18nStore.t('machines.machineRowCardActions.action.viewDetails')}
+    onclick={(event) => {
+      event.stopPropagation()
+      onOpen?.()
+    }}
+  >
     <Eye class="size-3.5" />
   </Button>
 
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
       {#snippet child({ props })}
-          <Button
-            {...props}
-            variant="ghost"
-            size="icon-sm"
-            title={i18nStore.t('machines.machineRowCardActions.action.moreActions')}
-            onclick={(event) => event.stopPropagation()}
-          >
+        <Button
+          {...props}
+          variant="ghost"
+          size="icon-sm"
+          title={i18nStore.t('machines.machineRowCardActions.action.moreActions')}
+          onclick={(event) => event.stopPropagation()}
+        >
           <Ellipsis class="size-3.5" />
         </Button>
       {/snippet}
@@ -121,19 +121,19 @@
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
       <Dialog.Close>
-          {#snippet child({ props })}
-            <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
-          {/snippet}
+        {#snippet child({ props })}
+          <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
+        {/snippet}
       </Dialog.Close>
-        <Button
-          variant="destructive"
-          onclick={() => {
-            confirmResetOpen = false
-            onReset?.()
-          }}
-        >
-          {i18nStore.t('machines.machineRowCardActions.action.resetDraft')}
-        </Button>
+      <Button
+        variant="destructive"
+        onclick={() => {
+          confirmResetOpen = false
+          onReset?.()
+        }}
+      >
+        {i18nStore.t('machines.machineRowCardActions.action.resetDraft')}
+      </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -150,9 +150,9 @@
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
       <Dialog.Close>
-          {#snippet child({ props })}
-            <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
-          {/snippet}
+        {#snippet child({ props })}
+          <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
+        {/snippet}
       </Dialog.Close>
       <Button
         variant="destructive"

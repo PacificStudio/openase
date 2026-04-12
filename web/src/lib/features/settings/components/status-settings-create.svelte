@@ -53,13 +53,13 @@
   </div>
 
   <div class="space-y-3">
-      <div class="flex items-center gap-2">
-        <ColorPicker bind:value={color} />
-        <Input
-          bind:value={name}
-          class="h-9 flex-1 text-sm"
-          placeholder={i18nStore.t('settings.status.create.placeholders.name')}
-        />
+    <div class="flex items-center gap-2">
+      <ColorPicker bind:value={color} />
+      <Input
+        bind:value={name}
+        class="h-9 flex-1 text-sm"
+        placeholder={i18nStore.t('settings.status.create.placeholders.name')}
+      />
       <Select.Root
         type="single"
         value={stage}

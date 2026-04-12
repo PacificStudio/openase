@@ -45,11 +45,11 @@
   const canAddProvider = $derived(machineCount > 0)
 
   function agentCountLabel(count: number) {
-  return i18nStore.t('settings.agentDefaultsCard.labels.agentCount', {
-    count,
-    pluralSuffix: count === 1 ? '' : 's',
-  })
-}
+    return i18nStore.t('settings.agentDefaultsCard.labels.agentCount', {
+      count,
+      pluralSuffix: count === 1 ? '' : 's',
+    })
+  }
 </script>
 
 <div class="space-y-4">
@@ -112,13 +112,11 @@
               'shrink-0 transition-colors',
               isProjectDefault ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-400',
             )}
-            title={
-              isProjectDefault
-                ? i18nStore.t('settings.agentDefaultsCard.actions.clearDefault')
-                : i18nStore.t('settings.agentDefaultsCard.actions.setProjectDefault', {
-                    provider: provider.name,
-                  })
-            }
+            title={isProjectDefault
+              ? i18nStore.t('settings.agentDefaultsCard.actions.clearDefault')
+              : i18nStore.t('settings.agentDefaultsCard.actions.setProjectDefault', {
+                  provider: provider.name,
+                })}
             onclick={() => {
               onSelectionChange?.(isProjectDefault ? '' : provider.id)
             }}

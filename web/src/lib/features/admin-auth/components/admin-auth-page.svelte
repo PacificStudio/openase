@@ -147,9 +147,7 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success(
-          adminAuthT('adminAuth.success.oidcActivated'),
-        )
+        toastStore.success(adminAuthT('adminAuth.success.oidcActivated'))
       },
       adminAuthT('adminAuth.errors.activateOidc'),
     )
@@ -166,9 +164,7 @@
         auth = payload.auth
         syncForm(payload.auth)
         transition = payload.transition
-        toastStore.success(
-          adminAuthT('adminAuth.success.oidcDeactivated'),
-        )
+        toastStore.success(adminAuthT('adminAuth.success.oidcDeactivated'))
       },
       adminAuthT('adminAuth.errors.deactivate'),
     )

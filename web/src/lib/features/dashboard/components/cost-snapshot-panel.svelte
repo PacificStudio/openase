@@ -32,7 +32,7 @@
 </script>
 
 <div class={cn('border-border bg-card rounded-md border', className)}>
-    <div class="border-border flex items-center justify-between border-b px-4 py-3">
+  <div class="border-border flex items-center justify-between border-b px-4 py-3">
     <h3 class="text-foreground text-sm font-medium">
       {i18nStore.t('dashboard.costSnapshot.heading')}
     </h3>
@@ -42,23 +42,23 @@
   <div class="space-y-4 p-4">
     <div class="grid grid-cols-2 gap-3">
       <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div
-            class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
-          >
-            <DollarSign class="size-3" />
-            <span>{i18nStore.t('dashboard.costSnapshot.stats.spendToday')}</span>
-          </div>
+        <div
+          class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
+        >
+          <DollarSign class="size-3" />
+          <span>{i18nStore.t('dashboard.costSnapshot.stats.spendToday')}</span>
+        </div>
         <p class="text-foreground mt-1 text-base font-semibold">
           {formatCurrency(ticketSpendToday)}
         </p>
       </div>
       <div class="bg-muted/40 rounded-md px-3 py-2">
-          <div
-            class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
-          >
-            <ReceiptText class="size-3" />
-            <span>{i18nStore.t('dashboard.costSnapshot.stats.ticketSpendTotal')}</span>
-          </div>
+        <div
+          class="text-muted-foreground flex items-center gap-2 text-[11px] tracking-[0.12em] uppercase"
+        >
+          <ReceiptText class="size-3" />
+          <span>{i18nStore.t('dashboard.costSnapshot.stats.ticketSpendTotal')}</span>
+        </div>
         <p class="text-foreground mt-1 text-base font-semibold">
           {formatCurrency(ticketSpendTotal)}
         </p>
@@ -81,24 +81,24 @@
 
     <div class="bg-border h-px"></div>
 
-      <div class="flex items-center justify-between gap-4">
-        <div>
-          <div class="text-muted-foreground text-xs">
-            {i18nStore.t('dashboard.costSnapshot.stats.ticketScopedTokens')}
-          </div>
-          <div class="text-foreground mt-1 text-lg font-semibold">
-            {formatCount(totalTicketTokens)}
-          </div>
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <div class="text-muted-foreground text-xs">
+          {i18nStore.t('dashboard.costSnapshot.stats.ticketScopedTokens')}
         </div>
-        <div class="text-right">
-          <div class="text-muted-foreground text-xs">
-            {i18nStore.t('dashboard.costSnapshot.stats.agentLifetimeTokens')}
-          </div>
-          <div class="text-foreground mt-1 text-lg font-semibold">
-            {formatCount(agentLifetimeTokens)}
-          </div>
+        <div class="text-foreground mt-1 text-lg font-semibold">
+          {formatCount(totalTicketTokens)}
         </div>
       </div>
+      <div class="text-right">
+        <div class="text-muted-foreground text-xs">
+          {i18nStore.t('dashboard.costSnapshot.stats.agentLifetimeTokens')}
+        </div>
+        <div class="text-foreground mt-1 text-lg font-semibold">
+          {formatCount(agentLifetimeTokens)}
+        </div>
+      </div>
+    </div>
 
     <p class="text-muted-foreground text-xs">
       {i18nStore.t('dashboard.costSnapshot.description')}

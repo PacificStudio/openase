@@ -43,7 +43,10 @@
     enabled: 'settings.notificationEventToggle.notifications.enabled',
     disabled: 'settings.notificationEventToggle.notifications.disabled',
   }
-  const NOTIFICATION_TOGGLE_NOTIFICATIONS: Record<'alreadyDisabled' | 'channelRequired', TranslationKey> = {
+  const NOTIFICATION_TOGGLE_NOTIFICATIONS: Record<
+    'alreadyDisabled' | 'channelRequired',
+    TranslationKey
+  > = {
     alreadyDisabled: 'settings.notificationEventToggle.notifications.alreadyDisabled',
     channelRequired: 'settings.notificationEventToggle.notifications.channelRequired',
   }
@@ -101,9 +104,7 @@
         }),
       )
     } catch (caughtError) {
-      toastStore.error(
-        actionErrorMessage(caughtError, i18nStore.t(NOTIFICATION_TOGGLE_ERROR_KEY)),
-      )
+      toastStore.error(actionErrorMessage(caughtError, i18nStore.t(NOTIFICATION_TOGGLE_ERROR_KEY)))
     } finally {
       actionKey = ''
     }

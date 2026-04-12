@@ -34,7 +34,8 @@
   }
 
   function effectiveLabel(slot: GitHubSlot): string {
-    if (!slot.configured) return i18nStore.t('settings.security.github.outbound.status.notConfigured')
+    if (!slot.configured)
+      return i18nStore.t('settings.security.github.outbound.status.notConfigured')
     return slot.probe.state.replaceAll('_', ' ')
   }
 

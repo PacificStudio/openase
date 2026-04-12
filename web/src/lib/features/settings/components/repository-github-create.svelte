@@ -30,7 +30,9 @@
 <div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label class="text-xs">{i18nStore.t('settings.repositoryGitHubCreate.labels.namespace')}</Label>
+      <Label class="text-xs"
+        >{i18nStore.t('settings.repositoryGitHubCreate.labels.namespace')}</Label
+      >
       <Select.Root
         type="single"
         value={draft.owner}
@@ -53,7 +55,9 @@
     </div>
 
     <div class="space-y-1.5">
-      <Label class="text-xs">{i18nStore.t('settings.repositoryGitHubCreate.labels.visibility')}</Label>
+      <Label class="text-xs"
+        >{i18nStore.t('settings.repositoryGitHubCreate.labels.visibility')}</Label
+      >
       <Select.Root
         type="single"
         value={draft.visibility}

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import * as Tabs from '$ui/tabs'
   import TicketCommentsThread from './ticket-comments-thread.svelte'
   import TicketRunHistoryPanel from './ticket-run-history-panel.svelte'

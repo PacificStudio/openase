@@ -45,37 +45,32 @@
       </div>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          class="text-xs"
-          onclick={() =>
-            handleOpenProjectAI(
-              'Based on the current project and existing tickets, break down 3 follow-up tickets for me.',
-            )}
-        >
-          <Sparkles class="mr-1 size-3" />
-          {t('onboarding.stepAiDiscovery.actions.breakdownTickets')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          class="text-xs"
-          onclick={() => handleOpenProjectAI('What should I do next?')}
-        >
-          <Sparkles class="mr-1 size-3" />
-          {t('onboarding.stepAiDiscovery.actions.whatsNext')}
-        </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        class="text-xs"
+        onclick={() =>
+          handleOpenProjectAI(
+            'Based on the current project and existing tickets, break down 3 follow-up tickets for me.',
+          )}
+      >
+        <Sparkles class="mr-1 size-3" />
+        {t('onboarding.stepAiDiscovery.actions.breakdownTickets')}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        class="text-xs"
+        onclick={() => handleOpenProjectAI('What should I do next?')}
+      >
+        <Sparkles class="mr-1 size-3" />
+        {t('onboarding.stepAiDiscovery.actions.whatsNext')}
+      </Button>
     </div>
   </div>
 
   <div class="flex justify-end">
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-xs"
-      onclick={finishOnboarding}
-    >
+    <Button variant="ghost" size="sm" class="text-xs" onclick={finishOnboarding}>
       {t('onboarding.stepAiDiscovery.actions.gotIt')}
     </Button>
   </div>

@@ -124,12 +124,7 @@
 
 {#if step.status !== 'completed'}
   <div class="mt-4 flex justify-end border-t pt-4">
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-xs"
-      onclick={handleSkipClick}
-    >
+    <Button variant="ghost" size="sm" class="text-xs" onclick={handleSkipClick}>
       {t('onboarding.stepDetails.actions.skipTour')}
     </Button>
   </div>
@@ -137,31 +132,21 @@
 
 <Dialog.Root bind:open={skipConfirmOpen}>
   <Dialog.Content class="max-w-sm">
-      <Dialog.Header>
-        <Dialog.Title class="text-sm">
-          {t('onboarding.stepDetails.dialog.title')}
-        </Dialog.Title>
-        <Dialog.Description class="text-muted-foreground text-xs">
-          {t('onboarding.stepDetails.dialog.description')}
-        </Dialog.Description>
-      </Dialog.Header>
-      <Dialog.Footer class="gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          class="text-xs"
-          onclick={() => (skipConfirmOpen = false)}
-        >
-          {t('onboarding.stepDetails.actions.continueSetup')}
-        </Button>
-        <Button
-          variant="destructive"
-          size="sm"
-          class="text-xs"
-          onclick={handleConfirmSkip}
-        >
-          {t('onboarding.stepDetails.actions.skipAnyway')}
-        </Button>
-      </Dialog.Footer>
+    <Dialog.Header>
+      <Dialog.Title class="text-sm">
+        {t('onboarding.stepDetails.dialog.title')}
+      </Dialog.Title>
+      <Dialog.Description class="text-muted-foreground text-xs">
+        {t('onboarding.stepDetails.dialog.description')}
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer class="gap-2">
+      <Button variant="ghost" size="sm" class="text-xs" onclick={() => (skipConfirmOpen = false)}>
+        {t('onboarding.stepDetails.actions.continueSetup')}
+      </Button>
+      <Button variant="destructive" size="sm" class="text-xs" onclick={handleConfirmSkip}>
+        {t('onboarding.stepDetails.actions.skipAnyway')}
+      </Button>
+    </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

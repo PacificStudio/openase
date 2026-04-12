@@ -41,7 +41,9 @@
       id="scheduled-job-ticket-description"
       rows={3}
       value={draft.ticketDescription}
-      placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.description')}
+      placeholder={i18nStore.t(
+        'settings.workflowScheduledJobTemplateFields.placeholders.description',
+      )}
       oninput={(event) =>
         onFieldChange?.('ticketDescription', (event.currentTarget as HTMLTextAreaElement).value)}
     />
@@ -96,7 +98,9 @@
         min="0"
         step="0.01"
         value={draft.ticketBudgetUsd}
-        placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.optional')}
+        placeholder={i18nStore.t(
+          'settings.workflowScheduledJobTemplateFields.placeholders.optional',
+        )}
         oninput={(event) =>
           onFieldChange?.('ticketBudgetUsd', (event.currentTarget as HTMLInputElement).value)}
       />
@@ -109,7 +113,9 @@
       <Input
         id="scheduled-job-ticket-created-by"
         value={draft.ticketCreatedBy}
-        placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.createdBy')}
+        placeholder={i18nStore.t(
+          'settings.workflowScheduledJobTemplateFields.placeholders.createdBy',
+        )}
         oninput={(event) =>
           onFieldChange?.('ticketCreatedBy', (event.currentTarget as HTMLInputElement).value)}
       />

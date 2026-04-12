@@ -109,15 +109,15 @@
     {:else}
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
-            <h1 class="text-foreground truncate text-lg font-semibold">{projectName}</h1>
-            <button
-              type="button"
-              class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-              title={i18nStore.t('dashboard.orgDashboardHeader.actions.editInfo')}
-              onclick={onStartEditInfo}
-            >
-              <Pencil class="size-3.5" />
-            </button>
+          <h1 class="text-foreground truncate text-lg font-semibold">{projectName}</h1>
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
+            title={i18nStore.t('dashboard.orgDashboardHeader.actions.editInfo')}
+            onclick={onStartEditInfo}
+          >
+            <Pencil class="size-3.5" />
+          </button>
         </div>
         {#if projectDescription}
           <p class="text-muted-foreground mt-0.5 text-sm">{projectDescription}</p>
@@ -137,22 +137,22 @@
           if (value && value !== currentStatus) void onProjectStatusChange?.(value as ProjectStatus)
         }}
       >
-          <Select.Trigger
-            class={cn(
-              'h-auto min-h-5 w-auto rounded-full border px-2.5 py-1 text-xs font-medium shadow-none',
-              statusClassName[currentStatus],
-            )}
-            disabled={savingStatus}
-          >
-            {i18nStore.t(statusLabelKeys[currentStatus])}
-          </Select.Trigger>
-          <Select.Content>
-            {#each projectStatusOptions as status (status)}
-              <Select.Item value={status}>
-                {i18nStore.t(statusLabelKeys[status])}
-              </Select.Item>
-            {/each}
-          </Select.Content>
+        <Select.Trigger
+          class={cn(
+            'h-auto min-h-5 w-auto rounded-full border px-2.5 py-1 text-xs font-medium shadow-none',
+            statusClassName[currentStatus],
+          )}
+          disabled={savingStatus}
+        >
+          {i18nStore.t(statusLabelKeys[currentStatus])}
+        </Select.Trigger>
+        <Select.Content>
+          {#each projectStatusOptions as status (status)}
+            <Select.Item value={status}>
+              {i18nStore.t(statusLabelKeys[status])}
+            </Select.Item>
+          {/each}
+        </Select.Content>
       </Select.Root>
     </div>
   </div>

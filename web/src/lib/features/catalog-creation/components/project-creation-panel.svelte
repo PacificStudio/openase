@@ -39,9 +39,9 @@
   }
 </script>
 
-  <Card.Root class="rounded-2xl">
+<Card.Root class="rounded-2xl">
   <Card.Header>
-  <Card.Title>
+    <Card.Title>
       {i18nStore.t('catalog.project.panel.title')}
     </Card.Title>
   </Card.Header>
@@ -55,36 +55,36 @@
       }}
     >
       <div class="space-y-2">
-            <Label for="project-name">
-              {i18nStore.t('catalog.project.dialog.labels.name')}
-            </Label>
-            <Input
-              id="project-name"
-              value={draft.name}
-              placeholder={i18nStore.t('catalog.project.dialog.placeholders.name')}
-              oninput={(event) => onNameInput?.((event.currentTarget as HTMLInputElement).value)}
-            />
+        <Label for="project-name">
+          {i18nStore.t('catalog.project.dialog.labels.name')}
+        </Label>
+        <Input
+          id="project-name"
+          value={draft.name}
+          placeholder={i18nStore.t('catalog.project.dialog.placeholders.name')}
+          oninput={(event) => onNameInput?.((event.currentTarget as HTMLInputElement).value)}
+        />
       </div>
 
       <div class="space-y-2">
-            <Label for="project-description">
-              {i18nStore.t('catalog.project.dialog.labels.description')}
-            </Label>
-            <Textarea
-              id="project-description"
-              rows={2}
-              value={draft.description}
-              placeholder={i18nStore.t('catalog.project.dialog.placeholders.description')}
-              oninput={(event) =>
-                onFieldChange?.('description', (event.currentTarget as HTMLTextAreaElement).value)}
-            />
+        <Label for="project-description">
+          {i18nStore.t('catalog.project.dialog.labels.description')}
+        </Label>
+        <Textarea
+          id="project-description"
+          rows={2}
+          value={draft.description}
+          placeholder={i18nStore.t('catalog.project.dialog.placeholders.description')}
+          oninput={(event) =>
+            onFieldChange?.('description', (event.currentTarget as HTMLTextAreaElement).value)}
+        />
       </div>
 
       <div class="grid gap-4 md:grid-cols-2">
         <div class="space-y-2">
-            <Label>
-              {i18nStore.t('catalog.project.dialog.labels.status')}
-            </Label>
+          <Label>
+            {i18nStore.t('catalog.project.dialog.labels.status')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.status}
@@ -100,9 +100,9 @@
         </div>
 
         <div class="space-y-2">
-            <Label>
-              {i18nStore.t('catalog.project.dialog.labels.provider')}
-            </Label>
+          <Label>
+            {i18nStore.t('catalog.project.dialog.labels.provider')}
+          </Label>
           <Select.Root
             type="single"
             value={draft.defaultAgentProviderId}
@@ -110,8 +110,8 @@
           >
             <Select.Trigger class="w-full">
               {@const provider = selectedProvider()}
-                {#if provider}
-                  {@const iconPath = adapterIconPath(provider.adapter_type)}
+              {#if provider}
+                {@const iconPath = adapterIconPath(provider.adapter_type)}
                 <span class="flex items-center gap-2 truncate">
                   {#if iconPath}
                     <img src={iconPath} alt="" class="size-4 shrink-0" />
@@ -123,14 +123,14 @@
                     {providerAvailabilityLabel(provider.availability_state)}
                   </span>
                 </span>
-                {:else}
-                  {i18nStore.t('catalog.project.dialog.labels.none')}
-                {/if}
+              {:else}
+                {i18nStore.t('catalog.project.dialog.labels.none')}
+              {/if}
             </Select.Trigger>
             <Select.Content>
-                <Select.Item value="">
-                  {i18nStore.t('catalog.project.dialog.labels.none')}
-                </Select.Item>
+              <Select.Item value="">
+                {i18nStore.t('catalog.project.dialog.labels.none')}
+              </Select.Item>
               {#each providers as provider (provider.id)}
                 {@const iconPath = adapterIconPath(provider.adapter_type)}
                 <Select.Item value={provider.id}>
@@ -165,41 +165,41 @@
               class="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
             >
               <ChevronRight class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}" />
-                {i18nStore.t('catalog.project.dialog.actions.advanced')}
+              {i18nStore.t('catalog.project.dialog.actions.advanced')}
             </button>
           {/snippet}
         </Collapsible.Trigger>
         <Collapsible.Content>
           <div class="mt-3 grid gap-4 md:grid-cols-2">
-              <div class="space-y-2">
-                <Label for="project-slug">
-                  {i18nStore.t('catalog.project.dialog.labels.slug')}
-                </Label>
-                <Input
-                  id="project-slug"
-                  value={draft.slug}
-                  placeholder={i18nStore.t('catalog.project.dialog.placeholders.slug')}
-                  oninput={(event) => onSlugInput?.((event.currentTarget as HTMLInputElement).value)}
-                />
+            <div class="space-y-2">
+              <Label for="project-slug">
+                {i18nStore.t('catalog.project.dialog.labels.slug')}
+              </Label>
+              <Input
+                id="project-slug"
+                value={draft.slug}
+                placeholder={i18nStore.t('catalog.project.dialog.placeholders.slug')}
+                oninput={(event) => onSlugInput?.((event.currentTarget as HTMLInputElement).value)}
+              />
             </div>
 
-              <div class="space-y-2">
-                <Label for="project-max-concurrent-agents">
-                  {i18nStore.t('catalog.project.dialog.labels.maxAgents')}
-                </Label>
-                <Input
-                  id="project-max-concurrent-agents"
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={draft.maxConcurrentAgents}
-                    placeholder={i18nStore.t('catalog.project.dialog.placeholders.unlimited')}
-                  oninput={(event) =>
-                    onFieldChange?.(
-                      'maxConcurrentAgents',
-                      (event.currentTarget as HTMLInputElement).value,
-                    )}
-                />
+            <div class="space-y-2">
+              <Label for="project-max-concurrent-agents">
+                {i18nStore.t('catalog.project.dialog.labels.maxAgents')}
+              </Label>
+              <Input
+                id="project-max-concurrent-agents"
+                type="number"
+                min="1"
+                step="1"
+                value={draft.maxConcurrentAgents}
+                placeholder={i18nStore.t('catalog.project.dialog.placeholders.unlimited')}
+                oninput={(event) =>
+                  onFieldChange?.(
+                    'maxConcurrentAgents',
+                    (event.currentTarget as HTMLInputElement).value,
+                  )}
+              />
             </div>
           </div>
         </Collapsible.Content>

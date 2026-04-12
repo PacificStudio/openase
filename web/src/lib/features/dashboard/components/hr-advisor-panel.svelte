@@ -108,9 +108,7 @@
       const payload = await listBuiltinRoles()
       builtinRolesBySlug = Object.fromEntries(payload.roles.map((role) => [role.slug, role]))
       if (!payload.roles.find((role) => role.slug === recommendation.role_slug)) {
-        harnessError = i18nStore.t(
-          'dashboard.hrAdvisor.harnessDialog.errors.templateUnavailable',
-        )
+        harnessError = i18nStore.t('dashboard.hrAdvisor.harnessDialog.errors.templateUnavailable')
       }
     } catch (caughtError) {
       harnessError =

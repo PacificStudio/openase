@@ -102,12 +102,12 @@
       toastStore.success(i18nStore.t('settings.notificationChannel.panel.messages.created'))
       dialogOpen = false
     } catch (caughtError) {
-        toastStore.error(
-          actionErrorMessage(
-            caughtError,
-            i18nStore.t('settings.notificationChannel.panel.errors.create'),
-          ),
-        )
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.create'),
+        ),
+      )
     } finally {
       saving = false
     }
@@ -123,12 +123,12 @@
       confirmDeleteOpen = false
       editingChannel = null
     } catch (caughtError) {
-        toastStore.error(
-          actionErrorMessage(
-            caughtError,
-            i18nStore.t('settings.notificationChannel.panel.errors.delete'),
-          ),
-        )
+      toastStore.error(
+        actionErrorMessage(
+          caughtError,
+          i18nStore.t('settings.notificationChannel.panel.errors.delete'),
+        ),
+      )
     } finally {
       deleting = false
     }
@@ -191,19 +191,19 @@
 </script>
 
 <div class="space-y-4">
-    <div class="flex items-center justify-between gap-4">
-      <div>
-        <h3 class="text-foreground text-sm font-semibold">
-          {i18nStore.t('settings.notificationChannel.panel.labels.heading')}
-        </h3>
-        <p class="text-muted-foreground mt-0.5 text-xs">
-          {i18nStore.t('settings.notificationChannel.panel.labels.description')}
-        </p>
-      </div>
-      <Button variant="outline" size="sm" onclick={openNew}>
-        {i18nStore.t('settings.notificationChannel.panel.actions.add')}
-      </Button>
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.notificationChannel.panel.labels.heading')}
+      </h3>
+      <p class="text-muted-foreground mt-0.5 text-xs">
+        {i18nStore.t('settings.notificationChannel.panel.labels.description')}
+      </p>
     </div>
+    <Button variant="outline" size="sm" onclick={openNew}>
+      {i18nStore.t('settings.notificationChannel.panel.actions.add')}
+    </Button>
+  </div>
 
   {#if channels.length === 0}
     <div
@@ -239,11 +239,11 @@
         <div class="border-border bg-card rounded-lg border px-4 py-3">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <span class="truncate text-sm font-medium">{channel.name}</span>
-          <Badge variant="outline" class="shrink-0 text-[10px] uppercase">
-            {channelTypeLabel(channel.type)}
-          </Badge>
+              <div class="flex items-center gap-2">
+                <span class="truncate text-sm font-medium">{channel.name}</span>
+                <Badge variant="outline" class="shrink-0 text-[10px] uppercase">
+                  {channelTypeLabel(channel.type)}
+                </Badge>
               </div>
               <p class="text-muted-foreground mt-1 text-xs">
                 {channel.is_enabled

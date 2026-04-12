@@ -165,15 +165,15 @@
       </Button>
     {/if}
     <div class="flex-1"></div>
-      <Button
-        variant="ghost"
-        size="sm"
-        class="text-destructive hover:text-destructive"
-        disabled={actionBusy}
-        onclick={onDelete}
-      >
-        <Trash2 class="size-3.5" />
-        {i18nStore.t('agents.agentDrawer.actions.delete')}
-      </Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="text-destructive hover:text-destructive"
+      disabled={actionBusy}
+      onclick={onDelete}
+    >
+      <Trash2 class="size-3.5" />
+      {i18nStore.t('agents.agentDrawer.actions.delete')}
+    </Button>
   </div>
 </div>

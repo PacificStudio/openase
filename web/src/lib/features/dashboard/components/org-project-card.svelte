@@ -42,24 +42,27 @@
 
   {#if metrics}
     <div class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span class="flex items-center gap-1">
-          <Bot class="size-3" />
-          <span>
-            {metrics.runningAgents} {i18nStore.t('dashboard.orgProjectCard.metrics.agentsLabel')}
-          </span>
+      <span class="flex items-center gap-1">
+        <Bot class="size-3" />
+        <span>
+          {metrics.runningAgents}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.agentsLabel')}
         </span>
-        <span class="flex items-center gap-1">
-          <TicketIcon class="size-3" />
-          <span>
-            {metrics.activeTickets} {i18nStore.t('dashboard.orgProjectCard.metrics.ticketsLabel')}
-          </span>
+      </span>
+      <span class="flex items-center gap-1">
+        <TicketIcon class="size-3" />
+        <span>
+          {metrics.activeTickets}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.ticketsLabel')}
         </span>
-        <span class="flex items-center gap-1">
-          <Coins class="size-3" />
-          <span>
-            {formatCurrency(metrics.todayCost)} {i18nStore.t('dashboard.orgProjectCard.metrics.today')}
-          </span>
+      </span>
+      <span class="flex items-center gap-1">
+        <Coins class="size-3" />
+        <span>
+          {formatCurrency(metrics.todayCost)}
+          {i18nStore.t('dashboard.orgProjectCard.metrics.today')}
         </span>
+      </span>
       {#if metrics.lastActivity}
         <span class="ml-auto">{formatRelativeTime(metrics.lastActivity)}</span>
       {/if}

@@ -28,11 +28,11 @@
   }
 </script>
 
-  <div class={cn('border-border bg-card rounded-md border', className)}>
-    <div class="border-border flex items-center justify-between border-b px-4 py-3">
-      <h3 class="text-foreground text-sm font-medium">
-        {i18nStore.t('dashboard.exceptionPanel.heading')}
-      </h3>
+<div class={cn('border-border bg-card rounded-md border', className)}>
+  <div class="border-border flex items-center justify-between border-b px-4 py-3">
+    <h3 class="text-foreground text-sm font-medium">
+      {i18nStore.t('dashboard.exceptionPanel.heading')}
+    </h3>
     {#if exceptions.length > 0}
       <span
         class="bg-destructive/10 text-destructive flex size-5 items-center justify-center rounded-full text-[10px] font-medium"

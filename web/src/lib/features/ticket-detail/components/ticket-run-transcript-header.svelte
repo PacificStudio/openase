@@ -3,7 +3,7 @@
   import { Button } from '$ui/button'
   import { Badge } from '$ui/badge'
   import { formatRelativeTime } from '$lib/utils'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import {
     connectionLabel,
     connectionTone,

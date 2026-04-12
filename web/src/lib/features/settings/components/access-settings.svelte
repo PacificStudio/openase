@@ -207,7 +207,9 @@
             roles={projectPermissions?.roles ?? []}
             permissions={projectPermissions?.permissions ?? []}
             emptyRoles={i18nStore.t('settings.security.humanAuth.messages.noProjectRoles')}
-            emptyPermissions={i18nStore.t('settings.security.humanAuth.messages.noProjectPermissions')}
+            emptyPermissions={i18nStore.t(
+              'settings.security.humanAuth.messages.noProjectPermissions',
+            )}
           />
 
           <div class="border-border bg-card space-y-3 rounded-lg border p-4">

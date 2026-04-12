@@ -104,9 +104,9 @@
         </div>
       </div>
       <div class="flex gap-2">
-          <Button onclick={() => (showProjectDialog = true)}>
+        <Button onclick={() => (showProjectDialog = true)}>
           {i18nStore.t('organizations.dashboard.actions.newProject')}
-          </Button>
+        </Button>
       </div>
     </div>
 

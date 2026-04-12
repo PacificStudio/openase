@@ -1,5 +1,5 @@
 import type { TicketPickupDiagnosis } from '../pickup-diagnosis'
-import { ticketsT } from '$lib/features/tickets/i18n'
+import { ticketsT } from '$lib/features/tickets'
 import type { RuntimeSummary, RuntimeTone } from './ticket-runtime-state-card-view'
 
 export function diagnosisLabel(state: TicketPickupDiagnosis['state']) {
@@ -90,7 +90,12 @@ export function buildCapacityLine(diagnosis: TicketPickupDiagnosis) {
 }
 
 export function buildLegacyRepeatedStallDetail(): RuntimeSummary['detailItems'] {
-  return [{ label: ticketsT('tickets.runtime.retryLabel'), value: 'Manual retry required after repeated stalls.' }]
+  return [
+    {
+      label: ticketsT('tickets.runtime.retryLabel'),
+      value: 'Manual retry required after repeated stalls.',
+    },
+  ]
 }
 
 export function formatRetryCountdown(value: string, now: number) {

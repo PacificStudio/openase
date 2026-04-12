@@ -111,7 +111,9 @@ export function createProjectUpdatesController(input: CreateProjectUpdatesContro
         return
       }
       loadError =
-        caughtError instanceof ApiError ? caughtError.detail : projectUpdatesT('projectUpdates.loadFailed')
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : projectUpdatesT('projectUpdates.loadFailed')
     } finally {
       if (version === requestVersion && activeProjectId === projectId) {
         loading = false

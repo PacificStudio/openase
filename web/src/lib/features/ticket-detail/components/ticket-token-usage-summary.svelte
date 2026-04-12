@@ -68,7 +68,7 @@
     aria-expanded={expanded}
     onclick={() => void toggleBreakdown()}
   >
-      {i18nStore.t('ticketDetail.tokenUsage.actions.breakdown')}
+    {i18nStore.t('ticketDetail.tokenUsage.actions.breakdown')}
   </Button>
 </div>
 
@@ -82,17 +82,17 @@
       {:else if runsError}
         <div class="space-y-2">
           <p class="text-destructive text-xs">{runsError}</p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              class="h-6 px-2 text-[11px]"
-              onclick={() => void retryLoad()}
-            >
-              {i18nStore.t('ticketDetail.tokenUsage.actions.retry')}
-            </Button>
-          </div>
-        {:else if runsLoaded && runs.length === 0}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="h-6 px-2 text-[11px]"
+            onclick={() => void retryLoad()}
+          >
+            {i18nStore.t('ticketDetail.tokenUsage.actions.retry')}
+          </Button>
+        </div>
+      {:else if runsLoaded && runs.length === 0}
         <p class="text-muted-foreground text-xs">
           {i18nStore.t('ticketDetail.tokenUsage.empty')}
         </p>

@@ -67,7 +67,9 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 text-sm">
             <span class="font-medium">{item.actor.name}</span>
-            <span class="text-muted-foreground">{i18nStore.t('ticketDetail.descriptionTimeline.opened')}</span>
+            <span class="text-muted-foreground"
+              >{i18nStore.t('ticketDetail.descriptionTimeline.opened')}</span
+            >
             <Badge variant="outline" class="h-5 px-2 text-[10px]">
               {item.identifier ?? ticket.identifier}
             </Badge>
@@ -99,12 +101,7 @@
           <div class="space-y-3">
             <Textarea rows={8} bind:value={draft} disabled={savingFields} />
             <div class="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onclick={cancelEdit}
-                disabled={savingFields}
-              >
+              <Button size="sm" variant="outline" onclick={cancelEdit} disabled={savingFields}>
                 {i18nStore.t('ticketDetail.descriptionTimeline.actions.cancel')}
               </Button>
               <Button size="sm" onclick={handleSave} disabled={savingFields}>

@@ -8,6 +8,7 @@
   import { Input } from '$ui/input'
   import * as Select from '$ui/select'
   import { Plus, Link, Loader2, CheckCircle2, GitBranch, FolderGit2, Search } from '@lucide/svelte'
+  import { REPO_STEP_KEYS as KEYS, t as repoCopy } from './step-repo-copy'
 
   let {
     mode = $bindable<'choose' | 'create' | 'link'>(),
@@ -56,71 +57,12 @@
     onCreateRepo?: () => void | Promise<void>
     onLinkRepo?: () => void | Promise<void>
   } = $props()
-
-  const STEP_KEY = 'onboarding.step.repo'
-  const KEYS = {
-    actionsAddRepository: `${STEP_KEY}.actions.addRepository`,
-    createCardTitle: `${STEP_KEY}.createCard.title`,
-    createCardDescription: `${STEP_KEY}.createCard.description`,
-    linkCardTitle: `${STEP_KEY}.linkCard.title`,
-    linkCardDescription: `${STEP_KEY}.linkCard.description`,
-    formNamespace: `${STEP_KEY}.forms.namespace`,
-    formRepositoryName: `${STEP_KEY}.forms.repositoryName`,
-    formVisibility: `${STEP_KEY}.forms.visibility`,
-    formDefaultBranch: `${STEP_KEY}.forms.defaultBranch`,
-    formGitUrl: `${STEP_KEY}.forms.gitUrl`,
-    placeholderRepositoryName: `${STEP_KEY}.placeholders.repositoryName`,
-    placeholderDefaultBranch: `${STEP_KEY}.placeholders.defaultBranch`,
-    placeholderGitUrl: `${STEP_KEY}.placeholders.gitUrl`,
-    placeholderNamespace: `${STEP_KEY}.placeholders.namespace`,
-    visibilityPrivate: `${STEP_KEY}.visibility.private`,
-    visibilityPublic: `${STEP_KEY}.visibility.public`,
-    actionsCreating: `${STEP_KEY}.actions.creating`,
-    actionsCreateAndLink: `${STEP_KEY}.actions.createAndLink`,
-    actionsLinking: `${STEP_KEY}.actions.linking`,
-    actionsLinkRepository: `${STEP_KEY}.actions.linkRepository`,
-    actionsBack: `${STEP_KEY}.actions.back`,
-    searchHeading: `${STEP_KEY}.search.heading`,
-    searchPlaceholder: `${STEP_KEY}.search.placeholder`,
-  } as const
-
-  type StepRepoCopyKey = (typeof KEYS)[keyof typeof KEYS]
-
-  const copy: Record<StepRepoCopyKey, string> = {
-    [KEYS.actionsAddRepository]: 'Add another repository',
-    [KEYS.createCardTitle]: 'Create a new repository',
-    [KEYS.createCardDescription]: 'Create a new code repository on GitHub',
-    [KEYS.linkCardTitle]: 'Link an existing repository',
-    [KEYS.linkCardDescription]: 'Link an existing Git repository',
-    [KEYS.formNamespace]: 'Namespace',
-    [KEYS.formRepositoryName]: 'Repository name',
-    [KEYS.formVisibility]: 'Visibility',
-    [KEYS.formDefaultBranch]: 'Default branch',
-    [KEYS.formGitUrl]: 'Git URL',
-    [KEYS.placeholderRepositoryName]: 'my-project',
-    [KEYS.placeholderDefaultBranch]: 'main',
-    [KEYS.placeholderGitUrl]: 'https://github.com/owner/repo.git',
-    [KEYS.visibilityPrivate]: 'Private',
-    [KEYS.visibilityPublic]: 'Public',
-    [KEYS.actionsCreating]: 'Creating...',
-    [KEYS.actionsCreateAndLink]: 'Create and link',
-    [KEYS.actionsLinking]: 'Linking...',
-    [KEYS.actionsLinkRepository]: 'Link repository',
-    [KEYS.actionsBack]: 'Back',
-    [KEYS.searchHeading]: 'Search or browse GitHub repositories',
-    [KEYS.searchPlaceholder]: 'Search repository names, or browse recently accessible repositories...',
-    [KEYS.placeholderNamespace]: 'Select a namespace',
-  }
-
-  function t(key: StepRepoCopyKey) {
-    return copy[key] ?? ''
-  }
 </script>
 
 <div class="space-y-4">
-    {#if hasRepos}
-        <div class="space-y-2">
-          {#each repos as repo (repo.id)}
+  {#if hasRepos}
+    <div class="space-y-2">
+      {#each repos as repo (repo.id)}
         <div
           class="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/50 dark:bg-emerald-950/30"
         >
@@ -141,7 +83,7 @@
     {#if mode === 'choose'}
       <Button variant="outline" size="sm" onclick={onEnterCreateMode}>
         <Plus class="mr-1.5 size-3.5" />
-        {t(KEYS.actionsAddRepository)}
+        {repoCopy(KEYS.actionsAddRepository)}
       </Button>
     {/if}
   {/if}
@@ -158,8 +100,10 @@
             <Plus class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">{t(KEYS.createCardTitle)}</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">{t(KEYS.createCardDescription)}</p>
+            <p class="text-foreground text-sm font-medium">{repoCopy(KEYS.createCardTitle)}</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">
+              {repoCopy(KEYS.createCardDescription)}
+            </p>
           </div>
         </button>
 
@@ -172,8 +116,8 @@
             <Link class="text-primary size-4" />
           </div>
           <div>
-            <p class="text-foreground text-sm font-medium">{t(KEYS.linkCardTitle)}</p>
-            <p class="text-muted-foreground mt-0.5 text-xs">{t(KEYS.linkCardDescription)}</p>
+            <p class="text-foreground text-sm font-medium">{repoCopy(KEYS.linkCardTitle)}</p>
+            <p class="text-muted-foreground mt-0.5 text-xs">{repoCopy(KEYS.linkCardDescription)}</p>
           </div>
         </button>
       </div>
@@ -181,7 +125,7 @@
       <div class="space-y-3">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formNamespace)}</p>
+            <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formNamespace)}</p>
             <Select.Root
               type="single"
               value={selectedNamespace}
@@ -190,7 +134,7 @@
               }}
             >
               <Select.Trigger class="h-9 w-full text-sm">
-                {selectedNamespace || t(KEYS.placeholderNamespace)}
+                {selectedNamespace || repoCopy(KEYS.placeholderNamespace)}
               </Select.Trigger>
               <Select.Content>
                 {#each namespaces as ns (ns.login)}
@@ -200,17 +144,19 @@
             </Select.Root>
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formRepositoryName)}</p>
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formRepositoryName)}
+            </p>
             <Input
               bind:value={newRepoName}
-              placeholder={t(KEYS.placeholderRepositoryName)}
+              placeholder={repoCopy(KEYS.placeholderRepositoryName)}
               class="h-9 text-sm"
             />
           </div>
         </div>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formVisibility)}</p>
+            <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formVisibility)}</p>
             <Select.Root
               type="single"
               value={newRepoVisibility}
@@ -220,26 +166,26 @@
             >
               <Select.Trigger class="h-9 w-full text-sm">
                 {newRepoVisibility === 'private'
-                  ? t(KEYS.visibilityPrivate)
-                  : t(KEYS.visibilityPublic)}
+                  ? repoCopy(KEYS.visibilityPrivate)
+                  : repoCopy(KEYS.visibilityPublic)}
               </Select.Trigger>
               <Select.Content>
                 <Select.Item value="private">
-                  {t(KEYS.visibilityPrivate)}
+                  {repoCopy(KEYS.visibilityPrivate)}
                 </Select.Item>
                 <Select.Item value="public">
-                  {t(KEYS.visibilityPublic)}
+                  {repoCopy(KEYS.visibilityPublic)}
                 </Select.Item>
               </Select.Content>
             </Select.Root>
           </div>
           <div>
             <p class="text-foreground mb-1 text-xs font-medium">
-              {t(KEYS.formDefaultBranch)}
+              {repoCopy(KEYS.formDefaultBranch)}
             </p>
             <Input
               bind:value={newRepoDefaultBranch}
-              placeholder={t(KEYS.placeholderDefaultBranch)}
+              placeholder={repoCopy(KEYS.placeholderDefaultBranch)}
               class="h-9 text-sm"
             />
           </div>
@@ -249,20 +195,16 @@
             onclick={onCreateRepo}
             disabled={creating || !newRepoName.trim() || !selectedNamespace}
           >
-              {#if creating}
-                <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-                {t(KEYS.actionsCreating)}
-              {:else}
-                <Plus class="mr-1.5 size-3.5" />
-                {t(KEYS.actionsCreateAndLink)}
-              {/if}
+            {#if creating}
+              <Loader2 class="mr-1.5 size-3.5 animate-spin" />
+              {repoCopy(KEYS.actionsCreating)}
+            {:else}
+              <Plus class="mr-1.5 size-3.5" />
+              {repoCopy(KEYS.actionsCreateAndLink)}
+            {/if}
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onclick={() => (mode = 'choose')}
-          >
-            {t(KEYS.actionsBack)}
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
+            {repoCopy(KEYS.actionsBack)}
           </Button>
         </div>
       </div>
@@ -270,12 +212,12 @@
       <div class="space-y-3">
         <div>
           <p class="text-foreground mb-1 text-xs font-medium">
-            {t(KEYS.searchHeading)}
+            {repoCopy(KEYS.searchHeading)}
           </p>
           <div class="flex items-center gap-2">
             <Input
               bind:value={repoSearchQuery}
-              placeholder={t(KEYS.searchPlaceholder)}
+              placeholder={repoCopy(KEYS.searchPlaceholder)}
               class="h-9 flex-1 text-sm"
               onkeydown={(e) => {
                 if (e.key === 'Enter') void onSearchRepos?.()
@@ -308,27 +250,31 @@
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formRepositoryName)}</p>
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formRepositoryName)}
+            </p>
             <Input
               bind:value={linkRepoName}
-              placeholder={t(KEYS.placeholderRepositoryName)}
+              placeholder={repoCopy(KEYS.placeholderRepositoryName)}
               class="h-9 text-sm"
             />
           </div>
           <div>
-            <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formDefaultBranch)}</p>
+            <p class="text-foreground mb-1 text-xs font-medium">
+              {repoCopy(KEYS.formDefaultBranch)}
+            </p>
             <Input
               bind:value={linkRepoBranch}
-              placeholder={t(KEYS.placeholderDefaultBranch)}
+              placeholder={repoCopy(KEYS.placeholderDefaultBranch)}
               class="h-9 text-sm"
             />
           </div>
         </div>
         <div>
-          <p class="text-foreground mb-1 text-xs font-medium">{t(KEYS.formGitUrl)}</p>
+          <p class="text-foreground mb-1 text-xs font-medium">{repoCopy(KEYS.formGitUrl)}</p>
           <Input
             bind:value={linkRepoUrl}
-            placeholder={t(KEYS.placeholderGitUrl)}
+            placeholder={repoCopy(KEYS.placeholderGitUrl)}
             class="h-9 text-sm"
           />
         </div>
@@ -340,19 +286,15 @@
           >
             {#if linking}
               <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-              {t(KEYS.actionsLinking)}
+              {repoCopy(KEYS.actionsLinking)}
             {:else}
               <Link class="mr-1.5 size-3.5" />
-              {t(KEYS.actionsLinkRepository)}
+              {repoCopy(KEYS.actionsLinkRepository)}
             {/if}
           </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onclick={() => (mode = 'choose')}
-        >
-          {t(KEYS.actionsBack)}
-        </Button>
+          <Button variant="ghost" size="sm" onclick={() => (mode = 'choose')}>
+            {repoCopy(KEYS.actionsBack)}
+          </Button>
         </div>
       </div>
     {/if}

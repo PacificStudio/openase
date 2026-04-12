@@ -61,7 +61,9 @@
 <div class="space-y-4" data-testid="repository-editor-form">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="repo-name" class="text-xs">{i18nStore.t('settings.repositoryEditorForm.labels.name')}</Label>
+      <Label for="repo-name" class="text-xs"
+        >{i18nStore.t('settings.repositoryEditorForm.labels.name')}</Label
+      >
       <Input
         id="repo-name"
         value={draft.name}
@@ -85,7 +87,9 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label class="text-xs">{i18nStore.t('settings.repositoryEditorForm.labels.repositoryUrl')}</Label>
+    <Label class="text-xs"
+      >{i18nStore.t('settings.repositoryEditorForm.labels.repositoryUrl')}</Label
+    >
     <div class="bg-muted flex rounded-md p-0.5 text-xs">
       <button
         type="button"
@@ -115,11 +119,9 @@
     <Input
       id="repo-url"
       value={draft.repositoryURL}
-      placeholder={
-        urlType === 'file'
-          ? i18nStore.t('settings.repositoryEditorForm.placeholders.fileUrl')
-          : i18nStore.t('settings.repositoryEditorForm.placeholders.remoteUrl')
-      }
+      placeholder={urlType === 'file'
+        ? i18nStore.t('settings.repositoryEditorForm.placeholders.fileUrl')
+        : i18nStore.t('settings.repositoryEditorForm.placeholders.remoteUrl')}
       class="h-9 text-sm"
       oninput={(event) => update('repositoryURL', event)}
     />
@@ -140,7 +142,9 @@
 
   {#if !compact}
     <div class="space-y-1.5">
-      <Label for="repo-labels" class="text-xs">{i18nStore.t('settings.repositoryEditorForm.labels.labels')}</Label>
+      <Label for="repo-labels" class="text-xs"
+        >{i18nStore.t('settings.repositoryEditorForm.labels.labels')}</Label
+      >
       <Textarea
         id="repo-labels"
         rows={2}

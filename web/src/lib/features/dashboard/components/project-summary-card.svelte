@@ -58,7 +58,8 @@
       <div class="min-w-0 flex-1">
         <div class="text-foreground truncate text-sm font-medium">{project.name}</div>
         <p class="text-muted-foreground mt-1 text-xs leading-5">
-          {project.description ?? i18nStore.t('dashboard.projectSummaryCard.messages.noDescription')}
+          {project.description ??
+            i18nStore.t('dashboard.projectSummaryCard.messages.noDescription')}
         </p>
       </div>
 

@@ -146,10 +146,10 @@
         <Select.Trigger class="w-full">{statusLabel}</Select.Trigger>
         <Select.Content>
           {#each statusOptions as opt (opt.value)}
-        <Select.Item value={opt.value}>{i18nStore.t(opt.labelKey)}</Select.Item>
-      {/each}
-    </Select.Content>
-  </Select.Root>
+            <Select.Item value={opt.value}>{i18nStore.t(opt.labelKey)}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
     </div>
 
     <div class="space-y-1.5">
@@ -173,11 +173,7 @@
 
   <div class="flex justify-end gap-2">
     {#if onCancel}
-      <Button
-        variant="outline"
-        onclick={onCancel}
-        disabled={creating}
-      >
+      <Button variant="outline" onclick={onCancel} disabled={creating}>
         {i18nStore.t('ticketDetail.externalLink.form.actions.cancel')}
       </Button>
     {/if}

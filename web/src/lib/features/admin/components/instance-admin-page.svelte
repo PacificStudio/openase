@@ -163,9 +163,9 @@
             <div class="flex min-w-0 items-start gap-2">
               <ShieldCheck class="text-muted-foreground mt-0.5 size-4 shrink-0" />
               <div class="min-w-0 space-y-1.5">
-              <div class="text-sm font-semibold">
-                {i18nStore.t('instanceAdmin.section.yourSession')}
-              </div>
+                <div class="text-sm font-semibold">
+                  {i18nStore.t('instanceAdmin.section.yourSession')}
+                </div>
                 <div class="flex flex-wrap items-center gap-1.5 text-xs">
                   <Badge variant="secondary">{currentAuthMethodLabel}</Badge>
                   {#if authStore.user}
@@ -204,15 +204,15 @@
           <ul
             class="text-muted-foreground list-outside list-disc space-y-1.5 pl-5 text-xs leading-relaxed"
           >
-              <li>
-                {i18nStore.t('instanceAdmin.recovery.keepAdmin')}
-              </li>
-              <li class="break-words">
-                {i18nStore.t('instanceAdmin.recovery.oidcFailure')}
-              </li>
-              <li>
-                {i18nStore.t('instanceAdmin.recovery.emergencyOffboarding')}
-              </li>
+            <li>
+              {i18nStore.t('instanceAdmin.recovery.keepAdmin')}
+            </li>
+            <li class="break-words">
+              {i18nStore.t('instanceAdmin.recovery.oidcFailure')}
+            </li>
+            <li>
+              {i18nStore.t('instanceAdmin.recovery.emergencyOffboarding')}
+            </li>
           </ul>
         </div>
 

@@ -22,8 +22,10 @@
   </div>
 
   <div class="mt-4 flex justify-start">
-      <Button variant="destructive" onclick={onArchive} disabled={archiving}>
-      {archiving ? i18nStore.t('settings.archive.button.archiving') : i18nStore.t('settings.archive.button.archive')}
+    <Button variant="destructive" onclick={onArchive} disabled={archiving}>
+      {archiving
+        ? i18nStore.t('settings.archive.button.archiving')
+        : i18nStore.t('settings.archive.button.archive')}
     </Button>
   </div>
 </div>

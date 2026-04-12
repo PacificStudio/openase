@@ -82,7 +82,8 @@
   </div>
 
   <div class="space-y-2">
-    <Label for="new-scope-branch">{i18nStore.t('ticketDetail.repoCreate.workBranchOverride')}</Label>
+    <Label for="new-scope-branch">{i18nStore.t('ticketDetail.repoCreate.workBranchOverride')}</Label
+    >
     <Input
       id="new-scope-branch"
       bind:value={createBranchName}

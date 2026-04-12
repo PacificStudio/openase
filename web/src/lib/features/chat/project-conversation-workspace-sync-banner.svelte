@@ -42,11 +42,11 @@
       {#if syncError}
         <p class="text-destructive mt-3 text-xs">{syncError}</p>
       {/if}
-        <div class="mt-4 flex gap-2">
-          <Button size="sm" onclick={() => void onSync?.()} disabled={syncInFlight}>
-            {syncInFlight ? chatT('chat.syncingRepos') : chatT('chat.syncRepos')}
-          </Button>
-        </div>
+      <div class="mt-4 flex gap-2">
+        <Button size="sm" onclick={() => void onSync?.()} disabled={syncInFlight}>
+          {syncInFlight ? chatT('chat.syncingRepos') : chatT('chat.syncRepos')}
+        </Button>
+      </div>
     </div>
   </div>
 {:else}
@@ -65,15 +65,15 @@
           <p class="text-destructive mt-2 text-xs">{syncError}</p>
         {/if}
       </div>
-    <Button
-      size="sm"
-      variant="secondary"
-      class="shrink-0"
-      onclick={() => void onSync?.()}
-      disabled={syncInFlight}
-    >
-      {syncInFlight ? chatT('chat.syncing') : chatT('chat.syncRepos')}
-    </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        class="shrink-0"
+        onclick={() => void onSync?.()}
+        disabled={syncInFlight}
+      >
+        {syncInFlight ? chatT('chat.syncing') : chatT('chat.syncRepos')}
+      </Button>
     </div>
   </div>
 {/if}

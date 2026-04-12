@@ -87,31 +87,31 @@
   } = $props()
 </script>
 
-  {#if loading || (loadError && workflows.length === 0)}
-    <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
-    {#if settingsHref}
-      <div class="px-4 pb-4">
-        <a class="text-muted-foreground text-xs underline" href={settingsHref}>
-          {t('workflows.page.body.link.settingsDetails')}
-        </a>
-      </div>
-    {/if}
+{#if loading || (loadError && workflows.length === 0)}
+  <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
+  {#if settingsHref}
+    <div class="px-4 pb-4">
+      <a class="text-muted-foreground text-xs underline" href={settingsHref}>
+        {t('workflows.page.body.link.settingsDetails')}
+      </a>
+    </div>
+  {/if}
 {:else if workflows.length === 0}
-    <div
-      class="border-border bg-card animate-fade-in-up flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-4 py-14 text-center"
-    >
-      <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
-        <GitBranch class="text-muted-foreground size-5" />
-      </div>
-        <p class="text-foreground text-sm font-medium">
-          {t('workflows.page.body.empty.title')}
-        </p>
-        <p class="text-muted-foreground mt-1 max-w-sm text-sm">
-          {t('workflows.page.body.empty.description')}
-        </p>
-      <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
-        {t('workflows.page.body.empty.action')}
-      </Button>
+  <div
+    class="border-border bg-card animate-fade-in-up flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-4 py-14 text-center"
+  >
+    <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
+      <GitBranch class="text-muted-foreground size-5" />
+    </div>
+    <p class="text-foreground text-sm font-medium">
+      {t('workflows.page.body.empty.title')}
+    </p>
+    <p class="text-muted-foreground mt-1 max-w-sm text-sm">
+      {t('workflows.page.body.empty.description')}
+    </p>
+    <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
+      {t('workflows.page.body.empty.action')}
+    </Button>
   </div>
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">

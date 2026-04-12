@@ -93,8 +93,7 @@
       await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
       await browser.refreshWorkspace(true)
     } catch (error) {
-      syncError =
-        error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
+      syncError = error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
     } finally {
       syncInFlight = false
     }

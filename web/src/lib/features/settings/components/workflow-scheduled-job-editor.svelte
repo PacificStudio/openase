@@ -118,9 +118,7 @@
           <Input
             id="scheduled-job-name"
             value={draft.name}
-            placeholder={i18nStore.t(
-              'settings.workflowScheduledJobEditor.placeholders.jobName',
-            )}
+            placeholder={i18nStore.t('settings.workflowScheduledJobEditor.placeholders.jobName')}
             oninput={(event) =>
               onFieldChange?.('name', (event.currentTarget as HTMLInputElement).value)}
           />

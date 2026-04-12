@@ -142,21 +142,15 @@
       return
     }
     if (!name.trim()) {
-      toastStore.error(
-        t('workflows.creation.dialog.errors.nameRequired'),
-      )
+      toastStore.error(t('workflows.creation.dialog.errors.nameRequired'))
       return
     }
     if (!agentId) {
-      toastStore.error(
-        t('workflows.creation.dialog.errors.agentRequired'),
-      )
+      toastStore.error(t('workflows.creation.dialog.errors.agentRequired'))
       return
     }
     if (!typeLabel.trim()) {
-      toastStore.error(
-        t('workflows.creation.dialog.errors.typeRequired'),
-      )
+      toastStore.error(t('workflows.creation.dialog.errors.typeRequired'))
       return
     }
     if (templateStatusError) {
@@ -164,15 +158,11 @@
       return
     }
     if (pickupStatusIds.length === 0 || finishStatusIds.length === 0) {
-      toastStore.error(
-        t('workflows.creation.dialog.errors.statusRequired'),
-      )
+      toastStore.error(t('workflows.creation.dialog.errors.statusRequired'))
       return
     }
     if (findOverlappingStatusIds(pickupStatusIds, finishStatusIds).length > 0) {
-      toastStore.error(
-        t('workflows.creation.dialog.errors.statusExclusive'),
-      )
+      toastStore.error(t('workflows.creation.dialog.errors.statusExclusive'))
       return
     }
 
@@ -209,10 +199,7 @@
       open = false
     } catch (caughtError) {
       toastStore.error(
-        describeWorkflowApiError(
-          caughtError,
-          t('workflows.creation.dialog.errors.creationFailed'),
-        ),
+        describeWorkflowApiError(caughtError, t('workflows.creation.dialog.errors.creationFailed')),
       )
     } finally {
       saving = false

@@ -168,9 +168,9 @@
 {:else}
   <div class="space-y-6">
     {#each stageGroups as group (group.stage)}
-          <section
-            class={cn(
-              'rounded-lg transition-all',
+      <section
+        class={cn(
+          'rounded-lg transition-all',
           dropTargetStage === group.stage && dragSourceStage !== group.stage
             ? stageDropHighlight[group.stage]
             : '',

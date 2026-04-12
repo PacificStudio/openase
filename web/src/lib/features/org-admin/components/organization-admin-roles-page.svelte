@@ -71,7 +71,7 @@
       if (!nextCanManagePrivilegedRoles && draft.roleKey !== 'org_member') {
         draft = { ...draft, roleKey: 'org_member' }
       }
-    } catch (caughtError) {
+    } catch {
       error = t('orgAdmin.roles.errors.load')
     } finally {
       loading = false
@@ -90,9 +90,7 @@
       draft = defaultBindingDraftForScope()
       dialogOpen = false
       await loadState()
-      toastStore.success(
-        t('orgAdmin.roles.toast.bindingAdded'),
-      )
+      toastStore.success(t('orgAdmin.roles.toast.bindingAdded'))
     } catch (caughtError) {
       const message =
         caughtError instanceof Error ? caughtError.message : t('orgAdmin.roles.errors.create')
@@ -109,9 +107,7 @@
     try {
       await deleteOrganizationRoleBinding(organizationId, binding.id)
       await loadState()
-      toastStore.success(
-        t('orgAdmin.roles.toast.bindingRemoved'),
-      )
+      toastStore.success(t('orgAdmin.roles.toast.bindingRemoved'))
     } catch (caughtError) {
       const message =
         caughtError instanceof ApiError ? caughtError.detail : t('orgAdmin.roles.errors.delete')
@@ -144,50 +140,46 @@
       </Badge>
     </div>
     {#if canManageBindings}
-      <Button
-        size="sm"
-        variant="outline"
-        onclick={() => (dialogOpen = true)}
-      >
+      <Button size="sm" variant="outline" onclick={() => (dialogOpen = true)}>
         {t('orgAdmin.roles.page.actions.addBinding')}
       </Button>
     {/if}
   </div>
 
   <!-- Your access status bar -->
-      <div class="bg-muted/40 rounded-md px-4 py-2.5">
-        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span class="text-muted-foreground text-xs font-medium">
-              {t('orgAdmin.roles.page.access.yourAccess')}
-            </span>
-          {#if permissions?.roles?.length}
-            {#each permissions.roles as role (role)}
-              <Badge variant="secondary" class="text-xs">{role}</Badge>
-            {/each}
-          {:else}
-             <span class="text-muted-foreground text-xs">
-                {t('orgAdmin.roles.page.access.noRoles')}
-              </span>
-          {/if}
-          {#if permissions?.groups?.length}
-            <span class="text-muted-foreground text-xs">·</span>
-            {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
-              <code class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
-                {group.group_name || group.group_key}
-              </code>
-            {/each}
-          {/if}
-          {#if !canManageBindings}
-           <span class="text-muted-foreground text-xs">
-              · {t('orgAdmin.roles.page.access.readOnly')}
-            </span>
-          {:else if !canManagePrivilegedRoles}
-            <span class="text-muted-foreground text-xs">
-              · {t('orgAdmin.roles.page.access.ownerApproval')}
-            </span>
-          {/if}
-        </div>
-      </div>
+  <div class="bg-muted/40 rounded-md px-4 py-2.5">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span class="text-muted-foreground text-xs font-medium">
+        {t('orgAdmin.roles.page.access.yourAccess')}
+      </span>
+      {#if permissions?.roles?.length}
+        {#each permissions.roles as role (role)}
+          <Badge variant="secondary" class="text-xs">{role}</Badge>
+        {/each}
+      {:else}
+        <span class="text-muted-foreground text-xs">
+          {t('orgAdmin.roles.page.access.noRoles')}
+        </span>
+      {/if}
+      {#if permissions?.groups?.length}
+        <span class="text-muted-foreground text-xs">·</span>
+        {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
+          <code class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
+            {group.group_name || group.group_key}
+          </code>
+        {/each}
+      {/if}
+      {#if !canManageBindings}
+        <span class="text-muted-foreground text-xs">
+          · {t('orgAdmin.roles.page.access.readOnly')}
+        </span>
+      {:else if !canManagePrivilegedRoles}
+        <span class="text-muted-foreground text-xs">
+          · {t('orgAdmin.roles.page.access.ownerApproval')}
+        </span>
+      {/if}
+    </div>
+  </div>
 
   <!-- Bindings list -->
   <OrganizationAdminRolesBindingsList
@@ -220,7 +212,7 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <div class="space-y-1.5">
         <Label>
-            {t('orgAdmin.roles.dialog.labels.subjectKind')}
+          {t('orgAdmin.roles.dialog.labels.subjectKind')}
         </Label>
         <select
           class={selectClass}
@@ -233,10 +225,10 @@
           }}
         >
           <option value="user">
-          {t('orgAdmin.roles.dialog.options.user')}
+            {t('orgAdmin.roles.dialog.options.user')}
           </option>
           <option value="group">
-          {t('orgAdmin.roles.dialog.options.group')}
+            {t('orgAdmin.roles.dialog.options.group')}
           </option>
         </select>
       </div>
@@ -247,11 +239,9 @@
         </Label>
         <Input
           value={draft.subjectKey}
-          placeholder={
-            draft.subjectKind === 'group'
-              ? t('orgAdmin.roles.dialog.placeholders.group')
-              : t('orgAdmin.roles.dialog.placeholders.user')
-          }
+          placeholder={draft.subjectKind === 'group'
+            ? t('orgAdmin.roles.dialog.placeholders.group')
+            : t('orgAdmin.roles.dialog.placeholders.user')}
           oninput={(event) => {
             draft = { ...draft, subjectKey: (event.currentTarget as HTMLInputElement).value }
           }}
@@ -295,11 +285,7 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button
-            variant="outline"
-            {...props}
-            disabled={mutationKey === 'create'}
-          >
+          <Button variant="outline" {...props} disabled={mutationKey === 'create'}>
             {t('orgAdmin.roles.dialog.actions.cancel')}
           </Button>
         {/snippet}

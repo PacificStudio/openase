@@ -85,14 +85,14 @@
     <Label for={`${row.id}-cmd`}>
       {t('workflows.hooks.rowEditor.labels.command')}
     </Label>
-      <Input
-        id={`${row.id}-cmd`}
-        value={row.cmd}
-        {disabled}
-        placeholder={t('workflows.hooks.rowEditor.placeholders.command')}
-        aria-invalid={errors.cmd ? 'true' : undefined}
-        oninput={(event) => updateRow({ cmd: (event.currentTarget as HTMLInputElement).value })}
-      />
+    <Input
+      id={`${row.id}-cmd`}
+      value={row.cmd}
+      {disabled}
+      placeholder={t('workflows.hooks.rowEditor.placeholders.command')}
+      aria-invalid={errors.cmd ? 'true' : undefined}
+      oninput={(event) => updateRow({ cmd: (event.currentTarget as HTMLInputElement).value })}
+    />
     {#if errors.cmd}
       <p class="text-destructive text-xs">{errors.cmd}</p>
     {/if}

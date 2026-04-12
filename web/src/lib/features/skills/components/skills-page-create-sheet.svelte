@@ -40,26 +40,26 @@
     <div class="flex-1 space-y-4 overflow-y-auto px-6 py-5">
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1.5">
-        <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-          {i18nStore.t('skills.createSheet.labels.name')}
-        </span>
-        <Input
-          bind:value={name}
-          placeholder={i18nStore.t('skills.createSheet.placeholders.name')}
-          class="h-9 text-sm"
-          disabled={creating}
-        />
+          <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+            {i18nStore.t('skills.createSheet.labels.name')}
+          </span>
+          <Input
+            bind:value={name}
+            placeholder={i18nStore.t('skills.createSheet.placeholders.name')}
+            class="h-9 text-sm"
+            disabled={creating}
+          />
         </div>
         <div class="space-y-1.5">
-        <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-          {i18nStore.t('skills.createSheet.labels.description')}
-        </span>
-        <Input
-          bind:value={description}
-          placeholder={i18nStore.t('skills.createSheet.placeholders.description')}
-          class="h-9 text-sm"
-          disabled={creating}
-        />
+          <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+            {i18nStore.t('skills.createSheet.labels.description')}
+          </span>
+          <Input
+            bind:value={description}
+            placeholder={i18nStore.t('skills.createSheet.placeholders.description')}
+            class="h-9 text-sm"
+            disabled={creating}
+          />
         </div>
       </div>
 

@@ -58,9 +58,9 @@
         </p>
       </div>
 
-        <Button onclick={() => (showCreateDialog = true)}>
+      <Button onclick={() => (showCreateDialog = true)}>
         {i18nStore.t('catalog.organization.index.actions.new')}
-        </Button>
+      </Button>
     </div>
 
     <OrganizationBulkArchiveBar selectedIds={[...selectedIds]} onClear={clearSelection} />
@@ -96,16 +96,16 @@
                 id={`org-select-${organization.id}`}
                 class="shrink-0"
                 checked={selectedIds.has(organization.id)}
-              aria-label={i18nStore.t('catalog.organization.index.labels.selectOrganization', {
-                name: organization.name,
-              })}
-              onCheckedChange={() => toggleSelect(organization.id)}
-            />
-            <Label class="sr-only" for={`org-select-${organization.id}`}>
-              {i18nStore.t('catalog.organization.index.labels.selectOrganization', {
-                name: organization.name,
-              })}
-            </Label>
+                aria-label={i18nStore.t('catalog.organization.index.labels.selectOrganization', {
+                  name: organization.name,
+                })}
+                onCheckedChange={() => toggleSelect(organization.id)}
+              />
+              <Label class="sr-only" for={`org-select-${organization.id}`}>
+                {i18nStore.t('catalog.organization.index.labels.selectOrganization', {
+                  name: organization.name,
+                })}
+              </Label>
               <div class="min-w-0">
                 <a
                   href={organizationPath(organization.id)}
@@ -141,14 +141,14 @@
         class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-12 text-center transition-colors"
         onclick={() => (showCreateDialog = true)}
       >
-          <p class="text-muted-foreground text-sm">
-            {i18nStore.t('catalog.organization.index.empty.noOrgs')}
-          </p>
-          <p class="text-foreground mt-1 text-sm font-medium">
-            {i18nStore.t('catalog.organization.index.empty.createFirst')}
-          </p>
-        </button>
-      {/if}
+        <p class="text-muted-foreground text-sm">
+          {i18nStore.t('catalog.organization.index.empty.noOrgs')}
+        </p>
+        <p class="text-foreground mt-1 text-sm font-medium">
+          {i18nStore.t('catalog.organization.index.empty.createFirst')}
+        </p>
+      </button>
+    {/if}
   </div>
 </div>
 

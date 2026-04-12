@@ -62,7 +62,8 @@ export async function loadWorkspaceFile(
       preview: null,
       patch: null,
       loading: false,
-      error: error instanceof Error ? error.message : chatT('chat.workspace.errors.loadFileDetails'),
+      error:
+        error instanceof Error ? error.message : chatT('chat.workspace.errors.loadFileDetails'),
     })
   }
 }

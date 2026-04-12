@@ -37,10 +37,10 @@
       <div class="text-sm font-medium">{label}</div>
       <p class="text-muted-foreground text-xs">{description}</p>
     </div>
-      <Button type="button" variant="outline" size="sm" {disabled} onclick={() => onAdd?.()}>
-        <Plus class="size-3.5" />
-        {t('workflows.hooks.eventEditor.addRow')}
-      </Button>
+    <Button type="button" variant="outline" size="sm" {disabled} onclick={() => onAdd?.()}>
+      <Plus class="size-3.5" />
+      {t('workflows.hooks.eventEditor.addRow')}
+    </Button>
   </div>
 
   {#if rows.length === 0}

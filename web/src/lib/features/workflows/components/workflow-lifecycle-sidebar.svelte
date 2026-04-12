@@ -159,9 +159,7 @@
       )
     }
     const summary =
-      moved.length > 0
-        ? moved.join(', ')
-      : t('workflows.lifecycle.sidebar.replacementResult.none')
+      moved.length > 0 ? moved.join(', ') : t('workflows.lifecycle.sidebar.replacementResult.none')
 
     if (canPurge) {
       return t('workflows.lifecycle.sidebar.replacementResult.canPurge', { summary })

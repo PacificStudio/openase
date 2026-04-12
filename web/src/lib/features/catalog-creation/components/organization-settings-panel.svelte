@@ -97,19 +97,19 @@
   <div class="border-border rounded-md border p-4">
     <div class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2">
-          <div class="space-y-1.5">
-            <Label for="organization-settings-name">
+        <div class="space-y-1.5">
+          <Label for="organization-settings-name">
             {i18nStore.t('catalog.organization.settings.labels.organizationName')}
-            </Label>
-            <Input id="organization-settings-name" bind:value={name} />
-          </div>
+          </Label>
+          <Input id="organization-settings-name" bind:value={name} />
+        </div>
 
-          <div class="space-y-1.5">
-            <Label for="organization-settings-slug">
+        <div class="space-y-1.5">
+          <Label for="organization-settings-slug">
             {i18nStore.t('catalog.organization.settings.labels.slug')}
-            </Label>
-            <Input id="organization-settings-slug" bind:value={slug} />
-          </div>
+          </Label>
+          <Input id="organization-settings-slug" bind:value={slug} />
+        </div>
       </div>
 
       <div class="space-y-1.5">
@@ -145,9 +145,9 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-          <Select.Item value="">
-            {i18nStore.t('catalog.organization.settings.labels.noDefaultProvider')}
-          </Select.Item>
+            <Select.Item value="">
+              {i18nStore.t('catalog.organization.settings.labels.noDefaultProvider')}
+            </Select.Item>
             {#each providers as provider (provider.id)}
               {@const iconPath = adapterIconPath(provider.adapter_type)}
               <Select.Item value={provider.id}>

@@ -190,7 +190,7 @@
         <div class="bg-muted/40 divide-border space-y-0 divide-y rounded-md border px-3 py-0.5">
           <WorkflowNumberField
             id="workflow-max-concurrent"
-          label={t('workflows.detail.panel.fields.maxConcurrent')}
+            label={t('workflows.detail.panel.fields.maxConcurrent')}
             value={draft.maxConcurrent}
             icon={Layers3}
             placeholder={t('workflows.detail.panel.placeholders.unlimited')}

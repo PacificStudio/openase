@@ -40,9 +40,10 @@
         .slice()
         .sort((left, right) => right.revisionNumber - left.revisionNumber)
     } catch (caughtError) {
-      error = caughtError instanceof Error
-        ? caughtError.message
-        : i18nStore.t('ticketDetail.commentHistory.error.failed')
+      error =
+        caughtError instanceof Error
+          ? caughtError.message
+          : i18nStore.t('ticketDetail.commentHistory.error.failed')
     } finally {
       loading = false
     }

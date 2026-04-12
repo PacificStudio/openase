@@ -49,14 +49,14 @@
   {/if}
   <div class="flex-1"></div>
   {#if showTerminalButton}
-      <Button
-        variant={terminalPanelOpen ? 'secondary' : 'ghost'}
-        size="icon-xs"
-        class={cn('text-muted-foreground size-6', terminalPanelOpen && 'text-foreground')}
-        aria-label={chatT('chat.toggleTerminal')}
-        onclick={onToggleTerminal}
-        disabled={!conversationId}
-      >
+    <Button
+      variant={terminalPanelOpen ? 'secondary' : 'ghost'}
+      size="icon-xs"
+      class={cn('text-muted-foreground size-6', terminalPanelOpen && 'text-foreground')}
+      aria-label={chatT('chat.toggleTerminal')}
+      onclick={onToggleTerminal}
+      disabled={!conversationId}
+    >
       <SquareTerminal class="size-3" />
     </Button>
   {/if}

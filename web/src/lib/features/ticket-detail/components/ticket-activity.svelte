@@ -8,7 +8,7 @@
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { activityEventTone } from '$lib/features/activity'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import type { TicketActivity } from '../types'
 
   let {

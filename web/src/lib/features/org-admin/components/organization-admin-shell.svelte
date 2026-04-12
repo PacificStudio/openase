@@ -137,32 +137,32 @@
   description={t('orgAdmin.shell.pageDescription')}
 >
   <div class="space-y-6">
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t('orgAdmin.shell.stats.members')}
-          value={memberStats.active}
-          icon={Users}
-          {loading}
-        />
-        <StatCard
-          label={t('orgAdmin.shell.stats.projects')}
-          value={summary?.project_count ?? 0}
-          icon={FolderOpen}
-          {loading}
-        />
-        <StatCard
-          label={t('orgAdmin.shell.stats.access')}
-          value={permissions?.roles?.length ? permissions.roles.join(', ') : '—'}
-          icon={Shield}
-          {loading}
-        />
-        <StatCard
-          label={t('orgAdmin.shell.stats.tokenUsage')}
-          value={tokenSummary?.total_tokens ?? 0}
-          icon={Activity}
-          {loading}
-        />
-      </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        label={t('orgAdmin.shell.stats.members')}
+        value={memberStats.active}
+        icon={Users}
+        {loading}
+      />
+      <StatCard
+        label={t('orgAdmin.shell.stats.projects')}
+        value={summary?.project_count ?? 0}
+        icon={FolderOpen}
+        {loading}
+      />
+      <StatCard
+        label={t('orgAdmin.shell.stats.access')}
+        value={permissions?.roles?.length ? permissions.roles.join(', ') : '—'}
+        icon={Shield}
+        {loading}
+      />
+      <StatCard
+        label={t('orgAdmin.shell.stats.tokenUsage')}
+        value={tokenSummary?.total_tokens ?? 0}
+        icon={Activity}
+        {loading}
+      />
+    </div>
 
     <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
       <nav class="flex w-full shrink-0 flex-wrap gap-1 lg:w-[180px] lg:flex-col lg:gap-0.5">

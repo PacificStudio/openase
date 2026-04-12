@@ -154,7 +154,9 @@
       </div>
 
       <div class="space-y-2">
-        <Label for="repo-default-branch">{i18nStore.t('settings.repositoryEditor.labels.defaultBranch')}</Label>
+        <Label for="repo-default-branch"
+          >{i18nStore.t('settings.repositoryEditor.labels.defaultBranch')}</Label
+        >
         <Input
           id="repo-default-branch"
           value={draft.defaultBranch}
@@ -198,11 +200,9 @@
       <Input
         id="repo-url"
         value={draft.repositoryURL}
-        placeholder={
-          urlType === 'file'
-            ? i18nStore.t('settings.repositoryEditor.placeholders.fileUrl')
-            : i18nStore.t('settings.repositoryEditor.placeholders.remoteUrl')
-        }
+        placeholder={urlType === 'file'
+          ? i18nStore.t('settings.repositoryEditor.placeholders.fileUrl')
+          : i18nStore.t('settings.repositoryEditor.placeholders.remoteUrl')}
         oninput={(event) => updateTextField('repositoryURL', event)}
       />
       {#if urlType === 'file'}

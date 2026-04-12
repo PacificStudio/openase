@@ -87,11 +87,11 @@
       }
     } catch (caughtError) {
       if (requestId !== loadRequestId) return
-          toastStore.error(
-            caughtError instanceof ApiError
-              ? caughtError.detail
-              : i18nStore.t('tickets.newTicketDialog.errors.loadOptions'),
-          )
+      toastStore.error(
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('tickets.newTicketDialog.errors.loadOptions'),
+      )
     } finally {
       if (requestId === loadRequestId) {
         loading = false

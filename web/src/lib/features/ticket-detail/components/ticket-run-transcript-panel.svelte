@@ -1,7 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import type { StreamConnectionState } from '$lib/api/sse'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import TicketRunTranscriptHeader from './ticket-run-transcript-header.svelte'
   import TicketRunTranscriptDiffCard from './ticket-run-transcript-diff-card.svelte'
   import TicketRunTranscriptInterruptCard from './ticket-run-transcript-interrupt-card.svelte'

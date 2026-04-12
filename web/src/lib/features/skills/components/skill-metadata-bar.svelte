@@ -61,10 +61,7 @@
               ? 'border-primary/30 bg-primary/10 text-primary'
               : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted border-transparent',
           )}
-            title={skillsT(
-            actionKey,
-            { workflow: workflow.name },
-          )}
+          title={skillsT(actionKey, { workflow: workflow.name })}
           onclick={() => void onToggleBinding?.(workflow.id, !bound)}
         >
           {#if bound}

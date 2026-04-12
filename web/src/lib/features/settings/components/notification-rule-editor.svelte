@@ -60,7 +60,9 @@
 <div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="notification-rule-name">{i18nStore.t('settings.notificationRule.labels.ruleName')}</Label>
+      <Label for="notification-rule-name"
+        >{i18nStore.t('settings.notificationRule.labels.ruleName')}</Label
+      >
       <Input
         id="notification-rule-name"
         placeholder={i18nStore.t('settings.notificationRule.placeholders.ruleNameExample')}
@@ -122,7 +124,7 @@
       </Select.Root>
       {#if draft.eventType}
         <p class="text-xs">
-          {i18nStore.t('settings.notificationRule.labels.severity')} 
+          {i18nStore.t('settings.notificationRule.labels.severity')}
           <span
             class="font-medium {currentSeverity === 'critical'
               ? 'text-red-500'
@@ -149,15 +151,21 @@
           {stateLabel(draft.isEnabled)}
         </Select.Trigger>
         <Select.Content>
-          <Select.Item value="enabled">{i18nStore.t('settings.notificationRule.states.enabled')}</Select.Item>
-          <Select.Item value="disabled">{i18nStore.t('settings.notificationRule.states.disabled')}</Select.Item>
+          <Select.Item value="enabled"
+            >{i18nStore.t('settings.notificationRule.states.enabled')}</Select.Item
+          >
+          <Select.Item value="disabled"
+            >{i18nStore.t('settings.notificationRule.states.disabled')}</Select.Item
+          >
         </Select.Content>
       </Select.Root>
     </div>
   </div>
 
   <div class="space-y-1.5">
-    <Label for="notification-rule-template">{i18nStore.t('settings.notificationRule.labels.messageTemplate')}</Label>
+    <Label for="notification-rule-template"
+      >{i18nStore.t('settings.notificationRule.labels.messageTemplate')}</Label
+    >
     <Textarea
       id="notification-rule-template"
       bind:ref={templateRef}
@@ -213,7 +221,9 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label for="notification-rule-filter">{i18nStore.t('settings.notificationRule.labels.filterOptional')}</Label>
+    <Label for="notification-rule-filter"
+      >{i18nStore.t('settings.notificationRule.labels.filterOptional')}</Label
+    >
     <Textarea
       id="notification-rule-filter"
       value={draft.filterText}

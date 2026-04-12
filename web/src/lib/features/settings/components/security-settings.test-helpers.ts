@@ -185,7 +185,8 @@ export function configuredSecurity() {
           key: 'provider-inline-secrets',
           title: /* i18n-exempt */ 'Migrate inline provider auth_config secrets',
           status: 'pending',
-          summary: /* i18n-exempt */ 'Move legacy inline provider auth_config secrets into scoped secrets.',
+          summary:
+            /* i18n-exempt */ 'Move legacy inline provider auth_config secrets into scoped secrets.',
         },
         {
           key: 'machine-env-secrets',

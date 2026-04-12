@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ChevronRight, FilePenLine, FileText, Keyboard, Search, Terminal } from '@lucide/svelte'
   import { cn } from '$lib/utils'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import type { TicketRunTranscriptBlock } from '../types'
 
   let { block }: { block: Extract<TicketRunTranscriptBlock, { kind: 'tool_call' }> } = $props()

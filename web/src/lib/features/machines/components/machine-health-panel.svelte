@@ -134,7 +134,7 @@
     </div>
 
     {#if snapshot.monitorErrors.length > 0}
-        <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
+      <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
         <p class="text-destructive text-sm font-medium">
           {i18nStore.t('machines.machineHealthPanel.heading.monitorWarnings')}
         </p>
@@ -152,10 +152,10 @@
         <div
           class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
-            <div class="flex items-center gap-2">
-              <h4 class="text-foreground text-sm font-semibold">
-                {i18nStore.t('machines.machineHealthPanel.heading.runtimeProviders')}
-              </h4>
+          <div class="flex items-center gap-2">
+            <h4 class="text-foreground text-sm font-semibold">
+              {i18nStore.t('machines.machineHealthPanel.heading.runtimeProviders')}
+            </h4>
             <Badge variant={stateBadgeVariant(l4State)}>{stateLabel(l4State)}</Badge>
           </div>
           <span class="text-muted-foreground text-xs">
@@ -289,11 +289,11 @@
                       {/each}
                     </div>
                     {#if row.auditTimestamp}
-                    <div class="mt-1 text-[11px]">
-                      {i18nStore.t('machines.machineHealthPanel.hint.capturedAt', {
-                        time: formatRelativeTime(row.auditTimestamp),
-                      })}
-                    </div>
+                      <div class="mt-1 text-[11px]">
+                        {i18nStore.t('machines.machineHealthPanel.hint.capturedAt', {
+                          time: formatRelativeTime(row.auditTimestamp),
+                        })}
+                      </div>
                     {/if}
                   {/if}
                 </div>

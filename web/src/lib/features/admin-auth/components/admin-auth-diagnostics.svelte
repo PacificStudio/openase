@@ -71,8 +71,7 @@
               {adminAuthT('adminAuth.diagnostics.issuerLabel')}
             </div>
             <div class="mt-1 text-sm break-all">
-              {auth.last_validation.issuer_url ||
-                adminAuthT('adminAuth.diagnostics.notRecorded')}
+              {auth.last_validation.issuer_url || adminAuthT('adminAuth.diagnostics.notRecorded')}
             </div>
           </div>
           <div>

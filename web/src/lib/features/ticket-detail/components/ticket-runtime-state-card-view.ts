@@ -109,7 +109,10 @@ function summarizeDiagnosis(
 
   const capacityLine = buildCapacityLine(diagnosis)
   if (capacityLine) {
-    detailItems.push({ label: i18nStore.t('ticketDetail.runtime.detail.capacity'), value: capacityLine })
+    detailItems.push({
+      label: i18nStore.t('ticketDetail.runtime.detail.capacity'),
+      value: capacityLine,
+    })
   }
 
   const countdownLine = diagnosis.retry.nextRetryAt

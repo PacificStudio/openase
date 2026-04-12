@@ -15,14 +15,14 @@
   import WorkflowScheduledJobsLoading from './workflow-scheduled-jobs-loading.svelte'
   import WorkflowScheduledJobList from './workflow-scheduled-job-list.svelte'
   import WorkflowScheduledJobsSummary from './workflow-scheduled-jobs-summary.svelte'
-import {
-  emptyScheduledJobDraft,
-  parseScheduledJobDraft,
-  scheduledJobDraftFromRecord,
-  type ScheduledJobDraft,
-} from './workflow-scheduled-jobs'
-import { i18nStore } from '$lib/i18n/store.svelte'
-import type { TranslationKey } from '$lib/i18n'
+  import {
+    emptyScheduledJobDraft,
+    parseScheduledJobDraft,
+    scheduledJobDraftFromRecord,
+    type ScheduledJobDraft,
+  } from './workflow-scheduled-jobs'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     projectId,
@@ -121,16 +121,16 @@ import type { TranslationKey } from '$lib/i18n'
     jobs = payload.scheduled_jobs
   }
 
-function showApiError(caughtError: unknown, fallbackKey: TranslationKey) {
-  toastStore.error(
-    caughtError instanceof ApiError ? caughtError.detail : i18nStore.t(fallbackKey),
-  )
-}
+  function showApiError(caughtError: unknown, fallbackKey: TranslationKey) {
+    toastStore.error(
+      caughtError instanceof ApiError ? caughtError.detail : i18nStore.t(fallbackKey),
+    )
+  }
 
-const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationKey> = {
-  enabled: 'settings.workflowScheduledJobs.messages.enabled',
-  disabled: 'settings.workflowScheduledJobs.messages.disabled',
-}
+  const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationKey> = {
+    enabled: 'settings.workflowScheduledJobs.messages.enabled',
+    disabled: 'settings.workflowScheduledJobs.messages.disabled',
+  }
 
   async function handleSubmit() {
     const parsed = parseScheduledJobDraft(draft, statuses)
@@ -145,9 +145,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
         await refreshJobs()
-        toastStore.success(
-          i18nStore.t('settings.workflowScheduledJobs.messages.updated'),
-        )
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.updated'))
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
         await refreshJobs()
@@ -156,9 +154,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
           jobs.find((j) => j.id === payload.scheduled_job.id)!,
           statuses,
         )
-        toastStore.success(
-          i18nStore.t('settings.workflowScheduledJobs.messages.created'),
-        )
+        toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.created'))
       }
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.save')
@@ -177,9 +173,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
       editorOpen = false
       selectedJobId = ''
       await refreshJobs()
-      toastStore.success(
-        i18nStore.t('settings.workflowScheduledJobs.messages.deleted'),
-      )
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
@@ -194,7 +188,11 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
       await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
       await refreshJobs()
       toastStore.success(
-        i18nStore.t(job.is_enabled ? scheduledJobToggleMessageKeys.disabled : scheduledJobToggleMessageKeys.enabled),
+        i18nStore.t(
+          job.is_enabled
+            ? scheduledJobToggleMessageKeys.disabled
+            : scheduledJobToggleMessageKeys.enabled,
+        ),
       )
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.toggle')
@@ -209,9 +207,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
     try {
       await triggerScheduledJob(job.id)
       await refreshJobs()
-      toastStore.success(
-        i18nStore.t('settings.workflowScheduledJobs.messages.triggered'),
-      )
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
@@ -227,9 +223,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs()
-      toastStore.success(
-        i18nStore.t('settings.workflowScheduledJobs.messages.triggered'),
-      )
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.triggered'))
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
@@ -247,9 +241,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
         selectedJobId = ''
       }
       await refreshJobs()
-      toastStore.success(
-        i18nStore.t('settings.workflowScheduledJobs.messages.deleted'),
-      )
+      toastStore.success(i18nStore.t('settings.workflowScheduledJobs.messages.deleted'))
     } catch (caughtError) {
       showApiError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
@@ -266,9 +258,7 @@ const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationK
   {#if showHeader}
     <WorkflowScheduledJobsHeader
       title={title || i18nStore.t('settings.workflowScheduledJobs.heading')}
-      description={
-        description || i18nStore.t('settings.workflowScheduledJobs.description')
-      }
+      description={description || i18nStore.t('settings.workflowScheduledJobs.description')}
       onCreate={openNewJob}
     />
   {/if}

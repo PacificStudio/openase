@@ -27,8 +27,6 @@ export async function interruptFocusedProjectAgent(
     await input.interruptAgent(input.agentId)
     input.onSuccess(chatT('chat.interruptRequestedNotification', { agentName: input.agentName }))
   } catch (error) {
-    input.onError(
-      error instanceof ApiError ? error.detail : chatT('chat.interruptFailed'),
-    )
+    input.onError(error instanceof ApiError ? error.detail : chatT('chat.interruptFailed'))
   }
 }

@@ -23,7 +23,9 @@
       {i18nStore.t('dashboard.memorySnapshot.labels.heading')}
     </h3>
     <span class="text-muted-foreground text-xs">
-      {memory ? formatRelativeTime(memory.observed_at) : i18nStore.t('dashboard.memorySnapshot.messages.waiting')}
+      {memory
+        ? formatRelativeTime(memory.observed_at)
+        : i18nStore.t('dashboard.memorySnapshot.messages.waiting')}
     </span>
   </div>
 
@@ -40,7 +42,9 @@
               {formatBytes(memory.heap_inuse_bytes)}
             </p>
             <p class="text-muted-foreground text-xs">
-              {i18nStore.t('dashboard.memorySnapshot.labels.reserved', { amount: formatBytes(memory.sys_bytes) })}
+              {i18nStore.t('dashboard.memorySnapshot.labels.reserved', {
+                amount: formatBytes(memory.sys_bytes),
+              })}
             </p>
           </div>
           <div class="text-right">
@@ -60,17 +64,17 @@
 
       <div class="grid grid-cols-2 gap-3">
         <div class="bg-muted/40 rounded-md px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
-          {i18nStore.t('dashboard.memorySnapshot.labels.heapIdle')}
-        </div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+            {i18nStore.t('dashboard.memorySnapshot.labels.heapIdle')}
+          </div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {formatBytes(memory.heap_idle_bytes)}
           </div>
         </div>
         <div class="bg-muted/40 rounded-md px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
-          {i18nStore.t('dashboard.memorySnapshot.labels.nextGc')}
-        </div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+            {i18nStore.t('dashboard.memorySnapshot.labels.nextGc')}
+          </div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {formatBytes(memory.next_gc_bytes)}
           </div>
@@ -84,9 +88,9 @@
           </div>
         </div>
         <div class="bg-muted/40 rounded-md px-3 py-2">
-        <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
-          {i18nStore.t('dashboard.memorySnapshot.labels.gcCycles')}
-        </div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+            {i18nStore.t('dashboard.memorySnapshot.labels.gcCycles')}
+          </div>
           <div class="text-foreground mt-1 text-sm font-medium">
             {memory.gc_cycles.toLocaleString()}
           </div>

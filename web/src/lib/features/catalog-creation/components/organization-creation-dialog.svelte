@@ -61,11 +61,11 @@
       await invalidateAll()
       await goto(organizationPath(payload.organization.id))
     } catch (caughtError) {
-          toastStore.error(
-            caughtError instanceof ApiError
-              ? caughtError.detail
-              : i18nStore.t('catalog.organization.dialog.errors.create'),
-          )
+      toastStore.error(
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.organization.dialog.errors.create'),
+      )
     } finally {
       creating = false
     }
@@ -80,9 +80,9 @@
 >
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-        <Dialog.Title>
-          {i18nStore.t('catalog.organization.dialog.title')}
-        </Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('catalog.organization.dialog.title')}
+      </Dialog.Title>
       <Dialog.Description>
         {i18nStore.t('catalog.organization.dialog.description')}
       </Dialog.Description>

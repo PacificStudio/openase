@@ -110,10 +110,10 @@
           return
         }
 
-      providerError =
-        caughtError instanceof ApiError
-          ? caughtError.detail
-          : chatT('chat.loadingProvidersFailed')
+        providerError =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : chatT('chat.loadingProvidersFailed')
       } finally {
         if (!cancelled) {
           loadingProviders = false

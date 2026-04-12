@@ -14,22 +14,22 @@
   import SkillDetailSheet from './skill-detail-sheet.svelte'
   import SkillSettingsCard from './skill-settings-card.svelte'
 
-type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
+  type SkillFilter = 'all' | 'builtin' | 'custom' | 'disabled'
 
-const filterOptions: { value: SkillFilter; labelKey: TranslationKey }[] = [
-  { value: 'all', labelKey: 'settings.skills.filters.all' },
-  { value: 'builtin', labelKey: 'settings.skills.filters.builtin' },
-  { value: 'custom', labelKey: 'settings.skills.filters.custom' },
-  { value: 'disabled', labelKey: 'settings.skills.filters.disabled' },
-]
+  const filterOptions: { value: SkillFilter; labelKey: TranslationKey }[] = [
+    { value: 'all', labelKey: 'settings.skills.filters.all' },
+    { value: 'builtin', labelKey: 'settings.skills.filters.builtin' },
+    { value: 'custom', labelKey: 'settings.skills.filters.custom' },
+    { value: 'disabled', labelKey: 'settings.skills.filters.disabled' },
+  ]
 
-function defaultSkillTemplate() {
-  return `# ${i18nStore.t('settings.skills.sheet.defaults.heading')}\n\n${i18nStore.t(
-    'settings.skills.sheet.defaults.body',
-  )}\n`
-}
+  function defaultSkillTemplate() {
+    return `# ${i18nStore.t('settings.skills.sheet.defaults.heading')}\n\n${i18nStore.t(
+      'settings.skills.sheet.defaults.body',
+    )}\n`
+  }
 
-let loading = $state(false)
+  let loading = $state(false)
   let workflows = $state<Workflow[]>([])
   let skills = $state<Skill[]>([])
   let query = $state('')
@@ -43,7 +43,7 @@ let loading = $state(false)
   let createOpen = $state(false)
   let createName = $state('')
   let createDescription = $state('')
-let createContent = $state(defaultSkillTemplate())
+  let createContent = $state(defaultSkillTemplate())
   let createEnabled = $state(true)
   let creating = $state(false)
 

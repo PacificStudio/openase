@@ -49,7 +49,7 @@
       const payload = await getSkill(skill.id)
       contentCache = { ...contentCache, [skill.id]: payload.content || '' }
     } catch {
-    loadError = t('workflows.skills.dropdown.errors.loadFailed')
+      loadError = t('workflows.skills.dropdown.errors.loadFailed')
     } finally {
       loadingSkillId = null
     }
@@ -66,10 +66,10 @@
       )}
     >
       <Blocks class="size-3.5 shrink-0" />
-        <span>
-          {t('workflows.skills.dropdown.trigger.label')}
-          <span class="text-muted-foreground">{boundCount}/{skillStates.length}</span>
-        </span>
+      <span>
+        {t('workflows.skills.dropdown.trigger.label')}
+        <span class="text-muted-foreground">{boundCount}/{skillStates.length}</span>
+      </span>
     </button>
   </Popover.Trigger>
 
@@ -101,7 +101,7 @@
                   <span
                     class="text-primary rounded-full border border-current px-1.5 py-0.5 text-[10px] font-medium uppercase"
                   >
-                  {t('workflows.skills.dropdown.badge.required')}
+                    {t('workflows.skills.dropdown.badge.required')}
                   </span>
                 {/if}
               </div>
@@ -109,30 +109,28 @@
                 <div class="text-muted-foreground truncate text-xs">{skill.description}</div>
               {/if}
             </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class={cn(
-                  'size-6 shrink-0',
-                  skill.required
-                    ? 'text-muted-foreground'
-                    : skill.bound
-                      ? 'text-primary hover:text-destructive'
-                      : 'text-muted-foreground hover:text-primary',
-                )}
-                disabled={skill.required}
-                onclick={(e) => {
-                  e.stopPropagation()
-                  onToggleSkill?.(skill)
-                }}
-                title={
-                  skill.required
-                    ? t('workflows.skills.dropdown.actions.titles.required')
-                    : skill.bound
-                      ? t('workflows.skills.dropdown.actions.titles.unbind')
-                      : t('workflows.skills.dropdown.actions.titles.bind')
-                }
-              >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class={cn(
+                'size-6 shrink-0',
+                skill.required
+                  ? 'text-muted-foreground'
+                  : skill.bound
+                    ? 'text-primary hover:text-destructive'
+                    : 'text-muted-foreground hover:text-primary',
+              )}
+              disabled={skill.required}
+              onclick={(e) => {
+                e.stopPropagation()
+                onToggleSkill?.(skill)
+              }}
+              title={skill.required
+                ? t('workflows.skills.dropdown.actions.titles.required')
+                : skill.bound
+                  ? t('workflows.skills.dropdown.actions.titles.unbind')
+                  : t('workflows.skills.dropdown.actions.titles.bind')}
+            >
               {#if skill.required}
                 <Lock class="size-3" />
               {:else if skill.bound}

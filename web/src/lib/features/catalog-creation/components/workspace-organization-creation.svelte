@@ -173,7 +173,9 @@
                 <Input
                   id="organization-name"
                   value={draft.name}
-                  placeholder={i18nStore.t('catalog.workspace.create.placeholders.organizationName')}
+                  placeholder={i18nStore.t(
+                    'catalog.workspace.create.placeholders.organizationName',
+                  )}
                   oninput={updateName}
                 />
               </div>
@@ -232,9 +234,9 @@
                     inviteToken = (event.currentTarget as HTMLInputElement).value
                   }}
                 />
-                  <p class="text-muted-foreground text-xs">
-                    {i18nStore.t('catalog.workspace.invite.hint.tokens')}
-                  </p>
+                <p class="text-muted-foreground text-xs">
+                  {i18nStore.t('catalog.workspace.invite.hint.tokens')}
+                </p>
               </div>
 
               <Button

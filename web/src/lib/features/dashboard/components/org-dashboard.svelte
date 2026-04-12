@@ -95,7 +95,7 @@
             </div>
             <Popover.Root>
               <Popover.Trigger class="flex cursor-default items-center gap-1">
-              <MessageSquare class="text-muted-foreground size-3" />
+                <MessageSquare class="text-muted-foreground size-3" />
                 <span class="text-muted-foreground text-[11px]">
                   {i18nStore.t('dashboard.orgDashboard.stats.tokens')}
                 </span>
@@ -110,9 +110,9 @@
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <div class="border-border border-b px-3 py-2">
-                <div class="text-foreground text-xs font-medium">
-                  {i18nStore.t('dashboard.orgDashboard.tokens.title')}
-                </div>
+                  <div class="text-foreground text-xs font-medium">
+                    {i18nStore.t('dashboard.orgDashboard.tokens.title')}
+                  </div>
                 </div>
                 <div class="space-y-1.5 px-3 py-2.5">
                   <div class="flex items-center justify-between text-[11px]">
@@ -143,9 +143,9 @@
                   </div>
                   {#if controller.stats.agentLifetimeTokens > 0}
                     <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">
-                      {i18nStore.t('dashboard.orgDashboard.tokens.agentLifetime')}
-                    </span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.tokens.agentLifetime')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatCount(controller.stats.agentLifetimeTokens)}</span
                       >
@@ -171,9 +171,9 @@
                 onOpenAutoFocus={(e) => e.preventDefault()}
               >
                 <div class="border-border border-b px-3 py-2">
-                <div class="text-foreground text-xs font-medium">
-                  {i18nStore.t('dashboard.orgDashboard.memory.title')}
-                </div>
+                  <div class="text-foreground text-xs font-medium">
+                    {i18nStore.t('dashboard.orgDashboard.memory.title')}
+                  </div>
                 </div>
                 {#if controller.memory}
                   {@const mem = controller.memory}
@@ -213,25 +213,25 @@
                       </div>
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">
-                      {i18nStore.t('dashboard.orgDashboard.memory.stackInUse')}
-                    </span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.stackInUse')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{formatBytes(mem.stack_inuse_bytes)}</span
                       >
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">
-                      {i18nStore.t('dashboard.orgDashboard.memory.gcCycles')}
-                    </span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.gcCycles')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{mem.gc_cycles.toLocaleString()}</span
                       >
                     </div>
                     <div class="flex items-center justify-between text-[11px]">
-                    <span class="text-muted-foreground">
-                      {i18nStore.t('dashboard.orgDashboard.memory.goroutines')}
-                    </span>
+                      <span class="text-muted-foreground">
+                        {i18nStore.t('dashboard.orgDashboard.memory.goroutines')}
+                      </span>
                       <span class="text-foreground font-medium"
                         >{mem.goroutines.toLocaleString()}</span
                       >

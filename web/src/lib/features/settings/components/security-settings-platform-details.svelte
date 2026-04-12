@@ -11,7 +11,7 @@
 <div class="space-y-4">
   <!-- Agent runtime tokens -->
   <div class="space-y-2">
-  <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2">
       <KeyRound class="text-muted-foreground size-3.5" />
       <h3 class="text-sm font-semibold">
         {i18nStore.t('settings.security.platformDetails.headings.agentTokens')}
@@ -41,7 +41,10 @@
           <span class="text-muted-foreground">
             {i18nStore.t('settings.security.platformDetails.labels.defaultScopes')}
           </span>
-          <div>{security.agent_tokens.default_scopes.join(', ') || i18nStore.t('settings.security.platformDetails.messages.none')}</div>
+          <div>
+            {security.agent_tokens.default_scopes.join(', ') ||
+              i18nStore.t('settings.security.platformDetails.messages.none')}
+          </div>
         </div>
       </div>
       {#if security.agent_tokens.supported_project_scopes.length}

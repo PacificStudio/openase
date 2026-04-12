@@ -103,9 +103,7 @@
     {/if}
 
     <div class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-      <span
-        >{i18nStore.t('settings.skillDetail.metadata.by', { name: skill.created_by })}</span
-      >
+      <span>{i18nStore.t('settings.skillDetail.metadata.by', { name: skill.created_by })}</span>
       <span
         >{i18nStore.t('settings.skillDetail.metadata.createdAt', {
           time: formatRelativeTime(skill.created_at),
@@ -158,9 +156,9 @@
 
   <section class="border-border space-y-2 border-b px-6 py-4">
     <div class="flex items-center justify-between">
-        <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-          {i18nStore.t('settings.skillDetail.labels.skillMd')}
-        </h3>
+      <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+        {i18nStore.t('settings.skillDetail.labels.skillMd')}
+      </h3>
       {#if editing}
         <div class="flex items-center gap-1">
           <Button
@@ -208,10 +206,7 @@
             <Clock class="text-muted-foreground size-3 shrink-0" />
             <span class="text-foreground font-medium">v{item.version}</span>
             {#if item.version === skill.current_version}
-              <Badge
-                variant="secondary"
-                class="h-4 px-1.5 text-[10px]"
-              >
+              <Badge variant="secondary" class="h-4 px-1.5 text-[10px]">
                 {i18nStore.t('settings.skillDetail.badge.current')}
               </Badge>
             {/if}

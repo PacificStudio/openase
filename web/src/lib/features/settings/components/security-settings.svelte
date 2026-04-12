@@ -46,11 +46,11 @@
         const payload = await getSecuritySettings(projectId)
         if (cancelled) return
         security = normalizeSecuritySettings(payload.security)
-    } catch (caughtError) {
-      if (cancelled) return
-      security = null
-      error = formatError(caughtError, 'settings.security.errors.load')
-    } finally {
+      } catch (caughtError) {
+        if (cancelled) return
+        security = null
+        error = formatError(caughtError, 'settings.security.errors.load')
+      } finally {
         if (!cancelled) loading = false
       }
     }
@@ -74,37 +74,32 @@
 
     try {
       let payload: SecuritySettingsResponse
-    if (action === 'save') {
-      const token = manualToken.trim()
-      if (!token) {
-        toastStore.error(i18nStore.t('settings.security.errors.githubTokenRequired'))
-        return
-      }
+      if (action === 'save') {
+        const token = manualToken.trim()
+        if (!token) {
+          toastStore.error(i18nStore.t('settings.security.errors.githubTokenRequired'))
+          return
+        }
         payload = await saveGitHubOutboundCredential(projectId, { token })
         manualToken = ''
-        toastStore.success(
-          i18nStore.t('settings.security.notifications.githubCredentialSaved'),
-        )
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialSaved'))
       } else if (action === 'import') {
         payload = await importGitHubOutboundCredentialFromGHCLI(projectId)
-        toastStore.success(
-          i18nStore.t('settings.security.notifications.githubCredentialImported'),
-        )
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialImported'))
       } else if (action === 'retest') {
         payload = await retestGitHubOutboundCredential(projectId)
-        toastStore.success(
-          i18nStore.t('settings.security.notifications.githubCredentialRetested'),
-        )
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialRetested'))
       } else {
         payload = await deleteGitHubOutboundCredential(projectId)
         manualToken = ''
-        toastStore.success(
-          i18nStore.t('settings.security.notifications.githubCredentialDeleted'),
-        )
+        toastStore.success(i18nStore.t('settings.security.notifications.githubCredentialDeleted'))
       }
       security = normalizeSecuritySettings(payload.security)
     } catch (caughtError) {
-      const message = formatError(caughtError, 'settings.security.errors.githubCredentialUpdateFailed')
+      const message = formatError(
+        caughtError,
+        'settings.security.errors.githubCredentialUpdateFailed',
+      )
       error = message
       toastStore.error(message)
     } finally {

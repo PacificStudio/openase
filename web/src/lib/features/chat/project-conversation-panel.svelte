@@ -211,7 +211,7 @@
       conversationId,
       force,
       deleteConversation: controller.deleteConversation,
-    onDeleted: () => toastStore.success(chatT('chat.conversationDeletedSuccess')),
+      onDeleted: () => toastStore.success(chatT('chat.conversationDeletedSuccess')),
       onError: (message) => toastStore.error(message),
     })
   }

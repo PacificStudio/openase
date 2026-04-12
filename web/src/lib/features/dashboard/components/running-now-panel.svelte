@@ -28,7 +28,8 @@
       </div>
       <div class="min-w-0 flex-1">
         <span class="text-foreground text-sm">
-          {runningAgents} {i18nStore.t('dashboard.runningNow.labels.agents')}
+          {runningAgents}
+          {i18nStore.t('dashboard.runningNow.labels.agents')}
         </span>
         <p class="text-muted-foreground text-xs">
           {i18nStore.t('dashboard.runningNow.labels.currentlyExecuting')}
@@ -42,7 +43,8 @@
       </div>
       <div class="min-w-0 flex-1">
         <span class="text-foreground text-sm">
-          {activeTickets} {i18nStore.t('dashboard.runningNow.labels.tickets')}
+          {activeTickets}
+          {i18nStore.t('dashboard.runningNow.labels.tickets')}
         </span>
         <p class="text-muted-foreground text-xs">
           {i18nStore.t('dashboard.runningNow.labels.inProgress')}
@@ -56,7 +58,8 @@
       </div>
       <div class="min-w-0 flex-1">
         <span class="text-foreground text-sm">
-          {pendingApprovals} {i18nStore.t('dashboard.runningNow.labels.approvals')}
+          {pendingApprovals}
+          {i18nStore.t('dashboard.runningNow.labels.approvals')}
         </span>
         <p class="text-muted-foreground text-xs">
           {i18nStore.t('dashboard.runningNow.labels.awaitingReview')}

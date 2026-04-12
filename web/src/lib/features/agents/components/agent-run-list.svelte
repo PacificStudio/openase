@@ -65,7 +65,8 @@
         <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.workflow)}</th>
         <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.ticket)}</th>
         <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.lastHeartbeat)}</th>
-        <th class="pr-3 pb-2 pl-2 text-right font-medium">{i18nStore.t(columnLabelKeys.actions)}</th>
+        <th class="pr-3 pb-2 pl-2 text-right font-medium">{i18nStore.t(columnLabelKeys.actions)}</th
+        >
       </tr>
     </thead>
     <tbody>
@@ -81,9 +82,9 @@
             <td class="py-2.5 pr-2 pl-3">
               <div class="flex items-center gap-2">
                 <span class={cn('size-2 rounded-full', statusColors[agentRun.status])}></span>
-              <span class="text-muted-foreground text-xs">
-                {i18nStore.t(statusLabelKeys[agentRun.status])}
-              </span>
+                <span class="text-muted-foreground text-xs">
+                  {i18nStore.t(statusLabelKeys[agentRun.status])}
+                </span>
               </div>
             </td>
             <td class="px-2 py-2.5">
@@ -92,7 +93,9 @@
               </div>
               <div class="text-muted-foreground text-xs">
                 {#if agentRun.sessionId}
-                  {i18nStore.t('agents.agentRunList.sessionLabel', { sessionId: agentRun.sessionId })}
+                  {i18nStore.t('agents.agentRunList.sessionLabel', {
+                    sessionId: agentRun.sessionId,
+                  })}
                 {:else}
                   {i18nStore.t('agents.agentRunList.createdMessage', {
                     relativeTime: formatRelativeTime(agentRun.createdAt),

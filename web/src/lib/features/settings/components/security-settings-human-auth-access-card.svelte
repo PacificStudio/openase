@@ -9,9 +9,7 @@
     subtitle = '',
     roles = [],
     permissions = [],
-    emptyRoles = i18nStore.t(
-      'settings.security.humanAuth.accessCard.messages.emptyRoles',
-    ),
+    emptyRoles = i18nStore.t('settings.security.humanAuth.accessCard.messages.emptyRoles'),
     emptyPermissions = i18nStore.t(
       'settings.security.humanAuth.accessCard.messages.emptyPermissions',
     ),

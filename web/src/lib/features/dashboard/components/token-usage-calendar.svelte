@@ -41,20 +41,20 @@
 
 <div class={cn('border-border rounded-lg border p-4', className)}>
   <div class="flex items-start justify-between gap-3">
-      <div>
-        <h3 class="text-foreground text-sm font-medium">
-          {i18nStore.t('dashboard.tokenUsageCalendar.labels.heading')}
-        </h3>
-        <p class="text-muted-foreground mt-1 text-xs">
-          {i18nStore.t('dashboard.tokenUsageCalendar.labels.description')}
-        </p>
+    <div>
+      <h3 class="text-foreground text-sm font-medium">
+        {i18nStore.t('dashboard.tokenUsageCalendar.labels.heading')}
+      </h3>
+      <p class="text-muted-foreground mt-1 text-xs">
+        {i18nStore.t('dashboard.tokenUsageCalendar.labels.description')}
+      </p>
+    </div>
+    <div class="text-right text-xs">
+      <div class="text-muted-foreground">
+        {i18nStore.t('dashboard.tokenUsageCalendar.labels.activeDays')}
       </div>
-      <div class="text-right text-xs">
-        <div class="text-muted-foreground">
-          {i18nStore.t('dashboard.tokenUsageCalendar.labels.activeDays')}
-        </div>
-        <div class="text-foreground font-medium">{activeDays}/{days.length}</div>
-      </div>
+      <div class="text-foreground font-medium">{activeDays}/{days.length}</div>
+    </div>
   </div>
 
   {#if loading}

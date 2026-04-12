@@ -32,20 +32,22 @@
   {/if}
 
   <div class="flex items-center justify-between gap-3">
-      <Button
-        type="button"
-        variant="ghost"
-        class="text-destructive hover:text-destructive"
-        disabled={saving || deleting}
-        onclick={() => void onDelete?.()}
-      >
-        <Trash2 class="size-4" />
-        {#if deleting}
-          {isActive ? t('workflows.detail.actions.retiring') : t('workflows.detail.actions.deleting')}
-        {:else}
-          {isActive ? t('workflows.detail.actions.retire') : t('workflows.detail.actions.deletePermanently')}
-        {/if}
-      </Button>
+    <Button
+      type="button"
+      variant="ghost"
+      class="text-destructive hover:text-destructive"
+      disabled={saving || deleting}
+      onclick={() => void onDelete?.()}
+    >
+      <Trash2 class="size-4" />
+      {#if deleting}
+        {isActive ? t('workflows.detail.actions.retiring') : t('workflows.detail.actions.deleting')}
+      {:else}
+        {isActive
+          ? t('workflows.detail.actions.retire')
+          : t('workflows.detail.actions.deletePermanently')}
+      {/if}
+    </Button>
 
     <Button type="submit" size="sm" disabled={!isDirty || saving || deleting}>
       {saving ? t('workflows.detail.actions.saving') : t('workflows.detail.actions.save')}

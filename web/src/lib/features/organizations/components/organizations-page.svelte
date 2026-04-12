@@ -18,10 +18,10 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { formatCount, formatCurrency } from '$lib/utils'
-import { Badge } from '$ui/badge'
-import { Button } from '$ui/button'
-import { Bot, Coins, FolderOpen, Settings, Ticket } from '@lucide/svelte'
-import { i18nStore } from '$lib/i18n/store.svelte'
+  import { Badge } from '$ui/badge'
+  import { Button } from '$ui/button'
+  import { Bot, Coins, FolderOpen, Settings, Ticket } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const organizations = $derived(appStore.organizations)
   const providers = $derived(appStore.providers)
@@ -160,21 +160,21 @@ import { i18nStore } from '$lib/i18n/store.svelte'
                   }}
                 >
                   {i18nStore.t('organizations.cards.archive')}
-              </Button>
-            </div>
+                </Button>
+              </div>
 
-            {#if metrics}
-              {@const projectLabel =
-                metrics.projectCount === 1
-                  ? 'organizations.cards.metrics.projectSingle'
-                  : 'organizations.cards.metrics.projectPlural'}
-              {@const providerLabel =
-                metrics.providerCount === 1
-                  ? 'organizations.cards.metrics.providerSingle'
-                  : 'organizations.cards.metrics.providerPlural'}
-              <div
-                class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
-              >
+              {#if metrics}
+                {@const projectLabel =
+                  metrics.projectCount === 1
+                    ? 'organizations.cards.metrics.projectSingle'
+                    : 'organizations.cards.metrics.projectPlural'}
+                {@const providerLabel =
+                  metrics.providerCount === 1
+                    ? 'organizations.cards.metrics.providerSingle'
+                    : 'organizations.cards.metrics.providerPlural'}
+                <div
+                  class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+                >
                   <span>{metrics.projectCount} {i18nStore.t(projectLabel)}</span>
                   <span>{metrics.providerCount} {i18nStore.t(providerLabel)}</span>
                   <span class="flex items-center gap-1">
@@ -192,17 +192,17 @@ import { i18nStore } from '$lib/i18n/store.svelte'
                 </div>
               {:else if loading}
                 <div class="text-muted-foreground mt-3 text-xs">
-                {i18nStore.t('organizations.cards.loadingMetrics')}
-              </div>
-            {/if}
-          </a>
-        {/each}
-      </div>
-    {:else if appStore.appContextLoading}
-      <div class="text-muted-foreground text-sm">
-        {i18nStore.t('organizations.loading')}
-      </div>
-    {:else}
+                  {i18nStore.t('organizations.cards.loadingMetrics')}
+                </div>
+              {/if}
+            </a>
+          {/each}
+        </div>
+      {:else if appStore.appContextLoading}
+        <div class="text-muted-foreground text-sm">
+          {i18nStore.t('organizations.loading')}
+        </div>
+      {:else}
         <button
           type="button"
           class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-12 text-center transition-colors"

@@ -46,7 +46,9 @@
 <div class="space-y-4">
   <div class="grid gap-4 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="notification-channel-name">{i18nStore.t('settings.notificationChannel.labels.name')}</Label>
+      <Label for="notification-channel-name"
+        >{i18nStore.t('settings.notificationChannel.labels.name')}</Label
+      >
       <Input
         id="notification-channel-name"
         placeholder={i18nStore.t('settings.notificationChannel.placeholders.nameExample')}
@@ -68,17 +70,27 @@
           <span class="uppercase">{translateChannelType(draft.type)}</span>
         </Select.Trigger>
         <Select.Content>
-          <Select.Item value="webhook">{i18nStore.t('settings.notificationChannel.types.webhook')}</Select.Item>
-          <Select.Item value="telegram">{i18nStore.t('settings.notificationChannel.types.telegram')}</Select.Item>
-          <Select.Item value="slack">{i18nStore.t('settings.notificationChannel.types.slack')}</Select.Item>
-          <Select.Item value="wecom">{i18nStore.t('settings.notificationChannel.types.wecom')}</Select.Item>
+          <Select.Item value="webhook"
+            >{i18nStore.t('settings.notificationChannel.types.webhook')}</Select.Item
+          >
+          <Select.Item value="telegram"
+            >{i18nStore.t('settings.notificationChannel.types.telegram')}</Select.Item
+          >
+          <Select.Item value="slack"
+            >{i18nStore.t('settings.notificationChannel.types.slack')}</Select.Item
+          >
+          <Select.Item value="wecom"
+            >{i18nStore.t('settings.notificationChannel.types.wecom')}</Select.Item
+          >
         </Select.Content>
       </Select.Root>
     </div>
   </div>
 
   <div class="space-y-1.5">
-    <Label for="notification-channel-config">{i18nStore.t('settings.notificationChannel.labels.configuration')}</Label>
+    <Label for="notification-channel-config"
+      >{i18nStore.t('settings.notificationChannel.labels.configuration')}</Label
+    >
     <Textarea
       id="notification-channel-config"
       value={draft.configText}

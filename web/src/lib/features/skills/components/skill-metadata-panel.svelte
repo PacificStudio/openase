@@ -87,7 +87,7 @@
               {bound
               ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
               : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border-transparent'}"
-              title={`${bindingLabel} ${workflow.name}`}
+            title={`${bindingLabel} ${workflow.name}`}
             onclick={() => void onToggleBinding?.(workflow.id, !bound)}
           >
             {#if bound}

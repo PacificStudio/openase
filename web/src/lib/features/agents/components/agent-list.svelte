@@ -63,8 +63,7 @@
     pausedInterrupt: 'agents.agentList.runtimeControl.pausedInterrupt',
     noActiveRunsInterrupt: 'agents.agentList.runtimeControl.noActiveRunsToInterrupt',
     noActiveRunsPause: 'agents.agentList.runtimeControl.noActiveRunsToPause',
-    onlyClaimedRunningInterrupt:
-      'agents.agentList.runtimeControl.onlyClaimedOrRunningCanInterrupt',
+    onlyClaimedRunningInterrupt: 'agents.agentList.runtimeControl.onlyClaimedOrRunningCanInterrupt',
     onlyClaimedRunningPause: 'agents.agentList.runtimeControl.onlyClaimedOrRunningCanPause',
     interruptAction: 'agents.agentList.runtimeControl.interruptThisAgent',
     pauseAction: 'agents.agentList.runtimeControl.pauseThisAgent',
@@ -193,7 +192,8 @@
         <th class="px-2 pb-2 font-medium">{i18nStore.t(columnLabelKeys.lastHeartbeat)}</th>
         <th class="px-2 pb-2 text-right font-medium">{i18nStore.t(columnLabelKeys.completed)}</th>
         <th class="px-2 pb-2 text-right font-medium">{i18nStore.t(columnLabelKeys.cost)}</th>
-        <th class="pr-3 pb-2 pl-2 text-right font-medium">{i18nStore.t(columnLabelKeys.actions)}</th>
+        <th class="pr-3 pb-2 pl-2 text-right font-medium">{i18nStore.t(columnLabelKeys.actions)}</th
+        >
       </tr>
     </thead>
     <tbody>

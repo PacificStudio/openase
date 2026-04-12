@@ -68,7 +68,7 @@
 </script>
 
 <Sheet bind:open>
-  <SheetContent side="right" class="w-full sm:max-w-xl">
+  <SheetContent side="right" class="w-full sm:max-w-xl" data-testid="agent-registration-sheet">
     <SheetHeader class="space-y-1 px-4 py-4 sm:px-6 sm:py-6">
       <SheetTitle>{i18nStore.t('agents.registrationSheet.title')}</SheetTitle>
       <SheetDescription>

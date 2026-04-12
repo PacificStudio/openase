@@ -47,33 +47,33 @@
 </script>
 
 <div class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-2">
-        <KeyRound class="text-muted-foreground size-4" />
-        <h3 class="text-sm font-semibold">
-          {i18nStore.t('settings.projectSecrets.overview.heading')}
-        </h3>
-      </div>
-      <div class="flex items-center gap-3">
-        {#if organizationId}
-          <a
-            href={`${organizationPath(organizationId)}/admin/settings`}
-            class="text-muted-foreground hover:text-foreground text-sm transition-colors"
-          >
-            {i18nStore.t('settings.projectSecrets.overview.manageOrgLink')}
-          </a>
-        {/if}
-        <Button size="sm" variant="outline" onclick={() => (formOpen = !formOpen)}>
-          {#if formOpen}
-            <X class="size-3.5" />
-            {i18nStore.t('settings.projectSecrets.overview.buttons.cancel')}
-          {:else}
-            <Plus class="size-3.5" />
-            {i18nStore.t('settings.projectSecrets.overview.buttons.newOverride')}
-          {/if}
-        </Button>
-      </div>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <KeyRound class="text-muted-foreground size-4" />
+      <h3 class="text-sm font-semibold">
+        {i18nStore.t('settings.projectSecrets.overview.heading')}
+      </h3>
     </div>
+    <div class="flex items-center gap-3">
+      {#if organizationId}
+        <a
+          href={`${organizationPath(organizationId)}/admin/settings`}
+          class="text-muted-foreground hover:text-foreground text-sm transition-colors"
+        >
+          {i18nStore.t('settings.projectSecrets.overview.manageOrgLink')}
+        </a>
+      {/if}
+      <Button size="sm" variant="outline" onclick={() => (formOpen = !formOpen)}>
+        {#if formOpen}
+          <X class="size-3.5" />
+          {i18nStore.t('settings.projectSecrets.overview.buttons.cancel')}
+        {:else}
+          <Plus class="size-3.5" />
+          {i18nStore.t('settings.projectSecrets.overview.buttons.newOverride')}
+        {/if}
+      </Button>
+    </div>
+  </div>
 
   <div
     class="bg-muted/40 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-4 py-2.5 text-sm"
@@ -147,20 +147,13 @@
             id="project-secret-description"
             bind:value={description}
             rows={4}
-            placeholder={i18nStore.t(
-              'settings.projectSecrets.overview.placeholders.description',
-            )}
+            placeholder={i18nStore.t('settings.projectSecrets.overview.placeholders.description')}
           />
         </div>
       </div>
 
       <div class="mt-4 flex items-center justify-end gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onclick={close}
-          disabled={creating}
-        >
+        <Button variant="ghost" size="sm" onclick={close} disabled={creating}>
           {i18nStore.t('settings.projectSecrets.overview.buttons.cancel')}
         </Button>
         <Button size="sm" onclick={() => void handleCreate()} disabled={creating}>

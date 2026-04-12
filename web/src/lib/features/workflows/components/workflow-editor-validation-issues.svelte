@@ -29,7 +29,8 @@
       <ChevronUp class="size-3" />
     {/if}
     <span class="font-medium">
-      {validationIssues.length} {issueLabel}
+      {validationIssues.length}
+      {issueLabel}
     </span>
     {#if !issuesExpanded}
       <span class="text-muted-foreground truncate">— {validationIssues[0].message}</span>

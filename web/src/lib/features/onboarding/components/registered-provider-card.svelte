@@ -75,26 +75,28 @@
     </div>
   </div>
 
-    <div class="mb-3 space-y-1.5 text-xs">
-      <div class="flex items-center justify-between gap-3">
-        <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.machine')}</span>
-        <span class="text-foreground truncate text-right font-medium"
-          >{provider.machine_name || '—'}</span
-        >
-      </div>
-      <div class="flex items-center justify-between gap-3">
-        <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.cli')}</span>
-        <span class="text-foreground truncate text-right font-mono text-[11px]"
-          >{provider.cli_command || '—'}</span
-        >
-      </div>
-      {#if checkedAt}
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.checked')}</span>
-          <span class="text-muted-foreground text-right">{checkedAt}</span>
-        </div>
-      {/if}
+  <div class="mb-3 space-y-1.5 text-xs">
+    <div class="flex items-center justify-between gap-3">
+      <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.machine')}</span>
+      <span class="text-foreground truncate text-right font-medium"
+        >{provider.machine_name || '—'}</span
+      >
     </div>
+    <div class="flex items-center justify-between gap-3">
+      <span class="text-muted-foreground">{t('onboarding.registeredProvider.labels.cli')}</span>
+      <span class="text-foreground truncate text-right font-mono text-[11px]"
+        >{provider.cli_command || '—'}</span
+      >
+    </div>
+    {#if checkedAt}
+      <div class="flex items-center justify-between gap-3">
+        <span class="text-muted-foreground"
+          >{t('onboarding.registeredProvider.labels.checked')}</span
+        >
+        <span class="text-muted-foreground text-right">{checkedAt}</span>
+      </div>
+    {/if}
+  </div>
 
   <div class="bg-muted/40 mb-3 rounded-md px-3 py-2 text-xs">
     <p class="text-foreground leading-snug font-medium">

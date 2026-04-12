@@ -56,15 +56,11 @@
     const name = createDraft.name.trim()
     const value = createDraft.value.trim()
     if (!name) {
-      toastStore.error(
-        i18nStore.t('settings.organizationSecrets.panel.errors.secretNameRequired'),
-      )
+      toastStore.error(i18nStore.t('settings.organizationSecrets.panel.errors.secretNameRequired'))
       return
     }
     if (!value) {
-      toastStore.error(
-        i18nStore.t('settings.organizationSecrets.panel.errors.secretValueRequired'),
-      )
+      toastStore.error(i18nStore.t('settings.organizationSecrets.panel.errors.secretValueRequired'))
       return
     }
 
@@ -77,9 +73,7 @@
       })
       createDraft = { name: '', description: '', value: '' }
       createDialogOpen = false
-      toastStore.success(
-        i18nStore.t('settings.organizationSecrets.panel.messages.created'),
-      )
+      toastStore.success(i18nStore.t('settings.organizationSecrets.panel.messages.created'))
       await loadSecrets()
     } catch (caughtError) {
       toastStore.error(

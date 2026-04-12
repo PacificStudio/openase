@@ -94,27 +94,27 @@
 </script>
 
 <div class="space-y-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <h4 class="text-sm font-semibold">
-            {i18nStore.t(SCOPE_TITLE_KEYS[scope])}
-          </h4>
-          <p class="text-muted-foreground text-xs">
-            {i18nStore.t(SCOPE_DESCRIPTION_KEYS[scope])}
-          </p>
-        </div>
-        {#if canManage}
-          <Dialog.Root bind:open={dialogOpen}>
-            <Dialog.Trigger>
-              {#snippet child({ props })}
-                <Button size="sm" {...props}>
-                  <Plus class="size-4" />
-                  <span class="hidden sm:inline">
-                    {i18nStore.t('settings.security.humanAuth.buttons.addBinding')}
-                  </span>
-                </Button>
-              {/snippet}
-            </Dialog.Trigger>
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <h4 class="text-sm font-semibold">
+        {i18nStore.t(SCOPE_TITLE_KEYS[scope])}
+      </h4>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t(SCOPE_DESCRIPTION_KEYS[scope])}
+      </p>
+    </div>
+    {#if canManage}
+      <Dialog.Root bind:open={dialogOpen}>
+        <Dialog.Trigger>
+          {#snippet child({ props })}
+            <Button size="sm" {...props}>
+              <Plus class="size-4" />
+              <span class="hidden sm:inline">
+                {i18nStore.t('settings.security.humanAuth.buttons.addBinding')}
+              </span>
+            </Button>
+          {/snippet}
+        </Dialog.Trigger>
         <Dialog.Content class="sm:max-w-md">
           <Dialog.Header>
             <Dialog.Title>
@@ -136,19 +136,19 @@
           >
             <Dialog.Body class="space-y-4">
               <div class="grid gap-4 sm:grid-cols-2">
-              <div class="space-y-2">
-                <Label>{i18nStore.t('settings.security.humanAuth.labels.subjectType')}</Label>
-                <Select.Root
+                <div class="space-y-2">
+                  <Label>{i18nStore.t('settings.security.humanAuth.labels.subjectType')}</Label>
+                  <Select.Root
                     type="single"
                     value={draft.subjectKind}
                     onValueChange={(value) =>
                       onSubjectKind?.(scope, (value || 'user') as SubjectKind)}
                   >
-                  <Select.Trigger class="w-full">
-                    {draft.subjectKind === 'group'
-                      ? i18nStore.t('settings.security.humanAuth.options.group')
-                      : i18nStore.t('settings.security.humanAuth.options.user')}
-                  </Select.Trigger>
+                    <Select.Trigger class="w-full">
+                      {draft.subjectKind === 'group'
+                        ? i18nStore.t('settings.security.humanAuth.options.group')
+                        : i18nStore.t('settings.security.humanAuth.options.user')}
+                    </Select.Trigger>
                     <Select.Content>
                       <Select.Item value="user">
                         {i18nStore.t('settings.security.humanAuth.options.user')}
@@ -162,66 +162,66 @@
 
                 <div class="space-y-2">
                   <Label>{i18nStore.t('settings.security.humanAuth.labels.role')}</Label>
-                <Select.Root
-                  type="single"
-                  value={draft.roleKey}
-                  onValueChange={(value) =>
-                    onRoleKey?.(scope, value || roleOptions[0]?.key || '')}
-                >
-                  <Select.Trigger class="w-full">
-                    {selectedRole
-                      ? i18nStore.t(ROLE_LABEL_KEYS[selectedRole.key])
-                      : draft.roleKey}
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each roleOptions as roleOption (roleOption.key)}
-                      <Select.Item value={roleOption.key}>
-                        <span class="flex flex-col">
-                          <span>{i18nStore.t(ROLE_LABEL_KEYS[roleOption.key])}</span>
-                        </span>
-                      </Select.Item>
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
-              </div>
-              {#if selectedRole}
-                <p class="text-muted-foreground -mt-2 text-xs">
-                  {i18nStore.t(ROLE_SUMMARY_KEYS[selectedRole.key])}
-                </p>
-              {/if}
+                  <Select.Root
+                    type="single"
+                    value={draft.roleKey}
+                    onValueChange={(value) =>
+                      onRoleKey?.(scope, value || roleOptions[0]?.key || '')}
+                  >
+                    <Select.Trigger class="w-full">
+                      {selectedRole
+                        ? i18nStore.t(ROLE_LABEL_KEYS[selectedRole.key])
+                        : draft.roleKey}
+                    </Select.Trigger>
+                    <Select.Content>
+                      {#each roleOptions as roleOption (roleOption.key)}
+                        <Select.Item value={roleOption.key}>
+                          <span class="flex flex-col">
+                            <span>{i18nStore.t(ROLE_LABEL_KEYS[roleOption.key])}</span>
+                          </span>
+                        </Select.Item>
+                      {/each}
+                    </Select.Content>
+                  </Select.Root>
+                </div>
+                {#if selectedRole}
+                  <p class="text-muted-foreground -mt-2 text-xs">
+                    {i18nStore.t(ROLE_SUMMARY_KEYS[selectedRole.key])}
+                  </p>
+                {/if}
 
-              <div class="space-y-2">
-                <Label for="binding-subject-key">
-                  {draft.subjectKind === 'group'
-                    ? i18nStore.t('settings.security.humanAuth.labels.groupKey')
-                    : i18nStore.t('settings.security.humanAuth.labels.emailOrUserId')}
-                </Label>
-                <Input
-                  id="binding-subject-key"
-                  value={draft.subjectKey}
-                  oninput={(event) =>
-                    onSubjectKey?.(scope, (event.currentTarget as HTMLInputElement).value)}
-                  placeholder={bindingPlaceholder(draft.subjectKind)}
-                />
-                <p class="text-muted-foreground text-xs">
-                  {draft.subjectKind === 'group'
-                    ? i18nStore.t('settings.security.humanAuth.hints.groupKey')
-                    : i18nStore.t('settings.security.humanAuth.hints.emailOrUserId')}
-                </p>
-              </div>
+                <div class="space-y-2">
+                  <Label for="binding-subject-key">
+                    {draft.subjectKind === 'group'
+                      ? i18nStore.t('settings.security.humanAuth.labels.groupKey')
+                      : i18nStore.t('settings.security.humanAuth.labels.emailOrUserId')}
+                  </Label>
+                  <Input
+                    id="binding-subject-key"
+                    value={draft.subjectKey}
+                    oninput={(event) =>
+                      onSubjectKey?.(scope, (event.currentTarget as HTMLInputElement).value)}
+                    placeholder={bindingPlaceholder(draft.subjectKind)}
+                  />
+                  <p class="text-muted-foreground text-xs">
+                    {draft.subjectKind === 'group'
+                      ? i18nStore.t('settings.security.humanAuth.hints.groupKey')
+                      : i18nStore.t('settings.security.humanAuth.hints.emailOrUserId')}
+                  </p>
+                </div>
 
-              <div class="space-y-2">
-                <Label for="binding-expires">
-                  {i18nStore.t('settings.security.humanAuth.labels.expiresAt')}
-                </Label>
-                <Input
-                  id="binding-expires"
-                  type="datetime-local"
-                  value={draft.expiresAtLocal}
-                  oninput={(event) =>
-                    onExpiresAt?.(scope, (event.currentTarget as HTMLInputElement).value)}
-                />
-              </div>
+                <div class="space-y-2">
+                  <Label for="binding-expires">
+                    {i18nStore.t('settings.security.humanAuth.labels.expiresAt')}
+                  </Label>
+                  <Input
+                    id="binding-expires"
+                    type="datetime-local"
+                    value={draft.expiresAtLocal}
+                    oninput={(event) =>
+                      onExpiresAt?.(scope, (event.currentTarget as HTMLInputElement).value)}
+                  />
+                </div>
               </div>
             </Dialog.Body>
 
@@ -261,12 +261,10 @@
             : ''}"
         >
           <div class="min-w-0 space-y-0.5">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="font-medium">
-              {bindingRole
-                ? i18nStore.t(ROLE_LABEL_KEYS[bindingRole.key])
-                : binding.roleKey}
-            </span>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-medium">
+                {bindingRole ? i18nStore.t(ROLE_LABEL_KEYS[bindingRole.key]) : binding.roleKey}
+              </span>
               <code class="bg-muted truncate rounded px-1.5 py-0.5 text-xs">
                 {binding.subjectKind}:{binding.subjectKey}
               </code>

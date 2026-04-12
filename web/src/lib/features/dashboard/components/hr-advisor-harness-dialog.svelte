@@ -26,11 +26,12 @@
   <Dialog.Content class="flex h-[80vh] max-h-[48rem] max-w-4xl flex-col overflow-hidden p-0">
     <Dialog.Header class="border-border border-b px-6 py-5">
       <Dialog.Title>
-        {harness?.name || roleName || i18nStore.t('dashboard.hrAdvisor.harnessDialog.title.default')}
+        {harness?.name ||
+          roleName ||
+          i18nStore.t('dashboard.hrAdvisor.harnessDialog.title.default')}
       </Dialog.Title>
       <Dialog.Description>
-        {harness?.summary ??
-          i18nStore.t('dashboard.hrAdvisor.harnessDialog.description.default')}
+        {harness?.summary ?? i18nStore.t('dashboard.hrAdvisor.harnessDialog.description.default')}
       </Dialog.Description>
     </Dialog.Header>
 

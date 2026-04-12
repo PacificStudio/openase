@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ChevronRight, Play, CheckCircle, AlertCircle, Info, Loader } from '@lucide/svelte'
   import { cn } from '$lib/utils'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import type { TicketRunTranscriptBlock } from '../types'
 
   let { block }: { block: Extract<TicketRunTranscriptBlock, { kind: 'task_status' }> } = $props()

@@ -111,10 +111,10 @@
           <div class="text-foreground mt-2 text-lg font-semibold">
             {analytics.peakDay ? formatCount(analytics.peakDay.totalTokens) : '—'}
           </div>
-            <div class="text-muted-foreground mt-1 text-xs">
-              {analytics.peakDay?.dayLabel ??
-                i18nStore.t('dashboard.tokenUsage.stats.noFinalizedRunsYet')}
-            </div>
+          <div class="text-muted-foreground mt-1 text-xs">
+            {analytics.peakDay?.dayLabel ??
+              i18nStore.t('dashboard.tokenUsage.stats.noFinalizedRunsYet')}
+          </div>
         </div>
         <div class="bg-muted/40 rounded-lg px-3 py-3">
           <div
@@ -126,11 +126,11 @@
           <div class="text-foreground mt-2 text-lg font-semibold">
             {formatCount(analytics.avgDailyTokens)}
           </div>
-            <div class="text-muted-foreground mt-1 text-xs">
-              {i18nStore.t('dashboard.tokenUsage.stats.finalizedRuns', {
-                count: formatCount(analytics.totalRuns),
-              })}
-            </div>
+          <div class="text-muted-foreground mt-1 text-xs">
+            {i18nStore.t('dashboard.tokenUsage.stats.finalizedRuns', {
+              count: formatCount(analytics.totalRuns),
+            })}
+          </div>
         </div>
       {/if}
     </div>
@@ -147,9 +147,9 @@
             </p>
           </div>
           <div class="text-right text-xs">
-          <div class="text-muted-foreground">
-            {i18nStore.t('dashboard.tokenUsage.trend.highLabel')}
-          </div>
+            <div class="text-muted-foreground">
+              {i18nStore.t('dashboard.tokenUsage.trend.highLabel')}
+            </div>
             <div class="text-foreground font-medium">{formatCount(analytics.maxDailyTokens)}</div>
           </div>
         </div>

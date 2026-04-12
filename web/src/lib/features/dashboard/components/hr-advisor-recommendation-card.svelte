@@ -71,20 +71,20 @@
     </div>
 
     {#if recommendation.activation_ready && !deferred}
-        <Button
-          size="sm"
-          class="shrink-0"
-          disabled={activating}
-          onclick={(e) => {
-            e.stopPropagation()
-            onActivate?.()
-          }}
-        >
-          <Zap class="mr-1 size-3" />
-          {activating
-            ? i18nStore.t('dashboard.hrAdvisor.actions.activating')
-            : i18nStore.t('dashboard.hrAdvisor.actions.activate')}
-        </Button>
+      <Button
+        size="sm"
+        class="shrink-0"
+        disabled={activating}
+        onclick={(e) => {
+          e.stopPropagation()
+          onActivate?.()
+        }}
+      >
+        <Zap class="mr-1 size-3" />
+        {activating
+          ? i18nStore.t('dashboard.hrAdvisor.actions.activating')
+          : i18nStore.t('dashboard.hrAdvisor.actions.activate')}
+      </Button>
     {/if}
 
     <DropdownMenu.Root>

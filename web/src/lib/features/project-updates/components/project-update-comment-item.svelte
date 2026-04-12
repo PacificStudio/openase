@@ -54,10 +54,7 @@
   }
 
   async function handleDelete() {
-    if (
-      deleting ||
-      !window.confirm(i18nStore.t('projectUpdates.thread.comment.confirmDelete'))
-    )
+    if (deleting || !window.confirm(i18nStore.t('projectUpdates.thread.comment.confirmDelete')))
       return
 
     deleting = true
@@ -79,12 +76,7 @@
         rows={3}
       />
       <div class="flex justify-end gap-1.5">
-        <Button
-          size="sm"
-          variant="outline"
-          onclick={cancelEdit}
-          disabled={saving}
-        >
+        <Button size="sm" variant="outline" onclick={cancelEdit} disabled={saving}>
           {i18nStore.t('projectUpdates.thread.comment.actions.cancel')}
         </Button>
         <Button size="sm" onclick={handleSave} disabled={!editingBody.trim() || saving}>
@@ -120,22 +112,26 @@
         <div
           class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
         >
-            <button
-              type="button"
-              class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
-              aria-label={i18nStore.t('projectUpdates.thread.comment.aria.edit', { commentId: comment.id })}
-              onclick={beginEdit}
-              disabled={comment.isDeleted || deleting}
-            >
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
+            aria-label={i18nStore.t('projectUpdates.thread.comment.aria.edit', {
+              commentId: comment.id,
+            })}
+            onclick={beginEdit}
+            disabled={comment.isDeleted || deleting}
+          >
             <Pencil class="size-3" />
           </button>
-            <button
-              type="button"
-              class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
-              aria-label={i18nStore.t('projectUpdates.thread.comment.aria.delete', { commentId: comment.id })}
-              onclick={handleDelete}
-              disabled={comment.isDeleted || deleting}
-            >
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
+            aria-label={i18nStore.t('projectUpdates.thread.comment.aria.delete', {
+              commentId: comment.id,
+            })}
+            onclick={handleDelete}
+            disabled={comment.isDeleted || deleting}
+          >
             <Trash2 class="size-3" />
           </button>
         </div>

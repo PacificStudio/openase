@@ -131,7 +131,9 @@
 {#if selected}
   <div class="px-4 py-3" data-run-content={run.id}>
     {#if loading}
-      <p class="text-muted-foreground text-xs">{t('ticketDetail.runHistoryAttempt.loadingTranscript')}</p>
+      <p class="text-muted-foreground text-xs">
+        {t('ticketDetail.runHistoryAttempt.loadingTranscript')}
+      </p>
     {:else}
       <div class="space-y-3">
         {#if run.completionSummary}
@@ -154,7 +156,9 @@
         {/if}
 
         {#if displayItems.length === 0}
-          <p class="text-muted-foreground text-xs">{t('ticketDetail.runHistoryAttempt.status.waiting')}</p>
+          <p class="text-muted-foreground text-xs">
+            {t('ticketDetail.runHistoryAttempt.status.waiting')}
+          </p>
         {:else}
           <div class="space-y-2">
             {#each displayItems as item (item.type === 'content' ? item.block.id : item.id)}
@@ -282,18 +286,18 @@
     {/if}
   </div>
 
-{#if liveSelected && showJumpToLive}
-  <div
-    class="border-border bg-background/95 sticky bottom-0 z-10 border-t px-4 py-1.5 backdrop-blur"
-  >
-    <Button
-      size="sm"
-      variant="outline"
-      class="h-6 px-2 text-[11px]"
-      onclick={() => void onJumpToLive?.()}
+  {#if liveSelected && showJumpToLive}
+    <div
+      class="border-border bg-background/95 sticky bottom-0 z-10 border-t px-4 py-1.5 backdrop-blur"
     >
-      {t('ticketDetail.runHistoryAttempt.actions.jumpToLive')}
-    </Button>
-  </div>
-{/if}
+      <Button
+        size="sm"
+        variant="outline"
+        class="h-6 px-2 text-[11px]"
+        onclick={() => void onJumpToLive?.()}
+      >
+        {t('ticketDetail.runHistoryAttempt.actions.jumpToLive')}
+      </Button>
+    </div>
+  {/if}
 {/if}

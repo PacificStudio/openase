@@ -99,9 +99,7 @@
   async function handleSaveDefaultProvider() {
     const projectId = appStore.currentProject?.id
     if (!projectId) {
-      toastStore.error(
-        i18nStore.t('settings.agentSettings.errors.projectContextMissing'),
-      )
+      toastStore.error(i18nStore.t('settings.agentSettings.errors.projectContextMissing'))
       return
     }
 
@@ -124,9 +122,7 @@
           ? i18nStore.t('settings.agentSettings.messages.defaultProviderSet', {
               provider:
                 selectedName ??
-                i18nStore.t(
-                  'settings.agentSettings.messages.selectedProviderFallback',
-                ),
+                i18nStore.t('settings.agentSettings.messages.selectedProviderFallback'),
             })
           : i18nStore.t('settings.agentSettings.messages.inheritOrgDefault'),
       )

@@ -2,7 +2,7 @@
   import { ChatMarkdownContent } from '$lib/features/chat'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { ChevronRight, Sparkles } from '@lucide/svelte'
-  import { ticketsT } from '$lib/features/tickets/i18n'
+  import { ticketsT } from '$lib/features/tickets'
   import {
     completionSummaryClass,
     completionSummaryLabel,

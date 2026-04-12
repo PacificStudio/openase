@@ -99,10 +99,7 @@
         if (cancelled) {
           return
         }
-        error = formatError(
-          caughtError,
-          i18nStore.t('settings.security.humanAuth.errors.load'),
-        )
+        error = formatError(caughtError, i18nStore.t('settings.security.humanAuth.errors.load'))
       } finally {
         if (!cancelled) {
           loading = false
