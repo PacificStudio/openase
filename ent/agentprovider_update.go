@@ -176,6 +176,26 @@ func (_u *AgentProviderUpdate) SetNillableModelName(v *string) *AgentProviderUpd
 	return _u
 }
 
+// SetReasoningEffort sets the "reasoning_effort" field.
+func (_u *AgentProviderUpdate) SetReasoningEffort(v string) *AgentProviderUpdate {
+	_u.mutation.SetReasoningEffort(v)
+	return _u
+}
+
+// SetNillableReasoningEffort sets the "reasoning_effort" field if the given value is not nil.
+func (_u *AgentProviderUpdate) SetNillableReasoningEffort(v *string) *AgentProviderUpdate {
+	if v != nil {
+		_u.SetReasoningEffort(*v)
+	}
+	return _u
+}
+
+// ClearReasoningEffort clears the value of the "reasoning_effort" field.
+func (_u *AgentProviderUpdate) ClearReasoningEffort() *AgentProviderUpdate {
+	_u.mutation.ClearReasoningEffort()
+	return _u
+}
+
 // SetModelTemperature sets the "model_temperature" field.
 func (_u *AgentProviderUpdate) SetModelTemperature(v float64) *AgentProviderUpdate {
 	_u.mutation.ResetModelTemperature()
@@ -493,6 +513,12 @@ func (_u *AgentProviderUpdate) sqlSave(ctx context.Context) (_node int, err erro
 	}
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ReasoningEffort(); ok {
+		_spec.SetField(agentprovider.FieldReasoningEffort, field.TypeString, value)
+	}
+	if _u.mutation.ReasoningEffortCleared() {
+		_spec.ClearField(agentprovider.FieldReasoningEffort, field.TypeString)
 	}
 	if value, ok := _u.mutation.ModelTemperature(); ok {
 		_spec.SetField(agentprovider.FieldModelTemperature, field.TypeFloat64, value)
@@ -834,6 +860,26 @@ func (_u *AgentProviderUpdateOne) SetNillableModelName(v *string) *AgentProvider
 	if v != nil {
 		_u.SetModelName(*v)
 	}
+	return _u
+}
+
+// SetReasoningEffort sets the "reasoning_effort" field.
+func (_u *AgentProviderUpdateOne) SetReasoningEffort(v string) *AgentProviderUpdateOne {
+	_u.mutation.SetReasoningEffort(v)
+	return _u
+}
+
+// SetNillableReasoningEffort sets the "reasoning_effort" field if the given value is not nil.
+func (_u *AgentProviderUpdateOne) SetNillableReasoningEffort(v *string) *AgentProviderUpdateOne {
+	if v != nil {
+		_u.SetReasoningEffort(*v)
+	}
+	return _u
+}
+
+// ClearReasoningEffort clears the value of the "reasoning_effort" field.
+func (_u *AgentProviderUpdateOne) ClearReasoningEffort() *AgentProviderUpdateOne {
+	_u.mutation.ClearReasoningEffort()
 	return _u
 }
 
@@ -1184,6 +1230,12 @@ func (_u *AgentProviderUpdateOne) sqlSave(ctx context.Context) (_node *AgentProv
 	}
 	if value, ok := _u.mutation.ModelName(); ok {
 		_spec.SetField(agentprovider.FieldModelName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ReasoningEffort(); ok {
+		_spec.SetField(agentprovider.FieldReasoningEffort, field.TypeString, value)
+	}
+	if _u.mutation.ReasoningEffortCleared() {
+		_spec.ClearField(agentprovider.FieldReasoningEffort, field.TypeString)
 	}
 	if value, ok := _u.mutation.ModelTemperature(); ok {
 		_spec.SetField(agentprovider.FieldModelTemperature, field.TypeFloat64, value)

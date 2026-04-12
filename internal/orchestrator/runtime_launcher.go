@@ -1172,6 +1172,7 @@ func (l *RuntimeLauncher) startRuntimeSessionOnMachine(
 			ProcessManager:        processManager,
 			WorkingDirectory:      workingDirectory.String(),
 			Model:                 launchContext.agent.Edges.Provider.ModelName,
+			ReasoningEffort:       catalogdomain.ParseStoredAgentProviderReasoningEffort(launchContext.agent.Edges.Provider.ReasoningEffort),
 			PermissionProfile:     catalogdomain.AgentProviderPermissionProfile(launchContext.agent.Edges.Provider.PermissionProfile),
 			DeveloperInstructions: developerInstructions,
 			TurnTitle:             fmt.Sprintf("%s: %s", launchContext.ticket.Identifier, launchContext.ticket.Title),

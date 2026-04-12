@@ -64,6 +64,41 @@ func TestParseCreateAgentProviderParsesPricingConfig(t *testing.T) {
 	}
 }
 
+func TestParseCreateAgentProviderParsesReasoningEffort(t *testing.T) {
+	machineID := uuid.New()
+	raw := "xhigh"
+	input, err := ParseCreateAgentProvider(uuid.New(), AgentProviderInput{
+		MachineID:       machineID.String(),
+		Name:            "Codex",
+		AdapterType:     "codex-app-server",
+		CliCommand:      "codex",
+		ModelName:       "gpt-5.4",
+		ReasoningEffort: &raw,
+	})
+	if err != nil {
+		t.Fatalf("ParseCreateAgentProvider returned error: %v", err)
+	}
+	if input.ReasoningEffort == nil || *input.ReasoningEffort != AgentProviderReasoningEffortXHigh {
+		t.Fatalf("expected reasoning effort xhigh, got %+v", input.ReasoningEffort)
+	}
+}
+
+func TestParseCreateAgentProviderRejectsUnsupportedReasoningEffort(t *testing.T) {
+	machineID := uuid.New()
+	raw := "max"
+	_, err := ParseCreateAgentProvider(uuid.New(), AgentProviderInput{
+		MachineID:       machineID.String(),
+		Name:            "Codex",
+		AdapterType:     "codex-app-server",
+		CliCommand:      "codex",
+		ModelName:       "gpt-5.4",
+		ReasoningEffort: &raw,
+	})
+	if err == nil || !strings.Contains(err.Error(), `allowed values: low, medium, high, xhigh`) {
+		t.Fatalf("expected reasoning_effort validation error, got %v", err)
+	}
+}
+
 func TestParseCreateAgentProviderRejectsInvalidPricingConfig(t *testing.T) {
 	machineID := uuid.New()
 	_, err := ParseCreateAgentProvider(uuid.New(), AgentProviderInput{

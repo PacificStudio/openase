@@ -66,6 +66,7 @@ func (r *EntRepository) CreateAgentProvider(ctx context.Context, input domain.Cr
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
 		SetModelName(input.ModelName).
+		SetNillableReasoningEffort(reasoningEffortStringPointer(input.ReasoningEffort)).
 		SetModelTemperature(input.ModelTemperature).
 		SetModelMaxTokens(input.ModelMaxTokens).
 		SetMaxParallelRuns(input.MaxParallelRuns).
@@ -111,6 +112,7 @@ func (r *EntRepository) UpdateAgentProvider(ctx context.Context, input domain.Up
 		SetCliArgs(pgarray.StringArray(input.CliArgs)).
 		SetAuthConfig(input.AuthConfig).
 		SetModelName(input.ModelName).
+		SetNillableReasoningEffort(reasoningEffortStringPointer(input.ReasoningEffort)).
 		SetModelTemperature(input.ModelTemperature).
 		SetModelMaxTokens(input.ModelMaxTokens).
 		SetMaxParallelRuns(input.MaxParallelRuns).
@@ -412,6 +414,7 @@ func mapAgentProvider(item *ent.AgentProvider) domain.AgentProvider {
 		CLIRateLimit:          cloneAnyMap(item.CliRateLimit),
 		CLIRateLimitUpdatedAt: cloneTimePointer(item.CliRateLimitUpdatedAt),
 		ModelName:             item.ModelName,
+		ReasoningEffort:       domain.ParseStoredAgentProviderReasoningEffort(item.ReasoningEffort),
 		ModelTemperature:      item.ModelTemperature,
 		ModelMaxTokens:        item.ModelMaxTokens,
 		MaxParallelRuns:       item.MaxParallelRuns,
@@ -440,6 +443,16 @@ func normalizeProviderPermissionProfile(
 		return domain.DefaultAgentProviderPermissionProfile
 	}
 	return profile
+}
+
+func reasoningEffortStringPointer(
+	value *domain.AgentProviderReasoningEffort,
+) *string {
+	if value == nil {
+		return nil
+	}
+	copied := value.String()
+	return &copied
 }
 
 type agentCurrentRunSummary struct {

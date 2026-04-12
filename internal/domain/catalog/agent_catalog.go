@@ -34,6 +34,7 @@ type AgentProvider struct {
 	CLIRateLimit          map[string]any
 	CLIRateLimitUpdatedAt *time.Time
 	ModelName             string
+	ReasoningEffort       *AgentProviderReasoningEffort
 	ModelTemperature      float64
 	ModelMaxTokens        int
 	MaxParallelRuns       int
@@ -113,6 +114,7 @@ type AgentProviderInput struct {
 	AuthConfig         map[string]any                    `json:"auth_config"`
 	SecretBindings     []AgentProviderSecretBindingInput `json:"secret_bindings"`
 	ModelName          string                            `json:"model_name"`
+	ReasoningEffort    *string                           `json:"reasoning_effort"`
 	ModelTemperature   *float64                          `json:"model_temperature"`
 	ModelMaxTokens     *int                              `json:"model_max_tokens"`
 	MaxParallelRuns    *int                              `json:"max_parallel_runs"`
@@ -136,6 +138,7 @@ type CreateAgentProvider struct {
 	CliArgs            []string
 	AuthConfig         map[string]any
 	ModelName          string
+	ReasoningEffort    *AgentProviderReasoningEffort
 	ModelTemperature   float64
 	ModelMaxTokens     int
 	MaxParallelRuns    int
@@ -155,6 +158,7 @@ type UpdateAgentProvider struct {
 	CliArgs            []string
 	AuthConfig         map[string]any
 	ModelName          string
+	ReasoningEffort    *AgentProviderReasoningEffort
 	ModelTemperature   float64
 	ModelMaxTokens     int
 	MaxParallelRuns    int
@@ -247,6 +251,11 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		return CreateAgentProvider{}, err
 	}
 
+	reasoningEffort, err := parseAgentProviderReasoningEffort(adapterType, modelName, raw.ReasoningEffort)
+	if err != nil {
+		return CreateAgentProvider{}, err
+	}
+
 	return CreateAgentProvider{
 		OrganizationID:     organizationID,
 		MachineID:          machineID,
@@ -257,6 +266,7 @@ func ParseCreateAgentProvider(organizationID uuid.UUID, raw AgentProviderInput) 
 		CliArgs:            cliArgs,
 		AuthConfig:         authConfig,
 		ModelName:          modelName,
+		ReasoningEffort:    reasoningEffort,
 		ModelTemperature:   modelTemperature,
 		ModelMaxTokens:     modelMaxTokens,
 		MaxParallelRuns:    maxParallelRuns,
@@ -283,6 +293,7 @@ func ParseUpdateAgentProvider(id uuid.UUID, organizationID uuid.UUID, raw AgentP
 		CliArgs:            input.CliArgs,
 		AuthConfig:         input.AuthConfig,
 		ModelName:          input.ModelName,
+		ReasoningEffort:    input.ReasoningEffort,
 		ModelTemperature:   input.ModelTemperature,
 		ModelMaxTokens:     input.ModelMaxTokens,
 		MaxParallelRuns:    input.MaxParallelRuns,

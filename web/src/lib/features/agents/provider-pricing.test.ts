@@ -13,6 +13,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Latest frontier agentic coding model.',
         recommended: true,
         preview: false,
+        reasoning: null,
         pricing_config: {
           source_kind: 'official',
           pricing_mode: 'flat',
@@ -41,6 +42,7 @@ const providerModelCatalogFixture: AgentProviderModelCatalogEntry[] = [
         description: 'Let Gemini CLI route requests.',
         recommended: true,
         preview: false,
+        reasoning: null,
         pricing_config: {
           source_kind: 'official',
           pricing_mode: 'routed',

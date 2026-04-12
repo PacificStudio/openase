@@ -3,11 +3,15 @@ import { normalizeProviderAvailabilityState } from '$lib/features/providers'
 import type {
   AgentInstance,
   AgentRunInstance,
-  ProviderCLIRateLimit,
   ProviderConfig,
   ProviderPermissionProfile,
 } from './types'
 import { normalizeAgentStatus, normalizeRuntimeControlState, normalizeRuntimePhase } from './state'
+import {
+  normalizeProviderCLIRateLimit,
+  normalizeProviderReasoningCapability,
+  normalizeProviderReasoningEffort,
+} from './provider-capabilities'
 import { normalizeProviderSecretBindings } from './provider-secret-bindings'
 
 export function buildProviderCards(
@@ -36,6 +40,10 @@ export function buildProviderCards(
     cliRateLimit: normalizeProviderCLIRateLimit(provider.cli_rate_limit),
     cliRateLimitUpdatedAt: provider.cli_rate_limit_updated_at ?? null,
     modelName: provider.model_name,
+    reasoningEffort: normalizeProviderReasoningEffort(
+      provider.capabilities?.reasoning?.selected_effort ?? null,
+    ),
+    reasoningCapability: normalizeProviderReasoningCapability(provider.capabilities?.reasoning),
     modelTemperature: provider.model_temperature,
     modelMaxTokens: provider.model_max_tokens,
     maxParallelRuns: provider.max_parallel_runs,
@@ -192,6 +200,12 @@ export function applyUpdatedProviderState(
           cliRateLimit: normalizeProviderCLIRateLimit(updatedProvider.cli_rate_limit),
           cliRateLimitUpdatedAt: updatedProvider.cli_rate_limit_updated_at ?? null,
           modelName: updatedProvider.model_name,
+          reasoningEffort: normalizeProviderReasoningEffort(
+            updatedProvider.capabilities?.reasoning?.selected_effort ?? null,
+          ),
+          reasoningCapability: normalizeProviderReasoningCapability(
+            updatedProvider.capabilities?.reasoning,
+          ),
           modelTemperature: updatedProvider.model_temperature,
           modelMaxTokens: updatedProvider.model_max_tokens,
           maxParallelRuns: updatedProvider.max_parallel_runs,
@@ -222,65 +236,4 @@ function normalizeProviderPermissionProfile(
   value: string | undefined | null,
 ): ProviderPermissionProfile {
   return value === 'standard' ? 'standard' : 'unrestricted'
-}
-
-function normalizeProviderCLIRateLimit(
-  value: AgentProvider['cli_rate_limit'] | null | undefined,
-): ProviderCLIRateLimit | null {
-  if (!value) {
-    return null
-  }
-
-  return {
-    provider: value.provider ?? '',
-    raw: { ...(value.raw ?? {}) },
-    claudeCode: value.claude_code
-      ? {
-          status: value.claude_code.status ?? '',
-          rateLimitType: value.claude_code.rate_limit_type ?? null,
-          resetsAt: value.claude_code.resets_at ?? null,
-          utilization: value.claude_code.utilization ?? null,
-          surpassedThreshold: value.claude_code.surpassed_threshold ?? null,
-          overageStatus: value.claude_code.overage_status ?? null,
-          overageDisabledReason: value.claude_code.overage_disabled_reason ?? null,
-          isUsingOverage: value.claude_code.is_using_overage ?? null,
-        }
-      : null,
-    codex: value.codex
-      ? {
-          limitId: value.codex.limit_id ?? null,
-          limitName: value.codex.limit_name ?? null,
-          planType: value.codex.plan_type ?? null,
-          primary: value.codex.primary
-            ? {
-                usedPercent: value.codex.primary.used_percent ?? null,
-                windowMinutes: value.codex.primary.window_minutes ?? null,
-                resetsAt: value.codex.primary.resets_at ?? null,
-              }
-            : null,
-          secondary: value.codex.secondary
-            ? {
-                usedPercent: value.codex.secondary.used_percent ?? null,
-                windowMinutes: value.codex.secondary.window_minutes ?? null,
-                resetsAt: value.codex.secondary.resets_at ?? null,
-              }
-            : null,
-        }
-      : null,
-    gemini: value.gemini
-      ? {
-          authType: value.gemini.auth_type ?? null,
-          remaining: value.gemini.remaining ?? null,
-          limit: value.gemini.limit ?? null,
-          resetTime: value.gemini.reset_time ?? null,
-          buckets: (value.gemini.buckets ?? []).map((bucket) => ({
-            modelId: bucket.model_id ?? null,
-            tokenType: bucket.token_type ?? null,
-            remainingAmount: bucket.remaining_amount ?? null,
-            remainingFraction: bucket.remaining_fraction ?? null,
-            resetTime: bucket.reset_time ?? null,
-          })),
-        }
-      : null,
-  }
 }

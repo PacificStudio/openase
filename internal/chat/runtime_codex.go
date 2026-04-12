@@ -253,6 +253,7 @@ func (r *CodexRuntime) ensureSession(ctx context.Context, input RuntimeTurnInput
 			ResumeThreadID:         strings.TrimSpace(input.ResumeProviderThreadID),
 			WorkingDirectory:       input.WorkingDirectory.String(),
 			Model:                  input.Provider.ModelName,
+			ReasoningEffort:        reasoningEffortValue(input.Provider.ReasoningEffort),
 			ServiceName:            "openase",
 			DeveloperInstructions:  input.SystemPrompt,
 			ApprovalPolicy:         codexApprovalPolicy(input.Provider.PermissionProfile, input.PersistentConversation),

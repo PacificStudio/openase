@@ -2,6 +2,7 @@ package catalog
 
 type AgentProviderCapabilities struct {
 	EphemeralChat AgentProviderCapability
+	Reasoning     AgentProviderReasoningCapability
 }
 
 type AgentProviderCapability struct {
@@ -17,6 +18,7 @@ func DeriveAgentProviderCapabilities(item AgentProvider) AgentProvider {
 func ResolveAgentProviderCapabilities(item AgentProvider) AgentProviderCapabilities {
 	return AgentProviderCapabilities{
 		EphemeralChat: ResolveAgentProviderEphemeralChatCapability(item),
+		Reasoning:     ResolveAgentProviderReasoningCapability(item),
 	}
 }
 

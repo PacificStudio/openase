@@ -20,11 +20,15 @@ func TestDeriveAgentProviderCapabilitiesCopiesResolvedState(t *testing.T) {
 func TestResolveAgentProviderCapabilitiesUsesEphemeralChatOnly(t *testing.T) {
 	item := ResolveAgentProviderCapabilities(AgentProvider{
 		AdapterType: AgentProviderAdapterTypeCodexAppServer,
+		ModelName:   "gpt-5.4",
 		Available:   true,
 	})
 
 	if item.EphemeralChat.State != AgentProviderCapabilityStateAvailable {
 		t.Fatalf("ephemeral chat capability = %+v", item.EphemeralChat)
+	}
+	if item.Reasoning.State != AgentProviderCapabilityStateAvailable {
+		t.Fatalf("reasoning capability = %+v", item.Reasoning)
 	}
 }
 
@@ -38,6 +42,9 @@ func TestResolveAgentProviderCapabilitiesMarksUnsupportedAdapter(t *testing.T) {
 	}
 	if item.EphemeralChat.Reason == nil || *item.EphemeralChat.Reason != providerReasonUnsupportedAdapter {
 		t.Fatalf("ephemeral chat reason = %+v", item.EphemeralChat.Reason)
+	}
+	if item.Reasoning.State != AgentProviderCapabilityStateUnsupported {
+		t.Fatalf("reasoning capability = %+v", item.Reasoning)
 	}
 }
 

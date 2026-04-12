@@ -26,6 +26,15 @@ func TestBuiltinAgentProviderModelOptionsClaude(t *testing.T) {
 	if options[1].ID != "claude-sonnet-4-6" || options[2].ID != "claude-haiku-4-5" {
 		t.Fatalf("claude options = %+v", options)
 	}
+	if options[1].Reasoning == nil || options[1].Reasoning.DefaultEffort != nil {
+		t.Fatalf("claude sonnet reasoning = %+v, want plan-dependent default with nil default_effort", options[1].Reasoning)
+	}
+	if got := reasoningEffortStrings(options[1].Reasoning.SupportedEfforts); len(got) != 3 || got[0] != "low" || got[len(got)-1] != "high" {
+		t.Fatalf("claude sonnet supported efforts = %v, want [low medium high]", got)
+	}
+	if options[2].Reasoning == nil || options[2].Reasoning.State != AgentProviderCapabilityStateUnsupported {
+		t.Fatalf("claude haiku reasoning = %+v, want unsupported", options[2].Reasoning)
+	}
 }
 
 func TestBuiltinAgentProviderModelOptionsGemini(t *testing.T) {
@@ -45,6 +54,7 @@ func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	options := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	options[0].ID = "changed"
 	options[0].PricingConfig.Rates.InputPerToken = 123
+	options[0].Reasoning.SupportedEfforts[0] = AgentProviderReasoningEffortMinimal
 
 	fresh := BuiltinAgentProviderModelOptions(AgentProviderAdapterTypeCodexAppServer)
 	if fresh[0].ID != "gpt-5.4" {
@@ -52,6 +62,9 @@ func TestBuiltinAgentProviderModelOptionsReturnsClone(t *testing.T) {
 	}
 	if fresh[0].PricingConfig == nil || fresh[0].PricingConfig.Rates.InputPerToken == 123 {
 		t.Fatalf("BuiltinAgentProviderModelOptions() did not clone pricing config: %+v", fresh[0])
+	}
+	if fresh[0].Reasoning == nil || fresh[0].Reasoning.SupportedEfforts[0] != AgentProviderReasoningEffortLow {
+		t.Fatalf("BuiltinAgentProviderModelOptions() did not clone reasoning config: %+v", fresh[0])
 	}
 }
 

@@ -174,7 +174,12 @@ func (r *ClaudeRuntime) buildSessionSpec(
 
 	return provider.NewClaudeCodeSessionSpec(
 		command,
-		buildClaudeArgs(input.Provider.CliArgs, input.Provider.ModelName, input.Provider.PermissionProfile),
+		buildClaudeArgs(
+			input.Provider.CliArgs,
+			input.Provider.ModelName,
+			input.Provider.ReasoningEffort,
+			input.Provider.PermissionProfile,
+		),
 		workingDirectory,
 		environment,
 		nil,
@@ -189,9 +194,13 @@ func (r *ClaudeRuntime) buildSessionSpec(
 func buildClaudeArgs(
 	cliArgs []string,
 	modelName string,
+	reasoningEffort *catalogdomain.AgentProviderReasoningEffort,
 	profile catalogdomain.AgentProviderPermissionProfile,
 ) []string {
 	args := buildBaseArgs(cliArgs, modelName)
+	if trimmed := reasoningEffortValue(reasoningEffort); trimmed != "" && !hasClaudeEffortArg(args) {
+		args = append(args, "--effort", trimmed)
+	}
 	if normalizeRuntimePermissionProfile(profile) == catalogdomain.AgentProviderPermissionProfileUnrestricted &&
 		!hasClaudePermissionBypassArg(args) {
 		args = append(args, "--permission-mode", "bypassPermissions")
@@ -209,6 +218,18 @@ func hasClaudePermissionBypassArg(args []string) bool {
 			return true
 		}
 		if strings.EqualFold(strings.TrimSpace(args[index]), "--permission-mode=bypassPermissions") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasClaudeEffortArg(args []string) bool {
+	for index := 0; index < len(args); index++ {
+		if args[index] == "--effort" {
+			return true
+		}
+		if strings.HasPrefix(args[index], "--effort=") {
 			return true
 		}
 	}

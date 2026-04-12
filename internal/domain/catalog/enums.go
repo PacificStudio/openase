@@ -171,6 +171,35 @@ func (s AgentProviderPermissionProfile) IsValid() bool {
 	}
 }
 
+type AgentProviderReasoningEffort string
+
+const (
+	AgentProviderReasoningEffortMinimal AgentProviderReasoningEffort = "minimal"
+	AgentProviderReasoningEffortLow     AgentProviderReasoningEffort = "low"
+	AgentProviderReasoningEffortMedium  AgentProviderReasoningEffort = "medium"
+	AgentProviderReasoningEffortHigh    AgentProviderReasoningEffort = "high"
+	AgentProviderReasoningEffortXHigh   AgentProviderReasoningEffort = "xhigh"
+	AgentProviderReasoningEffortMax     AgentProviderReasoningEffort = "max"
+)
+
+func (s AgentProviderReasoningEffort) String() string {
+	return string(s)
+}
+
+func (s AgentProviderReasoningEffort) IsValid() bool {
+	switch s {
+	case AgentProviderReasoningEffortMinimal,
+		AgentProviderReasoningEffortLow,
+		AgentProviderReasoningEffortMedium,
+		AgentProviderReasoningEffortHigh,
+		AgentProviderReasoningEffortXHigh,
+		AgentProviderReasoningEffortMax:
+		return true
+	default:
+		return false
+	}
+}
+
 type AgentStatus string
 
 const (

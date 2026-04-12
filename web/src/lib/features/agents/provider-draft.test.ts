@@ -72,6 +72,29 @@ describe('provider draft', () => {
     })
   })
 
+  it('preserves an explicit reasoning preset and clears to empty string when unset', () => {
+    const parsed = parseProviderDraft({
+      ...createEmptyProviderDraft(),
+      machineId: 'machine-1',
+      name: 'Claude Local',
+      adapterType: 'claude-code-cli',
+      modelName: 'claude-opus-4-6',
+      reasoningEffort: 'max',
+      modelTemperature: '0',
+      modelMaxTokens: '16384',
+      maxParallelRuns: '',
+      costPerInputToken: '0',
+      costPerOutputToken: '0',
+    })
+
+    expect(parsed).toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        reasoning_effort: 'max',
+      }),
+    })
+  })
+
   it('parses secret binding maps into provider secret binding inputs', () => {
     const parsed = parseProviderDraft({
       ...createEmptyProviderDraft(),
