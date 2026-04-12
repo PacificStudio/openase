@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import { Bot, Sparkles } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     onOpenProjectAI,
@@ -11,6 +12,7 @@
   } = $props()
 
   let completed = $state(false)
+  const t = i18nStore.t
 
   function finishOnboarding() {
     if (completed) return
@@ -33,39 +35,48 @@
       </div>
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
-          <p class="text-foreground text-sm font-medium">Project AI</p>
+          <p class="text-foreground text-sm font-medium">
+            {t('onboarding.stepAiDiscovery.title')}
+          </p>
         </div>
         <p class="text-muted-foreground text-xs">
-          Use AI to break down requirements and plan follow-up tickets
+          {t('onboarding.stepAiDiscovery.description')}
         </p>
       </div>
     </div>
     <div class="mt-3 flex flex-wrap gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        class="text-xs"
-        onclick={() =>
-          handleOpenProjectAI(
-            'Based on the current project and existing tickets, break down 3 follow-up tickets for me.',
-          )}
-      >
-        <Sparkles class="mr-1 size-3" />
-        Break down 3 follow-up tickets
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        class="text-xs"
-        onclick={() => handleOpenProjectAI('What should I do next?')}
-      >
-        <Sparkles class="mr-1 size-3" />
-        What should I do next?
-      </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs"
+          onclick={() =>
+            handleOpenProjectAI(
+              'Based on the current project and existing tickets, break down 3 follow-up tickets for me.',
+            )}
+        >
+          <Sparkles class="mr-1 size-3" />
+          {t('onboarding.stepAiDiscovery.actions.breakdownTickets')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          class="text-xs"
+          onclick={() => handleOpenProjectAI('What should I do next?')}
+        >
+          <Sparkles class="mr-1 size-3" />
+          {t('onboarding.stepAiDiscovery.actions.whatsNext')}
+        </Button>
     </div>
   </div>
 
   <div class="flex justify-end">
-    <Button variant="ghost" size="sm" class="text-xs" onclick={finishOnboarding}>Got it</Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="text-xs"
+      onclick={finishOnboarding}
+    >
+      {t('onboarding.stepAiDiscovery.actions.gotIt')}
+    </Button>
   </div>
 </div>

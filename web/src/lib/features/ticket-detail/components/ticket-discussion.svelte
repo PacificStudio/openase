@@ -8,6 +8,7 @@
   import type { TicketActivity, TicketComment } from '../types'
   import TicketActivityList from './ticket-activity.svelte'
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     comments,
@@ -65,7 +66,7 @@
 
   async function handleDeleteComment(commentId: string) {
     if (deletingCommentId === commentId) return
-    if (!window.confirm('Delete this comment?')) return
+    if (!window.confirm(i18nStore.t('ticketDetail.discussion.confirmDelete'))) return
 
     const success = (await onDeleteComment?.(commentId)) ?? false
     if (success && editingCommentId === commentId) {
@@ -75,7 +76,7 @@
 
   function formatAuthor(value: string) {
     const normalized = value.trim()
-    if (!normalized) return 'Unknown'
+    if (!normalized) return i18nStore.t('ticketDetail.discussion.formatAuthorUnknown')
     return normalized.includes(':') ? (normalized.split(':').at(-1) ?? normalized) : normalized
   }
 
@@ -90,28 +91,30 @@
   <section class="border-border bg-muted/20 rounded-lg border p-4">
     <div class="flex items-start justify-between gap-3">
       <div>
-        <h3 class="text-sm font-medium">Discussion</h3>
+        <h3 class="text-sm font-medium">{i18nStore.t('ticketDetail.discussion.title')}</h3>
         <p class="text-muted-foreground mt-1 text-xs">
-          Add context, decisions, and handoff notes. Markdown is supported.
+          {i18nStore.t('ticketDetail.discussion.description')}
         </p>
       </div>
       <MessageSquare class="text-muted-foreground size-4 shrink-0" />
     </div>
 
     <div class="mt-4 space-y-3">
-      <Textarea
-        rows={5}
-        bind:value={composerBody}
-        placeholder="Add a comment with Markdown..."
-        disabled={creatingComment}
-      />
+        <Textarea
+          rows={5}
+          bind:value={composerBody}
+          placeholder={i18nStore.t('ticketDetail.discussion.placeholder')}
+          disabled={creatingComment}
+        />
       <div class="flex justify-end">
         <Button
           size="sm"
           onclick={handleCreateComment}
           disabled={!composerBody.trim() || creatingComment}
         >
-          {creatingComment ? 'Posting…' : 'Comment'}
+          {creatingComment
+            ? i18nStore.t('ticketDetail.discussion.actions.posting')
+            : i18nStore.t('ticketDetail.discussion.actions.comment')}
         </Button>
       </div>
     </div>
@@ -126,7 +129,7 @@
       <div
         class="border-border bg-muted/10 text-muted-foreground rounded-lg border px-4 py-6 text-center text-xs"
       >
-        No comments yet
+        {i18nStore.t('ticketDetail.discussion.empty')}
       </div>
     {/if}
 
@@ -138,7 +141,7 @@
             <div class="text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
               <span>{formatRelativeTime(comment.createdAt)}</span>
               {#if comment.updatedAt}
-                <span>edited</span>
+                <span>{i18nStore.t('ticketDetail.discussion.editedLabel')}</span>
               {/if}
             </div>
           </div>
@@ -148,7 +151,7 @@
               <Button
                 size="icon-xs"
                 variant="ghost"
-                aria-label="Edit comment"
+                aria-label={i18nStore.t('ticketDetail.discussion.actions.edit')}
                 onclick={() => beginEdit(comment)}
                 disabled={Boolean(updatingCommentId || deletingCommentId)}
               >
@@ -158,7 +161,7 @@
             <Button
               size="icon-xs"
               variant="ghost"
-              aria-label="Delete comment"
+              aria-label={i18nStore.t('ticketDetail.discussion.actions.delete')}
               onclick={() => handleDeleteComment(comment.id)}
               disabled={deletingCommentId === comment.id || updatingCommentId === comment.id}
             >
@@ -182,14 +185,16 @@
                   onclick={cancelEdit}
                   disabled={updatingCommentId === comment.id}
                 >
-                  Cancel
+                  {i18nStore.t('ticketDetail.discussion.actions.cancel')}
                 </Button>
                 <Button
                   size="sm"
                   onclick={() => handleSaveEdit(comment.id)}
                   disabled={!editingBody.trim() || updatingCommentId === comment.id}
                 >
-                  {updatingCommentId === comment.id ? 'Saving…' : 'Save'}
+                  {updatingCommentId === comment.id
+                    ? i18nStore.t('ticketDetail.discussion.actions.saving')
+                    : i18nStore.t('ticketDetail.discussion.actions.save')}
                 </Button>
               </div>
             </div>

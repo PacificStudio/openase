@@ -4,6 +4,7 @@
   import { Plus } from '@lucide/svelte'
   import type { WorkflowHookRowDraft, WorkflowHookRowDraftErrors } from '../workflow-hooks'
   import WorkflowHookRowEditor from './workflow-hook-row-editor.svelte'
+  import { t } from './i18n'
 
   let {
     label,
@@ -36,15 +37,15 @@
       <div class="text-sm font-medium">{label}</div>
       <p class="text-muted-foreground text-xs">{description}</p>
     </div>
-    <Button type="button" variant="outline" size="sm" {disabled} onclick={() => onAdd?.()}>
-      <Plus class="size-3.5" />
-      Add row
-    </Button>
+      <Button type="button" variant="outline" size="sm" {disabled} onclick={() => onAdd?.()}>
+        <Plus class="size-3.5" />
+        {t('workflows.hooks.eventEditor.addRow')}
+      </Button>
   </div>
 
   {#if rows.length === 0}
     <div class="text-muted-foreground rounded-lg border border-dashed px-3 py-4 text-sm">
-      No hooks configured for {label.toLowerCase()}.
+      {t('workflows.hooks.eventEditor.emptyMessage', { label: label.toLowerCase() })}
     </div>
   {:else}
     <div class="space-y-3">

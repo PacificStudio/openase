@@ -13,6 +13,7 @@
   import { KeyRound, LoaderCircle, RefreshCw, Trash2, Upload } from '@lucide/svelte'
   import OrganizationAdminCredentialsDialogs from './organization-admin-credentials-dialogs.svelte'
   import OrganizationAdminCredentialsLoading from './organization-admin-credentials-loading.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let { organizationId }: { organizationId: string } = $props()
 
@@ -23,6 +24,7 @@
   let loading = $state(false)
   let error = $state('')
   let actionKey = $state('')
+  const t = i18nStore.t
 
   let saveDialogOpen = $state(false)
   let deleteDialogOpen = $state(false)
@@ -47,10 +49,8 @@
       } catch (caughtError) {
         if (cancelled) return
         credential = null
-        error =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : 'Failed to load org GitHub credential.'
+        const loadError = t('orgAdmin.credentials.page.errors.loadCredential')
+        error = caughtError instanceof ApiError ? caughtError.detail : loadError
       } finally {
         if (!cancelled) loading = false
       }
@@ -101,31 +101,33 @@
       if (action === 'save') {
         const token = tokenDraft.trim()
         if (!token) {
-          toastStore.error('GitHub token is required.')
+          toastStore.error(t('orgAdmin.credentials.page.errors.tokenRequired'))
           return
         }
         payload = await saveOrgGitHubCredential(organizationId, { token })
         tokenDraft = ''
         saveDialogOpen = false
-        toastStore.success('Saved org GitHub credential.')
+        toastStore.success(t('orgAdmin.credentials.page.actions.saved'))
       } else if (action === 'import') {
         payload = await importOrgGitHubCredentialFromGHCLI(organizationId)
-        toastStore.success('Imported org credential from gh.')
+        toastStore.success(t('orgAdmin.credentials.page.actions.imported'))
       } else if (action === 'retest') {
         payload = await retestOrgGitHubCredential(organizationId)
-        toastStore.success('Retested org GitHub credential.')
+        toastStore.success(t('orgAdmin.credentials.page.actions.retested'))
       } else {
         payload = await deleteOrgGitHubCredential(organizationId)
         tokenDraft = ''
         deleteDialogOpen = false
-        toastStore.success('Deleted org GitHub credential.')
+        toastStore.success(t('orgAdmin.credentials.page.actions.deleted'))
       }
       credential = payload.credential
-    } catch (caughtError) {
-      const message =
-        caughtError instanceof ApiError ? caughtError.detail : 'GitHub credential update failed.'
-      error = message
-      toastStore.error(message)
+      } catch (caughtError) {
+        const message =
+          caughtError instanceof ApiError
+            ? caughtError.detail
+            : t('orgAdmin.credentials.page.errors.updateFailed')
+        error = message
+        toastStore.error(message)
     } finally {
       actionKey = ''
     }
@@ -134,10 +136,11 @@
 
 <div class="space-y-4">
   <div>
-    <h3 class="text-foreground text-sm font-semibold">GitHub credential</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {t('orgAdmin.credentials.page.heading')}
+    </h3>
     <p class="text-muted-foreground mt-0.5 text-xs">
-      Org-level GitHub credential used as the default for all projects. Individual projects can
-      override it in their own Security settings.
+      {t('orgAdmin.credentials.page.description')}
     </p>
   </div>
 
@@ -153,11 +156,13 @@
     <div class="border-border rounded-md border">
       <!-- Status + actions row -->
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <div class="flex items-center gap-2">
-          <span class="inline-block size-2 rounded-full {statusDot()}"></span>
-          <span class="text-sm font-medium">GitHub outbound credential</span>
-          <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
-        </div>
+          <div class="flex items-center gap-2">
+            <span class="inline-block size-2 rounded-full {statusDot()}"></span>
+            <span class="text-sm font-medium">
+              {t('orgAdmin.credentials.page.statusLabel')}
+            </span>
+            <span class="text-muted-foreground text-xs capitalize">{statusLabel()}</span>
+          </div>
 
         <div class="flex items-center gap-1.5">
           {#if credential.configured}
@@ -173,7 +178,7 @@
               {:else}
                 <RefreshCw class="mr-1 size-3" />
               {/if}
-              Retest
+              {t('orgAdmin.credentials.page.actions.retest')}
             </Button>
             <Button
               variant="ghost"
@@ -186,7 +191,7 @@
               disabled={anyBusy}
             >
               <KeyRound class="mr-1 size-3" />
-              Rotate token
+              {t('orgAdmin.credentials.dialog.actions.rotate')}
             </Button>
             <Button
               variant="ghost"
@@ -196,7 +201,7 @@
               disabled={anyBusy}
             >
               <Trash2 class="mr-1 size-3" />
-              Delete
+              {t('orgAdmin.credentials.dialog.actions.delete')}
             </Button>
           {:else}
             <Button
@@ -211,7 +216,7 @@
               {:else}
                 <Upload class="mr-1 size-3" />
               {/if}
-              Import from gh
+              {t('orgAdmin.credentials.page.actions.import')}
             </Button>
             <Button
               variant="outline"
@@ -224,7 +229,7 @@
               disabled={anyBusy}
             >
               <KeyRound class="mr-1 size-3" />
-              Save token
+              {t('orgAdmin.credentials.dialog.actions.save')}
             </Button>
           {/if}
         </div>
@@ -235,33 +240,47 @@
         <div class="border-border border-t px-4 py-3">
           <dl class="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:grid-cols-3">
             {#if displayLogin()}
-              <div>
-                <dt class="text-muted-foreground">User</dt>
-                <dd class="mt-0.5 font-medium">{displayLogin()}</dd>
-              </div>
+            <div>
+              <dt class="text-muted-foreground">
+              {t('orgAdmin.credentials.page.details.user')}
+              </dt>
+              <dd class="mt-0.5 font-medium">{displayLogin()}</dd>
+            </div>
             {/if}
             <div>
-              <dt class="text-muted-foreground">Token</dt>
+              <dt class="text-muted-foreground">
+              {t('orgAdmin.credentials.page.details.token')}
+              </dt>
               <dd class="mt-0.5 font-mono">{credential.token_preview}</dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Source</dt>
+              <dt class="text-muted-foreground">
+              {t('orgAdmin.credentials.page.details.source')}
+              </dt>
               <dd class="mt-0.5 capitalize">
                 {credential.source ? credential.source.replaceAll('_', ' ') : '—'}
               </dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Repo access</dt>
-              <dd class="mt-0.5 capitalize">{credential.probe.repo_access.replaceAll('_', ' ')}</dd>
+              <dt class="text-muted-foreground">
+              {t('orgAdmin.credentials.page.details.repoAccess')}
+              </dt>
+              <dd class="mt-0.5 capitalize">
+                {credential.probe.repo_access.replaceAll('_', ' ')}
+              </dd>
             </div>
             <div>
-              <dt class="text-muted-foreground">Checked</dt>
+              <dt class="text-muted-foreground">
+              {t('orgAdmin.credentials.page.details.checked')}
+              </dt>
               <dd class="mt-0.5">{formatCheckedAt(credential.probe.checked_at)}</dd>
             </div>
             {#if credential.probe.permissions.length}
               <div class="col-span-2 sm:col-span-3">
-                <dt class="text-muted-foreground">Permissions</dt>
-                <dd class="mt-0.5">{credential.probe.permissions.join(', ')}</dd>
+              <dt class="text-muted-foreground">
+                {t('orgAdmin.credentials.page.details.permissions')}
+              </dt>
+              <dd class="mt-0.5">{credential.probe.permissions.join(', ')}</dd>
               </div>
             {/if}
           </dl>
@@ -273,8 +292,7 @@
     </div>
 
     <p class="text-muted-foreground text-xs leading-5">
-      This credential is shared across all projects in the org. Projects with their own override in
-      Security settings will use that instead.
+      {t('orgAdmin.credentials.page.sharedNotice')}
     </p>
   {/if}
 </div>

@@ -3,6 +3,8 @@
   import { formatRelativeTime } from '$lib/utils'
   import { cn } from '$lib/utils'
   import { Link2, Link2Off } from '@lucide/svelte'
+  import { skillsT } from './i18n'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     skill,
@@ -23,6 +25,11 @@
   function isBound(workflowId: string) {
     return skill.bound_workflows.some((workflow) => workflow.id === workflowId)
   }
+
+  const bindingActionKeys: Record<'bind' | 'unbind', TranslationKey> = {
+    bind: 'skills.metadata.actions.bind',
+    unbind: 'skills.metadata.actions.unbind',
+  }
 </script>
 
 <div class="border-border flex items-center gap-3 border-b px-3 py-1 text-[11px]">
@@ -30,7 +37,7 @@
   <input
     type="text"
     value={editDescription}
-    placeholder="Description..."
+    placeholder={skillsT('skills.metadata.placeholder.description')}
     class="text-foreground placeholder:text-muted-foreground/50 min-w-0 flex-1 truncate bg-transparent text-[11px] outline-none"
     disabled={busy}
     oninput={(event) => onEditDescriptionChange?.((event.currentTarget as HTMLInputElement).value)}
@@ -44,6 +51,7 @@
     <div class="flex shrink-0 items-center gap-1">
       {#each workflows as workflow (workflow.id)}
         {@const bound = isBound(workflow.id)}
+        {@const actionKey = bound ? bindingActionKeys.unbind : bindingActionKeys.bind}
         <button
           type="button"
           disabled={busy}
@@ -53,7 +61,10 @@
               ? 'border-primary/30 bg-primary/10 text-primary'
               : 'text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted border-transparent',
           )}
-          title="{bound ? 'Unbind from' : 'Bind to'} {workflow.name}"
+            title={skillsT(
+            actionKey,
+            { workflow: workflow.name },
+          )}
           onclick={() => void onToggleBinding?.(workflow.id, !bound)}
         >
           {#if bound}

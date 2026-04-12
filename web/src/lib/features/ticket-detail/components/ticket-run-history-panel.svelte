@@ -4,6 +4,7 @@
   import TicketRunHistoryAttempt from './ticket-run-history-attempt.svelte'
   import { FINISHED_RUN_STATUSES, renderKeyForBlocks } from './ticket-run-history-panel-view-model'
   import type { TicketDetail, TicketRun, TicketRunTranscriptBlock } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const autoFollowThresholdPx = 80
 
@@ -73,6 +74,7 @@
   const latestRun = $derived(runs[0] ?? null)
   const chronologicalRuns = $derived([...runs].reverse())
   const liveSelected = $derived(currentRun != null && latestRun?.id === currentRun.id)
+  const t = i18nStore.t
 
   const canResumeRetry = $derived(
     ticket.retryPaused &&
@@ -209,7 +211,7 @@
 
 {#if loadingRuns}
   <section class="px-4 py-6">
-    <p class="text-muted-foreground text-xs">Loading runs…</p>
+    <p class="text-muted-foreground text-xs">{t('ticketDetail.runHistory.loadingRuns')}</p>
   </section>
 {:else if runsError}
   <section class="space-y-2 px-4 py-6">
@@ -220,13 +222,13 @@
         class="border-border bg-background hover:bg-muted rounded-md border px-2 py-1 text-[11px] transition"
         onclick={() => void onRetryLoadRuns()}
       >
-        Retry loading runs
+        {t('ticketDetail.runHistory.actions.retryLoadingRuns')}
       </button>
     {/if}
   </section>
 {:else if runs.length === 0}
   <section class="px-4 py-6">
-    <p class="text-muted-foreground text-xs">No runs yet.</p>
+    <p class="text-muted-foreground text-xs">{t('ticketDetail.runHistory.empty')}</p>
   </section>
 {:else}
   <section bind:this={sectionEl}>

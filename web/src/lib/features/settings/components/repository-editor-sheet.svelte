@@ -6,6 +6,7 @@
   import RepositoryEditorForm from './repository-editor-form.svelte'
   import RepositoryGitHubBrowser from './repository-github-browser.svelte'
   import RepositoryGitHubCreate from './repository-github-create.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type {
     GitHubRepositoryCreateDraft,
     GitHubRepositoryNamespace,
@@ -76,11 +77,19 @@
     <SheetHeader class="border-border border-b px-6 py-4 text-left">
       <div class="flex items-center justify-between gap-4 pr-10">
         <SheetTitle class="text-base">
-          {mode === 'create' ? 'Add repository' : (selectedRepo?.name ?? 'Edit repository')}
+          {mode === 'create'
+            ? i18nStore.t('settings.repositoryEditor.sheet.title.create')
+            : selectedRepo?.name
+              ? i18nStore.t('settings.repositoryEditor.sheet.title.editWithName', {
+                  name: selectedRepo.name,
+                })
+              : i18nStore.t('settings.repositoryEditor.sheet.title.edit')}
         </SheetTitle>
         {#if mode === 'edit'}
           <Button size="sm" onclick={onSave} disabled={saving} data-testid="repository-save-button">
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving
+              ? i18nStore.t('settings.repositoryEditor.sheet.buttons.saving')
+              : i18nStore.t('settings.repositoryEditor.sheet.buttons.saveChanges')}
           </Button>
         {/if}
       </div>
@@ -91,9 +100,15 @@
         <Tabs.Root value="github" class="flex flex-1 flex-col overflow-hidden">
           <div class="border-border border-b px-6 pt-2">
             <Tabs.List>
-              <Tabs.Trigger value="github">GitHub</Tabs.Trigger>
-              <Tabs.Trigger value="create">Create repo</Tabs.Trigger>
-              <Tabs.Trigger value="manual">Manual</Tabs.Trigger>
+              <Tabs.Trigger value="github">
+                {i18nStore.t('settings.repositoryEditor.sheet.tabs.github')}
+              </Tabs.Trigger>
+              <Tabs.Trigger value="create">
+                {i18nStore.t('settings.repositoryEditor.sheet.tabs.create')}
+              </Tabs.Trigger>
+              <Tabs.Trigger value="manual">
+                {i18nStore.t('settings.repositoryEditor.sheet.tabs.manual')}
+              </Tabs.Trigger>
             </Tabs.List>
           </div>
 
@@ -128,7 +143,9 @@
             <RepositoryEditorForm {draft} {onDraftChange} compact />
             <div class="mt-4">
               <Button onclick={onSave} disabled={saving} data-testid="repository-save-button">
-                {saving ? 'Creating…' : 'Create repository'}
+                {saving
+                  ? i18nStore.t('settings.repositoryEditor.sheet.buttons.creating')
+                  : i18nStore.t('settings.repositoryEditor.sheet.buttons.createRepository')}
               </Button>
             </div>
           </Tabs.Content>

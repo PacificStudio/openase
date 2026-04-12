@@ -10,6 +10,9 @@ export type RunSummarySectionKey =
   | 'approvals_interruptions'
   | 'run_metadata'
 
+import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
+
 export type RunSummarySectionDefinition = {
   key: RunSummarySectionKey
   title: string
@@ -18,81 +21,97 @@ export type RunSummarySectionDefinition = {
   description: string
 }
 
-export const runSummarySectionDefinitions: RunSummarySectionDefinition[] = [
+function translateRaw(key: TranslationKey) {
+  return i18nStore.t(key)
+}
+
+type RunSummarySectionTemplate = {
+  key: RunSummarySectionKey
+  titleKey: TranslationKey
+  instructionKey: TranslationKey
+  descriptionKey: TranslationKey
+}
+
+const runSummarySectionTemplates: RunSummarySectionTemplate[] = [
   {
     key: 'overview',
-    title: 'Overview',
-    heading: '## Overview',
-    instruction: 'Provide a compact high-level summary of the run.',
-    description: 'Short overall summary for readers who do not need the full breakdown.',
+    titleKey: 'settings.runSummary.section.overview.title',
+    instructionKey: 'settings.runSummary.section.overview.instruction',
+    descriptionKey: 'settings.runSummary.section.overview.description',
   },
   {
     key: 'major_steps',
-    title: 'Major Steps',
-    heading: '## Major Steps',
-    instruction: 'List the major steps in execution order.',
-    description: 'Core execution path and milestone actions.',
+    titleKey: 'settings.runSummary.section.majorSteps.title',
+    instructionKey: 'settings.runSummary.section.majorSteps.instruction',
+    descriptionKey: 'settings.runSummary.section.majorSteps.description',
   },
   {
     key: 'long_running_operations',
-    title: 'Long-Running Operations',
-    heading: '## Long-Running Operations',
-    instruction: 'Call out operations that took unusually long.',
-    description: 'Slow commands, waits, or long-running phases.',
+    titleKey: 'settings.runSummary.section.longRunningOperations.title',
+    instructionKey: 'settings.runSummary.section.longRunningOperations.instruction',
+    descriptionKey: 'settings.runSummary.section.longRunningOperations.description',
   },
   {
     key: 'repeated_trial_and_error',
-    title: 'Repeated Trial-and-Error',
-    heading: '## Repeated Trial-and-Error',
-    instruction: 'Call out repeated trial-and-error, retries, or churn.',
-    description: 'Retries, failed loops, and other churn worth surfacing.',
+    titleKey: 'settings.runSummary.section.repeatedTrialAndError.title',
+    instructionKey: 'settings.runSummary.section.repeatedTrialAndError.instruction',
+    descriptionKey: 'settings.runSummary.section.repeatedTrialAndError.description',
   },
   {
     key: 'security_safety_risks',
-    title: 'Security / Safety Risks',
-    heading: '## Security / Safety Risks',
-    instruction: 'Call out commands or file changes with elevated security or safety risk.',
-    description: 'Potentially risky commands, approvals, or sensitive file changes.',
+    titleKey: 'settings.runSummary.section.securityAndSafetyRisks.title',
+    instructionKey: 'settings.runSummary.section.securityAndSafetyRisks.instruction',
+    descriptionKey: 'settings.runSummary.section.securityAndSafetyRisks.description',
   },
   {
     key: 'files_touched',
-    title: 'Files Touched',
-    heading: '## Files Touched',
-    instruction: 'Summarize the most important files or directories that were changed.',
-    description: 'Useful when readers care about code and config surface area.',
+    titleKey: 'settings.runSummary.section.filesTouched.title',
+    instructionKey: 'settings.runSummary.section.filesTouched.instruction',
+    descriptionKey: 'settings.runSummary.section.filesTouched.description',
   },
   {
     key: 'outcome',
-    title: 'Outcome',
-    heading: '## Outcome',
-    instruction: 'Mention the main outcome and any important unresolved items.',
-    description: 'Final result, status, and unresolved follow-ups.',
+    titleKey: 'settings.runSummary.section.outcome.title',
+    instructionKey: 'settings.runSummary.section.outcome.instruction',
+    descriptionKey: 'settings.runSummary.section.outcome.description',
   },
   {
     key: 'commands_and_tooling',
-    title: 'Commands and Tooling',
-    heading: '## Commands and Tooling',
-    instruction:
-      'Highlight the most important commands, tools, and automation used during the run.',
-    description: 'Good for operational and debugging transparency.',
+    titleKey: 'settings.runSummary.section.commandsAndTooling.title',
+    instructionKey: 'settings.runSummary.section.commandsAndTooling.instruction',
+    descriptionKey: 'settings.runSummary.section.commandsAndTooling.description',
   },
   {
     key: 'approvals_interruptions',
-    title: 'Approvals / Interruptions',
-    heading: '## Approvals / Interruptions',
-    instruction:
-      'Summarize approvals, interruptions, or operator intervention that affected the run.',
-    description: 'Human intervention, approval gates, and interruptions.',
+    titleKey: 'settings.runSummary.section.approvalsInterruptions.title',
+    instructionKey: 'settings.runSummary.section.approvalsInterruptions.instruction',
+    descriptionKey: 'settings.runSummary.section.approvalsInterruptions.description',
   },
   {
     key: 'run_metadata',
-    title: 'Run Metadata',
-    heading: '## Run Metadata',
-    instruction:
-      'Summarize relevant metadata such as duration, status, and token usage when it helps explain the run.',
-    description: 'Timing, status, and token/cost context.',
+    titleKey: 'settings.runSummary.section.runMetadata.title',
+    instructionKey: 'settings.runSummary.section.runMetadata.instruction',
+    descriptionKey: 'settings.runSummary.section.runMetadata.description',
   },
 ]
+
+export const runSummarySectionDefinitions: RunSummarySectionDefinition[] = runSummarySectionTemplates.map(
+  (template) => ({
+    key: template.key,
+    get title() {
+      return translateRaw(template.titleKey)
+    },
+    get heading() {
+      return `## ${translateRaw(template.titleKey)}`
+    },
+    get instruction() {
+      return translateRaw(template.instructionKey)
+    },
+    get description() {
+      return translateRaw(template.descriptionKey)
+    },
+  }),
+)
 
 export const defaultRunSummarySectionKeys: RunSummarySectionKey[] = [
   'major_steps',
@@ -111,16 +130,16 @@ export function buildRunSummaryPrompt(
     .filter((definition): definition is RunSummarySectionDefinition => Boolean(definition))
 
   const lines = [
-    'Summarize the overall work performed by the agent.',
-    'Use concise Markdown.',
-    'Include exactly these top-level sections in this order:',
+    translateRaw('settings.runSummary.prompt.overallInstruction'),
+    translateRaw('settings.runSummary.prompt.conciseMarkdown'),
+    translateRaw('settings.runSummary.prompt.includeSections'),
     ...sections.flatMap((section) => [section.heading, section.instruction]),
-    'If a selected section has no substantive content, write "None."',
+    translateRaw('settings.runSummary.prompt.emptySectionNotice'),
   ]
 
   const trimmedCustomInstructions = customInstructions.trim()
   if (trimmedCustomInstructions !== '') {
-    lines.push('', 'Additional instructions:', trimmedCustomInstructions)
+    lines.push('', translateRaw('settings.runSummary.prompt.additionalInstructions'), trimmedCustomInstructions)
   }
 
   return lines.join('\n')

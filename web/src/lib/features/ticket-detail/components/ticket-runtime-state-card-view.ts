@@ -10,6 +10,7 @@ import {
   humanizePauseReason,
   humanizeProviderState,
 } from './ticket-runtime-state-card-format'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export type RuntimeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 export type RuntimeSummary = {
@@ -69,37 +70,46 @@ function summarizeDiagnosis(
 
   if (diagnosis.workflow) {
     detailItems.push({
-      label: 'Workflow',
-      value: `${diagnosis.workflow.name} · ${diagnosis.workflow.isActive ? 'Active' : 'Inactive'}`,
+      label: i18nStore.t('ticketDetail.runtime.detail.workflow'),
+      value: `${diagnosis.workflow.name} · ${i18nStore.t(
+        diagnosis.workflow.isActive
+          ? 'ticketDetail.runtime.workflowState.active'
+          : 'ticketDetail.runtime.workflowState.inactive',
+      )}`,
     })
   }
 
   if (diagnosis.agent) {
     detailItems.push({
-      label: 'Agent',
-      value: `${diagnosis.agent.name} · ${humanizeControlState(diagnosis.agent.runtimeControlState)}`,
+      label: i18nStore.t('ticketDetail.runtime.detail.agent'),
+      value: `${diagnosis.agent.name} · ${humanizeControlState(
+        diagnosis.agent.runtimeControlState,
+      )}`,
     })
   } else if (diagnosis.primaryReasonCode === 'workflow_missing_agent') {
-    detailItems.push({ label: 'Agent', value: 'No agent is bound to the workflow.' })
+    detailItems.push({
+      label: i18nStore.t('ticketDetail.runtime.detail.agent'),
+      value: i18nStore.t('ticketDetail.runtime.detail.agent.unbound'),
+    })
   }
 
   if (diagnosis.provider) {
     detailItems.push({
-      label: 'Provider',
+      label: i18nStore.t('ticketDetail.runtime.detail.provider'),
       value: `${diagnosis.provider.name} · ${humanizeProviderState(diagnosis.provider)}`,
     })
   }
 
   if (diagnosis.blockedBy.length > 0) {
     detailItems.push({
-      label: 'Dependencies',
+      label: i18nStore.t('ticketDetail.runtime.detail.dependencies'),
       value: diagnosis.blockedBy.map((item) => `${item.identifier} ${item.title}`).join(', '),
     })
   }
 
   const capacityLine = buildCapacityLine(diagnosis)
   if (capacityLine) {
-    detailItems.push({ label: 'Capacity', value: capacityLine })
+    detailItems.push({ label: i18nStore.t('ticketDetail.runtime.detail.capacity'), value: capacityLine })
   }
 
   const countdownLine = diagnosis.retry.nextRetryAt
@@ -107,7 +117,7 @@ function summarizeDiagnosis(
     : undefined
   if (diagnosis.retry.retryPaused && diagnosis.retry.pauseReason) {
     detailItems.push({
-      label: 'Retry',
+      label: i18nStore.t('ticketDetail.runtime.detail.retry'),
       value: humanizePauseReason(diagnosis.retry.pauseReason),
     })
   }
@@ -131,9 +141,9 @@ function summarizeDiagnosis(
 function summarizeLegacy(ticket: TicketDetail): RuntimeSummary {
   if (ticket.completedAt) {
     return {
-      label: 'Completed',
+      label: i18nStore.t('ticketDetail.runtime.summary.completed.label'),
       tone: 'success',
-      message: 'Execution finished successfully.',
+      message: i18nStore.t('ticketDetail.runtime.summary.completed.message'),
       timestamp: ticket.completedAt,
       detailItems: [],
     }
@@ -141,62 +151,75 @@ function summarizeLegacy(ticket: TicketDetail): RuntimeSummary {
 
   if (ticket.retryPaused && ticket.pauseReason === 'repeated_stalls') {
     return {
-      label: 'Blocked',
+      label: i18nStore.t('ticketDetail.runtime.summary.blocked.label'),
       tone: 'warning',
-      message: 'Paused after repeated stalls — manual retry required.',
+      message: i18nStore.t('ticketDetail.runtime.summary.blocked.message'),
       detailItems: buildLegacyRepeatedStallDetail(),
     }
   }
 
   if (ticket.retryPaused) {
     return {
-      label: 'Waiting',
+      label: i18nStore.t('ticketDetail.runtime.summary.waiting.label'),
       tone: 'warning',
-      message: 'Waiting for retry conditions to change.',
+      message: i18nStore.t('ticketDetail.runtime.summary.waiting.retry.message'),
       detailItems: [],
     }
   }
 
   if (ticket.assignedAgent?.runtimeControlState === 'paused') {
     return {
-      label: 'Unavailable',
+      label: i18nStore.t('ticketDetail.runtime.summary.unavailable.label'),
       tone: 'warning',
-      message: 'Assigned agent is paused.',
-      detailItems: [{ label: 'Agent', value: `${ticket.assignedAgent.name} · Paused` }],
+      message: i18nStore.t('ticketDetail.runtime.summary.unavailable.message'),
+      detailItems: [
+        {
+          label: i18nStore.t('ticketDetail.runtime.detail.agent'),
+          value: `${ticket.assignedAgent.name} · ${i18nStore.t(
+            'ticketDetail.runtime.agentState.paused',
+          )}`,
+        },
+      ],
     }
   }
 
   switch (ticket.assignedAgent?.runtimePhase) {
     case 'failed':
       return {
-        label: 'Failed',
+        label: i18nStore.t('ticketDetail.runtime.summary.failed.label'),
         tone: 'danger',
-        message: 'Latest attempt failed — needs attention.',
+        message: i18nStore.t('ticketDetail.runtime.summary.failed.message'),
         detailItems: [],
       }
     case 'launching':
       return {
-        label: 'Launching',
+        label: i18nStore.t('ticketDetail.runtime.summary.launching.label'),
         tone: 'info',
-        message: 'Agent is spinning up the runtime.',
+        message: i18nStore.t('ticketDetail.runtime.summary.launching.message'),
         detailItems: [],
       }
     case 'ready':
     case 'executing':
       return {
-        label: 'Running',
+        label: i18nStore.t('ticketDetail.runtime.summary.running.label'),
         tone: 'success',
-        message: 'Agent runtime is live.',
+        message: i18nStore.t('ticketDetail.runtime.summary.running.message'),
         timestamp: ticket.startedAt,
         detailItems: [],
       }
     default:
+      if (ticket.assignedAgent) {
+        return {
+          label: i18nStore.t('ticketDetail.runtime.summary.assigned.label'),
+          tone: 'neutral',
+          message: i18nStore.t('ticketDetail.runtime.summary.assigned.message'),
+          detailItems: [],
+        }
+      }
       return {
-        label: ticket.assignedAgent ? 'Assigned' : 'Waiting',
+        label: i18nStore.t('ticketDetail.runtime.summary.waiting.label'),
         tone: 'neutral',
-        message: ticket.assignedAgent
-          ? 'Agent bound, no active runtime.'
-          : 'No agent runtime attached yet.',
+        message: i18nStore.t('ticketDetail.runtime.summary.waiting.noAgentMessage'),
         detailItems: [],
       }
   }

@@ -17,6 +17,7 @@
   import { cn } from '$lib/utils'
   import type { Component, Snippet } from 'svelte'
   import { Activity, FolderOpen, KeyRound, Settings, Shield, Users } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     organizationId,
@@ -38,16 +39,26 @@
 
   type NavItem = { label: string; href: string; icon: Component }
 
+  const t = i18nStore.t
+
   const adminTabs = $derived<NavItem[]>([
-    { label: 'Members', href: `${organizationPath(organizationId)}/admin/members`, icon: Users },
-    { label: 'Roles', href: `${organizationPath(organizationId)}/admin/roles`, icon: Shield },
     {
-      label: 'Credentials',
+      label: t('orgAdmin.shell.tabs.members'),
+      href: `${organizationPath(organizationId)}/admin/members`,
+      icon: Users,
+    },
+    {
+      label: t('orgAdmin.shell.tabs.roles'),
+      href: `${organizationPath(organizationId)}/admin/roles`,
+      icon: Shield,
+    },
+    {
+      label: t('orgAdmin.shell.tabs.credentials'),
       href: `${organizationPath(organizationId)}/admin/credentials`,
       icon: KeyRound,
     },
     {
-      label: 'Settings',
+      label: t('orgAdmin.shell.tabs.settings'),
       href: `${organizationPath(organizationId)}/admin/settings`,
       icon: Settings,
     },
@@ -100,10 +111,8 @@
         if (cancelled || controller.signal.aborted) {
           return
         }
-        error =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : 'Failed to load organization admin diagnostics.'
+        const loadError = t('orgAdmin.shell.errors.loadDiagnostics')
+        error = caughtError instanceof ApiError ? caughtError.detail : loadError
       } finally {
         if (!cancelled) {
           loading = false
@@ -124,26 +133,36 @@
 </svelte:head>
 
 <PageScaffold
-  title="Organization admin"
-  description="Members, invitations, roles, credentials, and organization settings."
+  title={t('orgAdmin.shell.pageTitle')}
+  description={t('orgAdmin.shell.pageDescription')}
 >
   <div class="space-y-6">
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard label="Members" value={memberStats.active} icon={Users} {loading} />
-      <StatCard label="Projects" value={summary?.project_count ?? 0} icon={FolderOpen} {loading} />
-      <StatCard
-        label="Org access"
-        value={permissions?.roles?.length ? permissions.roles.join(', ') : '—'}
-        icon={Shield}
-        {loading}
-      />
-      <StatCard
-        label="7d token usage"
-        value={tokenSummary?.total_tokens ?? 0}
-        icon={Activity}
-        {loading}
-      />
-    </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label={t('orgAdmin.shell.stats.members')}
+          value={memberStats.active}
+          icon={Users}
+          {loading}
+        />
+        <StatCard
+          label={t('orgAdmin.shell.stats.projects')}
+          value={summary?.project_count ?? 0}
+          icon={FolderOpen}
+          {loading}
+        />
+        <StatCard
+          label={t('orgAdmin.shell.stats.access')}
+          value={permissions?.roles?.length ? permissions.roles.join(', ') : '—'}
+          icon={Shield}
+          {loading}
+        />
+        <StatCard
+          label={t('orgAdmin.shell.stats.tokenUsage')}
+          value={tokenSummary?.total_tokens ?? 0}
+          icon={Activity}
+          {loading}
+        />
+      </div>
 
     <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
       <nav class="flex w-full shrink-0 flex-wrap gap-1 lg:w-[180px] lg:flex-col lg:gap-0.5">

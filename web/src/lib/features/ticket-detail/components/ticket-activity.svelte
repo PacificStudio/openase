@@ -8,12 +8,13 @@
   import Settings from '@lucide/svelte/icons/settings'
   import { cn, formatRelativeTime } from '$lib/utils'
   import { activityEventTone } from '$lib/features/activity'
+  import { ticketsT } from '$lib/features/tickets/i18n'
   import type { TicketActivity } from '../types'
 
   let {
     activities,
-    label = 'Activity',
-    emptyText = 'No activity yet',
+    label = ticketsT('tickets.activity.label'),
+    emptyText = ticketsT('tickets.activity.empty'),
   }: {
     activities: TicketActivity[]
     label?: string

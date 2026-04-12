@@ -20,6 +20,7 @@ import {
   type WorkspaceTab,
   type WorkspaceTabFileState,
 } from './project-conversation-workspace-browser-state-helpers'
+import { chatT } from './i18n'
 export type {
   WorkspaceFileEditorState,
   WorkspaceTab,
@@ -260,8 +261,7 @@ export function createProjectConversationWorkspaceBrowserState(input: {
       expandedDirs = new Set()
       loadingDirs = new Set()
       closeAllTabs()
-      metadataError =
-        error instanceof Error ? error.message : 'Failed to load the Project AI workspace.'
+      metadataError = error instanceof Error ? error.message : chatT('chat.workspace.errors.load')
     } finally {
       if (requestID === loadRequestID && conversationId === input.getConversationId()) {
         metadataLoading = false

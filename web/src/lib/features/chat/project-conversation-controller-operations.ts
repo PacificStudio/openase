@@ -13,6 +13,7 @@ import {
   type CreateProjectConversationControllerInput,
   type ProjectConversationTabState,
 } from './project-conversation-controller-state'
+import { chatT } from './i18n'
 
 type ProjectConversationControllerOperationsInput = {
   controllerInput: CreateProjectConversationControllerInput
@@ -172,7 +173,7 @@ export function createProjectConversationControllerOperations(
     } catch (caughtError) {
       activeTab.phase = previousPhase
       input.controllerInput.onError?.(
-        caughtError instanceof Error ? caughtError.message : 'Failed to stop the current turn.',
+        caughtError instanceof Error ? caughtError.message : chatT('chat.errors.stopTurn'),
       )
     }
   }
@@ -193,7 +194,7 @@ export function createProjectConversationControllerOperations(
     } catch (caughtError) {
       activeTab.phase = 'awaiting_interrupt'
       input.controllerInput.onError?.(
-        caughtError instanceof Error ? caughtError.message : 'Failed to answer interrupt.',
+        caughtError instanceof Error ? caughtError.message : chatT('chat.errors.answerInterrupt'),
       )
     }
   }

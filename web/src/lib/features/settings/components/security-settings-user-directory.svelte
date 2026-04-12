@@ -16,6 +16,7 @@
   import { Users } from '@lucide/svelte'
   import SecuritySettingsUserDirectoryDetail from './security-settings-user-directory-detail.svelte'
   import SecuritySettingsUserDirectoryList from './security-settings-user-directory-list.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     canRead = false,
@@ -67,7 +68,10 @@
       users = []
       selectedUserId = ''
       selectedDetail = null
-      error = formatError(caughtError, 'Failed to load the user directory.')
+      error = formatError(
+        caughtError,
+        i18nStore.t('settings.security.userDirectory.errors.loadDirectory'),
+      )
     } finally {
       loading = false
     }
@@ -84,7 +88,7 @@
       statusReason = selectedDetail.latestStatusAudit?.reason ?? ''
     } catch (caughtError) {
       selectedDetail = null
-      error = formatError(caughtError, 'Failed to load user detail.')
+      error = formatError(caughtError, i18nStore.t('settings.security.userDirectory.errors.loadDetail'))
     } finally {
       detailLoading = false
     }
@@ -94,7 +98,7 @@
       return
     }
     if (statusReason.trim() === '') {
-      toastStore.error('Reason is required for user status changes.')
+      toastStore.error(i18nStore.t('settings.security.userDirectory.errors.reasonRequired'))
       return
     }
 
@@ -107,14 +111,19 @@
       })
       toastStore.success(
         status === 'disabled'
-          ? `Disabled user and revoked ${result.revokedSessionCount} session(s).`
-          : 'User enabled.',
+          ? i18nStore.t('settings.security.userDirectory.messages.disabledAndRevoked', {
+              count: result.revokedSessionCount,
+            })
+          : i18nStore.t('settings.security.userDirectory.messages.userEnabled'),
       )
       statusReason = result.latestStatusAudit?.reason ?? statusReason
       await loadUsers()
       await loadDetail(result.user.id)
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to change user status.')
+      const message = formatError(
+        caughtError,
+        i18nStore.t('settings.security.userDirectory.errors.changeStatus'),
+      )
       error = message
       toastStore.error(message)
     } finally {
@@ -136,10 +145,17 @@
         )
         return
       }
-      toastStore.success(`Revoked ${result.revoked_count} browser session(s).`)
+      toastStore.success(
+        i18nStore.t('settings.security.userDirectory.messages.revokedSessions', {
+          count: result.revoked_count,
+        }),
+      )
       await loadDetail(selectedDetail.user.id)
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to revoke user sessions.')
+      const message = formatError(
+        caughtError,
+        i18nStore.t('settings.security.userDirectory.errors.revokeSessions'),
+      )
       error = message
       toastStore.error(message)
     } finally {
@@ -161,10 +177,13 @@
         )
         return
       }
-      toastStore.success('Session revoked.')
+      toastStore.success(i18nStore.t('settings.security.userDirectory.messages.sessionRevoked'))
       await loadDetail(selectedDetail.user.id)
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to revoke session.')
+      const message = formatError(
+        caughtError,
+        i18nStore.t('settings.security.userDirectory.errors.revokeSession'),
+      )
       error = message
       toastStore.error(message)
     } finally {
@@ -199,7 +218,9 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <Users class="text-muted-foreground size-4" />
-    <h4 class="text-sm font-semibold">User directory and deprovision</h4>
+    <h4 class="text-sm font-semibold">
+      {i18nStore.t('settings.security.userDirectory.heading')}
+    </h4>
   </div>
 
   <div class="space-y-4">
@@ -208,18 +229,22 @@
         <div class="relative flex-1">
           <Input
             bind:value={searchQuery}
-            placeholder="Search email, display name, issuer, or subject"
+            placeholder={i18nStore.t('settings.security.userDirectory.placeholders.search')}
           />
         </div>
         <label class="flex min-w-[10rem] flex-col gap-1 text-xs">
-          <span class="text-muted-foreground">Status</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('settings.security.userDirectory.labels.status')}
+          </span>
           <select
             bind:value={statusFilter}
             class="border-input bg-background ring-offset-background focus-visible:ring-ring h-10 rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="disabled">Disabled</option>
+            <option value="all">{i18nStore.t('settings.security.userDirectory.statusOptions.all')}</option>
+            <option value="active">{i18nStore.t('settings.security.userDirectory.statusOptions.active')}</option>
+            <option value="disabled">
+              {i18nStore.t('settings.security.userDirectory.statusOptions.disabled')}
+            </option>
           </select>
         </label>
       </div>

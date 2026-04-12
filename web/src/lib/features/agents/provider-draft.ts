@@ -12,12 +12,33 @@ import {
   parseProviderPricingConfig,
 } from './provider-pricing'
 import { parseSecretBindings, stringifySecretBindingsDraft } from './provider-secret-bindings'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
 export const providerAdapterOptions: Array<{ value: ProviderAdapterType; label: string }> = [
-  { value: 'claude-code-cli', label: 'Claude Code CLI' },
-  { value: 'codex-app-server', label: 'Codex App Server' },
-  { value: 'gemini-cli', label: 'Gemini CLI' },
-  { value: 'custom', label: 'Custom' },
+  {
+    value: 'claude-code-cli',
+    get label() {
+      return i18nStore.t('agents.providerAdapter.claudeCodeCli')
+    },
+  },
+  {
+    value: 'codex-app-server',
+    get label() {
+      return i18nStore.t('agents.providerAdapter.codexAppServer')
+    },
+  },
+  {
+    value: 'gemini-cli',
+    get label() {
+      return i18nStore.t('agents.providerAdapter.geminiCli')
+    },
+  },
+  {
+    value: 'custom',
+    get label() {
+      return i18nStore.t('agents.providerAdapter.custom')
+    },
+  },
 ]
 
 export const providerPermissionProfileOptions: Array<{
@@ -27,13 +48,21 @@ export const providerPermissionProfileOptions: Array<{
 }> = [
   {
     value: 'unrestricted',
-    label: 'Unrestricted',
-    description: 'Auto-approve all actions. Codex also disables sandbox boundaries.',
+    get label() {
+      return i18nStore.t('agents.providerPermission.unrestricted.label')
+    },
+    get description() {
+      return i18nStore.t('agents.providerPermission.unrestricted.description')
+    },
   },
   {
     value: 'standard',
-    label: 'Standard',
-    description: 'Do not inject provider-managed bypass flags. Use only if prompts are acceptable.',
+    get label() {
+      return i18nStore.t('agents.providerPermission.standard.label')
+    },
+    get description() {
+      return i18nStore.t('agents.providerPermission.standard.description')
+    },
   },
 ]
 

@@ -5,6 +5,7 @@ import {
   isTextPayload,
   mapProjectConversationTaskEntry,
 } from './project-conversation-transcript-state'
+import { chatT } from './i18n'
 
 type ProjectConversationStreamHandlers = {
   appendAssistantChunk: (content: string) => void
@@ -138,8 +139,10 @@ export function handleProjectConversationStreamEvent(
     handlers.finalizeAssistantEntry()
     handlers.appendTaskStatus({
       statusType: 'reasoning_updated',
-      title: 'Reasoning update',
-      detail: event.payload.delta || `Kind: ${event.payload.kind.replace(/_/g, ' ')}`,
+      title: chatT('chat.task.reasoningUpdate'),
+      detail:
+        event.payload.delta ||
+        chatT('chat.reasoningKindLabel', { kind: event.payload.kind.replace(/_/g, ' ') }),
       raw: {
         thread_id: event.payload.threadId,
         turn_id: event.payload.turnId,
@@ -159,7 +162,7 @@ export function handleProjectConversationStreamEvent(
     if (event.payload.reason !== 'stopped_by_user') {
       handlers.appendTaskStatus({
         statusType: 'interrupted',
-        title: 'Turn interrupted',
+        title: chatT('chat.status.turnInterrupted'),
         detail: event.payload.message,
         raw: {
           conversation_id: event.payload.conversationId,
@@ -176,10 +179,10 @@ export function handleProjectConversationStreamEvent(
     handlers.finalizeAssistantEntry()
     handlers.appendTaskStatus({
       statusType: 'turn_done',
-      title: 'Turn completed',
+      title: chatT('chat.status.turnCompleted'),
       detail:
         typeof event.payload.costUSD === 'number'
-          ? `Cost: $${event.payload.costUSD.toFixed(2)}`
+          ? chatT('chat.turnCost', { cost: `$${event.payload.costUSD.toFixed(2)}` })
           : undefined,
     })
     handlers.setPending(false)
@@ -189,7 +192,7 @@ export function handleProjectConversationStreamEvent(
   handlers.finalizeAssistantEntry()
   handlers.appendTaskStatus({
     statusType: 'error',
-    title: 'Turn failed',
+    title: chatT('chat.status.turnFailed'),
     detail: event.payload.message,
   })
   handlers.setPending(false)

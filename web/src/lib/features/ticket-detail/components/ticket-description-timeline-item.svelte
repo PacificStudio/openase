@@ -6,6 +6,7 @@
   import { Textarea } from '$ui/textarea'
   import { cn, formatRelativeTime } from '$lib/utils'
   import TicketMarkdownContent from './ticket-markdown-content.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { TicketDescriptionTimelineItem, TicketDetail } from '../types'
 
   let {
@@ -66,7 +67,7 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 text-sm">
             <span class="font-medium">{item.actor.name}</span>
-            <span class="text-muted-foreground">opened this ticket</span>
+            <span class="text-muted-foreground">{i18nStore.t('ticketDetail.descriptionTimeline.opened')}</span>
             <Badge variant="outline" class="h-5 px-2 text-[10px]">
               {item.identifier ?? ticket.identifier}
             </Badge>
@@ -76,12 +77,14 @@
           </div>
         </div>
         <div class="flex items-center gap-1">
-          <Badge variant="outline" class="text-[10px]">Description</Badge>
+          <Badge variant="outline" class="text-[10px]">
+            {i18nStore.t('ticketDetail.descriptionTimeline.badge')}
+          </Badge>
           {#if !editing}
             <Button
               size="icon-xs"
               variant="ghost"
-              aria-label="Edit description"
+              aria-label={i18nStore.t('ticketDetail.descriptionTimeline.actions.edit')}
               onclick={beginEdit}
               disabled={savingFields}
             >
@@ -96,18 +99,27 @@
           <div class="space-y-3">
             <Textarea rows={8} bind:value={draft} disabled={savingFields} />
             <div class="flex justify-end gap-2">
-              <Button size="sm" variant="outline" onclick={cancelEdit} disabled={savingFields}>
-                Cancel
+              <Button
+                size="sm"
+                variant="outline"
+                onclick={cancelEdit}
+                disabled={savingFields}
+              >
+                {i18nStore.t('ticketDetail.descriptionTimeline.actions.cancel')}
               </Button>
               <Button size="sm" onclick={handleSave} disabled={savingFields}>
-                {savingFields ? 'Saving…' : 'Save'}
+                {savingFields
+                  ? i18nStore.t('ticketDetail.descriptionTimeline.actions.saving')
+                  : i18nStore.t('ticketDetail.descriptionTimeline.actions.save')}
               </Button>
             </div>
           </div>
         {:else if item.bodyMarkdown.trim()}
           <TicketMarkdownContent source={item.bodyMarkdown} />
         {:else}
-          <p class="text-muted-foreground text-sm italic">No description provided.</p>
+          <p class="text-muted-foreground text-sm italic">
+            {i18nStore.t('ticketDetail.descriptionTimeline.empty')}
+          </p>
         {/if}
       </div>
     </article>

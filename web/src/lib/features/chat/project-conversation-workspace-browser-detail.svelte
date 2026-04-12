@@ -15,6 +15,7 @@
     workspaceFileStateLabel,
   } from './project-conversation-workspace-browser-detail-state'
   import { workspaceFileReadOnlyMessage } from './project-conversation-workspace-file-drafts'
+  import { chatT } from './i18n'
 
   let {
     browser,
@@ -107,16 +108,16 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      Select a repo to browse its files.
+      {chatT('chat.selectRepoHelp')}
     </div>
   {:else if browser.openTabs.length === 0}
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      <div class="space-y-2">
-        <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
-        <p>Select a file to view its contents</p>
-      </div>
+        <div class="space-y-2">
+          <FileCode2 class="text-muted-foreground/30 mx-auto size-10" />
+          <p>{chatT('chat.selectFileHelp')}</p>
+        </div>
     </div>
   {:else}
     <div
@@ -144,24 +145,24 @@
         >
           <FileCode2 class="size-3 shrink-0 opacity-60" />
           <span class="min-w-0 truncate">{tabName}</span>
-          <span
-            role="button"
-            tabindex="0"
-            class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
-            aria-label={`Close ${tabName}`}
-            onclick={(event) => requestCloseTab(event, tab.repoPath, tab.filePath)}
-            onkeydown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                event.stopPropagation()
-                requestCloseTab(event as unknown as MouseEvent, tab.repoPath, tab.filePath)
-              }
-            }}
-          >
+            <span
+              role="button"
+              tabindex="0"
+              class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
+              aria-label={chatT('chat.closeTab', { tabName })}
+              onclick={(event) => requestCloseTab(event, tab.repoPath, tab.filePath)}
+              onkeydown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  requestCloseTab(event as unknown as MouseEvent, tab.repoPath, tab.filePath)
+                }
+              }}
+            >
             {#if dirty}
               <span
                 class="size-1.5 rounded-full bg-orange-500"
-                aria-label="Unsaved changes"
+                aria-label={chatT('chat.unsavedChanges')}
                 data-testid="workspace-browser-detail-tab-dirty-dot"
               ></span>
             {:else}
@@ -214,9 +215,17 @@
             <Button
               variant={wrapMode === 'wrap' ? 'secondary' : 'ghost'}
               size="icon-xs"
-              aria-label={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+              aria-label={
+                wrapMode === 'wrap'
+                  ? chatT('chat.disableLineWrap')
+                  : chatT('chat.enableLineWrap')
+              }
               aria-pressed={wrapMode === 'wrap'}
-              title={wrapMode === 'wrap' ? 'Disable line wrap' : 'Enable line wrap'}
+              title={
+                wrapMode === 'wrap'
+                  ? chatT('chat.disableLineWrap')
+                  : chatT('chat.enableLineWrap')
+              }
               data-testid="workspace-browser-wrap-toggle"
               onclick={toggleWrapMode}
             >
@@ -230,7 +239,7 @@
               disabled={!activeEditorState.dirty || activeEditorState.savePhase === 'saving'}
               onclick={() => browser.revertSelectedDraft()}
             >
-              Revert
+              {chatT('chat.revert')}
             </Button>
             <Button
               size="sm"
@@ -239,7 +248,7 @@
                 activePreview?.writable !== true}
               onclick={() => void browser.saveSelectedFile()}
             >
-              {activeEditorState.savePhase === 'saving' ? 'Saving...' : 'Save'}
+              {activeEditorState.savePhase === 'saving' ? chatT('chat.saving') : chatT('chat.save')}
             </Button>
           {/if}
           {#if activePreview}
@@ -248,7 +257,9 @@
             </span>
           {/if}
           {#if activeFileLoading}
-            <span class="text-muted-foreground/50 text-[10px]">Loading…</span>
+            <span class="text-muted-foreground/50 text-[10px]">
+              {chatT('chat.loadingEllipsis')}
+            </span>
           {/if}
         </div>
       </div>
@@ -257,8 +268,7 @@
         <div
           class="bg-muted/40 text-muted-foreground border-border border-b px-3 py-1.5 text-[11px]"
         >
-          Project AI can keep updating this workspace during active turns. Your local draft stays
-          preserved.
+          {chatT('chat.workspaceLiveUpdateNotice')}
         </div>
       {/if}
 
@@ -271,14 +281,13 @@
           class="flex flex-wrap items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm"
         >
           <span class="text-amber-900">
-            {activeEditorState.errorMessage ||
-              'This file changed in the workspace while your draft was open.'}
+            {activeEditorState.errorMessage || chatT('chat.fileChangedWhileEditing')}
           </span>
           <Button size="sm" variant="ghost" onclick={() => browser.reloadSelectedSavedVersion()}>
-            Reload saved version
+            {chatT('chat.reloadSavedVersion')}
           </Button>
           <Button size="sm" variant="ghost" onclick={() => browser.keepSelectedDraft()}>
-            Keep my draft
+            {chatT('chat.keepMyDraft')}
           </Button>
         </div>
       {:else if activeEditorState?.errorMessage}
@@ -290,7 +299,7 @@
       <div class="min-h-0 flex-1 overflow-hidden" data-testid="workspace-browser-detail-content">
         {#if activePreview?.previewKind === 'binary'}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-            <div class="mx-auto max-w-md">Binary file — not rendered inline.</div>
+            <div class="mx-auto max-w-md">{chatT('chat.binaryFileNotice')}</div>
           </div>
         {:else if activeEditorState && activePreview}
           <div
@@ -309,11 +318,11 @@
           </div>
         {:else if activeFileLoading}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-            Loading…
+            {chatT('chat.loadingEllipsis')}
           </div>
         {:else}
           <div class="text-muted-foreground h-full overflow-auto px-4 py-8 text-center text-sm">
-            Select a file to view its contents.
+            {chatT('chat.selectFileHelp')}
           </div>
         {/if}
       </div>
@@ -327,21 +336,23 @@
     if (!next) dismissDialog()
   }}
 >
-  <Dialog.Content class="sm:max-w-md">
-    <Dialog.Header>
-      <Dialog.Title>Save changes?</Dialog.Title>
-      <Dialog.Description>
-        {pendingCloseFilename()} has unsaved changes. Save them before closing the tab?
-      </Dialog.Description>
-    </Dialog.Header>
-    <Dialog.Footer>
-      <Button variant="ghost" onclick={dismissDialog} disabled={saving}>Cancel</Button>
-      <Button variant="ghost" onclick={confirmDiscardAndClose} disabled={saving}>
-        Don&apos;t save
-      </Button>
-      <Button onclick={confirmSaveAndClose} disabled={saving}>
-        {saving ? 'Saving…' : 'Save'}
-      </Button>
-    </Dialog.Footer>
-  </Dialog.Content>
+    <Dialog.Content class="sm:max-w-md">
+      <Dialog.Header>
+        <Dialog.Title>{chatT('chat.saveChangesTitle')}</Dialog.Title>
+        <Dialog.Description>
+          {chatT('chat.saveChangesDescription', { fileName: pendingCloseFilename() })}
+        </Dialog.Description>
+      </Dialog.Header>
+      <Dialog.Footer>
+        <Button variant="ghost" onclick={dismissDialog} disabled={saving}>
+          {chatT('common.cancel')}
+        </Button>
+        <Button variant="ghost" onclick={confirmDiscardAndClose} disabled={saving}>
+          {chatT('chat.dontSave')}
+        </Button>
+        <Button onclick={confirmSaveAndClose} disabled={saving}>
+          {saving ? chatT('chat.saving') : chatT('chat.save')}
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Content>
 </Dialog.Root>

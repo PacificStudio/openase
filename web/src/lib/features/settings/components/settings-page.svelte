@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { PageScaffold } from '$lib/components/layout'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
   import type { SettingsSection } from '../types'
   import { settingsSections } from '../types'
@@ -49,7 +50,7 @@
   })
 </script>
 
-<PageScaffold title="Settings">
+<PageScaffold title={i18nStore.t('settings.page.title')}>
   <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
     <SettingsNav active={activeSection} onSelect={handleSelect} />
 

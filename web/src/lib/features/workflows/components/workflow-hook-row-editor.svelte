@@ -10,6 +10,8 @@
     type WorkflowHookRowDraft,
     type WorkflowHookRowDraftErrors,
   } from '../workflow-hooks'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     row,
@@ -39,6 +41,10 @@
       .join(' '),
   )
 
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
+
   function updateRow(patch: Partial<WorkflowHookRowDraft>) {
     onChange?.({
       ...row,
@@ -56,7 +62,7 @@
         variant="ghost"
         size="icon-xs"
         {disabled}
-        aria-label={`Duplicate ${title}`}
+        aria-label={t('workflows.hooks.rowEditor.actions.duplicateAria', { title })}
         onclick={() => onDuplicate?.()}
       >
         <Copy class="size-3.5" />
@@ -67,7 +73,7 @@
         size="icon-xs"
         class="text-destructive hover:text-destructive"
         {disabled}
-        aria-label={`Delete ${title}`}
+        aria-label={t('workflows.hooks.rowEditor.actions.deleteAria', { title })}
         onclick={() => onDelete?.()}
       >
         <Trash2 class="size-3.5" />
@@ -76,15 +82,17 @@
   </div>
 
   <div class="space-y-1.5">
-    <Label for={`${row.id}-cmd`}>Command</Label>
-    <Input
-      id={`${row.id}-cmd`}
-      value={row.cmd}
-      {disabled}
-      placeholder="bash scripts/ci/run-tests.sh"
-      aria-invalid={errors.cmd ? 'true' : undefined}
-      oninput={(event) => updateRow({ cmd: (event.currentTarget as HTMLInputElement).value })}
-    />
+    <Label for={`${row.id}-cmd`}>
+      {t('workflows.hooks.rowEditor.labels.command')}
+    </Label>
+      <Input
+        id={`${row.id}-cmd`}
+        value={row.cmd}
+        {disabled}
+        placeholder={t('workflows.hooks.rowEditor.placeholders.command')}
+        aria-invalid={errors.cmd ? 'true' : undefined}
+        oninput={(event) => updateRow({ cmd: (event.currentTarget as HTMLInputElement).value })}
+      />
     {#if errors.cmd}
       <p class="text-destructive text-xs">{errors.cmd}</p>
     {/if}
@@ -92,7 +100,9 @@
 
   <div class="grid gap-3 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for={`${row.id}-timeout`}>Timeout (sec)</Label>
+      <Label for={`${row.id}-timeout`}>
+        {t('workflows.hooks.rowEditor.labels.timeout')}
+      </Label>
       <Input
         id={`${row.id}-timeout`}
         type="number"
@@ -101,7 +111,7 @@
         inputmode="numeric"
         value={row.timeout}
         {disabled}
-        placeholder="Omit"
+        placeholder={t('workflows.hooks.rowEditor.placeholders.omit')}
         aria-invalid={errors.timeout ? 'true' : undefined}
         oninput={(event) => updateRow({ timeout: (event.currentTarget as HTMLInputElement).value })}
       />
@@ -111,7 +121,7 @@
     </div>
 
     <div class="space-y-1.5">
-      <Label>On Failure</Label>
+      <Label>{t('workflows.hooks.rowEditor.labels.onFailure')}</Label>
       <Select.Root
         type="single"
         value={row.onFailure}
@@ -136,12 +146,14 @@
 
   {#if allowWorkdir}
     <div class="space-y-1.5">
-      <Label for={`${row.id}-workdir`}>Workdir</Label>
+      <Label for={`${row.id}-workdir`}>
+        {t('workflows.hooks.rowEditor.labels.workdir')}
+      </Label>
       <Input
         id={`${row.id}-workdir`}
         value={row.workdir}
         {disabled}
-        placeholder="frontend"
+        placeholder={t('workflows.hooks.rowEditor.placeholders.workdir')}
         oninput={(event) => updateRow({ workdir: (event.currentTarget as HTMLInputElement).value })}
       />
     </div>

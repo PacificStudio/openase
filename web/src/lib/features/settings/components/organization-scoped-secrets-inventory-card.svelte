@@ -7,6 +7,7 @@
   import { Label } from '$ui/label'
   import { Skeleton } from '$ui/skeleton'
   import { formatSecretTimestamp, normalizeUsageScopes, usageIndicator } from '../scoped-secrets'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     loading,
@@ -101,9 +102,11 @@
   </div>
 {:else if secrets.length === 0}
   <div class="border-border rounded-md border border-dashed p-8 text-center">
-    <p class="text-foreground text-sm font-medium">No organization secrets yet</p>
+    <p class="text-foreground text-sm font-medium">
+      {i18nStore.t('settings.organizationSecrets.inventory.messages.noSecrets')}
+    </p>
     <p class="text-muted-foreground mt-1 text-sm">
-      Add a secret above — it will be available in every project in this org.
+      {i18nStore.t('settings.organizationSecrets.inventory.messages.addHint')}
     </p>
   </div>
 {:else}
@@ -114,20 +117,33 @@
           <div class="min-w-0 space-y-1.5">
             <div class="flex flex-wrap items-center gap-2">
               <span class="text-foreground text-sm font-semibold">{secret.name}</span>
-              <Badge variant="secondary">Organization</Badge>
+              <Badge variant="secondary">
+                {i18nStore.t('settings.organizationSecrets.inventory.badge.organization')}
+              </Badge>
               {#if secret.disabled}
-                <Badge variant="destructive">Disabled</Badge>
+                <Badge variant="destructive">
+                  {i18nStore.t('settings.organizationSecrets.inventory.status.disabled')}
+                </Badge>
               {/if}
             </div>
             <p class="text-muted-foreground text-sm">
-              {secret.description || 'No description.'}
+              {secret.description ||
+                i18nStore.t('settings.organizationSecrets.inventory.messages.noDescription')}
             </p>
             <div class="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
               <code class="bg-muted rounded px-1 py-0.5 font-mono">
                 {secret.encryption.value_preview}
               </code>
-              <span>Rotated {formatSecretTimestamp(secret.encryption.rotated_at)}</span>
-              <span>Updated {formatSecretTimestamp(secret.updated_at)}</span>
+              <span>
+                {i18nStore.t('settings.organizationSecrets.inventory.labels.rotated', {
+                  rotatedAt: formatSecretTimestamp(secret.encryption.rotated_at),
+                })}
+              </span>
+              <span>
+                {i18nStore.t('settings.organizationSecrets.inventory.labels.updated', {
+                  updatedAt: formatSecretTimestamp(secret.updated_at),
+                })}
+              </span>
             </div>
             <div class="flex flex-wrap gap-1">
               <Badge variant="outline">{usageIndicator(secret)}</Badge>
@@ -138,17 +154,23 @@
           </div>
 
           <div class="flex shrink-0 flex-wrap gap-2">
-            <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>Rotate</Button>
+            <Button variant="outline" size="sm" onclick={() => openRotate(secret)}>
+              {i18nStore.t('settings.organizationSecrets.inventory.buttons.rotate')}
+            </Button>
             <Button
               variant="outline"
               size="sm"
               onclick={() => openConfirm('disable', secret)}
               disabled={secret.disabled}
             >
-              Disable
+              {i18nStore.t('settings.organizationSecrets.inventory.buttons.disable')}
             </Button>
-            <Button variant="destructive" size="sm" onclick={() => openConfirm('delete', secret)}>
-              Delete
+            <Button
+              variant="destructive"
+              size="sm"
+              onclick={() => openConfirm('delete', secret)}
+            >
+              {i18nStore.t('settings.organizationSecrets.inventory.buttons.delete')}
             </Button>
           </div>
         </div>
@@ -160,34 +182,45 @@
 <!-- Rotate dialog -->
 <Dialog.Root bind:open={rotateOpen}>
   <Dialog.Content class="sm:max-w-md">
-    <Dialog.Header>
-      <Dialog.Title>Rotate {rotateTarget?.name}</Dialog.Title>
-      <Dialog.Description>
-        Paste the new secret value. The previous value is immediately replaced and cannot be
-        recovered.
-      </Dialog.Description>
-    </Dialog.Header>
+  <Dialog.Header>
+    <Dialog.Title>
+      {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateTitle', {
+        secret: rotateTarget?.name ?? '',
+      })}
+    </Dialog.Title>
+    <Dialog.Description>
+      {i18nStore.t('settings.organizationSecrets.inventory.dialogs.rotateDescription')}
+    </Dialog.Description>
+  </Dialog.Header>
     <div class="space-y-1.5">
-      <Label for="org-rotate-value">New value</Label>
+      <Label for="org-rotate-value">
+        {i18nStore.t('settings.organizationSecrets.inventory.labels.newValue')}
+      </Label>
       <Input
         id="org-rotate-value"
         type="password"
         bind:value={rotateDraft}
-        placeholder="Paste the new secret value"
+        placeholder={i18nStore.t(
+          'settings.organizationSecrets.inventory.placeholders.newValue',
+        )}
         onkeydown={(e) => {
           if (e.key === 'Enter') submitRotate()
         }}
       />
     </div>
     <Dialog.Footer>
-      <Dialog.Close>
-        {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={rotateSubmitting}>Cancel</Button>
-        {/snippet}
-      </Dialog.Close>
-      <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
-        {rotateSubmitting ? 'Rotating…' : 'Confirm rotate'}
-      </Button>
+        <Dialog.Close>
+          {#snippet child({ props })}
+            <Button variant="outline" {...props} disabled={rotateSubmitting}>
+              {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
+            </Button>
+          {/snippet}
+        </Dialog.Close>
+        <Button onclick={submitRotate} disabled={rotateSubmitting || !rotateDraft.trim()}>
+          {rotateSubmitting
+            ? i18nStore.t('settings.organizationSecrets.inventory.buttons.rotating')
+            : i18nStore.t('settings.organizationSecrets.inventory.buttons.confirmRotate')}
+        </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -197,23 +230,32 @@
   <Dialog.Content class="sm:max-w-sm">
     <Dialog.Header>
       <Dialog.Title>
-        {confirmTarget?.kind === 'delete' ? 'Delete' : 'Disable'}
-        {confirmTarget?.secret.name}?
+        {i18nStore.t('settings.organizationSecrets.inventory.confirmDialogs.title', {
+          action:
+            confirmTarget?.kind === 'delete'
+              ? i18nStore.t('settings.organizationSecrets.inventory.buttons.delete')
+              : i18nStore.t('settings.organizationSecrets.inventory.buttons.disable'),
+          secret: confirmTarget?.secret.name ?? '',
+        })}
       </Dialog.Title>
       <Dialog.Description>
         {#if confirmTarget?.kind === 'delete'}
-          This permanently removes the secret and its binding from every project that inherits it.
-          This cannot be undone.
+          {i18nStore.t('settings.organizationSecrets.inventory.confirmDialogs.deleteDescription')}
         {:else}
-          Projects will fall back to a lower-precedence value when available. You can re-enable this
-          secret later.
+          {i18nStore.t('settings.organizationSecrets.inventory.confirmDialogs.disableDescription')}
         {/if}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={confirmSubmitting}>Cancel</Button>
+        <Button
+          variant="outline"
+          {...props}
+          disabled={confirmSubmitting}
+        >
+          {i18nStore.t('settings.organizationSecrets.inventory.buttons.cancel')}
+        </Button>
         {/snippet}
       </Dialog.Close>
       <Button
@@ -222,9 +264,13 @@
         disabled={confirmSubmitting}
       >
         {#if confirmSubmitting}
-          {confirmTarget?.kind === 'delete' ? 'Deleting…' : 'Disabling…'}
+          {confirmTarget?.kind === 'delete'
+            ? i18nStore.t('settings.organizationSecrets.inventory.buttons.deleting')
+            : i18nStore.t('settings.organizationSecrets.inventory.buttons.disabling')}
         {:else}
-          {confirmTarget?.kind === 'delete' ? 'Delete' : 'Disable'}
+          {confirmTarget?.kind === 'delete'
+            ? i18nStore.t('settings.organizationSecrets.inventory.buttons.delete')
+            : i18nStore.t('settings.organizationSecrets.inventory.buttons.disable')}
         {/if}
       </Button>
     </Dialog.Footer>

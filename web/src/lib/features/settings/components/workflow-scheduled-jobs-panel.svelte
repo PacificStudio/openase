@@ -15,20 +15,22 @@
   import WorkflowScheduledJobsLoading from './workflow-scheduled-jobs-loading.svelte'
   import WorkflowScheduledJobList from './workflow-scheduled-job-list.svelte'
   import WorkflowScheduledJobsSummary from './workflow-scheduled-jobs-summary.svelte'
-  import {
-    emptyScheduledJobDraft,
-    parseScheduledJobDraft,
-    scheduledJobDraftFromRecord,
-    type ScheduledJobDraft,
-  } from './workflow-scheduled-jobs'
+import {
+  emptyScheduledJobDraft,
+  parseScheduledJobDraft,
+  scheduledJobDraftFromRecord,
+  type ScheduledJobDraft,
+} from './workflow-scheduled-jobs'
+import { i18nStore } from '$lib/i18n/store.svelte'
+import type { TranslationKey } from '$lib/i18n'
 
   let {
     projectId,
     statuses,
     loading: parentLoading = false,
     showHeader = true,
-    title = 'Scheduled Jobs',
-    description = 'Manage recurring ticket creation for project statuses.',
+    title = '',
+    description = '',
   }: {
     projectId: string
     statuses: WorkflowStatusOption[]
@@ -82,7 +84,7 @@
       } catch (caughtError) {
         if (cancelled) return
         jobs = []
-        showApiError(caughtError, 'Failed to load scheduled jobs.')
+        showApiError(caughtError, 'settings.workflowScheduledJobs.errors.load')
       } finally {
         if (!cancelled) loadingJobs = false
       }
@@ -119,9 +121,16 @@
     jobs = payload.scheduled_jobs
   }
 
-  function showApiError(caughtError: unknown, fallback: string) {
-    toastStore.error(caughtError instanceof ApiError ? caughtError.detail : fallback)
-  }
+function showApiError(caughtError: unknown, fallbackKey: TranslationKey) {
+  toastStore.error(
+    caughtError instanceof ApiError ? caughtError.detail : i18nStore.t(fallbackKey),
+  )
+}
+
+const scheduledJobToggleMessageKeys: Record<'enabled' | 'disabled', TranslationKey> = {
+  enabled: 'settings.workflowScheduledJobs.messages.enabled',
+  disabled: 'settings.workflowScheduledJobs.messages.disabled',
+}
 
   async function handleSubmit() {
     const parsed = parseScheduledJobDraft(draft, statuses)
@@ -136,7 +145,9 @@
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
         await refreshJobs()
-        toastStore.success('Scheduled job updated.')
+        toastStore.success(
+          i18nStore.t('settings.workflowScheduledJobs.messages.updated'),
+        )
       } else {
         const payload = await createScheduledJob(projectId, parsed.value)
         await refreshJobs()
@@ -145,10 +156,12 @@
           jobs.find((j) => j.id === payload.scheduled_job.id)!,
           statuses,
         )
-        toastStore.success('Scheduled job created.')
+        toastStore.success(
+          i18nStore.t('settings.workflowScheduledJobs.messages.created'),
+        )
       }
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to save scheduled job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.save')
     } finally {
       saving = false
     }
@@ -164,9 +177,11 @@
       editorOpen = false
       selectedJobId = ''
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(
+        i18nStore.t('settings.workflowScheduledJobs.messages.deleted'),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       deleting = false
     }
@@ -178,9 +193,11 @@
     try {
       await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
       await refreshJobs()
-      toastStore.success(job.is_enabled ? 'Job disabled.' : 'Job enabled.')
+      toastStore.success(
+        i18nStore.t(job.is_enabled ? scheduledJobToggleMessageKeys.disabled : scheduledJobToggleMessageKeys.enabled),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to update job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.toggle')
     } finally {
       actionJobId = null
     }
@@ -192,9 +209,11 @@
     try {
       await triggerScheduledJob(job.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(
+        i18nStore.t('settings.workflowScheduledJobs.messages.triggered'),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       actionJobId = null
     }
@@ -208,9 +227,11 @@
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs()
-      toastStore.success('Scheduled job triggered.')
+      toastStore.success(
+        i18nStore.t('settings.workflowScheduledJobs.messages.triggered'),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to trigger scheduled job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.trigger')
     } finally {
       triggering = false
     }
@@ -226,9 +247,11 @@
         selectedJobId = ''
       }
       await refreshJobs()
-      toastStore.success('Scheduled job deleted.')
+      toastStore.success(
+        i18nStore.t('settings.workflowScheduledJobs.messages.deleted'),
+      )
     } catch (caughtError) {
-      showApiError(caughtError, 'Failed to delete scheduled job.')
+      showApiError(caughtError, 'settings.workflowScheduledJobs.errors.delete')
     } finally {
       actionJobId = null
     }
@@ -241,7 +264,13 @@
 
 <div class="flex h-full min-h-0 flex-col">
   {#if showHeader}
-    <WorkflowScheduledJobsHeader {title} {description} onCreate={openNewJob} />
+    <WorkflowScheduledJobsHeader
+      title={title || i18nStore.t('settings.workflowScheduledJobs.heading')}
+      description={
+        description || i18nStore.t('settings.workflowScheduledJobs.description')
+      }
+      onCreate={openNewJob}
+    />
   {/if}
 
   <div class="flex-1 overflow-y-auto p-4">

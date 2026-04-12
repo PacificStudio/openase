@@ -6,6 +6,7 @@
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { cn } from '$lib/utils'
   import { Ellipsis, Pencil, Trash2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     repo,
@@ -53,30 +54,30 @@
 
   <!-- Actions -->
   <div class="flex shrink-0 items-center gap-1">
-    <Button
-      variant="ghost"
-      size="icon-xs"
-      title="Edit repository"
-      onclick={(event) => {
-        event.stopPropagation()
-        handleOpenRepo?.()
-      }}
-    >
-      <Pencil class="size-3.5" />
-    </Button>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        title={i18nStore.t('settings.repositoryRow.actions.edit')}
+        onclick={(event) => {
+          event.stopPropagation()
+          handleOpenRepo?.()
+        }}
+      >
+        <Pencil class="size-3.5" />
+      </Button>
 
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         {#snippet child({ props })}
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            {...props}
-            onclick={(event) => event.stopPropagation()}
-          >
-            <Ellipsis class="size-3.5" />
-            <span class="sr-only">More actions</span>
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              {...props}
+              onclick={(event) => event.stopPropagation()}
+            >
+              <Ellipsis class="size-3.5" />
+              <span class="sr-only">{i18nStore.t('settings.repositoryRow.actions.more')}</span>
+            </Button>
         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" class="w-48">
@@ -88,7 +89,9 @@
           }}
         >
           <Trash2 class="mr-2 size-3.5" />
-          {deleting ? 'Deleting\u2026' : 'Delete'}
+          {deleting
+            ? i18nStore.t('settings.repositoryRow.actions.deleting')
+            : i18nStore.t('settings.repositoryRow.actions.delete')}
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -98,16 +101,17 @@
 <Dialog.Root bind:open={confirmDeleteOpen}>
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Delete repository?</Dialog.Title>
+      <Dialog.Title>{i18nStore.t('settings.repositoryRow.dialog.title')}</Dialog.Title>
       <Dialog.Description>
-        This removes {repo.name} from the project. Existing ticket repo scopes that point to it may need
-        to be updated.
+        {i18nStore.t('settings.repositoryRow.dialog.description', { name: repo.name })}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props}>Cancel</Button>
+          <Button variant="outline" {...props}>
+            {i18nStore.t('settings.repositoryRow.actions.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button
@@ -118,7 +122,9 @@
           onDelete?.()
         }}
       >
-        {deleting ? 'Deleting\u2026' : 'Delete repository'}
+        {deleting
+          ? i18nStore.t('settings.repositoryRow.actions.deleting')
+          : i18nStore.t('settings.repositoryRow.actions.deleteRepository')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

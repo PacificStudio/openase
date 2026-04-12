@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import * as Collapsible from '$ui/collapsible'
   import { ChevronRight, Shield } from '@lucide/svelte'
@@ -8,8 +9,12 @@
     subtitle = '',
     roles = [],
     permissions = [],
-    emptyRoles = 'No roles',
-    emptyPermissions = 'No permissions',
+    emptyRoles = i18nStore.t(
+      'settings.security.humanAuth.accessCard.messages.emptyRoles',
+    ),
+    emptyPermissions = i18nStore.t(
+      'settings.security.humanAuth.accessCard.messages.emptyPermissions',
+    ),
   }: {
     title: string
     subtitle?: string
@@ -45,7 +50,9 @@
 
   <div class="space-y-2 text-xs">
     <div>
-      <div class="text-muted-foreground mb-1.5 text-xs font-medium">Roles</div>
+      <div class="text-muted-foreground mb-1.5 text-xs font-medium">
+        {i18nStore.t('settings.security.humanAuth.accessCard.labels.roles')}
+      </div>
       <div class="flex flex-wrap gap-1.5">
         {#if roles.length > 0}
           {#each roles as role (role)}
@@ -68,7 +75,9 @@
             <ChevronRight
               class="size-3.5 transition-transform {permissionsOpen ? 'rotate-90' : ''}"
             />
-            {permissions.length} permissions
+            {i18nStore.t('settings.security.humanAuth.accessCard.buttons.permissions', {
+              count: permissions.length,
+            })}
           </button>
         {/snippet}
       </Collapsible.Trigger>

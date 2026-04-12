@@ -18,6 +18,7 @@
   import WorkflowLifecycleSidebar from './workflow-lifecycle-sidebar.svelte'
   import WorkflowList from './workflow-list.svelte'
   import WorkflowsPageState from './workflows-page-state.svelte'
+  import { t } from './i18n'
 
   let {
     loading = false,
@@ -86,30 +87,31 @@
   } = $props()
 </script>
 
-{#if loading || (loadError && workflows.length === 0)}
-  <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
-  {#if settingsHref}
-    <div class="px-4 pb-4">
-      <a class="text-muted-foreground text-xs underline" href={settingsHref}>
-        Open workflow settings details
-      </a>
-    </div>
-  {/if}
+  {#if loading || (loadError && workflows.length === 0)}
+    <WorkflowsPageState {loading} loadError={workflows.length === 0 ? loadError : ''} />
+    {#if settingsHref}
+      <div class="px-4 pb-4">
+        <a class="text-muted-foreground text-xs underline" href={settingsHref}>
+          {t('workflows.page.body.link.settingsDetails')}
+        </a>
+      </div>
+    {/if}
 {:else if workflows.length === 0}
-  <div
-    class="border-border bg-card animate-fade-in-up flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-4 py-14 text-center"
-  >
-    <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
-      <GitBranch class="text-muted-foreground size-5" />
-    </div>
-    <p class="text-foreground text-sm font-medium">No workflows yet</p>
-    <p class="text-muted-foreground mt-1 max-w-sm text-sm">
-      Workflows define how agents process tickets — sequencing steps, branching on conditions, and
-      calling skills. Create one to automate a repeatable process.
-    </p>
-    <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
-      Create workflow
-    </Button>
+    <div
+      class="border-border bg-card animate-fade-in-up flex flex-1 flex-col items-center justify-center rounded-xl border border-dashed px-4 py-14 text-center"
+    >
+      <div class="bg-muted/60 mb-4 flex size-12 items-center justify-center rounded-full">
+        <GitBranch class="text-muted-foreground size-5" />
+      </div>
+        <p class="text-foreground text-sm font-medium">
+          {t('workflows.page.body.empty.title')}
+        </p>
+        <p class="text-muted-foreground mt-1 max-w-sm text-sm">
+          {t('workflows.page.body.empty.description')}
+        </p>
+      <Button variant="outline" size="sm" class="mt-4" onclick={() => (showCreateDialog = true)}>
+        {t('workflows.page.body.empty.action')}
+      </Button>
   </div>
 {:else}
   <div class="border-border/60 bg-card/60 flex min-h-0 flex-1 overflow-hidden rounded-xl border">
@@ -141,8 +143,8 @@
   <Sheet.Root bind:open={showDetail}>
     <Sheet.Content side="right" class="w-[60%] overflow-y-auto p-0 sm:max-w-[60%]">
       <Sheet.Header class="sr-only">
-        <Sheet.Title>Workflow Settings</Sheet.Title>
-        <Sheet.Description>Configure workflow lifecycle settings.</Sheet.Description>
+        <Sheet.Title>{t('workflows.page.body.srHeader.title')}</Sheet.Title>
+        <Sheet.Description>{t('workflows.page.body.srHeader.description')}</Sheet.Description>
       </Sheet.Header>
       {#if selectedWorkflow}
         <WorkflowLifecycleSidebar

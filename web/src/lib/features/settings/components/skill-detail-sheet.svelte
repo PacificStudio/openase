@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     bindSkill,
     deleteSkill,
@@ -11,6 +12,7 @@
     updateSkill,
   } from '$lib/api/openase'
   import type { Skill, Workflow } from '$lib/api/contracts'
+  import type { TranslationKey } from '$lib/i18n'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -66,7 +68,11 @@
       history = historyPayload.history
       loaded = true
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to load skill detail.')
+      toastStore.error(
+        err instanceof ApiError
+          ? err.detail
+          : i18nStore.t('settings.skillDetail.errors.load'),
+      )
     } finally {
       loadingDetail = false
     }
@@ -86,7 +92,7 @@
   async function handleSave() {
     if (!skill) return
     if (!editContent.trim()) {
-      toastStore.error('Skill content is required.')
+      toastStore.error(i18nStore.t('settings.skillDetail.errors.contentRequired'))
       return
     }
     busy = true
@@ -97,10 +103,16 @@
       })
       content = editContent
       editing = false
-      toastStore.success(`Updated ${skill.name}.`)
+      toastStore.success(
+        i18nStore.t('settings.skillDetail.messages.updated', { skill: skill.name }),
+      )
       await onChanged?.()
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill.')
+      toastStore.error(
+        err instanceof ApiError
+          ? err.detail
+          : i18nStore.t('settings.skillDetail.errors.update'),
+      )
     } finally {
       busy = false
     }
@@ -115,10 +127,21 @@
       } else {
         await enableSkill(skill.id)
       }
-      toastStore.success(`${skill.is_enabled ? 'Disabled' : 'Enabled'} ${skill.name}.`)
+      toastStore.success(
+        i18nStore.t(
+          skill.is_enabled
+            ? 'settings.skillDetail.messages.disabled'
+            : 'settings.skillDetail.messages.enabled',
+          { skill: skill.name },
+        ),
+      )
       await onChanged?.()
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill state.')
+      toastStore.error(
+        err instanceof ApiError
+          ? err.detail
+          : i18nStore.t('settings.skillDetail.errors.updateState'),
+      )
     } finally {
       busy = false
     }
@@ -126,17 +149,25 @@
 
   async function handleDelete() {
     if (!skill) return
-    const confirmed = window.confirm(`Delete "${skill.name}" and remove it from all workflows?`)
+    const confirmed = window.confirm(
+      i18nStore.t('settings.skillDetail.confirmations.delete', { skill: skill.name }),
+    )
     if (!confirmed) return
 
     busy = true
     try {
       await deleteSkill(skill.id)
-      toastStore.success(`Deleted ${skill.name}.`)
+      toastStore.success(
+        i18nStore.t('settings.skillDetail.messages.deleted', { skill: skill.name }),
+      )
       onDeleted?.(skill.id)
       open = false
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to delete skill.')
+      toastStore.error(
+        err instanceof ApiError
+          ? err.detail
+          : i18nStore.t('settings.skillDetail.errors.delete'),
+      )
     } finally {
       busy = false
     }
@@ -152,12 +183,22 @@
         await unbindSkill(skill.id, [workflowId])
       }
       const workflowName = workflows.find((w) => w.id === workflowId)?.name ?? 'workflow'
+      const bindingKey: TranslationKey = shouldBind
+        ? 'settings.skillDetail.messages.bindingBound'
+        : 'settings.skillDetail.messages.bindingUnbound'
       toastStore.success(
-        `${shouldBind ? 'Bound' : 'Unbound'} ${skill.name} ${shouldBind ? 'to' : 'from'} ${workflowName}.`,
+        i18nStore.t(bindingKey, {
+          skill: skill.name,
+          workflow: workflowName,
+        }),
       )
       await onChanged?.()
     } catch (err) {
-      toastStore.error(err instanceof ApiError ? err.detail : 'Failed to update skill binding.')
+      toastStore.error(
+        err instanceof ApiError
+          ? err.detail
+          : i18nStore.t('settings.skillDetail.errors.binding'),
+      )
     } finally {
       busy = false
     }
@@ -168,7 +209,7 @@
   <SheetContent side="right" class="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
     {#if !skill}
       <SheetHeader class="p-6">
-        <SheetTitle>Skill</SheetTitle>
+        <SheetTitle>{i18nStore.t('settings.skillDetail.sheetTitle')}</SheetTitle>
       </SheetHeader>
     {:else}
       <!-- Header -->
@@ -182,7 +223,9 @@
             ></span>
             <SheetTitle class="truncate text-base">{skill.name}</SheetTitle>
             <Badge variant="outline" class="shrink-0 text-[10px] uppercase">
-              {skill.is_builtin ? 'builtin' : 'custom'}
+              {skill.is_builtin
+                ? i18nStore.t('settings.skillDetail.badges.builtin')
+                : i18nStore.t('settings.skillDetail.badges.custom')}
             </Badge>
             <Badge variant="outline" class="shrink-0 text-[10px]">
               v{skill.current_version}
@@ -194,7 +237,11 @@
                 variant="ghost"
                 size="sm"
                 class="size-7 p-0"
-                title={editing ? 'Cancel edit' : 'Edit skill'}
+                title={
+                  editing
+                    ? i18nStore.t('settings.skillDetail.buttons.cancelEdit')
+                    : i18nStore.t('settings.skillDetail.buttons.edit')
+                }
                 onclick={startEditing}
                 disabled={busy || loadingDetail}
               >
@@ -205,7 +252,11 @@
               variant="ghost"
               size="sm"
               class="size-7 p-0"
-              title={skill.is_enabled ? 'Disable' : 'Enable'}
+              title={
+                skill.is_enabled
+                  ? i18nStore.t('settings.skillDetail.buttons.disable')
+                  : i18nStore.t('settings.skillDetail.buttons.enable')
+              }
               onclick={() => void handleToggleEnabled()}
               disabled={busy}
             >
@@ -247,7 +298,7 @@
           onclick={() => void handleDelete()}
         >
           <Trash2 class="size-3.5" />
-          Delete skill
+          {i18nStore.t('settings.skillDetail.actions.delete')}
         </Button>
       </div>
     {/if}

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import { Send, Square } from '@lucide/svelte'
+  import { chatT } from './i18n'
   import ProjectConversationFocusCard from './project-conversation-focus-card.svelte'
 
   type FocusCard = {
@@ -25,7 +26,7 @@
     queuedTurns = [],
     hasPendingInterrupt = false,
     draft = '',
-    placeholder = 'Ask anything about this project…',
+    placeholder = chatT('project.shell.projectAssistant.placeholder'),
     inputDisabled = false,
     sendDisabled = false,
     canQueueTurn = false,
@@ -82,11 +83,15 @@
 
 <div class="border-border border-t px-3 py-2">
   {#if loadingProviders}
-    <div class="text-muted-foreground mb-1.5 text-[11px]">Loading providers...</div>
+    <div class="text-muted-foreground mb-1.5 text-[11px]">
+      {chatT('chat.loadingProviders')}
+    </div>
   {:else if providerError}
     <div class="text-destructive mb-1.5 text-[11px]">{providerError}</div>
   {:else if providerCount === 0}
-    <div class="text-muted-foreground mb-1.5 text-[11px]">No chat provider available.</div>
+    <div class="text-muted-foreground mb-1.5 text-[11px]">
+      {chatT('chat.noChatProvider')}
+    </div>
   {:else if statusMessage}
     <div class="text-muted-foreground mb-1.5 text-[11px]">{statusMessage}</div>
   {/if}
@@ -108,7 +113,11 @@
       {#each queuedTurns as queuedTurn, index (queuedTurn.id)}
         <div class="flex items-center gap-1.5 text-[11px]">
           <span class="text-muted-foreground shrink-0">
-            {#if hasPendingInterrupt}Paused{:else}Queued{/if}
+            {#if hasPendingInterrupt}
+              {chatT('chat.queuedStatusPaused')}
+            {:else}
+              {chatT('chat.queuedStatusQueued')}
+            {/if}
           </span>
           <span class="text-foreground min-w-0 flex-1 truncate">
             {truncateQueuedMessage(queuedTurn.message)}
@@ -116,12 +125,12 @@
           <button
             type="button"
             class="text-muted-foreground hover:text-foreground shrink-0 underline-offset-2 hover:underline"
-            aria-label={`Cancel queued message ${index + 1}`}
+            aria-label={chatT('chat.cancelQueuedMessage', { ordinal: index + 1 })}
             onclick={() => {
               onCancelQueuedTurn?.(queuedTurn.id)
             }}
           >
-            Cancel
+            {chatT('common.cancel')}
           </button>
         </div>
       {/each}
@@ -153,7 +162,7 @@
         variant="ghost"
         size="sm"
         class="text-muted-foreground size-6 shrink-0 p-0"
-        aria-label="Stop reply"
+        aria-label={chatT('chat.stopReply')}
         onclick={() => onStop?.()}
         disabled={stopDisabled}
       >
@@ -164,7 +173,7 @@
         variant="ghost"
         size="sm"
         class="text-muted-foreground size-6 shrink-0 p-0"
-        aria-label="Send message"
+        aria-label={chatT('chat.sendMessage')}
         onclick={() => onSend?.()}
         disabled={!draft.trim() || (sendDisabled && !canQueueTurn)}
       >

@@ -6,6 +6,7 @@
   import Plus from '@lucide/svelte/icons/plus'
   import Trash2 from '@lucide/svelte/icons/trash-2'
   import TicketExternalLinkForm from './ticket-external-link-form.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { TicketExternalLink, TicketExternalLinkDraft } from '../types'
 
   let {
@@ -36,21 +37,21 @@
 <div class="flex flex-col gap-3">
   <div class="flex items-center justify-between gap-3">
     <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-      External Links
+      {i18nStore.t('ticketDetail.externalLinks.title')}
     </span>
 
     <Dialog.Root bind:open={createOpen}>
       <Dialog.Trigger
         class={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
-        aria-label="Add external link"
+        aria-label={i18nStore.t('ticketDetail.externalLinks.actions.add')}
       >
         <Plus class="size-3.5" />
       </Dialog.Trigger>
       <Dialog.Content class="sm:max-w-xl">
         <Dialog.Header>
-          <Dialog.Title>Add external link</Dialog.Title>
+          <Dialog.Title>{i18nStore.t('ticketDetail.externalLinks.dialog.title')}</Dialog.Title>
           <Dialog.Description>
-            Attach a pull request, issue, document, or other external reference to this ticket.
+            {i18nStore.t('ticketDetail.externalLinks.dialog.description')}
           </Dialog.Description>
         </Dialog.Header>
 

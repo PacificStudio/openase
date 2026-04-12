@@ -18,6 +18,7 @@
     providerGuides,
     uniqueMachineIds,
   } from '../provider-guides'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     projectId,
@@ -74,13 +75,16 @@
       await Promise.allSettled(machineIds.map((machineId) => refreshMachineHealth(machineId)))
       const payload = await listProviders(orgId)
       syncProviderState(payload.providers)
-      if (!silent) toastStore.success('Provider availability rechecked.')
+      if (!silent)
+        toastStore.success(
+          i18nStore.t('onboarding.stepProvider.toasts.availabilityRechecked'),
+        )
     } catch (caughtError) {
       if (!silent) {
         toastStore.error(
           caughtError instanceof ApiError
             ? caughtError.detail
-            : 'Failed to recheck provider availability.',
+            : i18nStore.t('onboarding.stepProvider.toasts.availabilityRefreshFailed'),
         )
       }
     } finally {
@@ -97,14 +101,14 @@
       const payload = await updateProject(projectId, { default_agent_provider_id: providerId })
       appStore.currentProject = payload.project
       syncProviderState(providers, providerId)
-      toastStore.success('Set as the default provider.')
+      toastStore.success(i18nStore.t('onboarding.stepProvider.toasts.defaultProviderSet'))
       onComplete(providerId)
     } catch (caughtError) {
       selectedId = previousSelectedId
       toastStore.error(
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to set the default provider.',
+          : i18nStore.t('onboarding.stepProvider.toasts.defaultProviderFail'),
       )
     } finally {
       selecting = false
@@ -125,9 +129,9 @@
   async function copyCommand(command: string) {
     try {
       await navigator.clipboard.writeText(command)
-      toastStore.success('Command copied.')
+      toastStore.success(i18nStore.t('onboarding.stepProvider.toasts.commandCopied'))
     } catch {
-      toastStore.error('Failed to copy command.')
+      toastStore.error(i18nStore.t('onboarding.stepProvider.toasts.commandCopyFailed'))
     }
   }
 </script>
@@ -135,7 +139,9 @@
 <div class="space-y-8">
   <section>
     <div class="mb-3 flex items-center justify-between gap-3">
-      <h4 class="text-foreground text-sm font-semibold">CLI setup guide</h4>
+      <h4 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('onboarding.stepProvider.heading.cliGuide')}
+      </h4>
       <Button
         variant="outline"
         size="sm"
@@ -143,13 +149,13 @@
         disabled={isRefreshing(uniqueMachineIds(providers))}
         onclick={() => void refreshProviders(uniqueMachineIds(providers))}
       >
-        {#if isRefreshing(uniqueMachineIds(providers))}
-          <Loader2 class="mr-1.5 size-3.5 animate-spin" />
-          Checking…
-        {:else}
-          <RefreshCcw class="mr-1.5 size-3.5" />
-          Recheck all
-        {/if}
+          {#if isRefreshing(uniqueMachineIds(providers))}
+            <Loader2 class="mr-1.5 size-3.5 animate-spin" />
+            {i18nStore.t('onboarding.stepProvider.actions.checking')}
+          {:else}
+            <RefreshCcw class="mr-1.5 size-3.5" />
+            {i18nStore.t('onboarding.stepProvider.actions.recheckAll')}
+          {/if}
       </Button>
     </div>
 
@@ -168,7 +174,9 @@
   </section>
 
   <section>
-    <h4 class="text-foreground mb-3 text-sm font-semibold">Registered providers</h4>
+    <h4 class="text-foreground mb-3 text-sm font-semibold">
+      {i18nStore.t('onboarding.stepProvider.heading.registeredProviders')}
+    </h4>
 
     {#if providers.length === 0}
       <ProviderEmptyState {orgId} />

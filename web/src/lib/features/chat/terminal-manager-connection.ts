@@ -5,6 +5,7 @@ import {
 } from './project-conversation-terminal-panel-helpers'
 import type { TerminalInstance, TerminalInstanceRuntime } from './terminal-manager-types'
 import { createProjectConversationTerminalSession } from '$lib/api/chat'
+import { chatT } from './i18n'
 
 export function createTerminalConnectionHelpers(input: {
   getConversationId: () => string
@@ -72,8 +73,7 @@ export function createTerminalConnectionHelpers(input: {
       }
       input.updateInstance(inputState.id, {
         status: 'error',
-        statusMessage:
-          error instanceof Error ? error.message : 'Failed to create terminal session.',
+        statusMessage: error instanceof Error ? error.message : chatT('chat.terminal.errors.create'),
       })
       return null
     }
@@ -130,7 +130,7 @@ export function createTerminalConnectionHelpers(input: {
       inputState.runtime.session = null
       input.updateInstance(inputState.id, {
         status: 'error',
-        statusMessage: error instanceof Error ? error.message : 'Failed to parse terminal output.',
+        statusMessage: error instanceof Error ? error.message : chatT('chat.terminal.errors.parse'),
       })
       inputState.socket.close()
     }

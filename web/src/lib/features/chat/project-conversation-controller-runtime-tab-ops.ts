@@ -11,6 +11,7 @@ import {
   isCurrentProjectConversationOperation,
   projectConversationHasPendingInterrupt,
 } from './project-conversation-controller-helpers'
+import { chatT } from './i18n'
 import type { ProjectAIFocus } from './project-ai-focus'
 import type {
   CreateProjectConversationControllerInput,
@@ -224,7 +225,7 @@ export function createProjectConversationRuntimeTabOps(
       activeTab.phase = 'idle'
       input.touch()
       input.controllerInput.onError?.(
-        caughtError instanceof Error ? caughtError.message : 'Failed to send project message.',
+        caughtError instanceof Error ? caughtError.message : chatT('chat.errors.sendMessage'),
       )
       return false
     }

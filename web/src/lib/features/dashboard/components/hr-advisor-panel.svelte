@@ -5,6 +5,7 @@
   import { activateHRRecommendation, getHRAdvisor, listBuiltinRoles } from '$lib/api/openase'
   import { toastStore } from '$lib/stores/toast.svelte'
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
   import type { HRAdvisorSnapshot } from '../types'
@@ -18,6 +19,10 @@
     recommendationKey,
     toPrioritySectionKey,
   } from './hr-advisor-panel-state'
+
+  type ActivationSuccessToastKey =
+    | 'dashboard.hrAdvisor.toasts.activation.successWithTicket'
+    | 'dashboard.hrAdvisor.toasts.activation.success'
 
   const priorityDotClass: Record<string, string> = {
     high: 'bg-rose-500',
@@ -103,11 +108,15 @@
       const payload = await listBuiltinRoles()
       builtinRolesBySlug = Object.fromEntries(payload.roles.map((role) => [role.slug, role]))
       if (!payload.roles.find((role) => role.slug === recommendation.role_slug)) {
-        harnessError = 'Role harness template is unavailable.'
+        harnessError = i18nStore.t(
+          'dashboard.hrAdvisor.harnessDialog.errors.templateUnavailable',
+        )
       }
     } catch (caughtError) {
       harnessError =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load role harness.'
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('dashboard.hrAdvisor.harnessDialog.errors.loadFailed')
     } finally {
       harnessLoading = false
     }
@@ -137,10 +146,18 @@
       )
 
       const bootstrapTicketIdentifier = payload.bootstrap_ticket.ticket?.identifier
+      const toastKey: ActivationSuccessToastKey = bootstrapTicketIdentifier
+        ? 'dashboard.hrAdvisor.toasts.activation.successWithTicket'
+        : 'dashboard.hrAdvisor.toasts.activation.success'
       toastStore.success(
         bootstrapTicketIdentifier
-          ? `Activated ${recommendation.role_name} and created ${bootstrapTicketIdentifier}.`
-          : `Activated ${recommendation.role_name}.`,
+          ? i18nStore.t(toastKey, {
+              role: recommendation.role_name,
+              ticket: bootstrapTicketIdentifier,
+            })
+          : i18nStore.t(toastKey, {
+              role: recommendation.role_name,
+            }),
       )
 
       try {
@@ -154,8 +171,8 @@
         // Keep the optimistic card state if a follow-up refresh fails.
       }
     } catch (caughtError) {
-      const detail =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to activate recommendation.'
+      const fallback = i18nStore.t('dashboard.hrAdvisor.toasts.activationFailed')
+      const detail = caughtError instanceof ApiError ? caughtError.detail : fallback
       activationErrors = { ...activationErrors, [key]: detail }
       toastStore.error(detail)
     } finally {
@@ -167,14 +184,20 @@
 <div class={cn('border-border bg-card rounded-xl border', className)}>
   <div class="flex items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
-      <h3 class="text-foreground text-sm font-medium">HR Advisor</h3>
+      <h3 class="text-foreground text-sm font-medium">
+        {i18nStore.t('dashboard.hrAdvisor.panel.heading')}
+      </h3>
       <Badge variant="outline" class="text-[10px]">
-        {advisorState.summary.workflow_count} workflows
+        {i18nStore.t('dashboard.hrAdvisor.summary.labels.workflows', {
+          count: advisorState.summary.workflow_count,
+        })}
       </Badge>
     </div>
     {#if visibleRecommendations.length > 0}
       <span class="text-muted-foreground text-xs">
-        {visibleRecommendations.filter((r) => r.activation_ready).length} ready to activate
+        {i18nStore.t('dashboard.hrAdvisor.messages.readyToActivate', {
+          count: visibleRecommendations.filter((r) => r.activation_ready).length,
+        })}
       </span>
     {/if}
   </div>
@@ -196,11 +219,11 @@
       {/each}
     {:else if deferredRecommendations.length > 0}
       <p class="text-muted-foreground py-4 text-center text-xs">
-        All recommendations are deferred. Expand below to review them.
+        {i18nStore.t('dashboard.hrAdvisor.messages.allDeferred')}
       </p>
     {:else}
       <p class="text-muted-foreground py-4 text-center text-xs">
-        No staffing recommendations right now.
+        {i18nStore.t('dashboard.hrAdvisor.messages.noRecommendations')}
       </p>
     {/if}
 
@@ -215,7 +238,9 @@
         {:else}
           <ChevronRight class="size-3" />
         {/if}
-        Deferred ({deferredRecommendations.length})
+        {i18nStore.t('dashboard.hrAdvisor.actions.deferredCount', {
+          count: deferredRecommendations.length,
+        })}
       </button>
 
       {#if showDeferred}

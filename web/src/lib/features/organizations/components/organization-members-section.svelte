@@ -15,6 +15,7 @@
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import OrganizationMembersPanel from './organization-members-panel.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type MembershipRole = 'owner' | 'admin' | 'member'
   type SectionMode = 'all' | 'members' | 'invitations'
@@ -22,9 +23,9 @@
   let {
     organizationId,
     mode = 'all',
-    heading = 'Members',
-    description = 'Owners and admins handle invites here. Active memberships drive org visibility and project authorization.',
-    emptyMessage = 'No memberships yet.',
+    heading = i18nStore.t('orgMembers.section.heading'),
+    description = i18nStore.t('orgMembers.section.description'),
+    emptyMessage = i18nStore.t('orgMembers.section.empty'),
   }: {
     organizationId: string
     mode?: SectionMode

@@ -10,6 +10,7 @@
   import * as Card from '$ui/card'
   import { Settings, Wrench } from '@lucide/svelte'
   import type { ProviderConfig } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     providers,
@@ -38,7 +39,9 @@
             <div class="flex items-center gap-2">
               <Card.Title class="text-sm">{provider.name}</Card.Title>
               {#if provider.isDefault}
-                <Badge variant="outline" class="text-[10px]">Default</Badge>
+                <Badge variant="outline" class="text-[10px]">
+                  {i18nStore.t('agents.providerList.badge.default')}
+                </Badge>
               {/if}
               <ProviderAvailabilityBadge
                 availabilityState={provider.availabilityState}
@@ -53,11 +56,15 @@
       </Card.Header>
       <Card.Content class="space-y-2 pt-0">
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Model</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.providerList.fields.model')}
+          </span>
           <span class="text-foreground font-mono">{provider.modelName}</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Permission</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.providerList.fields.permission')}
+          </span>
           <span
             class="text-foreground text-[11px] font-medium capitalize {provider.permissionProfile ===
             'unrestricted'
@@ -68,11 +75,15 @@
           </span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Machine</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.providerList.fields.machine')}
+          </span>
           <span class="text-foreground">{provider.machineName}</span>
         </div>
         <div class="flex items-center justify-between text-xs">
-          <span class="text-muted-foreground">Agents</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.providerList.fields.agents')}
+          </span>
           <span class="text-foreground tabular-nums">{provider.agentCount}</span>
         </div>
         {#if rateLimit}
@@ -85,11 +96,11 @@
           size="sm"
           class="w-full"
           onclick={() => onConfigure?.(provider)}
-          title="Configure provider"
-          aria-label="Configure provider"
+          title={i18nStore.t('agents.providerList.action.configureProvider')}
+          aria-label={i18nStore.t('agents.providerList.action.configureProvider')}
         >
           <Settings class="size-3.5" />
-          Configure
+          {i18nStore.t('agents.providerList.action.configure')}
         </Button>
       </Card.Footer>
     </Card.Root>

@@ -7,6 +7,7 @@ import {
   workspaceTabKey,
   type WorkspaceTabFileState,
 } from './project-conversation-workspace-browser-state-helpers'
+import { chatT } from './i18n'
 
 /**
  * Wiring needed by `loadWorkspaceFile` so it can be invoked from a stateful
@@ -61,7 +62,7 @@ export async function loadWorkspaceFile(
       preview: null,
       patch: null,
       loading: false,
-      error: error instanceof Error ? error.message : 'Failed to load the workspace file details.',
+      error: error instanceof Error ? error.message : chatT('chat.workspace.errors.loadFileDetails'),
     })
   }
 }

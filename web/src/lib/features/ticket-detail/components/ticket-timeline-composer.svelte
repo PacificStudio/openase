@@ -3,6 +3,7 @@
   import Send from '@lucide/svelte/icons/send'
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     creating = false,
@@ -14,6 +15,8 @@
 
   let body = $state('')
   let expanded = $state(false)
+  const modifierKeySymbol =
+    typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl'
 
   async function handleCreate() {
     const next = body.trim()
@@ -41,29 +44,33 @@
 </div>
 <div class="min-w-0 flex-1">
   <div class="border-border bg-muted/10 rounded-lg border px-3 py-2">
-    <Textarea
-      rows={expanded ? 4 : 1}
-      bind:value={body}
-      placeholder="Leave a comment (Markdown supported)…"
-      disabled={creating}
-      onfocus={() => (expanded = true)}
-      onkeydown={handleKeydown}
-      class="min-h-0 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
-    />
+      <Textarea
+        rows={expanded ? 4 : 1}
+        bind:value={body}
+        placeholder={i18nStore.t('ticketDetail.timelineComposer.placeholder')}
+        disabled={creating}
+        onfocus={() => (expanded = true)}
+        onkeydown={handleKeydown}
+        class="min-h-0 resize-none border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0"
+      />
     {#if expanded}
-      <div class="mt-2 flex items-center justify-between">
-        <span class="text-muted-foreground text-[11px]">
-          {navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Enter to send
-        </span>
-        <Button
-          size="sm"
-          class="h-7 gap-1.5 px-2.5"
-          onclick={handleCreate}
-          disabled={!body.trim() || creating}
-        >
-          <Send class="size-3" />
-          {creating ? 'Posting…' : 'Comment'}
-        </Button>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-muted-foreground text-[11px]">
+              {i18nStore.t('ticketDetail.timelineComposer.shortcut', {
+                modifier: modifierKeySymbol,
+              })}
+            </span>
+            <Button
+              size="sm"
+              class="h-7 gap-1.5 px-2.5"
+              onclick={handleCreate}
+              disabled={!body.trim() || creating}
+            >
+              <Send class="size-3" />
+              {creating
+                ? i18nStore.t('ticketDetail.timelineComposer.actions.posting')
+                : i18nStore.t('ticketDetail.timelineComposer.actions.comment')}
+            </Button>
       </div>
     {/if}
   </div>

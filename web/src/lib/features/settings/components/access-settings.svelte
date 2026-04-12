@@ -9,6 +9,7 @@
   import { appStore } from '$lib/stores/app.svelte'
   import { authStore } from '$lib/stores/auth.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Badge } from '$ui/badge'
   import * as Collapsible from '$ui/collapsible'
   import { Separator } from '$ui/separator'
@@ -72,7 +73,10 @@
         if (cancelled) {
           return
         }
-        accessError = formatError(caughtError, 'Failed to load project access.')
+        accessError = formatError(
+          caughtError,
+          i18nStore.t('settings.access.errors.loadProjectAccess'),
+        )
       } finally {
         if (!cancelled) {
           accessLoading = false
@@ -103,12 +107,12 @@
       await createRoleBindingForScope('project', orgId, projectId, projectDraft)
       await loadProjectAccess(projectId)
       projectDraft = defaultBindingDraftForScope('project')
-      toastStore.success('Project role binding added.')
+      toastStore.success(i18nStore.t('settings.access.messages.bindingAdded'))
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
           ? caughtError.message
-          : 'Failed to create project role binding.'
+          : i18nStore.t('settings.access.errors.createBinding')
       accessError = message
       toastStore.error(message)
     } finally {
@@ -128,12 +132,12 @@
     try {
       await deleteRoleBindingForScope('project', orgId, projectId, bindingId)
       await loadProjectAccess(projectId)
-      toastStore.success('Project role binding removed.')
+      toastStore.success(i18nStore.t('settings.access.messages.bindingRemoved'))
     } catch (caughtError) {
       const message =
         caughtError instanceof ApiError
           ? caughtError.detail
-          : 'Failed to delete project role binding.'
+          : i18nStore.t('settings.access.errors.deleteBinding')
       accessError = message
       toastStore.error(message)
     } finally {
@@ -144,10 +148,11 @@
 
 <div class="space-y-6">
   <div>
-    <h2 class="text-foreground text-base font-semibold">Access</h2>
+    <h2 class="text-foreground text-base font-semibold">
+      {i18nStore.t('settings.access.heading')}
+    </h2>
     <p class="text-muted-foreground mt-1 text-sm">
-      Manage project-scoped role bindings. Instance and organization IAM belong in their dedicated
-      control planes.
+      {i18nStore.t('settings.access.description')}
     </p>
   </div>
 
@@ -190,47 +195,57 @@
             class="text-muted-foreground hover:text-foreground flex w-full items-center gap-2 text-sm transition-colors"
           >
             <ChevronRight class="size-4 transition-transform {detailsOpen ? 'rotate-90' : ''}" />
-            Your effective access &amp; identity
+            {i18nStore.t('settings.access.buttons.showIdentity')}
           </button>
         {/snippet}
       </Collapsible.Trigger>
       <Collapsible.Content>
         <div class="mt-4 space-y-4">
           <SecuritySettingsHumanAuthAccessCard
-            title="Project effective access"
+            title={i18nStore.t('settings.security.humanAuth.accessCardTitles.project')}
             subtitle={currentProjectName}
             roles={projectPermissions?.roles ?? []}
             permissions={projectPermissions?.permissions ?? []}
-            emptyRoles="No project roles"
-            emptyPermissions="No project permissions"
+            emptyRoles={i18nStore.t('settings.security.humanAuth.messages.noProjectRoles')}
+            emptyPermissions={i18nStore.t('settings.security.humanAuth.messages.noProjectPermissions')}
           />
 
           <div class="border-border bg-card space-y-3 rounded-lg border p-4">
             <div class="flex items-center gap-2">
               <Users class="text-muted-foreground size-4" />
-              <div class="text-sm font-semibold">Current principal and groups</div>
+              <div class="text-sm font-semibold">
+                {i18nStore.t('settings.access.headings.currentPrincipal')}
+              </div>
             </div>
             <div class="grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <div class="text-muted-foreground text-xs font-medium">Principal</div>
+                <div class="text-muted-foreground text-xs font-medium">
+                  {i18nStore.t('settings.access.labels.principal')}
+                </div>
                 <div class="mt-1.5 font-medium">
                   {authStore.user?.displayName ||
                     authStore.user?.primaryEmail ||
-                    'Authenticated user'}
+                    i18nStore.t('settings.access.fallbacks.authenticatedUser')}
                 </div>
                 <div class="text-muted-foreground mt-0.5 text-xs">
-                  {authStore.user?.primaryEmail || authStore.user?.id || 'OIDC browser session'}
+                  {authStore.user?.primaryEmail ||
+                    authStore.user?.id ||
+                    i18nStore.t('settings.access.fallbacks.oidcSession')}
                 </div>
               </div>
               <div>
-                <div class="text-muted-foreground text-xs font-medium">Synced groups</div>
+                <div class="text-muted-foreground text-xs font-medium">
+                  {i18nStore.t('settings.access.labels.syncedGroups')}
+                </div>
                 <div class="mt-1.5 flex flex-wrap gap-1.5">
                   {#if currentGroups.length > 0}
                     {#each currentGroups as group (group.issuer + ':' + group.group_key)}
                       <Badge variant="outline">{group.group_name || group.group_key}</Badge>
                     {/each}
                   {:else}
-                    <span class="text-muted-foreground text-xs">No synchronized groups</span>
+                    <span class="text-muted-foreground text-xs">
+                      {i18nStore.t('settings.access.messages.noSyncedGroups')}
+                    </span>
                   {/if}
                 </div>
               </div>
@@ -241,8 +256,7 @@
     </Collapsible.Root>
 
     <p class="text-muted-foreground text-xs">
-      Project bindings layer on top of inherited organization access. If someone cannot reach the
-      org at all, fix org membership in org admin first.
+      {i18nStore.t('settings.access.description.bottom')}
     </p>
   {/if}
 </div>

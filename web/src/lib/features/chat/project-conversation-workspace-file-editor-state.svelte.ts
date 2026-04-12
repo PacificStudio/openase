@@ -15,6 +15,7 @@ import {
   type WorkspaceFileEditorState,
   type WorkspaceFileLineDiffMarkers,
 } from './project-conversation-workspace-browser-state-helpers'
+import { chatT } from './i18n'
 
 export function createWorkspaceFileEditorStore(input: {
   getConversationId: () => string
@@ -322,7 +323,7 @@ export function createWorkspaceFileEditorStore(input: {
       setEditorState(repoPath, filePath, {
         ...latestEditor,
         savePhase: 'error',
-        errorMessage: error instanceof Error ? error.message : 'Failed to save the workspace file.',
+        errorMessage: error instanceof Error ? error.message : chatT('chat.workspace.errors.save'),
       })
       return false
     }

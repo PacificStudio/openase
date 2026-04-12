@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { StatusPayload } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import * as Card from '$ui/card'
 
   let { statuses }: { statuses: StatusPayload['statuses'] } = $props()
@@ -11,9 +12,9 @@
 
 <Card.Root class="gap-4">
   <Card.Header class="gap-1">
-    <Card.Title>Status Concurrency</Card.Title>
+    <Card.Title>{i18nStore.t('settings.statusConcurrency.title')}</Card.Title>
     <Card.Description>
-      Status-level semaphores apply directly to the pickup status that a workflow matches.
+      {i18nStore.t('settings.statusConcurrency.description')}
     </Card.Description>
   </Card.Header>
 
@@ -26,9 +27,14 @@
           <p class="text-foreground text-sm font-medium">{status.name}</p>
           <p class="text-muted-foreground mt-1 text-xs">
             {#if hasUnlimitedCapacity(status.max_active_runs)}
-              {status.active_runs} active now, unlimited capacity
+              {i18nStore.t('settings.statusConcurrency.messages.unlimitedCapacity', {
+                active: status.active_runs,
+              })}
             {:else}
-              {status.active_runs} active now, capacity {status.max_active_runs}
+              {i18nStore.t('settings.statusConcurrency.messages.limitedCapacity', {
+                active: status.active_runs,
+                capacity: status.max_active_runs,
+              })}
             {/if}
           </p>
         </div>

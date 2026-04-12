@@ -10,6 +10,7 @@
     ProjectConversationWorkspaceFileStatus,
   } from '$lib/api/chat'
   import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
+  import { chatT } from './i18n'
 
   let {
     conversationId = '',
@@ -38,7 +39,10 @@
   }
 
   function formatRepoSummary(diff: ProjectConversationWorkspaceDiff) {
-    const repoLabel = diff.reposChanged === 1 ? 'repo changed' : 'repos changed'
+    const repoLabel =
+      diff.reposChanged === 1
+        ? chatT('chat.repoChangedSingular')
+        : chatT('chat.repoChangedPlural')
     return `${diff.reposChanged} ${repoLabel} · ${formatTotals(diff.added, diff.removed)}`
   }
 
@@ -76,7 +80,10 @@
       return ''
     }
     const repoCount = prompt.missingRepos.length
-    const label = repoCount === 1 ? 'repo needs sync' : 'repos need sync'
+    const label =
+      repoCount === 1
+        ? chatT('chat.syncPromptLabelSingle')
+        : chatT('chat.syncPromptLabelMultiple')
     return `${repoCount} ${label}`
   }
 
@@ -85,9 +92,9 @@
       return ''
     }
     if (prompt.reason === 'repo_binding_changed') {
-      return 'Project repo bindings changed after this conversation workspace was prepared. Sync repos to clone the missing checkout(s) before browsing or diffing.'
+      return chatT('chat.syncPromptDescriptionRepoBindingChanged')
     }
-    return 'Some project repos are missing from the current conversation workspace. Sync repos to clone them before browsing or diffing.'
+    return chatT('chat.syncPromptDescriptionMissingRepos')
   }
 
   async function handleSyncWorkspace() {
@@ -102,7 +109,7 @@
       await Promise.resolve(workspaceBrowserPortal.onSyncWorkspace?.())
     } catch (error) {
       syncError =
-        error instanceof Error ? error.message : 'Failed to sync the Project AI workspace.'
+        error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
     } finally {
       syncInFlight = false
     }
@@ -135,10 +142,10 @@
           />
         {/if}
 
-        <span class="text-muted-foreground">Workspace changes</span>
+        <span class="text-muted-foreground">{chatT('chat.workspaceChangesLabel')}</span>
 
         {#if loading}
-          <span class="text-muted-foreground/60">Loading...</span>
+          <span class="text-muted-foreground/60">{chatT('common.loading')}</span>
         {:else if error}
           <span class="text-destructive truncate">{error}</span>
         {:else if syncPrompt}
@@ -148,8 +155,8 @@
         {:else if workspaceDiff}
           {#if isDirty}
             <span class="font-medium">{formatRepoSummary(workspaceDiff)}</span>
-          {:else}
-            <span class="text-muted-foreground/60">Clean workspace</span>
+              {:else}
+                <span class="text-muted-foreground/60">{chatT('chat.cleanWorkspace')}</span>
           {/if}
         {/if}
       </button>
@@ -168,7 +175,7 @@
             onBrowse?.()
           }}
         >
-          {browserOpen ? 'Hide browser' : 'Browse'}
+          {browserOpen ? chatT('chat.hideBrowser') : chatT('chat.browse')}
         </button>
       {/if}
 
@@ -182,7 +189,7 @@
           }}
           disabled={syncInFlight}
         >
-          {syncInFlight ? 'Syncing...' : 'Sync repos'}
+          {syncInFlight ? chatT('chat.syncing') : chatT('chat.syncRepos')}
         </button>
       {/if}
     </div>
@@ -191,12 +198,14 @@
       <div class="border-border border-t text-[11px]">
         {#if syncPrompt}
           <div class="px-3 py-2">
-            <p class="text-foreground text-[11px] font-medium">Workspace sync required</p>
+            <p class="text-foreground text-[11px] font-medium">{chatT('chat.workspaceSyncRequired')}</p>
             <p class="text-muted-foreground mt-1 text-[11px]">
               {syncPromptDescription(syncPrompt)}
             </p>
             <p class="text-muted-foreground mt-2 text-[11px]">
-              Missing repos: {syncPrompt.missingRepos.map((repo) => repo.path).join(', ')}
+              {chatT('chat.missingReposLabel', {
+                repos: syncPrompt.missingRepos.map((repo) => repo.path).join(', '),
+              })}
             </p>
             {#if syncError}
               <p class="text-destructive mt-2 text-[11px]">{syncError}</p>
@@ -204,7 +213,7 @@
           </div>
         {/if}
         {#if workspaceDiff.repos.length === 0}
-          <p class="text-muted-foreground px-3 py-1.5">No repo changes detected.</p>
+          <p class="text-muted-foreground px-3 py-1.5">{chatT('chat.noRepoChanges')}</p>
         {:else}
           {#each workspaceDiff.repos as repo, repoIndex}
             {#if workspaceDiff.repos.length > 1}

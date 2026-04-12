@@ -8,6 +8,7 @@
     scheduledJobTypeOptions,
     type ScheduledJobDraft,
   } from './workflow-scheduled-jobs'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     draft,
@@ -20,23 +21,27 @@
 
 <div class="mt-3 space-y-3">
   <div class="space-y-1.5">
-    <Label for="scheduled-job-ticket-title" class="text-xs">Title</Label>
+    <Label for="scheduled-job-ticket-title" class="text-xs">
+      {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.title')}
+    </Label>
     <Input
       id="scheduled-job-ticket-title"
       value={draft.ticketTitle}
-      placeholder="Run scheduled validation"
+      placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.title')}
       oninput={(event) =>
         onFieldChange?.('ticketTitle', (event.currentTarget as HTMLInputElement).value)}
     />
   </div>
 
   <div class="space-y-1.5">
-    <Label for="scheduled-job-ticket-description" class="text-xs">Description</Label>
+    <Label for="scheduled-job-ticket-description" class="text-xs">
+      {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.description')}
+    </Label>
     <Textarea
       id="scheduled-job-ticket-description"
       rows={3}
       value={draft.ticketDescription}
-      placeholder="Include runbook notes, escalation hints, and expected outcome."
+      placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.description')}
       oninput={(event) =>
         onFieldChange?.('ticketDescription', (event.currentTarget as HTMLTextAreaElement).value)}
     />
@@ -44,7 +49,9 @@
 
   <div class="grid gap-3 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label class="text-xs">Priority</Label>
+      <Label class="text-xs">
+        {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.priority')}
+      </Label>
       <Select.Root
         type="single"
         value={draft.ticketPriority}
@@ -60,7 +67,9 @@
     </div>
 
     <div class="space-y-1.5">
-      <Label class="text-xs">Type</Label>
+      <Label class="text-xs">
+        {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.type')}
+      </Label>
       <Select.Root
         type="single"
         value={draft.ticketType}
@@ -78,25 +87,29 @@
 
   <div class="grid gap-3 sm:grid-cols-2">
     <div class="space-y-1.5">
-      <Label for="scheduled-job-ticket-budget" class="text-xs">Budget USD</Label>
+      <Label for="scheduled-job-ticket-budget" class="text-xs">
+        {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.budget')}
+      </Label>
       <Input
         id="scheduled-job-ticket-budget"
         type="number"
         min="0"
         step="0.01"
         value={draft.ticketBudgetUsd}
-        placeholder="Optional"
+        placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.optional')}
         oninput={(event) =>
           onFieldChange?.('ticketBudgetUsd', (event.currentTarget as HTMLInputElement).value)}
       />
     </div>
 
     <div class="space-y-1.5">
-      <Label for="scheduled-job-ticket-created-by" class="text-xs">Created by</Label>
+      <Label for="scheduled-job-ticket-created-by" class="text-xs">
+        {i18nStore.t('settings.workflowScheduledJobTemplateFields.labels.createdBy')}
+      </Label>
       <Input
         id="scheduled-job-ticket-created-by"
         value={draft.ticketCreatedBy}
-        placeholder="scheduler"
+        placeholder={i18nStore.t('settings.workflowScheduledJobTemplateFields.placeholders.createdBy')}
         oninput={(event) =>
           onFieldChange?.('ticketCreatedBy', (event.currentTarget as HTMLInputElement).value)}
       />

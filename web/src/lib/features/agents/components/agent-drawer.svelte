@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ApiError } from '$lib/api/client'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import {
     deleteAgent,
     interruptAgent,
@@ -198,8 +199,8 @@
   <SheetContent class="flex w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-md">
     {#if !agent}
       <SheetHeader class="p-4 sm:p-6">
-        <SheetTitle>Agent</SheetTitle>
-        <SheetDescription>No agent selected.</SheetDescription>
+        <SheetTitle>{i18nStore.t('agents.drawer.title')}</SheetTitle>
+        <SheetDescription>{i18nStore.t('agents.drawer.empty')}</SheetDescription>
       </SheetHeader>
     {:else}
       <AgentDrawerHeader

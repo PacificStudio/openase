@@ -5,6 +5,7 @@
   import { filterSuggestions, flattenSuggestions } from './harness-editor-autocomplete'
   import type { Suggestion } from './harness-editor-autocomplete'
   import type { HarnessContent, HarnessVariableGroup } from '../types'
+  import { t } from './i18n'
 
   let {
     content,
@@ -87,10 +88,10 @@
     >
       {#if copied}
         <Check class="size-3" />
-        Copied
+        {t('workflows.harness.editor.button.copied')}
       {:else}
         <Copy class="size-3" />
-        Copy
+        {t('workflows.harness.editor.button.copy')}
       {/if}
     </button>
   </div>
@@ -105,8 +106,15 @@
         <div
           class="flex items-center justify-between border-b border-neutral-800 px-3 py-2 text-[11px] tracking-[0.12em] text-neutral-400 uppercase"
         >
-          <span>{completionMode === 'filter' ? 'Filters' : 'Variables'}</span>
-          <span>{completionQuery || 'browse'}</span>
+          <span>
+            {completionMode === 'filter'
+              ? t('workflows.harness.editor.mode.filters')
+              : t('workflows.harness.editor.mode.variables')}
+          </span>
+          <span>
+            {completionQuery ||
+              t('workflows.harness.editor.mode.browse')}
+          </span>
         </div>
 
         <div class="max-h-72 overflow-auto p-1">
@@ -139,7 +147,7 @@
         </div>
 
         <div class="border-t border-neutral-800 px-3 py-2 text-[11px] text-neutral-500">
-          Click to insert the highlighted item.
+          {t('workflows.harness.editor.hint.insert')}
         </div>
       </div>
     {/if}

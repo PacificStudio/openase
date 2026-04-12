@@ -5,6 +5,7 @@
   import { Textarea } from '$ui/textarea'
   import { cn } from '$lib/utils'
   import type { ProjectRepoRecord } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import RepositoryGitHubBrowser from './repository-github-browser.svelte'
   import RepositoryGitHubCreate from './repository-github-create.svelte'
   import type {
@@ -131,39 +132,43 @@
     <div>
       <h3 class="text-foreground text-sm font-semibold">
         {mode === 'edit'
-          ? `Repository identity · ${selectedRepo?.name ?? 'bound repo'}`
-          : 'Manual repository binding'}
+          ? i18nStore.t('settings.repositoryEditor.heading.edit', {
+              name: selectedRepo?.name ?? i18nStore.t('settings.repositoryEditor.labels.boundRepo'),
+            })
+          : i18nStore.t('settings.repositoryEditor.heading.create')}
       </h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Basic Git coordinates that OpenASE uses for repo scopes and workspace preparation.
+        {i18nStore.t('settings.repositoryEditor.hints.identityDescription')}
       </p>
     </div>
 
     <div class="grid gap-4 md:grid-cols-2">
       <div class="space-y-2">
-        <Label for="repo-name">Name</Label>
+        <Label for="repo-name">{i18nStore.t('settings.repositoryEditor.labels.name')}</Label>
         <Input
           id="repo-name"
           value={draft.name}
-          placeholder="backend"
+          placeholder={i18nStore.t('settings.repositoryEditor.placeholders.nameExample')}
           oninput={(event) => updateTextField('name', event)}
         />
       </div>
 
       <div class="space-y-2">
-        <Label for="repo-default-branch">Default branch</Label>
+        <Label for="repo-default-branch">{i18nStore.t('settings.repositoryEditor.labels.defaultBranch')}</Label>
         <Input
           id="repo-default-branch"
           value={draft.defaultBranch}
-          placeholder="main"
+          placeholder={i18nStore.t('settings.repositoryEditor.placeholders.defaultBranch')}
           oninput={(event) => updateTextField('defaultBranch', event)}
         />
-        <p class="text-muted-foreground text-xs">Blank input normalizes to `main`.</p>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('settings.repositoryEditor.hints.defaultBranchNormalization')}
+        </p>
       </div>
     </div>
 
     <div class="space-y-2">
-      <Label for="repo-url">Repository URL</Label>
+      <Label for="repo-url">{i18nStore.t('settings.repositoryEditor.labels.repositoryUrl')}</Label>
       <div class="bg-muted flex rounded-md p-0.5 text-xs">
         <button
           type="button"
@@ -175,7 +180,7 @@
           )}
           onclick={() => switchUrlType('remote')}
         >
-          Remote
+          {i18nStore.t('settings.repositoryEditor.buttons.remote')}
         </button>
         <button
           type="button"
@@ -187,29 +192,31 @@
           )}
           onclick={() => switchUrlType('file')}
         >
-          Local path
+          {i18nStore.t('settings.repositoryEditor.buttons.localPath')}
         </button>
       </div>
       <Input
         id="repo-url"
         value={draft.repositoryURL}
-        placeholder={urlType === 'file'
-          ? 'file:///home/user/repos/backend.git'
-          : 'https://github.com/acme/backend.git'}
+        placeholder={
+          urlType === 'file'
+            ? i18nStore.t('settings.repositoryEditor.placeholders.fileUrl')
+            : i18nStore.t('settings.repositoryEditor.placeholders.remoteUrl')
+        }
         oninput={(event) => updateTextField('repositoryURL', event)}
       />
       {#if urlType === 'file'}
         <p class="text-muted-foreground text-xs">
-          Uses a local Git repository on the machine running the agent. The path must be accessible
-          from that machine at clone/fetch time. Example: <code class="font-mono text-[11px]"
-            >file:///srv/git/backend.git</code
-          >
+          {i18nStore.t('settings.repositoryEditor.hints.localRepoIntro')}{' '}
+          <code class="font-mono text-[11px]">file:///srv/git/backend.git</code>
         </p>
       {:else}
         <p class="text-muted-foreground text-xs">
-          Supports <code class="font-mono text-[11px]">https://</code> and
-          <code class="font-mono text-[11px]">git@</code> SSH URLs. Works with GitHub, GitLab, Gitea,
-          and any hosted or self-hosted Git server reachable from the agent machine.
+          {i18nStore.t('settings.repositoryEditor.hints.remoteRepoSupports')}
+          <code class="font-mono text-[11px]">https://</code>
+          {i18nStore.t('settings.repositoryEditor.hints.remoteRepoSupportsAnd')}
+          <code class="font-mono text-[11px]">git@</code>
+          {i18nStore.t('settings.repositoryEditor.hints.remoteRepoSupportsRest')}
         </p>
       {/if}
     </div>
@@ -217,47 +224,51 @@
 
   <section class="border-border space-y-4 border-t pt-6">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Workspace mapping</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.repositoryEditor.heading.workspaceMapping')}
+      </h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Optional checkout path that runtime tasks can use for repo-specific workspaces.
+        {i18nStore.t('settings.repositoryEditor.hints.workspaceMapping')}
       </p>
     </div>
 
     <div class="space-y-2">
-      <Label for="repo-workspace-dirname">Workspace dirname</Label>
+      <Label for="repo-workspace-dirname">
+        {i18nStore.t('settings.repositoryEditor.labels.workspaceDirname')}
+      </Label>
       <Input
         id="repo-workspace-dirname"
         value={draft.workspaceDirname}
-        placeholder="services/backend"
+        placeholder={i18nStore.t('settings.repositoryEditor.placeholders.workspaceDirname')}
         oninput={(event) => updateTextField('workspaceDirname', event)}
       />
       <p class="text-muted-foreground text-xs">
-        Leave empty to let the runtime derive the workspace path automatically.
+        {i18nStore.t('settings.repositoryEditor.hints.workspaceDirname')}
       </p>
     </div>
   </section>
 
   <section class="border-border space-y-4 border-t pt-6">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Metadata</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.repositoryEditor.heading.metadata')}
+      </h3>
       <p class="text-muted-foreground mt-1 text-xs">
-        Labels help group repositories for workflows and ticket repo scopes across {reposCount}
-        bound repos.
+        {i18nStore.t('settings.repositoryEditor.hints.metadataDescription', { count: reposCount })}
       </p>
     </div>
 
     <div class="space-y-2">
-      <Label for="repo-labels">Labels</Label>
+      <Label for="repo-labels">{i18nStore.t('settings.repositoryEditor.labels.labels')}</Label>
       <Textarea
         id="repo-labels"
         rows={4}
         value={draft.labels}
-        placeholder={`go, backend, api\nworker`}
+        placeholder={i18nStore.t('settings.repositoryEditor.placeholders.labels')}
         oninput={(event) => updateTextField('labels', event)}
       />
       <p class="text-muted-foreground text-xs">
-        Separate labels with commas or new lines. Empty entries are removed and duplicates are
-        collapsed.
+        {i18nStore.t('settings.repositoryEditor.hints.labelsDescription')}
       </p>
     </div>
   </section>

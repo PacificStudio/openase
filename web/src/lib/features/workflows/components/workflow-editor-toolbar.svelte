@@ -4,6 +4,8 @@
   import { PanelLeftClose, PanelLeftOpen, Settings2 } from '@lucide/svelte'
   import type { SkillState } from '../model'
   import type { WorkflowSummary } from '../types'
+  import type { TranslationKey, TranslationParams } from '$lib/i18n/index'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import WorkflowSkillsDropdown from './workflow-skills-dropdown.svelte'
 
   let {
@@ -35,15 +37,23 @@
     onSave?: () => void
     onToggleDetail?: () => void
   } = $props()
+
+  function t(key: TranslationKey, params?: TranslationParams) {
+    return i18nStore.t(key, params)
+  }
 </script>
 
 <div class="border-border flex items-center gap-2 border-b px-3 py-2">
-  <Button
-    variant="ghost"
-    size="icon-sm"
-    onclick={onToggleList}
-    title={showList ? 'Hide workflow list' : 'Show workflow list'}
-  >
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onclick={onToggleList}
+      title={
+        showList
+          ? t('workflows.editor.toolbar.actions.hideList')
+          : t('workflows.editor.toolbar.actions.showList')
+      }
+    >
     {#if showList}
       <PanelLeftClose class="size-4" />
     {:else}
@@ -51,13 +61,19 @@
     {/if}
   </Button>
 
-  <div class="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
-    <span class="truncate font-medium">{selectedWorkflow?.name ?? 'No workflow selected'}</span>
+    <div class="text-muted-foreground flex min-w-0 items-center gap-2 text-xs">
+      <span class="truncate font-medium">
+        {selectedWorkflow?.name ?? t('workflows.editor.toolbar.placeholders.noWorkflow')}
+      </span>
     {#if isDirty}
-      <Badge variant="outline" class="shrink-0 text-[10px]">Unsaved</Badge>
+      <Badge variant="outline" class="shrink-0 text-[10px]">
+        {t('workflows.editor.toolbar.badge.unsaved')}
+      </Badge>
     {/if}
     {#if dictionarySize > 0}
-      <Badge variant="outline" class="shrink-0 text-[10px]">{dictionarySize} vars</Badge>
+      <Badge variant="outline" class="shrink-0 text-[10px]">
+        {t('workflows.editor.toolbar.badge.vars', { count: dictionarySize })}
+      </Badge>
     {/if}
   </div>
 
@@ -72,12 +88,21 @@
       onclick={onValidate}
       disabled={validating || !selectedWorkflow}
     >
-      {validating ? 'Validating…' : 'Validate'}
+      {validating
+        ? t('workflows.editor.toolbar.actions.validating')
+        : t('workflows.editor.toolbar.actions.validate')}
     </Button>
     <Button size="sm" onclick={onSave} disabled={!isDirty || saving || !selectedWorkflow}>
-      {saving ? 'Saving…' : 'Save'}
+      {saving
+        ? t('workflows.editor.toolbar.actions.saving')
+        : t('workflows.editor.toolbar.actions.save')}
     </Button>
-    <Button variant="ghost" size="icon-sm" onclick={onToggleDetail} title="Workflow settings">
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onclick={onToggleDetail}
+      title={t('workflows.editor.toolbar.actions.settings')}
+    >
       <Settings2 class="size-4" />
     </Button>
   </div>

@@ -4,6 +4,7 @@
   import * as Dialog from '$ui/dialog'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { Ellipsis, Eye, RotateCcw, TestTube2, Trash2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     machineName,
@@ -37,28 +38,28 @@
 </script>
 
 <div class="flex items-center gap-1">
-  <Button
-    variant="ghost"
-    size="icon-sm"
-    title="View details"
-    onclick={(event) => {
-      event.stopPropagation()
-      onOpen?.()
-    }}
-  >
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      title={i18nStore.t('machines.machineRowCardActions.action.viewDetails')}
+      onclick={(event) => {
+        event.stopPropagation()
+        onOpen?.()
+      }}
+    >
     <Eye class="size-3.5" />
   </Button>
 
   <DropdownMenu.Root>
     <DropdownMenu.Trigger>
       {#snippet child({ props })}
-        <Button
-          {...props}
-          variant="ghost"
-          size="icon-sm"
-          title="More actions"
-          onclick={(event) => event.stopPropagation()}
-        >
+          <Button
+            {...props}
+            variant="ghost"
+            size="icon-sm"
+            title={i18nStore.t('machines.machineRowCardActions.action.moreActions')}
+            onclick={(event) => event.stopPropagation()}
+          >
           <Ellipsis class="size-3.5" />
         </Button>
       {/snippet}
@@ -72,7 +73,9 @@
         }}
       >
         <TestTube2 class="size-3.5" />
-        {testing ? 'Testing…' : 'Connection test'}
+        {testing
+          ? i18nStore.t('machines.machineRowCardActions.action.testing')
+          : i18nStore.t('machines.machineRowCardActions.action.connectionTest')}
       </DropdownMenu.Item>
       <DropdownMenu.Item
         disabled={!resetEnabled}
@@ -84,7 +87,7 @@
         }}
       >
         <RotateCcw class="size-3.5" />
-        Reset draft
+        {i18nStore.t('machines.machineRowCardActions.action.resetDraft')}
       </DropdownMenu.Item>
       <DropdownMenu.Separator />
       <DropdownMenu.Item
@@ -98,7 +101,9 @@
         }}
       >
         <Trash2 class="size-3.5" />
-        {deleting ? 'Deleting…' : 'Delete'}
+        {deleting
+          ? i18nStore.t('machines.machineRowCardActions.action.deleting')
+          : i18nStore.t('machines.machineRowCardActions.action.delete')}
       </DropdownMenu.Item>
     </DropdownMenu.Content>
   </DropdownMenu.Root>
@@ -107,27 +112,28 @@
 <Dialog.Root bind:open={confirmResetOpen}>
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Discard unsaved changes?</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('machines.machineRowCardActions.dialog.reset.title')}
+      </Dialog.Title>
       <Dialog.Description>
-        Reset will discard the unsaved edits in the open drawer for {machineName} and restore the last
-        saved configuration.
+        {i18nStore.t('machines.machineRowCardActions.dialog.reset.description', { machineName })}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
       <Dialog.Close>
-        {#snippet child({ props })}
-          <Button variant="outline" {...props}>Cancel</Button>
-        {/snippet}
+          {#snippet child({ props })}
+            <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
+          {/snippet}
       </Dialog.Close>
-      <Button
-        variant="destructive"
-        onclick={() => {
-          confirmResetOpen = false
-          onReset?.()
-        }}
-      >
-        Reset draft
-      </Button>
+        <Button
+          variant="destructive"
+          onclick={() => {
+            confirmResetOpen = false
+            onReset?.()
+          }}
+        >
+          {i18nStore.t('machines.machineRowCardActions.action.resetDraft')}
+        </Button>
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
@@ -135,17 +141,18 @@
 <Dialog.Root bind:open={confirmDeleteOpen}>
   <Dialog.Content class="sm:max-w-md">
     <Dialog.Header>
-      <Dialog.Title>Delete machine?</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('machines.machineRowCardActions.dialog.delete.title')}
+      </Dialog.Title>
       <Dialog.Description>
-        This removes {machineName} from the organization. Existing monitor history and machine references
-        may stop working.
+        {i18nStore.t('machines.machineRowCardActions.dialog.delete.description', { machineName })}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer class="mt-6">
       <Dialog.Close>
-        {#snippet child({ props })}
-          <Button variant="outline" {...props}>Cancel</Button>
-        {/snippet}
+          {#snippet child({ props })}
+            <Button variant="outline" {...props}>{i18nStore.t('common.cancel')}</Button>
+          {/snippet}
       </Dialog.Close>
       <Button
         variant="destructive"
@@ -155,7 +162,9 @@
           onDelete?.()
         }}
       >
-        {deleting ? 'Deleting…' : 'Delete machine'}
+        {deleting
+          ? i18nStore.t('machines.machineRowCardActions.action.deleting')
+          : i18nStore.t('machines.machineRowCardActions.action.deleteMachine')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

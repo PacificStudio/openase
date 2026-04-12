@@ -18,6 +18,7 @@
   import MachineGpuTable from './machine-gpu-table.svelte'
   import MachineHealthHeader from './machine-health-header.svelte'
   import MachineProbeCard from './machine-probe-card.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const truthyIcon: Record<TruthyState, typeof CircleCheck> = {
     yes: CircleCheck,
@@ -66,7 +67,7 @@
     <div
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-8 text-center text-sm"
     >
-      No monitor snapshot is available for this machine yet.
+      {i18nStore.t('machines.machineHealthPanel.emptyState')}
     </div>
   {:else}
     <div class="border-border bg-card rounded-xl border">
@@ -74,7 +75,9 @@
         class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
       >
         <div class="min-w-0">
-          <h4 class="text-foreground text-sm font-semibold">Setup guidance</h4>
+          <h4 class="text-foreground text-sm font-semibold">
+            {i18nStore.t('machines.machineHealthPanel.heading.setupGuidance')}
+          </h4>
           <p class="text-muted-foreground mt-1 text-xs">{setupGuide.topologySummary}</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -93,7 +96,9 @@
           <p class="text-muted-foreground text-xs leading-relaxed">{setupGuide.helperSummary}</p>
         </div>
         <div class="space-y-1.5">
-          <p class="text-foreground text-sm font-medium">Next steps</p>
+          <p class="text-foreground text-sm font-medium">
+            {i18nStore.t('machines.machineHealthPanel.heading.nextSteps')}
+          </p>
           <ul class="text-muted-foreground space-y-1.5 text-xs leading-relaxed">
             {#each setupGuide.nextSteps as step, index (`${step}-${index}`)}
               <li>{step}</li>
@@ -129,8 +134,10 @@
     </div>
 
     {#if snapshot.monitorErrors.length > 0}
-      <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
-        <p class="text-destructive text-sm font-medium">Monitor warnings</p>
+        <div class="border-destructive/40 bg-destructive/10 rounded-xl border px-4 py-3">
+        <p class="text-destructive text-sm font-medium">
+          {i18nStore.t('machines.machineHealthPanel.heading.monitorWarnings')}
+        </p>
         <ul class="text-destructive mt-2 space-y-1 text-xs">
           {#each snapshot.monitorErrors as error, index (`${error}-${index}`)}
             <li>{error}</li>
@@ -145,8 +152,10 @@
         <div
           class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-semibold">Runtime providers</h4>
+            <div class="flex items-center gap-2">
+              <h4 class="text-foreground text-sm font-semibold">
+                {i18nStore.t('machines.machineHealthPanel.heading.runtimeProviders')}
+              </h4>
             <Badge variant={stateBadgeVariant(l4State)}>{stateLabel(l4State)}</Badge>
           </div>
           <span class="text-muted-foreground text-xs">
@@ -157,11 +166,21 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="border-border text-muted-foreground border-b text-left text-xs">
-                <th class="px-4 py-2 font-medium">Runtime</th>
-                <th class="px-4 py-2 font-medium">Installed</th>
-                <th class="px-4 py-2 font-medium">Auth</th>
-                <th class="px-4 py-2 font-medium">Ready</th>
-                <th class="px-4 py-2 font-medium">Version</th>
+                <th class="px-4 py-2 font-medium">
+                  {i18nStore.t('machines.machineHealthPanel.tableColumns.runtime')}
+                </th>
+                <th class="px-4 py-2 font-medium">
+                  {i18nStore.t('machines.machineHealthPanel.tableColumns.installed')}
+                </th>
+                <th class="px-4 py-2 font-medium">
+                  {i18nStore.t('machines.machineHealthPanel.tableColumns.auth')}
+                </th>
+                <th class="px-4 py-2 font-medium">
+                  {i18nStore.t('machines.machineHealthPanel.tableColumns.ready')}
+                </th>
+                <th class="px-4 py-2 font-medium">
+                  {i18nStore.t('machines.machineHealthPanel.tableColumns.version')}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -177,14 +196,14 @@
                   </td>
                   <td class="px-4 py-3 text-xs">
                     {[runtime.authStatus, runtime.authMode].filter(Boolean).join(' · ') ||
-                      'Unknown'}
+                      i18nStore.t('machines.machineHealthPanel.status.unknown')}
                   </td>
                   <td class="px-4 py-3">
                     <ReadyIcon class="size-4 {truthyColorClass[readyState]}" />
                   </td>
-                  <td class="text-muted-foreground px-4 py-3 text-xs"
-                    >{runtime.version ?? 'Unknown'}</td
-                  >
+                  <td class="text-muted-foreground px-4 py-3 text-xs">
+                    {runtime.version ?? i18nStore.t('machines.machineHealthPanel.status.unknown')}
+                  </td>
                 </tr>
               {/each}
             </tbody>
@@ -204,7 +223,9 @@
           class="border-border flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-semibold">Tooling audit</h4>
+            <h4 class="text-foreground text-sm font-semibold">
+              {i18nStore.t('machines.machineHealthPanel.heading.toolingAudit')}
+            </h4>
             <Badge variant={stateBadgeVariant(l5State)}>{stateLabel(l5State)}</Badge>
           </div>
           <span class="text-muted-foreground text-xs">
@@ -229,10 +250,10 @@
                       <Icon class="size-3.5" />
                       <span class="text-xs font-medium">
                         {row.installed === 'yes'
-                          ? 'Installed'
+                          ? i18nStore.t('machines.machineHealthPanel.status.installed')
                           : row.installed === 'no'
-                            ? 'Missing'
-                            : 'Unknown'}
+                            ? i18nStore.t('machines.machineHealthPanel.status.missing')
+                            : i18nStore.t('machines.machineHealthPanel.status.unknown')}
                       </span>
                     </div>
                   {:else if row.kind === 'gh-cli'}
@@ -241,20 +262,22 @@
                       <Icon class="size-3.5" />
                       <span class="text-xs font-medium">
                         {row.installed === 'yes'
-                          ? 'Installed'
+                          ? i18nStore.t('machines.machineHealthPanel.status.installed')
                           : row.installed === 'no'
-                            ? 'Missing'
-                            : 'Unknown'}
+                            ? i18nStore.t('machines.machineHealthPanel.status.missing')
+                            : i18nStore.t('machines.machineHealthPanel.status.unknown')}
                       </span>
                     </div>
-                    <Badge variant="outline" class="text-[10px]">Observational</Badge>
+                    <Badge variant="outline" class="text-[10px]">
+                      {i18nStore.t('machines.machineHealthPanel.badge.observational')}
+                    </Badge>
                   {/if}
                 </div>
                 <div class="text-muted-foreground mt-1 text-xs">
                   {#if row.kind === 'git'}
-                    {row.identity ?? 'No git identity recorded'}
+                    {row.identity ?? i18nStore.t('machines.machineHealthPanel.hint.noGitIdentity')}
                   {:else if row.kind === 'gh-cli'}
-                    {row.authStatus ?? 'No auth status recorded'}
+                    {row.authStatus ?? i18nStore.t('machines.machineHealthPanel.hint.noAuthStatus')}
                   {:else if row.kind === 'network'}
                     <div class="mt-1 flex items-center gap-3">
                       {#each row.endpoints as endpoint (endpoint.name)}
@@ -266,9 +289,11 @@
                       {/each}
                     </div>
                     {#if row.auditTimestamp}
-                      <div class="mt-1 text-[11px]">
-                        Captured {formatRelativeTime(row.auditTimestamp)}
-                      </div>
+                    <div class="mt-1 text-[11px]">
+                      {i18nStore.t('machines.machineHealthPanel.hint.capturedAt', {
+                        time: formatRelativeTime(row.auditTimestamp),
+                      })}
+                    </div>
                     {/if}
                   {/if}
                 </div>

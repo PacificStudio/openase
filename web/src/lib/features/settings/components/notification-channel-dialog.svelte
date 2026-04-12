@@ -4,6 +4,7 @@
   import * as Dialog from '$ui/dialog'
   import type { ChannelDraft } from '../notification-channels'
   import NotificationChannelEditor from './notification-channel-editor.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     editingChannel,
@@ -35,11 +36,19 @@
 <Dialog.Root open={dialogOpen} onOpenChange={onDialogOpenChange}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>{editingChannel ? 'Edit channel' : 'New channel'}</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t(
+          editingChannel
+            ? 'settings.notificationChannel.dialogs.title.edit'
+            : 'settings.notificationChannel.dialogs.title.create',
+        )}
+      </Dialog.Title>
       {#if editingChannel}
         <Dialog.Description>{editingChannel.name}</Dialog.Description>
       {:else}
-        <Dialog.Description>Configure a new notification delivery endpoint.</Dialog.Description>
+        <Dialog.Description>
+          {i18nStore.t('settings.notificationChannel.dialogs.description.create')}
+        </Dialog.Description>
       {/if}
     </Dialog.Header>
 
@@ -55,16 +64,22 @@
           disabled={saving || deleting}
           class="mr-auto"
         >
-          Delete
+          {i18nStore.t('settings.notificationChannel.dialogs.buttons.delete')}
         </Button>
       {/if}
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={saving || deleting}>Cancel</Button>
+          <Button variant="outline" {...props} disabled={saving || deleting}>
+            {i18nStore.t('settings.notificationChannel.dialogs.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button onclick={onSave} disabled={saving || deleting}>
-        {saving ? 'Saving…' : editingChannel ? 'Save changes' : 'Create channel'}
+        {saving
+          ? i18nStore.t('settings.notificationChannel.dialogs.buttons.saving')
+          : editingChannel
+            ? i18nStore.t('settings.notificationChannel.dialogs.buttons.saveChanges')
+            : i18nStore.t('settings.notificationChannel.dialogs.buttons.create')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>
@@ -73,19 +88,27 @@
 <Dialog.Root open={confirmDeleteOpen} onOpenChange={onConfirmDeleteOpenChange}>
   <Dialog.Content class="sm:max-w-sm">
     <Dialog.Header>
-      <Dialog.Title>Delete {editingChannel?.name}?</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('settings.notificationChannel.dialogs.confirm.title', {
+          name: editingChannel?.name ?? '',
+        })}
+      </Dialog.Title>
       <Dialog.Description>
-        This removes the channel and any rules that route to it. This cannot be undone.
+        {i18nStore.t('settings.notificationChannel.dialogs.confirm.description')}
       </Dialog.Description>
     </Dialog.Header>
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={deleting}>Cancel</Button>
+          <Button variant="outline" {...props} disabled={deleting}>
+            {i18nStore.t('settings.notificationChannel.dialogs.buttons.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button variant="destructive" onclick={onDelete} disabled={deleting}>
-        {deleting ? 'Deleting…' : 'Delete channel'}
+        {deleting
+          ? i18nStore.t('settings.notificationChannel.dialogs.buttons.deleting')
+          : i18nStore.t('settings.notificationChannel.dialogs.buttons.delete')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

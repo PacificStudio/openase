@@ -7,6 +7,7 @@
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import OIDCRedirectFields from './oidc-redirect-fields.svelte'
 
   type OIDCTestResult = {
@@ -73,33 +74,45 @@
   <div class="border-border bg-card space-y-4 rounded-lg border p-4">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div class="space-y-2">
-        <div class="flex flex-wrap items-center gap-2">
-          <h4 class="text-sm font-semibold">Auth setup</h4>
-          <Badge variant="outline">{auth.active_mode}</Badge>
-          <Badge variant={auth.public_exposure_risk === 'high' ? 'destructive' : 'secondary'}>
-            {auth.public_exposure_risk === 'high' ? 'High risk' : 'Local ready'}
-          </Badge>
-        </div>
-        <p class="text-muted-foreground text-sm leading-relaxed">{auth.mode_summary}</p>
-        <p class="text-muted-foreground text-xs leading-relaxed">
-          Your current local admin principal is <code>{auth.local_principal}</code>. You can keep
-          using local bootstrap links for personal or recovery access, or configure OIDC now and
-          enable it only when you want managed multi-user browser access.
-        </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <h4 class="text-sm font-semibold">{i18nStore.t('settings.security.authDisabled.heading')}</h4>
+        <Badge variant="outline">{auth.active_mode}</Badge>
+        <Badge variant={auth.public_exposure_risk === 'high' ? 'destructive' : 'secondary'}>
+          {auth.public_exposure_risk === 'high'
+            ? i18nStore.t('settings.security.authDisabled.badges.highRisk')
+            : i18nStore.t('settings.security.authDisabled.badges.localReady')}
+        </Badge>
+      </div>
+      <p class="text-muted-foreground text-sm leading-relaxed">{auth.mode_summary}</p>
+      <p class="text-muted-foreground text-xs leading-relaxed">
+        {i18nStore.t('settings.security.authDisabled.localPrincipal.prefix')}
+        <code>{auth.local_principal}</code>.
+      </p>
+      <p class="text-muted-foreground text-xs leading-relaxed">
+        {i18nStore.t('settings.security.authDisabled.localPrincipal.suffix')}
+      </p>
       </div>
 
       <div class="grid gap-2 text-xs sm:min-w-64 sm:grid-cols-2 lg:w-80">
         <div>
-          <div class="text-muted-foreground">Configured mode</div>
+          <div class="text-muted-foreground">
+            {i18nStore.t('settings.security.authDisabled.stats.configuredMode')}
+          </div>
           <div class="mt-1 font-medium uppercase">{auth.configured_mode}</div>
         </div>
         <div>
-          <div class="text-muted-foreground">Bootstrap admins</div>
+          <div class="text-muted-foreground">
+            {i18nStore.t('settings.security.authDisabled.stats.bootstrapAdmins')}
+          </div>
           <div class="mt-1 font-medium">{auth.bootstrap_state.summary}</div>
         </div>
         <div class="sm:col-span-2">
-          <div class="text-muted-foreground">Stored in</div>
-          <div class="mt-1 font-mono break-all">{auth.config_path || 'Not available'}</div>
+          <div class="text-muted-foreground">
+            {i18nStore.t('settings.security.authDisabled.stats.storedIn')}
+          </div>
+          <div class="mt-1 font-mono break-all">
+            {auth.config_path ?? i18nStore.t('settings.security.authDisabled.stats.notAvailable')}
+          </div>
         </div>
       </div>
     </div>
@@ -124,48 +137,54 @@
 
   <div class="border-border bg-card space-y-4 rounded-lg border p-4">
     <div>
-      <h4 class="text-sm font-semibold">Draft OIDC configuration</h4>
+      <h4 class="text-sm font-semibold">{i18nStore.t('settings.security.authDisabled.draft.heading')}</h4>
       <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-        Save stores the draft for this instance without changing the active auth mode. Test checks
-        provider discovery. Enable OIDC updates the configured auth mode and then tells you the next
-        rollout step.
+        {i18nStore.t('settings.security.authDisabled.draft.description')}
       </p>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
       <div class="space-y-2">
-        <Label for="oidc-issuer-url">Issuer URL</Label>
+        <Label for="oidc-issuer-url">{i18nStore.t('settings.security.authDisabled.labels.issuerURL')}</Label>
         <Input
           id="oidc-issuer-url"
           value={form.issuerURL}
-          placeholder="https://idp.example.com/realms/openase"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.issuerURL')}
           oninput={(event) => onIssuerURL((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
       <div class="space-y-2">
-        <Label for="oidc-client-id">Client ID</Label>
+        <Label for="oidc-client-id">{i18nStore.t('settings.security.authDisabled.labels.clientID')}</Label>
         <Input
           id="oidc-client-id"
           value={form.clientID}
-          placeholder="openase"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.clientID')}
           oninput={(event) => onClientID((event.currentTarget as HTMLInputElement).value)}
         />
       </div>
       <div class="space-y-2">
-        <Label for="oidc-client-secret">Client secret</Label>
+        <Label for="oidc-client-secret">
+          {i18nStore.t('settings.security.authDisabled.labels.clientSecret')}
+        </Label>
         <Input
           id="oidc-client-secret"
           type="password"
           value={form.clientSecret}
-          placeholder={auth.oidc_draft.client_secret_configured
-            ? 'Leave blank to keep the saved secret'
-            : 'Paste the current client secret'}
+          placeholder={
+            auth.oidc_draft.client_secret_configured
+              ? i18nStore.t(
+                  'settings.security.authDisabled.placeholders.clientSecretConfigured',
+                )
+              : i18nStore.t('settings.security.authDisabled.placeholders.clientSecretNew')
+          }
           oninput={(event) => onClientSecret((event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-[11px]">
           {auth.oidc_draft.client_secret_configured
-            ? 'A client secret is already saved. Leave this field empty to preserve it.'
-            : 'The client secret is stored server-side and never shown back in the UI.'}
+            ? i18nStore.t(
+                'settings.security.authDisabled.hints.clientSecretConfigured',
+              )
+            : i18nStore.t('settings.security.authDisabled.hints.clientSecretNew')}
         </p>
       </div>
       <OIDCRedirectFields
@@ -175,11 +194,13 @@
         {onFixedRedirectURL}
       />
       <div class="space-y-2">
-        <Label for="oidc-session-ttl">Session TTL</Label>
+        <Label for="oidc-session-ttl">
+          {i18nStore.t('settings.security.authDisabled.labels.sessionTTL')}
+        </Label>
         <Input
           id="oidc-session-ttl"
           value={form.sessionTTL}
-          placeholder="8h"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.sessionTTL')}
           oninput={(event) => onSessionTTL((event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-[11px]">
@@ -187,11 +208,13 @@
         </p>
       </div>
       <div class="space-y-2">
-        <Label for="oidc-session-idle-ttl">Idle TTL</Label>
+        <Label for="oidc-session-idle-ttl">
+          {i18nStore.t('settings.security.authDisabled.labels.idleTTL')}
+        </Label>
         <Input
           id="oidc-session-idle-ttl"
           value={form.sessionIdleTTL}
-          placeholder="30m"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.idleTTL')}
           oninput={(event) => onSessionIdleTTL((event.currentTarget as HTMLInputElement).value)}
         />
         <p class="text-muted-foreground text-[11px]">
@@ -199,33 +222,41 @@
         </p>
       </div>
       <div class="space-y-2 lg:col-span-2">
-        <Label for="oidc-scopes">Scopes</Label>
+        <Label for="oidc-scopes">
+          {i18nStore.t('settings.security.authDisabled.labels.scopes')}
+        </Label>
         <Textarea
           id="oidc-scopes"
           rows={3}
           value={form.scopesText}
-          placeholder="openid, profile, email, groups"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.scopes')}
           oninput={(event) => onScopes((event.currentTarget as HTMLTextAreaElement).value)}
         />
-        <p class="text-muted-foreground text-[11px]">Use commas or new lines.</p>
+        <p class="text-muted-foreground text-[11px]">
+          {i18nStore.t('settings.security.authDisabled.hints.scopes')}
+        </p>
       </div>
       <div class="space-y-2">
-        <Label for="oidc-allowed-domains">Allowed domains</Label>
+        <Label for="oidc-allowed-domains">
+          {i18nStore.t('settings.security.authDisabled.labels.allowedDomains')}
+        </Label>
         <Textarea
           id="oidc-allowed-domains"
           rows={3}
           value={form.allowedDomainsText}
-          placeholder="example.com"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.allowedDomains')}
           oninput={(event) => onAllowedDomains((event.currentTarget as HTMLTextAreaElement).value)}
         />
       </div>
       <div class="space-y-2">
-        <Label for="oidc-bootstrap-admins">Bootstrap admin emails</Label>
+        <Label for="oidc-bootstrap-admins">
+          {i18nStore.t('settings.security.authDisabled.labels.bootstrapAdmins')}
+        </Label>
         <Textarea
           id="oidc-bootstrap-admins"
           rows={3}
           value={form.bootstrapAdminEmailsText}
-          placeholder="admin@example.com"
+          placeholder={i18nStore.t('settings.security.authDisabled.placeholders.bootstrapAdmins')}
           oninput={(event) => onBootstrapAdmins((event.currentTarget as HTMLTextAreaElement).value)}
         />
       </div>
@@ -234,15 +265,21 @@
     <div class="flex flex-wrap gap-3">
       <Button variant="outline" onclick={onSave} disabled={actionKey !== ''}>
         <Save class="size-4" />
-        {actionKey === 'save' ? 'Saving…' : 'Save draft'}
+        {actionKey === 'save'
+          ? i18nStore.t('settings.security.authDisabled.buttons.savingDraft')
+          : i18nStore.t('settings.security.authDisabled.buttons.saveDraft')}
       </Button>
       <Button variant="outline" onclick={onTest} disabled={actionKey !== ''}>
         <TestTube2 class="size-4" />
-        {actionKey === 'test' ? 'Testing…' : 'Test configuration'}
+        {actionKey === 'test'
+          ? i18nStore.t('settings.security.authDisabled.buttons.testing')
+          : i18nStore.t('settings.security.authDisabled.buttons.testConfiguration')}
       </Button>
       <Button onclick={onEnable} disabled={actionKey !== ''}>
         <Rocket class="size-4" />
-        {actionKey === 'enable' ? 'Enabling…' : 'Enable OIDC'}
+        {actionKey === 'enable'
+          ? i18nStore.t('settings.security.authDisabled.buttons.enabling')
+          : i18nStore.t('settings.security.authDisabled.buttons.enableOIDC')}
       </Button>
     </div>
 
@@ -262,19 +299,29 @@
             <div class="font-medium">{testResult.message}</div>
             <div class="grid gap-2 text-xs md:grid-cols-2">
               <div>
-                <div class="text-emerald-800/80">Issuer</div>
+                <div class="text-emerald-800/80">
+                  {i18nStore.t('settings.security.authDisabled.testResult.labels.issuer')}
+                </div>
                 <div class="font-mono break-all">{testResult.issuer_url}</div>
               </div>
               <div>
-                <div class="text-emerald-800/80">Redirect</div>
+                <div class="text-emerald-800/80">
+                  {i18nStore.t('settings.security.authDisabled.testResult.labels.redirect')}
+                </div>
                 <div class="font-mono break-all">{testResult.redirect_url}</div>
               </div>
               <div>
-                <div class="text-emerald-800/80">Authorization endpoint</div>
+                <div class="text-emerald-800/80">
+                  {i18nStore.t(
+                    'settings.security.authDisabled.testResult.labels.authorizationEndpoint',
+                  )}
+                </div>
                 <div class="font-mono break-all">{testResult.authorization_endpoint}</div>
               </div>
               <div>
-                <div class="text-emerald-800/80">Token endpoint</div>
+                <div class="text-emerald-800/80">
+                  {i18nStore.t('settings.security.authDisabled.testResult.labels.tokenEndpoint')}
+                </div>
                 <div class="font-mono break-all">{testResult.token_endpoint}</div>
               </div>
             </div>
@@ -300,7 +347,7 @@
             <div class="font-medium">{enableResult.message}</div>
             {#if enableResult.restart_required}
               <div class="text-xs font-medium tracking-wide text-indigo-700 uppercase">
-                Restart required
+                {i18nStore.t('settings.security.authDisabled.enableResult.restartRequired')}
               </div>
             {/if}
             <ol class="list-inside list-decimal space-y-1 text-xs leading-relaxed">

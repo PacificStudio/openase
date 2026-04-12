@@ -20,7 +20,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
     id: 'ticket-1',
     project_id: 'project-1',
     identifier: 'ASE-1',
-    title: 'Implement ticket detail agent binding',
+    title: 'Implement ticket detail agent binding', // i18n-exempt fixture title
     description: '',
     status_id: 'status-1',
     status_name: 'Todo',
@@ -40,7 +40,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
         target: {
           id: 'ticket-2',
           identifier: 'ASE-2',
-          title: 'Backend migration',
+          title: 'Backend migration', // i18n-exempt fixture title
           status_id: 'status-2',
           status_name: 'In Progress',
         },
@@ -51,7 +51,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
         target: {
           id: 'ticket-3',
           identifier: 'ASE-3',
-          title: 'Frontend polish',
+          title: 'Frontend polish', // i18n-exempt fixture title
           status_id: 'status-3',
           status_name: 'Done',
         },
@@ -83,7 +83,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
       item_type: 'description',
       actor_name: 'user:test',
       actor_type: 'user',
-      title: 'Implement ticket detail agent binding',
+      title: 'Implement ticket detail agent binding', // i18n-exempt fixture title
       body_markdown: '',
       body_text: null,
       created_at: '2026-03-27T12:00:00Z',
@@ -121,7 +121,7 @@ export const detailPayloadFixture: TicketDetailPayload = {
       item_type: 'activity',
       actor_name: 'dispatcher',
       actor_type: 'system',
-      title: 'pr.opened',
+      title: 'pr.opened', // i18n-exempt fixture event key
       body_markdown: null,
       body_text: 'Opened frontend PR #9',
       created_at: '2026-03-27T12:06:00Z',
@@ -222,7 +222,7 @@ export const ticketPayloadFixture: TicketPayload = {
       id: 'ticket-1',
       project_id: 'project-1',
       identifier: 'ASE-1',
-      title: 'Implement ticket detail agent binding',
+      title: 'Implement ticket detail agent binding', // i18n-exempt fixture title
       description: '',
       status_id: 'status-1',
       status_name: 'Todo',
@@ -257,7 +257,7 @@ export const ticketPayloadFixture: TicketPayload = {
       id: 'ticket-2',
       project_id: 'project-1',
       identifier: 'ASE-2',
-      title: 'Backend migration',
+      title: 'Backend migration', // i18n-exempt fixture title
       description: '',
       status_id: 'status-2',
       status_name: 'In Progress',

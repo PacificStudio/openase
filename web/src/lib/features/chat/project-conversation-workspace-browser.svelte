@@ -9,6 +9,7 @@
   import ProjectConversationWorkspaceBrowserToolbar from './project-conversation-workspace-browser-toolbar.svelte'
   import ProjectConversationWorkspaceSyncBanner from './project-conversation-workspace-sync-banner.svelte'
   import { createProjectConversationWorkspaceBrowserState } from './project-conversation-workspace-browser-state.svelte'
+  import { chatT } from './i18n'
   import { createTerminalManager } from './terminal-manager.svelte'
   import { workspaceBrowserPortal } from './workspace-browser-portal.svelte'
 
@@ -93,7 +94,7 @@
       await browser.refreshWorkspace(true)
     } catch (error) {
       syncError =
-        error instanceof Error ? error.message : 'Failed to sync the Project AI workspace.'
+        error instanceof Error ? error.message : chatT('chat.failedToSyncWorkspace')
     } finally {
       syncInFlight = false
     }
@@ -258,13 +259,13 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      Start or reopen a Project AI conversation to inspect its workspace.
+      {chatT('chat.workspaceBrowserNoConversation')}
     </div>
   {:else if browser.metadataLoading && !browser.metadata}
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      Loading workspace...
+      {chatT('chat.workspaceLoading')}
     </div>
   {:else if browser.metadataError}
     <div class="flex flex-1 items-center justify-center px-6">
@@ -274,7 +275,7 @@
         >
           <AlertCircle class="size-4" />
         </div>
-        <p class="text-sm font-medium">Workspace browser unavailable</p>
+        <p class="text-sm font-medium">{chatT('chat.workspaceBrowserUnavailable')}</p>
         <p class="text-muted-foreground text-sm">{browser.metadataError}</p>
       </div>
     </div>
@@ -282,7 +283,7 @@
     <div
       class="text-muted-foreground flex flex-1 items-center justify-center px-6 text-center text-sm"
     >
-      The workspace will appear after Project AI provisions the conversation workdir.
+      {chatT('chat.workspaceProvisionNotice')}
     </div>
   {:else if syncPrompt && (browser.metadata?.repos.length ?? 0) === 0}
     <ProjectConversationWorkspaceSyncBanner

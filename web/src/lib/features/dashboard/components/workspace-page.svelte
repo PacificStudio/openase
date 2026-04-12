@@ -24,6 +24,7 @@
   import { Skeleton } from '$ui/skeleton'
   import { Bot, Coins, FolderOpen, Ticket } from '@lucide/svelte'
   import StatCard from './stat-card.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   const organizations = $derived(appStore.organizations)
   const providers = $derived(appStore.providers)
@@ -79,46 +80,57 @@
 </script>
 
 <svelte:head>
-  <title>Workspace - OpenASE</title>
+  <title>{i18nStore.t('organizations.page.title')}</title>
 </svelte:head>
 
 <div data-testid="route-scroll-container" class="min-h-0 flex-1 overflow-y-auto">
   <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 class="text-foreground text-2xl font-semibold">Workspace</h1>
+        <h1 class="text-foreground text-2xl font-semibold">
+          {i18nStore.t('dashboard.workspace.title')}
+        </h1>
         <p class="text-muted-foreground mt-1 text-sm">
-          {organizations.length}
-          {organizations.length === 1 ? 'organization' : 'organizations'} · {totalProjects}
-          {totalProjects === 1 ? 'project' : 'projects'} · {providers.length}
-          {providers.length === 1 ? 'provider' : 'providers'}
+          {i18nStore.t('dashboard.workspace.summary.organization', {
+            count: organizations.length,
+          })}
+          &middot;
+          {i18nStore.t('dashboard.workspace.summary.project', {
+            count: totalProjects,
+          })}
+          &middot;
+          {i18nStore.t('dashboard.workspace.summary.provider', {
+            count: providers.length,
+          })}
         </p>
       </div>
-      <Button onclick={() => (showCreateDialog = true)}>New organization</Button>
+      <Button onclick={() => (showCreateDialog = true)}>
+        {i18nStore.t('dashboard.workspace.actions.newOrganization')}
+      </Button>
     </div>
 
     {#if organizations.length > 0}
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Running Agents"
+          label={i18nStore.t('dashboard.workspace.stats.runningAgents')}
           value={workspaceStats.runningAgents}
           icon={Bot}
           {loading}
         />
         <StatCard
-          label="Active Tickets"
+          label={i18nStore.t('dashboard.workspace.stats.activeTickets')}
           value={workspaceStats.activeTickets}
           icon={Ticket}
           {loading}
         />
         <StatCard
-          label="Today's Spend"
+          label={i18nStore.t('dashboard.workspace.stats.todaySpend')}
           value={formatCurrency(workspaceStats.todayCost)}
           icon={Coins}
           {loading}
         />
         <StatCard
-          label="Total Tokens"
+          label={i18nStore.t('dashboard.workspace.stats.totalTokens')}
           value={formatCount(workspaceStats.totalTokens)}
           icon={FolderOpen}
           {loading}
@@ -126,8 +138,10 @@
       </div>
     {/if}
 
-    <section class="space-y-4">
-      <h2 class="text-foreground text-lg font-semibold">Organizations</h2>
+      <section class="space-y-4">
+      <h2 class="text-foreground text-lg font-semibold">
+        {i18nStore.t('dashboard.workspace.sections.organizations')}
+      </h2>
 
       {#if organizations.length > 0}
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -152,7 +166,7 @@
                     openDelete(org)
                   }}
                 >
-                  Archive
+                  {i18nStore.t('dashboard.workspace.actions.archive')}
                 </Button>
               </div>
 
@@ -160,10 +174,16 @@
                 <div
                   class="text-muted-foreground mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
                 >
-                  <span>{metrics.projectCount} project{metrics.projectCount !== 1 ? 's' : ''}</span>
-                  <span
-                    >{metrics.providerCount} provider{metrics.providerCount !== 1 ? 's' : ''}</span
-                  >
+                  <span>
+                    {i18nStore.t('dashboard.workspace.metrics.projects', {
+                      count: metrics.projectCount,
+                    })}
+                  </span>
+                  <span>
+                    {i18nStore.t('dashboard.workspace.metrics.providers', {
+                      count: metrics.providerCount,
+                    })}
+                  </span>
                   <span class="flex items-center gap-1">
                     <Bot class="size-3" />
                     {metrics.runningAgents}
@@ -190,16 +210,20 @@
           {/each}
         </div>
       {:else if appStore.appContextLoading}
-        <div class="text-muted-foreground text-sm">Loading organizations…</div>
+        <div class="text-muted-foreground text-sm">
+          {i18nStore.t('dashboard.workspace.messages.loadingOrganizations')}
+        </div>
       {:else}
         <button
           type="button"
           class="border-border hover:border-foreground/20 hover:bg-card w-full rounded-lg border border-dashed px-4 py-12 text-center transition-colors"
           onclick={() => (showCreateDialog = true)}
         >
-          <p class="text-muted-foreground text-sm">No organizations yet.</p>
+          <p class="text-muted-foreground text-sm">
+            {i18nStore.t('dashboard.workspace.messages.noOrganizations')}
+          </p>
           <p class="text-foreground mt-1 text-sm font-medium">
-            Create your first organization to get started
+            {i18nStore.t('dashboard.workspace.messages.firstOrganization')}
           </p>
         </button>
       {/if}
@@ -207,7 +231,9 @@
 
     {#if providers.length > 0}
       <section class="space-y-4">
-        <h2 class="text-foreground text-lg font-semibold">Providers</h2>
+        <h2 class="text-foreground text-lg font-semibold">
+          {i18nStore.t('dashboard.workspace.sections.providers')}
+        </h2>
         <div class="border-border divide-border divide-y rounded-lg border">
           {#each providers as provider (provider.id)}
             {@const rateLimit = summarizeAgentProviderRateLimit(provider)}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { type EffectivePermissionsResponse, type RoleBinding } from '$lib/api/auth'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { authStore } from '$lib/stores/auth.svelte'
   import { appStore } from '$lib/stores/app.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
@@ -98,7 +99,10 @@
         if (cancelled) {
           return
         }
-        error = formatError(caughtError, 'Failed to load human auth and RBAC state.')
+        error = formatError(
+          caughtError,
+          i18nStore.t('settings.security.humanAuth.errors.load'),
+        )
       } finally {
         if (!cancelled) {
           loading = false
@@ -160,10 +164,16 @@
       await createRoleBindingForScope(scope, orgId, projectId, draft)
       await reloadScope(scope)
       resetDraft(scope)
-      toastStore.success(`${scopeDisplayName(scope)} role binding added.`)
+      toastStore.success(
+        i18nStore.t('settings.security.humanAuth.messages.roleBindingAdded', {
+          scope: scopeDisplayName(scope),
+        }),
+      )
     } catch (caughtError) {
       const message =
-        caughtError instanceof Error ? caughtError.message : 'Failed to create role binding.'
+        caughtError instanceof Error
+          ? caughtError.message
+          : i18nStore.t('settings.security.humanAuth.errors.createRoleBinding')
       error = message
       toastStore.error(message)
     } finally {
@@ -185,9 +195,16 @@
     try {
       await deleteRoleBindingForScope(scope, orgId, projectId, bindingId)
       await reloadScope(scope)
-      toastStore.success(`${scopeDisplayName(scope)} role binding deleted.`)
+      toastStore.success(
+        i18nStore.t('settings.security.humanAuth.messages.roleBindingDeleted', {
+          scope: scopeDisplayName(scope),
+        }),
+      )
     } catch (caughtError) {
-      const message = formatError(caughtError, 'Failed to delete role binding.')
+      const message = formatError(
+        caughtError,
+        i18nStore.t('settings.security.humanAuth.errors.deleteRoleBinding'),
+      )
       error = message
       toastStore.error(message)
     } finally {
@@ -233,7 +250,9 @@
 <div class="space-y-4">
   <div class="flex items-center gap-2">
     <Shield class="text-muted-foreground size-4" />
-    <h3 class="text-sm font-semibold">Human access and IAM</h3>
+    <h3 class="text-sm font-semibold">
+      {i18nStore.t('settings.security.humanAuth.heading')}
+    </h3>
   </div>
 
   {#if authSummary}

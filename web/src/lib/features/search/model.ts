@@ -8,6 +8,8 @@ import {
 import { buildProjectAssistantCommand } from './command-items'
 import type { SearchItem, SearchItemAction, SearchItemGroup, SearchItemKind } from './types'
 import { searchItemGroupOrder } from './types'
+import { searchT } from './i18n'
+import type { TranslationKey } from '$lib/i18n'
 
 type BuildSearchIndexInput = {
   organizations: Organization[]
@@ -21,17 +23,17 @@ type BuildSearchIndexInput = {
   newTicketEnabled: boolean
 }
 
-const sectionLabels: Record<ProjectSection, string> = {
-  dashboard: 'Dashboard',
-  tickets: 'Tickets',
-  agents: 'Agents',
-  machines: 'Machines',
-  updates: 'Updates',
-  activity: 'Activity',
-  workflows: 'Workflows',
-  skills: 'Skills',
-  'scheduled-jobs': 'Scheduled Jobs',
-  settings: 'Settings',
+const sectionLabelKeys: Record<ProjectSection, TranslationKey> = {
+  dashboard: 'search.section.dashboard',
+  tickets: 'search.section.tickets',
+  agents: 'search.section.agents',
+  machines: 'search.section.machines',
+  updates: 'search.section.updates',
+  activity: 'search.section.activity',
+  workflows: 'search.section.workflows',
+  skills: 'search.section.skills',
+  'scheduled-jobs': 'search.section.scheduledJobs',
+  settings: 'search.section.settings',
 }
 
 export function buildSearchIndex(input: BuildSearchIndexInput): SearchItem[] {
@@ -66,9 +68,9 @@ function buildCommandItems({
       id: 'command-toggle-theme',
       group: 'Commands',
       kind: 'command',
-      title: 'Toggle Theme',
-      subtitle: 'Switch between light and dark workspace themes.',
-      badge: 'Command',
+      title: searchT('search.command.toggleTheme'),
+      subtitle: searchT('search.command.toggleThemeDescription'),
+      badge: searchT('search.commandBadge'),
       action: { kind: 'toggle_theme' },
       keywords: ['theme appearance color mode'],
     }),
@@ -80,9 +82,9 @@ function buildCommandItems({
         id: 'command-new-ticket',
         group: 'Commands',
         kind: 'command',
-        title: 'New Ticket',
-        subtitle: `Create a new ticket in ${currentProject.name}.`,
-        badge: 'Command',
+        title: searchT('search.command.newTicket'),
+        subtitle: searchT('search.command.newTicketDescription', { project: currentProject.name }),
+        badge: searchT('search.commandBadge'),
         action: { kind: 'new_ticket' },
         keywords: ['create ticket issue work item'],
       }),
@@ -111,8 +113,11 @@ function buildPageItems({
       group: 'Pages',
       kind: 'page',
       title: sectionLabel(section),
-      subtitle: `Open ${sectionLabel(section)} for ${currentProject.name}.`,
-      badge: section === currentSection ? 'Current' : 'Page',
+      subtitle: sectionSubtitle(section, currentProject.name),
+      badge:
+        section === currentSection
+          ? searchT('search.badge.current')
+          : searchT('search.badge.page'),
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, section) },
       keywords: [section, currentProject.name, currentOrg.name],
     }),
@@ -130,8 +135,9 @@ function buildProjectItems({ currentOrg, projects }: BuildSearchIndexInput): Sea
       group: 'Projects',
       kind: 'project',
       title: project.name,
-      subtitle: project.description || `Open ${project.name} dashboard.`,
-      badge: 'Project',
+      subtitle:
+        project.description || searchT('search.projectSubtitle', { project: project.name }),
+      badge: searchT('search.badge.project'),
       action: { kind: 'navigate', href: projectPath(currentOrg.id, project.id) },
       keywords: [project.slug, project.status, currentOrg.name],
     }),
@@ -145,8 +151,8 @@ function buildOrganizationItems(organizations: Organization[]): SearchItem[] {
       group: 'Organizations',
       kind: 'organization',
       title: organization.name,
-      subtitle: `Open ${organization.name} overview.`,
-      badge: 'Org',
+      subtitle: searchT('search.organizationSubtitle', { organization: organization.name }),
+      badge: searchT('search.badge.organization'),
       action: { kind: 'navigate', href: organizationPath(organization.id) },
       keywords: [organization.slug],
     }),
@@ -177,7 +183,7 @@ function buildTicketItems({
       ]
         .filter(Boolean)
         .join(' • '),
-      badge: 'Ticket',
+      badge: searchT('search.badge.ticket'),
       action: { kind: 'open_ticket', ticketId: ticket.id },
       keywords: [
         currentProject.name,
@@ -205,8 +211,13 @@ function buildWorkflowItems({
       group: 'Workflows',
       kind: 'workflow',
       title: workflow.name,
-      subtitle: `${workflow.type} workflow in ${currentProject.name}.`,
-      badge: workflow.is_active ? 'Active' : 'Workflow',
+      subtitle: searchT('search.workflowSubtitle', {
+        type: workflow.type,
+        project: currentProject.name,
+      }),
+      badge: workflow.is_active
+        ? searchT('search.badge.active')
+        : searchT('search.badge.workflow'),
       action: {
         kind: 'navigate',
         href: projectPath(currentOrg.id, currentProject.id, 'workflows'),
@@ -238,7 +249,7 @@ function buildAgentItems({
       ]
         .filter(Boolean)
         .join(' • '),
-      badge: 'Agent',
+      badge: searchT('search.badge.agent'),
       action: { kind: 'navigate', href: projectPath(currentOrg.id, currentProject.id, 'agents') },
       keywords: [currentProject.name, agent.runtime?.session_id ?? ''],
     }),
@@ -277,7 +288,14 @@ function createSearchItem({
 }
 
 function sectionLabel(section: ProjectSection) {
-  return sectionLabels[section]
+  return searchT(sectionLabelKeys[section])
+}
+
+function sectionSubtitle(section: ProjectSection, projectName: string) {
+  return searchT('search.section.subtitle', {
+    section: sectionLabel(section),
+    project: projectName,
+  })
 }
 
 function workflowLabel(
@@ -285,12 +303,14 @@ function workflowLabel(
   workflowNamesByID: Map<string, string>,
 ) {
   if (!workflowID) {
-    return 'No workflow'
+    return searchT('search.workflow.noWorkflow')
   }
 
-  return workflowNamesByID.get(workflowID) ?? 'Workflow assigned'
+  return workflowNamesByID.get(workflowID) ?? searchT('search.workflow.assigned')
 }
 
 function currentTicketLabel(ticketID: string | null | undefined) {
-  return ticketID ? `Ticket ${ticketID.slice(0, 8)}` : ''
+  return ticketID
+    ? searchT('search.ticketLabel', { id: ticketID.slice(0, 8) })
+    : ''
 }

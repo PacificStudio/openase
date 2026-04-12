@@ -9,6 +9,7 @@
     type WorkflowHookRowDraft,
   } from '../workflow-hooks'
   import WorkflowHookGroupEditor from './workflow-hook-group-editor.svelte'
+  import { t } from './i18n'
 
   let {
     draft,
@@ -106,8 +107,8 @@
 
 <div class="space-y-6">
   <WorkflowHookGroupEditor
-    label="Workflow Hooks"
-    description="Workflow lifecycle hooks run in the project runtime context."
+    label={t('workflows.hooks.editor.workflow.label')}
+    description={t('workflows.hooks.editor.workflow.description')}
     events={workflowEvents}
     rowsByEvent={draft.workflowHooks}
     rowErrors={validation.rowErrors}
@@ -119,8 +120,8 @@
   />
 
   <WorkflowHookGroupEditor
-    label="Ticket Hooks"
-    description="Ticket lifecycle hooks run in the ticket workspace and can set workdir per row."
+    label={t('workflows.hooks.editor.ticket.label')}
+    description={t('workflows.hooks.editor.ticket.description')}
     events={ticketEvents}
     rowsByEvent={draft.ticketHooks}
     rowErrors={validation.rowErrors}

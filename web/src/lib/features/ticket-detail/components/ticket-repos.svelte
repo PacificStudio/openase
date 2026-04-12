@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { buttonVariants } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import Plus from '@lucide/svelte/icons/plus'
@@ -54,23 +55,21 @@
 <section class="space-y-3">
   <div class="flex items-center justify-between gap-3">
     <span class="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
-      Repositories
+      {i18nStore.t('ticketDetail.repos.title')}
     </span>
 
     <Dialog.Root bind:open={createOpen}>
       <Dialog.Trigger
         class={buttonVariants({ variant: 'outline', size: 'icon-sm' })}
-        aria-label="Add repo scope"
+        aria-label={i18nStore.t('ticketDetail.repoCreate.addRepoScope')}
         disabled={!repos.length}
       >
         <Plus class="size-3.5" />
       </Dialog.Trigger>
       <Dialog.Content class="sm:max-w-xl">
         <Dialog.Header>
-          <Dialog.Title>Add repo scope</Dialog.Title>
-          <Dialog.Description
-            >Link a repository branch and PR reference to this ticket.</Dialog.Description
-          >
+          <Dialog.Title>{i18nStore.t('ticketDetail.repoCreate.addRepoScope')}</Dialog.Title>
+          <Dialog.Description>{i18nStore.t('ticketDetail.repos.description')}</Dialog.Description>
         </Dialog.Header>
 
         <TicketRepoCreateForm

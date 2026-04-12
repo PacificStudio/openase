@@ -11,6 +11,7 @@
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Wrench } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     organization,
@@ -32,7 +33,9 @@
 
   function selectedProviderLabel() {
     const provider = providers.find((item) => item.id === defaultProviderId)
-    return provider ? providerLabel(provider) : 'No default provider'
+    return provider
+      ? providerLabel(provider)
+      : i18nStore.t('catalog.organization.settings.labels.noDefaultProvider')
   }
 
   function selectedProvider() {
@@ -50,11 +53,11 @@
     const nextSlug = slug.trim()
 
     if (!nextName) {
-      toastStore.error('Organization name is required.')
+      toastStore.error(i18nStore.t('catalog.organization.settings.errors.nameRequired'))
       return
     }
     if (!nextSlug) {
-      toastStore.error('Organization slug is required.')
+      toastStore.error(i18nStore.t('catalog.organization.settings.errors.slugRequired'))
       return
     }
 
@@ -67,11 +70,13 @@
         default_agent_provider_id: defaultProviderId || null,
       })
       appStore.currentOrg = payload.organization
-      toastStore.success('Organization settings saved.')
+      toastStore.success(i18nStore.t('catalog.organization.settings.success.saved'))
       await invalidateAll()
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to save organization.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.organization.settings.errors.saveFailed'),
       )
     } finally {
       saving = false
@@ -81,28 +86,36 @@
 
 <div class="space-y-4">
   <div>
-    <h3 class="text-foreground text-sm font-semibold">Organization settings</h3>
+    <h3 class="text-foreground text-sm font-semibold">
+      {i18nStore.t('catalog.organization.settings.heading')}
+    </h3>
     <p class="text-muted-foreground mt-0.5 text-xs">
-      Keep the workspace label, stable slug, and default provider aligned with the current org.
+      {i18nStore.t('catalog.organization.settings.description')}
     </p>
   </div>
 
   <div class="border-border rounded-md border p-4">
     <div class="space-y-4">
       <div class="grid gap-4 md:grid-cols-2">
-        <div class="space-y-1.5">
-          <Label for="organization-settings-name">Organization name</Label>
-          <Input id="organization-settings-name" bind:value={name} />
-        </div>
+          <div class="space-y-1.5">
+            <Label for="organization-settings-name">
+            {i18nStore.t('catalog.organization.settings.labels.organizationName')}
+            </Label>
+            <Input id="organization-settings-name" bind:value={name} />
+          </div>
 
-        <div class="space-y-1.5">
-          <Label for="organization-settings-slug">Slug</Label>
-          <Input id="organization-settings-slug" bind:value={slug} />
-        </div>
+          <div class="space-y-1.5">
+            <Label for="organization-settings-slug">
+            {i18nStore.t('catalog.organization.settings.labels.slug')}
+            </Label>
+            <Input id="organization-settings-slug" bind:value={slug} />
+          </div>
       </div>
 
       <div class="space-y-1.5">
-        <Label>Default provider</Label>
+        <Label>
+          {i18nStore.t('catalog.organization.settings.labels.defaultProvider')}
+        </Label>
         <Select.Root
           type="single"
           value={defaultProviderId}
@@ -132,7 +145,9 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            <Select.Item value="">No default provider</Select.Item>
+          <Select.Item value="">
+            {i18nStore.t('catalog.organization.settings.labels.noDefaultProvider')}
+          </Select.Item>
             {#each providers as provider (provider.id)}
               {@const iconPath = adapterIconPath(provider.adapter_type)}
               <Select.Item value={provider.id}>
@@ -154,13 +169,15 @@
           </Select.Content>
         </Select.Root>
         <p class="text-muted-foreground text-xs">
-          New projects can still override this, but this keeps the org-level default explicit.
+          {i18nStore.t('catalog.organization.settings.hint.override')}
         </p>
       </div>
 
       <div class="flex justify-end">
         <Button onclick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save organization'}
+          {saving
+            ? i18nStore.t('catalog.organization.settings.actions.saving')
+            : i18nStore.t('catalog.organization.settings.actions.save')}
         </Button>
       </div>
     </div>

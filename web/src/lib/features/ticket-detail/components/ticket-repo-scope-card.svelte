@@ -12,6 +12,7 @@
   import Copy from '@lucide/svelte/icons/copy'
   import Check from '@lucide/svelte/icons/check'
   import { cn } from '$lib/utils'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { TicketDetail } from '../types'
 
   type ScopeDraft = {
@@ -79,7 +80,7 @@
 
   function extractPrLabel(url: string) {
     const match = url.match(/\/pull\/(\d+)/)
-    return match ? `#${match[1]}` : 'Pull Request'
+    return match ? `#${match[1]}` : i18nStore.t('ticketDetail.repoScope.labels.prDefault')
   }
 </script>
 
@@ -95,14 +96,16 @@
         {#snippet child({ props })}
           <Button variant="ghost" size="icon-xs" {...props}>
             <Ellipsis class="size-3.5" />
-            <span class="sr-only">More actions</span>
+            <span class="sr-only">
+              {i18nStore.t('ticketDetail.repoScope.actions.more')}
+            </span>
           </Button>
         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" class="w-40">
         <DropdownMenu.Item disabled={saving || deleting} onclick={handleEdit}>
           <Pencil class="mr-2 size-3.5" />
-          Edit
+          {i18nStore.t('ticketDetail.repoScope.actions.edit')}
         </DropdownMenu.Item>
         <DropdownMenu.Item
           class="text-destructive focus:text-destructive"
@@ -110,7 +113,9 @@
           onclick={() => onDelete?.(scope.id)}
         >
           <Trash2 class="mr-2 size-3.5" />
-          {deleting ? 'Deleting\u2026' : 'Delete'}
+          {deleting
+            ? i18nStore.t('ticketDetail.repoScope.actions.deleting')
+            : i18nStore.t('ticketDetail.repoScope.actions.delete')}
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
@@ -122,7 +127,7 @@
       <button
         type="button"
         class="bg-muted hover:bg-muted/80 group inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors"
-        title="Copy branch name"
+        title={i18nStore.t('ticketDetail.repoScope.actions.copyBranch')}
         onclick={copyBranch}
       >
         <span class="text-foreground">{scope.effectiveBranchName}</span>
@@ -135,13 +140,15 @@
         {/if}
       </button>
       {#if scope.branchSource === 'override'}
-        <span class="text-muted-foreground text-[9px] tracking-wide uppercase">override</span>
+        <span class="text-muted-foreground text-[9px] tracking-wide uppercase">
+          {i18nStore.t('ticketDetail.repoScope.labels.override')}
+        </span>
       {/if}
     </div>
 
     <!-- Base branch -->
     <div class="text-muted-foreground flex items-center gap-1 text-[11px]">
-      <span>base:</span>
+      <span>{i18nStore.t('ticketDetail.repoScope.labels.baseBranch')}</span>
       <code class="text-foreground/70 font-mono">{scope.defaultBranch}</code>
     </div>
 
@@ -161,7 +168,9 @@
           <ExternalLink class="size-2.5" />
         </a>
       {:else}
-        <span class="text-muted-foreground/50">No PR</span>
+        <span class="text-muted-foreground/50">
+          {i18nStore.t('ticketDetail.repoScope.labels.noPr')}
+        </span>
       {/if}
     </div>
   </div>
@@ -170,30 +179,36 @@
 <Dialog.Root bind:open={editOpen}>
   <Dialog.Content class="sm:max-w-xl">
     <Dialog.Header>
-      <Dialog.Title>Edit repo scope</Dialog.Title>
+      <Dialog.Title>{i18nStore.t('ticketDetail.repoScope.dialog.title')}</Dialog.Title>
       <Dialog.Description>
-        Update the optional work branch override and PR link for {scope.repoName}.
+        {i18nStore.t('ticketDetail.repoScope.dialog.description', { repoName: scope.repoName })}
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="grid gap-3 py-4">
       <div class="space-y-2">
-        <Label for={`scope-branch-${scope.id}`}>Work branch override</Label>
+        <Label for={`scope-branch-${scope.id}`}>
+          {i18nStore.t('ticketDetail.repoScope.form.branchOverride')}
+        </Label>
         <Input
           id={`scope-branch-${scope.id}`}
           value={draft.branchName}
-          placeholder="Leave blank to use the generated ticket branch"
+          placeholder={i18nStore.t('ticketDetail.repoScope.form.branchOverridePlaceholder')}
           oninput={(event) => updateDraft('branchName', event.currentTarget.value)}
         />
-        <p class="text-muted-foreground text-xs">Base branch: {scope.defaultBranch}</p>
+        <p class="text-muted-foreground text-xs">
+          {i18nStore.t('ticketDetail.repoScope.form.baseBranch', { branch: scope.defaultBranch })}
+        </p>
       </div>
 
       <div class="space-y-2">
-        <Label for={`scope-pr-url-${scope.id}`}>Pull request URL</Label>
+        <Label for={`scope-pr-url-${scope.id}`}>
+          {i18nStore.t('ticketDetail.repoScope.form.prUrl')}
+        </Label>
         <Input
           id={`scope-pr-url-${scope.id}`}
           value={draft.pullRequestUrl}
-          placeholder="https://..."
+          placeholder={i18nStore.t('ticketDetail.repoScope.form.prUrlPlaceholder')}
           oninput={(event) => updateDraft('pullRequestUrl', event.currentTarget.value)}
         />
       </div>
@@ -202,11 +217,19 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={saving}>Cancel</Button>
+          <Button
+            variant="outline"
+            {...props}
+            disabled={saving}
+          >
+            {i18nStore.t('ticketDetail.repoScope.form.actions.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button disabled={saving} onclick={handleSave}>
-        {saving ? 'Saving\u2026' : 'Save'}
+        {saving
+          ? i18nStore.t('ticketDetail.repoScope.form.actions.saving')
+          : i18nStore.t('ticketDetail.repoScope.form.actions.save')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

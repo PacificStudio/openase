@@ -1,4 +1,10 @@
 import type { NotificationRuleEventType } from '$lib/api/contracts'
+import type { TranslationKey } from '$lib/i18n'
+import { i18nStore } from '$lib/i18n/store.svelte'
+
+function translateRaw(key: TranslationKey) {
+  return i18nStore.t(key)
+}
 
 export type EventSeverity = 'info' | 'warning' | 'critical'
 
@@ -26,187 +32,225 @@ export type TemplateVariableGroup = {
   variables: TemplateVariable[]
 }
 
-const COMMON_VARS: TemplateVariable[] = [
-  { name: 'event_type', description: 'Event type identifier' },
-  { name: 'project_id', description: 'Project UUID' },
-  { name: 'published_at', description: 'Event timestamp (RFC3339)' },
+type TemplateVariableDefinition = {
+  name: string
+  descriptionKey: TranslationKey
+}
+
+type TemplateVariableGroupDefinition = {
+  labelKey: TranslationKey
+  variables: TemplateVariableDefinition[]
+}
+
+const COMMON_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'event_type', descriptionKey: 'settings.notification.variable.eventType' },
+  { name: 'project_id', descriptionKey: 'settings.notification.variable.projectId' },
+  { name: 'published_at', descriptionKey: 'settings.notification.variable.publishedAt' },
 ]
 
-const TICKET_VARS: TemplateVariable[] = [
-  { name: 'ticket.identifier', description: 'Ticket identifier (e.g. PROJ-42)' },
-  { name: 'ticket.title', description: 'Ticket title' },
-  { name: 'ticket.status_name', description: 'Current status name' },
-  { name: 'ticket.priority', description: 'Priority level' },
+const TICKET_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'ticket.identifier', descriptionKey: 'settings.notification.variable.ticketIdentifierExample' },
+  { name: 'ticket.title', descriptionKey: 'settings.notification.variable.ticketTitle' },
+  { name: 'ticket.status_name', descriptionKey: 'settings.notification.variable.currentStatusName' },
+  { name: 'ticket.priority', descriptionKey: 'settings.notification.variable.priorityLevel' },
 ]
 
-const TICKET_SHORTHAND_VARS: TemplateVariable[] = [
-  { name: 'identifier', description: 'Shorthand: ticket identifier' },
-  { name: 'title', description: 'Shorthand: ticket title' },
-  { name: 'status_name', description: 'Shorthand: status name' },
-  { name: 'priority', description: 'Shorthand: priority' },
+const TICKET_SHORTHAND_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'identifier', descriptionKey: 'settings.notification.variable.ticketIdentifierShorthand' },
+  { name: 'title', descriptionKey: 'settings.notification.variable.ticketTitleShorthand' },
+  { name: 'status_name', descriptionKey: 'settings.notification.variable.statusNameShorthand' },
+  { name: 'priority', descriptionKey: 'settings.notification.variable.priorityShorthand' },
 ]
 
-const HOOK_VARS: TemplateVariable[] = [
-  { name: 'ticket_identifier', description: 'Ticket identifier' },
-  { name: 'hook_name', description: 'Name of the hook' },
-  { name: 'message', description: 'Event message' },
+const HOOK_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'ticket_identifier', descriptionKey: 'settings.notification.variable.ticketIdentifier' },
+  { name: 'hook_name', descriptionKey: 'settings.notification.variable.hookName' },
+  { name: 'message', descriptionKey: 'settings.notification.variable.eventMessage' },
 ]
 
-const PR_VARS: TemplateVariable[] = [
-  { name: 'ticket_identifier', description: 'Ticket identifier' },
-  { name: 'pull_request_url', description: 'Pull request URL' },
-  { name: 'message', description: 'Event message' },
+const PR_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'ticket_identifier', descriptionKey: 'settings.notification.variable.ticketIdentifier' },
+  { name: 'pull_request_url', descriptionKey: 'settings.notification.variable.pullRequestUrl' },
+  { name: 'message', descriptionKey: 'settings.notification.variable.eventMessage' },
 ]
 
-const MACHINE_VARS: TemplateVariable[] = [
-  { name: 'machine_id', description: 'Machine UUID' },
-  { name: 'session_id', description: 'Reverse websocket session ID' },
-  { name: 'transport_mode', description: 'Transport mode, for example ws_reverse' },
-  { name: 'connection_mode', description: 'Connection mode, for example reverse_websocket' },
+const MACHINE_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'machine_id', descriptionKey: 'settings.notification.variable.machineId' },
+  { name: 'session_id', descriptionKey: 'settings.notification.variable.sessionId' },
+  { name: 'transport_mode', descriptionKey: 'settings.notification.variable.transportMode' },
+  { name: 'connection_mode', descriptionKey: 'settings.notification.variable.connectionMode' },
 ]
 
-const AGENT_VARS: TemplateVariable[] = [
-  { name: 'agent.name', description: 'Agent name' },
-  { name: 'agent.status', description: 'Agent status' },
-  { name: 'current_ticket_id', description: 'ID of the assigned ticket' },
-  { name: 'ticket_id', description: 'Alias: current ticket ID' },
-  { name: 'name', description: 'Shorthand: agent name' },
-  { name: 'status', description: 'Shorthand: agent status' },
+const AGENT_VARIABLES: TemplateVariableDefinition[] = [
+  { name: 'agent.name', descriptionKey: 'settings.notification.variable.agentName' },
+  { name: 'agent.status', descriptionKey: 'settings.notification.variable.agentStatus' },
+  { name: 'current_ticket_id', descriptionKey: 'settings.notification.variable.currentTicketId' },
+  { name: 'ticket_id', descriptionKey: 'settings.notification.variable.ticketIdAlias' },
+  { name: 'name', descriptionKey: 'settings.notification.variable.agentNameShorthand' },
+  { name: 'status', descriptionKey: 'settings.notification.variable.agentStatusShorthand' },
 ]
 
-const TEMPLATE_VARS: Record<string, TemplateVariableGroup[]> = {
+const TEMPLATE_VARIABLE_GROUP_DEFINITIONS: Record<string, TemplateVariableGroupDefinition[]> = {
   'ticket.created': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.updated': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.status_changed': [
     {
-      label: 'Ticket',
-      variables: [...TICKET_VARS, { name: 'new_status', description: 'New status after change' }],
+      labelKey: 'settings.notification.variableGroup.ticket',
+      variables: [
+        ...TICKET_VARIABLES,
+        { name: 'new_status', descriptionKey: 'settings.notification.variable.newStatus' },
+      ],
     },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.completed': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.cancelled': [
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.retry_scheduled': [
     {
-      label: 'Event',
+      labelKey: 'settings.notification.variableGroup.event',
       variables: [
-        { name: 'next_retry_at', description: 'Scheduled retry timestamp (RFC3339)' },
-        { name: 'consecutive_errors', description: 'Current consecutive failure count' },
+        { name: 'next_retry_at', descriptionKey: 'settings.notification.variable.nextRetryAt' },
+        { name: 'consecutive_errors', descriptionKey: 'settings.notification.variable.consecutiveErrors' },
       ],
     },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.retry_resumed': [
     {
-      label: 'Event',
-      variables: [{ name: 'pause_reason', description: 'Previous retry pause reason' }],
+      labelKey: 'settings.notification.variableGroup.event',
+      variables: [{ name: 'pause_reason', descriptionKey: 'settings.notification.variable.previousRetryPauseReason' }],
     },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.retry_paused': [
     {
-      label: 'Event',
+      labelKey: 'settings.notification.variableGroup.event',
       variables: [
-        { name: 'message', description: 'Event message' },
-        { name: 'pause_reason', description: 'Reason pausing retry' },
+        { name: 'message', descriptionKey: 'settings.notification.variable.eventMessage' },
+        { name: 'pause_reason', descriptionKey: 'settings.notification.variable.pauseReason' },
       ],
     },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'ticket.budget_exhausted': [
     {
-      label: 'Event',
+      labelKey: 'settings.notification.variableGroup.event',
       variables: [
-        { name: 'budget_usd', description: 'Configured ticket budget in USD' },
-        { name: 'cost_amount', description: 'Observed ticket cost in USD' },
+        { name: 'budget_usd', descriptionKey: 'settings.notification.variable.budgetUsd' },
+        { name: 'cost_amount', descriptionKey: 'settings.notification.variable.costAmount' },
       ],
     },
-    { label: 'Ticket', variables: TICKET_VARS },
-    { label: 'Shorthands', variables: TICKET_SHORTHAND_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.ticket', variables: TICKET_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.shorthands', variables: TICKET_SHORTHAND_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'agent.claimed': [
-    { label: 'Agent', variables: AGENT_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.agent', variables: AGENT_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'agent.failed': [
-    { label: 'Agent', variables: AGENT_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.agent', variables: AGENT_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'hook.passed': [
-    { label: 'Hook', variables: HOOK_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.hook', variables: HOOK_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'hook.failed': [
     {
-      label: 'Hook',
-      variables: [...HOOK_VARS, { name: 'error', description: 'Error message' }],
+      labelKey: 'settings.notification.variableGroup.hook',
+      variables: [
+        ...HOOK_VARIABLES,
+        { name: 'error', descriptionKey: 'settings.notification.variable.errorMessage' },
+      ],
     },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'pr.opened': [
-    { label: 'Pull Request', variables: PR_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.pullRequest', variables: PR_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'pr.closed': [
-    { label: 'Pull Request', variables: PR_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.pullRequest', variables: PR_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'machine.connected': [
-    { label: 'Machine', variables: MACHINE_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.machine', variables: MACHINE_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'machine.reconnected': [
-    { label: 'Machine', variables: MACHINE_VARS },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.machine', variables: MACHINE_VARIABLES },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'machine.disconnected': [
     {
-      label: 'Machine',
+      labelKey: 'settings.notification.variableGroup.machine',
       variables: [
-        ...MACHINE_VARS,
-        { name: 'reason', description: 'Disconnect reason when present' },
+        ...MACHINE_VARIABLES,
+        { name: 'reason', descriptionKey: 'settings.notification.variable.disconnectReason' },
       ],
     },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
   'machine.daemon_auth_failed': [
     {
-      label: 'Machine',
+      labelKey: 'settings.notification.variableGroup.machine',
       variables: [
-        ...MACHINE_VARS,
-        { name: 'failure_code', description: 'Structured auth failure code' },
-        { name: 'error', description: 'Underlying auth error message' },
+        ...MACHINE_VARIABLES,
+        { name: 'failure_code', descriptionKey: 'settings.notification.variable.failureCode' },
+        { name: 'error', descriptionKey: 'settings.notification.variable.errorMessage' },
       ],
     },
-    { label: 'Common', variables: COMMON_VARS },
+    { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
   ],
 }
 
+const DEFAULT_TEMPLATE_VARIABLE_GROUPS: TemplateVariableGroupDefinition[] = [
+  { labelKey: 'settings.notification.variableGroup.common', variables: COMMON_VARIABLES },
+]
+
+function resolveTemplateVariableGroup(group: TemplateVariableGroupDefinition): TemplateVariableGroup {
+  return {
+    label: translateRaw(group.labelKey),
+    variables: group.variables.map((variable) => ({
+      name: variable.name,
+      description: translateRaw(variable.descriptionKey),
+    })),
+  }
+}
+
 export function getTemplateVariables(eventType: string): TemplateVariableGroup[] {
-  return TEMPLATE_VARS[eventType] ?? [{ label: 'Common', variables: COMMON_VARS }]
+  const definitions = TEMPLATE_VARIABLE_GROUP_DEFINITIONS[eventType] ?? DEFAULT_TEMPLATE_VARIABLE_GROUPS
+  return definitions.map(resolveTemplateVariableGroup)
+}
+
+const EVENT_GROUP_OTHER_KEY: TranslationKey = 'settings.notification.eventGroup.other'
+const SEVERITY_LABEL_KEYS: Record<EventSeverity, TranslationKey> = {
+  critical: 'settings.notification.severity.critical',
+  info: 'settings.notification.severity.info',
+  warning: 'settings.notification.severity.warning',
 }
 
 function normalizeSeverity(level: string | undefined): EventSeverity {
@@ -219,7 +263,7 @@ function normalizeGroupKey(group: string): string {
 }
 
 function buildCatalogEvent(et: NotificationRuleEventType): CatalogEvent {
-  const groupLabel = et.group || 'Other'
+  const groupLabel = et.group || translateRaw(EVENT_GROUP_OTHER_KEY)
   return {
     eventType: et.event_type,
     label: et.label,
@@ -234,7 +278,7 @@ export function buildEventCatalog(eventTypes: NotificationRuleEventType[]): Even
 
   for (const et of eventTypes) {
     const catalogEvent = buildCatalogEvent(et)
-    const groupLabel = et.group || 'Other'
+    const groupLabel = et.group || translateRaw(EVENT_GROUP_OTHER_KEY)
     const groupKey = catalogEvent.groupKey
 
     const existing = groupMap.get(groupKey)
@@ -261,12 +305,5 @@ export function getSeverity(
 }
 
 export function severityLabel(severity: EventSeverity): string {
-  switch (severity) {
-    case 'info':
-      return 'Info'
-    case 'warning':
-      return 'Warning'
-    case 'critical':
-      return 'Critical'
-  }
+  return translateRaw(SEVERITY_LABEL_KEYS[severity])
 }

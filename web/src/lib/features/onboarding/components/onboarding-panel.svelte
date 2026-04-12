@@ -19,6 +19,7 @@
   import { loadOnboardingData } from '../data'
   import OnboardingHelpLinks from './onboarding-help-links.svelte'
   import OnboardingStepDetails from './onboarding-step-details.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     projectId,
@@ -120,11 +121,10 @@
       </div>
       <div>
         <h2 class="text-foreground text-lg font-semibold">
-          Welcome to {projectName}
+          {i18nStore.t('onboarding.panel.welcomeTitle', { projectName })}
         </h2>
         <p class="text-muted-foreground mt-1 text-sm">
-          The project is created. Next, we will guide you through getting it into a runnable state.
-          After these steps are complete, an agent can start working.
+          {i18nStore.t('onboarding.panel.welcomeDescription')}
         </p>
       </div>
     </div>
@@ -135,7 +135,9 @@
       class="border-border bg-card flex items-center justify-center rounded-xl border px-4 py-12"
     >
       <Loader2 class="text-muted-foreground size-5 animate-spin" />
-      <span class="text-muted-foreground ml-2 text-sm">Loading setup status...</span>
+      <span class="text-muted-foreground ml-2 text-sm">
+        {i18nStore.t('onboarding.panel.loadingStatus')}
+      </span>
     </div>
   {:else if error}
     <div
@@ -147,7 +149,9 @@
     <!-- Onboarding checklist -->
     <div class="border-border bg-card rounded-xl border">
       <div class="border-border border-b px-5 py-3">
-        <h3 class="text-foreground text-sm font-medium">Setup progress</h3>
+        <h3 class="text-foreground text-sm font-medium">
+          {i18nStore.t('onboarding.panel.progressHeading')}
+        </h3>
         <div class="bg-muted mt-2 h-1.5 overflow-hidden rounded-full">
           <div
             class="bg-primary h-full rounded-full transition-all duration-500"
@@ -156,7 +160,10 @@
           ></div>
         </div>
         <p class="text-muted-foreground mt-1.5 text-xs">
-          {steps.filter((s) => s.status === 'completed').length} / {steps.length} steps completed
+          {i18nStore.t('onboarding.panel.progressSummary', {
+            completed: steps.filter((s) => s.status === 'completed').length,
+            total: steps.length,
+          })}
         </p>
       </div>
 

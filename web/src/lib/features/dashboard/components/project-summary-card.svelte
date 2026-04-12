@@ -3,6 +3,7 @@
   import * as Select from '$ui/select'
   import type { ProjectStatus, ProjectSummary } from '../types'
   import { Bot, Ticket } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     project,
@@ -47,7 +48,9 @@
 
 <div class={cn('border-border bg-card rounded-md border', className)}>
   <div class="border-border border-b px-4 py-3">
-    <h3 class="text-foreground text-sm font-medium">Project</h3>
+    <h3 class="text-foreground text-sm font-medium">
+      {i18nStore.t('dashboard.projectSummaryCard.heading')}
+    </h3>
   </div>
 
   <div class="px-4 py-3">
@@ -55,7 +58,7 @@
       <div class="min-w-0 flex-1">
         <div class="text-foreground truncate text-sm font-medium">{project.name}</div>
         <p class="text-muted-foreground mt-1 text-xs leading-5">
-          {project.description || 'No description yet.'}
+          {project.description ?? i18nStore.t('dashboard.projectSummaryCard.messages.noDescription')}
         </p>
       </div>
 
@@ -96,7 +99,9 @@
       </div>
 
       <span class="ml-auto shrink-0 text-right">
-        {project.lastActivity ? formatRelativeTime(project.lastActivity) : 'No activity yet'}
+        {project.lastActivity
+          ? formatRelativeTime(project.lastActivity)
+          : i18nStore.t('dashboard.projectSummaryCard.messages.noActivity')}
       </span>
     </div>
   </div>

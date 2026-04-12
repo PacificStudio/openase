@@ -2,6 +2,7 @@
   import { MessageSquare } from '@lucide/svelte'
   import { Button } from '$ui/button'
   import { Skeleton } from '$ui/skeleton'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { ProjectUpdateComposer, ProjectUpdateThreadCard } from '$lib/features/project-updates'
   import type { ProjectUpdateThread } from '$lib/features/project-updates'
   import type { ProjectUpdateStatus } from '$lib/features/project-updates'
@@ -49,7 +50,9 @@
 <div class="flex min-h-0 flex-col">
   <div class="mb-2 flex items-center gap-1.5">
     <MessageSquare class="text-muted-foreground size-3.5" />
-    <span class="text-foreground text-xs font-medium">Updates</span>
+    <span class="text-foreground text-xs font-medium">
+      {i18nStore.t('projectUpdates.pageTitle')}
+    </span>
     {#if threads.length > 0}
       <span class="text-muted-foreground text-[11px]">{threads.length}</span>
     {/if}
@@ -79,7 +82,7 @@
       class="text-muted-foreground mt-2 flex flex-col items-center rounded-xl border border-dashed py-8 text-center text-xs"
     >
       <MessageSquare class="mb-2 size-4 opacity-40" />
-      No updates yet
+      {i18nStore.t('projectUpdates.emptyState.title')}
     </div>
   {:else}
     <div class="mt-2 space-y-1.5">
@@ -102,7 +105,9 @@
           onclick={onLoadMoreThreads}
           disabled={loadingMoreThreads}
         >
-          {loadingMoreThreads ? 'Loading…' : 'Load more'}
+          {loadingMoreThreads
+            ? i18nStore.t('projectUpdates.actions.loading')
+            : i18nStore.t('projectUpdates.actions.loadMore')}
         </Button>
       {/if}
     </div>

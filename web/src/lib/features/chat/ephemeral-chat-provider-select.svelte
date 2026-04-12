@@ -10,6 +10,7 @@
     providerCapabilityState,
     type ProviderCapabilityName,
   } from './provider-options'
+  import { chatT } from './i18n'
 
   let {
     providers,
@@ -42,7 +43,7 @@
       return provider.model_name
     }
 
-    return 'No model'
+    return chatT('chat.providerSelect.noModel')
   }
 </script>
 
@@ -58,7 +59,7 @@
         {#snippet child({ props })}
           <span {...props} class="inline-flex">
             <Select.Trigger
-              aria-label="Chat model"
+              aria-label={chatT('chat.providerSelect.ariaLabel')}
               class="text-muted-foreground hover:bg-muted hover:text-foreground h-7 w-auto gap-1 rounded-md border-none bg-transparent px-2 text-[11px] shadow-none"
             >
               {selectedModelLabel()}
@@ -70,7 +71,7 @@
     </Tooltip.Root>
   {:else}
     <Select.Trigger
-      aria-label="Chat model"
+      aria-label={chatT('chat.providerSelect.ariaLabel')}
       class="text-muted-foreground hover:bg-muted hover:text-foreground h-7 w-auto gap-1 rounded-md border-none bg-transparent px-2 text-[11px] shadow-none"
     >
       {selectedModelLabel()}

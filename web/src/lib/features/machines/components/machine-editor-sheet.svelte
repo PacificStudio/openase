@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
   import * as Tabs from '$ui/tabs'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import MachineEditor from './machine-editor.svelte'
   import MachineHealthPanel from './machine-health-panel.svelte'
   import { machineStatusBadgeClass, machineStatusDescription, machineStatusLabel } from '../model'
@@ -57,7 +58,9 @@
         <div class="min-w-0 space-y-1.5">
           <div class="flex flex-wrap items-center gap-2">
             <SheetTitle class="text-sm sm:text-base">
-              {mode === 'create' ? 'Register machine' : (machine?.name ?? 'Machine')}
+              {mode === 'create'
+                ? i18nStore.t('machines.machineEditorSheet.title.register')
+                : machine?.name ?? i18nStore.t('machines.machineEditorSheet.title.defaultMachine')}
             </SheetTitle>
             {#if mode === 'edit' && machine}
               <Badge variant="outline" class={machineStatusBadgeClass(machine.status)}>
@@ -67,7 +70,7 @@
           </div>
           <SheetDescription class="text-xs">
             {#if mode === 'create'}
-              Define identity, topology, helper access, and workspace for a new machine.
+              {i18nStore.t('machines.machineEditorSheet.description.createMode')}
             {:else}
               {machineStatusDescription(machine?.status ?? '')}
             {/if}
@@ -75,7 +78,11 @@
         </div>
 
         <Button size="sm" onclick={onSave} disabled={saving} data-testid="machine-save-button">
-          {saving ? 'Saving...' : mode === 'create' ? 'Create' : 'Save'}
+          {saving
+            ? i18nStore.t('machines.machineEditorSheet.actions.saving')
+            : mode === 'create'
+              ? i18nStore.t('machines.machineEditorSheet.actions.create')
+              : i18nStore.t('machines.machineEditorSheet.actions.save')}
         </Button>
       </div>
 
@@ -83,8 +90,12 @@
         <div class="pt-3">
           <Tabs.Root bind:value={activeTab}>
             <Tabs.List variant="line">
-              <Tabs.Trigger value="configuration">Configuration</Tabs.Trigger>
-              <Tabs.Trigger value="health">Health, Setup & Status</Tabs.Trigger>
+              <Tabs.Trigger value="configuration">
+                {i18nStore.t('machines.machineEditorSheet.tabs.configuration')}
+              </Tabs.Trigger>
+              <Tabs.Trigger value="health">
+                {i18nStore.t('machines.machineEditorSheet.tabs.healthSetupStatus')}
+              </Tabs.Trigger>
             </Tabs.List>
           </Tabs.Root>
         </div>

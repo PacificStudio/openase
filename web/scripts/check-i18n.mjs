@@ -11,7 +11,9 @@ const defaultConfigPath = path.join(webRoot, 'i18n-check.config.json')
 const defaultBaselinePath = path.join(webRoot, 'i18n-check.baseline.json')
 const LETTER_RE = /[\p{L}]/u
 const INLINE_EXEMPT_RE = /i18n-exempt/
-const TRANSLATION_USAGE_RE = /\b(i18nStore\.t|translate\(|pageTitle\(|localeLabel\(|labelKey\s*:)/
+const TRANSLATION_USAGE_RE = /\b(i18nStore\.t|translate\(|pageTitle\(|localeLabel\(|labelKey\s*:)/ 
+const FORBIDDEN_FALLBACK_RE = /\btranslateWithFallback\s*\(/
+const FORBIDDEN_TRANSLATION_KEY_CAST_RE = /\bas\s+TranslationKey\b/
 
 function parseArgs(argv) {
   const options = {
@@ -277,6 +279,16 @@ function report(offenses, filePath, lineNumber, literal, reason) {
 }
 
 function scanMarkupLine(line, filePath, lineNumber, config, offenses) {
+  if (FORBIDDEN_FALLBACK_RE.test(line)) {
+    report(
+      offenses,
+      filePath,
+      lineNumber,
+      'translateWithFallback(...)',
+      'forbidden runtime i18n fallback',
+    )
+  }
+
   for (const attribute of config.translatableAttributes) {
     const attrRe = new RegExp(
       `\\b${attribute}\\s*=\\s*\\{?['"]([^'"]*[\\p{L}][^'"]*)['"]\\}?`,
@@ -300,6 +312,26 @@ function scanMarkupLine(line, filePath, lineNumber, config, offenses) {
 }
 
 function scanScriptLine(line, filePath, lineNumber, config, offenses) {
+  if (FORBIDDEN_FALLBACK_RE.test(line)) {
+    report(
+      offenses,
+      filePath,
+      lineNumber,
+      'translateWithFallback(...)',
+      'forbidden runtime i18n fallback',
+    )
+  }
+
+  if (FORBIDDEN_TRANSLATION_KEY_CAST_RE.test(line)) {
+    report(
+      offenses,
+      filePath,
+      lineNumber,
+      'as TranslationKey',
+      'forbidden TranslationKey cast bypass',
+    )
+  }
+
   if (TRANSLATION_USAGE_RE.test(line)) {
     return
   }

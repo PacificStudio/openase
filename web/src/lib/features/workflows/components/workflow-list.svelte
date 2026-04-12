@@ -3,6 +3,7 @@
   import { ArrowRight, Circle } from '@lucide/svelte'
   import { workflowFamilyColors } from '../model'
   import type { WorkflowSummary } from '../types'
+  import { t } from './i18n'
 
   let {
     workflows,
@@ -19,7 +20,7 @@
 
 <div class={cn('border-border flex h-full flex-col overflow-hidden border-r', className)}>
   <div class="text-muted-foreground px-3 py-2 text-xs font-medium tracking-wider uppercase">
-    Workflows
+    {t('workflows.list.header')}
   </div>
   <div class="flex-1 overflow-y-auto">
     {#each workflows as wf (wf.id)}

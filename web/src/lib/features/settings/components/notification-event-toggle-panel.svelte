@@ -15,6 +15,8 @@
     groupNotificationEventTypes,
   } from '../notification-event-toggles'
   import { actionErrorMessage } from '../notification-support'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import type { TranslationKey } from '$lib/i18n'
 
   let {
     channels,
@@ -37,6 +39,16 @@
 
   const availableChannels = $derived(channels.filter((channel) => channel.is_enabled))
   const groupedEvents = $derived(groupNotificationEventTypes(eventTypes))
+  const NOTIFICATION_TOGGLE_MESSAGE_KEYS: Record<'enabled' | 'disabled', TranslationKey> = {
+    enabled: 'settings.notificationEventToggle.notifications.enabled',
+    disabled: 'settings.notificationEventToggle.notifications.disabled',
+  }
+  const NOTIFICATION_TOGGLE_NOTIFICATIONS: Record<'alreadyDisabled' | 'channelRequired', TranslationKey> = {
+    alreadyDisabled: 'settings.notificationEventToggle.notifications.alreadyDisabled',
+    channelRequired: 'settings.notificationEventToggle.notifications.channelRequired',
+  }
+  const NOTIFICATION_TOGGLE_ERROR_KEY: TranslationKey =
+    'settings.notificationEventToggle.errors.update'
 
   $effect(() => {
     if (availableChannels.length === 0) {
@@ -56,7 +68,7 @@
   async function handleToggle(eventType: NotificationRuleEventType, nextEnabled: boolean) {
     const channel = selectedChannel()
     if (!channel) {
-      toastStore.error('Enable a notification channel before configuring event toggles.')
+      toastStore.error(i18nStore.t(NOTIFICATION_TOGGLE_NOTIFICATIONS.channelRequired))
       return
     }
 
@@ -73,17 +85,25 @@
       } else if (nextEnabled) {
         await onCreate(buildNotificationToggleRuleInput(eventType, channel))
       } else {
-        toastStore.info(`${eventType.label} is already disabled for ${channel.name}.`)
+        toastStore.info(
+          i18nStore.t(NOTIFICATION_TOGGLE_NOTIFICATIONS.alreadyDisabled, {
+            event: eventType.label,
+            channel: channel.name,
+          }),
+        )
         return
       }
 
       toastStore.success(
-        nextEnabled
-          ? `${eventType.label} enabled for ${channel.name}.`
-          : `${eventType.label} disabled for ${channel.name}.`,
+        i18nStore.t(NOTIFICATION_TOGGLE_MESSAGE_KEYS[nextEnabled ? 'enabled' : 'disabled'], {
+          event: eventType.label,
+          channel: channel.name,
+        }),
       )
     } catch (caughtError) {
-      toastStore.error(actionErrorMessage(caughtError, 'Failed to update notification toggle.'))
+      toastStore.error(
+        actionErrorMessage(caughtError, i18nStore.t(NOTIFICATION_TOGGLE_ERROR_KEY)),
+      )
     } finally {
       actionKey = ''
     }
@@ -93,15 +113,17 @@
 <div class="border-border bg-card rounded-md border">
   <div class="border-border flex flex-wrap items-start justify-between gap-4 border-b px-5 py-4">
     <div>
-      <h3 class="text-foreground text-base font-semibold">Event Toggles</h3>
+      <h3 class="text-foreground text-base font-semibold">
+        {i18nStore.t('settings.notificationEventToggle.heading')}
+      </h3>
       <p class="text-muted-foreground mt-1 text-sm">
-        Pick one enabled channel, then turn supported notification events on or off by group.
+        {i18nStore.t('settings.notificationEventToggle.description')}
       </p>
     </div>
 
     <div class="w-full max-w-xs space-y-2">
       <span class="text-muted-foreground text-xs font-medium tracking-[0.14em] uppercase">
-        Active channel
+        {i18nStore.t('settings.notificationEventToggle.labels.activeChannel')}
       </span>
       <Select.Root
         type="single"
@@ -109,7 +131,8 @@
         onValueChange={(value) => (selectedChannelId = value || '')}
       >
         <Select.Trigger class="w-full">
-          {selectedChannel()?.name ?? 'Select enabled channel'}
+          {selectedChannel()?.name ??
+            i18nStore.t('settings.notificationEventToggle.placeholders.selectChannel')}
         </Select.Trigger>
         <Select.Content>
           {#each availableChannels as channel (channel.id)}
@@ -123,8 +146,7 @@
   {#if availableChannels.length === 0}
     <div class="px-5 py-5">
       <div class="border-border bg-muted/40 rounded-md border px-4 py-3 text-sm">
-        Create and enable at least one notification channel before configuring grouped event
-        toggles.
+        {i18nStore.t('settings.notificationEventToggle.messages.enableChannelFirst')}
       </div>
     </div>
   {:else}
@@ -135,10 +157,18 @@
             <div>
               <h4 class="text-foreground text-sm font-semibold">{group.group}</h4>
               <p class="text-muted-foreground mt-1 text-xs">
-                Delivery status for {selectedChannel()?.name ?? 'the selected channel'}.
+                {i18nStore.t('settings.notificationEventToggle.labels.deliveryStatus', {
+                  channel:
+                    selectedChannel()?.name ??
+                    i18nStore.t('settings.notificationEventToggle.placeholders.selectedChannel'),
+                })}
               </p>
             </div>
-            <Badge variant="outline">{group.events.length} events</Badge>
+            <Badge variant="outline">
+              {i18nStore.t('settings.notificationEventToggle.badges.eventCount', {
+                count: group.events.length,
+              })}
+            </Badge>
           </div>
 
           <div class="space-y-2">
@@ -155,7 +185,12 @@
                 <Switch
                   checked={currentRule?.is_enabled ?? false}
                   disabled={busy}
-                  aria-label={`${currentRule?.is_enabled ? 'Disable' : 'Enable'} ${eventType.label}`}
+                  aria-label={i18nStore.t(
+                    currentRule?.is_enabled
+                      ? 'settings.notificationEventToggle.aria.disable'
+                      : 'settings.notificationEventToggle.aria.enable',
+                    { event: eventType.label },
+                  )}
                   onCheckedChange={(checked) => void handleToggle(eventType, Boolean(checked))}
                 />
 
@@ -171,10 +206,18 @@
 
                 <div class="text-right text-xs">
                   <div class="text-foreground font-medium">
-                    {busy ? 'Saving…' : currentRule?.is_enabled ? 'Enabled' : 'Disabled'}
+                    {busy
+                      ? i18nStore.t('settings.notificationEventToggle.status.saving')
+                      : currentRule?.is_enabled
+                        ? i18nStore.t('settings.notificationEventToggle.states.enabled')
+                        : i18nStore.t('settings.notificationEventToggle.states.disabled')}
                   </div>
                   <div class="text-muted-foreground mt-1">
-                    {currentRule ? 'Uses default message' : 'Creates default rule on first enable'}
+                    {currentRule
+                      ? i18nStore.t('settings.notificationEventToggle.hints.usesDefaultMessage')
+                      : i18nStore.t(
+                          'settings.notificationEventToggle.hints.autoCreatesDefaultRule',
+                        )}
                   </div>
                 </div>
               </div>

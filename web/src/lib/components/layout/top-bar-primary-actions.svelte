@@ -81,7 +81,10 @@
   <span class="hidden text-xs sm:inline">{i18nStore.t('layout.newTicket')}</span>
 </Button>
 
-<div class="text-muted-foreground flex items-center gap-1.5 text-xs" title="SSE: {sseStatus}">
+<div
+  class="text-muted-foreground flex items-center gap-1.5 text-xs"
+  title={i18nStore.t('layout.sseStatus', { status: sseStatus })}
+>
   {#if sseStatus === 'live'}
     <span class="bg-success size-1.5 rounded-full"></span>
   {:else if sseStatus === 'connecting' || sseStatus === 'retrying'}

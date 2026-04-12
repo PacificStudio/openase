@@ -22,6 +22,7 @@
   import { Label } from '$ui/label'
   import { ShieldCheck } from '@lucide/svelte'
   import OrganizationAdminRolesBindingsList from './organization-admin-roles-bindings-list.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let { organizationId }: { organizationId: string } = $props()
 
@@ -32,6 +33,7 @@
   let permissions = $state<EffectivePermissionsResponse | null>(null)
   let draft = $state<BindingDraft>(defaultBindingDraftForScope())
   let dialogOpen = $state(false)
+  const t = i18nStore.t
 
   const canManageBindings = $derived(permissions?.permissions.includes('rbac.manage') ?? false)
   const canManagePrivilegedRoles = $derived(
@@ -70,8 +72,7 @@
         draft = { ...draft, roleKey: 'org_member' }
       }
     } catch (caughtError) {
-      error =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to load org role bindings.'
+      error = t('orgAdmin.roles.errors.load')
     } finally {
       loading = false
     }
@@ -89,10 +90,12 @@
       draft = defaultBindingDraftForScope()
       dialogOpen = false
       await loadState()
-      toastStore.success('Organization role binding added.')
+      toastStore.success(
+        t('orgAdmin.roles.toast.bindingAdded'),
+      )
     } catch (caughtError) {
       const message =
-        caughtError instanceof Error ? caughtError.message : 'Failed to create org role binding.'
+        caughtError instanceof Error ? caughtError.message : t('orgAdmin.roles.errors.create')
       error = message
       toastStore.error(message)
     } finally {
@@ -106,10 +109,12 @@
     try {
       await deleteOrganizationRoleBinding(organizationId, binding.id)
       await loadState()
-      toastStore.success('Organization role binding removed.')
+      toastStore.success(
+        t('orgAdmin.roles.toast.bindingRemoved'),
+      )
     } catch (caughtError) {
       const message =
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to delete org role binding.'
+        caughtError instanceof ApiError ? caughtError.detail : t('orgAdmin.roles.errors.delete')
       error = message
       toastStore.error(message)
     } finally {
@@ -131,42 +136,58 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="flex items-center gap-2">
       <ShieldCheck class="text-muted-foreground size-4" />
-      <h2 class="text-sm font-semibold">Org role bindings</h2>
-      <Badge variant="outline" class="text-xs">Inherited by projects</Badge>
+      <h2 class="text-sm font-semibold">
+        {t('orgAdmin.roles.page.heading')}
+      </h2>
+      <Badge variant="outline" class="text-xs">
+        {t('orgAdmin.roles.page.badge.inherited')}
+      </Badge>
     </div>
     {#if canManageBindings}
-      <Button size="sm" variant="outline" onclick={() => (dialogOpen = true)}>Add binding</Button>
+      <Button
+        size="sm"
+        variant="outline"
+        onclick={() => (dialogOpen = true)}
+      >
+        {t('orgAdmin.roles.page.actions.addBinding')}
+      </Button>
     {/if}
   </div>
 
   <!-- Your access status bar -->
-  <div class="bg-muted/40 rounded-md px-4 py-2.5">
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span class="text-muted-foreground text-xs font-medium">Your access</span>
-      {#if permissions?.roles?.length}
-        {#each permissions.roles as role (role)}
-          <Badge variant="secondary" class="text-xs">{role}</Badge>
-        {/each}
-      {:else}
-        <span class="text-muted-foreground text-xs">No effective org roles</span>
-      {/if}
-      {#if permissions?.groups?.length}
-        <span class="text-muted-foreground text-xs">·</span>
-        {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
-          <code class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
-            {group.group_name || group.group_key}
-          </code>
-        {/each}
-      {/if}
-      {#if !canManageBindings}
-        <span class="text-muted-foreground text-xs">· Read only</span>
-      {:else if !canManagePrivilegedRoles}
-        <span class="text-muted-foreground text-xs"
-          >· Owner approval required to change privileged bindings</span
-        >
-      {/if}
-    </div>
-  </div>
+      <div class="bg-muted/40 rounded-md px-4 py-2.5">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span class="text-muted-foreground text-xs font-medium">
+              {t('orgAdmin.roles.page.access.yourAccess')}
+            </span>
+          {#if permissions?.roles?.length}
+            {#each permissions.roles as role (role)}
+              <Badge variant="secondary" class="text-xs">{role}</Badge>
+            {/each}
+          {:else}
+             <span class="text-muted-foreground text-xs">
+                {t('orgAdmin.roles.page.access.noRoles')}
+              </span>
+          {/if}
+          {#if permissions?.groups?.length}
+            <span class="text-muted-foreground text-xs">·</span>
+            {#each permissions.groups as group (group.issuer + ':' + group.group_key)}
+              <code class="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
+                {group.group_name || group.group_key}
+              </code>
+            {/each}
+          {/if}
+          {#if !canManageBindings}
+           <span class="text-muted-foreground text-xs">
+              · {t('orgAdmin.roles.page.access.readOnly')}
+            </span>
+          {:else if !canManagePrivilegedRoles}
+            <span class="text-muted-foreground text-xs">
+              · {t('orgAdmin.roles.page.access.ownerApproval')}
+            </span>
+          {/if}
+        </div>
+      </div>
 
   <!-- Bindings list -->
   <OrganizationAdminRolesBindingsList
@@ -184,16 +205,23 @@
 <Dialog.Root bind:open={dialogOpen}>
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Add role binding</Dialog.Title>
+      <Dialog.Title>
+        {t('orgAdmin.roles.dialog.title')}
+      </Dialog.Title>
       <Dialog.Description>
-        Bind a user or group to an org role. Org owners can grant <code>org_owner</code> and
-        <code>org_admin</code>; org admins can manage member-level bindings.
+        {t('orgAdmin.roles.dialog.description.prefix')}
+        <code>org_owner</code>
+        {t('orgAdmin.roles.dialog.description.middle')}
+        <code>org_admin</code>
+        {t('orgAdmin.roles.dialog.description.suffix')}
       </Dialog.Description>
     </Dialog.Header>
 
     <div class="grid gap-4 sm:grid-cols-2">
       <div class="space-y-1.5">
-        <Label>Subject kind</Label>
+        <Label>
+            {t('orgAdmin.roles.dialog.labels.subjectKind')}
+        </Label>
         <select
           class={selectClass}
           value={draft.subjectKind}
@@ -204,16 +232,26 @@
             }
           }}
         >
-          <option value="user">User</option>
-          <option value="group">Group</option>
+          <option value="user">
+          {t('orgAdmin.roles.dialog.options.user')}
+          </option>
+          <option value="group">
+          {t('orgAdmin.roles.dialog.options.group')}
+          </option>
         </select>
       </div>
 
       <div class="space-y-1.5">
-        <Label>Subject key</Label>
+        <Label>
+          {t('orgAdmin.roles.dialog.labels.subjectKey')}
+        </Label>
         <Input
           value={draft.subjectKey}
-          placeholder={draft.subjectKind === 'group' ? 'oidc:platform-admins' : 'user@example.com'}
+          placeholder={
+            draft.subjectKind === 'group'
+              ? t('orgAdmin.roles.dialog.placeholders.group')
+              : t('orgAdmin.roles.dialog.placeholders.user')
+          }
           oninput={(event) => {
             draft = { ...draft, subjectKey: (event.currentTarget as HTMLInputElement).value }
           }}
@@ -221,7 +259,9 @@
       </div>
 
       <div class="space-y-1.5">
-        <Label>Role</Label>
+        <Label>
+          {t('orgAdmin.roles.dialog.labels.role')}
+        </Label>
         <select
           class={selectClass}
           value={roleOptions.includes(draft.roleKey) ? draft.roleKey : roleOptions[0]}
@@ -236,7 +276,12 @@
       </div>
 
       <div class="space-y-1.5">
-        <Label>Expires at <span class="text-muted-foreground font-normal">(optional)</span></Label>
+        <Label>
+          {t('orgAdmin.roles.dialog.labels.expiresAt')}{' '}
+          <span class="text-muted-foreground font-normal">
+            ({t('orgAdmin.roles.dialog.labels.optional')})
+          </span>
+        </Label>
         <Input
           type="datetime-local"
           value={draft.expiresAtLocal}
@@ -250,11 +295,19 @@
     <Dialog.Footer>
       <Dialog.Close>
         {#snippet child({ props })}
-          <Button variant="outline" {...props} disabled={mutationKey === 'create'}>Cancel</Button>
+          <Button
+            variant="outline"
+            {...props}
+            disabled={mutationKey === 'create'}
+          >
+            {t('orgAdmin.roles.dialog.actions.cancel')}
+          </Button>
         {/snippet}
       </Dialog.Close>
       <Button onclick={handleCreateBinding} disabled={mutationKey === 'create'}>
-        {mutationKey === 'create' ? 'Adding…' : 'Add binding'}
+        {mutationKey === 'create'
+          ? t('orgAdmin.roles.dialog.actions.adding')
+          : t('orgAdmin.roles.dialog.actions.add')}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

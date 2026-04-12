@@ -12,6 +12,7 @@
   import { Settings, Star, Wrench } from '@lucide/svelte'
   import { cn } from '$lib/utils'
   import type { ProviderOption } from './agent-settings-model'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     providers,
@@ -42,24 +43,34 @@
     selectedDefaultProviderId !== (appStore.currentProject?.default_agent_provider_id ?? ''),
   )
   const canAddProvider = $derived(machineCount > 0)
+
+  function agentCountLabel(count: number) {
+  return i18nStore.t('settings.agentDefaultsCard.labels.agentCount', {
+    count,
+    pluralSuffix: count === 1 ? '' : 's',
+  })
+}
 </script>
 
 <div class="space-y-4">
   <div class="flex items-center justify-between gap-3">
     <div>
-      <h3 class="text-foreground text-sm font-semibold">Agent Providers</h3>
+      <h3 class="text-foreground text-sm font-semibold">
+        {i18nStore.t('settings.agentDefaultsCard.heading')}
+      </h3>
       <p class="text-muted-foreground mt-0.5 text-xs">
-        Click the star to set the project default. Configure adapter and model settings per
-        provider.
+        {i18nStore.t('settings.agentDefaultsCard.description')}
       </p>
     </div>
     <div class="flex items-center gap-2">
       <Button variant="outline" size="sm" onclick={onAddProvider} disabled={!canAddProvider}>
-        Add provider
+        {i18nStore.t('settings.agentDefaultsCard.buttons.addProvider')}
       </Button>
       {#if hasUnsavedChange}
         <Button size="sm" onclick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save default'}
+          {saving
+            ? i18nStore.t('settings.agentDefaultsCard.buttons.saving')
+            : i18nStore.t('settings.agentDefaultsCard.buttons.saveDefault')}
         </Button>
       {/if}
     </div>
@@ -67,8 +78,7 @@
 
   {#if !canAddProvider}
     <p class="text-muted-foreground text-xs">
-      Register an execution machine in this organization before creating a provider from project
-      settings.
+      {i18nStore.t('settings.agentDefaultsCard.messages.registerMachine')}
     </p>
   {/if}
 
@@ -77,9 +87,9 @@
       class="border-border bg-card text-muted-foreground rounded-xl border border-dashed px-4 py-10 text-center text-sm"
     >
       {#if canAddProvider}
-        No providers registered for this organization yet.
+        {i18nStore.t('settings.agentDefaultsCard.messages.noProviders')}
       {:else}
-        No providers or execution machines are registered for this organization yet.
+        {i18nStore.t('settings.agentDefaultsCard.messages.noProvidersOrMachines')}
       {/if}
     </div>
   {:else}
@@ -102,9 +112,13 @@
               'shrink-0 transition-colors',
               isProjectDefault ? 'text-amber-500' : 'text-muted-foreground/40 hover:text-amber-400',
             )}
-            title={isProjectDefault
-              ? 'Clear project default (inherit org)'
-              : `Set ${provider.name} as project default`}
+            title={
+              isProjectDefault
+                ? i18nStore.t('settings.agentDefaultsCard.actions.clearDefault')
+                : i18nStore.t('settings.agentDefaultsCard.actions.setProjectDefault', {
+                    provider: provider.name,
+                  })
+            }
             onclick={() => {
               onSelectionChange?.(isProjectDefault ? '' : provider.id)
             }}
@@ -130,9 +144,13 @@
                 class="text-[10px]"
               />
               {#if isProjectDefault}
-                <Badge variant="outline" class="text-[10px]">Project default</Badge>
+                <Badge variant="outline" class="text-[10px]">
+                  {i18nStore.t('settings.agentDefaultsCard.badges.projectDefault')}
+                </Badge>
               {:else if isOrgDefault && !selectedDefaultProviderId}
-                <Badge variant="secondary" class="text-[10px]">Org default</Badge>
+                <Badge variant="secondary" class="text-[10px]">
+                  {i18nStore.t('settings.agentDefaultsCard.badges.orgDefault')}
+                </Badge>
               {/if}
             </div>
             <div
@@ -141,7 +159,7 @@
               <span>{adapterDisplayName(provider.adapterType)}</span>
               <span class="font-mono">{provider.modelName}</span>
               <span>{provider.machineName}</span>
-              <span>{provider.agentCount} agent{provider.agentCount !== 1 ? 's' : ''}</span>
+              <span>{agentCountLabel(provider.agentCount)}</span>
             </div>
             {#if rateLimit}
               <div class="mt-2">
@@ -153,8 +171,8 @@
           <Button
             variant="ghost"
             size="icon-xs"
-            title="Configure provider"
-            aria-label="Configure provider"
+            title={i18nStore.t('settings.agentDefaultsCard.actions.configureProvider')}
+            aria-label={i18nStore.t('settings.agentDefaultsCard.actions.configureProvider')}
             onclick={() => onConfigure?.(provider.id)}
           >
             <Settings class="size-3.5" />
@@ -165,7 +183,9 @@
 
     {#if !selectedDefaultProviderId && orgDefaultProviderName}
       <p class="text-muted-foreground text-xs">
-        Inheriting org default: {orgDefaultProviderName}. Star a provider to override.
+        {i18nStore.t('settings.agentDefaultsCard.messages.inheritOrgDefault', {
+          name: orgDefaultProviderName,
+        })}
       </p>
     {/if}
   {/if}

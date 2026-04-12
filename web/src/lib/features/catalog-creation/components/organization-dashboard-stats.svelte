@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
+
   let {
     orgName,
     projectCount,
@@ -12,22 +14,30 @@
 
 <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
   <div class="border-border bg-card rounded-lg border p-4">
-    <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Organization</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">
+        {i18nStore.t('catalog.dashboard.stats.labels.org')}
+      </p>
     <p class="text-foreground mt-2 text-lg font-semibold">{orgName}</p>
-    <p class="text-muted-foreground mt-1 text-sm">Stable context now lives in the URL.</p>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {i18nStore.t('catalog.dashboard.stats.contextHint')}
+      </p>
   </div>
   <div class="border-border bg-card rounded-lg border p-4">
-    <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Projects</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">
+        {i18nStore.t('catalog.dashboard.stats.labels.projects')}
+      </p>
     <p class="text-foreground mt-2 text-lg font-semibold">{projectCount}</p>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Pick a project to open its dashboard, board, agents, and settings under one route model.
-    </p>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {i18nStore.t('catalog.dashboard.stats.projectsHint')}
+      </p>
   </div>
   <div class="border-border bg-card rounded-lg border p-4">
-    <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">Providers</p>
+      <p class="text-muted-foreground text-xs tracking-[0.2em] uppercase">
+        {i18nStore.t('catalog.dashboard.stats.labels.providers')}
+      </p>
     <p class="text-foreground mt-2 text-lg font-semibold">{providerCount}</p>
-    <p class="text-muted-foreground mt-1 text-sm">
-      Provider configuration remains attached to the selected organization context.
-    </p>
+      <p class="text-muted-foreground mt-1 text-sm">
+        {i18nStore.t('catalog.dashboard.stats.providersHint')}
+      </p>
   </div>
 </div>

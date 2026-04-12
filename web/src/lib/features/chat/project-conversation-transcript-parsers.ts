@@ -14,6 +14,7 @@ import {
   readBoolean,
   readString,
 } from './project-conversation-transcript-parser-helpers'
+import { chatT } from './i18n'
 
 export function createProjectConversationDiffEntry(params: {
   id: string
@@ -86,7 +87,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'thread_status',
-        title: 'Codex thread status',
+        title: chatT('chat.task.codexThreadStatus'),
         detail: buildProviderStateDetail(raw),
         raw: raw ?? undefined,
       })
@@ -95,7 +96,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'session_state',
-        title: 'Claude session status',
+        title: chatT('chat.task.claudeSessionStatus'),
         detail: buildProviderStateDetail(raw),
         raw: raw ?? undefined,
       })
@@ -104,7 +105,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'task_started',
-        title: 'Task started',
+        title: chatT('chat.task.started'),
         detail: statusDetail,
         raw: raw ?? undefined,
       })
@@ -113,7 +114,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'task_progress',
-        title: 'Task progress',
+        title: chatT('chat.task.progress'),
         detail: statusDetail,
         raw: raw ?? undefined,
       })
@@ -122,7 +123,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'task_notification',
-        title: 'Task notification',
+        title: chatT('chat.task.notification'),
         detail: statusDetail,
         raw: raw ?? undefined,
       })
@@ -131,7 +132,7 @@ export function mapProjectConversationTaskEntry(params: {
         id: params.id,
         turnId: params.turnId,
         statusType: 'reasoning_updated',
-        title: 'Reasoning update',
+        title: chatT('chat.task.reasoningUpdate'),
         detail: buildReasoningDetail(raw),
         raw: raw ?? undefined,
       })
@@ -139,7 +140,7 @@ export function mapProjectConversationTaskEntry(params: {
       return createProjectConversationInterruptedEntry({
         id: params.id,
         turnId: params.turnId,
-        message: readString(raw, 'message') || 'Turn interrupted',
+        message: readString(raw, 'message') || chatT('chat.status.turnInterrupted'),
         reason: readString(raw, 'reason') || undefined,
       })
     default:
@@ -153,13 +154,15 @@ export function createProjectConversationTurnDoneEntry(params: {
   costUSD?: number
 }) {
   const detail =
-    typeof params.costUSD === 'number' ? `Cost: $${params.costUSD.toFixed(2)}` : undefined
+    typeof params.costUSD === 'number'
+      ? chatT('chat.turnCost', { cost: `$${params.costUSD.toFixed(2)}` })
+      : undefined
 
   return createProjectConversationTaskStatusEntry({
     id: params.id,
     turnId: params.turnId,
     statusType: 'turn_done',
-    title: 'Turn completed',
+    title: chatT('chat.status.turnCompleted'),
     detail,
   })
 }
@@ -173,7 +176,7 @@ export function createProjectConversationErrorEntry(params: {
     id: params.id,
     turnId: params.turnId,
     statusType: 'error',
-    title: 'Turn failed',
+    title: chatT('chat.status.turnFailed'),
     detail: params.message.trim() || undefined,
   })
 }
@@ -188,7 +191,10 @@ export function createProjectConversationInterruptedEntry(params: {
     id: params.id,
     turnId: params.turnId,
     statusType: 'interrupted',
-    title: params.reason === 'stopped_by_user' ? 'Turn stopped' : 'Turn interrupted',
+    title:
+      params.reason === 'stopped_by_user'
+        ? chatT('chat.status.turnStopped')
+        : chatT('chat.status.turnInterrupted'),
     detail: params.message.trim() || undefined,
     raw: params.reason ? { reason: params.reason } : undefined,
   })

@@ -6,6 +6,7 @@
   import { Input } from '$ui/input'
   import { Textarea } from '$ui/textarea'
   import { Clock, Link2, Link2Off, Save, X } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   type SkillHistoryEntry = {
     id: string
@@ -88,11 +89,11 @@
     {#if editing}
       <div class="space-y-1.5">
         <span class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-          Description
+          {i18nStore.t('settings.skillDetail.labels.description')}
         </span>
         <Input
           bind:value={editDescription}
-          placeholder="Human-readable description"
+          placeholder={i18nStore.t('settings.skillDetail.placeholders.description')}
           class="h-8 text-sm"
           disabled={busy}
         />
@@ -102,11 +103,17 @@
     {/if}
 
     <div class="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-      <span>by {skill.created_by}</span>
-      <span>{formatRelativeTime(skill.created_at)}</span>
+      <span
+        >{i18nStore.t('settings.skillDetail.metadata.by', { name: skill.created_by })}</span
+      >
+      <span
+        >{i18nStore.t('settings.skillDetail.metadata.createdAt', {
+          time: formatRelativeTime(skill.created_at),
+        })}</span
+      >
       {#if !skill.is_enabled}
         <Badge variant="secondary" class="text-muted-foreground px-1.5 py-0.5 text-[10px]">
-          disabled
+          {i18nStore.t('settings.skillDetail.badge.disabled')}
         </Badge>
       {/if}
     </div>
@@ -114,7 +121,7 @@
 
   <section class="border-border space-y-2 border-b px-6 py-4">
     <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-      Workflow bindings
+      {i18nStore.t('settings.skillDetail.labels.workflowBindings')}
     </h3>
     {#if workflows.length > 0}
       <div class="flex flex-wrap gap-1.5">
@@ -127,7 +134,10 @@
               {bound
               ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
               : 'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground border-transparent'}"
-            title="{bound ? 'Unbind from' : 'Bind to'} {workflow.name}"
+            title={i18nStore.t(
+              bound ? 'settings.skillDetail.buttons.unbind' : 'settings.skillDetail.buttons.bind',
+              { workflow: workflow.name },
+            )}
             onclick={() => void onToggleBinding?.(workflow.id, !bound)}
           >
             {#if bound}
@@ -140,15 +150,17 @@
         {/each}
       </div>
     {:else}
-      <p class="text-muted-foreground text-xs">No workflows in this project.</p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('settings.skillDetail.messages.noWorkflows')}
+      </p>
     {/if}
   </section>
 
   <section class="border-border space-y-2 border-b px-6 py-4">
     <div class="flex items-center justify-between">
-      <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-        SKILL.md
-      </h3>
+        <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+          {i18nStore.t('settings.skillDetail.labels.skillMd')}
+        </h3>
       {#if editing}
         <div class="flex items-center gap-1">
           <Button
@@ -159,7 +171,7 @@
             disabled={busy}
           >
             <X class="size-3" />
-            Cancel
+            {i18nStore.t('settings.skillDetail.buttons.cancel')}
           </Button>
           <Button
             size="sm"
@@ -168,7 +180,9 @@
             disabled={busy}
           >
             <Save class="size-3" />
-            {busy ? 'Saving…' : 'Publish'}
+            {busy
+              ? i18nStore.t('settings.skillDetail.buttons.saving')
+              : i18nStore.t('settings.skillDetail.buttons.publish')}
           </Button>
         </div>
       {/if}
@@ -177,8 +191,9 @@
       <Textarea bind:value={editContent} class="min-h-64 font-mono text-sm" disabled={busy} />
     {:else}
       <pre
-        class="bg-muted/40 max-h-96 overflow-auto rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap">{content ||
-          '(empty)'}</pre>
+        class="bg-muted/40 max-h-96 overflow-auto rounded-lg border p-4 text-sm leading-relaxed whitespace-pre-wrap">
+        {content || i18nStore.t('settings.skillDetail.messages.emptyContent')}
+      </pre>
     {/if}
   </section>
 
@@ -193,7 +208,12 @@
             <Clock class="text-muted-foreground size-3 shrink-0" />
             <span class="text-foreground font-medium">v{item.version}</span>
             {#if item.version === skill.current_version}
-              <Badge variant="secondary" class="h-4 px-1.5 text-[10px]">current</Badge>
+              <Badge
+                variant="secondary"
+                class="h-4 px-1.5 text-[10px]"
+              >
+                {i18nStore.t('settings.skillDetail.badge.current')}
+              </Badge>
             {/if}
             <span class="text-muted-foreground">{item.created_by}</span>
             <span class="text-muted-foreground ml-auto shrink-0">

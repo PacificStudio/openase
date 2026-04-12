@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Button } from '$ui/button'
-  import { Input } from '$ui/input'
-  import { Label } from '$ui/label'
-  import * as Select from '$ui/select'
+import { Button } from '$ui/button'
+import { Input } from '$ui/input'
+import { Label } from '$ui/label'
+import * as Select from '$ui/select'
+import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     inviteEmail = $bindable(''),
@@ -28,18 +29,22 @@
 <div
   class="border-border bg-card grid gap-4 rounded-lg border p-4 lg:grid-cols-[minmax(0,1.4fr)_220px_auto] lg:items-end"
 >
-  <div class="space-y-2">
-    <Label for="organization-member-email">Invite by email</Label>
-    <Input
-      id="organization-member-email"
-      bind:value={inviteEmail}
-      type="email"
-      placeholder="teammate@example.com"
-    />
-  </div>
+    <div class="space-y-2">
+      <Label for="organization-member-email">
+        {i18nStore.t('orgMembers.invite.label.email')}
+      </Label>
+      <Input
+        id="organization-member-email"
+        bind:value={inviteEmail}
+        type="email"
+        placeholder={i18nStore.t('orgMembers.invite.placeholder.email')}
+      />
+    </div>
 
   <div class="space-y-2">
-    <Label>Baseline role</Label>
+    <Label>
+      {i18nStore.t('orgMembers.invite.label.role')}
+    </Label>
     <Select.Root
       type="single"
       value={inviteRole}
@@ -62,22 +67,28 @@
   </div>
 
   <Button class="min-w-32" onclick={onInvite} disabled={submittingInvite}>
-    {submittingInvite ? 'Sending…' : 'Send invite'}
+    {submittingInvite
+      ? i18nStore.t('orgMembers.invite.actions.sending')
+      : i18nStore.t('orgMembers.invite.actions.send')}
   </Button>
 </div>
 
 {#if recentInviteToken}
   <div class="border-border bg-card rounded-lg border p-4">
     <div class="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-      <div class="space-y-1">
-        <p class="text-sm font-medium">
-          Latest accept token for {recentInviteEmail}
-        </p>
-        <p class="text-muted-foreground text-xs">
-          Useful for local testing until a delivery channel is wired.
-        </p>
-      </div>
-      <Button variant="outline" size="sm" onclick={onCopyToken}>Copy token</Button>
+    <div class="space-y-1">
+      <p class="text-sm font-medium">
+        {i18nStore.t('orgMembers.invite.token.latest', {
+          email: recentInviteEmail,
+        })}
+      </p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('orgMembers.invite.token.helper')}
+      </p>
+    </div>
+    <Button variant="outline" size="sm" onclick={onCopyToken}>
+      {i18nStore.t('orgMembers.invite.token.copy')}
+    </Button>
     </div>
     <code class="bg-muted text-foreground mt-3 block overflow-x-auto rounded-md px-3 py-2 text-xs">
       {recentInviteToken}

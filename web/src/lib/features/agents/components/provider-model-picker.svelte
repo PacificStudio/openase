@@ -8,6 +8,7 @@
     providerModelOptionsForAdapter,
     splitProviderModelSelection,
   } from '../provider-model-options'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     adapterType,
@@ -80,7 +81,7 @@
 {#if options.length > 0}
   <div class="space-y-4">
     <div class="space-y-2">
-      <Label>Suggested model</Label>
+      <Label>{i18nStore.t('agents.providerModelPicker.labels.suggested')}</Label>
       <Select.Root
         type="single"
         value={customModelId.trim() ? customProviderModelOptionValue : baseModelId}
@@ -88,41 +89,54 @@
       >
         <Select.Trigger class="w-full">
           {#if customModelId.trim()}
-            Custom model ID override
+            {i18nStore.t('agents.providerModelPicker.labels.customOverride')}
           {:else}
-            {options.find((option) => option.id === baseModelId)?.label ?? 'Select model'}
+            {options.find((option) => option.id === baseModelId)?.label ??
+              i18nStore.t('agents.providerModelPicker.placeholders.selectModel')}
           {/if}
         </Select.Trigger>
         <Select.Content>
           {#each options as option (option.id)}
             <Select.Item value={option.id}>
-              {option.label}{option.recommended ? ' (Recommended)' : ''}{option.preview
-                ? ' · Preview'
+              {option.label}
+              {option.recommended
+                ? i18nStore.t('agents.providerModelPicker.hints.recommendedSuffix')
                 : ''}
+              {option.preview ? i18nStore.t('agents.providerModelPicker.hints.previewSuffix') : ''}
             </Select.Item>
           {/each}
-          <Select.Item value={customProviderModelOptionValue}>Custom model ID override</Select.Item>
+          <Select.Item value={customProviderModelOptionValue}>
+            {i18nStore.t('agents.providerModelPicker.labels.customOverride')}
+          </Select.Item>
         </Select.Content>
       </Select.Root>
       <p class="text-muted-foreground text-xs">
-        Pick a known-good model first, then override it below if you need an exact model ID.
+        {i18nStore.t('agents.providerModelPicker.hints.pickAndOverride')}
       </p>
     </div>
 
     <div class="space-y-2">
-      <Label for={inputId}>Custom model ID override</Label>
+      <Label for={inputId}>
+        {i18nStore.t('agents.providerModelPicker.labels.customOverride')}
+      </Label>
       <Input
         id={inputId}
         value={customModelId}
-        placeholder={baseModelId || 'Enter an exact model ID'}
+        placeholder={
+          baseModelId
+            ? baseModelId
+            : i18nStore.t('agents.providerModelPicker.placeholders.enterModelId')
+        }
         oninput={handleCustomModelInput}
       />
-      <p class="text-muted-foreground text-xs">Leave blank to use the selected suggested model.</p>
+      <p class="text-muted-foreground text-xs">
+        {i18nStore.t('agents.providerModelPicker.hints.leaveBlank')}
+      </p>
     </div>
   </div>
 {:else}
   <div class="space-y-2">
-    <Label for={inputId}>Model name</Label>
+    <Label for={inputId}>{i18nStore.t('agents.providerModelPicker.labels.modelName')}</Label>
     <Input id={inputId} value={modelName} oninput={handleCustomModelInput} />
   </div>
 {/if}

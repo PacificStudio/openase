@@ -25,6 +25,7 @@
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
   import { ChevronRight, Wrench } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     orgId,
@@ -93,7 +94,9 @@
       await goto(projectPath(orgId, payload.project.id))
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create project.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.project.dialog.errors.create'),
       )
     } finally {
       creating = false
@@ -109,7 +112,9 @@
 >
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>Create project</Dialog.Title>
+      <Dialog.Title>
+        {i18nStore.t('catalog.project.dialog.title')}
+      </Dialog.Title>
     </Dialog.Header>
 
     <form
@@ -121,22 +126,26 @@
     >
       <Dialog.Body class="space-y-4">
         <div class="space-y-2">
-          <Label for="project-name">Name</Label>
+          <Label for="project-name">
+            {i18nStore.t('catalog.project.dialog.labels.name')}
+          </Label>
           <Input
             id="project-name"
             value={draft.name}
-            placeholder="Automation Platform"
+            placeholder={i18nStore.t('catalog.project.dialog.placeholders.name')}
             oninput={(event) => updateName((event.currentTarget as HTMLInputElement).value)}
           />
         </div>
 
         <div class="space-y-2">
-          <Label for="project-description">Description</Label>
+          <Label for="project-description">
+            {i18nStore.t('catalog.project.dialog.labels.description')}
+          </Label>
           <Textarea
             id="project-description"
             rows={2}
             value={draft.description}
-            placeholder="Brief project description"
+            placeholder={i18nStore.t('catalog.project.dialog.placeholders.description')}
             oninput={(event) =>
               updateField('description', (event.currentTarget as HTMLTextAreaElement).value)}
           />
@@ -144,7 +153,9 @@
 
         <div class="grid gap-4 sm:grid-cols-2">
           <div class="space-y-2">
-            <Label>Status</Label>
+            <Label>
+              {i18nStore.t('catalog.project.dialog.labels.status')}
+            </Label>
             <Select.Root
               type="single"
               value={draft.status}
@@ -160,7 +171,9 @@
           </div>
 
           <div class="space-y-2">
-            <Label>Provider</Label>
+            <Label>
+              {i18nStore.t('catalog.project.dialog.labels.provider')}
+            </Label>
             <Select.Root
               type="single"
               value={draft.defaultAgentProviderId}
@@ -182,11 +195,13 @@
                     </span>
                   </span>
                 {:else}
-                  None
+                  {i18nStore.t('catalog.project.dialog.labels.none')}
                 {/if}
               </Select.Trigger>
               <Select.Content>
-                <Select.Item value="">None</Select.Item>
+                <Select.Item value="">
+                  {i18nStore.t('catalog.project.dialog.labels.none')}
+                </Select.Item>
                 {#each providers as provider (provider.id)}
                   {@const iconPath = adapterIconPath(provider.adapter_type)}
                   <Select.Item value={provider.id}>
@@ -225,31 +240,35 @@
                 <ChevronRight
                   class="size-4 transition-transform {advancedOpen ? 'rotate-90' : ''}"
                 />
-                Advanced settings
+                {i18nStore.t('catalog.project.dialog.actions.advanced')}
               </button>
             {/snippet}
           </Collapsible.Trigger>
           <Collapsible.Content>
             <div class="mt-3 grid gap-4 sm:grid-cols-2">
               <div class="space-y-2">
-                <Label for="project-slug">Slug</Label>
+                <Label for="project-slug">
+                  {i18nStore.t('catalog.project.dialog.labels.slug')}
+                </Label>
                 <Input
                   id="project-slug"
                   value={draft.slug}
-                  placeholder="auto-generated"
+                  placeholder={i18nStore.t('catalog.project.dialog.placeholders.slug')}
                   oninput={(event) => updateSlug((event.currentTarget as HTMLInputElement).value)}
                 />
               </div>
 
               <div class="space-y-2">
-                <Label for="project-max-agents">Max agents</Label>
+                <Label for="project-max-agents">
+                  {i18nStore.t('catalog.project.dialog.labels.maxAgents')}
+                </Label>
                 <Input
                   id="project-max-agents"
                   type="number"
                   min="1"
                   step="1"
                   value={draft.maxConcurrentAgents}
-                  placeholder="Unlimited"
+                  placeholder={i18nStore.t('catalog.project.dialog.placeholders.unlimited')}
                   oninput={(event) =>
                     updateField(
                       'maxConcurrentAgents',
@@ -263,13 +282,17 @@
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Dialog.Close>
-          {#snippet child({ props })}
-            <Button variant="outline" {...props}>Cancel</Button>
-          {/snippet}
-        </Dialog.Close>
+          <Dialog.Close>
+            {#snippet child({ props })}
+              <Button variant="outline" {...props}>
+                {i18nStore.t('catalog.project.dialog.actions.cancel')}
+              </Button>
+            {/snippet}
+          </Dialog.Close>
         <Button type="submit" disabled={creating}>
-          {creating ? 'Creating...' : 'Create project'}
+          {creating
+            ? i18nStore.t('catalog.project.dialog.actions.creating')
+            : i18nStore.t('catalog.project.dialog.actions.create')}
         </Button>
       </Dialog.Footer>
     </form>

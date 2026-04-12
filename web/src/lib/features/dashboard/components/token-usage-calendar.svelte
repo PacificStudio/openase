@@ -4,6 +4,7 @@
 
   import { formatTokenUsageTooltip, tokenUsageIntensityClassName } from '../token-usage'
   import type { TokenUsageDayPoint } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     days,
@@ -40,16 +41,20 @@
 
 <div class={cn('border-border rounded-lg border p-4', className)}>
   <div class="flex items-start justify-between gap-3">
-    <div>
-      <h3 class="text-foreground text-sm font-medium">Calendar</h3>
-      <p class="text-muted-foreground mt-1 text-xs">
-        Daily token usage laid out on a fixed weekly grid.
-      </p>
-    </div>
-    <div class="text-right text-xs">
-      <div class="text-muted-foreground">Active days</div>
-      <div class="text-foreground font-medium">{activeDays}/{days.length}</div>
-    </div>
+      <div>
+        <h3 class="text-foreground text-sm font-medium">
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.heading')}
+        </h3>
+        <p class="text-muted-foreground mt-1 text-xs">
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.description')}
+        </p>
+      </div>
+      <div class="text-right text-xs">
+        <div class="text-muted-foreground">
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.activeDays')}
+        </div>
+        <div class="text-foreground font-medium">{activeDays}/{days.length}</div>
+      </div>
   </div>
 
   {#if loading}
@@ -58,13 +63,17 @@
     </div>
   {:else if days.length === 0}
     <div class="text-muted-foreground flex h-[220px] items-center justify-center text-sm">
-      No activity yet.
+      {i18nStore.t('dashboard.tokenUsageCalendar.messages.noActivity')}
     </div>
   {:else}
     <div class="bg-muted/20 mt-4 rounded-xl border border-dashed p-3">
       <div class="text-muted-foreground mb-3 flex items-center justify-between text-[11px]">
         <span>{rangeLabel}</span>
-        <span>Peak {formatCount(maxDailyTokens)}</span>
+        <span>
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.peak', {
+            amount: formatCount(maxDailyTokens),
+          })}
+        </span>
       </div>
 
       <div class="grid grid-cols-7 gap-1.5" data-testid="token-usage-calendar-grid">
@@ -109,7 +118,9 @@
     <div class="mt-3 flex items-center justify-between gap-3 text-[10px]">
       <span class="text-muted-foreground">{rangeLabel}</span>
       <div class="flex items-center gap-2">
-        <span class="text-muted-foreground">Less</span>
+        <span class="text-muted-foreground">
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.less')}
+        </span>
         {#each [0, 1, 2, 3, 4] as intensity}
           <div
             class={cn(
@@ -118,7 +129,9 @@
             )}
           ></div>
         {/each}
-        <span class="text-muted-foreground">More</span>
+        <span class="text-muted-foreground">
+          {i18nStore.t('dashboard.tokenUsageCalendar.labels.more')}
+        </span>
       </div>
     </div>
   {/if}

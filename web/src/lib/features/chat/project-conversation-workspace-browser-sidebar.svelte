@@ -13,6 +13,7 @@
     statusClass,
     statusLabel,
   } from './project-conversation-workspace-browser-helpers'
+  import { chatT } from './i18n'
 
   let {
     repos = [],
@@ -133,7 +134,7 @@
             class="text-muted-foreground/60 py-1 text-[11px]"
             style="padding-left: {(depth + 1) * 16 + 28}px"
           >
-            Loading…
+            {chatT('chat.explorer.loadingFiles')}
           </div>
         {/if}
       {/if}
@@ -200,7 +201,7 @@
           explorerExpanded && 'rotate-90',
         )}
       />
-      Explorer
+      {chatT('chat.explorer.title')}
     </button>
     {#if explorerExpanded}
       <div
@@ -210,9 +211,13 @@
         {#if rootEntries.length > 0}
           {@render treeLevel(rootEntries, 0)}
         {:else if loadingDirs.has('')}
-          <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">Loading files…</div>
+          <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">
+            {chatT('chat.explorer.loadingFiles')}
+          </div>
         {:else}
-          <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">Empty directory</div>
+          <div class="text-muted-foreground/60 px-4 py-2 text-[11px]">
+            {chatT('chat.explorer.emptyDirectory')}
+          </div>
         {/if}
       </div>
     {/if}
@@ -235,7 +240,7 @@
             changesExpanded && 'rotate-90',
           )}
         />
-        Changes
+        {chatT('chat.explorer.changesTitle')}
         <span class="bg-primary/15 text-primary ml-auto rounded-full px-1.5 text-[9px] font-bold">
           {dirtyFiles.length}
         </span>

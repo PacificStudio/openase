@@ -5,6 +5,8 @@
   import * as Dialog from '$ui/dialog'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
+  import { i18nStore } from '$lib/i18n/store.svelte'
+  import type { TranslationKey } from '$lib/i18n'
   import * as Select from '$ui/select'
   import {
     KeyRound,
@@ -50,10 +52,16 @@
 
   let dialogOpen = $state(false)
 
-  const scopeOptions = [
-    { value: 'workflow' as const, label: 'Workflow' },
-    { value: 'ticket' as const, label: 'Ticket' },
+  const scopeOptions: { value: SecretBindingDraft['scope']; labelKey: TranslationKey }[] = [
+    { value: 'workflow', labelKey: 'settings.secretBindings.scope.workflow' },
+    { value: 'ticket', labelKey: 'settings.secretBindings.scope.ticket' },
   ]
+
+  function scopeLabelKey(scope: SecretBindingDraft['scope']): TranslationKey {
+    return scope === 'ticket'
+      ? 'settings.secretBindings.scope.ticket'
+      : 'settings.secretBindings.scope.workflow'
+  }
 
   const sortedSecrets = $derived(
     [...secrets].sort((a, b) => {
@@ -97,8 +105,10 @@
     })
   }
 
-  function secretScopeLabel(secret: ScopedSecret) {
-    return secret.scope === 'organization' ? 'Org' : 'Project'
+  function secretScopeLabel(secret: Pick<ScopedSecret, 'scope'>) {
+    return secret.scope === 'organization'
+      ? 'settings.secretBindings.scopeLabel.organization'
+      : 'settings.secretBindings.scopeLabel.project'
   }
 
   function targetLabel(target: Workflow | Ticket) {
@@ -123,25 +133,31 @@
 
 <div class="space-y-4">
   <div class="flex items-center justify-between gap-3">
-    <div class="flex items-center gap-2">
-      <KeyRound class="text-muted-foreground size-4" />
-      <h3 class="text-sm font-semibold">Runtime secret bindings</h3>
-    </div>
+      <div class="flex items-center gap-2">
+        <KeyRound class="text-muted-foreground size-4" />
+        <h3 class="text-sm font-semibold">
+          {i18nStore.t('settings.secretBindings.heading')}
+        </h3>
+      </div>
 
     <Dialog.Root bind:open={dialogOpen}>
       <Dialog.Trigger>
         {#snippet child({ props })}
           <Button size="sm" {...props}>
             <Plus class="size-4" />
-            <span class="hidden sm:inline">Bind secret</span>
+            <span class="hidden sm:inline">
+              {i18nStore.t('settings.secretBindings.buttons.bindSecret')}
+            </span>
           </Button>
         {/snippet}
       </Dialog.Trigger>
       <Dialog.Content class="sm:max-w-md">
         <Dialog.Header>
-          <Dialog.Title>Bind secret to runtime</Dialog.Title>
+          <Dialog.Title>
+            {i18nStore.t('settings.secretBindings.dialogs.bindTitle')}
+          </Dialog.Title>
           <Dialog.Description>
-            Attach a shared secret to a workflow or ticket. Values are never exposed here.
+            {i18nStore.t('settings.secretBindings.dialogs.bindDescription')}
           </Dialog.Description>
         </Dialog.Header>
 
@@ -155,25 +171,34 @@
           <Dialog.Body class="space-y-4">
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="space-y-2">
-                <Label>Scope</Label>
+                <Label>{i18nStore.t('settings.secretBindings.labels.scope')}</Label>
                 <Select.Root
                   type="single"
                   value={draft.scope}
                   onValueChange={(value) => handleScopeChange(value || 'workflow')}
                 >
                   <Select.Trigger class="w-full">
-                    {scopeOptions.find((o) => o.value === draft.scope)?.label ?? draft.scope}
+                    {@const scopeOption = scopeOptions.find((o) => o.value === draft.scope)}
+                    {scopeOption
+                      ? i18nStore.t(scopeOption.labelKey)
+                      : draft.scope}
                   </Select.Trigger>
                   <Select.Content>
                     {#each scopeOptions as option (option.value)}
-                      <Select.Item value={option.value}>{option.label}</Select.Item>
+                      <Select.Item value={option.value}>{i18nStore.t(option.labelKey)}</Select.Item>
                     {/each}
                   </Select.Content>
                 </Select.Root>
               </div>
 
               <div class="space-y-2">
-                <Label>{draft.scope === 'workflow' ? 'Workflow' : 'Ticket'}</Label>
+                <Label>
+                  {i18nStore.t(
+                    draft.scope === 'workflow'
+                      ? 'settings.secretBindings.scope.workflow'
+                      : 'settings.secretBindings.scope.ticket',
+                  )}
+                </Label>
                 <Select.Root
                   type="single"
                   value={draft.scopeResourceId}
@@ -182,9 +207,15 @@
                   <Select.Trigger class="w-full">
                     {#if draft.scopeResourceId}
                       {@const target = availableTargets.find((t) => t.id === draft.scopeResourceId)}
-                      {target ? targetLabel(target) : 'Select...'}
+                      {target
+                        ? targetLabel(target)
+                        : i18nStore.t('settings.secretBindings.placeholders.select')}
                     {:else}
-                      Select {draft.scope}...
+                      {i18nStore.t(
+                        draft.scope === 'workflow'
+                          ? 'settings.secretBindings.placeholders.selectWorkflowTarget'
+                          : 'settings.secretBindings.placeholders.selectTicketTarget',
+                      )}
                     {/if}
                   </Select.Trigger>
                   <Select.Content>
@@ -195,14 +226,18 @@
                 </Select.Root>
                 {#if availableTargets.length === 0}
                   <p class="text-muted-foreground text-xs">
-                    No {draft.scope === 'workflow' ? 'workflows' : 'tickets'} in this project.
+                    {i18nStore.t(
+                      draft.scope === 'workflow'
+                        ? 'settings.secretBindings.messages.noWorkflows'
+                        : 'settings.secretBindings.messages.noTickets',
+                    )}
                   </p>
                 {/if}
               </div>
             </div>
 
             <div class="space-y-2">
-              <Label>Secret</Label>
+              <Label>{i18nStore.t('settings.secretBindings.labels.secret')}</Label>
               <Select.Root
                 type="single"
                 value={draft.secretId}
@@ -211,9 +246,11 @@
                 <Select.Trigger class="w-full">
                   {#if draft.secretId}
                     {@const secret = sortedSecrets.find((s) => s.id === draft.secretId)}
-                    {secret ? `${secret.name} (${secretScopeLabel(secret)})` : 'Select...'}
+                    {secret
+                      ? `${secret.name} (${i18nStore.t(secretScopeLabel(secret))})`
+                      : i18nStore.t('settings.secretBindings.placeholders.select')}
                   {:else}
-                    Select secret...
+                    {i18nStore.t('settings.secretBindings.placeholders.selectSecret')}
                   {/if}
                 </Select.Trigger>
                 <Select.Content>
@@ -221,7 +258,10 @@
                     <Select.Item value={secret.id}>
                       {secret.name}
                       <span class="text-muted-foreground ml-1 text-xs">
-                        {secretScopeLabel(secret)}{secret.disabled ? ' · disabled' : ''}
+                        {i18nStore.t(secretScopeLabel(secret))}
+                        {secret.disabled
+                          ? ` · ${i18nStore.t('settings.secretBindings.status.disabled')}`
+                          : ''}
                       </span>
                     </Select.Item>
                   {/each}
@@ -229,22 +269,24 @@
               </Select.Root>
               {#if sortedSecrets.length === 0}
                 <p class="text-muted-foreground text-xs">
-                  Create a scoped secret first to enable bindings.
+                  {i18nStore.t('settings.secretBindings.messages.createSecretFirst')}
                 </p>
               {/if}
             </div>
 
             <div class="space-y-2">
-              <Label for="binding-key">Binding key</Label>
+              <Label for="binding-key">
+                {i18nStore.t('settings.secretBindings.labels.bindingKey')}
+              </Label>
               <Input
                 id="binding-key"
-                placeholder="OPENAI_API_KEY"
+                placeholder={i18nStore.t('settings.secretBindings.placeholders.bindingKey')}
                 value={draft.bindingKey}
                 oninput={(event) =>
                   patchDraft({ bindingKey: (event.currentTarget as HTMLInputElement).value })}
               />
               <p class="text-muted-foreground text-xs">
-                Upper-snake env var name. Ticket bindings take precedence over workflow bindings.
+                {i18nStore.t('settings.secretBindings.hints.bindingKey')}
               </p>
             </div>
           </Dialog.Body>
@@ -252,12 +294,16 @@
           <Dialog.Footer>
             <Dialog.Close>
               {#snippet child({ props })}
-                <Button variant="outline" {...props}>Cancel</Button>
+                <Button variant="outline" {...props}>
+                  {i18nStore.t('settings.secretBindings.buttons.cancel')}
+                </Button>
               {/snippet}
             </Dialog.Close>
             <Button type="submit" disabled={!canCreate || mutationKey === 'create'}>
               <Link class="size-4" />
-              {mutationKey === 'create' ? 'Binding...' : 'Bind secret'}
+              {mutationKey === 'create'
+                ? i18nStore.t('settings.secretBindings.buttons.binding')
+                : i18nStore.t('settings.secretBindings.buttons.bindSecret')}
             </Button>
           </Dialog.Footer>
         </form>
@@ -274,8 +320,8 @@
       class="text-muted-foreground flex flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-8 text-center text-sm"
     >
       <KeyRound class="text-muted-foreground/50 size-8" />
-      <p>No secret bindings yet.</p>
-      <p class="text-xs">Bind a shared secret to a workflow or ticket to use it at runtime.</p>
+      <p>{i18nStore.t('settings.secretBindings.emptyState.title')}</p>
+      <p class="text-xs">{i18nStore.t('settings.secretBindings.emptyState.hint')}</p>
     </div>
   {:else}
     <div class="divide-border border-border overflow-hidden rounded-lg border">
@@ -287,42 +333,46 @@
             : ''}"
         >
           <div class="min-w-0 space-y-1">
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge variant={binding.scope === 'ticket' ? 'default' : 'secondary'}>
-                {#if binding.scope === 'ticket'}
-                  <TicketIcon class="mr-1 size-3" />
-                {:else}
-                  <WorkflowIcon class="mr-1 size-3" />
-                {/if}
-                {binding.scope}
-              </Badge>
-              <code class="bg-muted truncate rounded px-1.5 py-0.5 text-xs">
-                {binding.binding_key}
-              </code>
-            </div>
-            <div class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
-              <span class="font-medium">{bindingTargetLabel(binding)}</span>
-              <span>·</span>
-              <span>{binding.secret.name}</span>
-              <span class="text-muted-foreground/70">
-                ({binding.secret.scope === 'organization' ? 'org' : 'project'})
-              </span>
-              {#if binding.secret.disabled}
-                <span class="text-amber-600">disabled</span>
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge variant={binding.scope === 'ticket' ? 'default' : 'secondary'}>
+              {#if binding.scope === 'ticket'}
+                <TicketIcon class="mr-1 size-3" />
+              {:else}
+                <WorkflowIcon class="mr-1 size-3" />
               {/if}
-            </div>
+                {i18nStore.t(scopeLabelKey(binding.scope as 'workflow' | 'ticket'))}
+            </Badge>
+            <code class="bg-muted truncate rounded px-1.5 py-0.5 text-xs">
+              {binding.binding_key}
+            </code>
           </div>
+          <div class="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
+            <span class="font-medium">{bindingTargetLabel(binding)}</span>
+            <span>·</span>
+            <span>{binding.secret.name}</span>
+            <span class="text-muted-foreground/70">
+              ({i18nStore.t(secretScopeLabel(binding.secret))})
+            </span>
+            {#if binding.secret.disabled}
+              <span class="text-amber-600">
+                {i18nStore.t('settings.secretBindings.status.disabled')}
+              </span>
+            {/if}
+          </div>
+        </div>
 
           <Button
             variant="ghost"
             size="icon-sm"
             class="text-muted-foreground hover:text-destructive shrink-0 self-end sm:self-auto"
-            title="Delete binding"
+            title={i18nStore.t('settings.secretBindings.buttons.deleteBinding')}
             onclick={() => onDelete(binding.id)}
             disabled={mutationKey === `delete:${binding.id}`}
           >
             <Trash2 class="size-4" />
-            <span class="sr-only">Delete binding</span>
+            <span class="sr-only">
+              {i18nStore.t('settings.secretBindings.buttons.deleteBinding')}
+            </span>
           </Button>
         </div>
       {/each}

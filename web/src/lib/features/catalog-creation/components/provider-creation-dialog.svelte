@@ -12,12 +12,13 @@
   import { toastStore } from '$lib/stores/toast.svelte'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     orgId,
     open = $bindable(false),
-    title = 'Create provider',
-    description = 'Register a model adapter to use with agents in this organization.',
+    title,
+    description,
     onCreated,
   }: {
     orgId: string
@@ -85,7 +86,9 @@
       reset()
     } catch (caughtError) {
       toastStore.error(
-        caughtError instanceof ApiError ? caughtError.detail : 'Failed to create provider.',
+        caughtError instanceof ApiError
+          ? caughtError.detail
+          : i18nStore.t('catalog.provider.dialog.errors.create'),
       )
     } finally {
       creating = false
@@ -101,8 +104,12 @@
 >
   <Dialog.Content class="sm:max-w-lg">
     <Dialog.Header>
-      <Dialog.Title>{title}</Dialog.Title>
-      <Dialog.Description>{description}</Dialog.Description>
+      <Dialog.Title>
+        {title ?? i18nStore.t('catalog.provider.dialog.title')}
+      </Dialog.Title>
+      <Dialog.Description>
+        {description ?? i18nStore.t('catalog.provider.dialog.description')}
+      </Dialog.Description>
     </Dialog.Header>
 
     <form
@@ -124,7 +131,7 @@
 
         {#if !canSubmit}
           <p class="text-muted-foreground text-sm">
-            Register an execution machine in this organization before creating a provider.
+            {i18nStore.t('catalog.provider.dialog.hint.registerMachine')}
           </p>
         {/if}
       </Dialog.Body>
@@ -132,11 +139,15 @@
       <Dialog.Footer>
         <Dialog.Close>
           {#snippet child({ props })}
-            <Button variant="outline" {...props}>Cancel</Button>
+            <Button variant="outline" {...props}>
+              {i18nStore.t('catalog.provider.dialog.actions.cancel')}
+            </Button>
           {/snippet}
         </Dialog.Close>
         <Button type="submit" disabled={creating || !canSubmit}>
-          {creating ? 'Creating...' : 'Create provider'}
+          {creating
+            ? i18nStore.t('catalog.provider.dialog.actions.creating')
+            : i18nStore.t('catalog.provider.dialog.actions.create')}
         </Button>
       </Dialog.Footer>
     </form>

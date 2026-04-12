@@ -12,6 +12,7 @@
   import { currentHashSelection, writeHashSelection } from '$lib/utils/hash-state'
   import { Badge } from '$ui/badge'
   import { ArrowRight, LaptopMinimal, LockKeyhole, ShieldCheck, Users } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import type { Component } from 'svelte'
 
   type InstanceAdminSection = 'overview' | 'sessions' | 'users'
@@ -24,9 +25,21 @@
   }
 
   const navItems: NavItem[] = [
-    { key: 'overview', label: 'Overview', icon: ShieldCheck },
-    { key: 'sessions', label: 'Your sessions', icon: LaptopMinimal },
-    { key: 'users', label: 'User directory', icon: Users },
+    {
+      key: 'overview',
+      label: i18nStore.t('instanceAdmin.nav.overview'),
+      icon: ShieldCheck,
+    },
+    {
+      key: 'sessions',
+      label: i18nStore.t('instanceAdmin.nav.sessions'),
+      icon: LaptopMinimal,
+    },
+    {
+      key: 'users',
+      label: i18nStore.t('instanceAdmin.nav.users'),
+      icon: Users,
+    },
   ]
 
   let activeSection = $state<InstanceAdminSection>('overview')
@@ -43,7 +56,9 @@
     instancePermissions?.permissions.includes('security_setting.update') ?? false,
   )
   const currentAuthMethodLabel = $derived(
-    authStore.currentAuthMethod === 'local_bootstrap_link' ? 'Local bootstrap' : 'OIDC',
+    authStore.currentAuthMethod === 'local_bootstrap_link'
+      ? i18nStore.t('instanceAdmin.auth.localBootstrap')
+      : i18nStore.t('instanceAdmin.auth.oidc'),
   )
 
   function handleSelect(section: InstanceAdminSection) {
@@ -100,10 +115,8 @@
         if (cancelled) {
           return
         }
-        error =
-          caughtError instanceof ApiError
-            ? caughtError.detail
-            : 'Failed to load instance admin permissions.'
+        const loadError = i18nStore.t('instanceAdmin.errors.loadPermissions')
+        error = caughtError instanceof ApiError ? caughtError.detail : loadError
       } finally {
         if (!cancelled) {
           loading = false
@@ -120,8 +133,8 @@
 </script>
 
 <PageScaffold
-  title="Instance Admin"
-  description="Instance-scoped user directory, session governance, auth diagnostics, and break-glass recovery guidance."
+  title={i18nStore.t('instanceAdmin.pageTitle')}
+  description={i18nStore.t('instanceAdmin.pageDescription')}
 >
   <div class="flex flex-col gap-6 lg:flex-row lg:gap-8">
     <nav class="flex w-full shrink-0 flex-wrap gap-1 pb-1 lg:w-[200px] lg:flex-col lg:gap-0.5">
@@ -150,7 +163,9 @@
             <div class="flex min-w-0 items-start gap-2">
               <ShieldCheck class="text-muted-foreground mt-0.5 size-4 shrink-0" />
               <div class="min-w-0 space-y-1.5">
-                <div class="text-sm font-semibold">Your session</div>
+              <div class="text-sm font-semibold">
+                {i18nStore.t('instanceAdmin.section.yourSession')}
+              </div>
                 <div class="flex flex-wrap items-center gap-1.5 text-xs">
                   <Badge variant="secondary">{currentAuthMethodLabel}</Badge>
                   {#if authStore.user}
@@ -162,7 +177,7 @@
                   {/if}
                 </div>
                 <p class="text-muted-foreground text-xs">
-                  OIDC settings, bootstrap admins, and validation diagnostics.
+                  {i18nStore.t('instanceAdmin.section.browserAccessSummary')}
                 </p>
               </div>
             </div>
@@ -170,7 +185,7 @@
               class="border-border bg-background hover:bg-accent hover:text-accent-foreground inline-flex shrink-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors"
               href="/admin/auth"
             >
-              Open auth configuration
+              {i18nStore.t('instanceAdmin.actions.openAuthConfiguration')}
               <ArrowRight class="size-4" />
             </a>
           </div>
@@ -179,21 +194,25 @@
         <div class="border-border bg-card space-y-2 rounded-lg border p-4">
           <div class="flex items-center gap-2">
             <LockKeyhole class="text-muted-foreground size-4 shrink-0" />
-            <div class="text-sm font-semibold">Recovery</div>
-            <span class="text-muted-foreground text-xs">Break-glass guidance</span>
+            <div class="text-sm font-semibold">
+              {i18nStore.t('instanceAdmin.section.recovery')}
+            </div>
+            <span class="text-muted-foreground text-xs">
+              {i18nStore.t('instanceAdmin.section.breakGlassGuide')}
+            </span>
           </div>
           <ul
             class="text-muted-foreground list-outside list-disc space-y-1.5 pl-5 text-xs leading-relaxed"
           >
-            <li>Keep at least one admin able to sign in before changing auth settings.</li>
-            <li class="break-words">
-              OIDC failure: run
-              <code class="bg-muted rounded px-1 py-0.5 font-mono text-[11px] break-all">
-                openase auth break-glass disable-oidc
-              </code>
-              , then create a fresh local bootstrap link.
-            </li>
-            <li>Emergency offboarding: disable user + revoke sessions.</li>
+              <li>
+                {i18nStore.t('instanceAdmin.recovery.keepAdmin')}
+              </li>
+              <li class="break-words">
+                {i18nStore.t('instanceAdmin.recovery.oidcFailure')}
+              </li>
+              <li>
+                {i18nStore.t('instanceAdmin.recovery.emergencyOffboarding')}
+              </li>
           </ul>
         </div>
 
@@ -201,8 +220,7 @@
           <div class="border-border bg-card flex items-start gap-3 rounded-lg border p-4">
             <Users class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <p class="text-muted-foreground text-sm">
-              Local bootstrap is the active browser auth method. Switch to OIDC when you need
-              per-user governance, user directory sync, and session audits.
+              {i18nStore.t('instanceAdmin.notice.localBootstrapActive')}
             </p>
           </div>
         {/if}
@@ -211,8 +229,7 @@
           <div class="border-border bg-card flex items-start gap-3 rounded-lg border p-4">
             <LaptopMinimal class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <p class="text-muted-foreground text-sm">
-              Session governance is only available when OIDC is the active auth method. Switch away
-              from local bootstrap to review active devices and the audit trail.
+              {i18nStore.t('instanceAdmin.notice.sessionsRequiresOidc')}
             </p>
           </div>
         {:else}
@@ -223,8 +240,7 @@
           <div class="border-border bg-card flex items-start gap-3 rounded-lg border p-4">
             <Users class="text-muted-foreground mt-0.5 size-4 shrink-0" />
             <p class="text-muted-foreground text-sm">
-              The user directory is only available when OIDC is the active auth method. Switch away
-              from local bootstrap to browse and deprovision cached users.
+              {i18nStore.t('instanceAdmin.notice.usersRequiresOidc')}
             </p>
           </div>
         {:else if loading}
@@ -236,11 +252,15 @@
           <div class="text-destructive rounded-lg border px-4 py-3 text-sm">{error}</div>
         {:else if !canReadDirectory}
           <div class="border-border bg-card rounded-lg border p-4 text-sm">
-            <div class="font-medium">Instance admin access required</div>
+            <div class="font-medium">
+              {i18nStore.t('instanceAdmin.errors.accessRequiredTitle')}
+            </div>
             <div class="text-muted-foreground mt-1 text-xs">
-              This page needs instance-level <code>security_setting.read</code> to browse the
-              directory and <code>security_setting.update</code> for lifecycle and session governance
-              actions.
+              {i18nStore.t('instanceAdmin.errors.accessRequiredDetailBefore')}
+              <code>security_setting.read</code>
+              {i18nStore.t('instanceAdmin.errors.accessRequiredDetailBetween')}
+              <code>security_setting.update</code>
+              {i18nStore.t('instanceAdmin.errors.accessRequiredDetailAfter')}
             </div>
           </div>
         {:else}

@@ -7,6 +7,7 @@
   import { formatTokenUsageTooltip, tokenUsageRangeOptions } from '../token-usage'
   import type { TokenUsageAnalytics, TokenUsageRange } from '../types'
   import TokenUsageCalendar from './token-usage-calendar.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     analytics,
@@ -50,11 +51,13 @@
   >
     <div>
       <div class="flex items-center gap-2">
-        <h2 class="text-foreground text-base font-semibold">Token Usage</h2>
+        <h2 class="text-foreground text-base font-semibold">
+          {i18nStore.t('dashboard.tokenUsage.heading')}
+        </h2>
         <CalendarRange class="text-muted-foreground size-4" />
       </div>
       <p class="text-muted-foreground mt-1 text-sm">
-        UTC-day snapshots materialized from terminalized agent runs.
+        {i18nStore.t('dashboard.tokenUsage.description')}
       </p>
     </div>
 
@@ -82,7 +85,9 @@
         {/each}
       {:else}
         <div class="bg-muted/40 rounded-lg px-3 py-3">
-          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">Window</div>
+          <div class="text-muted-foreground text-[11px] tracking-[0.12em] uppercase">
+            {i18nStore.t('dashboard.tokenUsage.stats.window')}
+          </div>
           <div class="text-foreground mt-2 text-lg font-semibold">{selectedRange} days</div>
         </div>
         <div class="bg-muted/40 rounded-lg px-3 py-3">
@@ -90,7 +95,7 @@
             class="text-muted-foreground flex items-center gap-1.5 text-[11px] tracking-[0.12em] uppercase"
           >
             <TrendingUp class="size-3" />
-            <span>Total tokens</span>
+            <span>{i18nStore.t('dashboard.tokenUsage.stats.totalTokens')}</span>
           </div>
           <div class="text-foreground mt-2 text-lg font-semibold">
             {formatCount(analytics.totalTokens)}
@@ -101,28 +106,31 @@
             class="text-muted-foreground flex items-center gap-1.5 text-[11px] tracking-[0.12em] uppercase"
           >
             <Flame class="size-3" />
-            <span>Peak day</span>
+            <span>{i18nStore.t('dashboard.tokenUsage.stats.peakDay')}</span>
           </div>
           <div class="text-foreground mt-2 text-lg font-semibold">
             {analytics.peakDay ? formatCount(analytics.peakDay.totalTokens) : '—'}
           </div>
-          <div class="text-muted-foreground mt-1 text-xs">
-            {analytics.peakDay?.dayLabel ?? 'No finalized runs yet'}
-          </div>
+            <div class="text-muted-foreground mt-1 text-xs">
+              {analytics.peakDay?.dayLabel ??
+                i18nStore.t('dashboard.tokenUsage.stats.noFinalizedRunsYet')}
+            </div>
         </div>
         <div class="bg-muted/40 rounded-lg px-3 py-3">
           <div
             class="text-muted-foreground flex items-center gap-1.5 text-[11px] tracking-[0.12em] uppercase"
           >
             <Workflow class="size-3" />
-            <span>Avg daily / runs</span>
+            <span>{i18nStore.t('dashboard.tokenUsage.stats.avgDailyRuns')}</span>
           </div>
           <div class="text-foreground mt-2 text-lg font-semibold">
             {formatCount(analytics.avgDailyTokens)}
           </div>
-          <div class="text-muted-foreground mt-1 text-xs">
-            {formatCount(analytics.totalRuns)} finalized runs
-          </div>
+            <div class="text-muted-foreground mt-1 text-xs">
+              {i18nStore.t('dashboard.tokenUsage.stats.finalizedRuns', {
+                count: formatCount(analytics.totalRuns),
+              })}
+            </div>
         </div>
       {/if}
     </div>
@@ -131,13 +139,17 @@
       <div class="border-border rounded-lg border p-4">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <h3 class="text-foreground text-sm font-medium">Trend</h3>
+            <h3 class="text-foreground text-sm font-medium">
+              {i18nStore.t('dashboard.tokenUsage.trend.heading')}
+            </h3>
             <p class="text-muted-foreground mt-1 text-xs">
-              Finalized token usage attributed to run terminal day.
+              {i18nStore.t('dashboard.tokenUsage.trend.description')}
             </p>
           </div>
           <div class="text-right text-xs">
-            <div class="text-muted-foreground">High</div>
+          <div class="text-muted-foreground">
+            {i18nStore.t('dashboard.tokenUsage.trend.highLabel')}
+          </div>
             <div class="text-foreground font-medium">{formatCount(analytics.maxDailyTokens)}</div>
           </div>
         </div>
@@ -152,13 +164,15 @@
           </div>
         {:else if analytics.days.length === 0}
           <div class="text-muted-foreground flex h-48 items-center justify-center text-sm">
-            No token snapshots yet.
+            {i18nStore.t('dashboard.tokenUsage.trend.noSnapshots')}
           </div>
         {:else if analytics.maxDailyTokens === 0}
           <div class="flex h-48 flex-col items-center justify-center gap-2 text-center">
-            <p class="text-foreground text-sm font-medium">No finalized token usage in range.</p>
+            <p class="text-foreground text-sm font-medium">
+              {i18nStore.t('dashboard.tokenUsage.trend.noFinalizedUsage')}
+            </p>
             <p class="text-muted-foreground max-w-sm text-xs">
-              Daily snapshots appear here once runs reach a terminal state.
+              {i18nStore.t('dashboard.tokenUsage.trend.dailySnapshotsHint')}
             </p>
           </div>
         {:else}

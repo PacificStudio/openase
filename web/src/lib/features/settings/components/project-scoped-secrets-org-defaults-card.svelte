@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ScopedSecretRecord } from '$lib/api/contracts'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { organizationPath } from '$lib/stores/app-context'
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
@@ -22,7 +23,9 @@
 </script>
 
 <div class="space-y-3">
-  <h4 class="text-sm font-medium">Inherited organization defaults</h4>
+  <h4 class="text-sm font-medium">
+    {i18nStore.t('settings.projectSecrets.orgDefaults.heading')}
+  </h4>
 
   {#if loading}
     <div class="space-y-2">
@@ -41,7 +44,9 @@
     </div>
   {:else if organizationSecrets.length === 0}
     <div class="border-border rounded-lg border border-dashed p-6 text-center">
-      <p class="text-muted-foreground text-sm">No inherited org secrets</p>
+      <p class="text-muted-foreground text-sm">
+        {i18nStore.t('settings.projectSecrets.orgDefaults.empty')}
+      </p>
       <p class="text-muted-foreground mt-0.5 text-xs">
         Ask your org admin to create organization-level secrets — they will appear here
         automatically.
@@ -55,12 +60,18 @@
             <div class="space-y-1.5">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="text-sm font-medium">{secret.name}</span>
-                <Badge variant="secondary">Organization</Badge>
+                <Badge variant="secondary">
+                  {i18nStore.t('settings.projectSecrets.orgDefaults.badges.organization')}
+                </Badge>
                 {#if isOverriddenInProject(secret, projectOverrides)}
-                  <Badge variant="outline">Currently overridden</Badge>
+                  <Badge variant="outline">
+                    {i18nStore.t('settings.projectSecrets.orgDefaults.badges.overridden')}
+                  </Badge>
                 {/if}
                 {#if secret.disabled}
-                  <Badge variant="destructive">Disabled at org</Badge>
+                  <Badge variant="destructive">
+                    {i18nStore.t('settings.projectSecrets.orgDefaults.badges.disabledAtOrg')}
+                  </Badge>
                 {/if}
               </div>
               <p class="text-muted-foreground text-sm">

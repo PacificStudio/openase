@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Button } from '$ui/button'
   import { Input } from '$ui/input'
   import { Label } from '$ui/label'
@@ -60,7 +61,7 @@
 
 <div class="grid gap-3">
   <div class="space-y-2">
-    <Label>Repository</Label>
+    <Label>{i18nStore.t('ticketDetail.repoCreate.repository')}</Label>
     <Select.Root
       type="single"
       value={createRepoId}
@@ -69,7 +70,8 @@
       }}
     >
       <Select.Trigger class="w-full">
-        {repos.find((repo) => repo.id === createRepoId)?.name ?? 'Select repository'}
+        {repos.find((repo) => repo.id === createRepoId)?.name ??
+          i18nStore.t('ticketDetail.repoCreate.selectRepository')}
       </Select.Trigger>
       <Select.Content>
         {#each repos as repo (repo.id)}
@@ -80,28 +82,33 @@
   </div>
 
   <div class="space-y-2">
-    <Label for="new-scope-branch">Work branch override</Label>
+    <Label for="new-scope-branch">{i18nStore.t('ticketDetail.repoCreate.workBranchOverride')}</Label>
     <Input
       id="new-scope-branch"
       bind:value={createBranchName}
       disabled={!repos.length}
-      placeholder="Leave blank to use the generated ticket branch"
+      placeholder={i18nStore.t('ticketDetail.repoCreate.workBranchPlaceholder')}
     />
     <p class="text-muted-foreground text-xs">
-      Base branch: {repos.find((repo) => repo.id === createRepoId)?.defaultBranch || 'main'}
+      {i18nStore.t('ticketDetail.repoCreate.baseBranch')}:
+      {repos.find((repo) => repo.id === createRepoId)?.defaultBranch || 'main'}
     </p>
   </div>
 
   <div class="space-y-2">
-    <Label for="new-scope-pr-url">Pull request URL</Label>
+    <Label for="new-scope-pr-url">{i18nStore.t('ticketDetail.repoCreate.pullRequestUrl')}</Label>
     <Input id="new-scope-pr-url" bind:value={createPullRequestUrl} placeholder="https://..." />
   </div>
   <div class="flex justify-end gap-2">
     {#if onCancel}
-      <Button size="sm" variant="outline" onclick={onCancel} disabled={creating}>Cancel</Button>
+      <Button size="sm" variant="outline" onclick={onCancel} disabled={creating}>
+        {i18nStore.t('common.cancel')}
+      </Button>
     {/if}
     <Button size="sm" onclick={handleCreateScope} disabled={!repos.length || creating}>
-      {creating ? 'Adding…' : 'Add repo scope'}
+      {creating
+        ? i18nStore.t('ticketDetail.repoCreate.addingRepoScope')
+        : i18nStore.t('ticketDetail.repoCreate.addRepoScope')}
     </Button>
   </div>
 </div>

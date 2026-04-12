@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   import type { OnboardingData, OnboardingStep } from '../types'
   import StepAiDiscovery from './step-ai-discovery.svelte'
@@ -35,6 +36,7 @@
   } = $props()
 
   let skipConfirmOpen = $state(false)
+  const t = i18nStore.t
 
   function handleSkipClick() {
     skipConfirmOpen = true
@@ -122,26 +124,44 @@
 
 {#if step.status !== 'completed'}
   <div class="mt-4 flex justify-end border-t pt-4">
-    <Button variant="ghost" size="sm" class="text-xs" onclick={handleSkipClick}>Skip tour</Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      class="text-xs"
+      onclick={handleSkipClick}
+    >
+      {t('onboarding.stepDetails.actions.skipTour')}
+    </Button>
   </div>
 {/if}
 
 <Dialog.Root bind:open={skipConfirmOpen}>
   <Dialog.Content class="max-w-sm">
-    <Dialog.Header>
-      <Dialog.Title class="text-sm">Skip onboarding?</Dialog.Title>
-      <Dialog.Description class="text-muted-foreground text-xs">
-        The guided tour will be dismissed. You can configure the remaining steps later from the
-        project settings.
-      </Dialog.Description>
-    </Dialog.Header>
-    <Dialog.Footer class="gap-2">
-      <Button variant="ghost" size="sm" class="text-xs" onclick={() => (skipConfirmOpen = false)}>
-        Continue setup
-      </Button>
-      <Button variant="destructive" size="sm" class="text-xs" onclick={handleConfirmSkip}>
-        Skip anyway
-      </Button>
-    </Dialog.Footer>
+      <Dialog.Header>
+        <Dialog.Title class="text-sm">
+          {t('onboarding.stepDetails.dialog.title')}
+        </Dialog.Title>
+        <Dialog.Description class="text-muted-foreground text-xs">
+          {t('onboarding.stepDetails.dialog.description')}
+        </Dialog.Description>
+      </Dialog.Header>
+      <Dialog.Footer class="gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          class="text-xs"
+          onclick={() => (skipConfirmOpen = false)}
+        >
+          {t('onboarding.stepDetails.actions.continueSetup')}
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          class="text-xs"
+          onclick={handleConfirmSkip}
+        >
+          {t('onboarding.stepDetails.actions.skipAnyway')}
+        </Button>
+      </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>

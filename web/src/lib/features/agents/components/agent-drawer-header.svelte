@@ -9,6 +9,7 @@
   import { Check, Pencil, Wrench, X } from '@lucide/svelte'
   import { agentStatusDot, agentStatusLabel, agentStatusVariant } from './agent-drawer-state'
   import type { AgentInstance } from '../types'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     agent,
@@ -39,6 +40,16 @@
   const selectedProvider = $derived(
     providers.find((provider) => provider.id === agent.providerId) ?? null,
   )
+
+  const runtimeControlLabel = (state: AgentInstance['runtimeControlState']) => {
+    if (state === 'pause_requested') {
+      return i18nStore.t('agents.agentDrawer.runtimeStates.pausing')
+    }
+    if (state === 'retired') {
+      return i18nStore.t('agents.agentDrawer.runtimeStates.retired')
+    }
+    return i18nStore.t('agents.agentDrawer.runtimeStates.paused')
+  }
 </script>
 
 <SheetHeader class="border-border border-b px-4 py-4 sm:px-6 sm:py-5">
@@ -58,7 +69,7 @@
             size="sm"
             class="size-7 shrink-0 p-0"
             disabled={savingName}
-            aria-label="Save agent name"
+            aria-label={i18nStore.t('agents.agentDrawer.actions.saveName')}
             onclick={() => void onSaveName?.()}
           >
             <Check class="size-3.5" />
@@ -67,7 +78,7 @@
             variant="ghost"
             size="sm"
             class="size-7 shrink-0 p-0"
-            aria-label="Cancel agent rename"
+            aria-label={i18nStore.t('agents.agentDrawer.actions.cancelRename')}
             onclick={() => onCancelEditingName?.()}
           >
             <X class="size-3.5" />
@@ -79,25 +90,25 @@
           <button
             type="button"
             class="text-muted-foreground hover:text-foreground opacity-0 transition-opacity group-hover:opacity-100"
-            aria-label="Rename agent"
+            aria-label={i18nStore.t('agents.agentDrawer.actions.rename')}
             onclick={() => onStartEditingName?.()}
-            title="Rename agent"
+            title={i18nStore.t('agents.agentDrawer.actions.rename')}
           >
             <Pencil class="size-3" />
           </button>
         </div>
       {/if}
       <SheetDescription class="mt-1">
-        <Select.Root
-          type="single"
-          value={agent.providerId}
-          disabled={savingProvider || providers.length === 0}
-          onValueChange={(value) => {
-            if (value) void onProviderChange?.(value)
+          <Select.Root
+            type="single"
+            value={agent.providerId}
+            disabled={savingProvider || providers.length === 0}
+            onValueChange={(value) => {
+              if (value) void onProviderChange?.(value)
           }}
         >
           <Select.Trigger
-            aria-label="Agent provider"
+            aria-label={i18nStore.t('agents.agentDrawer.labels.provider')}
             class="text-muted-foreground hover:text-foreground h-auto w-auto gap-2 border-none bg-transparent p-0 text-[13px] shadow-none"
           >
             {#if selectedProvider}
@@ -147,11 +158,7 @@
       {agentStatusLabel[agent.status]}
       {#if agent.runtimeControlState !== 'active'}
         <span class="ml-1 opacity-70">
-          · {agent.runtimeControlState === 'pause_requested'
-            ? 'Pausing'
-            : agent.runtimeControlState === 'retired'
-              ? 'Retired'
-              : 'Paused'}
+          · {runtimeControlLabel(agent.runtimeControlState)}
         </span>
       {/if}
     </span>

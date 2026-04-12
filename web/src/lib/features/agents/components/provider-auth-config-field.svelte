@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { Label } from '$ui/label'
   import { Textarea } from '$ui/textarea'
 
@@ -12,7 +13,7 @@
 </script>
 
 <div class="space-y-2">
-  <Label for="provider-auth-config">Plain auth config</Label>
+  <Label for="provider-auth-config">{i18nStore.t('agents.providerAuthConfig.label')}</Label>
   <Textarea
     id="provider-auth-config"
     rows={4}

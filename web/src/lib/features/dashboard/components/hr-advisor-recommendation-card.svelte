@@ -10,6 +10,7 @@
   import { Button } from '$ui/button'
   import * as DropdownMenu from '$ui/dropdown-menu'
   import { ChevronDown, ChevronRight, Clock, Ellipsis, Eye, Play, Undo2, Zap } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     recommendation,
@@ -62,7 +63,7 @@
         {/if}
         {#if !recommendation.activation_ready}
           <Badge variant="outline" class="text-[10px] text-emerald-600 dark:text-emerald-400">
-            Activated
+            {i18nStore.t('dashboard.hrAdvisor.badges.activated')}
           </Badge>
         {/if}
       </div>
@@ -70,18 +71,20 @@
     </div>
 
     {#if recommendation.activation_ready && !deferred}
-      <Button
-        size="sm"
-        class="shrink-0"
-        disabled={activating}
-        onclick={(e) => {
-          e.stopPropagation()
-          onActivate?.()
-        }}
-      >
-        <Zap class="mr-1 size-3" />
-        {activating ? 'Activating…' : 'Activate'}
-      </Button>
+        <Button
+          size="sm"
+          class="shrink-0"
+          disabled={activating}
+          onclick={(e) => {
+            e.stopPropagation()
+            onActivate?.()
+          }}
+        >
+          <Zap class="mr-1 size-3" />
+          {activating
+            ? i18nStore.t('dashboard.hrAdvisor.actions.activating')
+            : i18nStore.t('dashboard.hrAdvisor.actions.activate')}
+        </Button>
     {/if}
 
     <DropdownMenu.Root>
@@ -89,31 +92,31 @@
         {#snippet child({ props })}
           <Button variant="ghost" size="icon-xs" {...props} onclick={(e) => e.stopPropagation()}>
             <Ellipsis class="size-3.5" />
-            <span class="sr-only">More actions</span>
+            <span class="sr-only">{i18nStore.t('dashboard.hrAdvisor.actions.more')}</span>
           </Button>
         {/snippet}
       </DropdownMenu.Trigger>
       <DropdownMenu.Content align="end" class="w-44">
         <DropdownMenu.Item onclick={() => onViewHarness?.()}>
           <Eye class="mr-2 size-3.5" />
-          View harness
+          {i18nStore.t('dashboard.hrAdvisor.actions.viewHarness')}
         </DropdownMenu.Item>
         {#if recommendation.activation_ready && deferred}
           <DropdownMenu.Item onclick={() => onActivate?.()}>
             <Play class="mr-2 size-3.5" />
-            Activate
+            {i18nStore.t('dashboard.hrAdvisor.actions.activate')}
           </DropdownMenu.Item>
         {/if}
         <DropdownMenu.Separator />
         {#if deferred}
           <DropdownMenu.Item onclick={() => onRestore?.()}>
             <Undo2 class="mr-2 size-3.5" />
-            Restore
+            {i18nStore.t('dashboard.hrAdvisor.actions.restore')}
           </DropdownMenu.Item>
         {:else}
           <DropdownMenu.Item onclick={() => onDefer?.()}>
             <Clock class="mr-2 size-3.5" />
-            Defer
+            {i18nStore.t('dashboard.hrAdvisor.actions.defer')}
           </DropdownMenu.Item>
         {/if}
       </DropdownMenu.Content>
@@ -148,7 +151,9 @@
       </div>
 
       <div class="text-xs">
-        <span class="text-foreground font-medium">Current status:</span>
+        <span class="text-foreground font-medium">
+          {i18nStore.t('dashboard.hrAdvisor.labels.currentStatus')}
+        </span>
         <span class="text-muted-foreground ml-1">{activationStatus}</span>
       </div>
 

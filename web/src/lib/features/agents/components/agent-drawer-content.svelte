@@ -3,6 +3,7 @@
   import { Badge } from '$ui/badge'
   import { Button } from '$ui/button'
   import { Archive, Hand, Pause, Play, Trash2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   import type { AgentInstance } from '../types'
 
@@ -38,17 +39,23 @@
     <div class="grid grid-cols-3 gap-4 text-center">
       <div>
         <div class="text-foreground text-lg font-semibold tabular-nums">{agent.activeRunCount}</div>
-        <div class="text-muted-foreground text-[11px]">Active</div>
+        <div class="text-muted-foreground text-[11px]">
+          {i18nStore.t('agents.agentDrawer.metrics.active')}
+        </div>
       </div>
       <div>
         <div class="text-foreground text-lg font-semibold tabular-nums">{agent.todayCompleted}</div>
-        <div class="text-muted-foreground text-[11px]">Today</div>
+        <div class="text-muted-foreground text-[11px]">
+          {i18nStore.t('agents.agentDrawer.metrics.today')}
+        </div>
       </div>
       <div>
         <div class="text-foreground text-lg font-semibold tabular-nums">
           {formatCurrency(agent.todayCost)}
         </div>
-        <div class="text-muted-foreground text-[11px]">Cost</div>
+        <div class="text-muted-foreground text-[11px]">
+          {i18nStore.t('agents.agentDrawer.metrics.cost')}
+        </div>
       </div>
     </div>
   </section>
@@ -56,7 +63,7 @@
   {#if agent.currentStepSummary}
     <section class="space-y-2">
       <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-        Current step
+        {i18nStore.t('agents.agentDrawer.heading.currentStep')}
       </h3>
       <div class="bg-muted/30 rounded-lg border px-3 py-2.5">
         {#if agent.currentStepStatus}
@@ -78,10 +85,14 @@
   {/if}
 
   <section class="space-y-2">
-    <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Details</h3>
+    <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+      {i18nStore.t('agents.agentDrawer.heading.details')}
+    </h3>
     <div class="space-y-2.5 text-sm">
       <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Permission</span>
+        <span class="text-muted-foreground">
+          {i18nStore.t('agents.agentDrawer.details.permission')}
+        </span>
         <span
           class="text-foreground text-xs font-medium capitalize {agent.permissionProfile ===
           'unrestricted'
@@ -93,19 +104,25 @@
       </div>
       {#if agent.lastHeartbeat}
         <div class="flex items-center justify-between">
-          <span class="text-muted-foreground">Heartbeat</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.agentDrawer.details.heartbeat')}
+          </span>
           <span class="text-foreground">{formatRelativeTime(agent.lastHeartbeat)}</span>
         </div>
       {/if}
       {#if agent.runtimeStartedAt}
         <div class="flex items-center justify-between">
-          <span class="text-muted-foreground">Runtime started</span>
+          <span class="text-muted-foreground">
+            {i18nStore.t('agents.agentDrawer.details.runtimeStarted')}
+          </span>
           <span class="text-foreground">{formatRelativeTime(agent.runtimeStartedAt)}</span>
         </div>
       {/if}
       {#if agent.sessionId}
         <div class="flex items-center justify-between gap-4">
-          <span class="text-muted-foreground shrink-0">Session</span>
+          <span class="text-muted-foreground shrink-0">
+            {i18nStore.t('agents.agentDrawer.details.session')}
+          </span>
           <span class="text-foreground truncate font-mono text-xs">{agent.sessionId}</span>
         </div>
       {/if}
@@ -114,7 +131,9 @@
 
   {#if agent.lastError}
     <section class="space-y-2">
-      <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">Error</h3>
+      <h3 class="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+        {i18nStore.t('agents.agentDrawer.heading.error')}
+      </h3>
       <div class="border-destructive/30 bg-destructive/5 rounded-lg border px-3 py-2.5">
         <p class="text-destructive text-xs leading-relaxed">{agent.lastError}</p>
       </div>
@@ -125,36 +144,36 @@
     {#if canInterrupt}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onInterrupt}>
         <Hand class="size-3.5" />
-        Interrupt
+        {i18nStore.t('agents.agentDrawer.actions.interrupt')}
       </Button>
     {/if}
     {#if canResume}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onResume}>
         <Play class="size-3.5" />
-        Resume
+        {i18nStore.t('agents.agentDrawer.actions.resume')}
       </Button>
     {:else if canPause}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onPause}>
         <Pause class="size-3.5" />
-        Pause
+        {i18nStore.t('agents.agentDrawer.actions.pause')}
       </Button>
     {/if}
     {#if canRetire}
       <Button variant="outline" size="sm" disabled={actionBusy} onclick={onRetire}>
         <Archive class="size-3.5" />
-        Retire
+        {i18nStore.t('agents.agentDrawer.actions.retire')}
       </Button>
     {/if}
     <div class="flex-1"></div>
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-destructive hover:text-destructive"
-      disabled={actionBusy}
-      onclick={onDelete}
-    >
-      <Trash2 class="size-3.5" />
-      Delete
-    </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        class="text-destructive hover:text-destructive"
+        disabled={actionBusy}
+        onclick={onDelete}
+      >
+        <Trash2 class="size-3.5" />
+        {i18nStore.t('agents.agentDrawer.actions.delete')}
+      </Button>
   </div>
 </div>

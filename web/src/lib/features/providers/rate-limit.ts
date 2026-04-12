@@ -1,5 +1,6 @@
 import { formatRelativeTime } from '$lib/utils'
 import type { AgentProvider } from '$lib/api/contracts'
+import { providersT } from './i18n'
 
 export type ProviderRateLimitSnapshot = {
   provider: string
@@ -68,15 +69,18 @@ export type ProviderRateLimitSummary = {
 
 function formatObservedAt(value: string | null | undefined): string {
   if (!value) {
-    return 'Update time unavailable'
+    return providersT('providers.rateLimit.updateTimeUnavailable')
   }
 
   const observedAt = new Date(value)
   if (Number.isNaN(observedAt.getTime())) {
-    return 'Update time unavailable'
+    return providersT('providers.rateLimit.updateTimeUnavailable')
   }
 
-  return `Updated ${formatRelativeTime(value)} · ${observedAt.toLocaleString()}`
+  return providersT('providers.rateLimit.updated', {
+    relativeTime: formatRelativeTime(value),
+    timestamp: observedAt.toLocaleString(),
+  })
 }
 
 function formatCodexUsedPercent(value: number | null | undefined): string | null {
@@ -85,7 +89,7 @@ function formatCodexUsedPercent(value: number | null | undefined): string | null
   }
 
   const normalizedValue = value <= 1 ? value * 100 : value
-  return `${normalizedValue.toFixed(1)}% used`
+  return providersT('providers.rateLimit.percentUsed', { percent: normalizedValue.toFixed(1) })
 }
 
 export function summarizeProviderRateLimit(
@@ -104,21 +108,31 @@ export function summarizeProviderRateLimit(
       .join(' · ')
     const detailParts = []
     if (snapshot.resetsAt) {
-      detailParts.push(`Resets ${new Date(snapshot.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(snapshot.resetsAt).toLocaleString(),
+        }),
+      )
     }
     if (snapshot.surpassedThreshold != null) {
-      detailParts.push(`${(snapshot.surpassedThreshold * 100).toFixed(0)}% warning threshold`)
+      detailParts.push(
+        providersT('providers.rateLimit.warningThreshold', {
+          percent: (snapshot.surpassedThreshold * 100).toFixed(0),
+        }),
+      )
     }
     if (snapshot.isUsingOverage) {
-      detailParts.push('Using overage')
+      detailParts.push(providersT('providers.rateLimit.usingOverage'))
     } else if (snapshot.overageStatus) {
-      detailParts.push(`Overage ${snapshot.overageStatus}`)
+      detailParts.push(
+        providersT('providers.rateLimit.overageStatus', { status: snapshot.overageStatus }),
+      )
     }
 
     const windows: RateLimitWindow[] = []
     if (snapshot.utilization != null) {
       windows.push({
-        label: snapshot.rateLimitType || 'Window',
+        label: snapshot.rateLimitType || providersT('providers.rateLimit.window'),
         usedPercent: snapshot.utilization * 100,
         resetsAt: snapshot.resetsAt,
       })
@@ -126,7 +140,7 @@ export function summarizeProviderRateLimit(
 
     return {
       headline,
-      detail: detailParts.join(' · ') || 'Claude rate limit snapshot captured.',
+      detail: detailParts.join(' · ') || providersT('providers.rateLimit.claudeSnapshot'),
       updatedLabel,
       windows,
     }
@@ -149,17 +163,25 @@ export function summarizeProviderRateLimit(
 
     const detailParts = []
     if (primary?.resetsAt) {
-      detailParts.push(`Primary resets ${new Date(primary.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.primaryResets', {
+          time: new Date(primary.resetsAt).toLocaleString(),
+        }),
+      )
     }
     if (snapshot.secondary?.resetsAt) {
-      detailParts.push(`Secondary resets ${new Date(snapshot.secondary.resetsAt).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.secondaryResets', {
+          time: new Date(snapshot.secondary.resetsAt).toLocaleString(),
+        }),
+      )
     }
 
     const windows: RateLimitWindow[] = []
     if (primary?.usedPercent != null) {
       const pct = primary.usedPercent <= 1 ? primary.usedPercent * 100 : primary.usedPercent
       windows.push({
-        label: 'Primary',
+        label: providersT('providers.rateLimit.primaryLabel'),
         usedPercent: pct,
         windowMinutes: primary.windowMinutes,
         resetsAt: primary.resetsAt,
@@ -171,7 +193,7 @@ export function summarizeProviderRateLimit(
           ? snapshot.secondary.usedPercent * 100
           : snapshot.secondary.usedPercent
       windows.push({
-        label: 'Secondary',
+        label: providersT('providers.rateLimit.secondaryLabel'),
         usedPercent: pct,
         windowMinutes: snapshot.secondary.windowMinutes,
         resetsAt: snapshot.secondary.resetsAt,
@@ -179,8 +201,12 @@ export function summarizeProviderRateLimit(
     }
 
     return {
-      headline: headlineParts.join(' · ') || snapshot.limitId || 'codex rate limit',
-      detail: detailParts.join(' · ') || 'Codex rate limit snapshot captured.',
+      headline:
+        headlineParts.join(' · ') ||
+        snapshot.limitId ||
+        providersT('providers.rateLimit.codexHeadline'),
+      detail:
+        detailParts.join(' · ') || providersT('providers.rateLimit.codexSnapshot'),
       updatedLabel,
       windows,
       planType: snapshot.planType,
@@ -208,9 +234,17 @@ export function summarizeProviderRateLimit(
 
     const detailParts = []
     if (snapshot.resetTime) {
-      detailParts.push(`Resets ${new Date(snapshot.resetTime).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(snapshot.resetTime).toLocaleString(),
+        }),
+      )
     } else if (matchingBucket?.resetTime) {
-      detailParts.push(`Resets ${new Date(matchingBucket.resetTime).toLocaleString()}`)
+      detailParts.push(
+        providersT('providers.rateLimit.resetsAt', {
+          time: new Date(matchingBucket.resetTime).toLocaleString(),
+        }),
+      )
     }
     if (matchingBucket?.modelId) {
       detailParts.push(matchingBucket.modelId)
@@ -219,7 +253,7 @@ export function summarizeProviderRateLimit(
     const windows: RateLimitWindow[] = []
     if (geminiUsedPercent != null) {
       windows.push({
-        label: matchingBucket?.modelId || 'Quota',
+        label: matchingBucket?.modelId || providersT('providers.rateLimit.quotaLabel'),
         usedPercent: geminiUsedPercent,
         resetsAt: snapshot.resetTime || matchingBucket?.resetTime,
       })
@@ -227,15 +261,15 @@ export function summarizeProviderRateLimit(
 
     return {
       headline,
-      detail: detailParts.join(' · ') || 'Gemini quota snapshot captured.',
+      detail: detailParts.join(' · ') || providersT('providers.rateLimit.geminiSnapshot'),
       updatedLabel,
       windows,
     }
   }
 
   return {
-    headline: provider.cliRateLimit.provider || 'rate limit',
-    detail: 'Provider-specific rate limit snapshot captured.',
+    headline: provider.cliRateLimit.provider || providersT('providers.rateLimit.defaultHeadline'),
+    detail: providersT('providers.rateLimit.defaultSnapshot'),
     updatedLabel,
     windows: [],
   }

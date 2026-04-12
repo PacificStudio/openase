@@ -3,6 +3,7 @@
   import type { ExceptionItem } from '../types'
   import { AlertTriangle, DollarSign, Pause, XCircle } from '@lucide/svelte'
   import type { Component } from 'svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
 
   let {
     exceptions,
@@ -27,9 +28,11 @@
   }
 </script>
 
-<div class={cn('border-border bg-card rounded-md border', className)}>
-  <div class="border-border flex items-center justify-between border-b px-4 py-3">
-    <h3 class="text-foreground text-sm font-medium">Exceptions</h3>
+  <div class={cn('border-border bg-card rounded-md border', className)}>
+    <div class="border-border flex items-center justify-between border-b px-4 py-3">
+      <h3 class="text-foreground text-sm font-medium">
+        {i18nStore.t('dashboard.exceptionPanel.heading')}
+      </h3>
     {#if exceptions.length > 0}
       <span
         class="bg-destructive/10 text-destructive flex size-5 items-center justify-center rounded-full text-[10px] font-medium"
@@ -60,7 +63,7 @@
       </div>
     {:else}
       <div class="px-4 py-8 text-center text-xs text-muted-foreground">
-        No exceptions. All systems nominal.
+        {i18nStore.t('dashboard.exceptionPanel.messages.none')}
       </div>
     {/each}
   </div>

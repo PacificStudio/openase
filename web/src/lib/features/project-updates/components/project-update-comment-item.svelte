@@ -3,6 +3,7 @@
   import { Button } from '$ui/button'
   import { Textarea } from '$ui/textarea'
   import { Pencil, Trash2 } from '@lucide/svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { isProjectUpdateEdited, projectUpdateEditedLabel } from '../metadata'
   import type { ProjectUpdateComment } from '../types'
   import ProjectUpdateMarkdownContent from './project-update-markdown-content.svelte'
@@ -53,7 +54,11 @@
   }
 
   async function handleDelete() {
-    if (deleting || !window.confirm('Delete this comment?')) return
+    if (
+      deleting ||
+      !window.confirm(i18nStore.t('projectUpdates.thread.comment.confirmDelete'))
+    )
+      return
 
     deleting = true
     try {
@@ -68,11 +73,24 @@
 <div class={cn('group py-1.5', comment.isDeleted && 'opacity-50')}>
   {#if editing}
     <div class="space-y-2">
-      <Textarea bind:value={editingBody} aria-label={`Edit comment ${comment.id}`} rows={3} />
+      <Textarea
+        bind:value={editingBody}
+        aria-label={i18nStore.t('projectUpdates.thread.comment.aria.editBody')}
+        rows={3}
+      />
       <div class="flex justify-end gap-1.5">
-        <Button size="sm" variant="outline" onclick={cancelEdit} disabled={saving}>Cancel</Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onclick={cancelEdit}
+          disabled={saving}
+        >
+          {i18nStore.t('projectUpdates.thread.comment.actions.cancel')}
+        </Button>
         <Button size="sm" onclick={handleSave} disabled={!editingBody.trim() || saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving
+            ? i18nStore.t('projectUpdates.thread.comment.actions.saving')
+            : i18nStore.t('projectUpdates.thread.comment.actions.save')}
         </Button>
       </div>
     </div>
@@ -80,7 +98,9 @@
     <div class="flex items-start gap-2">
       <div class="min-w-0 flex-1">
         {#if comment.isDeleted}
-          <p class="text-muted-foreground text-xs italic">This comment was deleted.</p>
+          <p class="text-muted-foreground text-xs italic">
+            {i18nStore.t('projectUpdates.thread.comment.status.deleted')}
+          </p>
         {:else}
           <ProjectUpdateMarkdownContent source={comment.bodyMarkdown} class="text-xs" />
         {/if}
@@ -100,22 +120,22 @@
         <div
           class="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
         >
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
-            aria-label={`Edit comment ${comment.id}`}
-            onclick={beginEdit}
-            disabled={comment.isDeleted || deleting}
-          >
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
+              aria-label={i18nStore.t('projectUpdates.thread.comment.aria.edit', { commentId: comment.id })}
+              onclick={beginEdit}
+              disabled={comment.isDeleted || deleting}
+            >
             <Pencil class="size-3" />
           </button>
-          <button
-            type="button"
-            class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
-            aria-label={`Delete comment ${comment.id}`}
-            onclick={handleDelete}
-            disabled={comment.isDeleted || deleting}
-          >
+            <button
+              type="button"
+              class="text-muted-foreground hover:text-destructive rounded p-0.5 transition-colors"
+              aria-label={i18nStore.t('projectUpdates.thread.comment.aria.delete', { commentId: comment.id })}
+              onclick={handleDelete}
+              disabled={comment.isDeleted || deleting}
+            >
             <Trash2 class="size-3" />
           </button>
         </div>
