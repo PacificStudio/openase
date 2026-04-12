@@ -8,21 +8,35 @@ const __dirname = path.dirname(new URL(import.meta.url).pathname)
 const webRoot = path.resolve(__dirname, '..')
 const repoRoot = path.resolve(webRoot, '..')
 const defaultConfigPath = path.join(webRoot, 'i18n-check.config.json')
+const defaultBaselinePath = path.join(webRoot, 'i18n-check.baseline.json')
 const LETTER_RE = /[\p{L}]/u
 const INLINE_EXEMPT_RE = /i18n-exempt/
 const TRANSLATION_USAGE_RE = /\b(i18nStore\.t|translate\(|pageTitle\(|localeLabel\(|labelKey\s*:)/
 
 function parseArgs(argv) {
   const options = {
-    all: false,
+    scope: 'all',
     baseRef: process.env.OPENASE_I18N_BASE_REF || 'origin/main',
     configPath: defaultConfigPath,
+    baselinePath: defaultBaselinePath,
+    writeBaseline: false,
   }
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]
+    if (arg === '--') {
+      continue
+    }
     if (arg === '--all') {
-      options.all = true
+      options.scope = 'all'
+      continue
+    }
+    if (arg === '--diff') {
+      options.scope = 'diff'
+      continue
+    }
+    if (arg === '--write-baseline') {
+      options.writeBaseline = true
       continue
     }
     if (arg === '--base-ref') {
@@ -32,6 +46,11 @@ function parseArgs(argv) {
     }
     if (arg === '--config') {
       options.configPath = path.resolve(process.cwd(), argv[index + 1])
+      index += 1
+      continue
+    }
+    if (arg === '--baseline') {
+      options.baselinePath = path.resolve(process.cwd(), argv[index + 1])
       index += 1
       continue
     }
@@ -64,6 +83,55 @@ function loadConfig(configPath) {
     ...parsed,
     allowedLiteralRegexes: parsed.allowedLiteralPatterns.map((pattern) => new RegExp(pattern, 'u')),
   }
+}
+
+function loadBaselineCounts(baselinePath) {
+  if (!fs.existsSync(baselinePath)) {
+    return new Map()
+  }
+
+  const parsed = JSON.parse(fs.readFileSync(baselinePath, 'utf8'))
+  const counts = new Map()
+  for (const entry of parsed) {
+    if (
+      typeof entry?.filePath !== 'string' ||
+      typeof entry?.reason !== 'string' ||
+      typeof entry?.literal !== 'string'
+    ) {
+      continue
+    }
+    const count = Number(entry.count ?? 1)
+    counts.set(makeBaselineKey(entry), Number.isFinite(count) && count > 0 ? count : 1)
+  }
+  return counts
+}
+
+function writeBaselineFile(baselinePath, offenses) {
+  const counts = new Map()
+  for (const offense of offenses) {
+    const key = makeBaselineKey(offense)
+    const existing = counts.get(key)
+    if (existing) {
+      existing.count += 1
+    } else {
+      counts.set(key, {
+        filePath: offense.filePath,
+        reason: offense.reason,
+        literal: offense.literal,
+        count: 1,
+      })
+    }
+  }
+
+  const baseline = [...counts.values()].sort((left, right) => {
+    return (
+      left.filePath.localeCompare(right.filePath) ||
+      left.reason.localeCompare(right.reason) ||
+      left.literal.localeCompare(right.literal)
+    )
+  })
+
+  fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
 }
 
 function normalizePath(filePath) {
@@ -160,7 +228,7 @@ function collectDirtyChangedLines() {
 }
 
 function collectScopedFiles(options, config) {
-  if (options.all) {
+  if (options.scope === 'all') {
     return { files: collectAllFiles(config), changedLines: null }
   }
 
@@ -241,10 +309,31 @@ function scanScriptLine(line, filePath, lineNumber, config, offenses) {
   }
 }
 
+function nextSvelteSectionMode(line, currentMode) {
+  if (currentMode === 'markup') {
+    if (/<script\b/i.test(line)) {
+      return 'script'
+    }
+    if (/<style\b/i.test(line)) {
+      return 'style'
+    }
+    return currentMode
+  }
+
+  if (currentMode === 'script' && /<\/script>/i.test(line)) {
+    return 'markup'
+  }
+  if (currentMode === 'style' && /<\/style>/i.test(line)) {
+    return 'markup'
+  }
+  return currentMode
+}
+
 function scanFile(filePath, changedLines, config) {
   const absolute = path.join(repoRoot, filePath)
   const lines = fs.readFileSync(absolute, 'utf8').split(/\r?\n/)
   const offenses = []
+  let svelteMode = 'markup'
 
   for (let index = 0; index < lines.length; index += 1) {
     const lineNumber = index + 1
@@ -255,12 +344,22 @@ function scanFile(filePath, changedLines, config) {
     const line = lines[index]
     const previousLine = lines[index - 1] ?? ''
     if (shouldSkipLine(line, previousLine)) {
+      svelteMode = filePath.endsWith('.svelte')
+        ? nextSvelteSectionMode(line, svelteMode)
+        : svelteMode
       continue
     }
 
     if (filePath.endsWith('.svelte')) {
-      scanMarkupLine(line, filePath, lineNumber, config, offenses)
+      if (svelteMode === 'markup') {
+        scanMarkupLine(line, filePath, lineNumber, config, offenses)
+      } else if (svelteMode === 'script') {
+        scanScriptLine(line, filePath, lineNumber, config, offenses)
+      }
+      svelteMode = nextSvelteSectionMode(line, svelteMode)
+      continue
     }
+
     scanScriptLine(line, filePath, lineNumber, config, offenses)
   }
 
@@ -269,6 +368,28 @@ function scanFile(filePath, changedLines, config) {
 
 function formatOffense(offense) {
   return `${offense.filePath}:${offense.lineNumber} ${offense.reason} -> ${JSON.stringify(offense.literal)}`
+}
+
+function makeBaselineKey(entry) {
+  return JSON.stringify([entry.filePath, entry.reason, entry.literal])
+}
+
+function filterBaselineOffenses(offenses, baselineCounts) {
+  const usedCounts = new Map()
+  const unsuppressed = []
+
+  for (const offense of offenses) {
+    const key = makeBaselineKey(offense)
+    const allowedCount = baselineCounts.get(key) ?? 0
+    const usedCount = usedCounts.get(key) ?? 0
+    if (usedCount < allowedCount) {
+      usedCounts.set(key, usedCount + 1)
+      continue
+    }
+    unsuppressed.push(offense)
+  }
+
+  return unsuppressed
 }
 
 function main() {
@@ -282,18 +403,32 @@ function main() {
     offenses.push(...scanFile(filePath, changedLines, config))
   }
 
-  if (offenses.length > 0) {
-    console.error(
-      'i18n scan failed. Route new user-visible strings through the shared translation API or mark an explicit exemption.',
+  if (options.writeBaseline) {
+    writeBaselineFile(options.baselinePath, offenses)
+    console.log(
+      `Wrote i18n baseline with ${offenses.length} offenses to ${path.relative(repoRoot, options.baselinePath)}.`,
     )
-    for (const offense of offenses) {
+    return
+  }
+
+  const baselineCounts = loadBaselineCounts(options.baselinePath)
+  const unsuppressed = filterBaselineOffenses(offenses, baselineCounts)
+
+  if (unsuppressed.length > 0) {
+    console.error(
+      'i18n scan failed. Route user-visible strings through the shared translation API or add a reviewed baseline/exemption.',
+    )
+    for (const offense of unsuppressed) {
       console.error(`- ${formatOffense(offense)}`)
     }
     process.exit(1)
   }
 
-  const scopeLabel = options.all ? 'full source tree' : `changes since ${options.baseRef}`
-  console.log(`i18n scan passed for ${scopeLabel}.`)
+  const scopeLabel =
+    options.scope === 'all' ? 'full source tree' : `changes since ${options.baseRef}`
+  const suppressedCount = offenses.length - unsuppressed.length
+  const baselineLabel = suppressedCount > 0 ? ` (${suppressedCount} baseline-suppressed)` : ''
+  console.log(`i18n scan passed for ${scopeLabel}${baselineLabel}.`)
 }
 
 main()

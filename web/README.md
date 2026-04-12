@@ -153,15 +153,24 @@ When a literal exemption is truly necessary in scanned UI code:
 
 `pnpm run lint:i18n` runs `scripts/check-i18n.mjs`.
 
-- Default mode scans changed frontend lines relative to `origin/main`, plus uncommitted local edits, so legacy untranslated surfaces can be migrated gradually without weakening the gate for new work.
-- `node scripts/check-i18n.mjs --all` scans the full frontend source tree.
+- Default mode scans the full frontend source tree and suppresses only the reviewed legacy backlog recorded in `i18n-check.baseline.json`.
+- `node scripts/check-i18n.mjs --diff --base-ref origin/main` limits the scan to the current branch diff when you want a focused local pass.
+- `node scripts/check-i18n.mjs --write-baseline` refreshes `i18n-check.baseline.json`; only do this after reviewing the current backlog and intentionally accepting the remaining untranslated surfaces.
+- The scanner is section-aware for Svelte files: markup text/attributes are checked in template regions, while suspicious `label` / `title` / `description` style assignments are checked in script regions.
 - Violations print file, line, reason, and the offending literal so CI fails with actionable output.
+
+Baseline policy:
+
+- treat `i18n-check.baseline.json` as a shrinking migration ledger, not a dump for fresh copy
+- when you translate an existing legacy surface, make sure its offense entries disappear from the baseline on the next refresh
+- do not add new user-visible literals and then "fix" CI by updating the baseline; route the string through i18n instead
 
 When adding new copy:
 
 1. add the key to both locale dictionaries in `src/lib/i18n/index.ts`
 2. replace the literal use site with `i18nStore.t(...)` or `translate(...)`
 3. run `pnpm run lint` and `pnpm run check`
+4. if you intentionally cleaned up older untranslated surfaces in the same area, refresh the baseline so it keeps shrinking rather than preserving resolved debt
 
 ## Mobile Route Policy
 

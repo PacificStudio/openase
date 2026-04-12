@@ -10,6 +10,7 @@ import type {
 } from '$lib/api/contracts'
 import { TicketsPage, resetTicketBoardToolbarStoreForTests } from '$lib/features/tickets'
 import { orderedStatusPayloadFixture } from '$lib/features/board/test-fixtures'
+import { i18nStore } from '$lib/i18n/store.svelte'
 import { appStore } from '$lib/stores/app.svelte'
 import { ticketViewStore } from '$lib/stores/ticket-view.svelte'
 
@@ -192,6 +193,7 @@ describe('TicketsPage', () => {
     appStore.currentProject = null
     appStore.closeRightPanel()
     ticketViewStore.setMode('board')
+    i18nStore.setLocale('en')
     resetTicketBoardToolbarStoreForTests()
     localStorage.clear()
     vi.clearAllMocks()
@@ -220,6 +222,31 @@ describe('TicketsPage', () => {
     expect(await findByRole('table')).toBeTruthy()
     expect(await findByText('Updated')).toBeTruthy()
     expect(await findByText('Blocked')).toBeTruthy()
+  })
+
+  it('renders ticket filters and list headers in Chinese', async () => {
+    i18nStore.setLocale('zh')
+    appStore.currentProject = projectFixture
+
+    listStatuses.mockResolvedValue(statusesFixture)
+    listTickets.mockResolvedValue(ticketsFixture)
+    listWorkflows.mockResolvedValue(workflowsFixture)
+    listAgents.mockResolvedValue(agentsFixture)
+    listActivity.mockResolvedValue(activityFixture)
+    updateTicket.mockResolvedValue({ ticket: ticketsFixture.tickets[0] })
+    connectEventStream.mockReturnValue(() => {})
+
+    const { findByPlaceholderText, findByRole, findByText } = render(TicketsPage)
+
+    expect(await findByText('工单')).toBeTruthy()
+    expect(await findByText('跟踪交付状态、筛选活跃工作，并打开工单详情。')).toBeTruthy()
+    expect(await findByPlaceholderText('搜索工单...')).toBeTruthy()
+    expect(await findByRole('button', { name: '代理' })).toBeTruthy()
+
+    await fireEvent.click(await findByRole('button', { name: '列表视图' }))
+
+    expect(await findByText('更新时间')).toBeTruthy()
+    expect(await findByText('阻塞')).toBeTruthy()
   })
 
   it('wires the column create-ticket action to the new ticket dialog', async () => {

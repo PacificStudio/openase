@@ -1,5 +1,6 @@
 <script lang="ts">
   import { appStore } from '$lib/stores/app.svelte'
+  import { i18nStore } from '$lib/i18n/store.svelte'
   import { toastStore } from '$lib/stores/toast.svelte'
   import type { AgentProvider } from '$lib/api/contracts'
   import type { AgentsPageData } from '../data'
@@ -158,7 +159,7 @@
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
-      toastStore.error('Project context is unavailable.')
+      toastStore.error(i18nStore.t('agents.projectContextUnavailable'))
       return
     }
 
@@ -188,7 +189,7 @@
     const projectId = appStore.currentProject?.id,
       orgId = appStore.currentOrg?.id
     if (!projectId || !orgId) {
-      toastStore.error('Project context is unavailable.')
+      toastStore.error(i18nStore.t('agents.projectContextUnavailable'))
       return
     }
 
