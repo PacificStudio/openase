@@ -46,8 +46,7 @@
     providerError = $state(''),
     loadedProviders = $state<AgentProvider[]>([])
   let previousRestoreKey = '',
-    appliedInitialPromptSignature = $state(''),
-    autoDispatchQueueTurnId = $state('')
+    appliedInitialPromptSignature = $state('')
 
   const controller = createProjectConversationController({
     getProjectContext: () => ({
@@ -66,7 +65,6 @@
   const activeTab = $derived(tabs.find((tab) => tab.id === activeTabId) ?? tabs[0] ?? null)
   const draft = $derived(controller.draft)
   const queuedTurns = $derived(controller.queuedTurns)
-  const nextQueuedTurn = $derived(queuedTurns[0] ?? null)
   const entries = $derived(controller.entries)
   const workspaceDiff = $derived(controller.workspaceDiff)
   const workspaceDiffLoading = $derived(controller.workspaceDiffLoading)
@@ -170,38 +168,6 @@
       appliedInitialPromptSignature,
       activeDraft: controller.draft,
       setDraft: controller.setDraft,
-    })
-  })
-
-  $effect(() => {
-    const nextQueuedTurnId = nextQueuedTurn?.id ?? ''
-    const shouldAutoDispatch =
-      !!activeTabId && !!nextQueuedTurnId && phase === 'idle' && !controller.hasPendingInterrupt
-
-    if (!shouldAutoDispatch) {
-      autoDispatchQueueTurnId = ''
-      return
-    }
-
-    if (autoDispatchQueueTurnId === nextQueuedTurnId) {
-      return
-    }
-
-    autoDispatchQueueTurnId = nextQueuedTurnId
-    queueMicrotask(() => {
-      if (
-        autoDispatchQueueTurnId === nextQueuedTurnId &&
-        activeTabId &&
-        (controller.queuedTurns[0]?.id ?? '') === nextQueuedTurnId &&
-        controller.phase === 'idle' &&
-        !controller.hasPendingInterrupt
-      ) {
-        void controller.sendNextQueuedTurn().finally(() => {
-          if (autoDispatchQueueTurnId === nextQueuedTurnId) {
-            autoDispatchQueueTurnId = ''
-          }
-        })
-      }
     })
   })
 
