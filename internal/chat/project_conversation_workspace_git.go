@@ -3,7 +3,6 @@ package chat
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -25,7 +24,7 @@ func (id WorkspaceCommitID) String() string { return string(id) }
 type WorkspaceCheckoutTargetKind string
 
 const (
-	WorkspaceCheckoutTargetKindLocalBranch        WorkspaceCheckoutTargetKind = "local_branch"
+	WorkspaceCheckoutTargetKindLocalBranch          WorkspaceCheckoutTargetKind = "local_branch"
 	WorkspaceCheckoutTargetKindRemoteTrackingBranch WorkspaceCheckoutTargetKind = "remote_tracking_branch"
 )
 
@@ -53,14 +52,14 @@ const (
 )
 
 type ProjectConversationWorkspaceCurrentRef struct {
-	Kind          ProjectConversationWorkspaceCurrentRefKind
-	DisplayName   string
-	CacheKey      string
-	BranchName    string
+	Kind           ProjectConversationWorkspaceCurrentRefKind
+	DisplayName    string
+	CacheKey       string
+	BranchName     string
 	BranchFullName string
-	CommitID      string
-	ShortCommitID string
-	Subject       string
+	CommitID       string
+	ShortCommitID  string
+	Subject        string
 }
 
 type ProjectConversationWorkspaceBranchScope string
@@ -95,9 +94,9 @@ type ProjectConversationWorkspaceRepoRefs struct {
 type ProjectConversationWorkspaceGitRefLabelScope string
 
 const (
-	ProjectConversationWorkspaceGitRefLabelScopeHead            ProjectConversationWorkspaceGitRefLabelScope = "head"
-	ProjectConversationWorkspaceGitRefLabelScopeLocalBranch     ProjectConversationWorkspaceGitRefLabelScope = "local_branch"
-	ProjectConversationWorkspaceGitRefLabelScopeRemoteTracking  ProjectConversationWorkspaceGitRefLabelScope = "remote_tracking_branch"
+	ProjectConversationWorkspaceGitRefLabelScopeHead           ProjectConversationWorkspaceGitRefLabelScope = "head"
+	ProjectConversationWorkspaceGitRefLabelScopeLocalBranch    ProjectConversationWorkspaceGitRefLabelScope = "local_branch"
+	ProjectConversationWorkspaceGitRefLabelScopeRemoteTracking ProjectConversationWorkspaceGitRefLabelScope = "remote_tracking_branch"
 )
 
 type ProjectConversationWorkspaceGitRefLabel struct {
@@ -132,23 +131,23 @@ type ProjectConversationWorkspaceCheckoutInput struct {
 }
 
 type ProjectConversationWorkspaceCheckoutResult struct {
-	ConversationID      uuid.UUID
-	RepoPath            string
-	CurrentRef          ProjectConversationWorkspaceCurrentRef
-	CreatedLocalBranch  string
+	ConversationID     uuid.UUID
+	RepoPath           string
+	CurrentRef         ProjectConversationWorkspaceCurrentRef
+	CreatedLocalBranch string
 }
 
 type ProjectConversationWorkspaceCheckoutPreconditionReason string
 
 const (
-	ProjectConversationWorkspaceCheckoutPreconditionDirtyWorkspace ProjectConversationWorkspaceCheckoutPreconditionReason = "dirty_workspace"
+	ProjectConversationWorkspaceCheckoutPreconditionDirtyWorkspace    ProjectConversationWorkspaceCheckoutPreconditionReason = "dirty_workspace"
 	ProjectConversationWorkspaceCheckoutPreconditionLocalBranchExists ProjectConversationWorkspaceCheckoutPreconditionReason = "local_branch_exists"
 )
 
 type ProjectConversationWorkspaceCheckoutPreconditionError struct {
-	Reason             ProjectConversationWorkspaceCheckoutPreconditionReason
-	RequestedBranch    string
-	SuggestedBranch    string
+	Reason          ProjectConversationWorkspaceCheckoutPreconditionReason
+	RequestedBranch string
+	SuggestedBranch string
 }
 
 func (e *ProjectConversationWorkspaceCheckoutPreconditionError) Error() string {
@@ -970,19 +969,6 @@ func isProjectConversationGitUnbornHeadOutput(output []byte) bool {
 		strings.Contains(trimmed, "does not have any commits yet")
 }
 
-func workspaceCurrentRefCacheKey(ref ProjectConversationWorkspaceCurrentRef) string {
-	if strings.TrimSpace(ref.CacheKey) != "" {
-		return ref.CacheKey
-	}
-	if ref.Kind == ProjectConversationWorkspaceCurrentRefKindBranch && strings.TrimSpace(ref.BranchFullName) != "" {
-		return "branch:" + ref.BranchFullName
-	}
-	if strings.TrimSpace(ref.CommitID) != "" {
-		return "detached:" + ref.CommitID
-	}
-	return "detached"
-}
-
 func projectConversationWorkspaceBranchDisplayName(
 	currentRef ProjectConversationWorkspaceCurrentRef,
 ) string {
@@ -990,10 +976,4 @@ func projectConversationWorkspaceBranchDisplayName(
 		return currentRef.DisplayName
 	}
 	return strings.TrimSpace(currentRef.BranchName)
-}
-
-func pathExistsWithinRepo(repoRoot string, relativePath string) bool {
-	targetPath := filepath.Join(repoRoot, filepath.FromSlash(relativePath))
-	_, err := resolveLocalProjectConversationWorkspaceFile(repoRoot, relativePath)
-	return err == nil && targetPath != ""
 }

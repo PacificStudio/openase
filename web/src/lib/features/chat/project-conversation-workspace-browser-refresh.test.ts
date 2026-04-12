@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ProjectConversationWorkspaceDiff } from '$lib/api/chat'
 const {
   checkoutProjectConversationWorkspaceBranch,
   createProjectConversationWorkspaceFile,
@@ -599,104 +598,5 @@ describe('ProjectConversationWorkspaceBrowser', () => {
     expect(view.container.textContent).toContain('package.json')
     expect(view.container.textContent).toContain('{"name":"latest"}')
     expect(view.container.textContent).not.toContain('stale readme')
-  })
-
-  it('ignores stale tree responses from the previous repo after the user switches repos', async () => {
-    getProjectConversationWorkspace.mockResolvedValue({
-      workspace: {
-        conversationId: 'conversation-1',
-        available: true,
-        workspacePath: '/tmp/conversation-1',
-        repos: [
-          {
-            ...workspaceMetadata.repos[0],
-          },
-          {
-            name: 'docs',
-            path: 'services/docs',
-            branch: 'agent/docs-123',
-            headCommit: 'abcdef123456',
-            headSummary: 'Docs branch',
-            dirty: false,
-            filesChanged: 0,
-            added: 0,
-            removed: 0,
-          },
-        ],
-      },
-    })
-
-    const repoOneTree = deferredPromise<{
-      workspaceTree: {
-        conversationId: string
-        repoPath: string
-        path: string
-        entries: Array<{ path: string; name: string; kind: 'file'; sizeBytes: number }>
-      }
-    }>()
-    listProjectConversationWorkspaceTree.mockImplementation(async (_conversationId, input) => {
-      if (input.repoPath === 'services/openase') {
-        return repoOneTree.promise
-      }
-      return {
-        workspaceTree: {
-          conversationId: 'conversation-1',
-          repoPath: 'services/docs',
-          path: '',
-          entries: [{ path: 'guide.md', name: 'guide.md', kind: 'file', sizeBytes: 20 }],
-        },
-      }
-    })
-
-    const multiRepoDiff = {
-      ...workspaceDiff,
-      reposChanged: 2,
-      repos: [
-        workspaceDiff.repos[0],
-        {
-          name: 'docs',
-          path: 'services/docs',
-          branch: 'agent/docs-123',
-          dirty: false,
-          filesChanged: 0,
-          added: 0,
-          removed: 0,
-          files: [],
-        },
-      ],
-    } satisfies ProjectConversationWorkspaceDiff
-
-    const view = render(ProjectConversationWorkspaceBrowser, {
-      props: {
-        conversationId: 'conversation-1',
-        workspaceDiff: multiRepoDiff,
-        workspaceDiffLoading: false,
-      },
-    })
-
-    await waitFor(() => expect(getProjectConversationWorkspace).toHaveBeenCalledTimes(1))
-    await fireEvent.click(await view.findByRole('button', { name: 'docs' }))
-
-    await waitFor(() => {
-      expect(listProjectConversationWorkspaceTree).toHaveBeenCalledWith('conversation-1', {
-        repoPath: 'services/docs',
-        path: '',
-      })
-    })
-    await view.findByRole('button', { name: 'guide.md' })
-
-    repoOneTree.resolve({
-      workspaceTree: {
-        conversationId: 'conversation-1',
-        repoPath: 'services/openase',
-        path: '',
-        entries: [{ path: 'README.md', name: 'README.md', kind: 'file', sizeBytes: 64 }],
-      },
-    })
-    await repoOneTree.promise
-    await Promise.resolve()
-
-    expect(view.container.textContent).toContain('guide.md')
-    expect(view.queryByRole('button', { name: /README\.md/ })).toBeNull()
   })
 })

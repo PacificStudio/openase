@@ -1618,14 +1618,14 @@ func mapProjectConversationWorkspaceCurrentRefResponse(
 	item chatservice.ProjectConversationWorkspaceCurrentRef,
 ) map[string]any {
 	return map[string]any{
-		"kind":            string(item.Kind),
-		"display_name":    item.DisplayName,
-		"cache_key":       item.CacheKey,
-		"branch_name":     item.BranchName,
+		"kind":             string(item.Kind),
+		"display_name":     item.DisplayName,
+		"cache_key":        item.CacheKey,
+		"branch_name":      item.BranchName,
 		"branch_full_name": item.BranchFullName,
-		"commit_id":       item.CommitID,
-		"short_commit_id": item.ShortCommitID,
-		"subject":         item.Subject,
+		"commit_id":        item.CommitID,
+		"short_commit_id":  item.ShortCommitID,
+		"subject":          item.Subject,
 	}
 }
 
@@ -1653,16 +1653,16 @@ func mapProjectConversationWorkspaceBranchRefResponse(
 	item chatservice.ProjectConversationWorkspaceBranchRef,
 ) map[string]any {
 	return map[string]any{
-		"name":                       item.Name,
-		"full_name":                  item.FullName,
-		"scope":                      string(item.Scope),
-		"current":                    item.Current,
-		"commit_id":                  item.CommitID,
-		"short_commit_id":            item.ShortCommitID,
-		"subject":                    item.Subject,
-		"upstream_name":              item.UpstreamName,
-		"ahead":                      item.Ahead,
-		"behind":                     item.Behind,
+		"name":                        item.Name,
+		"full_name":                   item.FullName,
+		"scope":                       string(item.Scope),
+		"current":                     item.Current,
+		"commit_id":                   item.CommitID,
+		"short_commit_id":             item.ShortCommitID,
+		"subject":                     item.Subject,
+		"upstream_name":               item.UpstreamName,
+		"ahead":                       item.Ahead,
+		"behind":                      item.Behind,
 		"suggested_local_branch_name": item.SuggestedLocalBranchName,
 	}
 }

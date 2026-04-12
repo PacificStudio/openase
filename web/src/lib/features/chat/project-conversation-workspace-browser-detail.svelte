@@ -2,13 +2,13 @@
   import { ApiError } from '$lib/api/client'
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
-  import { cn } from '$lib/utils'
   import { CodeEditor } from '$lib/components/code'
   import { readEditorWrapMode, storeEditorWrapMode } from '$lib/components/code/wrap-mode'
   import { appStore } from '$lib/stores/app.svelte'
   import StructuredDiffPreview from './structured-diff-preview.svelte'
+  import ProjectConversationWorkspaceBrowserTabStrip from './project-conversation-workspace-browser-tab-strip.svelte'
   import ProjectConversationWorkspaceGitGraph from './project-conversation-workspace-git-graph.svelte'
-  import { FileCode2, X } from '@lucide/svelte'
+  import { FileCode2 } from '@lucide/svelte'
   import ProjectConversationWorkspaceBrowserDetailStatusBar from './project-conversation-workspace-browser-detail-status-bar.svelte'
   import type { ProjectConversationWorkspaceRepoMetadata } from '$lib/api/chat'
   import {
@@ -180,58 +180,13 @@
       </div>
     {:else}
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div
-          class="border-border bg-muted/20 flex min-h-9 shrink-0 items-stretch overflow-x-auto border-b"
-          data-testid="workspace-browser-detail-tab-bar"
-          role="tablist"
-        >
-          {#each browser.openTabs as tab (workspaceTabKey(tab))}
-            {@const tabKey = workspaceTabKey(tab)}
-            {@const isActive = tabKey === browser.activeTabKey}
-            {@const dirty = isTabDirty(tab.repoPath, tab.filePath)}
-            {@const tabName = tab.filePath.split('/').pop() ?? tab.filePath}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              class={cn(
-                'border-border flex max-w-[220px] min-w-0 shrink-0 items-center gap-1.5 border-r px-2.5 py-1.5 text-[12px] transition-colors',
-                isActive
-                  ? 'bg-background text-foreground'
-                  : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
-              )}
-              onclick={() => browser.activateTab(tab.repoPath, tab.filePath)}
-              data-testid={`workspace-browser-detail-tab-${tabName}`}
-            >
-              {#if dirty}
-                <span
-                  class="size-1.5 shrink-0 rounded-full bg-orange-500"
-                  aria-label="Unsaved changes"
-                  data-testid="workspace-browser-detail-tab-dirty-dot"
-                ></span>
-              {:else}
-                <FileCode2 class="size-3 shrink-0 opacity-60" />
-              {/if}
-              <span class="min-w-0 truncate">{tabName}</span>
-              <span
-                role="button"
-                tabindex="0"
-                class="hover:bg-muted/80 ml-0.5 inline-flex size-4 shrink-0 items-center justify-center rounded transition-colors"
-                aria-label={`Close ${tabName}`}
-                onclick={(event) => requestCloseTab(event, tab.repoPath, tab.filePath)}
-                onkeydown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    requestCloseTab(event as unknown as MouseEvent, tab.repoPath, tab.filePath)
-                  }
-                }}
-              >
-                <X class="size-3" />
-              </span>
-            </button>
-          {/each}
-        </div>
+        <ProjectConversationWorkspaceBrowserTabStrip
+          openTabs={browser.openTabs}
+          activeTabKey={browser.activeTabKey}
+          {isTabDirty}
+          onActivateTab={(repoPath, filePath) => browser.activateTab(repoPath, filePath)}
+          onRequestCloseTab={requestCloseTab}
+        />
 
         {#if activeFileError}
           <div class="border-destructive/20 bg-destructive/5 m-4 rounded-lg border p-3">

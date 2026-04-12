@@ -564,16 +564,16 @@ type OpenAPIProjectConversationWorkspaceDiffResponse struct {
 }
 
 type OpenAPIProjectConversationWorkspaceRepoMetadata struct {
-	Name         string `json:"name"`
-	Path         string `json:"path"`
-	Branch       string `json:"branch"`
+	Name         string                                        `json:"name"`
+	Path         string                                        `json:"path"`
+	Branch       string                                        `json:"branch"`
 	CurrentRef   OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
-	HeadCommit   string `json:"head_commit"`
-	HeadSummary  string `json:"head_summary"`
-	Dirty        bool   `json:"dirty"`
-	FilesChanged int    `json:"files_changed"`
-	Added        int    `json:"added"`
-	Removed      int    `json:"removed"`
+	HeadCommit   string                                        `json:"head_commit"`
+	HeadSummary  string                                        `json:"head_summary"`
+	Dirty        bool                                          `json:"dirty"`
+	FilesChanged int                                           `json:"files_changed"`
+	Added        int                                           `json:"added"`
+	Removed      int                                           `json:"removed"`
 }
 
 type OpenAPIProjectConversationWorkspaceCurrentRef struct {
@@ -649,9 +649,9 @@ type OpenAPIProjectConversationWorkspaceBranchRef struct {
 }
 
 type OpenAPIProjectConversationWorkspaceRepoRefs struct {
-	ConversationID string                                        `json:"conversation_id"`
-	RepoPath       string                                        `json:"repo_path"`
-	CurrentRef     OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
+	ConversationID string                                         `json:"conversation_id"`
+	RepoPath       string                                         `json:"repo_path"`
+	CurrentRef     OpenAPIProjectConversationWorkspaceCurrentRef  `json:"current_ref"`
 	LocalBranches  []OpenAPIProjectConversationWorkspaceBranchRef `json:"local_branches"`
 	RemoteBranches []OpenAPIProjectConversationWorkspaceBranchRef `json:"remote_branches"`
 }
@@ -668,20 +668,20 @@ type OpenAPIProjectConversationWorkspaceGitRefLabel struct {
 }
 
 type OpenAPIProjectConversationWorkspaceGitGraphCommit struct {
-	CommitID      string                                         `json:"commit_id"`
-	ShortCommitID string                                         `json:"short_commit_id"`
-	ParentIDs     []string                                       `json:"parent_ids"`
-	Subject       string                                         `json:"subject"`
-	AuthorName    string                                         `json:"author_name"`
-	AuthoredAt    string                                         `json:"authored_at"`
+	CommitID      string                                           `json:"commit_id"`
+	ShortCommitID string                                           `json:"short_commit_id"`
+	ParentIDs     []string                                         `json:"parent_ids"`
+	Subject       string                                           `json:"subject"`
+	AuthorName    string                                           `json:"author_name"`
+	AuthoredAt    string                                           `json:"authored_at"`
 	Labels        []OpenAPIProjectConversationWorkspaceGitRefLabel `json:"labels"`
-	Head          bool                                           `json:"head"`
+	Head          bool                                             `json:"head"`
 }
 
 type OpenAPIProjectConversationWorkspaceGitGraph struct {
-	ConversationID string                                         `json:"conversation_id"`
-	RepoPath       string                                         `json:"repo_path"`
-	Limit          int                                            `json:"limit"`
+	ConversationID string                                              `json:"conversation_id"`
+	RepoPath       string                                              `json:"repo_path"`
+	Limit          int                                                 `json:"limit"`
 	Commits        []OpenAPIProjectConversationWorkspaceGitGraphCommit `json:"commits"`
 }
 
@@ -699,10 +699,10 @@ type OpenAPIProjectConversationWorkspaceCheckoutRequest struct {
 }
 
 type OpenAPIProjectConversationWorkspaceCheckout struct {
-	ConversationID    string                                        `json:"conversation_id"`
-	RepoPath          string                                        `json:"repo_path"`
-	CurrentRef        OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
-	CreatedLocalBranch string                                       `json:"created_local_branch"`
+	ConversationID     string                                        `json:"conversation_id"`
+	RepoPath           string                                        `json:"repo_path"`
+	CurrentRef         OpenAPIProjectConversationWorkspaceCurrentRef `json:"current_ref"`
+	CreatedLocalBranch string                                        `json:"created_local_branch"`
 }
 
 type OpenAPIProjectConversationWorkspaceCheckoutResponse struct {
@@ -2953,12 +2953,12 @@ var (
 		"path":      "Repo-relative existing file path to delete from the conversation workspace.",
 	}
 	openAPIProjectConversationWorkspaceCheckoutDescriptions = map[string]string{
-		"repo_path":                 "Workspace-relative repo path chosen from the workspace metadata response.",
-		"target_kind":               "Checkout target kind. Supported values are local_branch and remote_tracking_branch.",
-		"target_name":               "Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main.",
-		"create_tracking_branch":    "Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets.",
-		"local_branch_name":         "Optional explicit local branch name to create when switching from a remote-tracking branch.",
-		"expected_clean_workspace":  "When true, the server rejects checkout if the repo has uncommitted workspace changes.",
+		"repo_path":                "Workspace-relative repo path chosen from the workspace metadata response.",
+		"target_kind":              "Checkout target kind. Supported values are local_branch and remote_tracking_branch.",
+		"target_name":              "Branch name chosen from the refs listing response. Remote-tracking branches use the short remote form such as origin/main.",
+		"create_tracking_branch":   "Whether the checkout should create a new local tracking branch. This must be true for remote-tracking targets.",
+		"local_branch_name":        "Optional explicit local branch name to create when switching from a remote-tracking branch.",
+		"expected_clean_workspace": "When true, the server rejects checkout if the repo has uncommitted workspace changes.",
 	}
 	openAPIRoleBindingRequestDescriptions = map[string]string{
 		"subject_kind": "Binding subject kind. Supported values are user and group.",
