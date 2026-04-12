@@ -71,7 +71,39 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 PY
 )"
 
-python3 -m http.server "${port}" --bind 127.0.0.1 --directory "${fixture_root}" >/dev/null 2>&1 &
+python3 - "${fixture_root}" "${port}" "${release_tag}" >/dev/null 2>&1 <<'PY' &
+import functools
+import http.server
+import socketserver
+import sys
+
+root, port, release_tag = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+
+
+class Handler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):  # noqa: N802
+        if self.path == "/releases/latest":
+            self.send_response(302)
+            self.send_header("Location", f"/releases/tag/{release_tag}")
+            self.end_headers()
+            return
+        if self.path == f"/releases/tag/{release_tag}":
+            body = f"<html><body>{release_tag}</body></html>".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        super().do_GET()
+
+    def log_message(self, format, *args):  # noqa: A003
+        return
+
+
+with socketserver.TCPServer(("127.0.0.1", port), functools.partial(Handler, directory=root)) as httpd:
+    httpd.serve_forever()
+PY
 server_pid=$!
 sleep 1
 
