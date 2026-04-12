@@ -234,7 +234,12 @@ func TestMachineConnectWebsocketPublishesActivityAndMetrics(t *testing.T) {
 		t.Fatalf("expected registered envelope, got %+v", registeredEnvelope)
 	}
 
-	metricsBody := scrapeMetrics(t, server.Handler())
+	metricsBody := waitForMetricsContaining(t, server.Handler(),
+		`openase_machine_channel_active_sessions{transport_mode="ws_reverse"} 1`,
+		`openase_machine_channel_websocket_reconnect_total{transport_mode="ws_reverse"} 1`,
+		`openase_machine_channel_events_total{event="registered",transport_mode="ws_reverse"} 2`,
+		`openase_machine_channel_events_total{event="reconnected",transport_mode="ws_reverse"} 1`,
+	)
 	for _, expected := range []string{
 		`openase_machine_channel_active_sessions{transport_mode="ws_reverse"} 1`,
 		`openase_machine_channel_websocket_reconnect_total{transport_mode="ws_reverse"} 1`,
@@ -458,6 +463,28 @@ func scrapeMetrics(t *testing.T, handler http.Handler) string {
 		t.Fatalf("expected metrics route to return 200, got %d", rec.Code)
 	}
 	return rec.Body.String()
+}
+
+func waitForMetricsContaining(t *testing.T, handler http.Handler, expected ...string) string {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	lastBody := ""
+	for time.Now().Before(deadline) {
+		lastBody = scrapeMetrics(t, handler)
+		matched := true
+		for _, needle := range expected {
+			if !strings.Contains(lastBody, needle) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			return lastBody
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	return lastBody
 }
 
 func dialMachineWebsocket(t *testing.T, serverURL string) *websocket.Conn {
