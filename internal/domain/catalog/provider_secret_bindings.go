@@ -44,14 +44,16 @@ func BuildAgentProviderAuthConfig(
 ) (map[string]any, error) {
 	parts := splitAgentProviderAuthConfig(aAdapterType, plainConfig)
 	explicitRefs := parts.explicitRefs
+	legacyInline := parts.legacyInline
 	if len(secretBindings) > 0 {
 		parsed, err := parseAgentProviderSecretBindingInputs(secretBindings)
 		if err != nil {
 			return nil, err
 		}
 		explicitRefs = parsed
+		legacyInline = removeProviderLegacyInlineOverlaps(legacyInline, explicitRefs)
 	}
-	return composeAgentProviderAuthConfig(parts.plainConfig, parts.legacyInline, explicitRefs), nil
+	return composeAgentProviderAuthConfig(parts.plainConfig, legacyInline, explicitRefs), nil
 }
 
 func MergeAgentProviderAuthConfig(
@@ -78,14 +80,7 @@ func MergeAgentProviderAuthConfig(
 			return nil, err
 		}
 		explicit = parsed
-	}
-
-	for envVarKey := range explicit {
-		for rawKey := range legacy {
-			if normalizeProviderEnvKey(rawKey) == envVarKey {
-				delete(legacy, rawKey)
-			}
-		}
+		legacy = removeProviderLegacyInlineOverlaps(legacy, explicit)
 	}
 
 	return composeAgentProviderAuthConfig(plain, legacy, explicit), nil
@@ -103,25 +98,13 @@ func AgentProviderSecretBindings(
 	raw map[string]any,
 ) []AgentProviderSecretBinding {
 	parts := splitAgentProviderAuthConfig(aAdapterType, raw)
-	legacyByEnv := make(map[string]struct{}, len(parts.legacyInline))
-	for rawKey := range parts.legacyInline {
-		legacyByEnv[normalizeProviderEnvKey(rawKey)] = struct{}{}
-	}
-
-	keys := make([]string, 0, len(parts.explicitRefs)+len(legacyByEnv)+len(requiredProviderSecretEnvVars(aAdapterType)))
-	seen := make(map[string]struct{}, len(parts.explicitRefs)+len(legacyByEnv))
+	keys := make([]string, 0, len(parts.explicitRefs)+len(requiredProviderSecretEnvVars(aAdapterType)))
+	seen := make(map[string]struct{}, len(parts.explicitRefs))
 	for _, envVarKey := range requiredProviderSecretEnvVars(aAdapterType) {
 		seen[envVarKey] = struct{}{}
 		keys = append(keys, envVarKey)
 	}
 	for envVarKey := range parts.explicitRefs {
-		if _, ok := seen[envVarKey]; ok {
-			continue
-		}
-		seen[envVarKey] = struct{}{}
-		keys = append(keys, envVarKey)
-	}
-	for envVarKey := range legacyByEnv {
 		if _, ok := seen[envVarKey]; ok {
 			continue
 		}
@@ -142,11 +125,40 @@ func AgentProviderSecretBindings(
 			binding.BindingKey = explicitBinding
 			binding.Configured = true
 			binding.Source = AgentProviderSecretBindingSourceBinding
-		} else if _, ok := legacyByEnv[envVarKey]; ok {
-			binding.Configured = true
-			binding.Source = AgentProviderSecretBindingSourceLegacyAuthConfig
 		}
 		bindings = append(bindings, binding)
+	}
+	return bindings
+}
+
+func LegacyAgentProviderSecretBindings(
+	aAdapterType AgentProviderAdapterType,
+	raw map[string]any,
+) []AgentProviderSecretBinding {
+	parts := splitAgentProviderAuthConfig(aAdapterType, raw)
+	keys := make([]string, 0, len(parts.legacyInline))
+	seen := make(map[string]struct{}, len(parts.legacyInline))
+	for rawKey := range parts.legacyInline {
+		envVarKey := normalizeProviderEnvKey(rawKey)
+		if envVarKey == "" {
+			continue
+		}
+		if _, ok := seen[envVarKey]; ok {
+			continue
+		}
+		seen[envVarKey] = struct{}{}
+		keys = append(keys, envVarKey)
+	}
+	sort.Strings(keys)
+
+	bindings := make([]AgentProviderSecretBinding, 0, len(keys))
+	for _, envVarKey := range keys {
+		bindings = append(bindings, AgentProviderSecretBinding{
+			EnvVarKey:  envVarKey,
+			BindingKey: envVarKey,
+			Configured: true,
+			Source:     AgentProviderSecretBindingSourceLegacyAuthConfig,
+		})
 	}
 	return bindings
 }
@@ -204,6 +216,20 @@ func composeAgentProviderAuthConfig(
 		result[agentProviderSecretRefsField] = secretRefs
 	}
 	return result
+}
+
+func removeProviderLegacyInlineOverlaps(legacyInline map[string]any, explicitRefs map[string]string) map[string]any {
+	if len(legacyInline) == 0 || len(explicitRefs) == 0 {
+		return legacyInline
+	}
+	filtered := make(map[string]any, len(legacyInline))
+	for rawKey, value := range legacyInline {
+		if _, ok := explicitRefs[normalizeProviderEnvKey(rawKey)]; ok {
+			continue
+		}
+		filtered[rawKey] = value
+	}
+	return filtered
 }
 
 func parseAgentProviderSecretBindingInputs(raw []AgentProviderSecretBindingInput) (map[string]string, error) {

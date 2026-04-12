@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestBuildAgentProviderAuthConfigStoresPlainConfigAndSecretRefs(t *testing.T) {
+func TestBuildAgentProviderAuthConfigPrefersExplicitBindingsOverInlineSecrets(t *testing.T) {
 	authConfig, err := BuildAgentProviderAuthConfig(
 		AgentProviderAdapterTypeCodexAppServer,
 		map[string]any{
@@ -25,8 +25,8 @@ func TestBuildAgentProviderAuthConfigStoresPlainConfigAndSecretRefs(t *testing.T
 	if got := authConfig["base_url"]; got != "http://localhost:4318" {
 		t.Fatalf("base_url = %#v, want %q", got, "http://localhost:4318")
 	}
-	if got := authConfig["openai_api_key"]; got != "legacy-secret" {
-		t.Fatalf("legacy openai_api_key = %#v, want preserved legacy inline value", got)
+	if _, ok := authConfig["openai_api_key"]; ok {
+		t.Fatalf("BuildAgentProviderAuthConfig() kept legacy inline secret despite explicit binding: %#v", authConfig)
 	}
 
 	secretRefs, ok := authConfig["secret_refs"].(map[string]any)
@@ -65,7 +65,7 @@ func TestVisibleAgentProviderAuthConfigOmitsSecretValues(t *testing.T) {
 	}
 }
 
-func TestAgentProviderSecretBindingsDescribeExplicitLegacyAndDefaultEntries(t *testing.T) {
+func TestAgentProviderSecretBindingsDescribeExplicitAndDefaultEntries(t *testing.T) {
 	bindings := AgentProviderSecretBindings(
 		AgentProviderAdapterTypeGeminiCLI,
 		map[string]any{
@@ -92,10 +92,8 @@ func TestAgentProviderSecretBindingsDescribeExplicitLegacyAndDefaultEntries(t *t
 		binding.Source != AgentProviderSecretBindingSourceDefault {
 		t.Fatalf("GOOGLE_API_KEY binding = %#v", binding)
 	}
-	if binding := got["TOKEN"]; !binding.Configured ||
-		binding.BindingKey != "TOKEN" ||
-		binding.Source != AgentProviderSecretBindingSourceLegacyAuthConfig {
-		t.Fatalf("TOKEN binding = %#v", binding)
+	if _, ok := got["TOKEN"]; ok {
+		t.Fatalf("AgentProviderSecretBindings() unexpectedly treated inline secret as binding: %#v", got["TOKEN"])
 	}
 }
 
@@ -335,14 +333,11 @@ func TestAgentProviderSecretBindingsForCustomAdapter(t *testing.T) {
 		},
 	)
 
-	if len(bindings) != 2 {
-		t.Fatalf("AgentProviderSecretBindings() len = %d, want 2 (%#v)", len(bindings), bindings)
+	if len(bindings) != 1 {
+		t.Fatalf("AgentProviderSecretBindings() len = %d, want 1 (%#v)", len(bindings), bindings)
 	}
-	if bindings[0].EnvVarKey != "API_KEY" || bindings[0].Source != AgentProviderSecretBindingSourceLegacyAuthConfig || !bindings[0].Configured {
-		t.Fatalf("first binding = %#v", bindings[0])
-	}
-	if bindings[1].EnvVarKey != "SECONDARY_TOKEN" || bindings[1].BindingKey != "SECONDARY_BINDING" || bindings[1].Source != AgentProviderSecretBindingSourceBinding || !bindings[1].Configured {
-		t.Fatalf("second binding = %#v", bindings[1])
+	if bindings[0].EnvVarKey != "SECONDARY_TOKEN" || bindings[0].BindingKey != "SECONDARY_BINDING" || bindings[0].Source != AgentProviderSecretBindingSourceBinding || !bindings[0].Configured {
+		t.Fatalf("binding = %#v", bindings[0])
 	}
 }
 
@@ -362,6 +357,29 @@ func TestAgentProviderSecretBindingsPreferExplicitBindingWhenLegacySecretUsesSam
 	}
 	if got := bindings[0]; got.EnvVarKey != "OPENAI_API_KEY" || got.BindingKey != "PROJECT_OPENAI_KEY" || got.Source != AgentProviderSecretBindingSourceBinding || !got.Configured {
 		t.Fatalf("binding = %#v", got)
+	}
+}
+
+func TestLegacyAgentProviderSecretBindingsReportsInlineSecretsForMigrationInventory(t *testing.T) {
+	bindings := LegacyAgentProviderSecretBindings(
+		AgentProviderAdapterTypeCustom,
+		map[string]any{
+			"api key": "legacy-key",
+			"token":   "legacy-token",
+			"secret_refs": map[string]any{
+				"SECONDARY_TOKEN": "SECONDARY_BINDING",
+			},
+		},
+	)
+
+	if len(bindings) != 2 {
+		t.Fatalf("LegacyAgentProviderSecretBindings() len = %d, want 2 (%#v)", len(bindings), bindings)
+	}
+	if got := bindings[0]; got.EnvVarKey != "API_KEY" || got.BindingKey != "API_KEY" || got.Source != AgentProviderSecretBindingSourceLegacyAuthConfig || !got.Configured {
+		t.Fatalf("first binding = %#v", got)
+	}
+	if got := bindings[1]; got.EnvVarKey != "TOKEN" || got.BindingKey != "TOKEN" || got.Source != AgentProviderSecretBindingSourceLegacyAuthConfig || !got.Configured {
+		t.Fatalf("second binding = %#v", got)
 	}
 }
 
