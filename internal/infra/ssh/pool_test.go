@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,6 +39,65 @@ func TestPoolReusesLiveConnection(t *testing.T) {
 	}
 	if first.keepaliveCalls != 1 {
 		t.Fatalf("expected one keepalive, got %d", first.keepaliveCalls)
+	}
+}
+
+func TestDefaultHostKeyCallbackMissingKnownHosts(t *testing.T) {
+	callback, err := defaultHostKeyCallback(filepath.Join(t.TempDir(), ".openase"))
+	if err == nil {
+		t.Fatalf("expected error when known_hosts is missing")
+	}
+	if callback != nil {
+		t.Fatalf("expected nil callback when known_hosts is missing")
+	}
+}
+
+func TestDefaultHostKeyCallbackLoadsOpenASEKnownHosts(t *testing.T) {
+	root := t.TempDir()
+	openaseHome := filepath.Join(root, ".openase")
+	if err := os.MkdirAll(openaseHome, 0o750); err != nil {
+		t.Fatalf("mkdir openase home: %v", err)
+	}
+	knownHostsPath := filepath.Join(openaseHome, "known_hosts")
+	if err := os.WriteFile(knownHostsPath, []byte("# managed by tests\n"), 0o600); err != nil {
+		t.Fatalf("write known_hosts: %v", err)
+	}
+
+	callback, err := defaultHostKeyCallback(openaseHome)
+	if err != nil {
+		t.Fatalf("defaultHostKeyCallback returned error: %v", err)
+	}
+	if callback == nil {
+		t.Fatalf("expected non-nil callback")
+	}
+}
+
+func TestNewPoolRejectsUnknownHostWhenKnownHostsMissing(t *testing.T) {
+	t.Setenv(sshInsecureIgnoreHostKeyEnv, "")
+
+	pool := NewPool(filepath.Join(t.TempDir(), ".openase"))
+	if pool.hostKeyCallback == nil {
+		t.Fatalf("expected host key callback to be configured")
+	}
+
+	err := pool.hostKeyCallback("example.com:22", nil, nil)
+	if err == nil {
+		t.Fatalf("expected host key callback to reject without known_hosts")
+	}
+	if !strings.Contains(err.Error(), "verification unavailable") {
+		t.Fatalf("expected verification error, got %v", err)
+	}
+}
+
+func TestNewPoolAllowsExplicitInsecureHostKeyOverride(t *testing.T) {
+	t.Setenv(sshInsecureIgnoreHostKeyEnv, "true")
+
+	pool := NewPool(filepath.Join(t.TempDir(), ".openase"))
+	if pool.hostKeyCallback == nil {
+		t.Fatalf("expected host key callback to be configured")
+	}
+	if err := pool.hostKeyCallback("example.com:22", nil, nil); err != nil {
+		t.Fatalf("expected insecure override callback to allow host key, got %v", err)
 	}
 }
 
