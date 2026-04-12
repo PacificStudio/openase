@@ -316,7 +316,7 @@ func TestMachineConnectWebsocketAuthFailurePublishesActivityAndMetric(t *testing
 		t.Fatalf("expected token_invalid failure code, got %+v", activities[0].Metadata)
 	}
 
-	_ = waitForMetricsContains(t, server.Handler(), `openase_machine_channel_events_total{event="auth_failed",transport_mode="ws_reverse"} 1`)
+	waitForMetricsContains(t, server.Handler(), `openase_machine_channel_events_total{event="auth_failed",transport_mode="ws_reverse"} 1`)
 }
 
 func createReverseWebsocketMachine(t *testing.T, client *ent.Client) uuid.UUID {
@@ -450,7 +450,7 @@ func scrapeMetrics(t *testing.T, handler http.Handler) string {
 	return rec.Body.String()
 }
 
-func waitForMetricsContains(t *testing.T, handler http.Handler, expected ...string) string {
+func waitForMetricsContains(t *testing.T, handler http.Handler, expected ...string) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -465,7 +465,7 @@ func waitForMetricsContains(t *testing.T, handler http.Handler, expected ...stri
 			}
 		}
 		if missing == "" {
-			return body
+			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("expected metrics to contain %q, got %q", missing, body)
