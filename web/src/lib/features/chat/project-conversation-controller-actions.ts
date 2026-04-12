@@ -181,7 +181,8 @@ export function createProjectConversationControllerActions(
       return sent
     },
     async sendTurn(message: string, focus?: ProjectAIFocus | null) {
-      await input.operations.sendTurnInTab(input.getActiveTab(), message, focus)
+      const sent = await input.operations.sendTurnInTab(input.getActiveTab(), message, focus)
+      if (sent) input.touch()
     },
     async refreshWorkspaceDiff() {
       await input.operations.refreshWorkspaceDiff()

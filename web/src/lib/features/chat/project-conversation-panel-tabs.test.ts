@@ -231,12 +231,20 @@ describe('ProjectConversationPanel tab behavior', () => {
         focus: undefined,
       })
     })
+    mux.emit('conversation-1', {
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-1',
+        runtimeState: 'executing',
+        providerStatus: 'active',
+        providerActiveFlags: ['running'],
+      },
+    })
 
     expect(prompt.disabled).toBe(false)
 
     await fireEvent.input(prompt, { target: { value: 'Draft the next request' } })
     expect(prompt.value).toBe('Draft the next request')
-    expect(sendButton.disabled).toBe(false)
 
     await fireEvent.keyDown(prompt, { key: 'Enter' })
     expect(startProjectConversationTurn).toHaveBeenCalledTimes(1)
@@ -296,9 +304,18 @@ describe('ProjectConversationPanel tab behavior', () => {
         focus: undefined,
       })
     })
+    mux.emit('conversation-1', {
+      kind: 'session',
+      payload: {
+        conversationId: 'conversation-1',
+        runtimeState: 'executing',
+        providerStatus: 'active',
+        providerActiveFlags: ['running'],
+      },
+    })
 
     await fireEvent.input(prompt, { target: { value: 'Queued request' } })
-    await fireEvent.click(sendButton)
+    await fireEvent.keyDown(prompt, { key: 'Enter' })
     await findByText('Queued')
 
     await fireEvent.click(getByRole('button', { name: 'Cancel queued message 1' }))
