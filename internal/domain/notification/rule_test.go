@@ -98,7 +98,6 @@ func TestSupportedRuleEventContractsExposeSingleSourceTopics(t *testing.T) {
 			t.Fatalf("excluded event %s leaked into supported contract", item.EventType)
 		}
 	}
-
 	if topic, ok := RuleEventTopic(RuleEventType("unknown")); ok || topic != "" {
 		t.Fatalf("RuleEventTopic(unknown) = %q, %t; want empty, false", topic, ok)
 	}

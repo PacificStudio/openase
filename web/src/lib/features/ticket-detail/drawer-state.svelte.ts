@@ -249,6 +249,7 @@ export function createTicketDrawerState(deps: Partial<TicketDrawerStateDeps> = {
           ticketId,
           runId,
           pageInfo.oldestCursor,
+          pageInfo.oldestEventCursor,
         )
       } catch (caughtError) {
         const message =

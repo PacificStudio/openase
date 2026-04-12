@@ -1,3 +1,4 @@
+import { waitFor } from '@testing-library/svelte'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const {
@@ -51,6 +52,69 @@ import {
   seedProjectConversationTabsStorage,
   startedTurnResponse,
 } from './project-conversation-controller.test-helpers'
+
+async function createControllerWithRestoredTabs() {
+  seedProjectConversationTabsStorage(
+    [
+      { conversationId: 'conversation-1', providerId: 'provider-1' },
+      { conversationId: 'conversation-2', providerId: 'provider-1' },
+    ],
+    0,
+  )
+
+  listProjectConversations.mockResolvedValue({
+    conversations: [
+      {
+        id: 'conversation-1',
+        rollingSummary: 'First conversation',
+        lastActivityAt: '2026-04-01T10:00:00Z',
+        providerId: 'provider-1',
+      },
+      {
+        id: 'conversation-2',
+        rollingSummary: 'Second conversation',
+        lastActivityAt: '2026-04-01T10:05:00Z',
+        providerId: 'provider-1',
+      },
+    ],
+  })
+  getProjectConversationWorkspaceDiff.mockImplementation(async (conversationId: string) =>
+    createWorkspaceDiff(conversationId),
+  )
+  listProjectConversationEntries.mockImplementation(async (conversationId: string) => ({
+    entries: [
+      {
+        id: `entry-${conversationId}`,
+        conversationId,
+        turnId: `turn-${conversationId}`,
+        seq: 1,
+        kind: 'user_message',
+        payload: {
+          content:
+            conversationId === 'conversation-1'
+              ? 'Loaded first conversation'
+              : 'Loaded second conversation',
+        },
+        createdAt: '2026-04-01T10:00:00Z',
+      },
+    ],
+  }))
+  watchProjectConversationMux.mockReturnValue(resolvedMuxSubscription())
+
+  const controller = createProjectConversationController({
+    getProjectContext: () => ({ projectId: 'project-1', projectName: 'Project 1' }),
+    getProjectId: () => 'project-1',
+  })
+  controller.syncProviders(providerFixtures, 'provider-1')
+  await controller.restore()
+
+  const firstTabId =
+    controller.tabs.find((tab) => tab.conversationId === 'conversation-1')?.id ?? ''
+  const secondTabId =
+    controller.tabs.find((tab) => tab.conversationId === 'conversation-2')?.id ?? ''
+
+  return { controller, firstTabId, secondTabId }
+}
 
 describe('createProjectConversationController', () => {
   afterEach(() => {
@@ -301,6 +365,68 @@ describe('createProjectConversationController', () => {
     expect(controller.tabs).toHaveLength(1)
     expect(controller.conversationId).toBe('conversation-2')
     expect(controller.entries).toMatchObject([{ kind: 'text', content: 'Second tab' }])
+  })
+
+  it('hydrates the fallback tab immediately when closing the active restored tab', async () => {
+    const { controller, firstTabId } = await createControllerWithRestoredTabs()
+
+    expect(controller.conversationId).toBe('conversation-1')
+    expect(controller.entries).toMatchObject([
+      { kind: 'text', content: 'Loaded first conversation' },
+    ])
+    expect(
+      controller.tabs.find((tab) => tab.conversationId === 'conversation-2')?.needsHydration,
+    ).toBe(true)
+
+    controller.closeTab(firstTabId)
+
+    await waitFor(() => {
+      expect(controller.conversationId).toBe('conversation-2')
+      expect(controller.entries).toMatchObject([
+        { kind: 'text', content: 'Loaded second conversation' },
+      ])
+    })
+    expect(controller.tabs).toHaveLength(1)
+    expect(controller.tabs[0]?.needsHydration).toBe(false)
+    expect(listProjectConversationEntries).toHaveBeenCalledWith('conversation-2')
+  })
+
+  it('restores the same tab state for auto-selected and manually selected tabs', async () => {
+    const manual = await createControllerWithRestoredTabs()
+    const manualBaselineCalls = listProjectConversationEntries.mock.calls.length
+
+    manual.controller.selectTab(manual.secondTabId)
+
+    await waitFor(() => {
+      expect(manual.controller.conversationId).toBe('conversation-2')
+      expect(manual.controller.entries).toMatchObject([
+        { kind: 'text', content: 'Loaded second conversation' },
+      ])
+    })
+    const manualTab = manual.controller.tabs.find((tab) => tab.conversationId === 'conversation-2')
+    expect(manualTab?.needsHydration).toBe(false)
+    expect(listProjectConversationEntries.mock.calls.length - manualBaselineCalls).toBe(1)
+
+    vi.clearAllMocks()
+    window.localStorage.clear()
+
+    const autoSelected = await createControllerWithRestoredTabs()
+    const autoBaselineCalls = listProjectConversationEntries.mock.calls.length
+
+    autoSelected.controller.closeTab(autoSelected.firstTabId)
+
+    await waitFor(() => {
+      expect(autoSelected.controller.conversationId).toBe('conversation-2')
+      expect(autoSelected.controller.entries).toMatchObject([
+        { kind: 'text', content: 'Loaded second conversation' },
+      ])
+    })
+    const autoTab = autoSelected.controller.tabs.find(
+      (tab) => tab.conversationId === 'conversation-2',
+    )
+    expect(autoTab?.needsHydration).toBe(false)
+    expect(listProjectConversationEntries.mock.calls.length - autoBaselineCalls).toBe(1)
+    expect(autoSelected.controller.entries).toEqual(manual.controller.entries)
   })
 
   it('retargets a blank tab when switching provider before the conversation starts', async () => {

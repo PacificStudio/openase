@@ -75,6 +75,8 @@ export type TicketRunTranscriptState = {
       hiddenOlderCount: number
       oldestCursor?: string
       newestCursor?: string
+      oldestEventCursor?: string
+      newestEventCursor?: string
     }
   >
 }

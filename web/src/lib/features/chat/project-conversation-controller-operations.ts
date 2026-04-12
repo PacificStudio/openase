@@ -43,6 +43,17 @@ export function createProjectConversationControllerOperations(
   let restoreOperationID = 0
   const runtime = createProjectConversationControllerRuntime(input)
 
+  function activateTab(nextTabId: string) {
+    const tab = findProjectConversationTab(input.getTabs(), nextTabId)
+    if (!tab) {
+      return
+    }
+    input.setActiveTabId(nextTabId)
+    tab.unread = false
+    void runtime.hydrateTabIfNeeded(tab)
+    input.persistTabs()
+  }
+
   async function restore() {
     restoreOperationID += 1
     await restoreProjectConversationController({
@@ -113,21 +124,20 @@ export function createProjectConversationControllerOperations(
   }
 
   function selectTab(nextTabId: string) {
-    const tab = findProjectConversationTab(input.getTabs(), nextTabId)
-    if (!tab) return
-    input.setActiveTabId(nextTabId)
-    tab.unread = false
-    void runtime.hydrateTabIfNeeded(tab)
-    input.persistTabs()
+    activateTab(nextTabId)
   }
 
   function closeTab(tabId: string) {
     const tab = findProjectConversationTab(input.getTabs(), tabId)
     if (!tab) return
+    const wasActive = input.getActiveTabId() === tabId
     invalidateProjectConversationStream(tab)
     const remainingTabs = input.getTabs().filter((item) => item.id !== tabId)
     input.setTabs(remainingTabs)
-    if (input.getActiveTabId() === tabId) input.setActiveTabId(remainingTabs[0]?.id ?? '')
+    if (wasActive && remainingTabs.length > 0) {
+      activateTab(remainingTabs[0]?.id ?? '')
+      return
+    }
     input.ensureTabExists()
     input.persistTabs()
   }

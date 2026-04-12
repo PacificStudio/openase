@@ -97,5 +97,12 @@ export function createRunDeps() {
       trace_entries: [],
       step_entries: [],
     }),
+    fetchRunActivities: vi.fn().mockResolvedValue({ activities: [] }),
+    fetchRunTranscriptEntries: vi.fn().mockResolvedValue({
+      transcript_entries_page: undefined,
+    }),
+    fetchRunRawEvents: vi.fn().mockResolvedValue({
+      raw_events_page: undefined,
+    }),
   }
 }

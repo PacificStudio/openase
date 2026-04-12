@@ -2133,6 +2133,57 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/activities': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket run activity state */
+    get: operations['listTicketRunActivities']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/raw-events': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket run raw provider events */
+    get: operations['listTicketRunRawEvents']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/projects/{projectId}/tickets/{ticketId}/runs/{runId}/transcript': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** List ticket run transcript entries */
+    get: operations['listTicketRunTranscriptEntries']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/projects/{projectId}/token-usage': {
     parameters: {
       query?: never
@@ -19478,6 +19529,31 @@ export interface operations {
         }
         content: {
           'application/json': {
+            activities?: {
+              activity_id?: string
+              activity_kind?: string
+              command?: string | null
+              completed_at?: string | null
+              final_text?: string | null
+              final_text_bytes?: number
+              id?: string
+              id_source?: string
+              identity_confidence?: string
+              live_text?: string | null
+              live_text_bytes?: number
+              metadata?: {
+                [key: string]: unknown
+              }
+              parent_activity_id?: string | null
+              provider?: string
+              started_at?: string | null
+              status?: string
+              thread_id?: string | null
+              title?: string | null
+              tool_name?: string | null
+              turn_id?: string | null
+              updated_at?: string
+            }[]
             run?: {
               adapter_type?: string
               agent_id?: string
@@ -19547,6 +19623,31 @@ export interface operations {
               sequence?: number
               stream?: string
             }[]
+            transcript_entries_page?: {
+              entries?: {
+                activity_id?: string | null
+                activity_kind?: string | null
+                body_text?: string | null
+                command?: string | null
+                created_at?: string
+                entry_key?: string
+                entry_kind?: string
+                id?: string
+                metadata?: {
+                  [key: string]: unknown
+                }
+                provider?: string
+                summary?: string | null
+                title?: string | null
+                tool_name?: string | null
+              }[]
+              has_newer?: boolean
+              has_older?: boolean
+              hidden_newer_count?: number
+              hidden_older_count?: number
+              newest_cursor?: string
+              oldest_cursor?: string
+            }
             transcript_page?: {
               has_newer?: boolean
               has_older?: boolean
@@ -19578,6 +19679,288 @@ export interface operations {
                   stream?: string
                 } | null
               }[]
+              newest_cursor?: string
+              oldest_cursor?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketRunActivities: {
+    parameters: {
+      query?: {
+        /** @description Filter activities by exact status. */
+        status?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Run ID. */
+        runId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket run activity state response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            activities?: {
+              activity_id?: string
+              activity_kind?: string
+              command?: string | null
+              completed_at?: string | null
+              final_text?: string | null
+              final_text_bytes?: number
+              id?: string
+              id_source?: string
+              identity_confidence?: string
+              live_text?: string | null
+              live_text_bytes?: number
+              metadata?: {
+                [key: string]: unknown
+              }
+              parent_activity_id?: string | null
+              provider?: string
+              started_at?: string | null
+              status?: string
+              thread_id?: string | null
+              title?: string | null
+              tool_name?: string | null
+              turn_id?: string | null
+              updated_at?: string
+            }[]
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketRunRawEvents: {
+    parameters: {
+      query?: {
+        /** @description Raw event page size. Defaults to 100. */
+        limit?: number
+        /** @description Load raw events older than this cursor. */
+        before?: string
+        /** @description Load raw events newer than this cursor. */
+        after?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Run ID. */
+        runId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket run raw provider events response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            raw_events_page?: {
+              entries?: {
+                activity_hint_id?: string | null
+                id?: string
+                occurred_at?: string
+                payload?: {
+                  [key: string]: unknown
+                }
+                provider?: string
+                provider_event_id?: string | null
+                provider_event_kind?: string
+                provider_event_subtype?: string
+                text_excerpt?: string
+                thread_id?: string | null
+                turn_id?: string | null
+              }[]
+              has_newer?: boolean
+              has_older?: boolean
+              hidden_newer_count?: number
+              hidden_older_count?: number
+              newest_cursor?: string
+              oldest_cursor?: string
+            }
+          }
+        }
+      }
+      /** @description Bad Request response. */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Not Found response. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+      /** @description Internal Server Error response. */
+      500: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            code?: string
+            message?: string
+          }
+        }
+      }
+    }
+  }
+  listTicketRunTranscriptEntries: {
+    parameters: {
+      query?: {
+        /** @description Transcript entry page size. Defaults to 100. */
+        limit?: number
+        /** @description Load transcript entries older than this cursor. */
+        before?: string
+        /** @description Load transcript entries newer than this cursor. */
+        after?: string
+      }
+      header?: never
+      path: {
+        /** @description Project ID. */
+        projectId: string
+        /** @description Ticket ID. */
+        ticketId: string
+        /** @description Run ID. */
+        runId: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description List ticket run transcript entries response. */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            transcript_entries_page?: {
+              entries?: {
+                activity_id?: string | null
+                activity_kind?: string | null
+                body_text?: string | null
+                command?: string | null
+                created_at?: string
+                entry_key?: string
+                entry_kind?: string
+                id?: string
+                metadata?: {
+                  [key: string]: unknown
+                }
+                provider?: string
+                summary?: string | null
+                title?: string | null
+                tool_name?: string | null
+              }[]
+              has_newer?: boolean
+              has_older?: boolean
+              hidden_newer_count?: number
+              hidden_older_count?: number
               newest_cursor?: string
               oldest_cursor?: string
             }

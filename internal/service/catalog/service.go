@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
@@ -81,6 +82,15 @@ func WithHumanVisibilityResolver(resolver HumanVisibilityResolver) Option {
 	}
 }
 
+func WithLogger(logger *slog.Logger) Option {
+	return func(s *service) {
+		if logger == nil {
+			return
+		}
+		s.logger = logger
+	}
+}
+
 type service struct {
 	repo                      Repository
 	resolver                  provider.ExecutableResolver
@@ -88,10 +98,16 @@ type service struct {
 	machineHealthCollector    MachineHealthCollector
 	projectStatusBootstrapper ProjectStatusBootstrapper
 	visibilityResolver        HumanVisibilityResolver
+	logger                    *slog.Logger
 }
 
 func New(repo Repository, resolver provider.ExecutableResolver, machineTester MachineTester, opts ...Option) Service {
-	svc := &service{repo: repo, resolver: resolver, machineTester: machineTester}
+	svc := &service{
+		repo:          repo,
+		resolver:      resolver,
+		machineTester: machineTester,
+		logger:        slog.Default().With("component", "catalog-service"),
+	}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(svc)
@@ -214,6 +230,11 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 	if err != nil {
 		return domain.Machine{}, domain.MachineProbe{}, err
 	}
+	logger := s.machineLogger(machine)
+	logger.Info("machine connection test started",
+		"machine_status", machine.Status.String(),
+		"connection_mode", machine.ConnectionMode.String(),
+	)
 
 	probe, err := s.machineTester.TestConnection(ctx, machine)
 	if err != nil {
@@ -221,6 +242,14 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 		if checkedAt.IsZero() {
 			checkedAt = time.Now().UTC()
 		}
+		logger.Warn("machine connection test failed",
+			"checked_at", checkedAt.Format(time.RFC3339),
+			"transport", probe.Transport,
+			"detection_status", probe.DetectionStatus.String(),
+			"detected_os", probe.DetectedOS.String(),
+			"detected_arch", probe.DetectedArch.String(),
+			"error", err,
+		)
 		updateErr := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
 			ID:              id,
 			Status:          domainMachineFailureStatus(machine),
@@ -235,6 +264,13 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 		}
 		return domain.Machine{}, domain.MachineProbe{}, fmt.Errorf("%w: %v", ErrMachineProbeFailed, err)
 	}
+	logger.Info("machine connection test succeeded",
+		"checked_at", probe.CheckedAt.UTC().Format(time.RFC3339),
+		"transport", probe.Transport,
+		"detection_status", probe.DetectionStatus.String(),
+		"detected_os", probe.DetectedOS.String(),
+		"detected_arch", probe.DetectedArch.String(),
+	)
 
 	if err := s.repo.RecordMachineProbe(ctx, domain.RecordMachineProbe{
 		ID:              id,
@@ -252,6 +288,11 @@ func (s *service) TestMachineConnection(ctx context.Context, id uuid.UUID) (doma
 	if err != nil {
 		return domain.Machine{}, domain.MachineProbe{}, err
 	}
+	logger.Info("machine connection test state persisted",
+		"persisted_status", updated.Status.String(),
+		"last_heartbeat_at", formatCatalogTimePtr(updated.LastHeartbeatAt),
+		"detection_status", updated.DetectionStatus.String(),
+	)
 
 	return updated, probe, nil
 }
@@ -265,6 +306,11 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 	if err != nil {
 		return domain.Machine{}, err
 	}
+	logger := s.machineLogger(machine)
+	logger.Info("machine health refresh started",
+		"machine_status", machine.Status.String(),
+		"connection_mode", machine.ConnectionMode.String(),
+	)
 
 	resources := cloneResources(machine.Resources)
 	status := machine.Status
@@ -279,6 +325,24 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 		reachability.CheckedAt = checkedAt
 	}
 	updateMonitorL1Resources(resources, reachability)
+	if reachabilityErr != nil {
+		logger.Warn("machine health l1 reachability failed",
+			"checked_at", checkedAt.Format(time.RFC3339),
+			"transport", reachability.Transport,
+			"reachable", reachability.Reachable,
+			"latency_ms", reachability.LatencyMS,
+			"failure_cause", coalesceCatalogMessage(reachability.FailureCause, reachabilityErr.Error()),
+			"error", reachabilityErr,
+		)
+	} else {
+		logger.Info("machine health l1 reachability completed",
+			"checked_at", checkedAt.Format(time.RFC3339),
+			"transport", reachability.Transport,
+			"reachable", reachability.Reachable,
+			"latency_ms", reachability.LatencyMS,
+			"failure_cause", reachability.FailureCause,
+		)
+	}
 
 	softReachabilityFailure := reachabilityErr != nil || !reachability.Reachable
 	hardReachabilityFailure := false
@@ -306,37 +370,74 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 		if err != nil {
 			systemProbeFailure = true
 			setMachineMonitorError(resources, "l2", err.Error())
+			logger.Warn("machine health l2 system probe failed", "error", err)
 		} else {
 			updateMonitorL2Resources(resources, systemResources)
 			clearMachineMonitorError(resources, "l2")
+			logger.Info("machine health l2 system probe completed",
+				"collected_at", systemResources.CollectedAt.UTC().Format(time.RFC3339),
+				"cpu_cores", systemResources.CPUCores,
+				"cpu_usage_percent", systemResources.CPUUsagePercent,
+				"memory_available_gb", systemResources.MemoryAvailableGB,
+				"memory_available_percent", systemResources.MemoryAvailablePercent,
+				"disk_available_gb", systemResources.DiskAvailableGB,
+				"disk_available_percent", systemResources.DiskAvailablePercent,
+			)
 		}
 
 		gpuResources, err := s.machineHealthCollector.CollectGPUResources(ctx, machine)
 		if err != nil {
 			level3ProbeFailure = true
 			setMachineMonitorError(resources, "l3", err.Error())
+			logger.Warn("machine health l3 gpu probe failed", "error", err)
 		} else {
 			updateMonitorL3Resources(resources, gpuResources)
 			clearMachineMonitorError(resources, "l3")
+			logger.Info("machine health l3 gpu probe completed",
+				"collected_at", gpuResources.CollectedAt.UTC().Format(time.RFC3339),
+				"gpu_available", gpuResources.Available,
+				"gpu_count", len(gpuResources.GPUs),
+			)
 		}
 
 		agentEnvironment, err := s.machineHealthCollector.CollectAgentEnvironment(ctx, machine)
 		if err != nil {
 			level4ProbeFailure = true
 			setMachineMonitorError(resources, "l4", err.Error())
+			logger.Warn("machine health l4 agent environment probe failed", "error", err)
 		} else {
 			updateMonitorL4Resources(resources, agentEnvironment)
 			clearMachineMonitorError(resources, "l4")
+			logger.Info("machine health l4 agent environment probe completed",
+				"collected_at", agentEnvironment.CollectedAt.UTC().Format(time.RFC3339),
+				"dispatchable", agentEnvironment.Dispatchable,
+				"cli_count", len(agentEnvironment.CLIs),
+			)
 		}
 
 		fullAudit, err := s.machineHealthCollector.CollectFullAudit(ctx, machine)
 		if err != nil {
 			level5ProbeFailure = true
 			setMachineMonitorError(resources, "l5", err.Error())
+			logger.Warn("machine health l5 full audit failed", "error", err)
 		} else {
 			updateMonitorL5Resources(resources, fullAudit)
 			clearMachineMonitorError(resources, "l5")
+			logger.Info("machine health l5 full audit completed",
+				"collected_at", fullAudit.CollectedAt.UTC().Format(time.RFC3339),
+				"git_installed", fullAudit.Git.Installed,
+				"github_cli_installed", fullAudit.GitHubCLI.Installed,
+				"github_cli_auth_status", string(fullAudit.GitHubCLI.AuthStatus),
+				"github_reachable", fullAudit.Network.GitHubReachable,
+				"pypi_reachable", fullAudit.Network.PyPIReachable,
+				"npm_reachable", fullAudit.Network.NPMReachable,
+			)
 		}
+	} else {
+		logger.Info("machine health deeper probes skipped",
+			"soft_reachability_failure", softReachabilityFailure,
+			"hard_reachability_failure", hardReachabilityFailure,
+		)
 	}
 
 	if machine.Status != domain.MachineStatusMaintenance {
@@ -358,6 +459,18 @@ func (s *service) RefreshMachineHealth(ctx context.Context, id uuid.UUID) (domai
 	}); err != nil {
 		return domain.Machine{}, err
 	}
+	logger.Info("machine health refresh state persisted",
+		"checked_at", checkedAt.Format(time.RFC3339),
+		"previous_status", machine.Status.String(),
+		"next_status", status.String(),
+		"soft_reachability_failure", softReachabilityFailure,
+		"hard_reachability_failure", hardReachabilityFailure,
+		"system_probe_failure", systemProbeFailure,
+		"gpu_probe_failure", level3ProbeFailure,
+		"agent_environment_failure", level4ProbeFailure,
+		"full_audit_failure", level5ProbeFailure,
+		"low_disk", machineHasLowDisk(resources),
+	)
 
 	return s.repo.GetMachine(ctx, id)
 }
@@ -457,6 +570,42 @@ func domainMachineSuccessStatus(machine domain.Machine) domain.MachineStatus {
 		return domain.MachineStatusOnline
 	}
 	return machine.Status
+}
+
+func (s *service) machineLogger(machine domain.Machine) *slog.Logger {
+	logger := slog.Default().With("component", "catalog-service")
+	if s != nil && s.logger != nil {
+		logger = s.logger
+	}
+	return logger.With(
+		"machine_id", machine.ID.String(),
+		"machine_name", machine.Name,
+		"host", machine.Host,
+	)
+}
+
+func formatCatalogTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339)
+}
+
+func formatCatalogTimePtr(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return formatCatalogTime(*value)
+}
+
+func coalesceCatalogMessage(values ...string) string {
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
 }
 
 func cloneResources(raw map[string]any) map[string]any {

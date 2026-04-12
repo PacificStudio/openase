@@ -414,6 +414,17 @@ func (l *RuntimeLauncher) consumeTurn(
 		if err := l.touchHeartbeat(ctx, runID); err != nil {
 			l.logger.Warn("update agent heartbeat", "run_id", runID, "error", err)
 		}
+		if err := l.projectRuntimeEvent(ctx, runtimeEventProjectionInput{
+			ProjectID:  projectID,
+			AgentID:    agentID,
+			TicketID:   ticketID,
+			RunID:      runID,
+			Provider:   runtimeProviderName(adapterType),
+			ObservedAt: observedAt,
+			Event:      event,
+		}); err != nil {
+			return fmt.Errorf("project runtime event for run %s: %w", runID, err)
+		}
 
 		switch event.Type {
 		case agentEventTypeToolCallRequested:
@@ -640,10 +651,15 @@ func (l *RuntimeLauncher) recordAgentOutput(
 	if err != nil {
 		return fmt.Errorf("record agent output for run %s: %w", runID, err)
 	}
-	if stepStatus, stepSummary, ok := agentStepFromOutput(output, text); ok {
-		traceID := traceItem.ID
-		if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, stepStatus, stepSummary, &traceID); err != nil {
-			return fmt.Errorf("record agent step for run %s: %w", runID, err)
+	// Keep legacy step snapshots for low-frequency commentary and phase changes,
+	// but stop mirroring every command output snapshot into step storage now that
+	// activity state owns the live command panel.
+	if strings.TrimSpace(output.Stream) != "command" || strings.TrimSpace(output.Phase) != "" {
+		if stepStatus, stepSummary, ok := agentStepFromOutput(output, text); ok {
+			traceID := traceItem.ID
+			if err := l.recordAgentStep(ctx, projectID, agentID, ticketID, runID, stepStatus, stepSummary, &traceID); err != nil {
+				return fmt.Errorf("record agent step for run %s: %w", runID, err)
+			}
 		}
 	}
 

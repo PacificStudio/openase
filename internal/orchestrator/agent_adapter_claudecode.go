@@ -233,7 +233,7 @@ func (s *claudeCodeAgentSession) bridge() {
 			if trimmed := strings.TrimSpace(event.SessionID); trimmed != "" {
 				s.setSessionID(trimmed)
 			}
-			for _, mapped := range s.mapEvent(event) {
+			for _, mapped := range attachClaudeRawProviderEvent(s.mapEvent(event), event) {
 				s.events <- mapped
 			}
 		}
@@ -697,6 +697,59 @@ func claudeRawStatusText(event provider.ClaudeCodeEvent) string {
 		return "Claude user event"
 	default:
 		return "Claude raw event"
+	}
+}
+
+func attachClaudeRawProviderEvent(events []agentEvent, event provider.ClaudeCodeEvent) []agentEvent {
+	if len(events) == 0 {
+		return events
+	}
+	raw := rawClaudeProviderEvent(event)
+	if raw == nil {
+		return events
+	}
+	events[0].Raw = raw
+	return events
+}
+
+func rawClaudeProviderEvent(event provider.ClaudeCodeEvent) *agentRawProviderEvent {
+	payload := claudeRawPayload(event)
+	if len(payload) == 0 {
+		return nil
+	}
+	providerKind := strings.TrimSpace(string(event.Kind))
+	subtype := strings.TrimSpace(event.Subtype)
+	eventID := firstClaudeNonEmptyString(claudeEventUUID(event), claudeReadString(payload, "task_id"), claudeReadString(payload, "tool_use_id"), claudeReadString(payload, "parent_tool_use_id"))
+	threadID := claudeEventSessionID(event, payload)
+	turnID := claudeReadString(payload, "turn_id", "turnId")
+	activityHintID := firstClaudeNonEmptyString(claudeReadString(payload, "tool_use_id"), claudeReadString(payload, "parent_tool_use_id"), claudeReadString(payload, "task_id"))
+	dedupKey := strings.Join(
+		[]string{
+			providerKind,
+			subtype,
+			threadID,
+			turnID,
+			eventID,
+			activityHintID,
+			claudeReadString(payload, "text"),
+			claudeReadString(payload, "summary"),
+			claudeReadString(payload, "message"),
+		},
+		"\x00",
+	)
+	if strings.TrimSpace(strings.ReplaceAll(dedupKey, "\x00", "")) == "" {
+		return nil
+	}
+	return &agentRawProviderEvent{
+		DedupKey:             dedupKey,
+		ProviderEventKind:    providerKind,
+		ProviderEventSubtype: subtype,
+		ProviderEventID:      eventID,
+		ThreadID:             threadID,
+		TurnID:               turnID,
+		ActivityHintID:       activityHintID,
+		Payload:              payload,
+		TextExcerpt:          claudeProtocolTaskStatusText(payload),
 	}
 }
 

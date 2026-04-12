@@ -1,5 +1,4 @@
 <script lang="ts">
-  /* eslint-disable max-lines */
   import { Button } from '$ui/button'
   import * as Dialog from '$ui/dialog'
   import { cn } from '$lib/utils'
