@@ -237,8 +237,18 @@ func TestDefaultAgentScopes(t *testing.T) {
 func TestSupportedAgentScopes(t *testing.T) {
 	got := SupportedAgentScopes()
 	want := []string{
+		string(ScopeAgentsCreate),
+		string(ScopeAgentsDelete),
+		string(ScopeAgentsPause),
+		string(ScopeAgentsRead),
 		string(ScopeAgentsInterrupt),
+		string(ScopeAgentsResume),
+		string(ScopeAgentsUpdate),
 		string(ScopeActivityRead),
+		string(ScopeNotificationRulesCreate),
+		string(ScopeNotificationRulesDelete),
+		string(ScopeNotificationRulesList),
+		string(ScopeNotificationRulesUpdate),
 		string(ScopeProjectsAddRepo),
 		string(ScopeProjectsUpdate),
 		string(ScopeReposCreate),
