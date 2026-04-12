@@ -9,7 +9,7 @@
   import { ChevronDown, ChevronRight } from '@lucide/svelte'
   import { Switch } from '$ui/switch'
   import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '$ui/sheet'
-  import type { TicketRepoOption } from '$lib/features/tickets/new-ticket'
+  import type { RepoScopeOption as TicketRepoOption } from '$lib/features/repo-scope-selection'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { type ScheduledJobDraft } from './workflow-scheduled-jobs'
   import WorkflowScheduledJobCronHelperDialog from './workflow-scheduled-job-cron-helper-dialog.svelte'
@@ -70,6 +70,10 @@
         ].join('\n')
       : 'The user is creating a scheduled job for this project and needs help drafting a cron expression.',
   )
+  const hasExplicitRepoTemplateConfig = $derived(
+    Object.keys(draft.ticketRepoBranchOverrides).length > 0 ||
+      (repoOptions.length > 1 && draft.ticketRepoIds.length > 0),
+  )
 
   const hasTemplateValues = $derived(
     !!(
@@ -77,8 +81,7 @@
       draft.ticketDescription ||
       draft.ticketCreatedBy ||
       draft.ticketBudgetUsd ||
-      draft.ticketRepoIds.length > 0 ||
-      Object.keys(draft.ticketRepoBranchOverrides).length > 0 ||
+      hasExplicitRepoTemplateConfig ||
       draft.ticketPriority !== 'medium' ||
       draft.ticketType !== 'feature'
     ),

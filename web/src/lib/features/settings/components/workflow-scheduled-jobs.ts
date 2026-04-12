@@ -2,6 +2,7 @@ import type { ScheduledJob } from '$lib/api/contracts'
 import {
   buildRepoScopePayload,
   defaultRepoScopeSelection,
+  type RepoScopePayload,
   type RepoScopeOption,
 } from '$lib/features/repo-scope-selection'
 import type { WorkflowStatusOption } from '$lib/features/workflows'
@@ -72,11 +73,12 @@ export function scheduledJobDraftFromRecord(
       job.ticket_template.budget_usd > 0 ? String(job.ticket_template.budget_usd) : '',
     ticketCreatedBy: job.ticket_template.created_by ?? '',
     ticketRepoIds: selectedRepoIds,
-    ticketRepoBranchOverrides: Object.fromEntries(
-      configuredRepoScopes
-        .filter((scope) => scope.branch_name)
-        .map((scope) => [scope.repo_id, scope.branch_name]),
-    ),
+    ticketRepoBranchOverrides: configuredRepoScopes.reduce<Record<string, string>>((acc, scope) => {
+      if (typeof scope.branch_name === 'string' && scope.branch_name.length > 0) {
+        acc[scope.repo_id] = scope.branch_name
+      }
+      return acc
+    }, {}),
   }
 }
 
@@ -134,9 +136,7 @@ export function parseScheduledJobDraft(
     created_by?: string
     description?: string
     priority?: string
-    repo_scopes?: ReturnType<typeof buildRepoScopePayload> extends { value: infer TValue }
-      ? TValue
-      : never
+    repo_scopes?: RepoScopePayload
     status?: string
     title?: string
     type?: string

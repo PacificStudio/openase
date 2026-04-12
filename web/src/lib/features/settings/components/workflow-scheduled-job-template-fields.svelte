@@ -4,7 +4,7 @@
   import { Label } from '$ui/label'
   import * as Select from '$ui/select'
   import { Textarea } from '$ui/textarea'
-  import type { TicketRepoOption } from '$lib/features/tickets/new-ticket'
+  import type { RepoScopeOption as TicketRepoOption } from '$lib/features/repo-scope-selection'
   import {
     scheduledJobPriorityOptions,
     scheduledJobTypeOptions,

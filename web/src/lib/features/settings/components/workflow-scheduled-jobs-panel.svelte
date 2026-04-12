@@ -9,7 +9,10 @@
     triggerScheduledJob,
     updateScheduledJob,
   } from '$lib/api/openase'
-  import { mapProjectRepoOptions, type TicketRepoOption } from '$lib/features/tickets/new-ticket'
+  import {
+    mapProjectRepoOptions,
+    type RepoScopeOption as TicketRepoOption,
+  } from '$lib/features/repo-scope-selection'
   import type { WorkflowStatusOption } from '$lib/features/workflows'
   import { toastStore } from '$lib/stores/toast.svelte'
   import WorkflowScheduledJobEditor from './workflow-scheduled-job-editor.svelte'
@@ -52,7 +55,6 @@
   let editorOpen = $state(false)
   let selectedJobId = $state('')
   let draft = $state<ScheduledJobDraft>(emptyScheduledJobDraft('', []))
-
   const selectedJob = $derived(jobs.find((job) => job.id === selectedJobId) ?? null)
   const enabledCount = $derived(jobs.filter((j) => j.is_enabled).length)
 
@@ -101,12 +103,9 @@
 
   $effect(() => {
     if (!projectId) return
-
     let cancelled = false
-
     const loadJobs = async () => {
       loadingJobs = true
-
       try {
         const payload = await listScheduledJobs(projectId)
         if (cancelled) return
@@ -122,7 +121,6 @@
 
     const loadRepos = async () => {
       loadingRepos = true
-
       try {
         const payload = await listProjectRepos(projectId)
         if (cancelled) return
@@ -137,7 +135,6 @@
     }
 
     void Promise.all([loadJobs(), loadRepos()])
-
     return () => {
       cancelled = true
     }
@@ -177,9 +174,7 @@
       toastStore.error(parsed.error)
       return
     }
-
     saving = true
-
     try {
       if (selectedJob) {
         await updateScheduledJob(selectedJob.id, parsed.value)
@@ -205,9 +200,7 @@
 
   async function handleDelete() {
     if (!selectedJob) return
-
     deleting = true
-
     try {
       await deleteScheduledJob(selectedJob.id)
       editorOpen = false
@@ -223,7 +216,6 @@
 
   async function handleToggleEnabled(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await updateScheduledJob(job.id, { is_enabled: !job.is_enabled })
       await refreshJobs()
@@ -237,7 +229,6 @@
 
   async function handleTriggerJob(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await triggerScheduledJob(job.id)
       await refreshJobs()
@@ -251,9 +242,7 @@
 
   async function handleTriggerFromEditor() {
     if (!selectedJob) return
-
     triggering = true
-
     try {
       await triggerScheduledJob(selectedJob.id)
       await refreshJobs()
@@ -267,7 +256,6 @@
 
   async function handleDeleteJob(job: ScheduledJob) {
     actionJobId = job.id
-
     try {
       await deleteScheduledJob(job.id)
       if (selectedJobId === job.id) {

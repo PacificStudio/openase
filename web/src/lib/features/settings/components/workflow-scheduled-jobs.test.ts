@@ -124,7 +124,10 @@ describe('workflow scheduled jobs repo scope parsing', () => {
         type: 'feature',
         created_by: '',
         budget_usd: 0,
-        repo_scopes: [{ repo_id: 'repo-1' }, { repo_id: 'repo-2', branch_name: 'release/train' }],
+        repo_scopes: [
+          { repo_id: 'repo-1', branch_name: null },
+          { repo_id: 'repo-2', branch_name: 'release/train' },
+        ],
       },
     }
     const repoOptions: RepoScopeOption[] = [
