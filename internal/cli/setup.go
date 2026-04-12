@@ -91,7 +91,10 @@ user managed service, and writes a runnable ~/.openase/config.yaml plus
 	}
 
 	command.Flags().BoolVar(&force, "force", false, "Overwrite an existing ~/.openase/config.yaml without prompting.")
-	command.AddCommand(newSetupDesktopCommand())
+	command.AddCommand(
+		newSetupApplyCommand(),
+		newSetupDesktopCommand(),
+	)
 
 	return command
 }
@@ -131,6 +134,45 @@ func newSetupDesktopCommand() *cobra.Command {
 		newSetupDesktopPreflightCommand(),
 		newSetupDesktopApplyCommand(),
 	)
+	return command
+}
+
+func newSetupApplyCommand() *cobra.Command {
+	var inputPath string
+	command := &cobra.Command{
+		Use:   "apply",
+		Short: "Apply a non-interactive local setup request from JSON input.",
+		Long: strings.TrimSpace(`
+Apply a non-interactive local setup request from JSON input.
+
+This command is intended for automated install flows that need to prepare a
+PostgreSQL source and write a runnable ~/.openase/config.yaml plus
+~/.openase/.env without stepping through the interactive terminal wizard.
+`),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			body, err := readInputFile(strings.TrimSpace(inputPath))
+			if err != nil {
+				return err
+			}
+
+			var request setup.RawDesktopApplyRequest
+			if err := json.Unmarshal(body, &request); err != nil {
+				return fmt.Errorf("decode setup apply request: %w", err)
+			}
+
+			service, err := newSetupServiceFromEnv()
+			if err != nil {
+				return err
+			}
+			result, err := service.DesktopApply(cmd.Context(), request)
+			if err != nil {
+				return err
+			}
+			return writeSetupJSON(cmd.OutOrStdout(), result)
+		},
+	}
+	command.Flags().StringVar(&inputPath, "input", "", "Read the raw JSON setup request from a file. Use - for stdin.")
+	_ = command.MarkFlagRequired("input")
 	return command
 }
 
