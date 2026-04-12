@@ -147,15 +147,27 @@ function shouldIgnoreFile(filePath, config) {
 }
 
 function collectAllFiles(config) {
-  const output = execFileSync('rg', ['--files', 'web/src'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  })
+  const output = listSourceFiles()
   return output
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((filePath) => !shouldIgnoreFile(filePath, config))
+}
+
+function listSourceFiles() {
+  try {
+    return execFileSync('rg', ['--files', 'web/src'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    })
+  } catch (error) {
+    const code = error instanceof Error && 'code' in error ? String(error.code ?? '') : ''
+    if (code !== 'ENOENT') {
+      throw error
+    }
+    return runGit(['ls-files', '--', 'web/src'])
+  }
 }
 
 function addLineRange(target, filePath, start, count) {
